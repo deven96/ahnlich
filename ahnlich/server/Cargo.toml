@@ -1,0 +1,19 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "anlich-server"
+path = "src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+flurry = "0.5.1"
+ndarray.workspace = true
+itertools.workspace = true
+types = { path = "../types", version = "*" }
+
+[dev-dependencies]
+loom = "0.7.2"

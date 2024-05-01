@@ -69,7 +69,7 @@
     This will entail coming up with a version spec.
     Ensure same version spec on handshake between client and server
 
-    Check if we can serialize and deserialize across the wire(bincode/serde). The consideration as to which to use might include speed(bincode wins) or consistency across multiple languages.
+    Check if we can serialize and deserialize across the wire(bincode/serde). The consideration as to which to use might include speed(bincode wins) or consistency across multiple languages. We can also consider MessagePack which is smaller and simpler to parse than JSON but is also easy to debug
 
 
     Here's a rough sketch of commands to be expanded on later:
@@ -99,6 +99,7 @@
     Validation should check if predicate was enabled.
 
     - `INDEXPRED`: takes in predicates, store,and attempts to build a predicate indices
+    - `DROPINDEXPRED`: takes in predicate, store and drops the predicate for that store
 
     - `SET`: takes in store, length of input vector, input of which each should have a key matching store dimension and value of type json.
 
@@ -118,7 +119,7 @@
         Validation should check if predicate was enabled.
     - `DROP`: takes in a store and deletes it. Destroys everything pertaining the store
 
-    - `SERVERINFO`: returns the server information such as port, host, version, etc
+    - `SERVERINFO`: returns the server information such as port, host, version, etc. It also returns information about the stores like store name and store length/size.
 
     - `LISTSTORES`: List all the stores on the server
 

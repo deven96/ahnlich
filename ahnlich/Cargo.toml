@@ -1,0 +1,12 @@
+[workspace]
+members = [
+  "server",
+  "types",
+  "client",
+]
+resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0.*", default-features = false }
+ndarray = "0.15.6"
+itertools = "0.10.0"
