@@ -74,14 +74,11 @@ impl PredicateIndices {
                     })
                     .flatten()
                     .collect::<Vec<_>>();
-                let pred = PredicateIndex::init(vec![]);
+                let pred = PredicateIndex::init(val.clone());
                 if let Err(existing_predicate) =
                     pinned_inner.try_insert(new_predicate.clone(), pred)
                 {
                     existing_predicate.current.add(val)
-                } else {
-                    let pred = PredicateIndex::init(val);
-                    pinned_inner.insert(new_predicate, pred);
                 }
             }
         }
@@ -108,12 +105,9 @@ impl PredicateIndices {
         for (key, val) in iter {
             // If there exists a predicate index as we want to update it, just add to that
             // predicate index instead
-            let pred = PredicateIndex::init(vec![]);
+            let pred = PredicateIndex::init(val.clone());
             if let Err(existing_predicate) = predicate_values.try_insert(key.clone(), pred) {
                 existing_predicate.current.add(val);
-            } else {
-                let pred = PredicateIndex::init(val);
-                predicate_values.insert(key, pred);
             };
         }
     }
@@ -167,7 +161,8 @@ impl PredicateIndex {
         new
     }
     /// adds a store key id to the index using the predicate value
-    /// TODO: Optimize stack consumption of this particular call as it seems to consume greatly
+    /// TODO: Optimize stack consumption of this particular call as it seems to consume more than
+    /// the default number when ran using Loom, this may cause an issue down the line
     fn add(&self, update: Vec<(String, StoreKeyId)>) {
         if update.is_empty() {
             return;
@@ -179,19 +174,13 @@ impl PredicateIndex {
             } else {
                 // Use try_insert as it is very possible that the hashmap itself now has that key that
                 // was not previously there as it has been inserted on a different thread
-                println!("TAKING DESC");
-                if let Err(error_current) =
-                    pinned.try_insert(predicate_value.clone(), ConcurrentHashSet::new())
+                let new_hashset = ConcurrentHashSet::new();
+                new_hashset.insert(store_key_id.clone(), &new_hashset.guard());
+                if let Err(error_current) = pinned.try_insert(predicate_value.clone(), new_hashset)
                 {
-                    println!("YOOOO EXIST");
                     error_current
                         .current
                         .insert(store_key_id, &error_current.current.guard());
-                } else {
-                    println!("YOOOO NOT EXIST");
-                    let new_hashset = ConcurrentHashSet::new();
-                    new_hashset.insert(store_key_id.clone(), &new_hashset.guard());
-                    pinned.insert(predicate_value, new_hashset);
                 }
             }
         }
@@ -254,13 +243,11 @@ mod tests {
 
     fn create_shared_predicate_indices(allowed_predicates: Vec<String>) -> Arc<PredicateIndices> {
         let shared_pred = Arc::new(PredicateIndices::init(allowed_predicates));
-        let stack_size = 1 * 1024 * 1024; // 1MB
         let handles = (0..MAX_THREADS - 1).map(|i| {
             // MAX_THREADS is usually 4 so we are iterating from 0, 1, 2 since loom expects our
             // max number of threads spawned to be MAX_THREADS - 1
-            let builder = Builder::new();
             let shared_data = shared_pred.clone();
-            let handle = builder.stack_size(stack_size).spawn(move || {
+            let handle = std::thread::spawn(move || {
                 let values = match i {
                     0 => store_value_0(),
                     1 => store_value_1(),
@@ -274,7 +261,7 @@ mod tests {
             handle
         });
         for handle in handles {
-            handle.unwrap().join().unwrap();
+            handle.join().unwrap();
         }
         shared_pred
     }
@@ -310,31 +297,32 @@ mod tests {
 
     #[test]
     fn test_add_index_to_predicate_after() {
-        loom::model(|| {
-            let shared_pred = create_shared_predicate_indices(vec!["country".into()]);
-            let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-                key: "name".into(),
-                value: "David".into(),
-                op: PredicateOp::Equals,
-            }));
-            // We expect to be empty as we didn't index name
-            assert_eq!(result, vec![]);
-            shared_pred.add_predicates(
-                vec!["country".into(), "name".into()],
-                Some(vec![
-                    (StoreKeyId("0".into()), store_value_0()),
-                    (StoreKeyId("1".into()), store_value_1()),
-                    (StoreKeyId("2".into()), store_value_2()),
-                ]),
-            );
-            let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-                key: "name".into(),
-                value: "David".into(),
-                op: PredicateOp::Equals,
-            }));
-            // Now we expect index to be up to date
-            assert_vecs_equal_unordered(&result, &vec![StoreKeyId("0".into())]);
-        })
+        let shared_pred = create_shared_predicate_indices(vec!["country".into()]);
+        let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
+            key: "name".into(),
+            value: "David".into(),
+            op: PredicateOp::Equals,
+        }));
+        // We expect to be empty as we didn't index name
+        assert_eq!(result, vec![]);
+        shared_pred.add_predicates(
+            vec!["country".into(), "name".into()],
+            Some(vec![
+                (StoreKeyId("0".into()), store_value_0()),
+                (StoreKeyId("1".into()), store_value_1()),
+                (StoreKeyId("2".into()), store_value_2()),
+            ]),
+        );
+        let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
+            key: "name".into(),
+            value: "David".into(),
+            op: PredicateOp::Equals,
+        }));
+        // Now we expect index to be up to date
+        assert_vecs_equal_unordered(
+            &result,
+            &vec![StoreKeyId("0".into()), StoreKeyId("1".into())],
+        );
     }
 
     #[test]
