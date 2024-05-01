@@ -35,12 +35,12 @@ struct Store {
 
 impl Store {
     /// Creates a new empty store
-    fn create(dimension: NonZeroU32) -> Self {
+    fn create(dimension: NonZeroU32, predicates: Vec<String>) -> Self {
         Self {
             dimension,
             id_to_value: ConcurrentHashMap::new(),
             keys: ConcurrentHashSet::new(),
-            predicate_indices: PredicateIndices::new(),
+            predicate_indices: PredicateIndices::init(predicates),
         }
     }
 

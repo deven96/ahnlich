@@ -19,10 +19,14 @@ pub(super) struct PredicateIndices {
 }
 
 impl PredicateIndices {
-    pub(super) fn new() -> Self {
+    pub(super) fn init(allowed_predicates: Vec<String>) -> Self {
+        let created = ConcurrentHashSet::new();
+        for key in allowed_predicates {
+            created.insert(key, &created.guard());
+        }
         Self {
             inner: InnerPredicateIndices::new(),
-            allowed_predicates: ConcurrentHashSet::new(),
+            allowed_predicates: created,
         }
     }
 
@@ -33,6 +37,17 @@ impl PredicateIndices {
         for predicate in predicates {
             pinned_keys.remove(&predicate);
             pinned_predicate_values.remove(&predicate);
+        }
+    }
+
+    /// This adds predicates to the allowed predicates and allows newer entries to be indexed
+    /// however it does not trigger any building of the former entries within the store, in order
+    /// to do so, all entries currently within the store would have to passed through `add` again
+    /// TODO: Think of a better way to
+    pub(super) fn add_predicates(&self, predicates: Vec<String>) {
+        let pinned_keys = self.allowed_predicates.pin();
+        for predicate in predicates {
+            pinned_keys.insert(predicate);
         }
     }
 
@@ -49,7 +64,7 @@ impl PredicateIndices {
                 // If there exists a predicate index as we want to update it, just add to that
                 // predicate index instead
                 if let Err(existing_predicate) =
-                    predicate_values.try_insert(key.clone(), PredicateIndex::new(update.clone()))
+                    predicate_values.try_insert(key.clone(), PredicateIndex::init(update.clone()))
                 {
                     existing_predicate.current.add(update);
                 }
@@ -80,6 +95,9 @@ impl PredicateIndices {
                 let first_result = self.matches(first);
                 let second_result = self.matches(second);
                 // Get union of both conditions
+                // There cannot be multiple occurences in either first or second as specificied by
+                // PredicateIndex::matches but upon union, there might be multiple occurences,
+                // hence the need for unique
                 first_result
                     .into_iter()
                     .chain(second_result.into_iter())
@@ -97,7 +115,7 @@ impl PredicateIndices {
 struct PredicateIndex(InnerPredicateIndex);
 
 impl PredicateIndex {
-    fn new(init: Vec<(String, StoreKeyId)>) -> Self {
+    fn init(init: Vec<(String, StoreKeyId)>) -> Self {
         let new = Self(InnerPredicateIndex::new());
         new.add(init);
         new
@@ -146,13 +164,56 @@ impl PredicateIndex {
 
 #[cfg(test)]
 mod tests {
+    use super::super::StdHashMap;
     use super::*;
     use loom::thread;
     use loom::MAX_THREADS;
     use std::sync::Arc;
 
+    fn create_shared_predicate_indices() -> Arc<PredicateIndices> {
+        let shared_pred = Arc::new(PredicateIndices::init(vec![
+            "country".into(),
+            "name".into(),
+            "state".into(),
+            "age".into(),
+        ]));
+        let handles = (0..MAX_THREADS - 1).map(|i| {
+            // MAX_THREADS is usually 4 so we are iterating from 0, 1, 2 since loom expects our
+            // max number of threads spawned to be MAX_THREADS - 1
+            let shared_data = shared_pred.clone();
+            let handle = thread::spawn(move || {
+                let values = match i {
+                    0 => StdHashMap::from_iter(vec![
+                        ("name".into(), "David".into()),
+                        ("country".into(), "Nigeria".into()),
+                        ("state".into(), "Markudi".into()),
+                    ]),
+                    1 => StdHashMap::from_iter(vec![
+                        ("name".into(), "David".into()),
+                        ("country".into(), "USA".into()),
+                        ("state".into(), "Washington".into()),
+                    ]),
+                    3 => StdHashMap::from_iter(vec![
+                        ("name".into(), "Diretnan".into()),
+                        ("country".into(), "Nigeria".into()),
+                        ("state".into(), "Plateau".into()),
+                    ]),
+                    _ => StdHashMap::new(),
+                };
+                let store_key = StoreKeyId(format!("{i}"));
+                let data = vec![(store_key, values)];
+                shared_data.add(data);
+            });
+            handle
+        });
+        for handle in handles {
+            handle.join().unwrap();
+        }
+        shared_pred
+    }
+
     fn create_shared_predicate() -> Arc<PredicateIndex> {
-        let shared_pred = Arc::new(PredicateIndex::new(vec![]));
+        let shared_pred = Arc::new(PredicateIndex::init(vec![]));
         let handles = (0..MAX_THREADS - 1).map(|i| {
             let shared_data = shared_pred.clone();
             let handle = thread::spawn(move || {
@@ -165,6 +226,26 @@ mod tests {
             handle.join().unwrap();
         }
         shared_pred
+    }
+
+    #[test]
+    fn test_predicate_indices_matches() {
+        loom::model(|| {
+            let shared_pred = create_shared_predicate_indices();
+            let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
+                key: "age".into(),
+                value: "14".into(),
+                op: PredicateOp::NotEquals,
+            }));
+            // There is no key like this
+            assert_eq!(result, vec![]);
+            let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
+                key: "country".into(),
+                value: "Nigeria".into(),
+                op: PredicateOp::NotEquals,
+            }));
+            assert_eq!(result, vec![]);
+        })
     }
 
     #[test]
