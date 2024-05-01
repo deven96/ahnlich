@@ -7,7 +7,7 @@
 - Ability to retrieve vector string key pairs by algorithmic similarity:
 
     This means having to the ability to use various types of algorithms to compare existing vector string key pairs
-- Well defined protocol spec to enable easy building of libraries in multiple languages
+- Well-defined protocol spec to enable easy building of libraries in multiple languages
 
 - Ability to create multiple stores within the db
 - CLI for communicating with the database server
@@ -22,14 +22,14 @@
 - Persistence: 
     The ability to optimally store and recover records on disk. This would involve looking into various compaction methods and what works best for us.
 
-    <b>Can be enabled/disabled behind a flag</b>
+    <b> Can be enabled/disabled behind a flag</b>
 
 - Predicate functions: This would mean we enforce that our values are json objects with key and values themselves. Subsequently, we can index in the value objects to reduce the search space using the predicate.
 
     - Internal indices to help speed up predicates?
     - Decide if predicates are combineable. What functions do we want to support for predicates(And -> Intersection across predicate indices, OR -> Union)
+    - Predicate search should not also be equality but also inequality
     - Decide the syntax to send syntax across the wire 
-
     - The ability to decided what to index:
     Server should properly handle indices
 
@@ -37,7 +37,7 @@
 - Client Library retry mechanisms with respect to network errors or partitions.
 
 ## NOTE:
-** Look out for throughput of the system(messages processed/ second) with respect to async/sync
+** Look out for Throughput of the system(messages processed/ second) with respect to async/sync
 
 
 
@@ -50,7 +50,7 @@
 - Internal data structure:
     We need to come up with optimal ways to set, get and search by similarity using various algorithms. This would mean we support various algorthims, we'd start with the simple ones like:
     
-    - Ecludian similarity
+    - Euclidean similarity
     - cosine similarity
     - dot-product
     
@@ -136,7 +136,7 @@
 
     Potential retry capabilites for the clients whenever network errors are returned by the server.
 
-    Look into type generation to ensure we don't have to duplicate across different languages, so adding a new language is simple as writing boilerplates
+    Look into Type generation to ensure we don't have to duplicate across different languages, so adding a new language is simple as writing boilerplates
 
     Ensure to build appropriate docs and reference them in the readme.
 
@@ -148,7 +148,7 @@
 
 ## Drawbacks of the system
 - In-memory: with the potential of disk storage that increases latency
-** Measure throughput for important commands before we highlight pain points
+** Measure Throughput for important commands before we highlight pain points
 
 - Memory consumption
 
@@ -172,7 +172,7 @@ Tracing should be activatable.
 Logs should be activatable.
 
 ## Deployment and CI/CD
-All libraries should deployed to their appropriate repositories while binaries should be signed and deployed on github releases by the CI
+All libraries should be deployed to their appropriate repositories while binaries should be signed and deployed on github releases by the CI
 
 
 ## Version changes
@@ -183,9 +183,11 @@ Version changes should match branches on github that we use for release.
 
 
 ## Publications
-Always update readme to reflect current state of the project.
+- Always update readme to reflect current state of the project.
 
-Write a couple of articles and guides/wikis on how to use.
-We can have a spec in a different documents so others can implement libs in various languages. Find a way to extract rust types and signature into markdown
+- Write a couple of articles and guides/wikis on how to use.
+- We can have a spec in a different documents so others can implement libs in various languages. Find a way to extract rust types and signature into markdown
 
-Attend on or two talks
+- Attend one or two talks
+
+- An AI microservice(small python service) should use Ahnlich DB
