@@ -238,6 +238,19 @@ mod tests {
         shared_pred
     }
 
+    fn assert_vecs_equal_unordered<T: PartialEq + Ord + Clone + std::fmt::Debug>(
+        expected: &[T],
+        actual: &[T],
+    ) {
+        let mut expected_sorted = expected.to_vec();
+        let mut actual_sorted = actual.to_vec();
+
+        expected_sorted.sort();
+        actual_sorted.sort();
+
+        assert_eq!(expected_sorted, actual_sorted);
+    }
+
     #[test]
     fn test_predicate_indices_matches() {
         loom::model(|| {
@@ -254,6 +267,70 @@ mod tests {
                 value: "Nigeria".into(),
                 op: PredicateOp::NotEquals,
             }));
+            // only person 1 is not from Nigeria
+            assert_eq!(result, vec![StoreKeyId("1".into())]);
+            let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
+                key: "country".into(),
+                value: "Nigeria".into(),
+                op: PredicateOp::Equals,
+            }));
+            assert_vecs_equal_unordered(
+                &result,
+                &vec![StoreKeyId("0".into()), StoreKeyId("2".into())],
+            );
+            let check = PredicateCondition::Value(Predicate {
+                key: "state".into(),
+                value: "Washington".into(),
+                op: PredicateOp::Equals,
+            })
+            .or(PredicateCondition::Value(Predicate {
+                key: "age".into(),
+                value: "14".into(),
+                op: PredicateOp::Equals,
+            }));
+            let result = shared_pred.matches(&check);
+            // only person 1 is from Washington
+            assert_eq!(result, vec![StoreKeyId("1".into())]);
+            let check = PredicateCondition::Value(Predicate {
+                key: "country".into(),
+                value: "Nigeria".into(),
+                op: PredicateOp::Equals,
+            })
+            .and(PredicateCondition::Value(Predicate {
+                key: "state".into(),
+                value: "Plateau".into(),
+                op: PredicateOp::Equals,
+            }));
+            let result = shared_pred.matches(&check);
+            // only person 1 is fulfills all
+            assert_eq!(result, vec![StoreKeyId("2".into())]);
+            let check = PredicateCondition::Value(Predicate {
+                key: "name".into(),
+                value: "David".into(),
+                op: PredicateOp::Equals,
+            })
+            .or(PredicateCondition::Value(Predicate {
+                key: "name".into(),
+                value: "Diretnan".into(),
+                op: PredicateOp::Equals,
+            }));
+            let result = shared_pred.matches(&check);
+            // all 3 fulfill this
+            assert_vecs_equal_unordered(
+                &result,
+                &vec![
+                    StoreKeyId("2".into()),
+                    StoreKeyId("0".into()),
+                    StoreKeyId("1".into()),
+                ],
+            );
+            let check = check.and(PredicateCondition::Value(Predicate {
+                key: "country".into(),
+                value: "USA".into(),
+                op: PredicateOp::Equals,
+            }));
+            let result = shared_pred.matches(&check);
+            // only person 1 is from Washington with any of those names
             assert_eq!(result, vec![StoreKeyId("1".into())]);
         })
     }
