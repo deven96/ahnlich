@@ -53,22 +53,29 @@ impl PredicateIndices {
 
     /// Adds predicates if the key is within allowed_predicates
     pub(super) fn add(&self, new: Vec<(StoreKeyId, StoreValue)>) {
-        let allowed_keys = self.allowed_predicates.pin();
         let predicate_values = self.inner.pin();
-        for (store_key_id, store_value) in new {
-            for (key, val) in store_value {
-                if !allowed_keys.contains(&key) {
-                    continue;
-                }
-                let update = vec![(val, store_key_id.clone())];
-                // If there exists a predicate index as we want to update it, just add to that
-                // predicate index instead
-                if let Err(existing_predicate) =
-                    predicate_values.try_insert(key.clone(), PredicateIndex::init(update.clone()))
-                {
-                    existing_predicate.current.add(update);
-                }
-            }
+        let iter = new
+            .into_iter()
+            .flat_map(|(store_key_id, store_value)| {
+                store_value.into_iter().map(move |(key, val)| {
+                    let allowed_keys = self.allowed_predicates.pin();
+                    allowed_keys
+                        .contains(&key)
+                        .then_some((store_key_id.clone(), key, val))
+                })
+            })
+            .flatten()
+            .into_iter()
+            .map(|(store_key_id, key, val)| (key, (val, store_key_id)))
+            .into_group_map();
+
+        for (key, val) in iter {
+            // If there exists a predicate index as we want to update it, just add to that
+            // predicate index instead
+            let pred = PredicateIndex::init(val.clone());
+            if let Err(existing_predicate) = predicate_values.try_insert(key.clone(), pred) {
+                existing_predicate.current.add(val);
+            };
         }
     }
 
@@ -122,8 +129,8 @@ impl PredicateIndex {
     }
     /// adds a store key id to the index using the predicate value
     fn add(&self, update: Vec<(String, StoreKeyId)>) {
-        let pinned = self.0.pin();
         for (predicate_value, store_key_id) in update {
+            let pinned = self.0.pin();
             if let Some((_, value)) = pinned.get_key_value(&predicate_value) {
                 value.insert(store_key_id, &value.guard());
             } else {
@@ -167,6 +174,7 @@ mod tests {
     use super::super::StdHashMap;
     use super::*;
     use loom::thread;
+    use loom::thread::Builder;
     use loom::MAX_THREADS;
     use std::sync::Arc;
 
@@ -177,11 +185,13 @@ mod tests {
             "state".into(),
             "age".into(),
         ]));
+        let stack_size = 1 * 1024 * 1024; // 1MB
         let handles = (0..MAX_THREADS - 1).map(|i| {
             // MAX_THREADS is usually 4 so we are iterating from 0, 1, 2 since loom expects our
             // max number of threads spawned to be MAX_THREADS - 1
+            let mut builder = Builder::new();
             let shared_data = shared_pred.clone();
-            let handle = thread::spawn(move || {
+            let handle = builder.stack_size(stack_size).spawn(move || {
                 let values = match i {
                     0 => StdHashMap::from_iter(vec![
                         ("name".into(), "David".into()),
@@ -193,7 +203,7 @@ mod tests {
                         ("country".into(), "USA".into()),
                         ("state".into(), "Washington".into()),
                     ]),
-                    3 => StdHashMap::from_iter(vec![
+                    2 => StdHashMap::from_iter(vec![
                         ("name".into(), "Diretnan".into()),
                         ("country".into(), "Nigeria".into()),
                         ("state".into(), "Plateau".into()),
@@ -207,7 +217,7 @@ mod tests {
             handle
         });
         for handle in handles {
-            handle.join().unwrap();
+            handle.unwrap().join().unwrap();
         }
         shared_pred
     }
@@ -244,7 +254,7 @@ mod tests {
                 value: "Nigeria".into(),
                 op: PredicateOp::NotEquals,
             }));
-            assert_eq!(result, vec![]);
+            assert_eq!(result, vec![StoreKeyId("1".into())]);
         })
     }
 
