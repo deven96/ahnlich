@@ -1,9 +1,9 @@
 use super::store::StoreKeyId;
-use super::store::StoreValue;
 use flurry::HashMap as ConcurrentHashMap;
 use flurry::HashSet as ConcurrentHashSet;
 use itertools::Itertools;
 use std::collections::HashSet as StdHashSet;
+use types::keyval::StoreValue;
 use types::metadata::MetadataKey;
 use types::metadata::MetadataValue;
 use types::predicate::Predicate;

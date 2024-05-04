@@ -1,17 +1,12 @@
 use super::predicate::PredicateIndices;
 use flurry::HashMap as ConcurrentHashMap;
 use flurry::HashSet as ConcurrentHashSet;
-use ndarray::Array1;
 use sha2::Digest;
 use sha2::Sha256;
-use std::collections::HashMap as StdHashMap;
 use std::num::NonZeroU32;
+use types::keyval::StoreKey;
+use types::keyval::StoreValue;
 use types::metadata::MetadataKey;
-use types::metadata::MetadataValue;
-
-/// A store key is always an f32 one dimensional array
-#[derive(Debug)]
-struct StoreKey(Array1<f32>);
 
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
@@ -41,9 +36,6 @@ impl From<StoreKey> for StoreKeyId {
         Self(hash_string)
     }
 }
-
-/// A store value for now is a simple key value pair of strings
-pub(crate) type StoreValue = StdHashMap<MetadataKey, MetadataValue>;
 
 /// A Store is a single database containing multiple N*1 arrays where N is the dimension of the
 /// store to which all arrays must conform
@@ -80,6 +72,7 @@ impl Store {
 mod tests {
     use super::*;
     use ndarray::array;
+    use ndarray::Array1;
 
     #[test]
     fn test_compute_store_key_id_empty_vector() {
