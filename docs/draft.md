@@ -119,9 +119,9 @@
         Validation should check if predicate was enabled.
     - `DROP`: takes in a store and deletes it. Destroys everything pertaining the store
 
-    - `SERVERINFO`: returns the server information such as port, host, version, etc. It also returns information about the stores like store name and store length/size.
+    - `SERVERINFO`: returns the server information such as port, host, version, etc.
 
-    - `LISTSTORES`: List all the stores on the server
+    - `LISTSTORES`: List all the stores on the server. It also returns information like store length/size.
 
     - `CLIENTS`: Returns a list of clients connected to the server
 
