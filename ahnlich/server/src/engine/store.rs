@@ -16,8 +16,12 @@ struct StoreKey(Array1<f32>);
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
+#[cfg(test)]
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub(crate) struct StoreKeyId(#[cfg(test)] pub(crate) String);
+pub(crate) struct StoreKeyId(pub String);
+#[cfg(not(test))]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+pub(crate) struct StoreKeyId(String);
 
 impl From<StoreKey> for StoreKeyId {
     fn from(value: StoreKey) -> Self {

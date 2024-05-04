@@ -115,7 +115,7 @@ impl PredicateIndices {
     }
 
     /// returns the store key id that fulfill the predicate condition
-    pub(super) fn matches(&self, condition: &PredicateCondition) -> Vec<StoreKeyId> {
+    pub(super) fn matches(&self, condition: &PredicateCondition) -> StdHashSet<StoreKeyId> {
         match condition {
             PredicateCondition::Value(Predicate { key, value, op }) => {
                 let predicate_values = self.inner.pin();
@@ -124,29 +124,19 @@ impl PredicateIndices {
                 if let Some(predicate) = predicate_values.get(key) {
                     return predicate.matches(op, value);
                 }
-                vec![]
+                StdHashSet::new()
             }
             PredicateCondition::And(first, second) => {
                 let first_result = self.matches(first);
                 let second_result = self.matches(second);
                 // Get intersection of both conditions
-                first_result
-                    .into_iter()
-                    .filter(|elem| second_result.contains(elem))
-                    .collect()
+                first_result.intersection(&second_result).cloned().collect()
             }
             PredicateCondition::Or(first, second) => {
                 let first_result = self.matches(first);
                 let second_result = self.matches(second);
                 // Get union of both conditions
-                // There cannot be multiple occurences in either first or second as specificied by
-                // PredicateIndex::matches but upon union, there might be multiple occurences,
-                // hence the need for unique
-                first_result
-                    .into_iter()
-                    .chain(second_result.into_iter())
-                    .unique()
-                    .collect()
+                first_result.union(&second_result).cloned().collect()
             }
         }
     }
@@ -189,21 +179,20 @@ impl PredicateIndex {
             }
         }
     }
-    /// checks the predicate index for a predicate op and value. The return type is a Vec<_> but
-    /// because the internal type is a concurrent hashset, we can be certain that there are no
-    /// duplicates within it, hence no need for higher up validation
+    /// checks the predicate index for a predicate op and value. The return type is a StdHashSet<_>
+    /// because we do not modify it at any point so we do not need concurrency protection
     fn matches<'a>(
         &self,
         predicate_op: &'a PredicateOp,
         value: &'a MetadataValue,
-    ) -> Vec<StoreKeyId> {
+    ) -> StdHashSet<StoreKeyId> {
         let pinned = self.0.pin();
         match predicate_op {
             PredicateOp::Equals => {
                 if let Some(set) = pinned.get(value) {
-                    set.pin().iter().cloned().collect::<Vec<_>>()
+                    set.pin().iter().cloned().collect::<StdHashSet<_>>()
                 } else {
-                    vec![]
+                    StdHashSet::new()
                 }
             }
             PredicateOp::NotEquals => pinned
@@ -322,19 +311,6 @@ mod tests {
         shared_pred
     }
 
-    fn assert_vecs_equal_unordered<T: PartialEq + Ord + Clone + std::fmt::Debug>(
-        expected: &[T],
-        actual: &[T],
-    ) {
-        let mut expected_sorted = expected.to_vec();
-        let mut actual_sorted = actual.to_vec();
-
-        expected_sorted.sort();
-        actual_sorted.sort();
-
-        assert_eq!(expected_sorted, actual_sorted);
-    }
-
     #[test]
     fn test_add_index_to_predicate_after() {
         let shared_pred = create_shared_predicate_indices(vec![MetadataKey::new("country".into())]);
@@ -344,7 +320,7 @@ mod tests {
             op: PredicateOp::Equals,
         }));
         // We expect to be empty as we didn't index name
-        assert_eq!(result, vec![]);
+        assert!(result.is_empty());
         shared_pred.add_predicates(
             vec![
                 MetadataKey::new("country".into()),
@@ -362,9 +338,9 @@ mod tests {
             op: PredicateOp::Equals,
         }));
         // Now we expect index to be up to date
-        assert_vecs_equal_unordered(
-            &result,
-            &vec![StoreKeyId("0".into()), StoreKeyId("1".into())],
+        assert_eq!(
+            result,
+            StdHashSet::from_iter([StoreKeyId("0".into()), StoreKeyId("1".into())]),
         );
     }
 
@@ -383,22 +359,22 @@ mod tests {
                 op: PredicateOp::NotEquals,
             }));
             // There is no key like this
-            assert_eq!(result, vec![]);
+            assert!(result.is_empty());
             let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
                 op: PredicateOp::NotEquals,
             }));
             // only person 1 is not from Nigeria
-            assert_eq!(result, vec![StoreKeyId("1".into())]);
+            assert_eq!(result, StdHashSet::from_iter([StoreKeyId("1".into())]));
             let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
                 op: PredicateOp::Equals,
             }));
-            assert_vecs_equal_unordered(
-                &result,
-                &vec![StoreKeyId("0".into()), StoreKeyId("2".into())],
+            assert_eq!(
+                result,
+                StdHashSet::from_iter([StoreKeyId("0".into()), StoreKeyId("2".into())]),
             );
             let check = PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("state".into()),
@@ -412,7 +388,7 @@ mod tests {
             }));
             let result = shared_pred.matches(&check);
             // only person 1 is from Washington
-            assert_eq!(result, vec![StoreKeyId("1".into())]);
+            assert_eq!(result, StdHashSet::from_iter([StoreKeyId("1".into())]));
             let check = PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
@@ -425,7 +401,7 @@ mod tests {
             }));
             let result = shared_pred.matches(&check);
             // only person 1 is fulfills all
-            assert_eq!(result, vec![StoreKeyId("2".into())]);
+            assert_eq!(result, StdHashSet::from_iter([StoreKeyId("2".into())]));
             let check = PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("name".into()),
                 value: MetadataValue::new("David".into()),
@@ -438,13 +414,13 @@ mod tests {
             }));
             let result = shared_pred.matches(&check);
             // all 3 fulfill this
-            assert_vecs_equal_unordered(
-                &result,
-                &vec![
+            assert_eq!(
+                result,
+                StdHashSet::from_iter([
                     StoreKeyId("2".into()),
                     StoreKeyId("0".into()),
                     StoreKeyId("1".into()),
-                ],
+                ]),
             );
             let check = check.and(PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("country".into()),
@@ -453,7 +429,7 @@ mod tests {
             }));
             let result = shared_pred.matches(&check);
             // only person 1 is from Washington with any of those names
-            assert_eq!(result, vec![StoreKeyId("1".into())]);
+            assert_eq!(result, StdHashSet::from_iter([StoreKeyId("1".into())]));
         })
     }
 
