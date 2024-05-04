@@ -76,7 +76,7 @@
     
     - `CONNECT`
     - `DISCONNECT`
-    - `SHUTDOWN`: shut down basically discounts from all connected clients, performs cleanup before killing the server
+    - `SHUTDOWNSERVER`: shut down basically discounts from all connected clients, performs cleanup before killing the server
     - `CREATE`: Create a store which must have a unique name with respect to the server.
     Create can take in name_of_store, dimensions_of_vectors(immutable) to be stored in that store, ability to create predicate indices
     - `GETKEY`: takes in store, key and direct return of key within store matching the input key
@@ -117,13 +117,13 @@
     - `DELPRED`: Takes in a store, key and delete all values matching that predicate. It should also update indices in a non-blocking way.
 
         Validation should check if predicate was enabled.
-    - `DROP`: takes in a store and deletes it. Destroys everything pertaining the store
+    - `DROPSTORE`: takes in a store and deletes it. Destroys everything pertaining the store
 
-    - `SERVERINFO`: returns the server information such as port, host, version, etc.
+    - `INFOSERVER`: returns the server information such as port, host, version, etc.
 
     - `LISTSTORES`: List all the stores on the server. It also returns information like store length/size.
 
-    - `CLIENTS`: Returns a list of clients connected to the server
+    - `LISTCLIENTS`: Returns a list of clients connected to the server
 
     - `CLOSE`: Closes it's own session on a server
 

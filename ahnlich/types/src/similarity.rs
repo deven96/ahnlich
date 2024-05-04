@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 /// Supported ahnlich similarity algorithms
 pub enum Algorithm {
     /// Euclidean distance is defined as the L2-norm of the difference between two vectors or their
