@@ -6,6 +6,8 @@ use ndarray::Array1;
 use predicate::PredicateIndices;
 use std::collections::HashMap as StdHashMap;
 use std::num::NonZeroU32;
+use types::predicate::PredicateKey;
+use types::predicate::PredicateValue;
 
 /// A store key is always an f32 one dimensional array
 #[derive(Debug)]
@@ -17,7 +19,7 @@ struct StoreKey(Array1<f32>);
 struct StoreKeyId(String);
 
 /// A store value for now is a simple key value pair of strings
-type StoreValue = StdHashMap<String, String>;
+type StoreValue = StdHashMap<PredicateKey, PredicateValue>;
 
 /// A Store is a single database containing multiple N*1 arrays where N is the dimension of the
 /// store to which all arrays must conform
@@ -35,7 +37,7 @@ struct Store {
 
 impl Store {
     /// Creates a new empty store
-    fn create(dimension: NonZeroU32, predicates: Vec<String>) -> Self {
+    fn create(dimension: NonZeroU32, predicates: Vec<PredicateKey>) -> Self {
         Self {
             dimension,
             id_to_value: ConcurrentHashMap::new(),

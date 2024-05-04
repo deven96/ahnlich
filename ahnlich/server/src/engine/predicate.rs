@@ -6,21 +6,23 @@ use itertools::Itertools;
 use std::collections::HashSet as StdHashSet;
 use types::predicate::Predicate;
 use types::predicate::PredicateCondition;
+use types::predicate::PredicateKey;
 use types::predicate::PredicateOp;
+use types::predicate::PredicateValue;
 
-type InnerPredicateIndex = ConcurrentHashMap<String, ConcurrentHashSet<StoreKeyId>>;
-type InnerPredicateIndices = ConcurrentHashMap<String, PredicateIndex>;
+type InnerPredicateIndex = ConcurrentHashMap<PredicateValue, ConcurrentHashSet<StoreKeyId>>;
+type InnerPredicateIndices = ConcurrentHashMap<PredicateKey, PredicateIndex>;
 
 /// Predicate indices are all the indexes referenced by their names
 #[derive(Debug)]
 pub(super) struct PredicateIndices {
     inner: InnerPredicateIndices,
     /// These are the index keys that are meant to generate predicate indexes
-    allowed_predicates: ConcurrentHashSet<String>,
+    allowed_predicates: ConcurrentHashSet<PredicateKey>,
 }
 
 impl PredicateIndices {
-    pub(super) fn init(allowed_predicates: Vec<String>) -> Self {
+    pub(super) fn init(allowed_predicates: Vec<PredicateKey>) -> Self {
         let created = ConcurrentHashSet::new();
         for key in allowed_predicates {
             created.insert(key, &created.guard());
@@ -32,7 +34,7 @@ impl PredicateIndices {
     }
 
     /// Removes predicates from being tracked
-    pub(super) fn remove_predicates(&self, predicates: Vec<String>) {
+    pub(super) fn remove_predicates(&self, predicates: Vec<PredicateKey>) {
         let pinned_keys = self.allowed_predicates.pin();
         let pinned_predicate_values = self.inner.pin();
         for predicate in predicates {
@@ -46,7 +48,7 @@ impl PredicateIndices {
     /// those to the underlying predicates
     pub(super) fn add_predicates(
         &self,
-        predicates: Vec<String>,
+        predicates: Vec<PredicateKey>,
         refresh_with_values: Option<Vec<(StoreKeyId, StoreValue)>>,
     ) {
         let pinned_keys = self.allowed_predicates.pin();
@@ -117,6 +119,8 @@ impl PredicateIndices {
         match condition {
             PredicateCondition::Value(Predicate { key, value, op }) => {
                 let predicate_values = self.inner.pin();
+                // retrieve the precise predicate if it exists and check against it, else we assume
+                // this doesn't match anything and return an empty vec
                 if let Some(predicate) = predicate_values.get(key) {
                     return predicate.matches(op, value);
                 }
@@ -155,7 +159,7 @@ impl PredicateIndices {
 struct PredicateIndex(InnerPredicateIndex);
 
 impl PredicateIndex {
-    fn init(init: Vec<(String, StoreKeyId)>) -> Self {
+    fn init(init: Vec<(PredicateValue, StoreKeyId)>) -> Self {
         let new = Self(InnerPredicateIndex::new());
         new.add(init);
         new
@@ -163,7 +167,7 @@ impl PredicateIndex {
     /// adds a store key id to the index using the predicate value
     /// TODO: Optimize stack consumption of this particular call as it seems to consume more than
     /// the default number when ran using Loom, this may cause an issue down the line
-    fn add(&self, update: Vec<(String, StoreKeyId)>) {
+    fn add(&self, update: Vec<(PredicateValue, StoreKeyId)>) {
         if update.is_empty() {
             return;
         }
@@ -188,7 +192,11 @@ impl PredicateIndex {
     /// checks the predicate index for a predicate op and value. The return type is a Vec<_> but
     /// because the internal type is a concurrent hashset, we can be certain that there are no
     /// duplicates within it, hence no need for higher up validation
-    fn matches<'a>(&self, predicate_op: &'a PredicateOp, value: &'a String) -> Vec<StoreKeyId> {
+    fn matches<'a>(
+        &self,
+        predicate_op: &'a PredicateOp,
+        value: &'a PredicateValue,
+    ) -> Vec<StoreKeyId> {
         let pinned = self.0.pin();
         match predicate_op {
             PredicateOp::Equals => {
@@ -241,7 +249,9 @@ mod tests {
         ])
     }
 
-    fn create_shared_predicate_indices(allowed_predicates: Vec<String>) -> Arc<PredicateIndices> {
+    fn create_shared_predicate_indices(
+        allowed_predicates: Vec<PredicateKey>,
+    ) -> Arc<PredicateIndices> {
         let shared_pred = Arc::new(PredicateIndices::init(allowed_predicates));
         let handles = (0..MAX_THREADS - 1).map(|i| {
             // MAX_THREADS is usually 4 so we are iterating from 0, 1, 2 since loom expects our
@@ -297,16 +307,20 @@ mod tests {
 
     #[test]
     fn test_add_index_to_predicate_after() {
-        let shared_pred = create_shared_predicate_indices(vec!["country".into()]);
+        let shared_pred =
+            create_shared_predicate_indices(vec![PredicateKey::new("country".into())]);
         let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-            key: "name".into(),
-            value: "David".into(),
+            key: PredicateKey::new("name".into()),
+            value: PredicateValue::new("David".into()),
             op: PredicateOp::Equals,
         }));
         // We expect to be empty as we didn't index name
         assert_eq!(result, vec![]);
         shared_pred.add_predicates(
-            vec!["country".into(), "name".into()],
+            vec![
+                PredicateKey::new("country".into()),
+                PredicateKey::new("name".into()),
+            ],
             Some(vec![
                 (StoreKeyId("0".into()), store_value_0()),
                 (StoreKeyId("1".into()), store_value_1()),
@@ -314,8 +328,8 @@ mod tests {
             ]),
         );
         let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-            key: "name".into(),
-            value: "David".into(),
+            key: PredicateKey::new("name".into()),
+            value: PredicateValue::new("David".into()),
             op: PredicateOp::Equals,
         }));
         // Now we expect index to be up to date
@@ -329,28 +343,28 @@ mod tests {
     fn test_predicate_indices_matches() {
         loom::model(|| {
             let shared_pred = create_shared_predicate_indices(vec![
-                "country".into(),
-                "name".into(),
-                "state".into(),
-                "age".into(),
+                PredicateKey::new("country".into()),
+                PredicateKey::new("name".into()),
+                PredicateKey::new("state".into()),
+                PredicateKey::new("age".into()),
             ]);
             let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-                key: "age".into(),
-                value: "14".into(),
+                key: PredicateKey::new("age".into()),
+                value: PredicateValue::new("14".into()),
                 op: PredicateOp::NotEquals,
             }));
             // There is no key like this
             assert_eq!(result, vec![]);
             let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-                key: "country".into(),
-                value: "Nigeria".into(),
+                key: PredicateKey::new("country".into()),
+                value: PredicateValue::new("Nigeria".into()),
                 op: PredicateOp::NotEquals,
             }));
             // only person 1 is not from Nigeria
             assert_eq!(result, vec![StoreKeyId("1".into())]);
             let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-                key: "country".into(),
-                value: "Nigeria".into(),
+                key: PredicateKey::new("country".into()),
+                value: PredicateValue::new("Nigeria".into()),
                 op: PredicateOp::Equals,
             }));
             assert_vecs_equal_unordered(
@@ -358,39 +372,39 @@ mod tests {
                 &vec![StoreKeyId("0".into()), StoreKeyId("2".into())],
             );
             let check = PredicateCondition::Value(Predicate {
-                key: "state".into(),
-                value: "Washington".into(),
+                key: PredicateKey::new("state".into()),
+                value: PredicateValue::new("Washington".into()),
                 op: PredicateOp::Equals,
             })
             .or(PredicateCondition::Value(Predicate {
-                key: "age".into(),
-                value: "14".into(),
+                key: PredicateKey::new("age".into()),
+                value: PredicateValue::new("14".into()),
                 op: PredicateOp::Equals,
             }));
             let result = shared_pred.matches(&check);
             // only person 1 is from Washington
             assert_eq!(result, vec![StoreKeyId("1".into())]);
             let check = PredicateCondition::Value(Predicate {
-                key: "country".into(),
-                value: "Nigeria".into(),
+                key: PredicateKey::new("country".into()),
+                value: PredicateValue::new("Nigeria".into()),
                 op: PredicateOp::Equals,
             })
             .and(PredicateCondition::Value(Predicate {
-                key: "state".into(),
-                value: "Plateau".into(),
+                key: PredicateKey::new("state".into()),
+                value: PredicateValue::new("Plateau".into()),
                 op: PredicateOp::Equals,
             }));
             let result = shared_pred.matches(&check);
             // only person 1 is fulfills all
             assert_eq!(result, vec![StoreKeyId("2".into())]);
             let check = PredicateCondition::Value(Predicate {
-                key: "name".into(),
-                value: "David".into(),
+                key: PredicateKey::new("name".into()),
+                value: PredicateValue::new("David".into()),
                 op: PredicateOp::Equals,
             })
             .or(PredicateCondition::Value(Predicate {
-                key: "name".into(),
-                value: "Diretnan".into(),
+                key: PredicateKey::new("name".into()),
+                value: PredicateValue::new("Diretnan".into()),
                 op: PredicateOp::Equals,
             }));
             let result = shared_pred.matches(&check);
@@ -404,8 +418,8 @@ mod tests {
                 ],
             );
             let check = check.and(PredicateCondition::Value(Predicate {
-                key: "country".into(),
-                value: "USA".into(),
+                key: PredicateKey::new("country".into()),
+                value: PredicateValue::new("USA".into()),
                 op: PredicateOp::Equals,
             }));
             let result = shared_pred.matches(&check);
@@ -419,8 +433,24 @@ mod tests {
         loom::model(|| {
             let shared_pred = create_shared_predicate();
             assert_eq!(shared_pred.0.len(), 2);
-            assert_eq!(shared_pred.0.pin().get("Even").unwrap().len(), 2);
-            assert_eq!(shared_pred.0.pin().get("Odd").unwrap().len(), 2);
+            assert_eq!(
+                shared_pred
+                    .0
+                    .pin()
+                    .get(&PredicateValue::new("Even".into()))
+                    .unwrap()
+                    .len(),
+                2
+            );
+            assert_eq!(
+                shared_pred
+                    .0
+                    .pin()
+                    .get(&PredicateValue::new("Odd".into()))
+                    .unwrap()
+                    .len(),
+                2
+            );
         })
     }
 
@@ -430,37 +460,43 @@ mod tests {
             let shared_pred = create_shared_predicate();
             assert_eq!(
                 shared_pred
-                    .matches(&PredicateOp::Equals, &"Even".into())
+                    .matches(&PredicateOp::Equals, &PredicateValue::new("Even".into()))
                     .len(),
                 2
             );
             assert_eq!(
                 shared_pred
-                    .matches(&PredicateOp::NotEquals, &"Even".into())
+                    .matches(&PredicateOp::NotEquals, &PredicateValue::new("Even".into()))
                     .len(),
                 2
             );
             assert_eq!(
                 shared_pred
-                    .matches(&PredicateOp::Equals, &"Odd".into())
+                    .matches(&PredicateOp::Equals, &PredicateValue::new("Odd".into()))
                     .len(),
                 2
             );
             assert_eq!(
                 shared_pred
-                    .matches(&PredicateOp::NotEquals, &"Odd".into())
+                    .matches(&PredicateOp::NotEquals, &PredicateValue::new("Odd".into()))
                     .len(),
                 2
             );
             assert_eq!(
                 shared_pred
-                    .matches(&PredicateOp::NotEquals, &"NotExists".into())
+                    .matches(
+                        &PredicateOp::NotEquals,
+                        &PredicateValue::new("NotExists".into())
+                    )
                     .len(),
                 4
             );
             assert_eq!(
                 shared_pred
-                    .matches(&PredicateOp::Equals, &"NotExists".into())
+                    .matches(
+                        &PredicateOp::Equals,
+                        &PredicateValue::new("NotExists".into())
+                    )
                     .len(),
                 0
             );
