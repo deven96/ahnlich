@@ -1,3 +1,4 @@
+pub mod metadata;
 pub mod predicate;
 pub mod similarity;
 

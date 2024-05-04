@@ -4,25 +4,25 @@ use super::StoreKeyId;
 use super::StoreValue;
 use itertools::Itertools;
 use std::collections::HashSet as StdHashSet;
+use types::metadata::MetadataKey;
+use types::metadata::MetadataValue;
 use types::predicate::Predicate;
 use types::predicate::PredicateCondition;
-use types::predicate::PredicateKey;
 use types::predicate::PredicateOp;
-use types::predicate::PredicateValue;
 
-type InnerPredicateIndex = ConcurrentHashMap<PredicateValue, ConcurrentHashSet<StoreKeyId>>;
-type InnerPredicateIndices = ConcurrentHashMap<PredicateKey, PredicateIndex>;
+type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, ConcurrentHashSet<StoreKeyId>>;
+type InnerPredicateIndices = ConcurrentHashMap<MetadataKey, PredicateIndex>;
 
 /// Predicate indices are all the indexes referenced by their names
 #[derive(Debug)]
 pub(super) struct PredicateIndices {
     inner: InnerPredicateIndices,
     /// These are the index keys that are meant to generate predicate indexes
-    allowed_predicates: ConcurrentHashSet<PredicateKey>,
+    allowed_predicates: ConcurrentHashSet<MetadataKey>,
 }
 
 impl PredicateIndices {
-    pub(super) fn init(allowed_predicates: Vec<PredicateKey>) -> Self {
+    pub(super) fn init(allowed_predicates: Vec<MetadataKey>) -> Self {
         let created = ConcurrentHashSet::new();
         for key in allowed_predicates {
             created.insert(key, &created.guard());
@@ -34,7 +34,7 @@ impl PredicateIndices {
     }
 
     /// Removes predicates from being tracked
-    pub(super) fn remove_predicates(&self, predicates: Vec<PredicateKey>) {
+    pub(super) fn remove_predicates(&self, predicates: Vec<MetadataKey>) {
         let pinned_keys = self.allowed_predicates.pin();
         let pinned_predicate_values = self.inner.pin();
         for predicate in predicates {
@@ -48,7 +48,7 @@ impl PredicateIndices {
     /// those to the underlying predicates
     pub(super) fn add_predicates(
         &self,
-        predicates: Vec<PredicateKey>,
+        predicates: Vec<MetadataKey>,
         refresh_with_values: Option<Vec<(StoreKeyId, StoreValue)>>,
     ) {
         let pinned_keys = self.allowed_predicates.pin();
@@ -159,7 +159,7 @@ impl PredicateIndices {
 struct PredicateIndex(InnerPredicateIndex);
 
 impl PredicateIndex {
-    fn init(init: Vec<(PredicateValue, StoreKeyId)>) -> Self {
+    fn init(init: Vec<(MetadataValue, StoreKeyId)>) -> Self {
         let new = Self(InnerPredicateIndex::new());
         new.add(init);
         new
@@ -167,7 +167,7 @@ impl PredicateIndex {
     /// adds a store key id to the index using the predicate value
     /// TODO: Optimize stack consumption of this particular call as it seems to consume more than
     /// the default number when ran using Loom, this may cause an issue down the line
-    fn add(&self, update: Vec<(PredicateValue, StoreKeyId)>) {
+    fn add(&self, update: Vec<(MetadataValue, StoreKeyId)>) {
         if update.is_empty() {
             return;
         }
@@ -195,7 +195,7 @@ impl PredicateIndex {
     fn matches<'a>(
         &self,
         predicate_op: &'a PredicateOp,
-        value: &'a PredicateValue,
+        value: &'a MetadataValue,
     ) -> Vec<StoreKeyId> {
         let pinned = self.0.pin();
         match predicate_op {
@@ -227,30 +227,57 @@ mod tests {
 
     fn store_value_0() -> StoreValue {
         StdHashMap::from_iter(vec![
-            ("name".into(), "David".into()),
-            ("country".into(), "Nigeria".into()),
-            ("state".into(), "Markudi".into()),
+            (
+                MetadataKey::new("name".into()),
+                MetadataValue::new("David".into()),
+            ),
+            (
+                MetadataKey::new("country".into()),
+                MetadataValue::new("Nigeria".into()),
+            ),
+            (
+                MetadataKey::new("state".into()),
+                MetadataValue::new("Markudi".into()),
+            ),
         ])
     }
 
     fn store_value_1() -> StoreValue {
         StdHashMap::from_iter(vec![
-            ("name".into(), "David".into()),
-            ("country".into(), "USA".into()),
-            ("state".into(), "Washington".into()),
+            (
+                MetadataKey::new("name".into()),
+                MetadataValue::new("David".into()),
+            ),
+            (
+                MetadataKey::new("country".into()),
+                MetadataValue::new("USA".into()),
+            ),
+            (
+                MetadataKey::new("state".into()),
+                MetadataValue::new("Washington".into()),
+            ),
         ])
     }
 
     fn store_value_2() -> StoreValue {
         StdHashMap::from_iter(vec![
-            ("name".into(), "Diretnan".into()),
-            ("country".into(), "Nigeria".into()),
-            ("state".into(), "Plateau".into()),
+            (
+                MetadataKey::new("name".into()),
+                MetadataValue::new("Diretnan".into()),
+            ),
+            (
+                MetadataKey::new("country".into()),
+                MetadataValue::new("Nigeria".into()),
+            ),
+            (
+                MetadataKey::new("state".into()),
+                MetadataValue::new("Plateau".into()),
+            ),
         ])
     }
 
     fn create_shared_predicate_indices(
-        allowed_predicates: Vec<PredicateKey>,
+        allowed_predicates: Vec<MetadataKey>,
     ) -> Arc<PredicateIndices> {
         let shared_pred = Arc::new(PredicateIndices::init(allowed_predicates));
         let handles = (0..MAX_THREADS - 1).map(|i| {
@@ -282,7 +309,10 @@ mod tests {
             let shared_data = shared_pred.clone();
             let handle = thread::spawn(move || {
                 let key = if i % 2 == 0 { "Even" } else { "Odd" };
-                shared_data.add(vec![(String::from(key), StoreKeyId(format!("{i}")))]);
+                shared_data.add(vec![(
+                    MetadataValue::new(key.into()),
+                    StoreKeyId(format!("{i}")),
+                )]);
             });
             handle
         });
@@ -307,19 +337,18 @@ mod tests {
 
     #[test]
     fn test_add_index_to_predicate_after() {
-        let shared_pred =
-            create_shared_predicate_indices(vec![PredicateKey::new("country".into())]);
+        let shared_pred = create_shared_predicate_indices(vec![MetadataKey::new("country".into())]);
         let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-            key: PredicateKey::new("name".into()),
-            value: PredicateValue::new("David".into()),
+            key: MetadataKey::new("name".into()),
+            value: MetadataValue::new("David".into()),
             op: PredicateOp::Equals,
         }));
         // We expect to be empty as we didn't index name
         assert_eq!(result, vec![]);
         shared_pred.add_predicates(
             vec![
-                PredicateKey::new("country".into()),
-                PredicateKey::new("name".into()),
+                MetadataKey::new("country".into()),
+                MetadataKey::new("name".into()),
             ],
             Some(vec![
                 (StoreKeyId("0".into()), store_value_0()),
@@ -328,8 +357,8 @@ mod tests {
             ]),
         );
         let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-            key: PredicateKey::new("name".into()),
-            value: PredicateValue::new("David".into()),
+            key: MetadataKey::new("name".into()),
+            value: MetadataValue::new("David".into()),
             op: PredicateOp::Equals,
         }));
         // Now we expect index to be up to date
@@ -343,28 +372,28 @@ mod tests {
     fn test_predicate_indices_matches() {
         loom::model(|| {
             let shared_pred = create_shared_predicate_indices(vec![
-                PredicateKey::new("country".into()),
-                PredicateKey::new("name".into()),
-                PredicateKey::new("state".into()),
-                PredicateKey::new("age".into()),
+                MetadataKey::new("country".into()),
+                MetadataKey::new("name".into()),
+                MetadataKey::new("state".into()),
+                MetadataKey::new("age".into()),
             ]);
             let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-                key: PredicateKey::new("age".into()),
-                value: PredicateValue::new("14".into()),
+                key: MetadataKey::new("age".into()),
+                value: MetadataValue::new("14".into()),
                 op: PredicateOp::NotEquals,
             }));
             // There is no key like this
             assert_eq!(result, vec![]);
             let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-                key: PredicateKey::new("country".into()),
-                value: PredicateValue::new("Nigeria".into()),
+                key: MetadataKey::new("country".into()),
+                value: MetadataValue::new("Nigeria".into()),
                 op: PredicateOp::NotEquals,
             }));
             // only person 1 is not from Nigeria
             assert_eq!(result, vec![StoreKeyId("1".into())]);
             let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
-                key: PredicateKey::new("country".into()),
-                value: PredicateValue::new("Nigeria".into()),
+                key: MetadataKey::new("country".into()),
+                value: MetadataValue::new("Nigeria".into()),
                 op: PredicateOp::Equals,
             }));
             assert_vecs_equal_unordered(
@@ -372,39 +401,39 @@ mod tests {
                 &vec![StoreKeyId("0".into()), StoreKeyId("2".into())],
             );
             let check = PredicateCondition::Value(Predicate {
-                key: PredicateKey::new("state".into()),
-                value: PredicateValue::new("Washington".into()),
+                key: MetadataKey::new("state".into()),
+                value: MetadataValue::new("Washington".into()),
                 op: PredicateOp::Equals,
             })
             .or(PredicateCondition::Value(Predicate {
-                key: PredicateKey::new("age".into()),
-                value: PredicateValue::new("14".into()),
+                key: MetadataKey::new("age".into()),
+                value: MetadataValue::new("14".into()),
                 op: PredicateOp::Equals,
             }));
             let result = shared_pred.matches(&check);
             // only person 1 is from Washington
             assert_eq!(result, vec![StoreKeyId("1".into())]);
             let check = PredicateCondition::Value(Predicate {
-                key: PredicateKey::new("country".into()),
-                value: PredicateValue::new("Nigeria".into()),
+                key: MetadataKey::new("country".into()),
+                value: MetadataValue::new("Nigeria".into()),
                 op: PredicateOp::Equals,
             })
             .and(PredicateCondition::Value(Predicate {
-                key: PredicateKey::new("state".into()),
-                value: PredicateValue::new("Plateau".into()),
+                key: MetadataKey::new("state".into()),
+                value: MetadataValue::new("Plateau".into()),
                 op: PredicateOp::Equals,
             }));
             let result = shared_pred.matches(&check);
             // only person 1 is fulfills all
             assert_eq!(result, vec![StoreKeyId("2".into())]);
             let check = PredicateCondition::Value(Predicate {
-                key: PredicateKey::new("name".into()),
-                value: PredicateValue::new("David".into()),
+                key: MetadataKey::new("name".into()),
+                value: MetadataValue::new("David".into()),
                 op: PredicateOp::Equals,
             })
             .or(PredicateCondition::Value(Predicate {
-                key: PredicateKey::new("name".into()),
-                value: PredicateValue::new("Diretnan".into()),
+                key: MetadataKey::new("name".into()),
+                value: MetadataValue::new("Diretnan".into()),
                 op: PredicateOp::Equals,
             }));
             let result = shared_pred.matches(&check);
@@ -418,8 +447,8 @@ mod tests {
                 ],
             );
             let check = check.and(PredicateCondition::Value(Predicate {
-                key: PredicateKey::new("country".into()),
-                value: PredicateValue::new("USA".into()),
+                key: MetadataKey::new("country".into()),
+                value: MetadataValue::new("USA".into()),
                 op: PredicateOp::Equals,
             }));
             let result = shared_pred.matches(&check);
@@ -437,7 +466,7 @@ mod tests {
                 shared_pred
                     .0
                     .pin()
-                    .get(&PredicateValue::new("Even".into()))
+                    .get(&MetadataValue::new("Even".into()))
                     .unwrap()
                     .len(),
                 2
@@ -446,7 +475,7 @@ mod tests {
                 shared_pred
                     .0
                     .pin()
-                    .get(&PredicateValue::new("Odd".into()))
+                    .get(&MetadataValue::new("Odd".into()))
                     .unwrap()
                     .len(),
                 2
@@ -460,25 +489,25 @@ mod tests {
             let shared_pred = create_shared_predicate();
             assert_eq!(
                 shared_pred
-                    .matches(&PredicateOp::Equals, &PredicateValue::new("Even".into()))
+                    .matches(&PredicateOp::Equals, &MetadataValue::new("Even".into()))
                     .len(),
                 2
             );
             assert_eq!(
                 shared_pred
-                    .matches(&PredicateOp::NotEquals, &PredicateValue::new("Even".into()))
+                    .matches(&PredicateOp::NotEquals, &MetadataValue::new("Even".into()))
                     .len(),
                 2
             );
             assert_eq!(
                 shared_pred
-                    .matches(&PredicateOp::Equals, &PredicateValue::new("Odd".into()))
+                    .matches(&PredicateOp::Equals, &MetadataValue::new("Odd".into()))
                     .len(),
                 2
             );
             assert_eq!(
                 shared_pred
-                    .matches(&PredicateOp::NotEquals, &PredicateValue::new("Odd".into()))
+                    .matches(&PredicateOp::NotEquals, &MetadataValue::new("Odd".into()))
                     .len(),
                 2
             );
@@ -486,7 +515,7 @@ mod tests {
                 shared_pred
                     .matches(
                         &PredicateOp::NotEquals,
-                        &PredicateValue::new("NotExists".into())
+                        &MetadataValue::new("NotExists".into())
                     )
                     .len(),
                 4
@@ -495,7 +524,7 @@ mod tests {
                 shared_pred
                     .matches(
                         &PredicateOp::Equals,
-                        &PredicateValue::new("NotExists".into())
+                        &MetadataValue::new("NotExists".into())
                     )
                     .len(),
                 0
