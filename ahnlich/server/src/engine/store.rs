@@ -11,15 +11,26 @@ use types::metadata::MetadataKey;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
-#[cfg(test)]
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
-pub(crate) struct StoreKeyId(pub String);
-#[cfg(not(test))]
+
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub(crate) struct StoreKeyId(String);
 
-impl From<StoreKey> for StoreKeyId {
-    fn from(value: StoreKey) -> Self {
+#[cfg(test)]
+impl From<String> for StoreKeyId {
+    fn from(value: String) -> Self {
+        Self(value)
+    }
+}
+
+#[cfg(test)]
+impl From<&str> for StoreKeyId {
+    fn from(value: &str) -> Self {
+        Self(value.into())
+    }
+}
+
+impl From<&StoreKey> for StoreKeyId {
+    fn from(value: &StoreKey) -> Self {
         // compute a standard SHA256 hash of the vector to ensure it always gives us the same value
         // and use that as a reference to the vector
         let mut hasher = Sha256::new();
@@ -43,10 +54,10 @@ impl From<StoreKey> for StoreKeyId {
 struct Store {
     dimension: NonZeroU32,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
-    id_to_value: ConcurrentHashMap<StoreKeyId, StoreValue>,
+    id_to_value: ConcurrentHashMap<StoreKeyId, (StoreKey, StoreValue)>,
     /// We store keys separately as we can always compute their hash and find the StoreValue from
     /// there
-    keys: ConcurrentHashSet<StoreKey>,
+    //keys: ConcurrentHashSet<StoreKey>,
     /// Indices to filter for the store
     predicate_indices: PredicateIndices,
 }
@@ -57,7 +68,7 @@ impl Store {
         Self {
             dimension,
             id_to_value: ConcurrentHashMap::new(),
-            keys: ConcurrentHashSet::new(),
+            // keys: ConcurrentHashSet::new(),
             predicate_indices: PredicateIndices::init(predicates),
         }
     }
@@ -77,7 +88,7 @@ mod tests {
     #[test]
     fn test_compute_store_key_id_empty_vector() {
         let array: Array1<f32> = Array1::zeros(0);
-        let store_key: StoreKeyId = StoreKey(array).into();
+        let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
             StoreKeyId("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".into())
@@ -87,7 +98,7 @@ mod tests {
     #[test]
     fn test_compute_store_key_id_single_element_array() {
         let array = array![1.23];
-        let store_key: StoreKeyId = StoreKey(array).into();
+        let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
             StoreKeyId("b2d6f6f0d78e1e5c6b4d42226c1c42105ea241d2642d6f96f69141788a1d16db".into())
@@ -97,7 +108,7 @@ mod tests {
     #[test]
     fn test_compute_store_key_id_multiple_elements_array() {
         let array = array![1.22, 2.11, 3.22, 3.11];
-        let store_key: StoreKeyId = StoreKey(array).into();
+        let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
             StoreKeyId("1cb232f8e9e23d1576db3d7d1b93a15922263b31b6bf83c57d6b9b0ce913c1bf".into())

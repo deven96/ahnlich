@@ -280,7 +280,7 @@ mod tests {
                     2 => store_value_2(),
                     _ => StdHashMap::new(),
                 };
-                let store_key = StoreKeyId(format!("{i}"));
+                let store_key: StoreKeyId = format!("{i}").into();
                 let data = vec![(store_key, values)];
                 shared_data.add(data);
             });
@@ -300,7 +300,7 @@ mod tests {
                 let key = if i % 2 == 0 { "Even" } else { "Odd" };
                 shared_data.add(vec![(
                     MetadataValue::new(key.into()),
-                    StoreKeyId(format!("{i}")),
+                    format!("{i}").into(),
                 )]);
             });
             handle
@@ -327,9 +327,9 @@ mod tests {
                 MetadataKey::new("name".into()),
             ],
             Some(vec![
-                (StoreKeyId("0".into()), store_value_0()),
-                (StoreKeyId("1".into()), store_value_1()),
-                (StoreKeyId("2".into()), store_value_2()),
+                ("0".into(), store_value_0()),
+                ("1".into(), store_value_1()),
+                ("2".into(), store_value_2()),
             ]),
         );
         let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
@@ -338,10 +338,7 @@ mod tests {
             op: PredicateOp::Equals,
         }));
         // Now we expect index to be up to date
-        assert_eq!(
-            result,
-            StdHashSet::from_iter([StoreKeyId("0".into()), StoreKeyId("1".into())]),
-        );
+        assert_eq!(result, StdHashSet::from_iter(["0".into(), "1".into()]),);
     }
 
     #[test]
@@ -366,16 +363,13 @@ mod tests {
                 op: PredicateOp::NotEquals,
             }));
             // only person 1 is not from Nigeria
-            assert_eq!(result, StdHashSet::from_iter([StoreKeyId("1".into())]));
+            assert_eq!(result, StdHashSet::from_iter(["1".into()]));
             let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
                 op: PredicateOp::Equals,
             }));
-            assert_eq!(
-                result,
-                StdHashSet::from_iter([StoreKeyId("0".into()), StoreKeyId("2".into())]),
-            );
+            assert_eq!(result, StdHashSet::from_iter(["0".into(), "2".into()]),);
             let check = PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("state".into()),
                 value: MetadataValue::new("Washington".into()),
@@ -388,7 +382,7 @@ mod tests {
             }));
             let result = shared_pred.matches(&check);
             // only person 1 is from Washington
-            assert_eq!(result, StdHashSet::from_iter([StoreKeyId("1".into())]));
+            assert_eq!(result, StdHashSet::from_iter(["1".into()]));
             let check = PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
@@ -401,7 +395,7 @@ mod tests {
             }));
             let result = shared_pred.matches(&check);
             // only person 1 is fulfills all
-            assert_eq!(result, StdHashSet::from_iter([StoreKeyId("2".into())]));
+            assert_eq!(result, StdHashSet::from_iter(["2".into()]));
             let check = PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("name".into()),
                 value: MetadataValue::new("David".into()),
@@ -416,11 +410,7 @@ mod tests {
             // all 3 fulfill this
             assert_eq!(
                 result,
-                StdHashSet::from_iter([
-                    StoreKeyId("2".into()),
-                    StoreKeyId("0".into()),
-                    StoreKeyId("1".into()),
-                ]),
+                StdHashSet::from_iter(["2".into(), "0".into(), "1".into(),]),
             );
             let check = check.and(PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("country".into()),
@@ -429,7 +419,7 @@ mod tests {
             }));
             let result = shared_pred.matches(&check);
             // only person 1 is from Washington with any of those names
-            assert_eq!(result, StdHashSet::from_iter([StoreKeyId("1".into())]));
+            assert_eq!(result, StdHashSet::from_iter(["1".into()]));
         })
     }
 
