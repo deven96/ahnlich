@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 flurry = "0.5.1"
+sha2 = "0.10.3"
 ndarray.workspace = true
 itertools.workspace = true
 types = { path = "../types", version = "*" }

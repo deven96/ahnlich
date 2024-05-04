@@ -1,7 +1,7 @@
-use super::ConcurrentHashMap;
-use super::ConcurrentHashSet;
-use super::StoreKeyId;
-use super::StoreValue;
+use super::store::StoreKeyId;
+use super::store::StoreValue;
+use flurry::HashMap as ConcurrentHashMap;
+use flurry::HashSet as ConcurrentHashSet;
 use itertools::Itertools;
 use std::collections::HashSet as StdHashSet;
 use types::metadata::MetadataKey;
@@ -218,11 +218,11 @@ impl PredicateIndex {
 
 #[cfg(test)]
 mod tests {
-    use super::super::StdHashMap;
     use super::*;
     use loom::thread;
     use loom::thread::Builder;
     use loom::MAX_THREADS;
+    use std::collections::HashMap as StdHashMap;
     use std::sync::Arc;
 
     fn store_value_0() -> StoreValue {
