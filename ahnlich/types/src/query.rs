@@ -1,3 +1,4 @@
+use std::collections::{HashMap, HashSet};
 use std::num::NonZeroU32;
 
 use crate::keyval::{SearchInput, StoreKey, StoreName, StoreValue};
@@ -13,7 +14,7 @@ pub enum Query {
     Create {
         store: StoreName,
         dimension: NonZeroU32,
-        create_predicates: Vec<MetadataKey>,
+        create_predicates: HashSet<MetadataKey>,
     },
     GetKey {
         key: StoreKey,
@@ -31,15 +32,15 @@ pub enum Query {
     },
     IndexPred {
         store: StoreName,
-        predicates: Vec<MetadataKey>,
+        predicates: HashSet<MetadataKey>,
     },
     DropIndexPred {
         store: StoreName,
-        predicates: Vec<MetadataKey>,
+        predicates: HashSet<MetadataKey>,
     },
     Set {
         store: StoreName,
-        inputs: Vec<(StoreKey, StoreValue)>,
+        inputs: HashMap<StoreKey, StoreValue>,
     },
     DelKey {
         store: StoreName,
