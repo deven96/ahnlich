@@ -4,7 +4,7 @@ use ndarray::Array1;
 use std::collections::HashMap as StdHashMap;
 
 /// Name of a Store
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub struct StoreName(pub String);
 
 /// A store value for now is a simple key value pair of strings

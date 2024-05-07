@@ -209,8 +209,6 @@ impl PredicateIndex {
 mod tests {
     use super::*;
     use loom::thread;
-    use loom::thread::Builder;
-    use loom::MAX_THREADS;
     use std::collections::HashMap as StdHashMap;
     use std::sync::Arc;
 
@@ -269,9 +267,7 @@ mod tests {
         allowed_predicates: Vec<MetadataKey>,
     ) -> Arc<PredicateIndices> {
         let shared_pred = Arc::new(PredicateIndices::init(allowed_predicates));
-        let handles = (0..MAX_THREADS - 1).map(|i| {
-            // MAX_THREADS is usually 4 so we are iterating from 0, 1, 2 since loom expects our
-            // max number of threads spawned to be MAX_THREADS - 1
+        let handles = (0..4).map(|i| {
             let shared_data = shared_pred.clone();
             let handle = std::thread::spawn(move || {
                 let values = match i {
@@ -294,7 +290,7 @@ mod tests {
 
     fn create_shared_predicate() -> Arc<PredicateIndex> {
         let shared_pred = Arc::new(PredicateIndex::init(vec![]));
-        let handles = (0..MAX_THREADS - 1).map(|i| {
+        let handles = (0..4).map(|i| {
             let shared_data = shared_pred.clone();
             let handle = thread::spawn(move || {
                 let key = if i % 2 == 0 { "Even" } else { "Odd" };

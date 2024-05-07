@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::num::NonZeroU32;
+use std::num::NonZeroUsize;
 
 use crate::keyval::{SearchInput, StoreKey, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
@@ -13,7 +13,7 @@ pub enum Query {
     Disconnect,
     Create {
         store: StoreName,
-        dimension: NonZeroU32,
+        dimension: NonZeroUsize,
         create_predicates: HashSet<MetadataKey>,
     },
     GetKey {

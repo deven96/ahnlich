@@ -1,10 +1,14 @@
+use crate::errors::ServerError;
+
 use super::predicate::PredicateIndices;
 use flurry::HashMap as ConcurrentHashMap;
 use flurry::HashSet as ConcurrentHashSet;
 use sha2::Digest;
 use sha2::Sha256;
-use std::num::NonZeroU32;
+use std::num::NonZeroUsize;
+use std::sync::Arc;
 use types::keyval::StoreKey;
+use types::keyval::StoreName;
 use types::keyval::StoreValue;
 use types::metadata::MetadataKey;
 
@@ -48,11 +52,53 @@ impl From<&StoreKey> for StoreKeyId {
     }
 }
 
+/// Contains all the stores that have been created in memory
+#[derive(Debug)]
+pub(crate) struct StoreHandler {
+    /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
+    stores: ConcurrentHashMap<StoreName, Arc<Store>>,
+}
+
+impl StoreHandler {
+    pub(crate) fn new() -> Self {
+        Self {
+            stores: ConcurrentHashMap::new(),
+        }
+    }
+
+    /// Returns a store using the store name, else returns an error
+    pub(crate) fn get(&self, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
+        let store = self
+            .stores
+            .get(store_name, &self.stores.guard())
+            .cloned()
+            .ok_or(ServerError::StoreNotFound(store_name.clone()))?;
+        Ok(store)
+    }
+
+    /// Creates a store if not exist, else return an error
+    pub(crate) fn create(
+        &self,
+        store_name: StoreName,
+        dimension: NonZeroUsize,
+        predicates: Vec<MetadataKey>,
+    ) -> Result<(), ServerError> {
+        if let Err(_) = self.stores.try_insert(
+            store_name.clone(),
+            Arc::new(Store::create(dimension, predicates)),
+            &self.stores.guard(),
+        ) {
+            return Err(ServerError::StoreAlreadyExists(store_name));
+        }
+        Ok(())
+    }
+}
+
 /// A Store is a single database containing multiple N*1 arrays where N is the dimension of the
 /// store to which all arrays must conform
 #[derive(Debug)]
-struct Store {
-    dimension: NonZeroU32,
+pub(crate) struct Store {
+    dimension: NonZeroUsize,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     id_to_value: ConcurrentHashMap<StoreKeyId, (StoreKey, StoreValue)>,
     /// We store keys separately as we can always compute their hash and find the StoreValue from
@@ -64,7 +110,7 @@ struct Store {
 
 impl Store {
     /// Creates a new empty store
-    fn create(dimension: NonZeroU32, predicates: Vec<MetadataKey>) -> Self {
+    fn create(dimension: NonZeroUsize, predicates: Vec<MetadataKey>) -> Self {
         Self {
             dimension,
             id_to_value: ConcurrentHashMap::new(),
@@ -81,6 +127,8 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroUsize;
+
     use super::*;
     use ndarray::array;
     use ndarray::Array1;
@@ -113,5 +161,55 @@ mod tests {
             store_key,
             StoreKeyId("1cb232f8e9e23d1576db3d7d1b93a15922263b31b6bf83c57d6b9b0ce913c1bf".into())
         );
+    }
+
+    fn create_store_handler() -> (
+        Arc<StoreHandler>,
+        Vec<Result<(), ServerError>>,
+        Vec<Result<(), ServerError>>,
+    ) {
+        let handler = Arc::new(StoreHandler::new());
+        let handles = (0..3).map(|i| {
+            let shared_handler = handler.clone();
+            let handle = loom::thread::spawn(move || {
+                let (store_name, size) = if i % 2 == 0 {
+                    ("Even", 1024)
+                } else {
+                    ("Odd", 2048)
+                };
+                shared_handler.create(
+                    StoreName(store_name.to_string()),
+                    NonZeroUsize::new(size).unwrap(),
+                    vec![],
+                )
+            });
+            handle
+        });
+        let (oks, errs): (Vec<_>, Vec<_>) = handles
+            .into_iter()
+            .map(|h| h.join().unwrap())
+            .partition(Result::is_ok);
+
+        (handler, oks, errs)
+    }
+
+    #[test]
+    fn test_get_and_create_store_handler() {
+        loom::model(|| {
+            let (handler, oks, errs) = create_store_handler();
+            assert_eq!(oks.len(), 2);
+            assert_eq!(
+                errs,
+                vec![Err(ServerError::StoreAlreadyExists(StoreName(
+                    "Even".to_string()
+                )))]
+            );
+            // test out a store that does not exist
+            let fake_store = StoreName("Random".to_string());
+            assert_eq!(
+                handler.get(&fake_store).unwrap_err(),
+                ServerError::StoreNotFound(fake_store)
+            );
+        })
     }
 }
