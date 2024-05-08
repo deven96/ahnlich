@@ -2,15 +2,17 @@ use crate::errors::ServerError;
 
 use super::predicate::PredicateIndices;
 use flurry::HashMap as ConcurrentHashMap;
-use flurry::HashSet as ConcurrentHashSet;
 use sha2::Digest;
 use sha2::Sha256;
+use std::collections::HashMap as StdHashMap;
+use std::collections::HashSet as StdHashSet;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use types::keyval::StoreKey;
 use types::keyval::StoreName;
 use types::keyval::StoreValue;
 use types::metadata::MetadataKey;
+use types::predicate::PredicateCondition;
 
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
@@ -52,6 +54,21 @@ impl From<&StoreKey> for StoreKeyId {
     }
 }
 
+/// StoreInfo just shows store name, size and length
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct StoreInfo {
+    pub name: StoreName,
+    pub len: usize,
+    pub size_in_bytes: usize,
+}
+
+/// StoreUpsert shows how many entries were inserted and updated during a store add call
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct StoreUpsert {
+    pub inserted: usize,
+    pub updated: usize,
+}
+
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]
 pub(crate) struct StoreHandler {
@@ -67,7 +84,7 @@ impl StoreHandler {
     }
 
     /// Returns a store using the store name, else returns an error
-    pub(crate) fn get(&self, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
+    fn get(&self, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
         let store = self
             .stores
             .get(store_name, &self.stores.guard())
@@ -76,8 +93,50 @@ impl StoreHandler {
         Ok(store)
     }
 
-    /// Creates a store if not exist, else return an error
-    pub(crate) fn create(
+    /// Matches DELKEY - removes keys from a store
+    pub(crate) fn del_key_in_store(
+        &self,
+        store_name: StoreName,
+        keys: Vec<StoreKey>,
+    ) -> Result<usize, ServerError> {
+        let store = self.get(&store_name)?;
+        Ok(store.delete_keys(keys))
+    }
+
+    /// Matches DELPRED - removes keys from a store when value matches predicate
+    pub(crate) fn del_pred_in_store(
+        &self,
+        store_name: StoreName,
+        condition: &PredicateCondition,
+    ) -> Result<usize, ServerError> {
+        let store = self.get(&store_name)?;
+        Ok(store.delete_matches(condition))
+    }
+
+    /// Matches SET - adds new entries into a particular store
+    pub(crate) fn set_in_store(
+        &self,
+        store_name: StoreName,
+        new: StdHashMap<StoreKey, StoreValue>,
+    ) -> Result<StoreUpsert, ServerError> {
+        let store = self.get(&store_name)?;
+        store.add(new)
+    }
+
+    /// matches LISTSTORES - to return statistics of all stores
+    pub(crate) fn list_stores(&self) -> StdHashSet<StoreInfo> {
+        self.stores
+            .iter(&self.stores.guard())
+            .map(|(store_name, store)| StoreInfo {
+                name: store_name.clone(),
+                len: store.len(),
+                size_in_bytes: std::mem::size_of_val(store),
+            })
+            .collect()
+    }
+
+    /// Matches CREATE - Creates a store if not exist, else return an error
+    pub(crate) fn create_store(
         &self,
         store_name: StoreName,
         dimension: NonZeroUsize,
@@ -101,9 +160,6 @@ pub(crate) struct Store {
     dimension: NonZeroUsize,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     id_to_value: ConcurrentHashMap<StoreKeyId, (StoreKey, StoreValue)>,
-    /// We store keys separately as we can always compute their hash and find the StoreValue from
-    /// there
-    //keys: ConcurrentHashSet<StoreKey>,
     /// Indices to filter for the store
     predicate_indices: PredicateIndices,
 }
@@ -114,9 +170,62 @@ impl Store {
         Self {
             dimension,
             id_to_value: ConcurrentHashMap::new(),
-            // keys: ConcurrentHashSet::new(),
             predicate_indices: PredicateIndices::init(predicates),
         }
+    }
+
+    fn delete(&self, keys: impl Iterator<Item = StoreKeyId>) -> usize {
+        let keys: Vec<StoreKeyId> = keys.collect();
+        let pinned = self.id_to_value.pin();
+        let removed: Vec<_> = keys.iter().flat_map(|k| pinned.remove(k)).collect();
+        self.predicate_indices.remove_store_keys(&keys);
+        removed.len()
+    }
+
+    /// Deletes a bunch of store keys from the store
+    fn delete_keys(&self, del: Vec<StoreKey>) -> usize {
+        let keys = del.iter().map(From::from);
+        self.delete(keys)
+    }
+
+    /// Deletes a bunch of store keys from the store matching a specific predicate
+    fn delete_matches(&self, condition: &PredicateCondition) -> usize {
+        let matches = self.predicate_indices.matches(condition).into_iter();
+        self.delete(matches)
+    }
+
+    /// Adds a bunch of entries into the store if they match the dimensions
+    /// Returns the len of values added, if a value already existed it is updated but not counted
+    /// as a new insert
+    fn add(&self, new: StdHashMap<StoreKey, StoreValue>) -> Result<StoreUpsert, ServerError> {
+        let store_dimension: usize = self.dimension.into();
+        let check_bounds = |(store_key, store_val): (StoreKey, StoreValue)| -> Result<(StoreKeyId, (StoreKey, StoreValue)), ServerError> {
+            let input_dimension = store_key.0.len();
+            if input_dimension != store_dimension {
+                Err(ServerError::StoreDimensionMismatch { store_dimension, input_dimension  })
+            } else {
+                Ok(((&store_key).into(), (store_key, store_val)))
+            }
+        };
+        let res: Vec<(StoreKeyId, (StoreKey, StoreValue))> = new
+            .into_iter()
+            .map(|item| check_bounds(item))
+            .collect::<Result<_, _>>()?;
+        let predicate_insert = res
+            .iter()
+            .map(|(k, (_, v))| (k.clone(), v.clone()))
+            .collect();
+        let pinned = self.id_to_value.pin();
+        let (mut inserted, mut updated) = (0, 0);
+        for (key, val) in res {
+            if pinned.insert(key, val).is_none() {
+                inserted += 1
+            } else {
+                updated += 1
+            }
+        }
+        self.predicate_indices.add(predicate_insert);
+        Ok(StoreUpsert { inserted, updated })
     }
 
     /// Returns the number of key value pairs in the store
@@ -177,7 +286,7 @@ mod tests {
                 } else {
                     ("Odd", 2048)
                 };
-                shared_handler.create(
+                shared_handler.create_store(
                     StoreName(store_name.to_string()),
                     NonZeroUsize::new(size).unwrap(),
                     vec![],
@@ -210,6 +319,13 @@ mod tests {
                 handler.get(&fake_store).unwrap_err(),
                 ServerError::StoreNotFound(fake_store)
             );
+        })
+    }
+
+    #[test]
+    fn test_get_store_info() {
+        loom::model(|| {
+            let (handler, oks, errs) = create_store_handler();
         })
     }
 }

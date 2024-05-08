@@ -33,6 +33,14 @@ impl PredicateIndices {
         }
     }
 
+    /// Removes a store key id when it's corresponding entry in the store is removed
+    pub(super) fn remove_store_keys(&self, remove_keys: &[StoreKeyId]) {
+        let pinned = self.inner.pin();
+        for (_, values) in pinned.iter() {
+            values.remove_store_keys(remove_keys);
+        }
+    }
+
     /// Removes predicates from being tracked
     pub(super) fn remove_predicates(&self, predicates: Vec<MetadataKey>) {
         let pinned_keys = self.allowed_predicates.pin();
@@ -154,6 +162,18 @@ impl PredicateIndex {
         new.add(init);
         new
     }
+
+    /// Removes a store key id when it's corresponding entry in the store is removed
+    fn remove_store_keys(&self, remove_keys: &[StoreKeyId]) {
+        let inner = self.0.pin();
+        for (_, values) in inner.iter() {
+            let values_pinned = values.pin();
+            for k in remove_keys {
+                values_pinned.remove(k);
+            }
+        }
+    }
+
     /// adds a store key id to the index using the predicate value
     /// TODO: Optimize stack consumption of this particular call as it seems to consume more than
     /// the default number when ran using Loom, this may cause an issue down the line
@@ -416,11 +436,28 @@ mod tests {
             let result = shared_pred.matches(&check);
             // only person 1 is from Washington with any of those names
             assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+            // remove all Nigerians from the predicate and check that conditions working before no
+            // longer work and those working before still work
+            shared_pred.remove_store_keys(&["0".into(), "2".into()]);
+            let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("country".into()),
+                value: MetadataValue::new("Nigeria".into()),
+                op: PredicateOp::Equals,
+            }));
+            assert!(result.is_empty());
+            let check = check.and(PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("country".into()),
+                value: MetadataValue::new("USA".into()),
+                op: PredicateOp::Equals,
+            }));
+            let result = shared_pred.matches(&check);
+            // only person 1 is from Washington with any of those names
+            assert_eq!(result, StdHashSet::from_iter(["1".into()]));
         })
     }
 
     #[test]
-    fn test_adding_entries_to_predicate() {
+    fn test_adding_and_removing_entries_for_predicate() {
         loom::model(|| {
             let shared_pred = create_shared_predicate();
             assert_eq!(shared_pred.0.len(), 2);
@@ -441,6 +478,25 @@ mod tests {
                     .unwrap()
                     .len(),
                 2
+            );
+            shared_pred.remove_store_keys(&["1".into(), "0".into()]);
+            assert_eq!(
+                shared_pred
+                    .0
+                    .pin()
+                    .get(&MetadataValue::new("Even".into()))
+                    .unwrap()
+                    .len(),
+                1
+            );
+            assert_eq!(
+                shared_pred
+                    .0
+                    .pin()
+                    .get(&MetadataValue::new("Odd".into()))
+                    .unwrap()
+                    .len(),
+                1
             );
         })
     }

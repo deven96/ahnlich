@@ -5,4 +5,8 @@ use types::keyval::StoreName;
 pub enum ServerError {
     StoreNotFound(StoreName),
     StoreAlreadyExists(StoreName),
+    StoreDimensionMismatch {
+        store_dimension: usize,
+        input_dimension: usize,
+    },
 }

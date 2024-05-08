@@ -44,7 +44,7 @@ pub enum Query {
     },
     DelKey {
         store: StoreName,
-        key: StoreKey,
+        key: Vec<StoreKey>,
     },
     DelPred {
         store: StoreName,
