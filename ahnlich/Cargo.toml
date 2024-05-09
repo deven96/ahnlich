@@ -8,5 +8,5 @@ resolver = "2"
 
 [workspace.dependencies]
 serde = { version = "1.0.*", default-features = false }
-ndarray = "0.15.6"
+ndarray = { version = "0.15.6", features = ["serde"] }
 itertools = "0.10.0"

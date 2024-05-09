@@ -59,5 +59,4 @@ pub enum Query {
     InfoServer,
     ListStores,
     ListClients,
-    Close,
 }

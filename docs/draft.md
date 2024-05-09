@@ -125,10 +125,6 @@
 
     - `LISTCLIENTS`: Returns a list of clients connected to the server
 
-    - `CLOSE`: Closes it's own session on a server
-
-
-
     ### Clients
 
     #### Language Clients
