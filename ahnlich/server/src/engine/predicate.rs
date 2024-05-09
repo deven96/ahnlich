@@ -3,6 +3,7 @@ use flurry::HashMap as ConcurrentHashMap;
 use flurry::HashSet as ConcurrentHashSet;
 use itertools::Itertools;
 use std::collections::HashSet as StdHashSet;
+use std::mem::size_of_val;
 use types::keyval::StoreValue;
 use types::metadata::MetadataKey;
 use types::metadata::MetadataValue;
@@ -22,6 +23,20 @@ pub(super) struct PredicateIndices {
 }
 
 impl PredicateIndices {
+    pub(super) fn size(&self) -> usize {
+        size_of_val(&self)
+            + self
+                .inner
+                .iter(&self.inner.guard())
+                .map(|(k, v)| size_of_val(k) + v.size())
+                .sum::<usize>()
+            + self
+                .allowed_predicates
+                .iter(&self.allowed_predicates.guard())
+                .map(size_of_val)
+                .sum::<usize>()
+    }
+
     pub(super) fn init(allowed_predicates: Vec<MetadataKey>) -> Self {
         let created = ConcurrentHashSet::new();
         for key in allowed_predicates {
@@ -157,6 +172,15 @@ impl PredicateIndices {
 struct PredicateIndex(InnerPredicateIndex);
 
 impl PredicateIndex {
+    fn size(&self) -> usize {
+        size_of_val(&self)
+            + self
+                .0
+                .iter(&self.0.guard())
+                .map(|(k, v)| size_of_val(k) + v.iter(&v.guard()).map(size_of_val).sum::<usize>())
+                .sum::<usize>()
+    }
+
     fn init(init: Vec<(MetadataValue, StoreKeyId)>) -> Self {
         let new = Self(InnerPredicateIndex::new());
         new.add(init);

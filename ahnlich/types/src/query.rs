@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
 use crate::keyval::{SearchInput, StoreKey, StoreName, StoreValue};
@@ -17,7 +17,7 @@ pub enum Query {
         create_predicates: HashSet<MetadataKey>,
     },
     GetKey {
-        key: StoreKey,
+        keys: Vec<StoreKey>,
     },
     GetPred {
         store: StoreName,
@@ -25,7 +25,7 @@ pub enum Query {
     },
     GetSimN {
         store: StoreName,
-        closest_n: u32,
+        closest_n: NonZeroUsize,
         input: SearchInput,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
@@ -40,11 +40,11 @@ pub enum Query {
     },
     Set {
         store: StoreName,
-        inputs: HashMap<StoreKey, StoreValue>,
+        inputs: Vec<(StoreKey, StoreValue)>,
     },
     DelKey {
         store: StoreName,
-        key: Vec<StoreKey>,
+        keys: Vec<StoreKey>,
     },
     DelPred {
         store: StoreName,
