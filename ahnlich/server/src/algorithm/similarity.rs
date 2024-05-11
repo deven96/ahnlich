@@ -103,7 +103,7 @@ fn dot_product(first: &StoreKey, second: &StoreKey) -> f64 {
 }
 
 ///  
-///  ## Euclidean Distance
+///  ## EUCLIDEAN DISTANCE
 ///     - d(p,q)= sqrt { (p-q)^2 }
 ///  Euclidean distance is the square root of the sum of squared differences between corresponding
 ///  elements of the two vectors.
