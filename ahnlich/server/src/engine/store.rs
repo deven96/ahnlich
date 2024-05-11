@@ -368,6 +368,7 @@ mod tests {
     use std::num::NonZeroUsize;
 
     use super::*;
+    use crate::tests::fixtures::*;
     use ndarray::array;
     use ndarray::Array1;
     use std::collections::HashMap as StdHashMap;
@@ -406,13 +407,21 @@ mod tests {
         );
     }
 
-    fn create_store_handler_no_loom(predicates: Vec<MetadataKey>) -> Arc<StoreHandler> {
+    fn create_store_handler_no_loom(
+        predicates: Vec<MetadataKey>,
+        even_dimensions: Option<usize>,
+        odd_dimensions: Option<usize>,
+    ) -> Arc<StoreHandler> {
         let handler = Arc::new(StoreHandler::new());
         let handles = (0..3).map(|i| {
             let predicates = predicates.clone();
             let shared_handler = handler.clone();
             let handle = std::thread::spawn(move || {
-                let (store_name, size) = if i % 2 == 0 { ("Even", 5) } else { ("Odd", 3) };
+                let (store_name, size) = if i % 2 == 0 {
+                    ("Even", even_dimensions.unwrap_or(5))
+                } else {
+                    ("Odd", odd_dimensions.unwrap_or(3))
+                };
                 shared_handler.create_store(
                     StoreName(store_name.to_string()),
                     NonZeroUsize::new(size).unwrap(),
@@ -620,7 +629,8 @@ mod tests {
 
     #[test]
     fn test_get_pred_in_store() {
-        let handler = create_store_handler_no_loom(vec![MetadataKey::new("rank".into())]);
+        let handler =
+            create_store_handler_no_loom(vec![MetadataKey::new("rank".into())], None, None);
         let even_store = StoreName("Even".into());
         let input_arr_1 = array![0.1, 0.2, 0.3, 0.4, 0.5];
         let input_arr_2 = array![0.2, 0.3, 0.4, 0.5, 0.6];
@@ -673,7 +683,8 @@ mod tests {
 
     #[test]
     fn test_get_store_info() {
-        let handler = create_store_handler_no_loom(vec![MetadataKey::new("rank".into())]);
+        let handler =
+            create_store_handler_no_loom(vec![MetadataKey::new("rank".into())], None, None);
         let odd_store = StoreName("Odd".into());
         let even_store = StoreName("Even".into());
         let input_arr_1 = array![0.1, 0.2, 0.3];
@@ -718,5 +729,146 @@ mod tests {
                 },
             ])
         )
+    }
+
+    #[test]
+    fn test_get_sim_in_store_with_predicate() {
+        let vectors = word_to_vector();
+
+        let input_arr_1 = vectors.get(MOST_SIMILAR[0]).unwrap();
+        let input_arr_2 = vectors.get(MOST_SIMILAR[1]).unwrap();
+        let input_arr_3 = vectors.get(MOST_SIMILAR[2]).unwrap();
+
+        let handler = create_store_handler_no_loom(
+            vec![MetadataKey::new("rank".into())],
+            Some(input_arr_1.0.len()),
+            Some(input_arr_1.0.len()),
+        );
+        let even_store = StoreName("Even".into());
+        handler
+            .set_in_store(
+                &even_store,
+                vec![(
+                    input_arr_1.clone(),
+                    StdHashMap::from_iter(vec![(
+                        MetadataKey::new("rank".into()),
+                        MetadataValue::new("Chunin".into()),
+                    )]),
+                )],
+            )
+            .unwrap();
+        handler
+            .set_in_store(
+                &even_store,
+                vec![(
+                    input_arr_2.clone(),
+                    StdHashMap::from_iter(vec![(
+                        MetadataKey::new("rank".into()),
+                        MetadataValue::new("Chunin".into()),
+                    )]),
+                )],
+            )
+            .unwrap();
+        handler
+            .set_in_store(
+                &even_store,
+                vec![(
+                    input_arr_3.clone(),
+                    StdHashMap::from_iter(vec![(
+                        MetadataKey::new("rank".into()),
+                        MetadataValue::new("Genin".into()),
+                    )]),
+                )],
+            )
+            .unwrap();
+        let condition = &PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("rank".into()),
+            value: MetadataValue::new("Chunin".into()),
+            op: PredicateOp::Equals,
+        });
+        let search_input = vectors.get(SEACH_TEXT).unwrap().0.clone();
+        let algorithm = Algorithm::CosineSimilarity;
+
+        let closest_n = NonZeroUsize::new(3).unwrap();
+        let res = handler
+            .get_sim_in_store(
+                &even_store,
+                search_input.clone(),
+                closest_n,
+                algorithm,
+                Some(condition.clone()),
+            )
+            .unwrap();
+        assert_eq!(res.len(), 2);
+
+        let closest_n = NonZeroUsize::new(1).unwrap();
+        let res = handler
+            .get_sim_in_store(
+                &even_store,
+                search_input.clone(),
+                closest_n,
+                algorithm,
+                None,
+            )
+            .unwrap();
+        assert_eq!(res.len(), 1);
+        assert!(res[0].0 == *vectors.get(MOST_SIMILAR[0]).unwrap());
+
+        let condition = &PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("rank".into()),
+            value: MetadataValue::new("Chunin".into()),
+            op: PredicateOp::NotEquals,
+        });
+        let closest_n = NonZeroUsize::new(3).unwrap();
+        let res = handler
+            .get_sim_in_store(
+                &even_store,
+                search_input.clone(),
+                closest_n,
+                algorithm,
+                Some(condition.clone()),
+            )
+            .unwrap();
+        assert_eq!(res.len(), 1);
+
+        // Add more items storekeys into the store for processing.
+        //
+        let meta_data_key = MetadataKey::new("english".into());
+        let store_values = vectors
+            .iter()
+            .filter(|(sentence, _)| SEACH_TEXT != *sentence)
+            .map(|(sentence, store_key)| {
+                let value: StdHashMap<MetadataKey, MetadataValue> = StdHashMap::from_iter(vec![(
+                    meta_data_key.clone(),
+                    MetadataValue::new(sentence.into()),
+                )]);
+                (store_key.clone(), value)
+            })
+            .collect();
+        handler.set_in_store(&even_store, store_values).unwrap();
+        let res = handler
+            .get_sim_in_store(
+                &even_store,
+                search_input.clone(),
+                closest_n,
+                Algorithm::EuclideanDistance,
+                None,
+            )
+            .unwrap();
+
+        assert_eq!(res.len(), 3);
+
+        assert_eq!(
+            res[0].1.get(&meta_data_key).cloned().unwrap(),
+            MetadataValue::new(MOST_SIMILAR[0].into())
+        );
+        assert_eq!(
+            res[1].1.get(&meta_data_key).cloned().unwrap(),
+            MetadataValue::new(MOST_SIMILAR[1].into())
+        );
+        assert_eq!(
+            res[2].1.get(&meta_data_key).cloned().unwrap(),
+            MetadataValue::new(MOST_SIMILAR[2].into())
+        );
     }
 }
