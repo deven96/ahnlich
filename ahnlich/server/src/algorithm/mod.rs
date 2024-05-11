@@ -60,12 +60,20 @@ trait KNearestN {
         &'a self,
         search_vector: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
         search_list: impl Iterator<Item = &'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>>,
-        algorithm: &'a Algorithm,
+        n: NonZeroUsize,
+    ) -> Vec<(&'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, f64)>;
+}
+
+impl KNearestN for Algorithm {
+    fn find_similar_n<'a>(
+        &'a self,
+        search_vector: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
+        search_list: impl Iterator<Item = &'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>>,
         n: NonZeroUsize,
     ) -> Vec<(&'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, f64)> {
-        let mut heap: AlgorithmHeapType = (algorithm, n).into();
+        let mut heap: AlgorithmHeapType = (self, n).into();
 
-        let similarity_function: SimilarityFunc = algorithm.into();
+        let similarity_function: SimilarityFunc = self.into();
 
         for second_vector in search_list {
             let similarity = similarity_function(search_vector, second_vector);
@@ -76,8 +84,6 @@ trait KNearestN {
         heap.output()
     }
 }
-
-impl KNearestN for Algorithm {}
 
 #[cfg(test)]
 mod tests {
@@ -105,7 +111,6 @@ mod tests {
         let similar_n_search = cosine_algorithm.find_similar_n(
             &first_vector,
             search_list.iter(),
-            &Algorithm::CosineSimilarity,
             NonZeroUsize::new(no_similar_values).unwrap(),
         );
 
