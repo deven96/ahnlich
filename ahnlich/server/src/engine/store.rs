@@ -128,8 +128,7 @@ impl StoreHandler {
         let store = self.get(store_name)?;
 
         let filtered = if let Some(ref condition) = condition {
-            let output = self.get_pred_in_store(store_name, condition)?;
-            output
+            store.get_matches(condition)
         } else {
             store.get_all()
         };
@@ -141,17 +140,18 @@ impl StoreHandler {
         let filtered_iter = filtered.iter().map(|(key, _)| key);
 
         let similar_result = algorithm.find_similar_n(&search_input, filtered_iter, closest_n);
-        let mut keys_to_value_map: StdHashMap<StoreKeyId, StoreValue> =
-            StdHashMap::from_iter(filtered.iter().map(|(store_key, store_value)| {
-                (StoreKeyId::from(store_key), store_value.clone())
-            }));
+        let mut keys_to_value_map: StdHashMap<StoreKeyId, &StoreValue> = StdHashMap::from_iter(
+            filtered
+                .iter()
+                .map(|(store_key, store_value)| (StoreKeyId::from(store_key), store_value)),
+        );
 
         Ok(similar_result
             .into_iter()
             .flat_map(|(store_key, similarity)| {
                 keys_to_value_map
                     .remove(&StoreKeyId::from(store_key))
-                    .map(|value| (store_key.clone(), value, similarity))
+                    .map(|value| (store_key.clone(), value.clone(), similarity))
             })
             .collect())
     }
