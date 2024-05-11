@@ -17,8 +17,8 @@ impl<'a> MinHeap<'a> {
             max_capacity: capacity,
         }
     }
-    pub(crate) fn len(&self) -> NonZeroUsize {
-        NonZeroUsize::new(self.heap.len()).unwrap()
+    pub(crate) fn len(&self) -> usize {
+        self.heap.len()
     }
     pub(crate) fn push(&mut self, item: SimilarityVectorF64<'a>) {
         self.heap.push(Reverse(item));
@@ -34,7 +34,7 @@ impl<'a> MinHeap<'a> {
 
         loop {
             match self.pop() {
-                Some(value) if NonZeroUsize::new(result.len()).unwrap() < self.max_capacity => {
+                Some(value) if result.len() < self.max_capacity.into() => {
                     let vector_sim = value.0;
                     result.push((vector_sim.0, vector_sim.1));
                 }
@@ -63,8 +63,8 @@ impl<'a> MaxHeap<'a> {
     pub(crate) fn pop(&mut self) -> Option<SimilarityVectorF64<'a>> {
         self.heap.pop()
     }
-    pub(crate) fn len(&self) -> NonZeroUsize {
-        NonZeroUsize::new(self.heap.len()).unwrap()
+    pub(crate) fn len(&self) -> usize {
+        self.heap.len()
     }
 
     fn output(&mut self) -> Vec<(&'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, f64)> {
@@ -72,7 +72,7 @@ impl<'a> MaxHeap<'a> {
 
         loop {
             match self.heap.pop() {
-                Some(value) if NonZeroUsize::new(result.len()).unwrap() < self.max_capacity => {
+                Some(value) if result.len() < self.max_capacity.into() => {
                     let vector_sim = value.0;
                     result.push((vector_sim.0, vector_sim.1));
                 }
@@ -120,5 +120,53 @@ impl From<(&Algorithm, NonZeroUsize)> for AlgorithmHeapType<'_> {
                 AlgorithmHeapType::MAX(MaxHeap::new(capacity))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_min_heap_ordering_works() {
+        let mut heap = MinHeap::new(NonZeroUsize::new(3).unwrap());
+        let mut count = 0.0;
+        let first_vector = ndarray::Array1::<f64>::zeros(2).map(|x| x + 2.0);
+
+        // If we pop these scores now, they should come back in the reverse order.
+        while count < 5.0 {
+            let similarity: f64 = 1.0 + count;
+            let item: SimilarityVectorF64 = (&first_vector, similarity).into();
+
+            heap.push(item);
+
+            count += 1.0;
+        }
+
+        assert_eq!(heap.pop(), Some((&first_vector, 1.0).into()));
+        assert_eq!(heap.pop(), Some((&first_vector, 2.0).into()));
+        assert_eq!(heap.pop(), Some((&first_vector, 3.0).into()));
+    }
+
+    #[test]
+    fn test_max_heap_ordering_works() {
+        let mut heap = MaxHeap::new(NonZeroUsize::new(3).unwrap());
+        let mut count = 0.0;
+        let first_vector = ndarray::Array1::<f64>::zeros(2).map(|x| x + 2.0);
+
+        // If we pop these scores now, they should come back  the right order(max first).
+        while count < 5.0 {
+            let similarity: f64 = 1.0 + count;
+            let item: SimilarityVectorF64 = (&first_vector, similarity).into();
+
+            heap.push(item);
+
+            count += 1.0;
+        }
+
+        assert_eq!(heap.pop(), Some((&first_vector, 5.0).into()));
+        assert_eq!(heap.pop(), Some((&first_vector, 4.0).into()));
+        assert_eq!(heap.pop(), Some((&first_vector, 3.0).into()));
     }
 }

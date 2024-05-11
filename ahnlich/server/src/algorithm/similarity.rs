@@ -101,3 +101,122 @@ fn euclidean_distance(
     let distance = f64::sqrt(sum_of_squared_differences);
     distance
 }
+
+#[cfg(test)]
+pub(super) mod tests {
+    use std::collections::HashMap;
+
+    use super::*;
+
+    pub(crate) fn key_to_words(
+        key: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
+        vector_to_sentences: &Vec<(ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, String)>,
+    ) -> Option<String> {
+        for (vector, word) in vector_to_sentences {
+            if key == vector {
+                return Some(word.to_string());
+            }
+        }
+        None
+    }
+
+    pub(crate) fn word_to_vector(
+    ) -> HashMap<String, ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>> {
+        let words = std::fs::read_to_string("tests/mock_data.json").unwrap();
+
+        let words_to_vec: HashMap<String, Vec<f64>> = serde_json::from_str(&words).unwrap();
+
+        HashMap::from_iter(
+            words_to_vec
+                .into_iter()
+                .map(|(key, value)| (key, ndarray::Array1::<f64>::from_vec(value))),
+        )
+    }
+
+    pub(crate) const SEACH_TEXT: &'static str =
+        "Football fans enjoy gathering to watch matches at sports bars.";
+
+    pub(crate) const MOST_SIMILAR: [&'static str; 3] = [
+        "Attending football games at the stadium is an exciting experience.",
+        "On sunny days, people often gather outdoors for a friendly game of football.",
+        "Rainy weather can sometimes lead to canceled outdoor events like football matches.",
+    ];
+    pub(crate) const SENTENCES: [&'static str; 5] = [
+        "On sunny days, people often gather outdoors for a friendly game of football.",
+        "Attending football games at the stadium is an exciting experience.",
+        "Grilling burgers and hot dogs is a popular activity during summer barbecues.",
+        "Rainy weather can sometimes lead to canceled outdoor events like football matches.",
+        "Sunny weather is ideal for outdoor activities like playing football.",
+    ];
+
+    #[test]
+    fn test_find_top_3_similar_words_using_cosine_similarity() {
+        let sentences_vectors = word_to_vector();
+
+        let mut most_similar_result: Vec<(&'static str, f64)> = vec![];
+
+        let first_vector = sentences_vectors.get(SEACH_TEXT).unwrap().to_owned();
+
+        for sentence in SENTENCES.iter() {
+            let second_vector = sentences_vectors.get(*sentence).unwrap().to_owned();
+
+            let similarity = cosine_similarity(&first_vector, &second_vector);
+
+            most_similar_result.push((*sentence, similarity))
+        }
+
+        // sort by largest first, the closer to one the more similar it is
+        most_similar_result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+        let final_result: Vec<&'static str> = most_similar_result.iter().map(|s| s.0).collect();
+
+        assert_eq!(MOST_SIMILAR.to_vec(), final_result[..3]);
+    }
+    #[test]
+    fn test_find_top_3_similar_words_using_euclidean_distance() {
+        let sentences_vectors = word_to_vector();
+
+        let mut most_similar_result: Vec<(&'static str, f64)> = vec![];
+
+        let first_vector = sentences_vectors.get(SEACH_TEXT).unwrap().to_owned();
+
+        for sentence in SENTENCES.iter() {
+            let second_vector = sentences_vectors.get(*sentence).unwrap().to_owned();
+
+            let similarity = euclidean_distance(&first_vector, &second_vector);
+
+            most_similar_result.push((*sentence, similarity))
+        }
+
+        // sort by smallest first, the closer to zero the more similar it is
+        most_similar_result.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+
+        let final_result: Vec<&'static str> = most_similar_result.iter().map(|s| s.0).collect();
+
+        assert_eq!(MOST_SIMILAR.to_vec(), final_result[..3]);
+    }
+
+    #[test]
+    fn test_find_top_3_similar_words_using_dot_product() {
+        let sentences_vectors = word_to_vector();
+
+        let mut most_similar_result: Vec<(&'static str, f64)> = vec![];
+
+        let first_vector = sentences_vectors.get(SEACH_TEXT).unwrap().to_owned();
+
+        for sentence in SENTENCES.iter() {
+            let second_vector = sentences_vectors.get(*sentence).unwrap().to_owned();
+
+            let similarity = dot_product(&first_vector, &second_vector);
+
+            most_similar_result.push((*sentence, similarity))
+        }
+
+        // sort by largest first, the larger the value the more similar it is
+        most_similar_result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+        let final_result: Vec<&'static str> = most_similar_result.iter().map(|s| s.0).collect();
+
+        assert_eq!(MOST_SIMILAR.to_vec(), final_result[..3]);
+    }
+}
