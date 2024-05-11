@@ -77,18 +77,7 @@ trait KNearestN {
     }
 }
 
-#[cfg(test)]
-struct TestStore;
-
-#[cfg(test)]
-impl TestStore {
-    fn new() -> Self {
-        Self
-    }
-}
-
-#[cfg(test)]
-impl KNearestN for TestStore {}
+impl KNearestN for Algorithm {}
 
 #[cfg(test)]
 mod tests {
@@ -111,9 +100,9 @@ mod tests {
 
         let no_similar_values: usize = 3;
 
-        let test_store = TestStore::new();
+        let cosine_algorithm = Algorithm::CosineSimilarity;
 
-        let similar_n_search = test_store.find_similar_n(
+        let similar_n_search = cosine_algorithm.find_similar_n(
             &first_vector,
             search_list.iter(),
             &Algorithm::CosineSimilarity,
