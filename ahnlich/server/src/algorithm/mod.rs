@@ -3,50 +3,40 @@ mod similarity;
 
 use std::num::NonZeroUsize;
 
-use ndarray::prelude::*;
+use types::keyval::{SearchInput, StoreKey};
 use types::similarity::Algorithm;
 
 use self::{heap::AlgorithmHeapType, similarity::SimilarityFunc};
 
 #[derive(Debug)]
-pub(crate) struct SimilarityVectorF64<'a>(
-    (&'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, f64),
-);
+pub(crate) struct SimilarityVector<'a>((&'a StoreKey, f64));
 
-impl<'a> From<(&'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, f64)>
-    for SimilarityVectorF64<'a>
-{
-    fn from(
-        value: (&'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, f64),
-    ) -> SimilarityVectorF64<'a> {
-        SimilarityVectorF64((value.0, value.1))
+impl<'a> From<(&'a StoreKey, f64)> for SimilarityVector<'a> {
+    fn from(value: (&'a StoreKey, f64)) -> SimilarityVector<'a> {
+        SimilarityVector((value.0, value.1))
     }
 }
-impl<'a> From<SimilarityVectorF64<'a>>
-    for (&'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, f64)
-{
-    fn from(
-        value: SimilarityVectorF64<'a>,
-    ) -> (&'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, f64) {
+impl<'a> From<SimilarityVector<'a>> for (&'a StoreKey, f64) {
+    fn from(value: SimilarityVector<'a>) -> (&'a StoreKey, f64) {
         ((value.0).0, (value.0).1)
     }
 }
 
-impl<'a> PartialEq for SimilarityVectorF64<'a> {
+impl<'a> PartialEq for SimilarityVector<'a> {
     fn eq(&self, other: &Self) -> bool {
         *((self.0).0) == *((other.0).0)
     }
 }
 
-impl<'a> Eq for SimilarityVectorF64<'a> {}
+impl<'a> Eq for SimilarityVector<'a> {}
 
-impl PartialOrd for SimilarityVectorF64<'_> {
+impl PartialOrd for SimilarityVector<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         (self.0).1.partial_cmp(&(other.0).1)
     }
 }
 
-impl Ord for SimilarityVectorF64<'_> {
+impl Ord for SimilarityVector<'_> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         (self.0)
             .1
@@ -55,30 +45,31 @@ impl Ord for SimilarityVectorF64<'_> {
     }
 }
 
-trait KNearestN {
+pub(crate) trait FindSimilarN {
     fn find_similar_n<'a>(
         &'a self,
-        search_vector: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-        search_list: impl Iterator<Item = &'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>>,
+        search_vector: &SearchInput,
+        search_list: impl Iterator<Item = &'a StoreKey>,
         n: NonZeroUsize,
-    ) -> Vec<(&'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, f64)>;
+    ) -> Vec<(&'a StoreKey, f64)>;
 }
 
-impl KNearestN for Algorithm {
+impl FindSimilarN for Algorithm {
     fn find_similar_n<'a>(
         &'a self,
-        search_vector: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-        search_list: impl Iterator<Item = &'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>>,
+        search_vector: &SearchInput,
+        search_list: impl Iterator<Item = &'a StoreKey>,
         n: NonZeroUsize,
-    ) -> Vec<(&'a ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, f64)> {
+    ) -> Vec<(&'a StoreKey, f64)> {
         let mut heap: AlgorithmHeapType = (self, n).into();
 
         let similarity_function: SimilarityFunc = self.into();
+        let search_vector = StoreKey(search_vector.clone());
 
         for second_vector in search_list {
-            let similarity = similarity_function(search_vector, second_vector);
+            let similarity = similarity_function(&search_vector, second_vector);
 
-            let heap_value: SimilarityVectorF64 = (second_vector, similarity).into();
+            let heap_value: SimilarityVector = (second_vector, similarity).into();
             heap.push(heap_value)
         }
         heap.output()
@@ -109,22 +100,20 @@ mod tests {
         let cosine_algorithm = Algorithm::CosineSimilarity;
 
         let similar_n_search = cosine_algorithm.find_similar_n(
-            &first_vector,
+            &first_vector.0,
             search_list.iter(),
             NonZeroUsize::new(no_similar_values).unwrap(),
         );
 
-        let similar_n_vecs: Vec<ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>> =
-            similar_n_search
-                .into_iter()
-                .map(|(vector, _)| vector.to_owned())
-                .collect();
+        let similar_n_vecs: Vec<StoreKey> = similar_n_search
+            .into_iter()
+            .map(|(vector, _)| vector.to_owned())
+            .collect();
 
-        let most_similar_sentences_vec: Vec<ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>> =
-            MOST_SIMILAR
-                .iter()
-                .map(|sentence| sentences_vectors.get(*sentence).unwrap().to_owned())
-                .collect();
+        let most_similar_sentences_vec: Vec<StoreKey> = MOST_SIMILAR
+            .iter()
+            .map(|sentence| sentences_vectors.get(*sentence).unwrap().to_owned())
+            .collect();
 
         assert_eq!(most_similar_sentences_vec, similar_n_vecs);
     }

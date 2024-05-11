@@ -1,11 +1,7 @@
-use ndarray::prelude::*;
 use std::ops::Deref;
-use types::similarity::Algorithm;
+use types::{keyval::StoreKey, similarity::Algorithm};
 
-type SimFuncSig = fn(
-    &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-    &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-) -> f64;
+type SimFuncSig = fn(&StoreKey, &StoreKey) -> f64;
 
 pub(crate) struct SimilarityFunc(SimFuncSig);
 
@@ -68,10 +64,7 @@ impl From<&Algorithm> for SimilarityFunc {
 ///                                  similarity
 ///
 
-fn cosine_similarity(
-    first: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-    second: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-) -> f64 {
+fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f64 {
     // formular = dot product of vectors / product of the magnitude of the vectors
     // maginiture of a vector can be calcuated using pythagoras theorem.
     // sqrt of sum of vector values
@@ -81,17 +74,13 @@ fn cosine_similarity(
     let dot_product = dot_product(&first, &second);
 
     // the magnitude can be calculated using the arr.norm method.
-    let mag_first = &first
-        .iter()
-        .map(|x| x * x)
-        .map(|x| x as f64)
-        .sum::<f64>()
-        .sqrt();
+    let mag_first = &first.0.iter().map(|x| x * x).sum::<f64>().sqrt();
 
     let mag_second = &second
+        .0
         .iter()
         .map(|x| x * x)
-        .map(|x| x as f64)
+        .map(|x| x)
         .sum::<f64>()
         .sqrt();
 
@@ -108,11 +97,8 @@ fn cosine_similarity(
 /// An Implementation for most similar items would be a MaxHeap.
 /// The larger the dot product between two vectors, the more similar
 
-fn dot_product(
-    first: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-    second: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-) -> f64 {
-    let dot_product = second.dot(&first.t());
+fn dot_product(first: &StoreKey, second: &StoreKey) -> f64 {
+    let dot_product = second.0.dot(&first.0.t());
     dot_product
 }
 
@@ -135,13 +121,10 @@ fn dot_product(
 ///  two points, denotes higher similarity
 ///
 
-fn euclidean_distance(
-    first: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-    second: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-) -> f64 {
+fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f64 {
     // Calculate the sum of squared differences for each dimension
     let mut sum_of_squared_differences = 0.0;
-    for (&coord1, &coord2) in first.iter().zip(second.iter()) {
+    for (&coord1, &coord2) in first.0.iter().zip(second.0.iter()) {
         let diff = coord1 - coord2;
         sum_of_squared_differences += diff * diff;
     }
@@ -158,8 +141,8 @@ pub(super) mod tests {
     use super::*;
 
     pub(crate) fn key_to_words(
-        key: &ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>,
-        vector_to_sentences: &Vec<(ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>, String)>,
+        key: &StoreKey,
+        vector_to_sentences: &Vec<(StoreKey, String)>,
     ) -> Option<String> {
         for (vector, word) in vector_to_sentences {
             if key == vector {
@@ -169,8 +152,7 @@ pub(super) mod tests {
         None
     }
 
-    pub(crate) fn word_to_vector(
-    ) -> HashMap<String, ndarray::ArrayBase<ndarray::OwnedRepr<f64>, Ix1>> {
+    pub(crate) fn word_to_vector() -> HashMap<String, StoreKey> {
         let words = std::fs::read_to_string("tests/mock_data.json").unwrap();
 
         let words_to_vec: HashMap<String, Vec<f64>> = serde_json::from_str(&words).unwrap();
@@ -178,7 +160,7 @@ pub(super) mod tests {
         HashMap::from_iter(
             words_to_vec
                 .into_iter()
-                .map(|(key, value)| (key, ndarray::Array1::<f64>::from_vec(value))),
+                .map(|(key, value)| (key, StoreKey(ndarray::Array1::<f64>::from_vec(value)))),
         )
     }
 

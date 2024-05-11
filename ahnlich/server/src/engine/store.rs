@@ -1,20 +1,22 @@
 use crate::errors::ServerError;
 
+use super::super::algorithm::FindSimilarN;
 use super::predicate::PredicateIndices;
 use flurry::HashMap as ConcurrentHashMap;
 use sha2::Digest;
 use sha2::Sha256;
+use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
+use types::keyval::SearchInput;
 use types::keyval::StoreKey;
 use types::keyval::StoreName;
 use types::keyval::StoreValue;
 use types::metadata::MetadataKey;
 use types::predicate::PredicateCondition;
 use types::similarity::Algorithm;
-
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
@@ -114,18 +116,44 @@ impl StoreHandler {
         Ok(store.delete_matches(condition))
     }
 
-    /// TODO
     /// Matches GETSIMN - gets all similar from a store that also match a predicate
-    #[allow(unused)]
     pub(crate) fn get_sim_in_store(
         &self,
         store_name: &StoreName,
+        search_input: SearchInput,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
-    ) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
+    ) -> Result<Vec<(StoreKey, StoreValue, f64)>, ServerError> {
         let store = self.get(store_name)?;
-        unimplemented!()
+
+        let filtered = if let Some(ref condition) = condition {
+            let output = self.get_pred_in_store(store_name, condition)?;
+            output
+        } else {
+            store.get_all()
+        };
+
+        if filtered.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let filtered_iter = filtered.iter().map(|(key, _)| key);
+
+        let similar_result = algorithm.find_similar_n(&search_input, filtered_iter, closest_n);
+        let mut keys_to_value_map: StdHashMap<StoreKeyId, StoreValue> =
+            StdHashMap::from_iter(filtered.iter().map(|(store_key, store_value)| {
+                (StoreKeyId::from(store_key), store_value.clone())
+            }));
+
+        Ok(similar_result
+            .into_iter()
+            .flat_map(|(store_key, similarity)| {
+                keys_to_value_map
+                    .remove(&StoreKeyId::from(store_key))
+                    .map(|value| (store_key.clone(), value, similarity))
+            })
+            .collect())
     }
 
     /// Matches GETPRED - gets all matching predicates from a store
@@ -260,6 +288,13 @@ impl Store {
         let pinned = self.id_to_value.pin();
         keys.flat_map(|k| pinned.get(&k).cloned()).collect()
     }
+    fn get_all(&self) -> Vec<(StoreKey, StoreValue)> {
+        let pinned = self.id_to_value.pin();
+        pinned
+            .into_iter()
+            .map(|(_key, (store_key, store_value))| (store_key.clone(), store_value.clone()))
+            .collect()
+    }
 
     /// Adds a bunch of entries into the store if they match the dimensions
     /// Returns the len of values added, if a value already existed it is updated but not counted
@@ -343,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_compute_store_key_id_empty_vector() {
-        let array: Array1<f32> = Array1::zeros(0);
+        let array: Array1<f64> = Array1::zeros(0);
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
@@ -357,7 +392,7 @@ mod tests {
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
-            StoreKeyId("b2d6f6f0d78e1e5c6b4d42226c1c42105ea241d2642d6f96f69141788a1d16db".into())
+            StoreKeyId("5658eb3a4999cac5729dd21f0e5e36587bf7e37aef139093432405a22a430046".into())
         );
     }
 
@@ -367,7 +402,7 @@ mod tests {
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
-            StoreKeyId("1cb232f8e9e23d1576db3d7d1b93a15922263b31b6bf83c57d6b9b0ce913c1bf".into())
+            StoreKeyId("c0c5df8fe8939c0c73446b33500a14f7512514b143ead3655f36f8947eb9898b".into())
         );
     }
 
