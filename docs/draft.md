@@ -69,14 +69,14 @@
     This will entail coming up with a version spec.
     Ensure same version spec on handshake between client and server
 
-    Check if we can serialize and deserialize across the wire(bincode/serde). The consideration as to which to use might include speed(bincode wins) or consistency across multiple languages.
+    Check if we can serialize and deserialize across the wire(bincode/serde). The consideration as to which to use might include speed(bincode wins) or consistency across multiple languages. We can also consider MessagePack which is smaller and simpler to parse than JSON but is also easy to debug
 
 
     Here's a rough sketch of commands to be expanded on later:
     
     - `CONNECT`
     - `DISCONNECT`
-    - `SHUTDOWN`: shut down basically discounts from all connected clients, performs cleanup before killing the server
+    - `SHUTDOWNSERVER`: shut down basically discounts from all connected clients, performs cleanup before killing the server
     - `CREATE`: Create a store which must have a unique name with respect to the server.
     Create can take in name_of_store, dimensions_of_vectors(immutable) to be stored in that store, ability to create predicate indices
     - `GETKEY`: takes in store, key and direct return of key within store matching the input key
@@ -99,6 +99,7 @@
     Validation should check if predicate was enabled.
 
     - `INDEXPRED`: takes in predicates, store,and attempts to build a predicate indices
+    - `DROPINDEXPRED`: takes in predicate, store and drops the predicate for that store
 
     - `SET`: takes in store, length of input vector, input of which each should have a key matching store dimension and value of type json.
 
@@ -116,17 +117,13 @@
     - `DELPRED`: Takes in a store, key and delete all values matching that predicate. It should also update indices in a non-blocking way.
 
         Validation should check if predicate was enabled.
-    - `DROP`: takes in a store and deletes it. Destroys everything pertaining the store
+    - `DROPSTORE`: takes in a store and deletes it. Destroys everything pertaining the store
 
-    - `SERVERINFO`: returns the server information such as port, host, version, etc
+    - `INFOSERVER`: returns the server information such as port, host, version, etc.
 
-    - `LISTSTORES`: List all the stores on the server
+    - `LISTSTORES`: List all the stores on the server. It also returns information like store length/size.
 
-    - `CLIENTS`: Returns a list of clients connected to the server
-
-    - `CLOSE`: Closes it's own session on a server
-
-
+    - `LISTCLIENTS`: Returns a list of clients connected to the server
 
     ### Clients
 
