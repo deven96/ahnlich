@@ -19,7 +19,6 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
-    - name: Checkout Repo 
 
     - name: Set up Rust cache
       uses: Swatinem/rust-cache@v2
