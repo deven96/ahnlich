@@ -96,6 +96,16 @@ impl StoreHandler {
         Ok(store)
     }
 
+    /// Matches REINDEX - reindexes a store with some predicate values
+    fn reindex(
+        &self,
+        store_name: &StoreName,
+        predicates: Vec<MetadataKey>,
+    ) -> Result<(), ServerError> {
+        let store = self.get(store_name)?;
+        Ok(store.reindex(predicates.into_iter().collect()))
+    }
+
     /// Matches DELKEY - removes keys from a store
     pub(crate) fn del_key_in_store(
         &self,
@@ -113,7 +123,7 @@ impl StoreHandler {
         condition: &PredicateCondition,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        Ok(store.delete_matches(condition))
+        store.delete_matches(condition)
     }
 
     /// Matches GETSIMN - gets all similar from a store that also match a predicate
@@ -128,7 +138,7 @@ impl StoreHandler {
         let store = self.get(store_name)?;
 
         let filtered = if let Some(ref condition) = condition {
-            store.get_matches(condition)
+            store.get_matches(condition)?
         } else {
             store.get_all()
         };
@@ -163,7 +173,7 @@ impl StoreHandler {
         condition: &PredicateCondition,
     ) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
         let store = self.get(store_name)?;
-        Ok(store.get_matches(condition))
+        store.get_matches(condition)
     }
 
     /// Matches GETKEY - gets all keys matching the inputs
@@ -264,9 +274,9 @@ impl Store {
     }
 
     /// Deletes a bunch of store keys from the store matching a specific predicate
-    fn delete_matches(&self, condition: &PredicateCondition) -> usize {
-        let matches = self.predicate_indices.matches(condition).into_iter();
-        self.delete(matches)
+    fn delete_matches(&self, condition: &PredicateCondition) -> Result<usize, ServerError> {
+        let matches = self.predicate_indices.matches(condition)?.into_iter();
+        Ok(self.delete(matches))
     }
 
     /// Gets a bunch of store keys from the store
@@ -279,15 +289,19 @@ impl Store {
     }
 
     /// Gets a bunch of store entries that matches a predicate condition
-    fn get_matches(&self, condition: &PredicateCondition) -> Vec<(StoreKey, StoreValue)> {
-        let matches = self.predicate_indices.matches(condition).into_iter();
-        self.get(matches)
+    fn get_matches(
+        &self,
+        condition: &PredicateCondition,
+    ) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
+        let matches = self.predicate_indices.matches(condition)?.into_iter();
+        Ok(self.get(matches))
     }
 
     fn get(&self, keys: impl Iterator<Item = StoreKeyId>) -> Vec<(StoreKey, StoreValue)> {
         let pinned = self.id_to_value.pin();
         keys.flat_map(|k| pinned.get(&k).cloned()).collect()
     }
+
     fn get_all(&self) -> Vec<(StoreKey, StoreValue)> {
         let pinned = self.id_to_value.pin();
         pinned
@@ -334,6 +348,24 @@ impl Store {
         }
         self.predicate_indices.add(predicate_insert);
         Ok(StoreUpsert { inserted, updated })
+    }
+
+    fn reindex(&self, requested_predicates: StdHashSet<MetadataKey>) {
+        let current_predicates = self.predicate_indices.current_predicates();
+        let new_predicates: Vec<_> = requested_predicates
+            .difference(&current_predicates)
+            .cloned()
+            .collect();
+        if !new_predicates.is_empty() {
+            // get all the values and reindex
+            let values = self
+                .get_all()
+                .into_iter()
+                .map(|(k, v)| (StoreKeyId::from(&k), v))
+                .collect();
+            self.predicate_indices
+                .add_predicates(new_predicates, Some(values));
+        }
     }
 
     /// Returns the number of key value pairs in the store
@@ -563,6 +595,110 @@ mod tests {
                 }
             );
         })
+    }
+
+    #[test]
+    fn test_reindex_in_store() {
+        let handler =
+            create_store_handler_no_loom(vec![MetadataKey::new("author".into())], None, None);
+        let even_store = StoreName("Even".into());
+        let input_arr_1 = array![0.1, 0.2, 0.3, 0.0, 0.0];
+        let input_arr_2 = array![0.2, 0.3, 0.4, 0.0, 0.0];
+        let input_arr_3 = array![0.3, 0.4, 0.4, 0.0, 0.0];
+        handler
+            .set_in_store(
+                &even_store,
+                vec![(
+                    StoreKey(input_arr_1.clone()),
+                    StdHashMap::from_iter(vec![
+                        (
+                            MetadataKey::new("author".into()),
+                            MetadataValue::new("Lex Luthor".into()),
+                        ),
+                        (
+                            MetadataKey::new("planet".into()),
+                            MetadataValue::new("earth".into()),
+                        ),
+                    ]),
+                )],
+            )
+            .unwrap();
+        handler
+            .set_in_store(
+                &even_store,
+                vec![(
+                    StoreKey(input_arr_2.clone()),
+                    StdHashMap::from_iter(vec![
+                        (
+                            MetadataKey::new("author".into()),
+                            MetadataValue::new("Clark Kent".into()),
+                        ),
+                        (
+                            MetadataKey::new("planet".into()),
+                            MetadataValue::new("krypton".into()),
+                        ),
+                    ]),
+                )],
+            )
+            .unwrap();
+        handler
+            .set_in_store(
+                &even_store,
+                vec![(
+                    StoreKey(input_arr_3.clone()),
+                    StdHashMap::from_iter(vec![
+                        (
+                            MetadataKey::new("author".into()),
+                            MetadataValue::new("General Zod".into()),
+                        ),
+                        (
+                            MetadataKey::new("planet".into()),
+                            MetadataValue::new("krypton".into()),
+                        ),
+                    ]),
+                )],
+            )
+            .unwrap();
+        let condition = &PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("author".into()),
+            value: MetadataValue::new("Lex Luthor".into()),
+            op: PredicateOp::Equals,
+        });
+        let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
+        assert_eq!(res.len(), 1);
+        let condition = &PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("author".into()),
+            value: MetadataValue::new("Lex Luthor".into()),
+            op: PredicateOp::NotEquals,
+        });
+        let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
+        assert_eq!(res.len(), 2);
+        let condition = &PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("author".into()),
+            value: MetadataValue::new("Lex Luthor".into()),
+            op: PredicateOp::NotEquals,
+        })
+        .or(PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("planet".into()),
+            value: MetadataValue::new("earth".into()),
+            op: PredicateOp::NotEquals,
+        }));
+        let res = handler.get_pred_in_store(&even_store, &condition);
+        assert_eq!(
+            res.unwrap_err(),
+            ServerError::PredicateNotFound(MetadataKey::new("planet".into()))
+        );
+        handler
+            .reindex(
+                &even_store,
+                vec![
+                    MetadataKey::new("author".into()),
+                    MetadataKey::new("planet".into()),
+                ],
+            )
+            .unwrap();
+        let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
+        assert_eq!(res.len(), 2);
     }
 
     #[test]

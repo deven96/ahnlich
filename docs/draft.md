@@ -98,7 +98,7 @@
 
     Validation should check if predicate was enabled.
 
-    - `INDEXPRED`: takes in predicates, store,and attempts to build a predicate indices
+    - `REINDEX`: Reindexes a store using some new predicates. Adds the predicates that did not exist and does not remove existing predicates
     - `DROPINDEXPRED`: takes in predicate, store and drops the predicate for that store
 
     - `SET`: takes in store, length of input vector, input of which each should have a key matching store dimension and value of type json.

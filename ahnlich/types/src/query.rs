@@ -30,7 +30,7 @@ pub enum Query {
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     },
-    IndexPred {
+    ReIndex {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
     },
