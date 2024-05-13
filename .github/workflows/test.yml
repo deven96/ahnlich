@@ -2,7 +2,7 @@ name: Rust Test
 
 on:
   push:
-    branches: ["main"]
+    branches: ["*"]
     paths:
       - ahnlich/**
   pull_request:
