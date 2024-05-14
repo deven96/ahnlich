@@ -2,11 +2,15 @@ name: Rust Test
 
 on:
   push:
-    branches: ["**"]
+    branches:
+      - "**"
+      - david/ci-cd
     paths:
       - ahnlich/**
   pull_request:
-    branches: ["**"]
+    branches: 
+      - "**"
+      - david/ci-cd
     paths:
       - ahnlich/**
 
