@@ -5,14 +5,14 @@ on:
     branches:
       - "**"
       - david/ci-cd
-    paths:
-      - ahnlich/**
+    # paths:
+    #   - ahnlich/**
   pull_request:
     branches: 
       - "**"
       - david/ci-cd
-    paths:
-      - ahnlich/**
+    # paths:
+    #   - ahnlich/**
 
 env:
   CARGO_TERM_COLOR: always
