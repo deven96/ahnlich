@@ -1,0 +1,46 @@
+name: Rust Test
+
+on:
+  push:
+    branches:
+      - "*"
+    paths:
+      - ahnlich/**
+  pull_request:
+    branches: 
+      - "*"
+    paths:
+      - ahnlich/**
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Set up Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ahnlich
+
+    - name: Set up cargo and rustup tools
+      run: |
+        which cargo-nextest || cargo install cargo-nextest
+    
+    - name: Cache Docker images.
+      uses: ScribeMD/docker-cache@0.5.0
+      with:
+        key: ${{ runner.os }}-cargo-${{ hashFiles('ahnlich/Cargo.lock') }}
+    - name: Format and Lint
+      working-directory: ./ahnlich
+      run: |
+        make format
+        make clippy
+
+    - name: Run Test
+      working-directory: ./ahnlich
+      run: |
+        make test
+
