@@ -32,7 +32,7 @@ impl<'a> Eq for SimilarityVector<'a> {}
 
 impl PartialOrd for SimilarityVector<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        (self.0).1.partial_cmp(&(other.0).1)
+        Some(self.cmp(other))
     }
 }
 

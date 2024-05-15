@@ -76,13 +76,7 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f64 {
     // the magnitude can be calculated using the arr.norm method.
     let mag_first = &first.0.iter().map(|x| x * x).sum::<f64>().sqrt();
 
-    let mag_second = &second
-        .0
-        .iter()
-        .map(|x| x * x)
-        .map(|x| x)
-        .sum::<f64>()
-        .sqrt();
+    let mag_second = &second.0.iter().map(|x| x * x).sum::<f64>().sqrt();
 
     dot_product / (mag_first * mag_second)
 }

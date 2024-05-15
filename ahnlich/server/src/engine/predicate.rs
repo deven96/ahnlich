@@ -98,13 +98,12 @@ impl PredicateIndices {
             for new_predicate in new_predicates {
                 let val = new_values
                     .iter()
-                    .map(|(store_key_id, store_value)| {
+                    .flat_map(|(store_key_id, store_value)| {
                         store_value
                             .iter()
                             .filter(|(key, _)| **key == new_predicate)
                             .map(|(_, val)| (val.clone(), store_key_id.clone()))
                     })
-                    .flatten()
                     .collect::<Vec<_>>();
                 let pred = PredicateIndex::init(val.clone());
                 if let Err(existing_predicate) =
@@ -130,7 +129,6 @@ impl PredicateIndices {
                 })
             })
             .flatten()
-            .into_iter()
             .map(|(store_key_id, key, val)| (key, (val, store_key_id)))
             .into_group_map();
 
@@ -156,7 +154,7 @@ impl PredicateIndices {
                 if let Some(predicate) = predicate_values.get(key) {
                     // retrieve the precise predicate if it exists and check against it
                     return Ok(predicate.matches(op, value));
-                } else if pinned_keys.contains(&key) {
+                } else if pinned_keys.contains(key) {
                     // predicate does not exist because perhaps we have not been passing a value
                     // but it is within allowed so this isn't an error
                     return Ok(StdHashSet::new());
@@ -256,8 +254,7 @@ impl PredicateIndex {
             PredicateOp::NotEquals => pinned
                 .iter()
                 .filter(|(key, _)| **key != *value)
-                .map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
-                .flatten()
+                .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
                 .collect(),
         }
     }
