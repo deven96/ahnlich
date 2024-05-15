@@ -103,7 +103,8 @@ impl StoreHandler {
         predicates: Vec<MetadataKey>,
     ) -> Result<(), ServerError> {
         let store = self.get(store_name)?;
-        Ok(store.reindex(predicates.into_iter().collect()))
+        store.reindex(predicates.into_iter().collect());
+        Ok(())
     }
 
     /// Matches DELKEY - removes keys from a store
@@ -215,11 +216,15 @@ impl StoreHandler {
         dimension: NonZeroUsize,
         predicates: Vec<MetadataKey>,
     ) -> Result<(), ServerError> {
-        if let Err(_) = self.stores.try_insert(
-            store_name.clone(),
-            Arc::new(Store::create(dimension, predicates)),
-            &self.stores.guard(),
-        ) {
+        if self
+            .stores
+            .try_insert(
+                store_name.clone(),
+                Arc::new(Store::create(dimension, predicates)),
+                &self.stores.guard(),
+            )
+            .is_err()
+        {
             return Err(ServerError::StoreAlreadyExists(store_name));
         }
         Ok(())

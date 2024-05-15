@@ -71,7 +71,7 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f64 {
     //
     //
 
-    let dot_product = dot_product(&first, &second);
+    let dot_product = dot_product(first, second);
 
     // the magnitude can be calculated using the arr.norm method.
     let mag_first = &first.0.iter().map(|x| x * x).sum::<f64>().sqrt();
@@ -84,9 +84,7 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f64 {
         .sum::<f64>()
         .sqrt();
 
-    let cosine_sim = dot_product / (mag_first * mag_second);
-
-    cosine_sim
+    dot_product / (mag_first * mag_second)
 }
 
 ///
@@ -130,8 +128,7 @@ fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f64 {
     }
 
     // Calculate the square root of the sum of squared differences
-    let distance = f64::sqrt(sum_of_squared_differences);
-    distance
+    f64::sqrt(sum_of_squared_differences)
 }
 
 #[cfg(test)]

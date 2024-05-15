@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod algorithm;
 mod engine;
 mod errors;
