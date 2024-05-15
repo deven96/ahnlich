@@ -2,17 +2,13 @@ name: Rust Test
 
 on:
   push:
-    branches:
-      - "**"
-      - david/ci-cd
-    # paths:
-    #   - ahnlich/**
+    branches: ["main"]
+    paths:
+      - ahnlich/**
   pull_request:
-    branches: 
-      - "**"
-      - david/ci-cd
-    # paths:
-    #   - ahnlich/**
+    branches: ["main"]
+    paths:
+      - ahnlich/**
 
 env:
   CARGO_TERM_COLOR: always
