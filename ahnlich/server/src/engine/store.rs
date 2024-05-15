@@ -7,6 +7,7 @@ use sha2::Digest;
 use sha2::Sha256;
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
+use std::fmt::Write;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -49,10 +50,11 @@ impl From<&StoreKey> for StoreKeyId {
         }
         let result = hasher.finalize();
         // Convert the hash bytes to a hexadecimal string
-        let hash_string = result
-            .iter()
-            .map(|byte| format!("{:02x}", byte))
-            .collect::<String>();
+
+        let hash_string = result.iter().fold(String::new(), |mut acc, byte| {
+            let _ = write!(acc, "{byte:02x}");
+            acc
+        });
         Self(hash_string)
     }
 }
@@ -103,7 +105,8 @@ impl StoreHandler {
         predicates: Vec<MetadataKey>,
     ) -> Result<(), ServerError> {
         let store = self.get(store_name)?;
-        Ok(store.reindex(predicates.into_iter().collect()))
+        store.reindex(predicates.into_iter().collect());
+        Ok(())
     }
 
     /// Matches DELKEY - removes keys from a store
@@ -215,11 +218,15 @@ impl StoreHandler {
         dimension: NonZeroUsize,
         predicates: Vec<MetadataKey>,
     ) -> Result<(), ServerError> {
-        if let Err(_) = self.stores.try_insert(
-            store_name.clone(),
-            Arc::new(Store::create(dimension, predicates)),
-            &self.stores.guard(),
-        ) {
+        if self
+            .stores
+            .try_insert(
+                store_name.clone(),
+                Arc::new(Store::create(dimension, predicates)),
+                &self.stores.guard(),
+            )
+            .is_err()
+        {
             return Err(ServerError::StoreAlreadyExists(store_name));
         }
         Ok(())
@@ -331,7 +338,7 @@ impl Store {
         };
         let res: Vec<(StoreKeyId, (StoreKey, StoreValue))> = new
             .into_iter()
-            .map(|item| check_bounds(item))
+            .map(check_bounds)
             .collect::<Result<_, _>>()?;
         let predicate_insert = res
             .iter()

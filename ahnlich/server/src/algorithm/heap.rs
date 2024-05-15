@@ -82,28 +82,28 @@ impl<'a> MaxHeap<'a> {
 }
 
 pub(crate) enum AlgorithmHeapType<'a> {
-    MIN(MinHeap<'a>),
-    MAX(MaxHeap<'a>),
+    Min(MinHeap<'a>),
+    Max(MaxHeap<'a>),
 }
 
 impl<'a> AlgorithmHeapType<'a> {
     pub(crate) fn push(&mut self, item: SimilarityVector<'a>) {
         match self {
-            Self::MAX(h) => h.push(item),
-            Self::MIN(h) => h.push(item),
+            Self::Max(h) => h.push(item),
+            Self::Min(h) => h.push(item),
         }
     }
     pub(crate) fn pop(&mut self) -> Option<SimilarityVector<'a>> {
         match self {
-            Self::MAX(h) => h.pop(),
-            Self::MIN(h) => h.pop(),
+            Self::Max(h) => h.pop(),
+            Self::Min(h) => h.pop(),
         }
     }
 
     pub(crate) fn output(&mut self) -> Vec<(&'a StoreKey, f64)> {
         match self {
-            Self::MIN(h) => h.output(),
-            Self::MAX(h) => h.output(),
+            Self::Min(h) => h.output(),
+            Self::Max(h) => h.output(),
         }
     }
 }
@@ -111,9 +111,9 @@ impl<'a> AlgorithmHeapType<'a> {
 impl From<(&Algorithm, NonZeroUsize)> for AlgorithmHeapType<'_> {
     fn from((value, capacity): (&Algorithm, NonZeroUsize)) -> Self {
         match value {
-            Algorithm::EuclideanDistance => AlgorithmHeapType::MIN(MinHeap::new(capacity)),
+            Algorithm::EuclideanDistance => AlgorithmHeapType::Min(MinHeap::new(capacity)),
             Algorithm::CosineSimilarity | Algorithm::DotProductSimilarity => {
-                AlgorithmHeapType::MAX(MaxHeap::new(capacity))
+                AlgorithmHeapType::Max(MaxHeap::new(capacity))
             }
         }
     }

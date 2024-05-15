@@ -2,7 +2,6 @@ use crate::metadata::MetadataKey;
 use crate::metadata::MetadataValue;
 use ndarray::Array1;
 use std::collections::HashMap as StdHashMap;
-use std::ops::Deref;
 
 /// Name of a Store
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]

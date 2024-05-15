@@ -125,6 +125,8 @@
 
     - `LISTCLIENTS`: Returns a list of clients connected to the server
 
+    - `PING`: Test server if the server is reachable
+
     ### Clients
 
     #### Language Clients
