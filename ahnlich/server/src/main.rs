@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-
+#![allow(clippy::size_of_ref)]
 mod algorithm;
 mod engine;
 mod errors;
