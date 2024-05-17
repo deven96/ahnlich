@@ -14,7 +14,9 @@ flurry = "0.5.1"
 sha2 = "0.10.3"
 ndarray.workspace = true
 itertools.workspace = true
+clap.workspace = true
 types = { path = "../types", version = "*" }
+tokio = { version = "1.37.0", features = ["full"] }
 
 [dev-dependencies]
 loom = "0.7.2"
