@@ -12,10 +12,11 @@ use crate::cli::{Cli, Commands, ServerConfig};
 use clap::Parser;
 use env_logger::Env;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::net::{TcpListener, TcpStream};
 
+#[cfg(not(test))]
 async fn run_server(config: &ServerConfig) -> std::io::Result<()> {
-    let listener = TcpListener::bind(format!("{}:{}", &config.host, config.port)).await?;
+    let listener =
+        tokio::net::TcpListener::bind(format!("{}:{}", &config.host, config.port)).await?;
 
     loop {
         let (stream, connect_addr) = listener.accept().await?;
@@ -28,7 +29,8 @@ async fn run_server(config: &ServerConfig) -> std::io::Result<()> {
     }
 }
 
-async fn process_stream(stream: TcpStream) -> Result<(), tokio::io::Error> {
+#[cfg(not(test))]
+async fn process_stream(stream: tokio::net::TcpStream) -> Result<(), tokio::io::Error> {
     stream.readable().await?;
     let mut reader = BufReader::new(stream);
     loop {
@@ -39,6 +41,7 @@ async fn process_stream(stream: TcpStream) -> Result<(), tokio::io::Error> {
     }
 }
 
+#[cfg(not(test))]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();

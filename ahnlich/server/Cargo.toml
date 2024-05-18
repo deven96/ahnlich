@@ -18,9 +18,10 @@ clap.workspace = true
 env_logger.workspace = true
 log.workspace = true
 types = { path = "../types", version = "*" }
-tokio = { version = "1.37.0", features = ["net", "macros", "io-util", "rt-multi-thread"] }
+
+tokio = { version = "1.37.0", features = ["net", "macros", "io-util", "rt-multi-thread", "sync"] }
 
 [dev-dependencies]
 loom = "0.7.2"
 serde_json = "1.0.116"
-
+tokio = { version = "1.37.0", features = ["io-util", "sync"] }
