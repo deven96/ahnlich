@@ -15,8 +15,10 @@ sha2 = "0.10.3"
 ndarray.workspace = true
 itertools.workspace = true
 clap.workspace = true
+env_logger.workspace = true
+log.workspace = true
 types = { path = "../types", version = "*" }
-tokio = { version = "1.37.0", features = ["full"] }
+tokio = { version = "1.37.0", features = ["net", "macros", "io-util", "rt-multi-thread"] }
 
 [dev-dependencies]
 loom = "0.7.2"
