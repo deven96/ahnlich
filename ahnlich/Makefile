@@ -19,7 +19,7 @@ check: ## cargo check
 	cargo check
 
 test: ## cargo test
-	RUSTFLAGS="--cfg loom" cargo nextest run --no-capture
+	cargo nextest run --no-capture
 
 all: format check test clippy ## format, clip and test code
 
