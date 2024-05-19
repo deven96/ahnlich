@@ -1,47 +1,8 @@
-#![allow(dead_code)]
-#![allow(clippy::size_of_ref)]
-mod algorithm;
-mod cli;
-mod engine;
-mod errors;
-mod network;
-mod storage;
-use std::error::Error;
-
-use crate::cli::{Cli, Commands, ServerConfig};
 use clap::Parser;
 use env_logger::Env;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use server::cli::{Cli, Commands};
+use std::error::Error;
 
-#[cfg(not(test))]
-async fn run_server(config: &ServerConfig) -> std::io::Result<()> {
-    let listener =
-        tokio::net::TcpListener::bind(format!("{}:{}", &config.host, config.port)).await?;
-
-    loop {
-        let (stream, connect_addr) = listener.accept().await?;
-        log::info!("Connecting to {}", connect_addr);
-        tokio::spawn(async move {
-            if let Err(e) = process_stream(stream).await {
-                log::error!("Error handling connection: {}", e)
-            };
-        });
-    }
-}
-
-#[cfg(not(test))]
-async fn process_stream(stream: tokio::net::TcpStream) -> Result<(), tokio::io::Error> {
-    stream.readable().await?;
-    let mut reader = BufReader::new(stream);
-    loop {
-        let mut message = String::new();
-        let _ = reader.read_line(&mut message).await?;
-        reader.get_mut().write_all(message.as_bytes()).await?;
-        message.clear();
-    }
-}
-
-#[cfg(not(test))]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
@@ -49,11 +10,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     match &cli.command {
         Commands::Run(config) => {
-            run_server(config).await?;
+            server::run_server(config.to_owned()).await?;
         }
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests;

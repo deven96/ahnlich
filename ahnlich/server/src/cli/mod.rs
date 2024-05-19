@@ -1,3 +1,3 @@
-mod server;
+pub mod server;
 
-pub(crate) use server::{Cli, Commands, ServerConfig};
+pub use server::{Cli, Commands};

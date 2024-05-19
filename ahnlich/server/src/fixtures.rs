@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use types::keyval::StoreKey;
 
-pub(crate) fn key_to_words(
+pub fn key_to_words(
     key: &StoreKey,
     vector_to_sentences: &Vec<(StoreKey, String)>,
 ) -> Option<String> {
@@ -13,8 +13,8 @@ pub(crate) fn key_to_words(
     None
 }
 
-pub(crate) fn word_to_vector() -> HashMap<String, StoreKey> {
-    let words = std::fs::read_to_string("src/tests/mock_data.json").unwrap();
+pub fn word_to_vector() -> HashMap<String, StoreKey> {
+    let words = std::fs::read_to_string("tests/mock_data.json").unwrap();
 
     let words_to_vec: HashMap<String, Vec<f64>> = serde_json::from_str(&words).unwrap();
 
@@ -25,15 +25,15 @@ pub(crate) fn word_to_vector() -> HashMap<String, StoreKey> {
     )
 }
 
-pub(crate) const SEACH_TEXT: &'static str =
+pub const SEACH_TEXT: &'static str =
     "Football fans enjoy gathering to watch matches at sports bars.";
 
-pub(crate) const MOST_SIMILAR: [&'static str; 3] = [
+pub const MOST_SIMILAR: [&'static str; 3] = [
     "Attending football games at the stadium is an exciting experience.",
     "On sunny days, people often gather outdoors for a friendly game of football.",
     "Rainy weather can sometimes lead to canceled outdoor events like football matches.",
 ];
-pub(crate) const SENTENCES: [&'static str; 5] = [
+pub const SENTENCES: [&'static str; 5] = [
     "On sunny days, people often gather outdoors for a friendly game of football.",
     "Attending football games at the stadium is an exciting experience.",
     "Grilling burgers and hot dogs is a popular activity during summer barbecues.",
