@@ -1,3 +1,3 @@
 pub mod server;
 
-pub use server::{Cli, Commands};
+pub use server::{Cli, Commands, ServerConfig};
