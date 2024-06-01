@@ -50,8 +50,8 @@ impl From<&Algorithm> for SimilarityFunc {
 ///             where A and B are two vectors.
 ///
 ///   - divide the dot product by the product of the magnitude of both vectors.
-///        ```
-///           cos(0) = A.B / ||A||.||B||
+///        ```#
+///            cos(0) = A.B / ||A||.||B||
 ///        ```
 ///
 ///     where Magnitude(A or B):
@@ -128,8 +128,7 @@ fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use crate::tests::fixtures::*;
+    use crate::tests::*;
 
     #[test]
     fn test_find_top_3_similar_words_using_cosine_similarity() {

@@ -1,14 +1,17 @@
-#![allow(dead_code)]
-#![allow(clippy::size_of_ref)]
-mod algorithm;
-mod engine;
-mod errors;
-mod network;
-mod storage;
+use clap::Parser;
+use env_logger::Env;
+use server::cli::{Cli, Commands};
+use std::error::Error;
 
-#[cfg(test)]
-mod tests;
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-fn main() {
-    println!("Hello, world!");
+    let cli = Cli::parse();
+    match &cli.command {
+        Commands::Run(config) => {
+            server::run_server(config.to_owned()).await?;
+        }
+    }
+    Ok(())
 }

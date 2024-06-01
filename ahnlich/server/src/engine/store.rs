@@ -404,10 +404,10 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
+    use crate::tests::*;
     use std::num::NonZeroUsize;
 
     use super::*;
-    use crate::tests::fixtures::*;
     use ndarray::array;
     use ndarray::Array1;
     use std::collections::HashMap as StdHashMap;

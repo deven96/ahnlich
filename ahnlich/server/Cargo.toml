@@ -7,6 +7,9 @@ edition = "2021"
 name = "anlich-server"
 path = "src/main.rs"
 
+[lib]
+path = "src/lib.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -14,9 +17,15 @@ flurry = "0.5.1"
 sha2 = "0.10.3"
 ndarray.workspace = true
 itertools.workspace = true
+clap.workspace = true
+env_logger.workspace = true
+log.workspace = true
 types = { path = "../types", version = "*" }
+
+tokio = { version = "1.37.0", features = ["net", "macros", "io-util", "rt-multi-thread", "sync"] }
 
 [dev-dependencies]
 loom = "0.7.2"
+reqwest = "0.12.4"
 serde_json = "1.0.116"
-
+tokio = { version = "1.37.0", features = ["io-util", "sync"] }
