@@ -16,6 +16,7 @@ path = "src/lib.rs"
 flurry = "0.5.1"
 sha2 = "0.10.3"
 ndarray.workspace = true
+bincode.workspace = true
 itertools.workspace = true
 clap.workspace = true
 env_logger.workspace = true

@@ -80,9 +80,9 @@
 
     Here's a rough sketch of commands to be expanded on later:
     
-    - `CONNECT`
-    - `DISCONNECT`
-    - `SHUTDOWNSERVER`: shut down basically discounts from all connected clients, performs cleanup before killing the server
+<!--    - `CONNECT`-->
+<!--    - `DISCONNECT`-->
+<!--    - `SHUTDOWNSERVER`: shut down basically discounts from all connected clients, performs cleanup before killing the server-->
     - `CREATE`: Create a store which must have a unique name with respect to the server.
     Create can take in name_of_store, dimensions_of_vectors(immutable) to be stored in that store, ability to create predicate indices
     - `GETKEY`: takes in store, key and direct return of key within store matching the input key

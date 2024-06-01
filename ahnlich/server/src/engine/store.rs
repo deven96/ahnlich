@@ -404,7 +404,7 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::*;
+    use crate::fixtures::*;
     use std::num::NonZeroUsize;
 
     use super::*;

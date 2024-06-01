@@ -11,8 +11,6 @@ use serde::Serialize;
 /// All possible queries for the server to respond to
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Query {
-    Connect,
-    Disconnect,
     Create {
         store: StoreName,
         dimension: NonZeroUsize,
@@ -54,9 +52,6 @@ pub enum Query {
     },
     DropStore {
         store: StoreName,
-    },
-    ShutdownServer {
-        reason: Option<String>,
     },
     InfoServer,
     ListStores,

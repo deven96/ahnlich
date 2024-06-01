@@ -34,19 +34,18 @@ pub struct ServerConfig {
     pub(crate) persistence_intervals: u64,
 }
 
-impl ServerConfig {
-    fn new() -> Self {
+impl Default for ServerConfig {
+    fn default() -> Self {
         Self {
             host: String::from("127.0.0.1"),
-            port: 1396,
+            #[cfg(not(test))]
+            port: 1369,
+            // allow OS to pick a port
+            #[cfg(test)]
+            port: 0,
             enable_persistence: false,
             persist_location: None,
             persistence_intervals: 1000 * 60 * 5,
         }
-    }
-}
-impl Default for ServerConfig {
-    fn default() -> Self {
-        Self::new()
     }
 }
