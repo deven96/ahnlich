@@ -1,8 +1,10 @@
 use crate::metadata::MetadataKey;
 use crate::metadata::MetadataValue;
+use serde::Deserialize;
+use serde::Serialize;
 
 /// PredicateOp are the various operations that can be conducted against a predicate value
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum PredicateOp {
     Equals,
     NotEquals,
@@ -11,7 +13,7 @@ pub enum PredicateOp {
 /// Representation of how one predicate value and ops looks
 /// to specify a predicate of name != "David", one would use the format
 /// PredicateOp { key: "name", value: "David", op: NotEquals }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Predicate {
     pub key: MetadataKey,
     pub value: MetadataValue,
@@ -20,7 +22,7 @@ pub struct Predicate {
 
 /// All possible representations of a predicate condition
 /// We can only have a simple And or Or and we can combine those in any fashion
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PredicateCondition {
     And(Box<PredicateCondition>, Box<PredicateCondition>),
     Or(Box<PredicateCondition>, Box<PredicateCondition>),

@@ -5,9 +5,11 @@ use crate::keyval::{SearchInput, StoreKey, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
 use crate::similarity::Algorithm;
+use serde::Deserialize;
+use serde::Serialize;
 
 /// All possible queries for the server to respond to
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Query {
     Connect,
     Disconnect,

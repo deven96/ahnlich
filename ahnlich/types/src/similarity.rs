@@ -1,4 +1,7 @@
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+use serde::Deserialize;
+use serde::Serialize;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 /// Supported ahnlich similarity algorithms
 pub enum Algorithm {
     /// Euclidean distance is defined as the L2-norm of the difference between two vectors or their
