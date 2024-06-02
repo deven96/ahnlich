@@ -3,7 +3,7 @@ mod similarity;
 
 use std::num::NonZeroUsize;
 
-use types::keyval::{SearchInput, StoreKey};
+use types::keyval::StoreKey;
 use types::similarity::Algorithm;
 
 use self::{heap::AlgorithmHeapType, similarity::SimilarityFunc};
@@ -48,7 +48,7 @@ impl Ord for SimilarityVector<'_> {
 pub(crate) trait FindSimilarN {
     fn find_similar_n<'a>(
         &'a self,
-        search_vector: &SearchInput,
+        search_vector: &StoreKey,
         search_list: impl Iterator<Item = &'a StoreKey>,
         n: NonZeroUsize,
     ) -> Vec<(&'a StoreKey, f64)>;
@@ -57,17 +57,16 @@ pub(crate) trait FindSimilarN {
 impl FindSimilarN for Algorithm {
     fn find_similar_n<'a>(
         &'a self,
-        search_vector: &SearchInput,
+        search_vector: &StoreKey,
         search_list: impl Iterator<Item = &'a StoreKey>,
         n: NonZeroUsize,
     ) -> Vec<(&'a StoreKey, f64)> {
         let mut heap: AlgorithmHeapType = (self, n).into();
 
         let similarity_function: SimilarityFunc = self.into();
-        let search_vector = StoreKey(search_vector.clone());
 
         for second_vector in search_list {
-            let similarity = similarity_function(&search_vector, second_vector);
+            let similarity = similarity_function(search_vector, second_vector);
 
             let heap_value: SimilarityVector = (second_vector, similarity).into();
             heap.push(heap_value)
@@ -79,7 +78,7 @@ impl FindSimilarN for Algorithm {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::*;
+    use crate::fixtures::*;
 
     #[test]
     fn test_teststore_find_top_3_similar_words_using_find_nearest_n() {
@@ -100,7 +99,7 @@ mod tests {
         let cosine_algorithm = Algorithm::CosineSimilarity;
 
         let similar_n_search = cosine_algorithm.find_similar_n(
-            &first_vector.0,
+            &first_vector,
             search_list.iter(),
             NonZeroUsize::new(no_similar_values).unwrap(),
         );

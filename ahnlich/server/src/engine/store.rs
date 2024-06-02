@@ -11,7 +11,6 @@ use std::fmt::Write;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use types::keyval::SearchInput;
 use types::keyval::StoreKey;
 use types::keyval::StoreName;
 use types::keyval::StoreValue;
@@ -133,7 +132,7 @@ impl StoreHandler {
     pub(crate) fn get_sim_in_store(
         &self,
         store_name: &StoreName,
-        search_input: SearchInput,
+        search_input: StoreKey,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
@@ -383,6 +382,7 @@ impl Store {
     /// TODO: Fix nested calculation of sizes using size_of_val
     fn size(&self) -> usize {
         size_of_val(&self)
+            + size_of_val(&self.dimension)
             + size_of_val(&self.id_to_value)
             + self
                 .id_to_value
@@ -404,7 +404,7 @@ impl Store {
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::*;
+    use crate::fixtures::*;
     use std::num::NonZeroUsize;
 
     use super::*;
@@ -863,12 +863,12 @@ mod tests {
                 StoreInfo {
                     name: odd_store,
                     len: 2,
-                    size_in_bytes: 2096,
+                    size_in_bytes: 2104,
                 },
                 StoreInfo {
                     name: even_store,
                     len: 0,
-                    size_in_bytes: 1728,
+                    size_in_bytes: 1736,
                 },
             ])
         )
@@ -929,7 +929,7 @@ mod tests {
             value: MetadataValue::new("Chunin".into()),
             op: PredicateOp::Equals,
         });
-        let search_input = vectors.get(SEACH_TEXT).unwrap().0.clone();
+        let search_input = StoreKey(vectors.get(SEACH_TEXT).unwrap().0.clone());
         let algorithm = Algorithm::CosineSimilarity;
 
         let closest_n = NonZeroUsize::new(3).unwrap();
