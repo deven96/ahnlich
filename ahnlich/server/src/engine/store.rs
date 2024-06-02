@@ -382,6 +382,7 @@ impl Store {
     /// TODO: Fix nested calculation of sizes using size_of_val
     fn size(&self) -> usize {
         size_of_val(&self)
+            + size_of_val(&self.dimension)
             + size_of_val(&self.id_to_value)
             + self
                 .id_to_value
@@ -862,12 +863,12 @@ mod tests {
                 StoreInfo {
                     name: odd_store,
                     len: 2,
-                    size_in_bytes: 2096,
+                    size_in_bytes: 2104,
                 },
                 StoreInfo {
                     name: even_store,
                     len: 0,
-                    size_in_bytes: 1728,
+                    size_in_bytes: 1736,
                 },
             ])
         )
