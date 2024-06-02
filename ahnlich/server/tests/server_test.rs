@@ -1,4 +1,6 @@
+use futures::future::join_all;
 use server::cli::ServerConfig;
+use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
@@ -18,14 +20,36 @@ async fn test_run_server_echos() {
 
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
+    let tasks = vec![
+        tokio::spawn(async move {
+            let message = ServerQuery::from_queries(&[Query::InfoServer, Query::Ping]);
+            let mut expected = ServerResult::with_capacity(2);
+            expected.push(Ok(ServerResponse::Unit));
+            expected.push(Ok(ServerResponse::Pong));
+            query_server_assert_result(address, message, expected).await
+        }),
+        tokio::spawn(async move {
+            let message = ServerQuery::from_queries(&[Query::Ping, Query::InfoServer]);
+            let mut expected = ServerResult::with_capacity(2);
+            expected.push(Ok(ServerResponse::Pong));
+            expected.push(Ok(ServerResponse::Unit));
+            query_server_assert_result(address, message, expected).await
+        }),
+    ];
+    join_all(tasks).await;
+}
 
+async fn query_server_assert_result(
+    server_addr: SocketAddr,
+    query: ServerQuery,
+    expected_result: ServerResult,
+) {
     // Connect to the server
-    let stream = TcpStream::connect(address).await.unwrap();
+    let stream = TcpStream::connect(server_addr).await.unwrap();
     let mut reader = BufReader::new(stream);
 
     // Message to send
-    let message = ServerQuery::from_queries(&[Query::InfoServer, Query::Ping]);
-    let serialized_message = message.serialize().unwrap();
+    let serialized_message = query.serialize().unwrap();
 
     // Send the message
     reader.write_all(&serialized_message).await.unwrap();
@@ -47,11 +71,7 @@ async fn test_run_server_echos() {
         .unwrap()
         .unwrap();
 
-    let mut expected = ServerResult::with_capacity(2);
-    expected.push(Ok(ServerResponse::Unit));
-    expected.push(Ok(ServerResponse::Pong));
-
     let response = ServerResult::deserialize(false, &response).unwrap();
 
-    assert_eq!(response, expected);
+    assert_eq!(response, expected_result);
 }

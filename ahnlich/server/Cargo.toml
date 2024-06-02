@@ -30,3 +30,4 @@ loom = "0.7.2"
 reqwest = "0.12.4"
 serde_json = "1.0.116"
 tokio = { version = "1.37.0", features = ["io-util", "sync"] }
+futures.workspace = true
