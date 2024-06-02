@@ -1,8 +1,7 @@
-use bincode::config::DefaultOptions;
-use bincode::config::Options;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
+use crate::bincode::BinCodeSerAndDeser;
 use crate::keyval::{StoreKey, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
@@ -10,7 +9,6 @@ use crate::similarity::Algorithm;
 use serde::Deserialize;
 use serde::Serialize;
 
-pub const LENGTH_HEADER_SIZE: usize = 8;
 /// All possible queries for the server to respond to
 ///
 ///
@@ -68,48 +66,31 @@ pub enum Query {
     Ping,
 }
 
-#[derive(Debug)]
-pub struct SerializedQuery {
-    data: Vec<u8>,
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServerQuery {
+    queries: Vec<Query>,
 }
 
-impl SerializedQuery {
-    /// Sends an array of queries with their length encoding first specified in 8 bytes
-    /// Enforces default configuration for bincode serialization
-    pub fn from_queries(queries: &[Query]) -> Result<Self, bincode::Error> {
-        // TODO: Make shareable across serialize and deserialize as perhaps a config stored on heap
-        // initialized via once_cell. Currently cannot be done as Limit must be specified for the
-        // Options trait and the Limit enum is not made public outside bincode
-        let config = DefaultOptions::new()
-            .with_fixint_encoding()
-            .with_big_endian();
-        let serialized_data = config.serialize(queries)?;
-        let data_length = serialized_data.len() as u64;
-
-        let mut buffer = Vec::with_capacity(LENGTH_HEADER_SIZE + serialized_data.len());
-        buffer.extend(&data_length.to_be_bytes());
-        buffer.extend(&serialized_data);
-        Ok(SerializedQuery { data: buffer })
+impl ServerQuery {
+    pub fn with_capacity(len: usize) -> Self {
+        Self {
+            queries: Vec::with_capacity(len),
+        }
     }
 
-    pub fn data(&self) -> &[u8] {
-        &self.data
+    pub fn push(&mut self, entry: Query) {
+        self.queries.push(entry)
     }
 
-    pub fn length(&self) -> usize {
-        let mut length_buf = [0u8; LENGTH_HEADER_SIZE];
-        length_buf.copy_from_slice(&self.data[0..LENGTH_HEADER_SIZE]);
-        let length = u64::from_be_bytes(length_buf);
-        length as usize
+    pub fn from_queries(queries: &[Query]) -> Self {
+        Self {
+            queries: queries.to_vec(),
+        }
+    }
+
+    pub fn into_inner(self) -> Vec<Query> {
+        self.queries
     }
 }
 
-/// Receives an array of bytes with their length encoding first specified in 8 bytes
-/// Uses default configuration for bincode deserialization to attempt to retrieve queries
-pub fn deserialize_queries(queries: &[u8]) -> Result<Vec<Query>, bincode::Error> {
-    let config = DefaultOptions::new()
-        .with_fixint_encoding()
-        .with_big_endian();
-    let deserialized_data = config.deserialize(queries)?;
-    Ok(deserialized_data)
-}
+impl BinCodeSerAndDeser<'_> for ServerQuery {}
