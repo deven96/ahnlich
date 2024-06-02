@@ -19,8 +19,6 @@ ndarray.workspace = true
 bincode.workspace = true
 itertools.workspace = true
 clap.workspace = true
-env_logger.workspace = true
-log.workspace = true
 thiserror = "1.0"
 types = { path = "../types", version = "*" }
 tokio = { version = "1.37.0", features = [
@@ -33,6 +31,10 @@ tokio = { version = "1.37.0", features = [
 ]}
 tokio-graceful = "0.1.6"
 cap = "0.1.2"
+once_cell.workspace = true
+tracing.workspace = true
+tracer = { path = "../tracer", version = "*" }
+
 
 [dev-dependencies]
 loom = "0.7.2"
