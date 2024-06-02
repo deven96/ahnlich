@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 ndarray.workspace = true
 serde.workspace = true
+bincode.workspace = true

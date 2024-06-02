@@ -11,7 +11,7 @@ use crate::engine::store::StoreHandler;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 
@@ -79,12 +79,13 @@ impl ServerTask {
     async fn process(self) -> IoResult<()> {
         self.stream.readable().await?;
         let mut reader = BufReader::new(self.stream);
+        let mut length_buf = [0u8; types::query::LENGTH_HEADER_SIZE];
         loop {
-            let mut message = String::new();
-            // TODO: Make this able to read vec queries in frames
-            let _ = reader.read_line(&mut message).await?;
-            reader.get_mut().write_all(message.as_bytes()).await?;
-            message.clear();
+            reader.read_exact(&mut length_buf).await?;
+            let data_length = u64::from_be_bytes(length_buf);
+            let mut data = vec![0u8; data_length as usize];
+            reader.read_exact(&mut data).await?;
+            reader.get_mut().write_all(&data).await?;
         }
     }
 }

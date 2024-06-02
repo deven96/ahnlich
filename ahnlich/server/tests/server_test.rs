@@ -1,7 +1,10 @@
 use server::cli::ServerConfig;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
+use types::query::deserialize_queries;
+use types::query::Query;
+use types::query::SerializedQuery;
 
 #[tokio::test]
 async fn test_run_server_echos() {
@@ -19,17 +22,20 @@ async fn test_run_server_echos() {
     let mut reader = BufReader::new(stream);
 
     // Message to send
-    let message = b"Hello, world!\n";
+    let message = vec![Query::InfoServer, Query::Ping];
+    let serialized_message = SerializedQuery::from_queries(&message).unwrap();
 
     // Send the message
-    reader.write_all(message).await.unwrap();
+    reader.write_all(serialized_message.data()).await.unwrap();
 
-    let mut response = String::new();
+    let mut response = vec![0u8; serialized_message.length()];
 
-    timeout(Duration::from_secs(1), reader.read_line(&mut response))
+    timeout(Duration::from_secs(1), reader.read_exact(&mut response))
         .await
         .unwrap()
         .unwrap();
 
-    assert_eq!(message, response.as_bytes());
+    let deserialized = deserialize_queries(&response).unwrap();
+
+    assert_eq!(message, deserialized);
 }

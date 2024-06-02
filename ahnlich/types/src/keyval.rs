@@ -14,9 +14,20 @@ pub struct StoreName(pub String);
 pub type StoreValue = StdHashMap<MetadataKey, MetadataValue>;
 
 /// A store key is always an f64 one dimensional array
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct StoreKey(pub Array1<f64>);
 
-/// Search input is just also an f64 one dimensional array
-pub type SearchInput = Array1<f64>;
+impl Eq for StoreKey {}
+
+impl PartialEq for StoreKey {
+    fn eq(&self, other: &Self) -> bool {
+        if self.0.shape() != other.0.shape() {
+            return false;
+        }
+        self.0
+            .iter()
+            .zip(other.0.iter())
+            .all(|(x, y)| (x - y).abs() < std::f64::EPSILON)
+    }
+}

@@ -11,7 +11,6 @@ use std::fmt::Write;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
-use types::keyval::SearchInput;
 use types::keyval::StoreKey;
 use types::keyval::StoreName;
 use types::keyval::StoreValue;
@@ -133,7 +132,7 @@ impl StoreHandler {
     pub(crate) fn get_sim_in_store(
         &self,
         store_name: &StoreName,
-        search_input: SearchInput,
+        search_input: StoreKey,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
@@ -929,7 +928,7 @@ mod tests {
             value: MetadataValue::new("Chunin".into()),
             op: PredicateOp::Equals,
         });
-        let search_input = vectors.get(SEACH_TEXT).unwrap().0.clone();
+        let search_input = StoreKey(vectors.get(SEACH_TEXT).unwrap().0.clone());
         let algorithm = Algorithm::CosineSimilarity;
 
         let closest_n = NonZeroUsize::new(3).unwrap();
