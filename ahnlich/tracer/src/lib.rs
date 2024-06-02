@@ -8,7 +8,7 @@ use tracing::subscriber::set_global_default;
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
 pub fn init_tracing(service_name: &'static str, log_level: Option<&str>, otel_url: &str) {
-    let env_filter = EnvFilter::new(log_level.unwrap_or_else(|| "info"));
+    let env_filter = EnvFilter::new(log_level.unwrap_or("info"));
     //let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     let otel_layer = tracing_opentelemetry::layer().with_tracer(
