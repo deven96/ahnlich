@@ -1,17 +1,20 @@
 use futures::future::join_all;
 use server::cli::ServerConfig;
 use std::collections::HashSet;
+use std::num::NonZeroUsize;
 use std::time::SystemTime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
 use types::bincode::BinCodeSerAndDeser;
+use types::keyval::StoreName;
 use types::query::Query;
 use types::query::ServerQuery;
 use types::server::ConnectedClient;
 use types::server::ServerInfo;
 use types::server::ServerResponse;
 use types::server::ServerResult;
+use types::server::StoreInfo;
 
 #[tokio::test]
 async fn test_server_client_info() {
@@ -52,6 +55,72 @@ async fn test_server_client_info() {
     let mut expected = ServerResult::with_capacity(1);
     expected.push(Ok(ServerResponse::ClientList(expected_response.clone())));
     query_server_assert_result(&mut reader, message, expected.clone()).await;
+}
+
+#[tokio::test]
+async fn test_simple_stores_list() {
+    let server = server::Server::new(&ServerConfig::default())
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[Query::ListStores]);
+    let mut expected = ServerResult::with_capacity(1);
+    let expected_response = HashSet::from_iter([]);
+    expected.push(Ok(ServerResponse::StoreList(expected_response)));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
+async fn test_create_stores() {
+    let server = server::Server::new(&ServerConfig::default())
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(3).unwrap(),
+            create_predicates: HashSet::new(),
+            error_if_exists: true,
+        },
+        // difference in dimensions don't matter as name is the same so this should error
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(2).unwrap(),
+            create_predicates: HashSet::new(),
+            error_if_exists: true,
+        },
+        // Should not error despite existing
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(2).unwrap(),
+            create_predicates: HashSet::new(),
+            error_if_exists: false,
+        },
+        Query::ListStores,
+    ]);
+    let mut expected = ServerResult::with_capacity(1);
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Err("Store Main already exists".to_string()));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+        StoreInfo {
+            name: StoreName("Main".to_string()),
+            len: 0,
+            size_in_bytes: 1712,
+        },
+    ]))));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
 }
 
 #[tokio::test]

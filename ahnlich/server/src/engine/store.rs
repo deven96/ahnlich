@@ -16,6 +16,7 @@ use types::keyval::StoreName;
 use types::keyval::StoreValue;
 use types::metadata::MetadataKey;
 use types::predicate::PredicateCondition;
+use types::server::StoreInfo;
 use types::similarity::Algorithm;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
@@ -56,14 +57,6 @@ impl From<&StoreKey> for StoreKeyId {
         });
         Self(hash_string)
     }
-}
-
-/// StoreInfo just shows store name, size and length
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct StoreInfo {
-    pub name: StoreName,
-    pub len: usize,
-    pub size_in_bytes: usize,
 }
 
 /// StoreUpsert shows how many entries were inserted and updated during a store add call
@@ -210,12 +203,13 @@ impl StoreHandler {
             .collect()
     }
 
-    /// Matches CREATE - Creates a store if not exist, else return an error
+    /// Matches CREATESTORE - Creates a store if not exist, else return an error
     pub(crate) fn create_store(
         &self,
         store_name: StoreName,
         dimension: NonZeroUsize,
         predicates: Vec<MetadataKey>,
+        error_if_exists: bool,
     ) -> Result<(), ServerError> {
         if self
             .stores
@@ -225,6 +219,7 @@ impl StoreHandler {
                 &self.stores.guard(),
             )
             .is_err()
+            && error_if_exists
         {
             return Err(ServerError::StoreAlreadyExists(store_name));
         }
@@ -465,6 +460,7 @@ mod tests {
                     StoreName(store_name.to_string()),
                     NonZeroUsize::new(size).unwrap(),
                     predicates,
+                    true,
                 )
             });
             handle
@@ -492,6 +488,7 @@ mod tests {
                     StoreName(store_name.to_string()),
                     NonZeroUsize::new(size).unwrap(),
                     predicates,
+                    true,
                 )
             });
             handle

@@ -18,10 +18,11 @@ use serde::Serialize;
 /// - First 8 bytes must contain length of the entire vec of queries
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Query {
-    Create {
+    CreateStore {
         store: StoreName,
         dimension: NonZeroUsize,
         create_predicates: HashSet<MetadataKey>,
+        error_if_exists: bool,
     },
     GetKey {
         keys: Vec<StoreKey>,

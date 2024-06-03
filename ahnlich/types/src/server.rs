@@ -1,4 +1,5 @@
 use crate::bincode::BinCodeSerAndDeser;
+use crate::keyval::StoreName;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -13,8 +14,17 @@ pub enum ServerResponse {
     Pong,
     // List of connected clients. Potentially outdated at the point of read
     ClientList(HashSet<ConnectedClient>),
+    StoreList(HashSet<StoreInfo>),
     InfoServer(ServerInfo),
     // TODO: Define return types for queries, e.t.c
+}
+
+/// StoreInfo just shows store name, size and length
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct StoreInfo {
+    pub name: StoreName,
+    pub len: usize,
+    pub size_in_bytes: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]

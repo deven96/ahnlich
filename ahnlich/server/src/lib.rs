@@ -91,10 +91,11 @@ impl Server {
         // TODO: Add cleanup for instance persistence
         // just cancelling the token alone does not give enough time for each task to shutdown,
         // there must be other measures in place to ensure proper cleanup
-        if let Err(_) = self
+        if self
             .shutdown_token
             .shutdown_with_limit(Duration::from_secs(10))
             .await
+            .is_err()
         {
             log::error!("Server shutdown took longer than timeout");
         }
@@ -176,6 +177,24 @@ impl ServerTask {
                 Query::Ping => Ok(ServerResponse::Pong),
                 Query::InfoServer => Ok(ServerResponse::InfoServer(self.server_info())),
                 Query::ListClients => Ok(ServerResponse::ClientList(self.client_handler.list())),
+                Query::ListStores => {
+                    Ok(ServerResponse::StoreList(self.store_handler.list_stores()))
+                }
+                Query::CreateStore {
+                    store,
+                    dimension,
+                    create_predicates,
+                    error_if_exists,
+                } => self
+                    .store_handler
+                    .create_store(
+                        store,
+                        dimension,
+                        create_predicates.into_iter().collect(),
+                        error_if_exists,
+                    )
+                    .map(|_| ServerResponse::Unit)
+                    .map_err(|e| format!("{e}")),
                 _ => Err("Response not implemented".to_string()),
             })
         }
