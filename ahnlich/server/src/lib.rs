@@ -13,12 +13,13 @@ use crate::engine::store::StoreHandler;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::select;
-use tokio::signal;
-use tokio_util::sync::CancellationToken;
+use tokio_graceful::Shutdown;
+use tokio_graceful::ShutdownGuard;
 use types::bincode::BinCodeSerAndDeser;
 use types::bincode::LENGTH_HEADER_SIZE;
 use types::query::Query;
@@ -28,12 +29,11 @@ use types::server::ServerInfo;
 use types::server::ServerResponse;
 use types::server::ServerResult;
 
-#[derive(Debug)]
 pub struct Server {
     listener: TcpListener,
     store_handler: Arc<StoreHandler>,
     client_handler: Arc<ClientHandler>,
-    shutdown_token: CancellationToken,
+    shutdown_token: Shutdown,
 }
 
 impl Server {
@@ -44,7 +44,7 @@ impl Server {
         // TODO: replace with rules to retrieve store handler from persistence if persistence exist
         let store_handler = Arc::new(StoreHandler::new());
         let client_handler = Arc::new(ClientHandler::new());
-        let shutdown_token = CancellationToken::new();
+        let shutdown_token = Shutdown::default();
         Ok(Self {
             listener,
             store_handler,
@@ -56,12 +56,15 @@ impl Server {
     /// starts accepting connections using the listener and processing the incoming streams
     ///
     /// listens for a ctrl_c signals to cancel spawned tasks
-    pub async fn start(&self) -> IoResult<()> {
+    pub async fn start(self) -> IoResult<()> {
         let server_addr = self.local_addr()?;
         loop {
+            let shutdown_guard = self.shutdown_token.guard();
             select! {
-                _ = signal::ctrl_c() => {
-                    self.shutdown();
+                _ = shutdown_guard.cancelled() => {
+                    // need to drop the shutdown guard used here else self.shutdown times out
+                    drop(shutdown_guard);
+                    self.shutdown().await;
                     break Ok(());
                 }
                 Ok((stream, connect_addr)) = self.listener.accept() => {
@@ -73,8 +76,8 @@ impl Server {
                     //  cancelling existing ServerTask or forcing them to run to completion
 
                     let mut task = self.create_task(stream, server_addr)?;
-                    tokio::spawn(async move {
-                        if let Err(e) = task.process().await {
+                    shutdown_guard.spawn_task_fn(|guard| async move {
+                        if let Err(e) = task.process(guard).await {
                             log::error!("Error handling connection: {}", e)
                         };
                     });
@@ -84,9 +87,17 @@ impl Server {
     }
 
     /// stops all tasks and performs cleanup
-    pub fn shutdown(&self) {
+    pub async fn shutdown(self) {
         // TODO: Add cleanup for instance persistence
-        self.shutdown_token.cancel()
+        // just cancelling the token alone does not give enough time for each task to shutdown,
+        // there must be other measures in place to ensure proper cleanup
+        if let Err(_) = self
+            .shutdown_token
+            .shutdown_with_limit(Duration::from_secs(10))
+            .await
+        {
+            log::error!("Server shutdown took longer than timeout");
+        }
     }
 
     pub fn local_addr(&self) -> IoResult<SocketAddr> {
@@ -101,7 +112,6 @@ impl Server {
             reader,
             server_addr,
             connected_client,
-            shutdown_token: self.shutdown_token.clone(),
             // "inexpensive" to clone handlers they can be passed around in an Arc
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),
@@ -111,7 +121,6 @@ impl Server {
 
 #[derive(Debug)]
 struct ServerTask {
-    shutdown_token: CancellationToken,
     server_addr: SocketAddr,
     reader: BufReader<TcpStream>,
     store_handler: Arc<StoreHandler>,
@@ -121,12 +130,13 @@ struct ServerTask {
 
 impl ServerTask {
     /// processes messages from a stream
-    async fn process(&mut self) -> IoResult<()> {
+    async fn process(&mut self, shutdown_token: ShutdownGuard) -> IoResult<()> {
         let mut length_buf = [0u8; LENGTH_HEADER_SIZE];
 
         loop {
             select! {
-                _ = self.shutdown_token.cancelled() => {
+                _ = shutdown_token.cancelled() => {
+                    log::debug!("Cancelling stream for {} as server is shutting down", self.connected_client.address);
                     break;
                 }
                 res = self.reader.read_exact(&mut length_buf) => {
