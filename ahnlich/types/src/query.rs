@@ -60,6 +60,7 @@ pub enum Query {
     },
     DropStore {
         store: StoreName,
+        error_if_not_exists: bool,
     },
     InfoServer,
     ListStores,

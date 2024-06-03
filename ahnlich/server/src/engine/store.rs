@@ -227,11 +227,15 @@ impl StoreHandler {
     }
 
     /// Matches DROPSTORE - Drops a store if exist, else returns an error
-    pub(crate) fn drop_store(&self, store_name: StoreName) -> Result<(), ServerError> {
+    pub(crate) fn drop_store(
+        &self,
+        store_name: StoreName,
+        error_if_exists: bool,
+    ) -> Result<(), ServerError> {
         let pinned = self.stores.pin();
-        pinned
-            .remove(&store_name)
-            .ok_or(ServerError::StoreNotFound(store_name))?;
+        if pinned.remove(&store_name).is_none() && error_if_exists {
+            return Err(ServerError::StoreNotFound(store_name));
+        }
         Ok(())
     }
 }

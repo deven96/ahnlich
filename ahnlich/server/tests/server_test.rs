@@ -107,7 +107,7 @@ async fn test_create_stores() {
         },
         Query::ListStores,
     ]);
-    let mut expected = ServerResult::with_capacity(1);
+    let mut expected = ServerResult::with_capacity(4);
     expected.push(Ok(ServerResponse::Unit));
     expected.push(Err("Store Main already exists".to_string()));
     expected.push(Ok(ServerResponse::Unit));
@@ -118,6 +118,56 @@ async fn test_create_stores() {
             size_in_bytes: 1712,
         },
     ]))));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
+async fn test_drop_stores() {
+    let server = server::Server::new(&ServerConfig::default())
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should not error
+        Query::DropStore {
+            store: StoreName("Main".to_string()),
+            error_if_not_exists: false,
+        },
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(3).unwrap(),
+            create_predicates: HashSet::new(),
+            error_if_exists: true,
+        },
+        Query::ListStores,
+        // should not error
+        Query::DropStore {
+            store: StoreName("Main".to_string()),
+            error_if_not_exists: true,
+        },
+        // should error
+        Query::DropStore {
+            store: StoreName("Main".to_string()),
+            error_if_not_exists: true,
+        },
+    ]);
+    let mut expected = ServerResult::with_capacity(5);
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+        StoreInfo {
+            name: StoreName("Main".to_string()),
+            len: 0,
+            size_in_bytes: 1712,
+        },
+    ]))));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Err("Store Main not found".to_string()));
     let stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(stream);
     query_server_assert_result(&mut reader, message, expected).await
