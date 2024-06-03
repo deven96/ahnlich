@@ -23,7 +23,15 @@ env_logger.workspace = true
 log.workspace = true
 thiserror = "1.0"
 types = { path = "../types", version = "*" }
-tokio = { version = "1.37.0", features = ["net", "macros", "io-util", "rt-multi-thread", "sync"] }
+tokio = { version = "1.37.0", features = [
+  "net",
+  "macros",
+  "io-util",
+  "rt-multi-thread",
+  "sync",
+  "signal"
+]}
+tokio-util = "0.7.11"
 
 [dev-dependencies]
 loom = "0.7.2"

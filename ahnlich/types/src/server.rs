@@ -2,6 +2,9 @@ use crate::bincode::BinCodeSerAndDeser;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::time::SystemTime;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ServerResponse {
@@ -10,12 +13,46 @@ pub enum ServerResponse {
     Pong,
     // List of connected clients. Potentially outdated at the point of read
     ClientList(HashSet<ConnectedClient>),
+    InfoServer(ServerInfo),
     // TODO: Define return types for queries, e.t.c
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ServerInfo {
+    pub address: String,
+    pub version: String,
+    pub r#type: ServerType,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ServerType {
+    Database,
+    AI,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialOrd, Ord)]
 pub struct ConnectedClient {
     pub address: String,
+    // NOTE: We are using System specific time so the time marked by clients cannot be relied on to
+    // be monotonic and the size depends on operating system
+    pub time_connected: SystemTime,
+}
+
+// NOTE: ConnectedClient should be unique purely by address assuming we are not doing any TCP magic
+// to allow port reuse
+impl Hash for ConnectedClient {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        self.address.hash(state)
+    }
+}
+
+impl PartialEq for ConnectedClient {
+    fn eq(&self, other: &Self) -> bool {
+        self.address.eq(&other.address)
+    }
 }
 
 // ServerResult: Given that an array of queries are sent in, we expect that an array of responses
