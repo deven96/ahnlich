@@ -17,6 +17,7 @@ use types::keyval::StoreValue;
 use types::metadata::MetadataKey;
 use types::predicate::PredicateCondition;
 use types::server::StoreInfo;
+use types::server::StoreUpsert;
 use types::similarity::Algorithm;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
@@ -57,13 +58,6 @@ impl From<&StoreKey> for StoreKeyId {
         });
         Self(hash_string)
     }
-}
-
-/// StoreUpsert shows how many entries were inserted and updated during a store add call
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct StoreUpsert {
-    pub inserted: usize,
-    pub updated: usize,
 }
 
 /// Contains all the stores that have been created in memory

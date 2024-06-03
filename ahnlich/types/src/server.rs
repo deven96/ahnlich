@@ -16,7 +16,15 @@ pub enum ServerResponse {
     ClientList(HashSet<ConnectedClient>),
     StoreList(HashSet<StoreInfo>),
     InfoServer(ServerInfo),
+    Set(StoreUpsert),
     // TODO: Define return types for queries, e.t.c
+}
+
+/// StoreUpsert shows how many entries were inserted and updated during a store add call
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct StoreUpsert {
+    pub inserted: usize,
+    pub updated: usize,
 }
 
 /// StoreInfo just shows store name, size and length

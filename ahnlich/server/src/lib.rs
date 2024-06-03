@@ -203,6 +203,11 @@ impl ServerTask {
                     .drop_store(store, error_if_not_exists)
                     .map(|_| ServerResponse::Unit)
                     .map_err(|e| format!("{e}")),
+                Query::Set { store, inputs } => self
+                    .store_handler
+                    .set_in_store(&store, inputs)
+                    .map(ServerResponse::Set)
+                    .map_err(|e| format!("{e}")),
                 _ => Err("Response not implemented".to_string()),
             })
         }

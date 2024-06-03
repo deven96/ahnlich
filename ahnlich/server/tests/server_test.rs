@@ -1,5 +1,7 @@
 use futures::future::join_all;
+use ndarray::array;
 use server::cli::ServerConfig;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::time::SystemTime;
@@ -7,7 +9,10 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
 use types::bincode::BinCodeSerAndDeser;
+use types::keyval::StoreKey;
 use types::keyval::StoreName;
+use types::metadata::MetadataKey;
+use types::metadata::MetadataValue;
 use types::query::Query;
 use types::query::ServerQuery;
 use types::server::ConnectedClient;
@@ -15,6 +20,7 @@ use types::server::ServerInfo;
 use types::server::ServerResponse;
 use types::server::ServerResult;
 use types::server::StoreInfo;
+use types::server::StoreUpsert;
 
 #[tokio::test]
 async fn test_server_client_info() {
@@ -116,6 +122,79 @@ async fn test_create_stores() {
             name: StoreName("Main".to_string()),
             len: 0,
             size_in_bytes: 1712,
+        },
+    ]))));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
+async fn test_set_in_store() {
+    let server = server::Server::new(&ServerConfig::default())
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should error as store does not exist
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![],
+        },
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(3).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            error_if_exists: true,
+        },
+        // should not error as it is correct dimensions
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![(StoreKey(array![1.23, 1.0, 0.2]), HashMap::new())],
+        },
+        // should error as it is incorrect dimensions
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![(StoreKey(array![2.1]), HashMap::new())],
+        },
+        // should upsert existing value and add new value
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![
+                (
+                    StoreKey(array![1.23, 1.0, 0.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("role".into()),
+                        MetadataValue::new("headmaster".into()),
+                    )]),
+                ),
+                (StoreKey(array![0.03, 5.1, 3.23]), HashMap::new()),
+            ],
+        },
+        Query::ListStores,
+    ]);
+    let mut expected = ServerResult::with_capacity(6);
+    expected.push(Err("Store Main not found".to_string()));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 1,
+        updated: 0,
+    })));
+    expected.push(Err(
+        "Store dimension is [3], input dimension of [1] was specified".to_string(),
+    ));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 1,
+        updated: 1,
+    })));
+    expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+        StoreInfo {
+            name: StoreName("Main".to_string()),
+            len: 2,
+            size_in_bytes: 2008,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
