@@ -55,7 +55,7 @@ impl<'a> Server<'a> {
             let otel_url = config
                 .otel_endpoint
                 .to_owned()
-                .unwrap_or("info".to_string());
+                .unwrap_or("http://127.0.0.1:4317".to_string());
             tracer::init_tracing("Ahnlich-db", Some(&config.log_level), &otel_url)
         }
         // TODO: replace with rules to retrieve store handler from persistence if persistence exist
@@ -153,6 +153,8 @@ impl ServerTask {
     fn prefix_log(&self, message: impl std::fmt::Display) -> String {
         format!("ClIENT [{}]: {}", self.connected_client.address, message)
     }
+
+    #[tracing::instrument]
     /// processes messages from a stream
     async fn process(&mut self, shutdown_token: ShutdownGuard) -> IoResult<()> {
         let mut length_buf = [0u8; LENGTH_HEADER_SIZE];
