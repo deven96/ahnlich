@@ -1,5 +1,6 @@
 use futures::future::join_all;
 use ndarray::array;
+use once_cell::sync::Lazy;
 use server::cli::ServerConfig;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -22,9 +23,11 @@ use types::server::ServerResult;
 use types::server::StoreInfo;
 use types::server::StoreUpsert;
 
+static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
+
 #[tokio::test]
 async fn test_server_client_info() {
-    let server = server::Server::new(&ServerConfig::default())
+    let server = server::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -65,7 +68,7 @@ async fn test_server_client_info() {
 
 #[tokio::test]
 async fn test_simple_stores_list() {
-    let server = server::Server::new(&ServerConfig::default())
+    let server = server::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -83,7 +86,7 @@ async fn test_simple_stores_list() {
 
 #[tokio::test]
 async fn test_create_stores() {
-    let server = server::Server::new(&ServerConfig::default())
+    let server = server::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -131,7 +134,7 @@ async fn test_create_stores() {
 
 #[tokio::test]
 async fn test_set_in_store() {
-    let server = server::Server::new(&ServerConfig::default())
+    let server = server::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -204,7 +207,7 @@ async fn test_set_in_store() {
 
 #[tokio::test]
 async fn test_get_key() {
-    let server = server::Server::new(&ServerConfig::default())
+    let server = server::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -300,7 +303,7 @@ async fn test_get_key() {
 
 #[tokio::test]
 async fn test_drop_stores() {
-    let server = server::Server::new(&ServerConfig::default())
+    let server = server::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -350,7 +353,7 @@ async fn test_drop_stores() {
 
 #[tokio::test]
 async fn test_run_server_echos() {
-    let server = server::Server::new(&ServerConfig::default())
+    let server = server::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -365,6 +368,8 @@ async fn test_run_server_echos() {
                 address: "127.0.0.1:1369".to_string(),
                 version: types::VERSION.to_string(),
                 r#type: types::server::ServerType::Database,
+                limit: CONFIG.allocator_size,
+                remaining: 1073614873,
             })));
             expected.push(Ok(ServerResponse::Pong));
             let stream = TcpStream::connect(address).await.unwrap();
@@ -379,6 +384,8 @@ async fn test_run_server_echos() {
                 address: "127.0.0.1:1369".to_string(),
                 version: types::VERSION.to_string(),
                 r#type: types::server::ServerType::Database,
+                limit: CONFIG.allocator_size,
+                remaining: 1073614873,
             })));
             let stream = TcpStream::connect(address).await.unwrap();
             let mut reader = BufReader::new(stream);

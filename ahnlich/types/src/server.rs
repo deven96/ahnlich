@@ -43,6 +43,8 @@ pub struct ServerInfo {
     pub address: String,
     pub version: String,
     pub r#type: ServerType,
+    pub limit: usize,
+    pub remaining: usize,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]

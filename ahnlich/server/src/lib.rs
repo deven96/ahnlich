@@ -10,6 +10,8 @@ mod storage;
 use crate::cli::ServerConfig;
 use crate::client::ClientHandler;
 use crate::engine::store::StoreHandler;
+use cap::Cap;
+use std::alloc;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -29,16 +31,23 @@ use types::server::ServerInfo;
 use types::server::ServerResponse;
 use types::server::ServerResult;
 
-pub struct Server {
+#[global_allocator]
+static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
+
+pub struct Server<'a> {
     listener: TcpListener,
     store_handler: Arc<StoreHandler>,
     client_handler: Arc<ClientHandler>,
     shutdown_token: Shutdown,
+    config: &'a ServerConfig,
 }
 
-impl Server {
+impl<'a> Server<'a> {
     /// initializes a server using server configuration
-    pub async fn new(config: &ServerConfig) -> IoResult<Self> {
+    pub async fn new(config: &'a ServerConfig) -> IoResult<Self> {
+        ALLOCATOR
+            .set_limit(config.allocator_size)
+            .expect("Could not set up server with allocator_size");
         let listener =
             tokio::net::TcpListener::bind(format!("{}:{}", &config.host, &config.port)).await?;
         // TODO: replace with rules to retrieve store handler from persistence if persistence exist
@@ -50,6 +59,7 @@ impl Server {
             store_handler,
             client_handler,
             shutdown_token,
+            config,
         })
     }
 
@@ -97,7 +107,7 @@ impl Server {
             .await
             .is_err()
         {
-            log::error!("Server shutdown took longer than timeout");
+            log::error!("SERVER: shutdown took longer than timeout");
         }
     }
 
@@ -113,6 +123,7 @@ impl Server {
             reader,
             server_addr,
             connected_client,
+            maximum_message_size: self.config.message_size as u64,
             // "inexpensive" to clone handlers they can be passed around in an Arc
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),
@@ -127,9 +138,13 @@ struct ServerTask {
     store_handler: Arc<StoreHandler>,
     client_handler: Arc<ClientHandler>,
     connected_client: ConnectedClient,
+    maximum_message_size: u64,
 }
 
 impl ServerTask {
+    fn prefix_log(&self, message: impl std::fmt::Display) -> String {
+        format!("ClIENT [{}]: {}", self.connected_client.address, message)
+    }
     /// processes messages from a stream
     async fn process(&mut self, shutdown_token: ShutdownGuard) -> IoResult<()> {
         let mut length_buf = [0u8; LENGTH_HEADER_SIZE];
@@ -137,22 +152,32 @@ impl ServerTask {
         loop {
             select! {
                 _ = shutdown_token.cancelled() => {
-                    log::debug!("Cancelling stream for {} as server is shutting down", self.connected_client.address);
+                    log::debug!("{}", self.prefix_log("Cancelling stream as server is shutting down"));
                     break;
                 }
                 res = self.reader.read_exact(&mut length_buf) => {
                     match res {
                         // reader was closed
                         Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                            log::debug!("Client {} hung up buffered stream", self.connected_client.address);
+                            log::debug!("{}", self.prefix_log("Hung up on buffered stream"));
                             break;
                         }
                         Err(e) => {
-                            log::error!("Error reading from task buffered stream: {}", e);
+                            log::error!("{}", self.prefix_log(format!("Error reading from task buffered stream {e}")));
                         }
                         Ok(_) => {
+                            // cap the message size to be of length 1MiB
                             let data_length = u64::from_be_bytes(length_buf);
-                            let mut data = vec![0u8; data_length as usize];
+                            if data_length > self.maximum_message_size {
+                                log::error!("{}", self.prefix_log(format!("Message cannot exceed {} bytes, configure `message_size` for higher", self.maximum_message_size)));
+                                continue
+                            }
+                            let mut data = Vec::new();
+                            if data.try_reserve(data_length as usize).is_err() {
+                                log::error!("{}", self.prefix_log(format!("Failed to reserve buffer of length {data_length}")));
+                                continue
+                            };
+                            data.resize(data_length as usize, 0u8);
                             self.reader.read_exact(&mut data).await?;
                             // TODO: Add trace here to catch whenever queries could not be deserialized at all
                             if let Ok(queries) = ServerQuery::deserialize(false, &data) {
@@ -161,6 +186,8 @@ impl ServerTask {
                                 if let Ok(binary_results) = results.serialize() {
                                     self.reader.get_mut().write_all(&binary_results).await?;
                                 }
+                            } else {
+                                log::error!("{}", self.prefix_log("Could not deserialize client message as server query"));
                             }
                         }
                     }
@@ -224,6 +251,8 @@ impl ServerTask {
             address: format!("{}", self.server_addr),
             version: types::VERSION.to_string(),
             r#type: types::server::ServerType::Database,
+            limit: ALLOCATOR.limit(),
+            remaining: ALLOCATOR.remaining(),
         }
     }
 }
