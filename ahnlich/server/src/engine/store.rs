@@ -263,12 +263,9 @@ impl Store {
         removed.len()
     }
 
-    /// Deletes a bunch of store keys from the store
-    fn delete_keys(&self, del: Vec<StoreKey>) -> Result<usize, ServerError> {
-        if del.is_empty() {
-            return Ok(0);
-        }
-        let keys = del
+    /// filters input dimension to make sure it matches store dimension
+    fn filter_dimension(&self, input: Vec<StoreKey>) -> Result<Vec<StoreKey>, ServerError> {
+        input
             .into_iter()
             .map(|key| {
                 let store_dimension = self.dimension.get();
@@ -281,9 +278,16 @@ impl Store {
                 }
                 Ok(key)
             })
-            .collect::<Result<Vec<StoreKey>, ServerError>>()?;
-        let keys = keys.iter().map(From::from);
-        Ok(self.delete(keys))
+            .collect()
+    }
+
+    /// Deletes a bunch of store keys from the store
+    fn delete_keys(&self, del: Vec<StoreKey>) -> Result<usize, ServerError> {
+        if del.is_empty() {
+            return Ok(0);
+        }
+        let keys = self.filter_dimension(del)?;
+        Ok(self.delete(keys.iter().map(From::from)))
     }
 
     /// Deletes a bunch of store keys from the store matching a specific predicate
@@ -298,22 +302,8 @@ impl Store {
             return Ok(vec![]);
         }
         // return error if dimensions do not match
-        let keys = val
-            .into_iter()
-            .map(|key| {
-                let store_dimension = self.dimension.get();
-                let input_dimension = key.dimension();
-                if input_dimension != store_dimension {
-                    return Err(ServerError::StoreDimensionMismatch {
-                        store_dimension,
-                        input_dimension,
-                    });
-                }
-                Ok(key)
-            })
-            .collect::<Result<Vec<StoreKey>, ServerError>>()?;
-        let keys = keys.iter().map(From::from);
-        Ok(self.get(keys))
+        let keys = self.filter_dimension(val)?;
+        Ok(self.get(keys.iter().map(From::from)))
     }
 
     /// Gets a bunch of store entries that matches a predicate condition

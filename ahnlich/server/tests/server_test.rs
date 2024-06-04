@@ -15,6 +15,9 @@ use types::keyval::StoreKey;
 use types::keyval::StoreName;
 use types::metadata::MetadataKey;
 use types::metadata::MetadataValue;
+use types::predicate::Predicate;
+use types::predicate::PredicateCondition;
+use types::predicate::PredicateOp;
 use types::query::Query;
 use types::query::ServerQuery;
 use types::server::ConnectedClient;
@@ -134,6 +137,121 @@ async fn test_create_stores() {
 }
 
 #[tokio::test]
+async fn test_del_pred() {
+    let server = server::Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should error as store does not exist
+        Query::DelPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("planet".into()),
+                value: MetadataValue::new("earth".into()),
+                op: PredicateOp::NotEquals,
+            }),
+        },
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(2).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+            error_if_exists: true,
+        },
+        // should not error as it is correct query
+        // but should delete nothing as nothing matches predicate
+        Query::DelPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("planet".into()),
+                value: MetadataValue::new("earth".into()),
+                op: PredicateOp::Equals,
+            }),
+        },
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![
+                (
+                    StoreKey(array![1.4, 1.5]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("planet".into()),
+                        MetadataValue::new("jupiter".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(array![1.6, 1.7]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("planet".into()),
+                        MetadataValue::new("mars".into()),
+                    )]),
+                ),
+            ],
+        },
+        Query::ListStores,
+        // should delete the jupiter planet key
+        Query::DelPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("planet".into()),
+                value: MetadataValue::new("mars".into()),
+                op: PredicateOp::NotEquals,
+            }),
+        },
+        Query::GetKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![StoreKey(array![1.4, 1.5]), StoreKey(array![1.6, 1.7])],
+        },
+        // should delete the mars planet key
+        Query::DelPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("planet".into()),
+                value: MetadataValue::new("mars".into()),
+                op: PredicateOp::Equals,
+            }),
+        },
+        Query::ListStores,
+    ]);
+    let mut expected = ServerResult::with_capacity(9);
+    expected.push(Err("Store Main not found".to_string()));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Del(0)));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 2,
+        updated: 0,
+    })));
+    expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+        StoreInfo {
+            name: StoreName("Main".to_string()),
+            len: 2,
+            size_in_bytes: 2104,
+        },
+    ]))));
+    expected.push(Ok(ServerResponse::Del(1)));
+    expected.push(Ok(ServerResponse::GetKey(vec![(
+        StoreKey(array![1.6, 1.7]),
+        HashMap::from_iter([(
+            MetadataKey::new("planet".into()),
+            MetadataValue::new("mars".into()),
+        )]),
+    )])));
+    expected.push(Ok(ServerResponse::Del(1)));
+    expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+        StoreInfo {
+            name: StoreName("Main".to_string()),
+            len: 0,
+            size_in_bytes: 1816,
+        },
+    ]))));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
 async fn test_del_key() {
     let server = server::Server::new(&CONFIG)
         .await
@@ -183,7 +301,7 @@ async fn test_del_key() {
     let mut expected = ServerResult::with_capacity(8);
     expected.push(Err("Store Main not found".to_string()));
     expected.push(Ok(ServerResponse::Unit));
-    expected.push(Ok(ServerResponse::DelKey(0)));
+    expected.push(Ok(ServerResponse::Del(0)));
     expected.push(Ok(ServerResponse::Set(StoreUpsert {
         inserted: 2,
         updated: 0,
@@ -198,7 +316,7 @@ async fn test_del_key() {
     expected.push(Err(
         "Store dimension is [4], input dimension of [3] was specified".to_string(),
     ));
-    expected.push(Ok(ServerResponse::DelKey(1)));
+    expected.push(Ok(ServerResponse::Del(1)));
     expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
         StoreInfo {
             name: StoreName("Main".to_string()),

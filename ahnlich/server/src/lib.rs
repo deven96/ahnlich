@@ -243,7 +243,12 @@ impl ServerTask {
                 Query::DelKey { store, keys } => self
                     .store_handler
                     .del_key_in_store(&store, keys)
-                    .map(ServerResponse::DelKey)
+                    .map(ServerResponse::Del)
+                    .map_err(|e| format!("{e}")),
+                Query::DelPred { store, condition } => self
+                    .store_handler
+                    .del_pred_in_store(&store, &condition)
+                    .map(ServerResponse::Del)
                     .map_err(|e| format!("{e}")),
                 _ => Err("Response not implemented".to_string()),
             })
