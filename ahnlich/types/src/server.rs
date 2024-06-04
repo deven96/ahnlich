@@ -39,13 +39,23 @@ pub struct StoreInfo {
     pub size_in_bytes: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialOrd, Ord)]
 pub struct ServerInfo {
     pub address: String,
     pub version: String,
     pub r#type: ServerType,
     pub limit: usize,
     pub remaining: usize,
+}
+
+/// ignore `remaining` field during comparison for server info as a server might allocate memory
+impl PartialEq for ServerInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.address.eq(&other.address)
+            && self.version.eq(&other.version)
+            && self.r#type.eq(&other.r#type)
+            && self.limit.eq(&other.limit)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
