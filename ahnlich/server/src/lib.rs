@@ -180,6 +180,7 @@ impl ServerTask {
                             let data_length = u64::from_be_bytes(length_buf);
                             if data_length > self.maximum_message_size {
                                 tracing::error!("{}", self.prefix_log(format!("Message cannot exceed {} bytes, configure `message_size` for higher", self.maximum_message_size)));
+                                tracing::error_span!("Messsage exceeds max size");
                                 continue
                             }
                             let mut data = Vec::new();
@@ -197,6 +198,8 @@ impl ServerTask {
                                     self.reader.get_mut().write_all(&binary_results).await?;
                                 }
                             } else {
+
+                                tracing::error_span!("Could not deserialize client message as server query");
                                 tracing::error!("{}", self.prefix_log("Could not deserialize client message as server query"));
                             }
                         }
