@@ -264,6 +264,7 @@ impl PredicateIndex {
 mod tests {
     use super::*;
     use loom::thread;
+    use pretty_assertions::assert_eq;
     use std::collections::HashMap as StdHashMap;
     use std::sync::Arc;
 

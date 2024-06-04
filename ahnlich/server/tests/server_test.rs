@@ -1,6 +1,7 @@
 use futures::future::join_all;
 use ndarray::array;
 use once_cell::sync::Lazy;
+use pretty_assertions::assert_eq;
 use server::cli::ServerConfig;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -268,8 +269,9 @@ async fn test_get_key() {
                 StoreKey(array![1.0, 0.2]),
             ],
         },
+        Query::InfoServer,
     ]);
-    let mut expected = ServerResult::with_capacity(6);
+    let mut expected = ServerResult::with_capacity(7);
     expected.push(Err("Store Main not found".to_string()));
     expected.push(Ok(ServerResponse::Unit));
     expected.push(Ok(ServerResponse::Set(StoreUpsert {
@@ -296,6 +298,13 @@ async fn test_get_key() {
             )]),
         ),
     ])));
+    expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
+        address: "127.0.0.1:1369".to_string(),
+        version: types::VERSION.to_string(),
+        r#type: types::server::ServerType::Database,
+        limit: CONFIG.allocator_size,
+        remaining: 1073609219,
+    })));
     let stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(stream);
     query_server_assert_result(&mut reader, message, expected).await

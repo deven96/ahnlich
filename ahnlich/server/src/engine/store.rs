@@ -413,6 +413,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use crate::fixtures::*;
+    use pretty_assertions::assert_eq;
     use std::num::NonZeroUsize;
 
     use super::*;
