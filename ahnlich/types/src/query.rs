@@ -46,6 +46,7 @@ pub enum Query {
     DropIndexPred {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
+        error_if_not_exists: bool,
     },
     Set {
         store: StoreName,

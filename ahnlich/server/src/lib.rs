@@ -228,7 +228,20 @@ impl ServerTask {
                 } => self
                     .store_handler
                     .drop_store(store, error_if_not_exists)
-                    .map(|_| ServerResponse::Unit)
+                    .map(ServerResponse::Del)
+                    .map_err(|e| format!("{e}")),
+                Query::DropIndexPred {
+                    store,
+                    error_if_not_exists,
+                    predicates,
+                } => self
+                    .store_handler
+                    .drop_index_pred_in_store(
+                        &store,
+                        predicates.into_iter().collect(),
+                        error_if_not_exists,
+                    )
+                    .map(ServerResponse::Del)
                     .map_err(|e| format!("{e}")),
                 Query::Set { store, inputs } => self
                     .store_handler

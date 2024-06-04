@@ -220,17 +220,30 @@ impl StoreHandler {
         Ok(())
     }
 
+    /// Matches DROPINDEXPRED - Drops predicate index if exists, else returns an error
+    pub(crate) fn drop_index_pred_in_store(
+        &self,
+        store_name: &StoreName,
+        predicates: Vec<MetadataKey>,
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
+        let store = self.get(store_name)?;
+        store.drop_predicates(predicates, error_if_not_exists)
+    }
+
     /// Matches DROPSTORE - Drops a store if exist, else returns an error
     pub(crate) fn drop_store(
         &self,
         store_name: StoreName,
-        error_if_exists: bool,
-    ) -> Result<(), ServerError> {
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
         let pinned = self.stores.pin();
-        if pinned.remove(&store_name).is_none() && error_if_exists {
+        let removed = pinned.remove(&store_name).is_some();
+        if !removed && error_if_not_exists {
             return Err(ServerError::StoreNotFound(store_name));
         }
-        Ok(())
+        let removed = if !removed { 0 } else { 1 };
+        Ok(removed)
     }
 }
 
@@ -253,6 +266,15 @@ impl Store {
             id_to_value: ConcurrentHashMap::new(),
             predicate_indices: PredicateIndices::init(predicates),
         }
+    }
+
+    fn drop_predicates(
+        &self,
+        predicates: Vec<MetadataKey>,
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
+        self.predicate_indices
+            .remove_predicates(predicates, error_if_not_exists)
     }
 
     fn delete(&self, keys: impl Iterator<Item = StoreKeyId>) -> usize {

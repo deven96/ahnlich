@@ -454,17 +454,24 @@ async fn test_get_pred() {
                 op: PredicateOp::Equals,
             }),
         },
-        // should not error however the keys do not exist so should be empty
         Query::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("medal".into()),
-                value: MetadataValue::new("gold".into()),
+                value: MetadataValue::new("silver".into()),
+                op: PredicateOp::NotEquals,
+            }),
+        },
+        Query::GetPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("medal".into()),
+                value: MetadataValue::new("bronze".into()),
                 op: PredicateOp::NotEquals,
             }),
         },
     ]);
-    let mut expected = ServerResult::with_capacity(7);
+    let mut expected = ServerResult::with_capacity(8);
     expected.push(Err("Store Main not found".to_string()));
     expected.push(Ok(ServerResponse::Unit));
     expected.push(Ok(ServerResponse::Set(StoreUpsert {
@@ -472,22 +479,20 @@ async fn test_get_pred() {
         updated: 0,
     })));
     expected.push(Ok(ServerResponse::Get(vec![])));
-    expected.push(Ok(ServerResponse::Get(vec![
-        (
-            StoreKey(array![1.2, 1.3, 1.4]),
-            HashMap::from_iter([(
-                MetadataKey::new("medal".into()),
-                MetadataValue::new("silver".into()),
-            )]),
-        ),
-        (
-            StoreKey(array![1.3, 1.4, 1.5]),
-            HashMap::from_iter([(
-                MetadataKey::new("medal".into()),
-                MetadataValue::new("bronze".into()),
-            )]),
-        ),
-    ])));
+    expected.push(Ok(ServerResponse::Get(vec![(
+        StoreKey(array![1.3, 1.4, 1.5]),
+        HashMap::from_iter([(
+            MetadataKey::new("medal".into()),
+            MetadataValue::new("bronze".into()),
+        )]),
+    )])));
+    expected.push(Ok(ServerResponse::Get(vec![(
+        StoreKey(array![1.2, 1.3, 1.4]),
+        HashMap::from_iter([(
+            MetadataKey::new("medal".into()),
+            MetadataValue::new("silver".into()),
+        )]),
+    )])));
     let stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(stream);
     query_server_assert_result(&mut reader, message, expected).await
@@ -598,6 +603,60 @@ async fn test_get_key() {
 }
 
 #[tokio::test]
+async fn test_drop_index_pred() {
+    let server = server::Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should error as store does not yet exist
+        Query::DropIndexPred {
+            store: StoreName("Main".to_string()),
+            error_if_not_exists: true,
+            predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+        },
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(3).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+            error_if_exists: true,
+        },
+        // should not error even though predicate does not exist
+        Query::DropIndexPred {
+            store: StoreName("Main".to_string()),
+            error_if_not_exists: false,
+            predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+        },
+        // should error as predicate does not exist
+        Query::DropIndexPred {
+            store: StoreName("Main".to_string()),
+            error_if_not_exists: true,
+            predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+        },
+        // should not error
+        Query::DropIndexPred {
+            store: StoreName("Main".to_string()),
+            error_if_not_exists: true,
+            predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+        },
+    ]);
+    let mut expected = ServerResult::with_capacity(5);
+    expected.push(Err("Store Main not found".into()));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Del(0)));
+    expected.push(Err(
+        "Predicate planet not found in store, attempt reindexing with predicate".into(),
+    ));
+    expected.push(Ok(ServerResponse::Del(1)));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
 async fn test_drop_stores() {
     let server = server::Server::new(&CONFIG)
         .await
@@ -607,7 +666,7 @@ async fn test_drop_stores() {
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
     let message = ServerQuery::from_queries(&[
-        // should not error
+        // should not error as error if not exists is set to false, however it should return Del(0)
         Query::DropStore {
             store: StoreName("Main".to_string()),
             error_if_not_exists: false,
@@ -631,7 +690,7 @@ async fn test_drop_stores() {
         },
     ]);
     let mut expected = ServerResult::with_capacity(5);
-    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Del(0)));
     expected.push(Ok(ServerResponse::Unit));
     expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
         StoreInfo {
@@ -640,7 +699,7 @@ async fn test_drop_stores() {
             size_in_bytes: 1712,
         },
     ]))));
-    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Del(1)));
     expected.push(Err("Store Main not found".to_string()));
     let stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(stream);
