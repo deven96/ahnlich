@@ -203,6 +203,102 @@ async fn test_set_in_store() {
 }
 
 #[tokio::test]
+async fn test_get_key() {
+    let server = server::Server::new(&ServerConfig::default())
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should error as store does not yet exist
+        Query::GetKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![],
+        },
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(2).unwrap(),
+            create_predicates: HashSet::new(),
+            error_if_exists: true,
+        },
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![
+                (
+                    StoreKey(array![1.0, 0.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("title".into()),
+                        MetadataValue::new("sorcerer".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(array![1.2, 0.3]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("title".into()),
+                        MetadataValue::new("elf".into()),
+                    )]),
+                ),
+            ],
+        },
+        // should error as dimension mismatch
+        Query::GetKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![
+                StoreKey(array![0.2, 0.3, 0.4]),
+                StoreKey(array![0.2, 0.3, 0.4, 0.6]),
+                StoreKey(array![0.4, 0.6]),
+            ],
+        },
+        // should not error however the keys do not exist so should be empty
+        Query::GetKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![StoreKey(array![0.4, 0.6]), StoreKey(array![0.2, 0.5])],
+        },
+        // Gets back the existing key in order
+        Query::GetKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![
+                StoreKey(array![1.2, 0.3]),
+                StoreKey(array![0.4, 0.6]),
+                StoreKey(array![1.0, 0.2]),
+            ],
+        },
+    ]);
+    let mut expected = ServerResult::with_capacity(6);
+    expected.push(Err("Store Main not found".to_string()));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 2,
+        updated: 0,
+    })));
+    expected.push(Err(
+        "Store dimension is [2], input dimension of [3] was specified".to_string(),
+    ));
+    expected.push(Ok(ServerResponse::GetKey(vec![])));
+    expected.push(Ok(ServerResponse::GetKey(vec![
+        (
+            StoreKey(array![1.2, 0.3]),
+            HashMap::from_iter([(
+                MetadataKey::new("title".into()),
+                MetadataValue::new("elf".into()),
+            )]),
+        ),
+        (
+            StoreKey(array![1.0, 0.2]),
+            HashMap::from_iter([(
+                MetadataKey::new("title".into()),
+                MetadataValue::new("sorcerer".into()),
+            )]),
+        ),
+    ])));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
 async fn test_drop_stores() {
     let server = server::Server::new(&ServerConfig::default())
         .await

@@ -1,5 +1,7 @@
 use crate::bincode::BinCodeSerAndDeser;
+use crate::keyval::StoreKey;
 use crate::keyval::StoreName;
+use crate::keyval::StoreValue;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -17,6 +19,7 @@ pub enum ServerResponse {
     StoreList(HashSet<StoreInfo>),
     InfoServer(ServerInfo),
     Set(StoreUpsert),
+    GetKey(Vec<(StoreKey, StoreValue)>),
     // TODO: Define return types for queries, e.t.c
 }
 

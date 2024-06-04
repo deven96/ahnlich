@@ -208,6 +208,11 @@ impl ServerTask {
                     .set_in_store(&store, inputs)
                     .map(ServerResponse::Set)
                     .map_err(|e| format!("{e}")),
+                Query::GetKey { store, keys } => self
+                    .store_handler
+                    .get_key_in_store(&store, keys)
+                    .map(ServerResponse::GetKey)
+                    .map_err(|e| format!("{e}")),
                 _ => Err("Response not implemented".to_string()),
             })
         }

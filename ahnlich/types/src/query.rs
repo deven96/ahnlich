@@ -25,6 +25,7 @@ pub enum Query {
         error_if_exists: bool,
     },
     GetKey {
+        store: StoreName,
         keys: Vec<StoreKey>,
     },
     GetPred {

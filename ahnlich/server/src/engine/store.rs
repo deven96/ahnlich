@@ -172,7 +172,7 @@ impl StoreHandler {
         keys: Vec<StoreKey>,
     ) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
         let store = self.get(store_name)?;
-        Ok(store.get_keys(keys))
+        store.get_keys(keys)
     }
 
     /// Matches SET - adds new entries into a particular store
@@ -279,12 +279,27 @@ impl Store {
     }
 
     /// Gets a bunch of store keys from the store
-    fn get_keys(&self, val: Vec<StoreKey>) -> Vec<(StoreKey, StoreValue)> {
+    fn get_keys(&self, val: Vec<StoreKey>) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
         if val.is_empty() {
-            return vec![];
+            return Ok(vec![]);
         }
-        let keys = val.iter().map(From::from);
-        self.get(keys)
+        // return error if dimensions do not match
+        let keys = val
+            .into_iter()
+            .map(|key| {
+                let store_dimension = self.dimension.get();
+                let input_dimension = key.dimension();
+                if input_dimension != store_dimension {
+                    return Err(ServerError::StoreDimensionMismatch {
+                        store_dimension,
+                        input_dimension,
+                    });
+                }
+                Ok(key)
+            })
+            .collect::<Result<Vec<StoreKey>, ServerError>>()?;
+        let keys = keys.iter().map(From::from);
+        Ok(self.get(keys))
     }
 
     /// Gets a bunch of store entries that matches a predicate condition
