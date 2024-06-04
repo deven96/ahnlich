@@ -238,7 +238,12 @@ impl ServerTask {
                 Query::GetKey { store, keys } => self
                     .store_handler
                     .get_key_in_store(&store, keys)
-                    .map(ServerResponse::GetKey)
+                    .map(ServerResponse::Get)
+                    .map_err(|e| format!("{e}")),
+                Query::GetPred { store, condition } => self
+                    .store_handler
+                    .get_pred_in_store(&store, &condition)
+                    .map(ServerResponse::Get)
                     .map_err(|e| format!("{e}")),
                 Query::DelKey { store, keys } => self
                     .store_handler

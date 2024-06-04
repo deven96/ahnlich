@@ -231,7 +231,7 @@ async fn test_del_pred() {
         },
     ]))));
     expected.push(Ok(ServerResponse::Del(1)));
-    expected.push(Ok(ServerResponse::GetKey(vec![(
+    expected.push(Ok(ServerResponse::Get(vec![(
         StoreKey(array![1.6, 1.7]),
         HashMap::from_iter([(
             MetadataKey::new("planet".into()),
@@ -402,6 +402,98 @@ async fn test_set_in_store() {
 }
 
 #[tokio::test]
+async fn test_get_pred() {
+    let server = server::Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should error as store does not yet exist
+        Query::GetPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("medal".into()),
+                value: MetadataValue::new("gold".into()),
+                op: PredicateOp::Equals,
+            }),
+        },
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(3).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
+            error_if_exists: true,
+        },
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![
+                (
+                    StoreKey(array![1.2, 1.3, 1.4]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::new("silver".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(array![1.3, 1.4, 1.5]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::new("bronze".into()),
+                    )]),
+                ),
+            ],
+        },
+        // should not error but return 0
+        Query::GetPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("medal".into()),
+                value: MetadataValue::new("gold".into()),
+                op: PredicateOp::Equals,
+            }),
+        },
+        // should not error however the keys do not exist so should be empty
+        Query::GetPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("medal".into()),
+                value: MetadataValue::new("gold".into()),
+                op: PredicateOp::NotEquals,
+            }),
+        },
+    ]);
+    let mut expected = ServerResult::with_capacity(7);
+    expected.push(Err("Store Main not found".to_string()));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 2,
+        updated: 0,
+    })));
+    expected.push(Ok(ServerResponse::Get(vec![])));
+    expected.push(Ok(ServerResponse::Get(vec![
+        (
+            StoreKey(array![1.2, 1.3, 1.4]),
+            HashMap::from_iter([(
+                MetadataKey::new("medal".into()),
+                MetadataValue::new("silver".into()),
+            )]),
+        ),
+        (
+            StoreKey(array![1.3, 1.4, 1.5]),
+            HashMap::from_iter([(
+                MetadataKey::new("medal".into()),
+                MetadataValue::new("bronze".into()),
+            )]),
+        ),
+    ])));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
 async fn test_get_key() {
     let server = server::Server::new(&CONFIG)
         .await
@@ -476,8 +568,8 @@ async fn test_get_key() {
     expected.push(Err(
         "Store dimension is [2], input dimension of [3] was specified".to_string(),
     ));
-    expected.push(Ok(ServerResponse::GetKey(vec![])));
-    expected.push(Ok(ServerResponse::GetKey(vec![
+    expected.push(Ok(ServerResponse::Get(vec![])));
+    expected.push(Ok(ServerResponse::Get(vec![
         (
             StoreKey(array![1.2, 0.3]),
             HashMap::from_iter([(
