@@ -84,15 +84,14 @@ impl StoreHandler {
         Ok(store)
     }
 
-    /// Matches REINDEX - reindexes a store with some predicate values
-    fn reindex(
+    /// Matches CREATEINDEX - reindexes a store with some predicate values
+    pub(crate) fn create_index(
         &self,
         store_name: &StoreName,
         predicates: Vec<MetadataKey>,
-    ) -> Result<(), ServerError> {
+    ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        store.reindex(predicates.into_iter().collect());
-        Ok(())
+        Ok(store.create_index(predicates.into_iter().collect()))
     }
 
     /// Matches DELKEY - removes keys from a store
@@ -221,7 +220,7 @@ impl StoreHandler {
     }
 
     /// Matches DROPINDEXPRED - Drops predicate index if exists, else returns an error
-    pub(crate) fn drop_index_pred_in_store(
+    pub(crate) fn drop_index_in_store(
         &self,
         store_name: &StoreName,
         predicates: Vec<MetadataKey>,
@@ -390,12 +389,13 @@ impl Store {
         Ok(StoreUpsert { inserted, updated })
     }
 
-    fn reindex(&self, requested_predicates: StdHashSet<MetadataKey>) {
+    fn create_index(&self, requested_predicates: StdHashSet<MetadataKey>) -> usize {
         let current_predicates = self.predicate_indices.current_predicates();
         let new_predicates: Vec<_> = requested_predicates
             .difference(&current_predicates)
             .cloned()
             .collect();
+        let new_predicates_len = new_predicates.len();
         if !new_predicates.is_empty() {
             // get all the values and reindex
             let values = self
@@ -405,7 +405,8 @@ impl Store {
                 .collect();
             self.predicate_indices
                 .add_predicates(new_predicates, Some(values));
-        }
+        };
+        new_predicates_len
     }
 
     /// Returns the number of key value pairs in the store
@@ -642,7 +643,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reindex_in_store() {
+    fn test_add_index_in_store() {
         let handler =
             create_store_handler_no_loom(vec![MetadataKey::new("author".into())], None, None);
         let even_store = StoreName("Even".into());
@@ -733,7 +734,7 @@ mod tests {
             ServerError::PredicateNotFound(MetadataKey::new("planet".into()))
         );
         handler
-            .reindex(
+            .create_index(
                 &even_store,
                 vec![
                     MetadataKey::new("author".into()),

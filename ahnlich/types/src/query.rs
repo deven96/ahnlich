@@ -39,11 +39,11 @@ pub enum Query {
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     },
-    ReIndex {
+    CreateIndex {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
     },
-    DropIndexPred {
+    DropIndex {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,

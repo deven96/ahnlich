@@ -5,7 +5,7 @@ use types::metadata::MetadataKey;
 /// TODO: Move to shared rust types so library can deserialize it from the TCP response
 #[derive(Error, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum ServerError {
-    #[error("Predicate {0} not found in store, attempt reindexing with predicate")]
+    #[error("Predicate {0} not found in store, attempt CREATEINDEX with predicate")]
     PredicateNotFound(MetadataKey),
     #[error("Store {0} not found")]
     StoreNotFound(StoreName),

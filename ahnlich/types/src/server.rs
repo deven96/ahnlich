@@ -22,7 +22,10 @@ pub enum ServerResponse {
     // Always returned in order of the key request, however when GetPred is used, there is no key
     // request so the order can be mixed up
     Get(Vec<(StoreKey, StoreValue)>),
+    // number of deleted entities
     Del(usize),
+    // number of created indexes
+    CreateIndex(usize),
     // TODO: Define return types for queries, e.t.c
 }
 

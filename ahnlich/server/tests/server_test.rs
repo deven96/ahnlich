@@ -603,7 +603,7 @@ async fn test_get_key() {
 }
 
 #[tokio::test]
-async fn test_drop_index_pred() {
+async fn test_create_index() {
     let server = server::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
@@ -613,7 +613,134 @@ async fn test_drop_index_pred() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     let message = ServerQuery::from_queries(&[
         // should error as store does not yet exist
-        Query::DropIndexPred {
+        Query::CreateIndex {
+            store: StoreName("Main".to_string()),
+            predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+        },
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(2).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+            error_if_exists: true,
+        },
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![
+                (
+                    StoreKey(array![1.4, 1.5]),
+                    HashMap::from_iter([
+                        (
+                            MetadataKey::new("galaxy".into()),
+                            MetadataValue::new("andromeda".into()),
+                        ),
+                        (
+                            MetadataKey::new("life-form".into()),
+                            MetadataValue::new("insects".into()),
+                        ),
+                    ]),
+                ),
+                (
+                    StoreKey(array![1.6, 1.7]),
+                    HashMap::from_iter([
+                        (
+                            MetadataKey::new("galaxy".into()),
+                            MetadataValue::new("milkyway".into()),
+                        ),
+                        (
+                            MetadataKey::new("life-form".into()),
+                            MetadataValue::new("insects".into()),
+                        ),
+                    ]),
+                ),
+            ],
+        },
+        // should return CreateIndex(0) as nothing new was indexed
+        Query::CreateIndex {
+            store: StoreName("Main".to_string()),
+            predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+        },
+        // get predicate should work as galaxy is indexed
+        Query::GetPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("galaxy".into()),
+                value: MetadataValue::new("milkyway".into()),
+                op: PredicateOp::Equals,
+            }),
+        },
+        // get predicate should fail as life-form is not indexed
+        Query::GetPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("life-form".into()),
+                value: MetadataValue::new("humanoid".into()),
+                op: PredicateOp::Equals,
+            }),
+        },
+        // should create 2 new indexes
+        Query::CreateIndex {
+            store: StoreName("Main".to_string()),
+            predicates: HashSet::from_iter([
+                MetadataKey::new("technology".into()),
+                MetadataKey::new("life-form".into()),
+                MetadataKey::new("galaxy".into()),
+            ]),
+        },
+        // now get pred for life-form should work as it is indexed
+        Query::GetPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("life-form".into()),
+                value: MetadataValue::new("humanoid".into()),
+                op: PredicateOp::Equals,
+            }),
+        },
+    ]);
+    let mut expected = ServerResult::with_capacity(8);
+    expected.push(Err("Store Main not found".into()));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 2,
+        updated: 0,
+    })));
+    expected.push(Ok(ServerResponse::CreateIndex(0)));
+    expected.push(Ok(ServerResponse::Get(vec![
+        (
+            StoreKey(array![1.6, 1.7]),
+            HashMap::from_iter([
+                (
+                    MetadataKey::new("galaxy".into()),
+                    MetadataValue::new("milkyway".into()),
+                ),
+                (
+                    MetadataKey::new("life-form".into()),
+                    MetadataValue::new("insects".into()),
+                ),
+            ]),
+        ),
+    ])));
+    expected.push(Err(
+        "Predicate life-form not found in store, attempt CREATEINDEX with predicate".into(),
+    ));
+    expected.push(Ok(ServerResponse::CreateIndex(2)));
+    expected.push(Ok(ServerResponse::Get(vec![])));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
+async fn test_drop_index() {
+    let server = server::Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should error as store does not yet exist
+        Query::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
@@ -625,19 +752,19 @@ async fn test_drop_index_pred() {
             error_if_exists: true,
         },
         // should not error even though predicate does not exist
-        Query::DropIndexPred {
+        Query::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: false,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
         // should error as predicate does not exist
-        Query::DropIndexPred {
+        Query::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
         // should not error
-        Query::DropIndexPred {
+        Query::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
@@ -648,7 +775,7 @@ async fn test_drop_index_pred() {
     expected.push(Ok(ServerResponse::Unit));
     expected.push(Ok(ServerResponse::Del(0)));
     expected.push(Err(
-        "Predicate planet not found in store, attempt reindexing with predicate".into(),
+        "Predicate planet not found in store, attempt CREATEINDEX with predicate".into(),
     ));
     expected.push(Ok(ServerResponse::Del(1)));
     let stream = TcpStream::connect(address).await.unwrap();

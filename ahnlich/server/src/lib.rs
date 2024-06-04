@@ -222,6 +222,11 @@ impl ServerTask {
                     )
                     .map(|_| ServerResponse::Unit)
                     .map_err(|e| format!("{e}")),
+                Query::CreateIndex { store, predicates } => self
+                    .store_handler
+                    .create_index(&store, predicates.into_iter().collect())
+                    .map(ServerResponse::CreateIndex)
+                    .map_err(|e| format!("{e}")),
                 Query::DropStore {
                     store,
                     error_if_not_exists,
@@ -230,13 +235,13 @@ impl ServerTask {
                     .drop_store(store, error_if_not_exists)
                     .map(ServerResponse::Del)
                     .map_err(|e| format!("{e}")),
-                Query::DropIndexPred {
+                Query::DropIndex {
                     store,
                     error_if_not_exists,
                     predicates,
                 } => self
                     .store_handler
-                    .drop_index_pred_in_store(
+                    .drop_index_in_store(
                         &store,
                         predicates.into_iter().collect(),
                         error_if_not_exists,
