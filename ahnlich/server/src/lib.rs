@@ -240,6 +240,11 @@ impl ServerTask {
                     .get_key_in_store(&store, keys)
                     .map(ServerResponse::GetKey)
                     .map_err(|e| format!("{e}")),
+                Query::DelKey { store, keys } => self
+                    .store_handler
+                    .del_key_in_store(&store, keys)
+                    .map(ServerResponse::DelKey)
+                    .map_err(|e| format!("{e}")),
                 _ => Err("Response not implemented".to_string()),
             })
         }

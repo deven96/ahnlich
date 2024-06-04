@@ -102,7 +102,7 @@ impl StoreHandler {
         keys: Vec<StoreKey>,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        Ok(store.delete_keys(keys))
+        store.delete_keys(keys)
     }
 
     /// Matches DELPRED - removes keys from a store when value matches predicate
@@ -264,12 +264,26 @@ impl Store {
     }
 
     /// Deletes a bunch of store keys from the store
-    fn delete_keys(&self, del: Vec<StoreKey>) -> usize {
+    fn delete_keys(&self, del: Vec<StoreKey>) -> Result<usize, ServerError> {
         if del.is_empty() {
-            return 0;
+            return Ok(0);
         }
-        let keys = del.iter().map(From::from);
-        self.delete(keys)
+        let keys = del
+            .into_iter()
+            .map(|key| {
+                let store_dimension = self.dimension.get();
+                let input_dimension = key.dimension();
+                if input_dimension != store_dimension {
+                    return Err(ServerError::StoreDimensionMismatch {
+                        store_dimension,
+                        input_dimension,
+                    });
+                }
+                Ok(key)
+            })
+            .collect::<Result<Vec<StoreKey>, ServerError>>()?;
+        let keys = keys.iter().map(From::from);
+        Ok(self.delete(keys))
     }
 
     /// Deletes a bunch of store keys from the store matching a specific predicate

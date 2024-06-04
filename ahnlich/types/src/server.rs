@@ -20,6 +20,7 @@ pub enum ServerResponse {
     InfoServer(ServerInfo),
     Set(StoreUpsert),
     GetKey(Vec<(StoreKey, StoreValue)>),
+    DelKey(usize),
     // TODO: Define return types for queries, e.t.c
 }
 

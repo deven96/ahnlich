@@ -134,6 +134,83 @@ async fn test_create_stores() {
 }
 
 #[tokio::test]
+async fn test_del_key() {
+    let server = server::Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should error as store does not exist
+        Query::DelKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![],
+        },
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(4).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            error_if_exists: true,
+        },
+        // should not error as it is correct dimensions
+        // but should delete nothing as nothing exists in the store yet
+        Query::DelKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+        },
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![
+                (StoreKey(array![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
+                (StoreKey(array![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
+            ],
+        },
+        Query::ListStores,
+        // should error as different dimensions
+        Query::DelKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![StoreKey(array![1.0, 1.1, 1.2])],
+        },
+        // should work as key exists
+        Query::DelKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+        },
+        Query::ListStores,
+    ]);
+    let mut expected = ServerResult::with_capacity(8);
+    expected.push(Err("Store Main not found".to_string()));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::DelKey(0)));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 2,
+        updated: 0,
+    })));
+    expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+        StoreInfo {
+            name: StoreName("Main".to_string()),
+            len: 2,
+            size_in_bytes: 1880,
+        },
+    ]))));
+    expected.push(Err(
+        "Store dimension is [4], input dimension of [3] was specified".to_string(),
+    ));
+    expected.push(Ok(ServerResponse::DelKey(1)));
+    expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+        StoreInfo {
+            name: StoreName("Main".to_string()),
+            len: 1,
+            size_in_bytes: 1808,
+        },
+    ]))));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+#[tokio::test]
 async fn test_set_in_store() {
     let server = server::Server::new(&CONFIG)
         .await
