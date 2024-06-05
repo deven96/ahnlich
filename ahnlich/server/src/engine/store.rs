@@ -19,6 +19,7 @@ use types::predicate::PredicateCondition;
 use types::server::StoreInfo;
 use types::server::StoreUpsert;
 use types::similarity::Algorithm;
+use types::similarity::Similarity;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
@@ -122,8 +123,17 @@ impl StoreHandler {
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
-    ) -> Result<Vec<(StoreKey, StoreValue, f64)>, ServerError> {
+    ) -> Result<Vec<(StoreKey, StoreValue, Similarity)>, ServerError> {
         let store = self.get(store_name)?;
+        let store_dimension = store.dimension.get();
+        let input_dimension = search_input.dimension();
+
+        if input_dimension != store_dimension {
+            return Err(ServerError::StoreDimensionMismatch {
+                store_dimension,
+                input_dimension,
+            });
+        }
 
         let filtered = if let Some(ref condition) = condition {
             store.get_matches(condition)?
@@ -149,7 +159,7 @@ impl StoreHandler {
             .flat_map(|(store_key, similarity)| {
                 keys_to_value_map
                     .remove(&StoreKeyId::from(store_key))
-                    .map(|value| (store_key.clone(), value.clone(), similarity))
+                    .map(|value| (store_key.clone(), value.clone(), Similarity(similarity)))
             })
             .collect())
     }

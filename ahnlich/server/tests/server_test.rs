@@ -26,6 +26,8 @@ use types::server::ServerResponse;
 use types::server::ServerResult;
 use types::server::StoreInfo;
 use types::server::StoreUpsert;
+use types::similarity::Algorithm;
+use types::similarity::Similarity;
 
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
 
@@ -402,6 +404,173 @@ async fn test_set_in_store() {
 }
 
 #[tokio::test]
+async fn test_get_sim_n() {
+    let server = server::Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should error as store does not yet exist
+        Query::GetSimN {
+            store: StoreName("Main".to_string()),
+            search_input: StoreKey(array![]),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::CosineSimilarity,
+            condition: None,
+        },
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(3).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
+            error_if_exists: true,
+        },
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![
+                (
+                    StoreKey(array![1.2, 1.3, 1.4]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::new("silver".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(array![2.0, 2.1, 2.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::new("gold".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(array![5.0, 5.1, 5.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::new("bronze".into()),
+                    )]),
+                ),
+            ],
+        },
+        // error due to dimension mismatch
+        Query::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::EuclideanDistance,
+            search_input: StoreKey(array![1.1, 2.0]),
+            condition: None,
+        },
+        // return just 1 entry regardless of closest_n
+        // due to precondition satisfying just one
+        Query::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::CosineSimilarity,
+            search_input: StoreKey(array![5.0, 2.1, 2.2]),
+            condition: Some(PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("medal".into()),
+                value: MetadataValue::new("gold".into()),
+                op: PredicateOp::Equals,
+            })),
+        },
+        // Get closest 2 without precondition using DotProduct
+        Query::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::DotProductSimilarity,
+            search_input: StoreKey(array![1.0, 2.1, 2.2]),
+            condition: None,
+        },
+        // Get closest 2 without precondition using EuclideanDistance
+        Query::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::EuclideanDistance,
+            search_input: StoreKey(array![1.0, 2.1, 2.2]),
+            condition: None,
+        },
+        // get closest one where medal is not gold
+        Query::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(1).unwrap(),
+            algorithm: Algorithm::CosineSimilarity,
+            search_input: StoreKey(array![5.0, 2.1, 2.2]),
+            condition: Some(PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("medal".into()),
+                value: MetadataValue::new("gold".into()),
+                op: PredicateOp::NotEquals,
+            })),
+        },
+    ]);
+    let mut expected = ServerResult::with_capacity(8);
+    expected.push(Err("Store Main not found".to_string()));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 3,
+        updated: 0,
+    })));
+    expected.push(Err(
+        "Store dimension is [3], input dimension of [2] was specified".into(),
+    ));
+    expected.push(Ok(ServerResponse::GetSimN(vec![(
+        StoreKey(array![2.0, 2.1, 2.2]),
+        HashMap::from_iter([(
+            MetadataKey::new("medal".into()),
+            MetadataValue::new("gold".into()),
+        )]),
+        Similarity(0.9036338825194858),
+    )])));
+    expected.push(Ok(ServerResponse::GetSimN(vec![
+        (
+            StoreKey(array![5.0, 5.1, 5.2]),
+            HashMap::from_iter([(
+                MetadataKey::new("medal".into()),
+                MetadataValue::new("bronze".into()),
+            )]),
+            Similarity(27.15),
+        ),
+        (
+            StoreKey(array![2.0, 2.1, 2.2]),
+            HashMap::from_iter([(
+                MetadataKey::new("medal".into()),
+                MetadataValue::new("gold".into()),
+            )]),
+            Similarity(11.25),
+        ),
+    ])));
+    expected.push(Ok(ServerResponse::GetSimN(vec![
+        (
+            StoreKey(array![2.0, 2.1, 2.2]),
+            HashMap::from_iter([(
+                MetadataKey::new("medal".into()),
+                MetadataValue::new("gold".into()),
+            )]),
+            Similarity(1.0),
+        ),
+        (
+            StoreKey(array![1.2, 1.3, 1.4]),
+            HashMap::from_iter([(
+                MetadataKey::new("medal".into()),
+                MetadataValue::new("silver".into()),
+            )]),
+            Similarity(1.1489125293076061),
+        ),
+    ])));
+    expected.push(Ok(ServerResponse::GetSimN(vec![(
+        StoreKey(array![5.0, 5.1, 5.2]),
+        HashMap::from_iter([(
+            MetadataKey::new("medal".into()),
+            MetadataValue::new("bronze".into()),
+        )]),
+        Similarity(0.9119372494019118),
+    )])));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
 async fn test_get_pred() {
     let server = server::Server::new(&CONFIG)
         .await
@@ -704,21 +873,19 @@ async fn test_create_index() {
         updated: 0,
     })));
     expected.push(Ok(ServerResponse::CreateIndex(0)));
-    expected.push(Ok(ServerResponse::Get(vec![
-        (
-            StoreKey(array![1.6, 1.7]),
-            HashMap::from_iter([
-                (
-                    MetadataKey::new("galaxy".into()),
-                    MetadataValue::new("milkyway".into()),
-                ),
-                (
-                    MetadataKey::new("life-form".into()),
-                    MetadataValue::new("insects".into()),
-                ),
-            ]),
-        ),
-    ])));
+    expected.push(Ok(ServerResponse::Get(vec![(
+        StoreKey(array![1.6, 1.7]),
+        HashMap::from_iter([
+            (
+                MetadataKey::new("galaxy".into()),
+                MetadataValue::new("milkyway".into()),
+            ),
+            (
+                MetadataKey::new("life-form".into()),
+                MetadataValue::new("insects".into()),
+            ),
+        ]),
+    )])));
     expected.push(Err(
         "Predicate life-form not found in store, attempt CREATEINDEX with predicate".into(),
     ));

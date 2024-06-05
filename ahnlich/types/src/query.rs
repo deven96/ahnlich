@@ -34,8 +34,8 @@ pub enum Query {
     },
     GetSimN {
         store: StoreName,
+        search_input: StoreKey,
         closest_n: NonZeroUsize,
-        input: StoreKey,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     },

@@ -263,6 +263,17 @@ impl ServerTask {
                     .get_pred_in_store(&store, &condition)
                     .map(ServerResponse::Get)
                     .map_err(|e| format!("{e}")),
+                Query::GetSimN {
+                    store,
+                    search_input,
+                    closest_n,
+                    algorithm,
+                    condition,
+                } => self
+                    .store_handler
+                    .get_sim_in_store(&store, search_input, closest_n, algorithm, condition)
+                    .map(ServerResponse::GetSimN)
+                    .map_err(|e| format!("{e}")),
                 Query::DelKey { store, keys } => self
                     .store_handler
                     .del_key_in_store(&store, keys)
@@ -273,7 +284,6 @@ impl ServerTask {
                     .del_pred_in_store(&store, &condition)
                     .map(ServerResponse::Del)
                     .map_err(|e| format!("{e}")),
-                _ => Err("Response not implemented".to_string()),
             })
         }
         result

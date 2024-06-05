@@ -16,3 +16,14 @@ pub enum Algorithm {
     /// metric is not affected by the magnitude of the vectors but only the angle bbetween them
     CosineSimilarity,
 }
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Similarity(pub f64);
+
+impl PartialEq for Similarity {
+    fn eq(&self, other: &Self) -> bool {
+        (self.0 - other.0).abs() < std::f64::EPSILON
+    }
+}
+
+impl Eq for Similarity {}
