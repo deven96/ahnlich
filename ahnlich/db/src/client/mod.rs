@@ -16,6 +16,7 @@ impl ClientHandler {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn connect(&self, addr: SocketAddr) -> ConnectedClient {
         let client = ConnectedClient {
             address: format!("{addr}"),
@@ -26,11 +27,13 @@ impl ClientHandler {
         client
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn disconnect(&self, client: &ConnectedClient) {
         let pinned = self.clients.pin();
         pinned.remove(client);
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn list(&self) -> StdHashSet<ConnectedClient> {
         let pinned = self.clients.pin();
         pinned.into_iter().cloned().collect()

@@ -22,6 +22,7 @@ use tokio::net::TcpStream;
 use tokio::select;
 use tokio_graceful::Shutdown;
 use tokio_graceful::ShutdownGuard;
+use tracing::Instrument;
 use types::bincode::BinCodeSerAndDeser;
 use types::bincode::LENGTH_HEADER_SIZE;
 use types::query::Query;
@@ -56,7 +57,7 @@ impl<'a> Server<'a> {
                 .otel_endpoint
                 .to_owned()
                 .unwrap_or("http://127.0.0.1:4317".to_string());
-            tracer::init_tracing("Ahnlich-db", Some(&config.log_level), &otel_url)
+            tracer::init_tracing("ahnlich-db", Some(&config.log_level), &otel_url)
         }
         // TODO: replace with rules to retrieve store handler from persistence if persistence exist
         let store_handler = Arc::new(StoreHandler::new());
@@ -95,7 +96,7 @@ impl<'a> Server<'a> {
 
                     let mut task = self.create_task(stream, server_addr)?;
                     shutdown_guard.spawn_task_fn(|guard| async move {
-                        if let Err(e) = task.process(guard).await {
+                        if let Err(e) = task.process(guard).instrument(tracing::info_span!("server_task").or_current()).await {
                             tracing::error!("Error handling connection: {}", e)
                         };
                     });
@@ -154,7 +155,6 @@ impl ServerTask {
         format!("ClIENT [{}]: {}", self.connected_client.address, message)
     }
 
-    #[tracing::instrument]
     /// processes messages from a stream
     async fn process(&mut self, shutdown_token: ShutdownGuard) -> IoResult<()> {
         let mut length_buf = [0u8; LENGTH_HEADER_SIZE];
@@ -180,7 +180,6 @@ impl ServerTask {
                             let data_length = u64::from_be_bytes(length_buf);
                             if data_length > self.maximum_message_size {
                                 tracing::error!("{}", self.prefix_log(format!("Message cannot exceed {} bytes, configure `message_size` for higher", self.maximum_message_size)));
-                                tracing::error_span!("Messsage exceeds max size");
                                 continue
                             }
                             let mut data = Vec::new();
@@ -198,8 +197,6 @@ impl ServerTask {
                                     self.reader.get_mut().write_all(&binary_results).await?;
                                 }
                             } else {
-
-                                tracing::error_span!("Could not deserialize client message as server query");
                                 tracing::error!("{}", self.prefix_log("Could not deserialize client message as server query"));
                             }
                         }
@@ -210,6 +207,7 @@ impl ServerTask {
         Ok(())
     }
 
+    #[tracing::instrument]
     fn handle(&self, queries: Vec<Query>) -> ServerResult {
         let mut result = ServerResult::with_capacity(queries.len());
         for query in queries {

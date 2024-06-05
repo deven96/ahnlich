@@ -1,8 +1,8 @@
+use db::cli::ServerConfig;
 use futures::future::join_all;
 use ndarray::array;
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
-use server::cli::ServerConfig;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
@@ -33,7 +33,7 @@ static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
 
 #[tokio::test]
 async fn test_server_client_info() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -74,7 +74,7 @@ async fn test_server_client_info() {
 
 #[tokio::test]
 async fn test_simple_stores_list() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -92,7 +92,7 @@ async fn test_simple_stores_list() {
 
 #[tokio::test]
 async fn test_create_stores() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -140,7 +140,7 @@ async fn test_create_stores() {
 
 #[tokio::test]
 async fn test_del_pred() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -255,7 +255,7 @@ async fn test_del_pred() {
 
 #[tokio::test]
 async fn test_del_key() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -332,7 +332,7 @@ async fn test_del_key() {
 }
 #[tokio::test]
 async fn test_set_in_store() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -405,7 +405,7 @@ async fn test_set_in_store() {
 
 #[tokio::test]
 async fn test_get_sim_n() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -572,7 +572,7 @@ async fn test_get_sim_n() {
 
 #[tokio::test]
 async fn test_get_pred() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -669,7 +669,7 @@ async fn test_get_pred() {
 
 #[tokio::test]
 async fn test_get_key() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -773,7 +773,7 @@ async fn test_get_key() {
 
 #[tokio::test]
 async fn test_create_index() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -898,7 +898,7 @@ async fn test_create_index() {
 
 #[tokio::test]
 async fn test_drop_index() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -952,7 +952,7 @@ async fn test_drop_index() {
 
 #[tokio::test]
 async fn test_drop_stores() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -1002,7 +1002,7 @@ async fn test_drop_stores() {
 
 #[tokio::test]
 async fn test_run_server_echos() {
-    let server = server::Server::new(&CONFIG)
+    let server = db::Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");

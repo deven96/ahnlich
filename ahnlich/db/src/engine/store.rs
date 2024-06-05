@@ -76,6 +76,7 @@ impl StoreHandler {
     }
 
     /// Returns a store using the store name, else returns an error
+    #[tracing::instrument(skip(self))]
     fn get(&self, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
         let store = self
             .stores
@@ -86,6 +87,7 @@ impl StoreHandler {
     }
 
     /// Matches CREATEINDEX - reindexes a store with some predicate values
+    #[tracing::instrument(skip(self))]
     pub(crate) fn create_index(
         &self,
         store_name: &StoreName,
@@ -96,6 +98,7 @@ impl StoreHandler {
     }
 
     /// Matches DELKEY - removes keys from a store
+    #[tracing::instrument(skip(self))]
     pub(crate) fn del_key_in_store(
         &self,
         store_name: &StoreName,
@@ -106,6 +109,7 @@ impl StoreHandler {
     }
 
     /// Matches DELPRED - removes keys from a store when value matches predicate
+    #[tracing::instrument(skip(self))]
     pub(crate) fn del_pred_in_store(
         &self,
         store_name: &StoreName,
@@ -116,6 +120,7 @@ impl StoreHandler {
     }
 
     /// Matches GETSIMN - gets all similar from a store that also match a predicate
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_sim_in_store(
         &self,
         store_name: &StoreName,
@@ -165,6 +170,7 @@ impl StoreHandler {
     }
 
     /// Matches GETPRED - gets all matching predicates from a store
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_pred_in_store(
         &self,
         store_name: &StoreName,
@@ -175,6 +181,7 @@ impl StoreHandler {
     }
 
     /// Matches GETKEY - gets all keys matching the inputs
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_key_in_store(
         &self,
         store_name: &StoreName,
@@ -185,6 +192,7 @@ impl StoreHandler {
     }
 
     /// Matches SET - adds new entries into a particular store
+    #[tracing::instrument(skip(self))]
     pub(crate) fn set_in_store(
         &self,
         store_name: &StoreName,
@@ -195,6 +203,7 @@ impl StoreHandler {
     }
 
     /// matches LISTSTORES - to return statistics of all stores
+    #[tracing::instrument(skip(self))]
     pub(crate) fn list_stores(&self) -> StdHashSet<StoreInfo> {
         self.stores
             .iter(&self.stores.guard())
@@ -207,6 +216,7 @@ impl StoreHandler {
     }
 
     /// Matches CREATESTORE - Creates a store if not exist, else return an error
+    #[tracing::instrument(skip(self))]
     pub(crate) fn create_store(
         &self,
         store_name: StoreName,
@@ -230,6 +240,7 @@ impl StoreHandler {
     }
 
     /// Matches DROPINDEXPRED - Drops predicate index if exists, else returns an error
+    #[tracing::instrument(skip(self))]
     pub(crate) fn drop_index_in_store(
         &self,
         store_name: &StoreName,
@@ -241,6 +252,7 @@ impl StoreHandler {
     }
 
     /// Matches DROPSTORE - Drops a store if exist, else returns an error
+    #[tracing::instrument(skip(self))]
     pub(crate) fn drop_store(
         &self,
         store_name: StoreName,
@@ -277,6 +289,7 @@ impl Store {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     fn drop_predicates(
         &self,
         predicates: Vec<MetadataKey>,
@@ -286,6 +299,7 @@ impl Store {
             .remove_predicates(predicates, error_if_not_exists)
     }
 
+    #[tracing::instrument(skip_all)]
     fn delete(&self, keys: impl Iterator<Item = StoreKeyId>) -> usize {
         let keys: Vec<StoreKeyId> = keys.collect();
         let pinned = self.id_to_value.pin();
@@ -295,6 +309,7 @@ impl Store {
     }
 
     /// filters input dimension to make sure it matches store dimension
+    #[tracing::instrument(skip(self))]
     fn filter_dimension(&self, input: Vec<StoreKey>) -> Result<Vec<StoreKey>, ServerError> {
         input
             .into_iter()
@@ -313,6 +328,7 @@ impl Store {
     }
 
     /// Deletes a bunch of store keys from the store
+    #[tracing::instrument(skip(self))]
     fn delete_keys(&self, del: Vec<StoreKey>) -> Result<usize, ServerError> {
         if del.is_empty() {
             return Ok(0);
@@ -322,12 +338,14 @@ impl Store {
     }
 
     /// Deletes a bunch of store keys from the store matching a specific predicate
+    #[tracing::instrument(skip(self))]
     fn delete_matches(&self, condition: &PredicateCondition) -> Result<usize, ServerError> {
         let matches = self.predicate_indices.matches(condition)?.into_iter();
         Ok(self.delete(matches))
     }
 
     /// Gets a bunch of store keys from the store
+    #[tracing::instrument(skip(self))]
     fn get_keys(&self, val: Vec<StoreKey>) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
         if val.is_empty() {
             return Ok(vec![]);
@@ -338,6 +356,7 @@ impl Store {
     }
 
     /// Gets a bunch of store entries that matches a predicate condition
+    #[tracing::instrument(skip(self))]
     fn get_matches(
         &self,
         condition: &PredicateCondition,
@@ -346,11 +365,13 @@ impl Store {
         Ok(self.get(matches))
     }
 
+    #[tracing::instrument(skip_all)]
     fn get(&self, keys: impl Iterator<Item = StoreKeyId>) -> Vec<(StoreKey, StoreValue)> {
         let pinned = self.id_to_value.pin();
         keys.flat_map(|k| pinned.get(&k).cloned()).collect()
     }
 
+    #[tracing::instrument(skip(self))]
     fn get_all(&self) -> Vec<(StoreKey, StoreValue)> {
         let pinned = self.id_to_value.pin();
         pinned
@@ -362,6 +383,7 @@ impl Store {
     /// Adds a bunch of entries into the store if they match the dimensions
     /// Returns the len of values added, if a value already existed it is updated but not counted
     /// as a new insert
+    #[tracing::instrument(skip(self))]
     fn add(&self, new: Vec<(StoreKey, StoreValue)>) -> Result<StoreUpsert, ServerError> {
         if new.is_empty() {
             return Ok(StoreUpsert {
@@ -399,6 +421,7 @@ impl Store {
         Ok(StoreUpsert { inserted, updated })
     }
 
+    #[tracing::instrument(skip(self))]
     fn create_index(&self, requested_predicates: StdHashSet<MetadataKey>) -> usize {
         let current_predicates = self.predicate_indices.current_predicates();
         let new_predicates: Vec<_> = requested_predicates
@@ -420,11 +443,13 @@ impl Store {
     }
 
     /// Returns the number of key value pairs in the store
+    #[tracing::instrument(skip(self))]
     fn len(&self) -> usize {
         self.id_to_value.pin().len()
     }
 
     /// TODO: Fix nested calculation of sizes using size_of_val
+    #[tracing::instrument(skip(self))]
     fn size(&self) -> usize {
         size_of_val(&self)
             + size_of_val(&self.dimension)
