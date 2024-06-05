@@ -16,7 +16,10 @@ use types::keyval::StoreName;
 use types::keyval::StoreValue;
 use types::metadata::MetadataKey;
 use types::predicate::PredicateCondition;
+use types::server::StoreInfo;
+use types::server::StoreUpsert;
 use types::similarity::Algorithm;
+use types::similarity::Similarity;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
@@ -58,21 +61,6 @@ impl From<&StoreKey> for StoreKeyId {
     }
 }
 
-/// StoreInfo just shows store name, size and length
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct StoreInfo {
-    pub name: StoreName,
-    pub len: usize,
-    pub size_in_bytes: usize,
-}
-
-/// StoreUpsert shows how many entries were inserted and updated during a store add call
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct StoreUpsert {
-    pub inserted: usize,
-    pub updated: usize,
-}
-
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]
 pub(crate) struct StoreHandler {
@@ -97,15 +85,14 @@ impl StoreHandler {
         Ok(store)
     }
 
-    /// Matches REINDEX - reindexes a store with some predicate values
-    fn reindex(
+    /// Matches CREATEINDEX - reindexes a store with some predicate values
+    pub(crate) fn create_index(
         &self,
         store_name: &StoreName,
         predicates: Vec<MetadataKey>,
-    ) -> Result<(), ServerError> {
+    ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        store.reindex(predicates.into_iter().collect());
-        Ok(())
+        Ok(store.create_index(predicates.into_iter().collect()))
     }
 
     /// Matches DELKEY - removes keys from a store
@@ -115,7 +102,7 @@ impl StoreHandler {
         keys: Vec<StoreKey>,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        Ok(store.delete_keys(keys))
+        store.delete_keys(keys)
     }
 
     /// Matches DELPRED - removes keys from a store when value matches predicate
@@ -136,8 +123,17 @@ impl StoreHandler {
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
-    ) -> Result<Vec<(StoreKey, StoreValue, f64)>, ServerError> {
+    ) -> Result<Vec<(StoreKey, StoreValue, Similarity)>, ServerError> {
         let store = self.get(store_name)?;
+        let store_dimension = store.dimension.get();
+        let input_dimension = search_input.dimension();
+
+        if input_dimension != store_dimension {
+            return Err(ServerError::StoreDimensionMismatch {
+                store_dimension,
+                input_dimension,
+            });
+        }
 
         let filtered = if let Some(ref condition) = condition {
             store.get_matches(condition)?
@@ -163,7 +159,7 @@ impl StoreHandler {
             .flat_map(|(store_key, similarity)| {
                 keys_to_value_map
                     .remove(&StoreKeyId::from(store_key))
-                    .map(|value| (store_key.clone(), value.clone(), similarity))
+                    .map(|value| (store_key.clone(), value.clone(), Similarity(similarity)))
             })
             .collect())
     }
@@ -185,7 +181,7 @@ impl StoreHandler {
         keys: Vec<StoreKey>,
     ) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
         let store = self.get(store_name)?;
-        Ok(store.get_keys(keys))
+        store.get_keys(keys)
     }
 
     /// Matches SET - adds new entries into a particular store
@@ -210,12 +206,13 @@ impl StoreHandler {
             .collect()
     }
 
-    /// Matches CREATE - Creates a store if not exist, else return an error
+    /// Matches CREATESTORE - Creates a store if not exist, else return an error
     pub(crate) fn create_store(
         &self,
         store_name: StoreName,
         dimension: NonZeroUsize,
         predicates: Vec<MetadataKey>,
+        error_if_exists: bool,
     ) -> Result<(), ServerError> {
         if self
             .stores
@@ -225,19 +222,37 @@ impl StoreHandler {
                 &self.stores.guard(),
             )
             .is_err()
+            && error_if_exists
         {
             return Err(ServerError::StoreAlreadyExists(store_name));
         }
         Ok(())
     }
 
+    /// Matches DROPINDEXPRED - Drops predicate index if exists, else returns an error
+    pub(crate) fn drop_index_in_store(
+        &self,
+        store_name: &StoreName,
+        predicates: Vec<MetadataKey>,
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
+        let store = self.get(store_name)?;
+        store.drop_predicates(predicates, error_if_not_exists)
+    }
+
     /// Matches DROPSTORE - Drops a store if exist, else returns an error
-    pub(crate) fn drop_store(&self, store_name: StoreName) -> Result<(), ServerError> {
+    pub(crate) fn drop_store(
+        &self,
+        store_name: StoreName,
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
         let pinned = self.stores.pin();
-        pinned
-            .remove(&store_name)
-            .ok_or(ServerError::StoreNotFound(store_name))?;
-        Ok(())
+        let removed = pinned.remove(&store_name).is_some();
+        if !removed && error_if_not_exists {
+            return Err(ServerError::StoreNotFound(store_name));
+        }
+        let removed = if !removed { 0 } else { 1 };
+        Ok(removed)
     }
 }
 
@@ -262,6 +277,15 @@ impl Store {
         }
     }
 
+    fn drop_predicates(
+        &self,
+        predicates: Vec<MetadataKey>,
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
+        self.predicate_indices
+            .remove_predicates(predicates, error_if_not_exists)
+    }
+
     fn delete(&self, keys: impl Iterator<Item = StoreKeyId>) -> usize {
         let keys: Vec<StoreKeyId> = keys.collect();
         let pinned = self.id_to_value.pin();
@@ -270,13 +294,31 @@ impl Store {
         removed.len()
     }
 
+    /// filters input dimension to make sure it matches store dimension
+    fn filter_dimension(&self, input: Vec<StoreKey>) -> Result<Vec<StoreKey>, ServerError> {
+        input
+            .into_iter()
+            .map(|key| {
+                let store_dimension = self.dimension.get();
+                let input_dimension = key.dimension();
+                if input_dimension != store_dimension {
+                    return Err(ServerError::StoreDimensionMismatch {
+                        store_dimension,
+                        input_dimension,
+                    });
+                }
+                Ok(key)
+            })
+            .collect()
+    }
+
     /// Deletes a bunch of store keys from the store
-    fn delete_keys(&self, del: Vec<StoreKey>) -> usize {
+    fn delete_keys(&self, del: Vec<StoreKey>) -> Result<usize, ServerError> {
         if del.is_empty() {
-            return 0;
+            return Ok(0);
         }
-        let keys = del.iter().map(From::from);
-        self.delete(keys)
+        let keys = self.filter_dimension(del)?;
+        Ok(self.delete(keys.iter().map(From::from)))
     }
 
     /// Deletes a bunch of store keys from the store matching a specific predicate
@@ -286,12 +328,13 @@ impl Store {
     }
 
     /// Gets a bunch of store keys from the store
-    fn get_keys(&self, val: Vec<StoreKey>) -> Vec<(StoreKey, StoreValue)> {
+    fn get_keys(&self, val: Vec<StoreKey>) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
         if val.is_empty() {
-            return vec![];
+            return Ok(vec![]);
         }
-        let keys = val.iter().map(From::from);
-        self.get(keys)
+        // return error if dimensions do not match
+        let keys = self.filter_dimension(val)?;
+        Ok(self.get(keys.iter().map(From::from)))
     }
 
     /// Gets a bunch of store entries that matches a predicate condition
@@ -356,12 +399,13 @@ impl Store {
         Ok(StoreUpsert { inserted, updated })
     }
 
-    fn reindex(&self, requested_predicates: StdHashSet<MetadataKey>) {
+    fn create_index(&self, requested_predicates: StdHashSet<MetadataKey>) -> usize {
         let current_predicates = self.predicate_indices.current_predicates();
         let new_predicates: Vec<_> = requested_predicates
             .difference(&current_predicates)
             .cloned()
             .collect();
+        let new_predicates_len = new_predicates.len();
         if !new_predicates.is_empty() {
             // get all the values and reindex
             let values = self
@@ -371,7 +415,8 @@ impl Store {
                 .collect();
             self.predicate_indices
                 .add_predicates(new_predicates, Some(values));
-        }
+        };
+        new_predicates_len
     }
 
     /// Returns the number of key value pairs in the store
@@ -405,6 +450,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use crate::fixtures::*;
+    use pretty_assertions::assert_eq;
     use std::num::NonZeroUsize;
 
     use super::*;
@@ -465,6 +511,7 @@ mod tests {
                     StoreName(store_name.to_string()),
                     NonZeroUsize::new(size).unwrap(),
                     predicates,
+                    true,
                 )
             });
             handle
@@ -492,6 +539,7 @@ mod tests {
                     StoreName(store_name.to_string()),
                     NonZeroUsize::new(size).unwrap(),
                     predicates,
+                    true,
                 )
             });
             handle
@@ -605,7 +653,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reindex_in_store() {
+    fn test_add_index_in_store() {
         let handler =
             create_store_handler_no_loom(vec![MetadataKey::new("author".into())], None, None);
         let even_store = StoreName("Even".into());
@@ -696,7 +744,7 @@ mod tests {
             ServerError::PredicateNotFound(MetadataKey::new("planet".into()))
         );
         handler
-            .reindex(
+            .create_index(
                 &even_store,
                 vec![
                     MetadataKey::new("author".into()),

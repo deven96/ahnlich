@@ -18,12 +18,14 @@ use serde::Serialize;
 /// - First 8 bytes must contain length of the entire vec of queries
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Query {
-    Create {
+    CreateStore {
         store: StoreName,
         dimension: NonZeroUsize,
         create_predicates: HashSet<MetadataKey>,
+        error_if_exists: bool,
     },
     GetKey {
+        store: StoreName,
         keys: Vec<StoreKey>,
     },
     GetPred {
@@ -32,18 +34,19 @@ pub enum Query {
     },
     GetSimN {
         store: StoreName,
+        search_input: StoreKey,
         closest_n: NonZeroUsize,
-        input: StoreKey,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     },
-    ReIndex {
+    CreateIndex {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
     },
-    DropIndexPred {
+    DropIndex {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
+        error_if_not_exists: bool,
     },
     Set {
         store: StoreName,
@@ -59,6 +62,7 @@ pub enum Query {
     },
     DropStore {
         store: StoreName,
+        error_if_not_exists: bool,
     },
     InfoServer,
     ListStores,

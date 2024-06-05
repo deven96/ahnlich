@@ -25,6 +25,12 @@ pub type StoreValue = StdHashMap<MetadataKey, MetadataValue>;
 #[serde(transparent)]
 pub struct StoreKey(pub Array1<f64>);
 
+impl StoreKey {
+    pub fn dimension(&self) -> usize {
+        self.0.len()
+    }
+}
+
 impl Eq for StoreKey {}
 
 impl PartialEq for StoreKey {

@@ -64,13 +64,39 @@ impl PredicateIndices {
     }
 
     /// Removes predicates from being tracked
-    pub(super) fn remove_predicates(&self, predicates: Vec<MetadataKey>) {
+    pub(super) fn remove_predicates(
+        &self,
+        predicates: Vec<MetadataKey>,
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
+        if predicates.is_empty() {
+            return Ok(0);
+        }
+
         let pinned_keys = self.allowed_predicates.pin();
         let pinned_predicate_values = self.inner.pin();
-        for predicate in predicates {
-            pinned_keys.remove(&predicate);
-            pinned_predicate_values.remove(&predicate);
+        // first check all predicates
+        if let (true, Some(non_existing_index)) = (
+            error_if_not_exists,
+            predicates
+                .iter()
+                .filter(|a| !pinned_keys.contains(a))
+                .cloned()
+                .collect::<Vec<_>>()
+                .pop(),
+        ) {
+            return Err(ServerError::PredicateNotFound(non_existing_index));
         }
+        let mut deleted = 0;
+        for predicate in predicates {
+            let removed = pinned_keys.remove(&predicate);
+            pinned_predicate_values.remove(&predicate);
+
+            if removed {
+                deleted += 1;
+            };
+        }
+        Ok(deleted)
     }
 
     /// This adds predicates to the allowed predicates and allows newer entries to be indexed
@@ -264,6 +290,7 @@ impl PredicateIndex {
 mod tests {
     use super::*;
     use loom::thread;
+    use pretty_assertions::assert_eq;
     use std::collections::HashMap as StdHashMap;
     use std::sync::Arc;
 
