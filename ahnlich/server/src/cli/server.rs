@@ -41,6 +41,17 @@ pub struct ServerConfig {
     /// limits the message size of expected messages, defaults to 1MiB (1 * 1024 * 1024)
     #[arg(long, default_value_t = 1_048_576)]
     pub message_size: usize,
+    /// Allows enables tracing
+    #[arg(long, default_value_t = false, action=ArgAction::SetTrue)]
+    pub(crate) enable_tracing: bool,
+
+    /// Otel collector url to send traces to
+    #[arg(long, requires_if("true", "enable_tracing"))]
+    pub(crate) otel_endpoint: Option<String>,
+
+    ///  Log level
+    #[arg(long, default_value_t = String::from("info"))]
+    pub(crate) log_level: String,
 }
 
 impl Default for ServerConfig {
@@ -57,6 +68,10 @@ impl Default for ServerConfig {
             persistence_intervals: 1000 * 60 * 5,
             allocator_size: 1_073_741_824,
             message_size: 1_048_576,
+
+            enable_tracing: false,
+            otel_endpoint: None,
+            log_level: String::from("info"),
         }
     }
 }

@@ -50,6 +50,14 @@ impl<'a> Server<'a> {
             .expect("Could not set up server with allocator_size");
         let listener =
             tokio::net::TcpListener::bind(format!("{}:{}", &config.host, &config.port)).await?;
+        // Enable tracing
+        if config.enable_tracing {
+            let otel_url = config
+                .otel_endpoint
+                .to_owned()
+                .unwrap_or("http://127.0.0.1:4317".to_string());
+            tracer::init_tracing("Ahnlich-db", Some(&config.log_level), &otel_url)
+        }
         // TODO: replace with rules to retrieve store handler from persistence if persistence exist
         let store_handler = Arc::new(StoreHandler::new());
         let client_handler = Arc::new(ClientHandler::new());
@@ -78,7 +86,7 @@ impl<'a> Server<'a> {
                     break Ok(());
                 }
                 Ok((stream, connect_addr)) = self.listener.accept() => {
-                    log::info!("Connecting to {}", connect_addr);
+                    tracing::info!("Connecting to {}", connect_addr);
                     //  - Spawn a tokio task to handle the command while holding on to a reference to self
                     //  - Convert the incoming bincode in a chunked manner to a Vec<Query>
                     //  - Use store_handler to process the queries
@@ -88,7 +96,7 @@ impl<'a> Server<'a> {
                     let mut task = self.create_task(stream, server_addr)?;
                     shutdown_guard.spawn_task_fn(|guard| async move {
                         if let Err(e) = task.process(guard).await {
-                            log::error!("Error handling connection: {}", e)
+                            tracing::error!("Error handling connection: {}", e)
                         };
                     });
                 }
@@ -107,7 +115,7 @@ impl<'a> Server<'a> {
             .await
             .is_err()
         {
-            log::error!("SERVER: shutdown took longer than timeout");
+            tracing::error!("SERVER: shutdown took longer than timeout");
         }
     }
 
@@ -145,6 +153,8 @@ impl ServerTask {
     fn prefix_log(&self, message: impl std::fmt::Display) -> String {
         format!("ClIENT [{}]: {}", self.connected_client.address, message)
     }
+
+    #[tracing::instrument]
     /// processes messages from a stream
     async fn process(&mut self, shutdown_token: ShutdownGuard) -> IoResult<()> {
         let mut length_buf = [0u8; LENGTH_HEADER_SIZE];
@@ -152,29 +162,30 @@ impl ServerTask {
         loop {
             select! {
                 _ = shutdown_token.cancelled() => {
-                    log::debug!("{}", self.prefix_log("Cancelling stream as server is shutting down"));
+                    tracing::debug!("{}", self.prefix_log("Cancelling stream as server is shutting down"));
                     break;
                 }
                 res = self.reader.read_exact(&mut length_buf) => {
                     match res {
                         // reader was closed
                         Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                            log::debug!("{}", self.prefix_log("Hung up on buffered stream"));
+                            tracing::debug!("{}", self.prefix_log("Hung up on buffered stream"));
                             break;
                         }
                         Err(e) => {
-                            log::error!("{}", self.prefix_log(format!("Error reading from task buffered stream {e}")));
+                            tracing::error!("{}", self.prefix_log(format!("Error reading from task buffered stream {e}")));
                         }
                         Ok(_) => {
                             // cap the message size to be of length 1MiB
                             let data_length = u64::from_be_bytes(length_buf);
                             if data_length > self.maximum_message_size {
-                                log::error!("{}", self.prefix_log(format!("Message cannot exceed {} bytes, configure `message_size` for higher", self.maximum_message_size)));
+                                tracing::error!("{}", self.prefix_log(format!("Message cannot exceed {} bytes, configure `message_size` for higher", self.maximum_message_size)));
+                                tracing::error_span!("Messsage exceeds max size");
                                 continue
                             }
                             let mut data = Vec::new();
                             if data.try_reserve(data_length as usize).is_err() {
-                                log::error!("{}", self.prefix_log(format!("Failed to reserve buffer of length {data_length}")));
+                                tracing::error!("{}", self.prefix_log(format!("Failed to reserve buffer of length {data_length}")));
                                 continue
                             };
                             data.resize(data_length as usize, 0u8);
@@ -187,7 +198,9 @@ impl ServerTask {
                                     self.reader.get_mut().write_all(&binary_results).await?;
                                 }
                             } else {
-                                log::error!("{}", self.prefix_log("Could not deserialize client message as server query"));
+
+                                tracing::error_span!("Could not deserialize client message as server query");
+                                tracing::error!("{}", self.prefix_log("Could not deserialize client message as server query"));
                             }
                         }
                     }
