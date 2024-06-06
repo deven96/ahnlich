@@ -3,6 +3,7 @@ use crate::keyval::StoreKey;
 use crate::keyval::StoreName;
 use crate::keyval::StoreValue;
 use crate::similarity::Similarity;
+use crate::version::Version;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -49,7 +50,7 @@ pub struct StoreInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialOrd, Ord)]
 pub struct ServerInfo {
     pub address: String,
-    pub version: String,
+    pub version: Version,
     pub r#type: ServerType,
     pub limit: usize,
     pub remaining: usize,

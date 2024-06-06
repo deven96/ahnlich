@@ -12,6 +12,7 @@ use crate::client::ClientHandler;
 use crate::engine::store::StoreHandler;
 use cap::Cap;
 use std::alloc;
+use std::io::Error;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -25,12 +26,16 @@ use tokio_graceful::ShutdownGuard;
 use tracing::Instrument;
 use types::bincode::BinCodeSerAndDeser;
 use types::bincode::LENGTH_HEADER_SIZE;
+use types::bincode::MAGIC_BYTES;
+use types::bincode::VERSION_LENGTH;
 use types::query::Query;
 use types::query::ServerQuery;
 use types::server::ConnectedClient;
 use types::server::ServerInfo;
 use types::server::ServerResponse;
 use types::server::ServerResult;
+use types::version::Version;
+use types::version::VERSION;
 
 #[global_allocator]
 static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
@@ -157,6 +162,8 @@ impl ServerTask {
 
     /// processes messages from a stream
     async fn process(&mut self, shutdown_token: ShutdownGuard) -> IoResult<()> {
+        let mut magic_bytes_buf = [0u8; MAGIC_BYTES.len()];
+        let mut version_buf = [0u8; VERSION_LENGTH];
         let mut length_buf = [0u8; LENGTH_HEADER_SIZE];
 
         loop {
@@ -165,7 +172,7 @@ impl ServerTask {
                     tracing::debug!("{}", self.prefix_log("Cancelling stream as server is shutting down"));
                     break;
                 }
-                res = self.reader.read_exact(&mut length_buf) => {
+                res = self.reader.read_exact(&mut magic_bytes_buf) => {
                     match res {
                         // reader was closed
                         Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
@@ -176,11 +183,20 @@ impl ServerTask {
                             tracing::error!("{}", self.prefix_log(format!("Error reading from task buffered stream {e}")));
                         }
                         Ok(_) => {
+                            if magic_bytes_buf != MAGIC_BYTES {
+                                return Err(Error::other("Invalid request stream"));
+                            }
+                            self.reader.read_exact(&mut version_buf).await?;
+                            let version = Version::deserialize_magic_bytes(&version_buf).map_err(|a| Error::other(format!("Unable to parse version chunk {a}")))?;
+                            if !VERSION.is_compatible(&version) {
+                                return Err(Error::other(format!("Incompatible versions, Server: {:?}, Client {version:?}", *VERSION)));
+                            }
                             // cap the message size to be of length 1MiB
+                            self.reader.read_exact(&mut length_buf).await?;
                             let data_length = u64::from_be_bytes(length_buf);
                             if data_length > self.maximum_message_size {
                                 tracing::error!("{}", self.prefix_log(format!("Message cannot exceed {} bytes, configure `message_size` for higher", self.maximum_message_size)));
-                                continue
+                                break
                             }
                             let mut data = Vec::new();
                             if data.try_reserve(data_length as usize).is_err() {
@@ -190,7 +206,7 @@ impl ServerTask {
                             data.resize(data_length as usize, 0u8);
                             self.reader.read_exact(&mut data).await?;
                             // TODO: Add trace here to catch whenever queries could not be deserialized at all
-                            if let Ok(queries) = ServerQuery::deserialize(false, &data) {
+                            if let Ok(queries) = ServerQuery::deserialize(&data) {
                                 // TODO: Pass in store_handler and use to respond to queries
                                 let results = self.handle(queries.into_inner());
                                 if let Ok(binary_results) = results.serialize() {
@@ -303,7 +319,7 @@ impl ServerTask {
     fn server_info(&self) -> ServerInfo {
         ServerInfo {
             address: format!("{}", self.server_addr),
-            version: types::VERSION.to_string(),
+            version: *VERSION,
             r#type: types::server::ServerType::Database,
             limit: ALLOCATOR.limit(),
             remaining: ALLOCATOR.remaining(),

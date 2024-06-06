@@ -761,7 +761,7 @@ async fn test_get_key() {
     ])));
     expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
         address: "127.0.0.1:1369".to_string(),
-        version: types::VERSION.to_string(),
+        version: *types::version::VERSION,
         r#type: types::server::ServerType::Database,
         limit: CONFIG.allocator_size,
         remaining: 1073609219,
@@ -1015,7 +1015,7 @@ async fn test_run_server_echos() {
             let mut expected = ServerResult::with_capacity(2);
             expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
                 address: "127.0.0.1:1369".to_string(),
-                version: types::VERSION.to_string(),
+                version: *types::version::VERSION,
                 r#type: types::server::ServerType::Database,
                 limit: CONFIG.allocator_size,
                 remaining: 1073614873,
@@ -1031,7 +1031,7 @@ async fn test_run_server_echos() {
             expected.push(Ok(ServerResponse::Pong));
             expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
                 address: "127.0.0.1:1369".to_string(),
-                version: types::VERSION.to_string(),
+                version: *types::version::VERSION,
                 r#type: types::server::ServerType::Database,
                 limit: CONFIG.allocator_size,
                 remaining: 1073614873,
@@ -1055,15 +1055,18 @@ async fn query_server_assert_result(
     // Send the message
     reader.write_all(&serialized_message).await.unwrap();
 
-    // get length of response
+    // get length of response header
+    let mut header = [0u8; types::bincode::MAGIC_BYTES.len()
+        + types::bincode::VERSION_LENGTH
+        + types::bincode::LENGTH_HEADER_SIZE];
+    timeout(Duration::from_secs(1), reader.read_exact(&mut header))
+        .await
+        .unwrap()
+        .unwrap();
     let mut length_header = [0u8; types::bincode::LENGTH_HEADER_SIZE];
-    timeout(
-        Duration::from_secs(1),
-        reader.read_exact(&mut length_header),
-    )
-    .await
-    .unwrap()
-    .unwrap();
+    length_header.copy_from_slice(&header[13..=20]);
+
+    // read only the actual length size
     let data_length = u64::from_be_bytes(length_header);
     let mut response = vec![0u8; data_length as usize];
 
@@ -1072,7 +1075,7 @@ async fn query_server_assert_result(
         .unwrap()
         .unwrap();
 
-    let response = ServerResult::deserialize(false, &response).unwrap();
+    let response = ServerResult::deserialize(&response).unwrap();
 
     assert_eq!(response, expected_result);
 }
