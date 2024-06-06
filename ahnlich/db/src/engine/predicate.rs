@@ -80,12 +80,9 @@ impl PredicateIndices {
             error_if_not_exists,
             predicates
                 .iter()
-                .filter(|a| !pinned_keys.contains(a))
-                .cloned()
-                .collect::<Vec<_>>()
-                .pop(),
+                .find(|a| !pinned_keys.contains(a))
         ) {
-            return Err(ServerError::PredicateNotFound(non_existing_index));
+            return Err(ServerError::PredicateNotFound(non_existing_index.clone()));
         }
         let mut deleted = 0;
         for predicate in predicates {
@@ -111,13 +108,13 @@ impl PredicateIndices {
         let pinned_inner = self.inner.pin();
         // `insert` implicity adds it to allowed_predicates which is what lets us to be able to
         // search again
-        let new_predicates: StdHashSet<_> = predicates
+        let mut new_predicates = predicates
             .into_iter()
             .filter(|pred| pinned_keys.insert(pred.clone()))
             .unique()
-            .collect();
+            .peekable();
         // Only update for new predicates
-        if let Some(new_values) = (!new_predicates.is_empty())
+        if let Some(new_values) = (new_predicates.peek().is_some())
             .then_some(refresh_with_values)
             .flatten()
         {
@@ -133,7 +130,7 @@ impl PredicateIndices {
                     .collect::<Vec<_>>();
                 let pred = PredicateIndex::init(val.clone());
                 if let Err(existing_predicate) =
-                    pinned_inner.try_insert(new_predicate.clone(), pred)
+                    pinned_inner.try_insert(new_predicate, pred)
                 {
                     existing_predicate.current.add(val)
                 }
@@ -252,7 +249,7 @@ impl PredicateIndex {
                 // was not previously there as it has been inserted on a different thread
                 let new_hashset = ConcurrentHashSet::new();
                 new_hashset.insert(store_key_id.clone(), &new_hashset.guard());
-                if let Err(error_current) = pinned.try_insert(predicate_value.clone(), new_hashset)
+                if let Err(error_current) = pinned.try_insert(predicate_value, new_hashset)
                 {
                     error_current
                         .current

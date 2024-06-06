@@ -6,7 +6,7 @@ use serde::Serialize;
 
 pub static VERSION: Lazy<Version> = Lazy::new(|| {
     let version_string: &str = env!("CARGO_PKG_VERSION");
-    match version_string.split(".").collect::<Vec<_>>()[..] {
+    match version_string.split('.').collect::<Vec<_>>()[..] {
         [major, minor, patch] => Some(Version {
             major: major
                 .parse()

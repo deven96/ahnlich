@@ -201,7 +201,7 @@ impl ServerTask {
                             let mut data = Vec::new();
                             if data.try_reserve(data_length as usize).is_err() {
                                 tracing::error!("{}", self.prefix_log(format!("Failed to reserve buffer of length {data_length}")));
-                                continue
+                                break
                             };
                             data.resize(data_length as usize, 0u8);
                             self.reader.read_exact(&mut data).await?;
