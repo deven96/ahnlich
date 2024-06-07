@@ -78,9 +78,7 @@ impl PredicateIndices {
         // first check all predicates
         if let (true, Some(non_existing_index)) = (
             error_if_not_exists,
-            predicates
-                .iter()
-                .find(|a| !pinned_keys.contains(a))
+            predicates.iter().find(|a| !pinned_keys.contains(a)),
         ) {
             return Err(ServerError::PredicateNotFound(non_existing_index.clone()));
         }
@@ -129,9 +127,7 @@ impl PredicateIndices {
                     })
                     .collect::<Vec<_>>();
                 let pred = PredicateIndex::init(val.clone());
-                if let Err(existing_predicate) =
-                    pinned_inner.try_insert(new_predicate, pred)
-                {
+                if let Err(existing_predicate) = pinned_inner.try_insert(new_predicate, pred) {
                     existing_predicate.current.add(val)
                 }
             }
@@ -249,8 +245,7 @@ impl PredicateIndex {
                 // was not previously there as it has been inserted on a different thread
                 let new_hashset = ConcurrentHashSet::new();
                 new_hashset.insert(store_key_id.clone(), &new_hashset.guard());
-                if let Err(error_current) = pinned.try_insert(predicate_value, new_hashset)
-                {
+                if let Err(error_current) = pinned.try_insert(predicate_value, new_hashset) {
                     error_current
                         .current
                         .insert(store_key_id, &error_current.current.guard());

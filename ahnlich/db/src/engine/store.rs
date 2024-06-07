@@ -303,9 +303,9 @@ impl Store {
     fn delete(&self, keys: impl Iterator<Item = StoreKeyId>) -> usize {
         let keys: Vec<StoreKeyId> = keys.collect();
         let pinned = self.id_to_value.pin();
-        let removed: Vec<_> = keys.iter().flat_map(|k| pinned.remove(k)).collect();
+        let removed = keys.iter().flat_map(|k| pinned.remove(k));
         self.predicate_indices.remove_store_keys(&keys);
-        removed.len()
+        removed.count()
     }
 
     /// filters input dimension to make sure it matches store dimension
