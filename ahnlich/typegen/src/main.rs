@@ -1,4 +1,4 @@
-use serde_reflection::{Registry, Samples, Tracer, TracerConfig};
+use serde_reflection::{Samples, Tracer, TracerConfig};
 use std::collections::HashMap as StdHashMap;
 use std::num::NonZeroUsize;
 use types::predicate::PredicateCondition;
