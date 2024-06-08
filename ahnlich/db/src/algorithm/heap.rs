@@ -28,11 +28,11 @@ impl<'a> MinHeap<'a> {
     }
 
     pub(crate) fn output(&mut self) -> Vec<(&'a StoreKey, f64)> {
-        let mut result: Vec<_> = vec![];
+        let mut result: Vec<_> = Vec::with_capacity(self.max_capacity.get());
 
         loop {
             match self.pop() {
-                Some(value) if result.len() < self.max_capacity.into() => {
+                Some(value) if result.len() < self.max_capacity.get() => {
                     let vector_sim = value.0;
                     result.push((vector_sim.0, vector_sim.1));
                 }
@@ -66,11 +66,11 @@ impl<'a> MaxHeap<'a> {
     }
 
     fn output(&mut self) -> Vec<(&'a StoreKey, f64)> {
-        let mut result: Vec<_> = vec![];
+        let mut result: Vec<_> = Vec::with_capacity(self.max_capacity.get());
 
         loop {
             match self.heap.pop() {
-                Some(value) if result.len() < self.max_capacity.into() => {
+                Some(value) if result.len() < self.max_capacity.get() => {
                     let vector_sim = value.0;
                     result.push((vector_sim.0, vector_sim.1));
                 }

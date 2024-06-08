@@ -9,3 +9,4 @@ edition = "2021"
 ndarray.workspace = true
 serde.workspace = true
 bincode.workspace = true
+once_cell.workspace = true

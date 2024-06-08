@@ -94,7 +94,7 @@ impl StoreHandler {
         predicates: Vec<MetadataKey>,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        Ok(store.create_index(predicates.into_iter().collect()))
+        Ok(store.create_index(predicates))
     }
 
     /// Matches DELKEY - removes keys from a store
@@ -164,7 +164,7 @@ impl StoreHandler {
             .flat_map(|(store_key, similarity)| {
                 keys_to_value_map
                     .remove(&StoreKeyId::from(store_key))
-                    .map(|value| (store_key.clone(), value.clone(), Similarity(similarity)))
+                    .map(|value| (store_key.to_owned(), value.clone(), Similarity(similarity)))
             })
             .collect())
     }
@@ -303,9 +303,9 @@ impl Store {
     fn delete(&self, keys: impl Iterator<Item = StoreKeyId>) -> usize {
         let keys: Vec<StoreKeyId> = keys.collect();
         let pinned = self.id_to_value.pin();
-        let removed: Vec<_> = keys.iter().flat_map(|k| pinned.remove(k)).collect();
+        let removed = keys.iter().flat_map(|k| pinned.remove(k));
         self.predicate_indices.remove_store_keys(&keys);
-        removed.len()
+        removed.count()
     }
 
     /// filters input dimension to make sure it matches store dimension
@@ -422,9 +422,9 @@ impl Store {
     }
 
     #[tracing::instrument(skip(self))]
-    fn create_index(&self, requested_predicates: StdHashSet<MetadataKey>) -> usize {
+    fn create_index(&self, requested_predicates: Vec<MetadataKey>) -> usize {
         let current_predicates = self.predicate_indices.current_predicates();
-        let new_predicates: Vec<_> = requested_predicates
+        let new_predicates: Vec<_> = StdHashSet::from_iter(requested_predicates)
             .difference(&current_predicates)
             .cloned()
             .collect();
