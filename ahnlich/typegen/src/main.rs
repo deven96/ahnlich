@@ -6,7 +6,7 @@ use types::predicate::PredicateOp;
 use types::{
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
-    query::{Query, TestQuery},
+    query::Query,
 };
 
 fn main() {
@@ -25,15 +25,15 @@ fn main() {
         op: PredicateOp::Equals,
     });
 
-    let get_key = TestQuery::GetKey {
+    let get_key = Query::GetKey {
         store: sample_store_name.clone(),
         keys: sample_store_keys.clone(),
     };
-    let delete_key = TestQuery::DelKey {
+    let delete_key = Query::DelKey {
         store: sample_store_name.clone(),
         keys: sample_store_keys.clone(),
     };
-    let get_sim_n = TestQuery::GetSimN {
+    let get_sim_n = Query::GetSimN {
         store: sample_store_name.clone(),
         search_input: store_key.clone(),
         closest_n: NonZeroUsize::new(2).unwrap(),
@@ -48,7 +48,7 @@ fn main() {
         MetadataValue::new(String::from("buster_matthews")),
     );
 
-    let set_query = TestQuery::Set {
+    let set_query = Query::Set {
         store: sample_store_name.clone(),
         inputs: vec![(store_key.clone(), store_value)],
     };
@@ -59,11 +59,11 @@ fn main() {
         op: PredicateOp::Equals,
     });
 
-    let getpred_variant = TestQuery::GetPred {
+    let getpred_variant = Query::GetPred {
         store: sample_store_name.clone(),
         condition: test_predicate_condition.clone(),
     };
-    let deletepred_variant = TestQuery::DelPred {
+    let deletepred_variant = Query::DelPred {
         store: sample_store_name.clone(),
         condition: test_predicate_condition.clone(),
     };
@@ -79,7 +79,7 @@ fn main() {
     println!("traced_sample store keys");
 
     let _ = tracer
-        .trace_type::<TestQuery>(&samples)
+        .trace_type::<Query>(&samples)
         .inspect_err(|err| println!("Failed to parse error{}", err.explanation()))
         .unwrap();
 
