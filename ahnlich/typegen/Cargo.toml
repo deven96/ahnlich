@@ -1,0 +1,10 @@
+[package]
+name = "typegen"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde.workspace = true
+serde-reflection = "0.3.6"
+ndarray.workspace = true
+types = { path = "../types", version = "*" }

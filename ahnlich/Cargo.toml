@@ -3,7 +3,8 @@ members = [
   "db",
   "types",
   "client",
-  "tracer",
+  "tracer", 
+  "typegen",
 ]
 resolver = "2"
 
