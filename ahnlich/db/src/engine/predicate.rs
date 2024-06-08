@@ -281,7 +281,6 @@ impl PredicateIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use loom::thread;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap as StdHashMap;
     use std::sync::Arc;
@@ -366,7 +365,7 @@ mod tests {
         let shared_pred = Arc::new(PredicateIndex::init(vec![]));
         let handles = (0..4).map(|i| {
             let shared_data = shared_pred.clone();
-            let handle = thread::spawn(move || {
+            let handle = std::thread::spawn(move || {
                 let key = if i % 2 == 0 { "Even" } else { "Odd" };
                 shared_data.add(vec![(
                     MetadataValue::new(key.into()),
@@ -415,202 +414,196 @@ mod tests {
 
     #[test]
     fn test_predicate_indices_matches() {
-        loom::model(|| {
-            let shared_pred = create_shared_predicate_indices(vec![
-                MetadataKey::new("country".into()),
-                MetadataKey::new("name".into()),
-                MetadataKey::new("state".into()),
-                MetadataKey::new("age".into()),
-            ]);
-            let result = shared_pred
-                .matches(&PredicateCondition::Value(Predicate {
-                    key: MetadataKey::new("age".into()),
-                    value: MetadataValue::new("14".into()),
-                    op: PredicateOp::NotEquals,
-                }))
-                .unwrap();
-            // There are no entries where age is 14
-            assert!(result.is_empty());
-            let result = shared_pred
-                .matches(&PredicateCondition::Value(Predicate {
-                    key: MetadataKey::new("country".into()),
-                    value: MetadataValue::new("Nigeria".into()),
-                    op: PredicateOp::NotEquals,
-                }))
-                .unwrap();
-            // only person 1 is not from Nigeria
-            assert_eq!(result, StdHashSet::from_iter(["1".into()]));
-            let result = shared_pred
-                .matches(&PredicateCondition::Value(Predicate {
-                    key: MetadataKey::new("country".into()),
-                    value: MetadataValue::new("Nigeria".into()),
-                    op: PredicateOp::Equals,
-                }))
-                .unwrap();
-            assert_eq!(result, StdHashSet::from_iter(["0".into(), "2".into()]),);
-            let check = PredicateCondition::Value(Predicate {
-                key: MetadataKey::new("state".into()),
-                value: MetadataValue::new("Washington".into()),
-                op: PredicateOp::Equals,
-            })
-            .or(PredicateCondition::Value(Predicate {
+        let shared_pred = create_shared_predicate_indices(vec![
+            MetadataKey::new("country".into()),
+            MetadataKey::new("name".into()),
+            MetadataKey::new("state".into()),
+            MetadataKey::new("age".into()),
+        ]);
+        let result = shared_pred
+            .matches(&PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("age".into()),
                 value: MetadataValue::new("14".into()),
-                op: PredicateOp::Equals,
-            }));
-            let result = shared_pred.matches(&check).unwrap();
-            // only person 1 is from Washington
-            assert_eq!(result, StdHashSet::from_iter(["1".into()]));
-            let check = PredicateCondition::Value(Predicate {
+                op: PredicateOp::NotEquals,
+            }))
+            .unwrap();
+        // There are no entries where age is 14
+        assert!(result.is_empty());
+        let result = shared_pred
+            .matches(&PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("country".into()),
+                value: MetadataValue::new("Nigeria".into()),
+                op: PredicateOp::NotEquals,
+            }))
+            .unwrap();
+        // only person 1 is not from Nigeria
+        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        let result = shared_pred
+            .matches(&PredicateCondition::Value(Predicate {
                 key: MetadataKey::new("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
                 op: PredicateOp::Equals,
-            })
-            .and(PredicateCondition::Value(Predicate {
-                key: MetadataKey::new("state".into()),
-                value: MetadataValue::new("Plateau".into()),
-                op: PredicateOp::Equals,
-            }));
-            let result = shared_pred.matches(&check).unwrap();
-            // only person 1 is fulfills all
-            assert_eq!(result, StdHashSet::from_iter(["2".into()]));
-            let check = PredicateCondition::Value(Predicate {
-                key: MetadataKey::new("name".into()),
-                value: MetadataValue::new("David".into()),
-                op: PredicateOp::Equals,
-            })
-            .or(PredicateCondition::Value(Predicate {
-                key: MetadataKey::new("name".into()),
-                value: MetadataValue::new("Diretnan".into()),
-                op: PredicateOp::Equals,
-            }));
-            let result = shared_pred.matches(&check).unwrap();
-            // all 3 fulfill this
-            assert_eq!(
-                result,
-                StdHashSet::from_iter(["2".into(), "0".into(), "1".into(),]),
-            );
-            let check = check.and(PredicateCondition::Value(Predicate {
-                key: MetadataKey::new("country".into()),
-                value: MetadataValue::new("USA".into()),
-                op: PredicateOp::Equals,
-            }));
-            let result = shared_pred.matches(&check).unwrap();
-            // only person 1 is from Washington with any of those names
-            assert_eq!(result, StdHashSet::from_iter(["1".into()]));
-            // remove all Nigerians from the predicate and check that conditions working before no
-            // longer work and those working before still work
-            shared_pred.remove_store_keys(&["0".into(), "2".into()]);
-            let result = shared_pred
-                .matches(&PredicateCondition::Value(Predicate {
-                    key: MetadataKey::new("country".into()),
-                    value: MetadataValue::new("Nigeria".into()),
-                    op: PredicateOp::Equals,
-                }))
-                .unwrap();
-            assert!(result.is_empty());
-            let check = check.and(PredicateCondition::Value(Predicate {
-                key: MetadataKey::new("country".into()),
-                value: MetadataValue::new("USA".into()),
-                op: PredicateOp::Equals,
-            }));
-            let result = shared_pred.matches(&check).unwrap();
-            // only person 1 is from Washington with any of those names
-            assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+            }))
+            .unwrap();
+        assert_eq!(result, StdHashSet::from_iter(["0".into(), "2".into()]),);
+        let check = PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("state".into()),
+            value: MetadataValue::new("Washington".into()),
+            op: PredicateOp::Equals,
         })
+        .or(PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("age".into()),
+            value: MetadataValue::new("14".into()),
+            op: PredicateOp::Equals,
+        }));
+        let result = shared_pred.matches(&check).unwrap();
+        // only person 1 is from Washington
+        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        let check = PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("country".into()),
+            value: MetadataValue::new("Nigeria".into()),
+            op: PredicateOp::Equals,
+        })
+        .and(PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("state".into()),
+            value: MetadataValue::new("Plateau".into()),
+            op: PredicateOp::Equals,
+        }));
+        let result = shared_pred.matches(&check).unwrap();
+        // only person 1 is fulfills all
+        assert_eq!(result, StdHashSet::from_iter(["2".into()]));
+        let check = PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("name".into()),
+            value: MetadataValue::new("David".into()),
+            op: PredicateOp::Equals,
+        })
+        .or(PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("name".into()),
+            value: MetadataValue::new("Diretnan".into()),
+            op: PredicateOp::Equals,
+        }));
+        let result = shared_pred.matches(&check).unwrap();
+        // all 3 fulfill this
+        assert_eq!(
+            result,
+            StdHashSet::from_iter(["2".into(), "0".into(), "1".into(),]),
+        );
+        let check = check.and(PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("country".into()),
+            value: MetadataValue::new("USA".into()),
+            op: PredicateOp::Equals,
+        }));
+        let result = shared_pred.matches(&check).unwrap();
+        // only person 1 is from Washington with any of those names
+        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        // remove all Nigerians from the predicate and check that conditions working before no
+        // longer work and those working before still work
+        shared_pred.remove_store_keys(&["0".into(), "2".into()]);
+        let result = shared_pred
+            .matches(&PredicateCondition::Value(Predicate {
+                key: MetadataKey::new("country".into()),
+                value: MetadataValue::new("Nigeria".into()),
+                op: PredicateOp::Equals,
+            }))
+            .unwrap();
+        assert!(result.is_empty());
+        let check = check.and(PredicateCondition::Value(Predicate {
+            key: MetadataKey::new("country".into()),
+            value: MetadataValue::new("USA".into()),
+            op: PredicateOp::Equals,
+        }));
+        let result = shared_pred.matches(&check).unwrap();
+        // only person 1 is from Washington with any of those names
+        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
     }
 
     #[test]
     fn test_adding_and_removing_entries_for_predicate() {
-        loom::model(|| {
-            let shared_pred = create_shared_predicate();
-            assert_eq!(shared_pred.0.len(), 2);
-            assert_eq!(
-                shared_pred
-                    .0
-                    .pin()
-                    .get(&MetadataValue::new("Even".into()))
-                    .unwrap()
-                    .len(),
-                2
-            );
-            assert_eq!(
-                shared_pred
-                    .0
-                    .pin()
-                    .get(&MetadataValue::new("Odd".into()))
-                    .unwrap()
-                    .len(),
-                2
-            );
-            shared_pred.remove_store_keys(&["1".into(), "0".into()]);
-            assert_eq!(
-                shared_pred
-                    .0
-                    .pin()
-                    .get(&MetadataValue::new("Even".into()))
-                    .unwrap()
-                    .len(),
-                1
-            );
-            assert_eq!(
-                shared_pred
-                    .0
-                    .pin()
-                    .get(&MetadataValue::new("Odd".into()))
-                    .unwrap()
-                    .len(),
-                1
-            );
-        })
+        let shared_pred = create_shared_predicate();
+        assert_eq!(shared_pred.0.len(), 2);
+        assert_eq!(
+            shared_pred
+                .0
+                .pin()
+                .get(&MetadataValue::new("Even".into()))
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(
+            shared_pred
+                .0
+                .pin()
+                .get(&MetadataValue::new("Odd".into()))
+                .unwrap()
+                .len(),
+            2
+        );
+        shared_pred.remove_store_keys(&["1".into(), "0".into()]);
+        assert_eq!(
+            shared_pred
+                .0
+                .pin()
+                .get(&MetadataValue::new("Even".into()))
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            shared_pred
+                .0
+                .pin()
+                .get(&MetadataValue::new("Odd".into()))
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[test]
     fn test_matches_works_on_predicate_index() {
-        loom::model(|| {
-            let shared_pred = create_shared_predicate();
-            assert_eq!(
-                shared_pred
-                    .matches(&PredicateOp::Equals, &MetadataValue::new("Even".into()))
-                    .len(),
-                2
-            );
-            assert_eq!(
-                shared_pred
-                    .matches(&PredicateOp::NotEquals, &MetadataValue::new("Even".into()))
-                    .len(),
-                2
-            );
-            assert_eq!(
-                shared_pred
-                    .matches(&PredicateOp::Equals, &MetadataValue::new("Odd".into()))
-                    .len(),
-                2
-            );
-            assert_eq!(
-                shared_pred
-                    .matches(&PredicateOp::NotEquals, &MetadataValue::new("Odd".into()))
-                    .len(),
-                2
-            );
-            assert_eq!(
-                shared_pred
-                    .matches(
-                        &PredicateOp::NotEquals,
-                        &MetadataValue::new("NotExists".into())
-                    )
-                    .len(),
-                4
-            );
-            assert_eq!(
-                shared_pred
-                    .matches(
-                        &PredicateOp::Equals,
-                        &MetadataValue::new("NotExists".into())
-                    )
-                    .len(),
-                0
-            );
-        })
+        let shared_pred = create_shared_predicate();
+        assert_eq!(
+            shared_pred
+                .matches(&PredicateOp::Equals, &MetadataValue::new("Even".into()))
+                .len(),
+            2
+        );
+        assert_eq!(
+            shared_pred
+                .matches(&PredicateOp::NotEquals, &MetadataValue::new("Even".into()))
+                .len(),
+            2
+        );
+        assert_eq!(
+            shared_pred
+                .matches(&PredicateOp::Equals, &MetadataValue::new("Odd".into()))
+                .len(),
+            2
+        );
+        assert_eq!(
+            shared_pred
+                .matches(&PredicateOp::NotEquals, &MetadataValue::new("Odd".into()))
+                .len(),
+            2
+        );
+        assert_eq!(
+            shared_pred
+                .matches(
+                    &PredicateOp::NotEquals,
+                    &MetadataValue::new("NotExists".into())
+                )
+                .len(),
+            4
+        );
+        assert_eq!(
+            shared_pred
+                .matches(
+                    &PredicateOp::Equals,
+                    &MetadataValue::new("NotExists".into())
+                )
+                .len(),
+            0
+        );
     }
 }
