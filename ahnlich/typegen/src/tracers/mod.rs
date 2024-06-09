@@ -1,9 +1,10 @@
 use serde_reflection::Registry;
 use std::io::BufReader;
+mod query;
 mod server_response;
-mod trace_query;
 
-pub use trace_query::trace_query_enum;
+pub use query::trace_query_enum;
+pub use server_response::trace_server_response_enum;
 
 pub(crate) fn load_type_into_registry(file_path: std::path::PathBuf) -> Registry {
     let query_file = std::fs::File::open(file_path)

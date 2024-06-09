@@ -10,9 +10,7 @@ use types::{
     query::Query,
 };
 
-const QUERY_TYPE_PATH: &'static str = "../type_specs/query.json";
-
-pub fn trace_query_enum() {
+pub fn trace_query_enum(input_dir: &std::path::Path) {
     let input_arr_1 = ndarray::array![0.1, 0.2, 0.3, 0.4, 0.5];
     let store_key = StoreKey(input_arr_1.clone());
 
@@ -28,8 +26,7 @@ pub fn trace_query_enum() {
         op: PredicateOp::Equals,
     });
 
-    let mut test_create_predicates = HashSet::new();
-    test_create_predicates.insert(MetadataKey::new(String::from("username")));
+    let test_create_predicates = HashSet::from_iter([MetadataKey::new(String::from("username"))]);
 
     let create_store = Query::CreateStore {
         store: sample_store_name.clone(),
@@ -108,11 +105,15 @@ pub fn trace_query_enum() {
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 
-    let registry = tracer.registry().expect("Failed to create registry");
+    let registry = tracer
+        .registry()
+        .expect("Failed to create registry for query");
 
-    let query_file = std::fs::File::create(QUERY_TYPE_PATH).unwrap();
+    let file_path = input_dir.join("query.json");
+
+    let query_file = std::fs::File::create(file_path).unwrap();
     let buffer = std::io::BufWriter::new(query_file);
 
     serde_json::to_writer_pretty(buffer, &registry)
-        .expect("Failed to write tracer registry into json file");
+        .expect("Query: Failed to write tracer registry into json file");
 }
