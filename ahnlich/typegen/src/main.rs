@@ -1,6 +1,7 @@
-use serde_reflection::{Samples, Tracer, TracerConfig};
+use serde_reflection::{Registry, Samples, Tracer, TracerConfig};
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet;
+use std::io::BufReader;
 use std::num::NonZeroUsize;
 use types::predicate::PredicateCondition;
 use types::predicate::PredicateOp;
@@ -10,7 +11,11 @@ use types::{
     query::Query,
 };
 
-fn main() {
+const QUERY_TYPE_PATH: &'static str = "../type_specs/query.json";
+
+fn main() {}
+
+fn trace_query_enum() {
     let input_arr_1 = ndarray::array![0.1, 0.2, 0.3, 0.4, 0.5];
     let store_key = StoreKey(input_arr_1.clone());
 
@@ -79,24 +84,52 @@ fn main() {
         condition: test_predicate_condition.clone(),
     };
 
-    let _ = tracer.trace_value(&mut samples, &create_store).unwrap();
-    let _ = tracer.trace_value(&mut samples, &create_store).unwrap();
-    let _ = tracer.trace_value(&mut samples, &get_key).unwrap();
-    let _ = tracer.trace_value(&mut samples, &delete_key).unwrap();
-    let _ = tracer.trace_value(&mut samples, &get_sim_n).unwrap();
-    let _ = tracer.trace_value(&mut samples, &set_query).unwrap();
-    let _ = tracer.trace_value(&mut samples, &getpred_variant).unwrap();
+    let _ = tracer
+        .trace_value(&mut samples, &create_store)
+        .expect("Error tracing the variant");
+    let _ = tracer
+        .trace_value(&mut samples, &get_key)
+        .expect("Error tracing the getkey variant");
+    let _ = tracer
+        .trace_value(&mut samples, &delete_key)
+        .expect("Error tracing the deleteKey variant");
+    let _ = tracer
+        .trace_value(&mut samples, &get_sim_n)
+        .expect("Error tracing the GetSimN variant");
+    let _ = tracer
+        .trace_value(&mut samples, &set_query)
+        .expect("Error tracing the setquery varient");
+    let _ = tracer
+        .trace_value(&mut samples, &getpred_variant)
+        .expect("Error tracing the getpred variant");
     let _ = tracer
         .trace_value(&mut samples, &deletepred_variant)
-        .unwrap();
-    println!("traced_sample store keys");
+        .expect("Error tracing the deletepred variant");
 
     let _ = tracer
         .trace_type::<Query>(&samples)
-        .inspect_err(|err| println!("Failed to parse error{}", err.explanation()))
+        .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 
     let registry = tracer.registry().expect("Failed to create registry");
 
-    println!("{:?}", registry);
+    let query_file = std::fs::File::create(QUERY_TYPE_PATH).unwrap();
+    let buffer = std::io::BufWriter::new(query_file);
+
+    serde_json::to_writer_pretty(buffer, &registry)
+        .expect("Failed to write tracer registry into json file");
+}
+
+fn load_type_into_registry(path: Option<&str>) -> Registry {
+    let file_path = if let Some(str_path) = path {
+        std::path::PathBuf::from(str_path)
+    } else {
+        std::path::PathBuf::from(QUERY_TYPE_PATH)
+    };
+    let query_file = std::fs::File::open(file_path)
+        .unwrap_or_else(|err| panic!("Failed to open file, error: {}", err));
+    let reader = BufReader::new(query_file);
+    let registry: Registry =
+        serde_json::from_reader(reader).expect("Failed to read registry from json file");
+    registry
 }

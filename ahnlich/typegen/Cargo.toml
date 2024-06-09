@@ -6,5 +6,6 @@ edition = "2021"
 [dependencies]
 serde.workspace = true
 serde-reflection = "0.3.6"
+serde_json = "1.0.116"
 ndarray.workspace = true
 types = { path = "../types", version = "*" }
