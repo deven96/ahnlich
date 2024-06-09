@@ -1,5 +1,6 @@
 use serde_reflection::{Samples, Tracer, TracerConfig};
 use std::collections::HashMap as StdHashMap;
+use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use types::predicate::PredicateCondition;
 use types::predicate::PredicateOp;
@@ -24,6 +25,16 @@ fn main() {
         value: MetadataValue::new("Lex Luthor".into()),
         op: PredicateOp::Equals,
     });
+
+    let mut test_create_predicates = HashSet::new();
+    test_create_predicates.insert(MetadataKey::new(String::from("username")));
+
+    let create_store = Query::CreateStore {
+        store: sample_store_name.clone(),
+        dimension: NonZeroUsize::new(1).unwrap(),
+        create_predicates: test_create_predicates.clone(),
+        error_if_exists: true,
+    };
 
     let get_key = Query::GetKey {
         store: sample_store_name.clone(),
@@ -68,6 +79,8 @@ fn main() {
         condition: test_predicate_condition.clone(),
     };
 
+    let _ = tracer.trace_value(&mut samples, &create_store).unwrap();
+    let _ = tracer.trace_value(&mut samples, &create_store).unwrap();
     let _ = tracer.trace_value(&mut samples, &get_key).unwrap();
     let _ = tracer.trace_value(&mut samples, &delete_key).unwrap();
     let _ = tracer.trace_value(&mut samples, &get_sim_n).unwrap();

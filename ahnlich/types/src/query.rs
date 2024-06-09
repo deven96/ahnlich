@@ -19,10 +19,6 @@ use serde::{Deserialize, Serialize};
 pub enum Query {
     CreateStore {
         store: StoreName,
-        #[serde(
-            serialize_with = "serialize_non_zero_usize",
-            deserialize_with = "deserialize_non_zero_usize"
-        )]
         dimension: NonZeroUsize,
         create_predicates: HashSet<MetadataKey>,
         error_if_exists: bool,
@@ -38,10 +34,6 @@ pub enum Query {
     GetSimN {
         store: StoreName,
         search_input: StoreKey,
-        #[serde(
-            serialize_with = "serialize_non_zero_usize",
-            deserialize_with = "deserialize_non_zero_usize"
-        )]
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
@@ -87,13 +79,14 @@ fn deserialize_non_zero_usize<'de, D>(deserializer: D) -> Result<NonZeroUsize, D
 where
     D: serde::Deserializer<'de>,
 {
-    let mut value = u64::deserialize(deserializer)?;
-    if value < 1 {
-        value += 1
-    }
+    let value = u64::deserialize(deserializer)?;
 
     NonZeroUsize::new(value as usize)
         .ok_or_else(|| serde::de::Error::custom("NonZeroUsize value must be non-zero"))
+}
+
+fn default_nonzerousize() -> NonZeroUsize {
+    return NonZeroUsize::new(1).expect("Failed to create default non-zero value");
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
