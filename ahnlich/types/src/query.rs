@@ -68,26 +68,6 @@ pub enum Query {
     ListClients,
     Ping,
 }
-fn serialize_non_zero_usize<S>(value: &NonZeroUsize, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_u64(value.get() as u64)
-}
-
-fn deserialize_non_zero_usize<'de, D>(deserializer: D) -> Result<NonZeroUsize, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = u64::deserialize(deserializer)?;
-
-    NonZeroUsize::new(value as usize)
-        .ok_or_else(|| serde::de::Error::custom("NonZeroUsize value must be non-zero"))
-}
-
-fn default_nonzerousize() -> NonZeroUsize {
-    return NonZeroUsize::new(1).expect("Failed to create default non-zero value");
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ServerQuery {
