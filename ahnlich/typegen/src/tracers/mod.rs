@@ -70,16 +70,16 @@ impl TypeGenTask {
             .with_encodings(vec![serde_generate::Encoding::Bincode]);
         match self.language {
             Language::Python => {
-                serde_generate::python3::CodeGenerator::new(&config).output(buffer, &registry)
+                serde_generate::python3::CodeGenerator::new(&config).output(buffer, registry)
             }
             Language::Golang => {
-                serde_generate::golang::CodeGenerator::new(&config).output(buffer, &registry)
+                serde_generate::golang::CodeGenerator::new(&config).output(buffer, registry)
             }
             Language::Ocaml => {
-                serde_generate::ocaml::CodeGenerator::new(&config).output(buffer, &registry)
+                serde_generate::ocaml::CodeGenerator::new(&config).output(buffer, registry)
             }
             Language::Typescript => {
-                serde_generate::typescript::CodeGenerator::new(&config).output(buffer, &registry)
+                serde_generate::typescript::CodeGenerator::new(&config).output(buffer, registry)
             }
             _others => {
                 // checkout out cpp failure.
