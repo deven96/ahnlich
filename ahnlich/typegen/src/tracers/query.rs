@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use types::predicate::PredicateCondition;
 use types::predicate::PredicateOp;
+use types::similarity::Algorithm;
 use types::{
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
@@ -99,6 +100,18 @@ pub fn trace_query_enum(input_dir: &std::path::Path) {
     let _ = tracer
         .trace_value(&mut samples, &deletepred_variant)
         .expect("Error tracing the deletepred variant");
+
+    // trace enums to fix missing variants error
+    //
+    // Also trace each enum type separately to fix any `MissingVariants` error.
+    tracer
+        .trace_simple_type::<Algorithm>()
+        .expect("Error tracing Algorithm");
+    //
+    // predicate conditions
+    let _ = tracer
+        .trace_type::<PredicateCondition>(&samples)
+        .expect("Error tracing predicate condition");
 
     let _ = tracer
         .trace_type::<Query>(&samples)

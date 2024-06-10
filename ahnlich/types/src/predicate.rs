@@ -24,9 +24,9 @@ pub struct Predicate {
 /// We can only have a simple And or Or and we can combine those in any fashion
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PredicateCondition {
+    Value(Predicate),
     And(Box<PredicateCondition>, Box<PredicateCondition>),
     Or(Box<PredicateCondition>, Box<PredicateCondition>),
-    Value(Predicate),
 }
 
 impl PredicateCondition {

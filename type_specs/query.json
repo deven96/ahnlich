@@ -1,6 +1,12 @@
 {
   "Algorithm": {
     "ENUM": {
+      "0": {
+        "EuclideanDistance": "UNIT"
+      },
+      "1": {
+        "DotProductSimilarity": "UNIT"
+      },
       "2": {
         "CosineSimilarity": "UNIT"
       }
@@ -42,11 +48,35 @@
   },
   "PredicateCondition": {
     "ENUM": {
-      "2": {
+      "0": {
         "Value": {
           "NEWTYPE": {
             "TYPENAME": "Predicate"
           }
+        }
+      },
+      "1": {
+        "And": {
+          "TUPLE": [
+            {
+              "TYPENAME": "PredicateCondition"
+            },
+            {
+              "TYPENAME": "PredicateCondition"
+            }
+          ]
+        }
+      },
+      "2": {
+        "Or": {
+          "TUPLE": [
+            {
+              "TYPENAME": "PredicateCondition"
+            },
+            {
+              "TYPENAME": "PredicateCondition"
+            }
+          ]
         }
       }
     }
@@ -55,6 +85,9 @@
     "ENUM": {
       "0": {
         "Equals": "UNIT"
+      },
+      "1": {
+        "NotEquals": "UNIT"
       }
     }
   },
