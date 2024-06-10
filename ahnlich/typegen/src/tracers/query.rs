@@ -111,7 +111,7 @@ pub fn trace_query_enum(input_dir: &std::path::Path) {
 
     let file_path = input_dir.join("query.json");
 
-    let query_file = std::fs::File::create(file_path).unwrap();
+    let query_file = std::fs::File::create(file_path).expect("Failed to create query file");
     let buffer = std::io::BufWriter::new(query_file);
 
     serde_json::to_writer_pretty(buffer, &registry)

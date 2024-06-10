@@ -38,6 +38,8 @@ pub struct CreateClientConfig {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum Language {
+    /// python
     Python,
+    /// golang
     Golang,
 }

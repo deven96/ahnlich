@@ -104,7 +104,8 @@ pub fn trace_server_response_enum(input_dir: &std::path::Path) {
         .expect("Failed to create registry for server response");
 
     let file_path = input_dir.join("server_response.json");
-    let query_file = std::fs::File::create(file_path).unwrap();
+    let query_file =
+        std::fs::File::create(file_path).expect("Failed to create server_response file");
     let buffer = std::io::BufWriter::new(query_file);
 
     serde_json::to_writer_pretty(buffer, &registry)

@@ -1,3 +1,3 @@
 mod generate;
 
-pub use generate::{Cli, Commands};
+pub use generate::{Cli, Commands, Language};
