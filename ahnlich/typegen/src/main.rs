@@ -36,13 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             std::fs::create_dir_all(&output_dir).expect("Failed to create sdk directory");
 
-            generate_language_definition(
-                config.language,
-                vec!["query.json".to_owned(), "server_response.json".to_owned()],
-                vec!["query.py".to_owned(), "server_response.py".to_owned()],
-                input_dir,
-                output_dir,
-            );
+            generate_language_definition(config.language, input_dir, output_dir);
 
             println!("Language type definition generated");
         }
