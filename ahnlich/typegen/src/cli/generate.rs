@@ -42,4 +42,20 @@ pub enum Language {
     Python,
     /// golang
     Golang,
+    /// indent
+    Indent,
+    /// java
+    Java,
+    /// ocaml
+    Ocaml,
+    /// typescript
+    Typescript,
+    /// csharp
+    Csharp,
+    /// cpp
+    Cpp,
+    /// Dart
+    Dart,
+    /// swift
+    Swift,
 }

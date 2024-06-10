@@ -1,7 +1,7 @@
 pub use query::trace_query_enum;
 use serde_reflection::Registry;
 pub use server_response::trace_server_response_enum;
-use std::io::BufReader;
+use std::{fs::File, io::BufReader};
 
 use crate::cli::Language;
 
@@ -18,29 +18,77 @@ pub(crate) fn load_type_into_registry(file_path: std::path::PathBuf) -> Registry
 }
 
 pub(crate) fn generate_language_definition(
-    language: &Language,
-    spec_name: &str,
-    filename: &str,
-    input_dir: &std::path::Path,
-    output_dir: &std::path::Path,
+    language: Language,
+    spec_names: Vec<String>,
+    filenames: Vec<String>,
+    input_dir: std::path::PathBuf,
+    output_dir: std::path::PathBuf,
 ) {
-    let config = serde_generate::CodeGeneratorConfig::new("".to_string())
-        .with_encodings(vec![serde_generate::Encoding::Bincode]);
+    let task = TypeGenTask::build(language, spec_names, filenames, input_dir, output_dir);
+    task.generate_type_def_for_language()
+}
 
-    let registry = load_type_into_registry(input_dir.join(spec_name));
+struct TypeGenTask {
+    language: Language,
+    spec_names: Vec<String>,
+    filenames: Vec<String>,
+    input_dir: std::path::PathBuf,
+    output_dir: std::path::PathBuf,
+}
+impl TypeGenTask {
+    fn build(
+        language: Language,
+        spec_names: Vec<String>,
+        filenames: Vec<String>,
+        input_dir: std::path::PathBuf,
+        output_dir: std::path::PathBuf,
+    ) -> Self {
+        if filenames.len() != spec_names.len() {
+            panic!("Unequal length for filenames and spec_names");
+        }
+        Self {
+            language,
+            spec_names,
+            filenames,
+            input_dir,
+            output_dir,
+        }
+    }
 
-    match language {
-        Language::Python => {
-            let query_file =
-                std::fs::File::create(output_dir.join(filename)).expect("Failed to create file");
+    fn generate_type_def_for_language(&self) {
+        for (filename, specname) in self.filenames.iter().zip(self.spec_names.iter()) {
+            let registry = load_type_into_registry(self.input_dir.as_path().join(specname));
+            let query_file = std::fs::File::create(self.output_dir.join(filename))
+                .expect("Failed to create file");
             let mut buffer = std::io::BufWriter::new(query_file);
-            let generator = serde_generate::python3::CodeGenerator::new(&config);
-            generator
-                .output(&mut buffer, &registry)
-                .expect("Failed to generate python language type");
+            self.process_type_gen(&mut buffer, &registry);
         }
-        Language::Golang => {
-            let _generator = serde_generate::golang::CodeGenerator::new(&config);
+    }
+
+    fn process_type_gen(&self, buffer: &mut std::io::BufWriter<File>, registry: &Registry) {
+        let config = serde_generate::CodeGeneratorConfig::new("".to_string())
+            .with_encodings(vec![serde_generate::Encoding::Bincode]);
+        match self.language {
+            Language::Python => {
+                serde_generate::python3::CodeGenerator::new(&config).output(buffer, &registry)
+            }
+            Language::Golang => {
+                serde_generate::golang::CodeGenerator::new(&config).output(buffer, &registry)
+            }
+            Language::Ocaml => {
+                serde_generate::ocaml::CodeGenerator::new(&config).output(buffer, &registry)
+            }
+            Language::Typescript => {
+                serde_generate::typescript::CodeGenerator::new(&config).output(buffer, &registry)
+            }
+            _others => {
+                // checkout out cpp failure.
+                // Also  does dart, indent etc  don't implement output thesame way as other
+                // languages
+
+                panic!("Failed to use other types for now, they don't implement output or implement it differently")
+            }
         }
-    };
+        .expect("Failed to generate language definition");
+    }
 }
