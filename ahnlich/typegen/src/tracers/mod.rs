@@ -20,6 +20,14 @@ pub(crate) fn load_type_into_registry(file_path: std::path::PathBuf) -> Registry
     registry
 }
 
+pub(crate) fn save_registry_into_file(registry: &Registry, file_path: std::path::PathBuf) {
+    let query_file = std::fs::File::create(file_path).expect("Failed to create query file");
+    let buffer = std::io::BufWriter::new(query_file);
+
+    serde_json::to_writer_pretty(buffer, &registry)
+        .expect("Query: Failed to write tracer registry into json file");
+}
+
 pub(crate) fn generate_language_definition(
     language: Language,
     input_dir: std::path::PathBuf,

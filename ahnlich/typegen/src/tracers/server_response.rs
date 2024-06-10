@@ -1,3 +1,4 @@
+use serde_reflection::Registry;
 use serde_reflection::{Samples, Tracer, TracerConfig};
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet;
@@ -10,7 +11,7 @@ use types::{
     version::Version,
 };
 
-pub fn trace_server_response_enum(input_dir: &std::path::Path) {
+pub fn trace_server_response_enum() -> Registry {
     let mut tracer = Tracer::new(TracerConfig::default());
 
     let mut samples = Samples::new();
@@ -103,11 +104,20 @@ pub fn trace_server_response_enum(input_dir: &std::path::Path) {
         .registry()
         .expect("Failed to create registry for server response");
 
-    let file_path = input_dir.join("server_response.json");
-    let query_file =
-        std::fs::File::create(file_path).expect("Failed to create server_response file");
-    let buffer = std::io::BufWriter::new(query_file);
+    registry
+}
 
-    serde_json::to_writer_pretty(buffer, &registry)
-        .expect("Server Response: Failed to write tracer registry into json file");
+#[cfg(test)]
+mod tests {
+
+    use crate::tracers::{load_type_into_registry, trace_server_response_enum};
+
+    #[test]
+    fn test_spec_documents_matches_current_server_response_enum() {
+        let server_response_json_path =
+            std::path::PathBuf::from("../../type_specs").join("server_response.json");
+        let server_response_json = load_type_into_registry(server_response_json_path);
+        let server_response_from_types = trace_server_response_enum();
+        assert!(server_response_json == server_response_from_types)
+    }
 }

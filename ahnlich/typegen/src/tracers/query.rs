@@ -1,3 +1,4 @@
+use serde_reflection::Registry;
 use serde_reflection::{Samples, Tracer, TracerConfig};
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet;
@@ -11,7 +12,7 @@ use types::{
     query::Query,
 };
 
-pub fn trace_query_enum(input_dir: &std::path::Path) {
+pub fn trace_query_enum() -> Registry {
     let input_arr_1 = ndarray::array![0.1, 0.2, 0.3, 0.4, 0.5];
     let store_key = StoreKey(input_arr_1.clone());
 
@@ -122,11 +123,21 @@ pub fn trace_query_enum(input_dir: &std::path::Path) {
         .registry()
         .expect("Failed to create registry for query");
 
-    let file_path = input_dir.join("query.json");
+    registry
+}
 
-    let query_file = std::fs::File::create(file_path).expect("Failed to create query file");
-    let buffer = std::io::BufWriter::new(query_file);
+#[cfg(test)]
+mod tests {
 
-    serde_json::to_writer_pretty(buffer, &registry)
-        .expect("Query: Failed to write tracer registry into json file");
+    use super::*;
+
+    use crate::tracers::load_type_into_registry;
+
+    #[test]
+    fn test_spec_documents_matches_current_query_enum() {
+        let query_json_path = std::path::PathBuf::from("../../type_specs").join("query.json");
+        let query_json = load_type_into_registry(query_json_path);
+        let query_from_types = trace_query_enum();
+        assert!(query_json == query_from_types)
+    }
 }

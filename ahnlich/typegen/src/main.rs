@@ -2,7 +2,10 @@ mod cli;
 mod tracers;
 
 use crate::cli::{Cli, Commands};
-use crate::tracers::{generate_language_definition, trace_query_enum, trace_server_response_enum};
+use crate::tracers::{
+    generate_language_definition, save_registry_into_file, trace_query_enum,
+    trace_server_response_enum,
+};
 use clap::Parser;
 use std::error::Error;
 const SPEC_DOC_PATH: &str = "../type_specs/";
@@ -17,8 +20,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                 std::path::PathBuf::from(SPEC_DOC_PATH)
             };
 
-            trace_query_enum(&output_dir);
-            trace_server_response_enum(&output_dir);
+            let query_registry = trace_query_enum();
+            save_registry_into_file(&query_registry, output_dir.to_owned().join("query.json"));
+            let server_response_reg = trace_server_response_enum();
+            save_registry_into_file(
+                &server_response_reg,
+                output_dir.to_owned().join("server_response.json"),
+            );
+
             println!("Types spec successfully generated");
         }
         Commands::CreateClient(config) => {
