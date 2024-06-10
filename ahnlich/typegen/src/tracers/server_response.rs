@@ -100,11 +100,9 @@ pub fn trace_server_response_enum() -> Registry {
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 
-    let registry = tracer
+    tracer
         .registry()
-        .expect("Failed to create registry for server response");
-
-    registry
+        .expect("Failed to create registry for server response")
 }
 
 #[cfg(test)]

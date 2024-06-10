@@ -119,11 +119,9 @@ pub fn trace_query_enum() -> Registry {
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 
-    let registry = tracer
+    tracer
         .registry()
-        .expect("Failed to create registry for query");
-
-    registry
+        .expect("Failed to create registry for query")
 }
 
 #[cfg(test)]
