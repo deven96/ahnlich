@@ -13,7 +13,7 @@
       },
       {
         "data": {
-          "SEQ": "F64"
+          "SEQ": "F32"
         }
       }
     ]
@@ -154,7 +154,7 @@
     }
   },
   "Similarity": {
-    "NEWTYPESTRUCT": "F64"
+    "NEWTYPESTRUCT": "F32"
   },
   "StoreInfo": {
     "STRUCT": [
