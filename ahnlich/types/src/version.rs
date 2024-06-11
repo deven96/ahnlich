@@ -34,7 +34,7 @@ impl Version {
     pub fn deserialize_magic_bytes(bytes: &[u8]) -> Result<Self, bincode::Error> {
         let config = DefaultOptions::new()
             .with_fixint_encoding()
-            .with_big_endian();
+            .with_little_endian();
         config.deserialize(bytes)
     }
 
