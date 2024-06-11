@@ -136,6 +136,6 @@ mod tests {
         let query_json_path = std::path::PathBuf::from("../../type_specs").join("query.json");
         let query_json = load_type_into_registry(query_json_path);
         let query_from_types = trace_query_enum();
-        assert!(query_json == query_from_types)
+        assert_eq!(query_json, query_from_types)
     }
 }

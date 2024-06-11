@@ -528,7 +528,7 @@ async fn test_get_sim_n() {
                 MetadataKey::new("medal".into()),
                 MetadataValue::new("bronze".into()),
             )]),
-            Similarity(27.15),
+            Similarity(27.149998),
         ),
         (
             StoreKey(array![2.0, 2.1, 2.2]),

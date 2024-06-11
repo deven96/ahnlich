@@ -1,7 +1,7 @@
 use std::ops::Deref;
 use types::{keyval::StoreKey, similarity::Algorithm};
 
-type SimFuncSig = fn(&StoreKey, &StoreKey) -> f64;
+type SimFuncSig = fn(&StoreKey, &StoreKey) -> f32;
 
 pub(crate) struct SimilarityFunc(SimFuncSig);
 
@@ -64,7 +64,7 @@ impl From<&Algorithm> for SimilarityFunc {
 ///                                  similarity
 ///
 
-fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f64 {
+fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
     // formular = dot product of vectors / product of the magnitude of the vectors
     // maginiture of a vector can be calcuated using pythagoras theorem.
     // sqrt of sum of vector values
@@ -74,9 +74,9 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f64 {
     let dot_product = dot_product(first, second);
 
     // the magnitude can be calculated using the arr.norm method.
-    let mag_first = &first.0.iter().map(|x| x * x).sum::<f64>().sqrt();
+    let mag_first = &first.0.iter().map(|x| x * x).sum::<f32>().sqrt();
 
-    let mag_second = &second.0.iter().map(|x| x * x).sum::<f64>().sqrt();
+    let mag_second = &second.0.iter().map(|x| x * x).sum::<f32>().sqrt();
 
     dot_product / (mag_first * mag_second)
 }
@@ -89,7 +89,7 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f64 {
 /// An Implementation for most similar items would be a MaxHeap.
 /// The larger the dot product between two vectors, the more similar
 
-fn dot_product(first: &StoreKey, second: &StoreKey) -> f64 {
+fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
     let dot_product = second.0.dot(&first.0.t());
     dot_product
 }
@@ -113,7 +113,7 @@ fn dot_product(first: &StoreKey, second: &StoreKey) -> f64 {
 ///  two points, denotes higher similarity
 ///
 
-fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f64 {
+fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f32 {
     // Calculate the sum of squared differences for each dimension
     let mut sum_of_squared_differences = 0.0;
     for (&coord1, &coord2) in first.0.iter().zip(second.0.iter()) {
@@ -122,7 +122,7 @@ fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f64 {
     }
 
     // Calculate the square root of the sum of squared differences
-    f64::sqrt(sum_of_squared_differences)
+    f32::sqrt(sum_of_squared_differences)
 }
 
 #[cfg(test)]
@@ -134,7 +134,7 @@ mod tests {
     fn test_find_top_3_similar_words_using_cosine_similarity() {
         let sentences_vectors = word_to_vector();
 
-        let mut most_similar_result: Vec<(&'static str, f64)> = vec![];
+        let mut most_similar_result: Vec<(&'static str, f32)> = vec![];
 
         let first_vector = sentences_vectors.get(SEACH_TEXT).unwrap().to_owned();
 
@@ -157,7 +157,7 @@ mod tests {
     fn test_find_top_3_similar_words_using_euclidean_distance() {
         let sentences_vectors = word_to_vector();
 
-        let mut most_similar_result: Vec<(&'static str, f64)> = vec![];
+        let mut most_similar_result: Vec<(&'static str, f32)> = vec![];
 
         let first_vector = sentences_vectors.get(SEACH_TEXT).unwrap().to_owned();
 
@@ -181,7 +181,7 @@ mod tests {
     fn test_find_top_3_similar_words_using_dot_product() {
         let sentences_vectors = word_to_vector();
 
-        let mut most_similar_result: Vec<(&'static str, f64)> = vec![];
+        let mut most_similar_result: Vec<(&'static str, f32)> = vec![];
 
         let first_vector = sentences_vectors.get(SEACH_TEXT).unwrap().to_owned();
 

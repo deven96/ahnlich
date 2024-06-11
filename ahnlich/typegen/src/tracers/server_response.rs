@@ -66,7 +66,7 @@ pub fn trace_server_response_enum() -> Registry {
     let getsimn_variant = ServerResponse::GetSimN(vec![(
         store_key.clone(),
         store_value.clone(),
-        Similarity(0.999_f64),
+        Similarity(0.999_f32),
     )]);
 
     let _ = tracer
@@ -116,6 +116,6 @@ mod tests {
             std::path::PathBuf::from("../../type_specs").join("server_response.json");
         let server_response_json = load_type_into_registry(server_response_json_path);
         let server_response_from_types = trace_server_response_enum();
-        assert!(server_response_json == server_response_from_types)
+        assert_eq!(server_response_json, server_response_from_types)
     }
 }

@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_compute_store_key_id_empty_vector() {
-        let array: Array1<f64> = Array1::zeros(0);
+        let array: Array1<f32> = Array1::zeros(0);
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
@@ -503,7 +503,7 @@ mod tests {
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
-            StoreKeyId("5658eb3a4999cac5729dd21f0e5e36587bf7e37aef139093432405a22a430046".into())
+            StoreKeyId("b2d6f6f0d78e1e5c6b4d42226c1c42105ea241d2642d6f96f69141788a1d16db".into())
         );
     }
 
@@ -513,7 +513,7 @@ mod tests {
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
-            StoreKeyId("c0c5df8fe8939c0c73446b33500a14f7512514b143ead3655f36f8947eb9898b".into())
+            StoreKeyId("1cb232f8e9e23d1576db3d7d1b93a15922263b31b6bf83c57d6b9b0ce913c1bf".into())
         );
     }
 
