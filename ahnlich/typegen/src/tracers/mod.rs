@@ -1,4 +1,5 @@
 pub use query::trace_query_enum;
+use serde_generate::CodeGeneratorConfig;
 use serde_reflection::Registry;
 pub use server_response::trace_server_response_enum;
 use std::{
@@ -30,19 +31,19 @@ pub(crate) fn save_registry_into_file(registry: &Registry, file_path: std::path:
 
 pub(crate) fn generate_language_definition(
     language: Language,
-    input_dir: std::path::PathBuf,
-    output_dir: std::path::PathBuf,
+    input_dir: &std::path::PathBuf,
+    output_dir: &std::path::PathBuf,
 ) {
-    let task = TypeGenTask::build(language, input_dir, output_dir);
+    let task = SpecToLanguage::build(language, input_dir.to_owned(), output_dir.to_owned());
     task.generate_type_def_for_language()
 }
 
-struct TypeGenTask {
+struct SpecToLanguage {
     language: Language,
     input_dir: std::path::PathBuf,
     output_dir: std::path::PathBuf,
 }
-impl TypeGenTask {
+impl SpecToLanguage {
     fn build(
         language: Language,
         input_dir: std::path::PathBuf,
@@ -80,48 +81,58 @@ impl TypeGenTask {
     fn process_type_gen(&self, file_name: &str, registry: &Registry) {
         let config = serde_generate::CodeGeneratorConfig::new("".to_string())
             .with_encodings(vec![serde_generate::Encoding::Bincode]);
-        match self.language {
-            Language::Python => {
-                let query_file =
-                    std::fs::File::create(self.output_dir.join(format!("{}.py",file_name)))
-                    .expect("Failed to create file");
-                let mut buffer: BufWriter<File> = std::io::BufWriter::new(query_file);
+        let output_file: OutputFile = (&self.output_dir, file_name, &self.language).into();
+        output_file.generate(&config, registry)
+    }
+}
 
-                serde_generate::python3::CodeGenerator::new(&config)
-                    .output(&mut buffer, registry)
+struct OutputFile {
+    language: Language,
+    output_file: std::path::PathBuf,
+}
+
+impl OutputFile {
+    fn generate(&self, config: &CodeGeneratorConfig, registry: &Registry) {
+        let spec_language_file =
+            std::fs::File::create(&self.output_file).expect("Failed to create typegen output file");
+        let mut buffer: BufWriter<File> = std::io::BufWriter::new(spec_language_file);
+
+        let _ = match self.language {
+            Language::Python => {
+                serde_generate::python3::CodeGenerator::new(config).output(&mut buffer, registry)
             }
             Language::Golang => {
-                let query_file =
-                    std::fs::File::create(self.output_dir.join(format!("{}.go",file_name)))
-                    .expect("Failed to create file");
-                let mut buffer: BufWriter<File> = std::io::BufWriter::new(query_file);
-                serde_generate::golang::CodeGenerator::new(&config)
-                    .output(&mut buffer, registry)
+                serde_generate::golang::CodeGenerator::new(config).output(&mut buffer, registry)
             }
             Language::Ocaml => {
-                let query_file =
-                    std::fs::File::create(self.output_dir.join(format!("{}.ml",file_name)))
-                    .expect("Failed to create file");
-                let mut buffer: BufWriter<File> = std::io::BufWriter::new(query_file);
-                serde_generate::ocaml::CodeGenerator::new(&config)
-                    .output(&mut buffer, registry)
+                serde_generate::ocaml::CodeGenerator::new(config).output(&mut buffer, registry)
             }
             Language::Typescript => {
-                let query_file =
-                    std::fs::File::create(self.output_dir.join(format!("{}.ts",file_name)))
-                    .expect("Failed to create Typescript file");
-                let mut buffer: BufWriter<File> = std::io::BufWriter::new(query_file);
-                serde_generate::typescript::CodeGenerator::new(&config)
-                    .output(&mut buffer, registry)
+                serde_generate::typescript::CodeGenerator::new(config).output(&mut buffer, registry)
             }
             _others => {
                 // checkout out cpp failure.
                 // Also  does dart, indent etc  don't implement output thesame way as other
                 // languages
-
                 panic!("Failed to use other types for now, they don't implement output or implement it differently")
             }
+        };
+    }
+}
+
+impl From<(&std::path::PathBuf, &str, &Language)> for OutputFile {
+    fn from((file_dir, file_name, language): (&std::path::PathBuf, &str, &Language)) -> Self {
+        let extension = match language {
+            Language::Python => "py",
+            Language::Golang => "go",
+            Language::Ocaml => "ml",
+            Language::Typescript => "ts",
+            _others => panic!("Cannot generate extension for type"),
+        };
+
+        OutputFile {
+            language: *language,
+            output_file: file_dir.join(format!("{}.{}", file_name, extension)),
         }
-        .expect("Failed to generate language definition");
     }
 }
