@@ -9,15 +9,15 @@ use types::similarity::Algorithm;
 use self::{heap::AlgorithmHeapType, similarity::SimilarityFunc};
 
 #[derive(Debug)]
-pub(crate) struct SimilarityVector<'a>((&'a StoreKey, f64));
+pub(crate) struct SimilarityVector<'a>((&'a StoreKey, f32));
 
-impl<'a> From<(&'a StoreKey, f64)> for SimilarityVector<'a> {
-    fn from(value: (&'a StoreKey, f64)) -> SimilarityVector<'a> {
+impl<'a> From<(&'a StoreKey, f32)> for SimilarityVector<'a> {
+    fn from(value: (&'a StoreKey, f32)) -> SimilarityVector<'a> {
         SimilarityVector((value.0, value.1))
     }
 }
-impl<'a> From<SimilarityVector<'a>> for (&'a StoreKey, f64) {
-    fn from(value: SimilarityVector<'a>) -> (&'a StoreKey, f64) {
+impl<'a> From<SimilarityVector<'a>> for (&'a StoreKey, f32) {
+    fn from(value: SimilarityVector<'a>) -> (&'a StoreKey, f32) {
         ((value.0).0, (value.0).1)
     }
 }
@@ -51,7 +51,7 @@ pub(crate) trait FindSimilarN {
         search_vector: &StoreKey,
         search_list: impl Iterator<Item = &'a StoreKey>,
         n: NonZeroUsize,
-    ) -> Vec<(&'a StoreKey, f64)>;
+    ) -> Vec<(&'a StoreKey, f32)>;
 }
 
 impl FindSimilarN for Algorithm {
@@ -60,7 +60,7 @@ impl FindSimilarN for Algorithm {
         search_vector: &StoreKey,
         search_list: impl Iterator<Item = &'a StoreKey>,
         n: NonZeroUsize,
-    ) -> Vec<(&'a StoreKey, f64)> {
+    ) -> Vec<(&'a StoreKey, f32)> {
         let mut heap: AlgorithmHeapType = (self, n).into();
 
         let similarity_function: SimilarityFunc = self.into();

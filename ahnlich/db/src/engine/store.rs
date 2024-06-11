@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_compute_store_key_id_empty_vector() {
-        let array: Array1<f64> = Array1::zeros(0);
+        let array: Array1<f32> = Array1::zeros(0);
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
@@ -503,7 +503,7 @@ mod tests {
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
-            StoreKeyId("5658eb3a4999cac5729dd21f0e5e36587bf7e37aef139093432405a22a430046".into())
+            StoreKeyId("b2d6f6f0d78e1e5c6b4d42226c1c42105ea241d2642d6f96f69141788a1d16db".into())
         );
     }
 
@@ -513,7 +513,7 @@ mod tests {
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
-            StoreKeyId("c0c5df8fe8939c0c73446b33500a14f7512514b143ead3655f36f8947eb9898b".into())
+            StoreKeyId("1cb232f8e9e23d1576db3d7d1b93a15922263b31b6bf83c57d6b9b0ce913c1bf".into())
         );
     }
 
@@ -558,7 +558,7 @@ mod tests {
         let handles = (0..3).map(|i| {
             let predicates = predicates.clone();
             let shared_handler = handler.clone();
-            let handle = loom::thread::spawn(move || {
+            let handle = std::thread::spawn(move || {
                 let (store_name, size) = if i % 2 == 0 { ("Even", 5) } else { ("Odd", 3) };
                 shared_handler.create_store(
                     StoreName(store_name.to_string()),
@@ -579,102 +579,96 @@ mod tests {
 
     #[test]
     fn test_get_and_create_store_handler() {
-        loom::model(|| {
-            let (handler, oks, errs) = create_store_handler(vec![]);
-            assert_eq!(oks.len(), 2);
-            assert_eq!(
-                errs,
-                vec![Err(ServerError::StoreAlreadyExists(StoreName(
-                    "Even".to_string()
-                )))]
-            );
-            // test out a store that does not exist
-            let fake_store = StoreName("Random".to_string());
-            assert_eq!(
-                handler.get(&fake_store).unwrap_err(),
-                ServerError::StoreNotFound(fake_store)
-            );
-        })
+        let (handler, oks, errs) = create_store_handler(vec![]);
+        assert_eq!(oks.len(), 2);
+        assert_eq!(
+            errs,
+            vec![Err(ServerError::StoreAlreadyExists(StoreName(
+                "Even".to_string()
+            )))]
+        );
+        // test out a store that does not exist
+        let fake_store = StoreName("Random".to_string());
+        assert_eq!(
+            handler.get(&fake_store).unwrap_err(),
+            ServerError::StoreNotFound(fake_store)
+        );
     }
 
     #[test]
     fn test_create_and_set_in_store_fails() {
-        loom::model(|| {
-            let (handler, _oks, _errs) = create_store_handler(vec![]);
-            let even_store = StoreName("Even".into());
-            let fake_store = StoreName("Fake".into());
-            // set in nonexistent store should fail
-            assert_eq!(
-                handler.set_in_store(&fake_store, vec![]).unwrap_err(),
-                ServerError::StoreNotFound(fake_store)
-            );
-            // set in store with wrong dimensions should fail
-            assert_eq!(
-                handler
-                    .set_in_store(
-                        &even_store,
-                        vec![(
-                            StoreKey(array![0.33, 0.44, 0.5]),
-                            StdHashMap::from_iter(vec![(
-                                MetadataKey::new("author".into()),
-                                MetadataValue::new("Vincent".into()),
-                            ),])
-                        ),]
-                    )
-                    .unwrap_err(),
-                ServerError::StoreDimensionMismatch {
-                    store_dimension: 5,
-                    input_dimension: 3
-                }
-            );
-        })
+        let (handler, _oks, _errs) = create_store_handler(vec![]);
+        let even_store = StoreName("Even".into());
+        let fake_store = StoreName("Fake".into());
+        // set in nonexistent store should fail
+        assert_eq!(
+            handler.set_in_store(&fake_store, vec![]).unwrap_err(),
+            ServerError::StoreNotFound(fake_store)
+        );
+        // set in store with wrong dimensions should fail
+        assert_eq!(
+            handler
+                .set_in_store(
+                    &even_store,
+                    vec![(
+                        StoreKey(array![0.33, 0.44, 0.5]),
+                        StdHashMap::from_iter(vec![(
+                            MetadataKey::new("author".into()),
+                            MetadataValue::new("Vincent".into()),
+                        ),])
+                    ),]
+                )
+                .unwrap_err(),
+            ServerError::StoreDimensionMismatch {
+                store_dimension: 5,
+                input_dimension: 3
+            }
+        );
     }
 
     #[test]
     fn test_create_and_set_in_store_passes() {
-        loom::model(|| {
-            let (handler, _oks, _errs) = create_store_handler(vec![]);
-            let odd_store = StoreName("Odd".into());
-            let input_arr = array![0.1, 0.2, 0.3];
-            let ret = handler
-                .set_in_store(
-                    &odd_store,
-                    vec![(
-                        StoreKey(input_arr.clone()),
-                        StdHashMap::from_iter(vec![(
-                            MetadataKey::new("author".into()),
-                            MetadataValue::new("Lex Luthor".into()),
-                        )]),
-                    )],
-                )
-                .unwrap();
-            assert_eq!(
-                ret,
-                StoreUpsert {
-                    inserted: 1,
-                    updated: 0,
-                }
-            );
-            let ret = handler
-                .set_in_store(
-                    &odd_store,
-                    vec![(
-                        StoreKey(input_arr.clone()),
-                        StdHashMap::from_iter(vec![(
-                            MetadataKey::new("author".into()),
-                            MetadataValue::new("Clark Kent".into()),
-                        )]),
-                    )],
-                )
-                .unwrap();
-            assert_eq!(
-                ret,
-                StoreUpsert {
-                    inserted: 0,
-                    updated: 1,
-                }
-            );
-        })
+        let (handler, _oks, _errs) = create_store_handler(vec![]);
+        let odd_store = StoreName("Odd".into());
+        let input_arr = array![0.1, 0.2, 0.3];
+        let ret = handler
+            .set_in_store(
+                &odd_store,
+                vec![(
+                    StoreKey(input_arr.clone()),
+                    StdHashMap::from_iter(vec![(
+                        MetadataKey::new("author".into()),
+                        MetadataValue::new("Lex Luthor".into()),
+                    )]),
+                )],
+            )
+            .unwrap();
+        assert_eq!(
+            ret,
+            StoreUpsert {
+                inserted: 1,
+                updated: 0,
+            }
+        );
+        let ret = handler
+            .set_in_store(
+                &odd_store,
+                vec![(
+                    StoreKey(input_arr.clone()),
+                    StdHashMap::from_iter(vec![(
+                        MetadataKey::new("author".into()),
+                        MetadataValue::new("Clark Kent".into()),
+                    )]),
+                )],
+            )
+            .unwrap();
+        assert_eq!(
+            ret,
+            StoreUpsert {
+                inserted: 0,
+                updated: 1,
+            }
+        );
     }
 
     #[test]
@@ -783,64 +777,62 @@ mod tests {
 
     #[test]
     fn test_get_key_in_store() {
-        loom::model(|| {
-            let (handler, _oks, _errs) = create_store_handler(vec![]);
-            let odd_store = StoreName("Odd".into());
-            let fake_store = StoreName("Fakest".into());
-            let input_arr_1 = array![0.1, 0.2, 0.3];
-            let input_arr_2 = array![0.2, 0.3, 0.4];
-            handler
-                .set_in_store(
-                    &odd_store,
-                    vec![(
-                        StoreKey(input_arr_1.clone()),
-                        StdHashMap::from_iter(vec![(
-                            MetadataKey::new("author".into()),
-                            MetadataValue::new("Lex Luthor".into()),
-                        )]),
-                    )],
-                )
-                .unwrap();
-            handler
-                .set_in_store(
-                    &odd_store,
-                    vec![(
-                        StoreKey(input_arr_2.clone()),
-                        StdHashMap::from_iter(vec![(
-                            MetadataKey::new("author".into()),
-                            MetadataValue::new("Clark Kent".into()),
-                        )]),
-                    )],
-                )
-                .unwrap();
-            assert_eq!(
-                handler.get_key_in_store(&fake_store, vec![]).unwrap_err(),
-                ServerError::StoreNotFound(fake_store)
-            );
-            let ret = handler
-                .get_key_in_store(
-                    &odd_store,
-                    vec![StoreKey(input_arr_1), StoreKey(input_arr_2)],
-                )
-                .unwrap();
-            assert_eq!(ret.len(), 2);
-            assert_eq!(
-                ret[0]
-                    .1
-                    .get(&MetadataKey::new("author".into()))
-                    .cloned()
-                    .unwrap(),
-                MetadataValue::new("Lex Luthor".into())
-            );
-            assert_eq!(
-                ret[1]
-                    .1
-                    .get(&MetadataKey::new("author".into()))
-                    .cloned()
-                    .unwrap(),
-                MetadataValue::new("Clark Kent".into())
-            );
-        })
+        let (handler, _oks, _errs) = create_store_handler(vec![]);
+        let odd_store = StoreName("Odd".into());
+        let fake_store = StoreName("Fakest".into());
+        let input_arr_1 = array![0.1, 0.2, 0.3];
+        let input_arr_2 = array![0.2, 0.3, 0.4];
+        handler
+            .set_in_store(
+                &odd_store,
+                vec![(
+                    StoreKey(input_arr_1.clone()),
+                    StdHashMap::from_iter(vec![(
+                        MetadataKey::new("author".into()),
+                        MetadataValue::new("Lex Luthor".into()),
+                    )]),
+                )],
+            )
+            .unwrap();
+        handler
+            .set_in_store(
+                &odd_store,
+                vec![(
+                    StoreKey(input_arr_2.clone()),
+                    StdHashMap::from_iter(vec![(
+                        MetadataKey::new("author".into()),
+                        MetadataValue::new("Clark Kent".into()),
+                    )]),
+                )],
+            )
+            .unwrap();
+        assert_eq!(
+            handler.get_key_in_store(&fake_store, vec![]).unwrap_err(),
+            ServerError::StoreNotFound(fake_store)
+        );
+        let ret = handler
+            .get_key_in_store(
+                &odd_store,
+                vec![StoreKey(input_arr_1), StoreKey(input_arr_2)],
+            )
+            .unwrap();
+        assert_eq!(ret.len(), 2);
+        assert_eq!(
+            ret[0]
+                .1
+                .get(&MetadataKey::new("author".into()))
+                .cloned()
+                .unwrap(),
+            MetadataValue::new("Lex Luthor".into())
+        );
+        assert_eq!(
+            ret[1]
+                .1
+                .get(&MetadataKey::new("author".into()))
+                .cloned()
+                .unwrap(),
+            MetadataValue::new("Clark Kent".into())
+        );
     }
 
     #[test]

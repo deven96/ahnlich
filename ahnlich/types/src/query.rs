@@ -6,8 +6,7 @@ use crate::keyval::{StoreKey, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
 use crate::similarity::Algorithm;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// All possible queries for the server to respond to
 ///

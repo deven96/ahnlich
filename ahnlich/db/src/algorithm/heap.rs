@@ -27,7 +27,7 @@ impl<'a> MinHeap<'a> {
         self.heap.pop().map(|popped_item| popped_item.0)
     }
 
-    pub(crate) fn output(&mut self) -> Vec<(&'a StoreKey, f64)> {
+    pub(crate) fn output(&mut self) -> Vec<(&'a StoreKey, f32)> {
         let mut result: Vec<_> = Vec::with_capacity(self.max_capacity.get());
 
         loop {
@@ -65,7 +65,7 @@ impl<'a> MaxHeap<'a> {
         self.heap.len()
     }
 
-    fn output(&mut self) -> Vec<(&'a StoreKey, f64)> {
+    fn output(&mut self) -> Vec<(&'a StoreKey, f32)> {
         let mut result: Vec<_> = Vec::with_capacity(self.max_capacity.get());
 
         loop {
@@ -100,7 +100,7 @@ impl<'a> AlgorithmHeapType<'a> {
         }
     }
 
-    pub(crate) fn output(&mut self) -> Vec<(&'a StoreKey, f64)> {
+    pub(crate) fn output(&mut self) -> Vec<(&'a StoreKey, f32)> {
         match self {
             Self::Min(h) => h.output(),
             Self::Max(h) => h.output(),
@@ -128,11 +128,11 @@ mod tests {
     fn test_min_heap_ordering_works() {
         let mut heap = MinHeap::new(NonZeroUsize::new(3).unwrap());
         let mut count = 0.0;
-        let first_vector = StoreKey(ndarray::Array1::<f64>::zeros(2).map(|x| x + 2.0));
+        let first_vector = StoreKey(ndarray::Array1::<f32>::zeros(2).map(|x| x + 2.0));
 
         // If we pop these scores now, they should come back in the reverse order.
         while count < 5.0 {
-            let similarity: f64 = 1.0 + count;
+            let similarity: f32 = 1.0 + count;
 
             let item: SimilarityVector = (&first_vector, similarity).into();
 
@@ -150,11 +150,11 @@ mod tests {
     fn test_max_heap_ordering_works() {
         let mut heap = MaxHeap::new(NonZeroUsize::new(3).unwrap());
         let mut count = 0.0;
-        let first_vector = StoreKey(ndarray::Array1::<f64>::zeros(2).map(|x| x + 2.0));
+        let first_vector = StoreKey(ndarray::Array1::<f32>::zeros(2).map(|x| x + 2.0));
 
         // If we pop these scores now, they should come back  the right order(max first).
         while count < 5.0 {
-            let similarity: f64 = 1.0 + count;
+            let similarity: f32 = 1.0 + count;
             let item: SimilarityVector = (&first_vector, similarity).into();
 
             heap.push(item);

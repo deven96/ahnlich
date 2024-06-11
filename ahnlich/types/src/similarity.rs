@@ -18,11 +18,11 @@ pub enum Algorithm {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct Similarity(pub f64);
+pub struct Similarity(pub f32);
 
 impl PartialEq for Similarity {
     fn eq(&self, other: &Self) -> bool {
-        (self.0 - other.0).abs() < std::f64::EPSILON
+        (self.0 - other.0).abs() < std::f32::EPSILON
     }
 }
 

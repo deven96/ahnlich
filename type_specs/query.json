@@ -1,0 +1,288 @@
+{
+  "Algorithm": {
+    "ENUM": {
+      "0": {
+        "EuclideanDistance": "UNIT"
+      },
+      "1": {
+        "DotProductSimilarity": "UNIT"
+      },
+      "2": {
+        "CosineSimilarity": "UNIT"
+      }
+    }
+  },
+  "Array": {
+    "STRUCT": [
+      {
+        "v": "U8"
+      },
+      {
+        "dim": {
+          "TUPLE": [
+            "U64"
+          ]
+        }
+      },
+      {
+        "data": {
+          "SEQ": "F32"
+        }
+      }
+    ]
+  },
+  "Predicate": {
+    "STRUCT": [
+      {
+        "key": "STR"
+      },
+      {
+        "value": "STR"
+      },
+      {
+        "op": {
+          "TYPENAME": "PredicateOp"
+        }
+      }
+    ]
+  },
+  "PredicateCondition": {
+    "ENUM": {
+      "0": {
+        "Value": {
+          "NEWTYPE": {
+            "TYPENAME": "Predicate"
+          }
+        }
+      },
+      "1": {
+        "And": {
+          "TUPLE": [
+            {
+              "TYPENAME": "PredicateCondition"
+            },
+            {
+              "TYPENAME": "PredicateCondition"
+            }
+          ]
+        }
+      },
+      "2": {
+        "Or": {
+          "TUPLE": [
+            {
+              "TYPENAME": "PredicateCondition"
+            },
+            {
+              "TYPENAME": "PredicateCondition"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "PredicateOp": {
+    "ENUM": {
+      "0": {
+        "Equals": "UNIT"
+      },
+      "1": {
+        "NotEquals": "UNIT"
+      }
+    }
+  },
+  "Query": {
+    "ENUM": {
+      "0": {
+        "CreateStore": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "dimension": "U64"
+            },
+            {
+              "create_predicates": {
+                "SEQ": "STR"
+              }
+            },
+            {
+              "error_if_exists": "BOOL"
+            }
+          ]
+        }
+      },
+      "1": {
+        "GetKey": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "keys": {
+                "SEQ": {
+                  "TYPENAME": "Array"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "2": {
+        "GetPred": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "condition": {
+                "TYPENAME": "PredicateCondition"
+              }
+            }
+          ]
+        }
+      },
+      "3": {
+        "GetSimN": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "search_input": {
+                "TYPENAME": "Array"
+              }
+            },
+            {
+              "closest_n": "U64"
+            },
+            {
+              "algorithm": {
+                "TYPENAME": "Algorithm"
+              }
+            },
+            {
+              "condition": {
+                "OPTION": {
+                  "TYPENAME": "PredicateCondition"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "4": {
+        "CreateIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "predicates": {
+                "SEQ": "STR"
+              }
+            }
+          ]
+        }
+      },
+      "5": {
+        "DropIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "predicates": {
+                "SEQ": "STR"
+              }
+            },
+            {
+              "error_if_not_exists": "BOOL"
+            }
+          ]
+        }
+      },
+      "6": {
+        "Set": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "inputs": {
+                "SEQ": {
+                  "TUPLE": [
+                    {
+                      "TYPENAME": "Array"
+                    },
+                    {
+                      "MAP": {
+                        "KEY": "STR",
+                        "VALUE": "STR"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "7": {
+        "DelKey": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "keys": {
+                "SEQ": {
+                  "TYPENAME": "Array"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "8": {
+        "DelPred": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "condition": {
+                "TYPENAME": "PredicateCondition"
+              }
+            }
+          ]
+        }
+      },
+      "9": {
+        "DropStore": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "error_if_not_exists": "BOOL"
+            }
+          ]
+        }
+      },
+      "10": {
+        "InfoServer": "UNIT"
+      },
+      "11": {
+        "ListStores": "UNIT"
+      },
+      "12": {
+        "ListClients": "UNIT"
+      },
+      "13": {
+        "Ping": "UNIT"
+      }
+    }
+  }
+}

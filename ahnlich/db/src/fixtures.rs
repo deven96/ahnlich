@@ -16,12 +16,12 @@ pub fn key_to_words(
 pub fn word_to_vector() -> HashMap<String, StoreKey> {
     let words = std::fs::read_to_string("tests/mock_data.json").unwrap();
 
-    let words_to_vec: HashMap<String, Vec<f64>> = serde_json::from_str(&words).unwrap();
+    let words_to_vec: HashMap<String, Vec<f32>> = serde_json::from_str(&words).unwrap();
 
     HashMap::from_iter(
         words_to_vec
             .into_iter()
-            .map(|(key, value)| (key, StoreKey(ndarray::Array1::<f64>::from_vec(value)))),
+            .map(|(key, value)| (key, StoreKey(ndarray::Array1::<f32>::from_vec(value)))),
     )
 }
 
