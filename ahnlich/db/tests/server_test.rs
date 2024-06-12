@@ -1067,7 +1067,7 @@ async fn query_server_assert_result(
     length_header.copy_from_slice(&header[13..=20]);
 
     // read only the actual length size
-    let data_length = u64::from_be_bytes(length_header);
+    let data_length = u64::from_le_bytes(length_header);
     let mut response = vec![0u8; data_length as usize];
 
     timeout(Duration::from_secs(1), reader.read_exact(&mut response))

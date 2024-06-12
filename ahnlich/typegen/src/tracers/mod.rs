@@ -1,5 +1,6 @@
 pub use query::trace_query_enum;
 use serde_generate::CodeGeneratorConfig;
+use serde_generate::SourceInstaller;
 use serde_reflection::Registry;
 pub use server_response::trace_server_response_enum;
 use std::{
@@ -86,28 +87,38 @@ impl SpecToLanguage {
     }
 }
 
-struct OutputFile {
+struct OutputFile<'a> {
     language: Language,
-    output_file: std::path::PathBuf,
+    output_dir: std::path::PathBuf,
+    output_file: &'a str,
 }
 
-impl OutputFile {
+impl<'a> OutputFile<'a> {
     fn generate(&self, config: &CodeGeneratorConfig, registry: &Registry) {
+        let extension: &str = (&self.language).into();
+        let output_dir = self.output_dir.join(extension);
+        let _ = std::fs::create_dir_all(&output_dir);
+        let output_file = output_dir.join(format!("{}.{extension}", self.output_file));
+
         let spec_language_file =
-            std::fs::File::create(&self.output_file).expect("Failed to create typegen output file");
+            std::fs::File::create(output_file).expect("Failed to create typegen output file");
         let mut buffer: BufWriter<File> = std::io::BufWriter::new(spec_language_file);
 
         let _ = match self.language {
             Language::Python => {
+                let installer = serde_generate::python3::Installer::new(output_dir, None);
+                installer.install_bincode_runtime().unwrap();
+                installer.install_serde_runtime().unwrap();
                 serde_generate::python3::CodeGenerator::new(config).output(&mut buffer, registry)
             }
             Language::Golang => {
+                // All packages are already published
                 serde_generate::golang::CodeGenerator::new(config).output(&mut buffer, registry)
             }
-            Language::Ocaml => {
-                serde_generate::ocaml::CodeGenerator::new(config).output(&mut buffer, registry)
-            }
             Language::Typescript => {
+                let installer = serde_generate::typescript::Installer::new(output_dir);
+                installer.install_serde_runtime().unwrap();
+                installer.install_bincode_runtime().unwrap();
                 serde_generate::typescript::CodeGenerator::new(config).output(&mut buffer, registry)
             }
             _others => {
@@ -120,19 +131,24 @@ impl OutputFile {
     }
 }
 
-impl From<(&std::path::PathBuf, &str, &Language)> for OutputFile {
-    fn from((file_dir, file_name, language): (&std::path::PathBuf, &str, &Language)) -> Self {
-        let extension = match language {
+impl From<&Language> for &str {
+    fn from(value: &Language) -> Self {
+        match value {
             Language::Python => "py",
             Language::Golang => "go",
             Language::Ocaml => "ml",
             Language::Typescript => "ts",
             _others => panic!("Cannot generate extension for type"),
-        };
+        }
+    }
+}
 
+impl<'a> From<(&std::path::PathBuf, &'a str, &Language)> for OutputFile<'a> {
+    fn from((file_dir, file_name, language): (&std::path::PathBuf, &'a str, &Language)) -> Self {
         OutputFile {
             language: *language,
-            output_file: file_dir.join(format!("{}.{}", file_name, extension)),
+            output_file: file_name,
+            output_dir: file_dir.to_path_buf(),
         }
     }
 }
