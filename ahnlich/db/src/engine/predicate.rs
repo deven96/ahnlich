@@ -10,7 +10,6 @@ use types::metadata::MetadataKey;
 use types::metadata::MetadataValue;
 use types::predicate::Predicate;
 use types::predicate::PredicateCondition;
-use types::predicate::PredicateOp;
 
 type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, ConcurrentHashSet<StoreKeyId>>;
 type InnerPredicateIndices = ConcurrentHashMap<MetadataKey, PredicateIndex>;
@@ -167,12 +166,13 @@ impl PredicateIndices {
         condition: &PredicateCondition,
     ) -> Result<StdHashSet<StoreKeyId>, ServerError> {
         match condition {
-            PredicateCondition::Value(Predicate { key, value, op }) => {
+            PredicateCondition::Value(main_predicate) => {
                 let predicate_values = self.inner.pin();
                 let pinned_keys = self.allowed_predicates.pin();
+                let key = main_predicate.get_key();
                 if let Some(predicate) = predicate_values.get(key) {
                     // retrieve the precise predicate if it exists and check against it
-                    return Ok(predicate.matches(op, value));
+                    return Ok(predicate.matches(main_predicate));
                 } else if pinned_keys.contains(key) {
                     // predicate does not exist because perhaps we have not been passing a value
                     // but it is within allowed so this isn't an error
@@ -255,23 +255,30 @@ impl PredicateIndex {
     }
     /// checks the predicate index for a predicate op and value. The return type is a StdHashSet<_>
     /// because we do not modify it at any point so we do not need concurrency protection
-    fn matches<'a>(
-        &self,
-        predicate_op: &'a PredicateOp,
-        value: &'a MetadataValue,
-    ) -> StdHashSet<StoreKeyId> {
+    fn matches(&self, predicate: &Predicate) -> StdHashSet<StoreKeyId> {
         let pinned = self.0.pin();
-        match predicate_op {
-            PredicateOp::Equals => {
+
+        match predicate {
+            Predicate::Equals { value, .. } => {
                 if let Some(set) = pinned.get(value) {
                     set.pin().iter().cloned().collect::<StdHashSet<_>>()
                 } else {
                     StdHashSet::new()
                 }
             }
-            PredicateOp::NotEquals => pinned
+            Predicate::NotEquals { value, .. } => pinned
                 .iter()
                 .filter(|(key, _)| **key != *value)
+                .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
+                .collect(),
+            Predicate::In { value, .. } => pinned
+                .iter()
+                .filter(|(key, _)| value.contains(key))
+                .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
+                .collect(),
+            Predicate::NotIn { value, .. } => pinned
+                .iter()
+                .filter(|(key, _)| !value.contains(key))
                 .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
                 .collect(),
         }
@@ -383,10 +390,9 @@ mod tests {
     #[test]
     fn test_add_index_to_predicate_after() {
         let shared_pred = create_shared_predicate_indices(vec![MetadataKey::new("country".into())]);
-        let result = shared_pred.matches(&PredicateCondition::Value(Predicate {
+        let result = shared_pred.matches(&PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("name".into()),
             value: MetadataValue::new("David".into()),
-            op: PredicateOp::Equals,
         }));
         // We expect to be an error as we didn't index name
         assert!(result.is_err());
@@ -402,10 +408,9 @@ mod tests {
             ]),
         );
         let result = shared_pred
-            .matches(&PredicateCondition::Value(Predicate {
+            .matches(&PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("name".into()),
                 value: MetadataValue::new("David".into()),
-                op: PredicateOp::Equals,
             }))
             .unwrap();
         // Now we expect index to be up to date
@@ -421,66 +426,57 @@ mod tests {
             MetadataKey::new("age".into()),
         ]);
         let result = shared_pred
-            .matches(&PredicateCondition::Value(Predicate {
+            .matches(&PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("age".into()),
                 value: MetadataValue::new("14".into()),
-                op: PredicateOp::NotEquals,
             }))
             .unwrap();
         // There are no entries where age is 14
         assert!(result.is_empty());
         let result = shared_pred
-            .matches(&PredicateCondition::Value(Predicate {
+            .matches(&PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
-                op: PredicateOp::NotEquals,
             }))
             .unwrap();
         // only person 1 is not from Nigeria
         assert_eq!(result, StdHashSet::from_iter(["1".into()]));
         let result = shared_pred
-            .matches(&PredicateCondition::Value(Predicate {
+            .matches(&PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
-                op: PredicateOp::Equals,
             }))
             .unwrap();
         assert_eq!(result, StdHashSet::from_iter(["0".into(), "2".into()]),);
-        let check = PredicateCondition::Value(Predicate {
+        let check = PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("state".into()),
             value: MetadataValue::new("Washington".into()),
-            op: PredicateOp::Equals,
         })
-        .or(PredicateCondition::Value(Predicate {
+        .or(PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("age".into()),
             value: MetadataValue::new("14".into()),
-            op: PredicateOp::Equals,
         }));
         let result = shared_pred.matches(&check).unwrap();
         // only person 1 is from Washington
         assert_eq!(result, StdHashSet::from_iter(["1".into()]));
-        let check = PredicateCondition::Value(Predicate {
+        let check = PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("country".into()),
             value: MetadataValue::new("Nigeria".into()),
-            op: PredicateOp::Equals,
         })
-        .and(PredicateCondition::Value(Predicate {
+        .and(PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("state".into()),
             value: MetadataValue::new("Plateau".into()),
-            op: PredicateOp::Equals,
         }));
         let result = shared_pred.matches(&check).unwrap();
         // only person 1 is fulfills all
         assert_eq!(result, StdHashSet::from_iter(["2".into()]));
-        let check = PredicateCondition::Value(Predicate {
+        let check = PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("name".into()),
             value: MetadataValue::new("David".into()),
-            op: PredicateOp::Equals,
         })
-        .or(PredicateCondition::Value(Predicate {
+        .or(PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("name".into()),
             value: MetadataValue::new("Diretnan".into()),
-            op: PredicateOp::Equals,
         }));
         let result = shared_pred.matches(&check).unwrap();
         // all 3 fulfill this
@@ -488,10 +484,9 @@ mod tests {
             result,
             StdHashSet::from_iter(["2".into(), "0".into(), "1".into(),]),
         );
-        let check = check.and(PredicateCondition::Value(Predicate {
+        let check = check.and(PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("country".into()),
             value: MetadataValue::new("USA".into()),
-            op: PredicateOp::Equals,
         }));
         let result = shared_pred.matches(&check).unwrap();
         // only person 1 is from Washington with any of those names
@@ -500,17 +495,15 @@ mod tests {
         // longer work and those working before still work
         shared_pred.remove_store_keys(&["0".into(), "2".into()]);
         let result = shared_pred
-            .matches(&PredicateCondition::Value(Predicate {
+            .matches(&PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
-                op: PredicateOp::Equals,
             }))
             .unwrap();
         assert!(result.is_empty());
-        let check = check.and(PredicateCondition::Value(Predicate {
+        let check = check.and(PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("country".into()),
             value: MetadataValue::new("USA".into()),
-            op: PredicateOp::Equals,
         }));
         let result = shared_pred.matches(&check).unwrap();
         // only person 1 is from Washington with any of those names
@@ -565,43 +558,85 @@ mod tests {
         let shared_pred = create_shared_predicate();
         assert_eq!(
             shared_pred
-                .matches(&PredicateOp::Equals, &MetadataValue::new("Even".into()))
+                .matches(&Predicate::Equals {
+                    key: MetadataKey::new("".to_string()),
+                    value: MetadataValue::new("Even".into())
+                })
                 .len(),
             2
         );
         assert_eq!(
             shared_pred
-                .matches(&PredicateOp::NotEquals, &MetadataValue::new("Even".into()))
+                .matches(&Predicate::NotEquals {
+                    key: MetadataKey::new("".to_string()),
+                    value: MetadataValue::new("Even".into())
+                })
                 .len(),
             2
         );
         assert_eq!(
             shared_pred
-                .matches(&PredicateOp::Equals, &MetadataValue::new("Odd".into()))
+                .matches(&Predicate::Equals {
+                    key: MetadataKey::new("".to_string()),
+                    value: MetadataValue::new("Odd".into())
+                })
                 .len(),
             2
         );
         assert_eq!(
             shared_pred
-                .matches(&PredicateOp::NotEquals, &MetadataValue::new("Odd".into()))
-                .len(),
-            2
-        );
-        assert_eq!(
-            shared_pred
-                .matches(
-                    &PredicateOp::NotEquals,
-                    &MetadataValue::new("NotExists".into())
-                )
+                .matches(&Predicate::In {
+                    key: MetadataKey::new("".to_string()),
+                    value: StdHashSet::from_iter([
+                        MetadataValue::new("Odd".into()),
+                        MetadataValue::new("Even".into())
+                    ])
+                })
                 .len(),
             4
         );
         assert_eq!(
             shared_pred
-                .matches(
-                    &PredicateOp::Equals,
-                    &MetadataValue::new("NotExists".into())
-                )
+                .matches(&Predicate::NotIn {
+                    key: MetadataKey::new("".to_string()),
+                    value: StdHashSet::from_iter([MetadataValue::new("Odd".into()),])
+                })
+                .len(),
+            2
+        );
+        assert_eq!(
+            shared_pred
+                .matches(&Predicate::NotIn {
+                    key: MetadataKey::new("".to_string()),
+                    value: StdHashSet::from_iter([MetadataValue::new("Even".into()),])
+                })
+                .len(),
+            2
+        );
+        assert_eq!(
+            shared_pred
+                .matches(&Predicate::NotEquals {
+                    key: MetadataKey::new("".to_string()),
+                    value: MetadataValue::new("Odd".into())
+                })
+                .len(),
+            2
+        );
+        assert_eq!(
+            shared_pred
+                .matches(&Predicate::NotEquals {
+                    key: MetadataKey::new("".to_string()),
+                    value: MetadataValue::new("NotExists".into())
+                })
+                .len(),
+            4
+        );
+        assert_eq!(
+            shared_pred
+                .matches(&Predicate::Equals {
+                    key: MetadataKey::new("".to_string()),
+                    value: MetadataValue::new("NotExists".into())
+                })
                 .len(),
             0
         );

@@ -14,7 +14,7 @@ path = "src/lib.rs"
 
 [dependencies]
 flurry = "0.5.1"
-sha2 = "0.10.3"
+blake3.workspace = true
 ndarray.workspace = true
 bincode.workspace = true
 itertools.workspace = true
