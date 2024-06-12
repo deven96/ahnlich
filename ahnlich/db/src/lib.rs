@@ -207,10 +207,12 @@ impl ServerTask {
                             self.reader.read_exact(&mut data).await?;
                             // TODO: Add trace here to catch whenever queries could not be deserialized at all
                             if let Ok(queries) = ServerQuery::deserialize(&data) {
+                                tracing::debug!("Got Queries {:?}", queries);
                                 // TODO: Pass in store_handler and use to respond to queries
                                 let results = self.handle(queries.into_inner());
                                 if let Ok(binary_results) = results.serialize() {
                                     self.reader.get_mut().write_all(&binary_results).await?;
+                                    tracing::debug!("Sent Response of length {}, {:?}", binary_results.len(), binary_results);
                                 }
                             } else {
                                 tracing::error!("{}", self.prefix_log("Could not deserialize client message as server query"));

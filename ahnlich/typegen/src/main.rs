@@ -24,14 +24,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             {
                 panic!("Cannot generate type specs into invalid directory")
             }
-            let extension: &str = (&config.language).into();
-            let output_dir = &config
-                .output_dir
-                .to_owned()
-                .unwrap_or(std::path::PathBuf::from(SPEC_DOC_PATH))
-                .join(config.language.into());
-            std::fs::create_dir_all(output_dir).expect("Failed to create sdk directory");
-
             let output_dir = &config
                 .output_dir
                 .to_owned()
@@ -67,8 +59,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .output_dir
                 .to_owned()
                 .unwrap_or(std::path::PathBuf::from(SDK_PATH));
-
-            std::fs::create_dir_all(output_dir).expect("Failed to create sdk directory");
 
             generate_language_definition(config.language, input_dir, output_dir);
 

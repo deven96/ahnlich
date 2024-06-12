@@ -131,11 +131,8 @@ class BinarySerializer:
         if obj_type in self.primitive_type_serializer:
             self.primitive_type_serializer[obj_type](obj)
 
-
-
         elif hasattr(obj_type, "__origin__"):  # Generic type
             types = getattr(obj_type, "__args__")
-
 
             if getattr(obj_type, "__origin__") == collections.abc.Sequence:  # Sequence
                 assert len(types) == 1

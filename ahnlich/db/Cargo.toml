@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "anlich-db"
+name = "ahnlich-db"
 path = "src/main.rs"
 
 [lib]
@@ -37,6 +37,7 @@ tracer = { path = "../tracer", version = "*" }
 
 
 [dev-dependencies]
+loom = "0.7.2"
 reqwest = "0.12.4"
 serde_json = "1.0.116"
 tokio = { version = "1.37.0", features = ["io-util", "sync"] }
