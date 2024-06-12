@@ -485,7 +485,6 @@ mod tests {
     use types::metadata::MetadataKey;
     use types::metadata::MetadataValue;
     use types::predicate::Predicate;
-    use types::predicate::PredicateOp;
 
     #[test]
     fn test_compute_store_key_id_empty_vector() {
@@ -733,29 +732,25 @@ mod tests {
                 )],
             )
             .unwrap();
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("author".into()),
             value: MetadataValue::new("Lex Luthor".into()),
-            op: PredicateOp::Equals,
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 1);
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("author".into()),
             value: MetadataValue::new("Lex Luthor".into()),
-            op: PredicateOp::NotEquals,
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 2);
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("author".into()),
             value: MetadataValue::new("Lex Luthor".into()),
-            op: PredicateOp::NotEquals,
         })
-        .or(PredicateCondition::Value(Predicate {
+        .or(PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("planet".into()),
             value: MetadataValue::new("earth".into()),
-            op: PredicateOp::NotEquals,
         }));
         let res = handler.get_pred_in_store(&even_store, &condition);
         assert_eq!(
@@ -866,24 +861,21 @@ mod tests {
                 )],
             )
             .unwrap();
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("rank".into()),
             value: MetadataValue::new("Hokage".into()),
-            op: PredicateOp::Equals,
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert!(res.is_empty());
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("rank".into()),
             value: MetadataValue::new("Hokage".into()),
-            op: PredicateOp::NotEquals,
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 2);
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("rank".into()),
             value: MetadataValue::new("Joinin".into()),
-            op: PredicateOp::Equals,
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 1);
@@ -989,10 +981,9 @@ mod tests {
                 )],
             )
             .unwrap();
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("rank".into()),
             value: MetadataValue::new("Chunin".into()),
-            op: PredicateOp::Equals,
         });
         let search_input = StoreKey(vectors.get(SEACH_TEXT).unwrap().0.clone());
         let algorithm = Algorithm::CosineSimilarity;
@@ -1022,10 +1013,9 @@ mod tests {
         assert_eq!(res.len(), 1);
         assert!(res[0].0 == *vectors.get(MOST_SIMILAR[0]).unwrap());
 
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("rank".into()),
             value: MetadataValue::new("Chunin".into()),
-            op: PredicateOp::NotEquals,
         });
         let closest_n = NonZeroUsize::new(3).unwrap();
         let res = handler

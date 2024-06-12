@@ -32,19 +32,60 @@
     ]
   },
   "Predicate": {
-    "STRUCT": [
-      {
-        "key": "STR"
+    "ENUM": {
+      "0": {
+        "Equals": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": "STR"
+            }
+          ]
+        }
       },
-      {
-        "value": "STR"
+      "1": {
+        "NotEquals": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": "STR"
+            }
+          ]
+        }
       },
-      {
-        "op": {
-          "TYPENAME": "PredicateOp"
+      "2": {
+        "In": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": {
+                "SEQ": "STR"
+              }
+            }
+          ]
+        }
+      },
+      "3": {
+        "NotIn": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": {
+                "SEQ": "STR"
+              }
+            }
+          ]
         }
       }
-    ]
+    }
   },
   "PredicateCondition": {
     "ENUM": {
@@ -78,16 +119,6 @@
             }
           ]
         }
-      }
-    }
-  },
-  "PredicateOp": {
-    "ENUM": {
-      "0": {
-        "Equals": "UNIT"
-      },
-      "1": {
-        "NotEquals": "UNIT"
       }
     }
   },
