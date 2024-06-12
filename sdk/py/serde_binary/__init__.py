@@ -171,8 +171,6 @@ class BinarySerializer:
                 raise st.SerializationError("Unexpected type", obj_type)
 
         else:
-            print("dkhjsfljdf", dir(obj_type))
-
             if not dataclasses.is_dataclass(obj_type):  # Enum
                 if not hasattr(obj_type, "VARIANTS"):
                     raise st.SerializationError("Unexpected type", obj_type)

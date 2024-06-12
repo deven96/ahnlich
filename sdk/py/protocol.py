@@ -13,16 +13,14 @@ class BincodeDeAndSerializer:
     def serialize_query(self, query):
 
         response =  query.bincode_serialize()
-        print(response)
 
     def deserialize_server_response(self):
         pass
 
 
-serializer = BincodeDeAndSerializer()
+def test_serialize():
+    ping = query.ServerQuery(
+        queries = [query.Query__Ping(), query.Query__InfoServer(), query.Query__ListClients()],
+    )
 
-
-#result = serializer.serialize_query()
-ping = query.Query__Ping()
-
-print(ping.bincode_serialize())
+    print(ping.bincode_serialize())

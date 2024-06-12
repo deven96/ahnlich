@@ -9,7 +9,7 @@ use types::similarity::Algorithm;
 use types::{
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
-    query::Query,
+    query::{Query, ServerQuery},
 };
 
 pub fn trace_query_enum() -> Registry {
@@ -80,6 +80,8 @@ pub fn trace_query_enum() -> Registry {
         condition: test_predicate_condition.clone(),
     };
 
+    let server_query = ServerQuery::from_queries(&[deletepred_variant.clone(), set_query.clone()]);
+
     let _ = tracer
         .trace_value(&mut samples, &create_store)
         .expect("Error tracing the variant");
@@ -102,6 +104,10 @@ pub fn trace_query_enum() -> Registry {
         .trace_value(&mut samples, &deletepred_variant)
         .expect("Error tracing the deletepred variant");
 
+    let _ = tracer
+        .trace_value(&mut samples, &server_query)
+        .expect("Error tracing the server_query");
+
     // trace enums to fix missing variants error
     //
     // Also trace each enum type separately to fix any `MissingVariants` error.
@@ -116,6 +122,11 @@ pub fn trace_query_enum() -> Registry {
 
     let _ = tracer
         .trace_type::<Query>(&samples)
+        .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
+        .unwrap();
+
+    let _ = tracer
+        .trace_type::<ServerQuery>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 

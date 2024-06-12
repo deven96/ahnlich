@@ -275,3 +275,18 @@ Query.VARIANTS = [
     Query__Ping,
 ]
 
+
+@dataclass(frozen=True)
+class ServerQuery:
+    queries: typing.Sequence["Query"]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, ServerQuery)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> 'ServerQuery':
+        v, buffer = bincode.deserialize(input, ServerQuery)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read");
+        return v
+

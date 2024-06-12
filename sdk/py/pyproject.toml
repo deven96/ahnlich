@@ -9,6 +9,8 @@ readme = "README.md"
 python = "^3.11"
 numpy = "^1.26.4"
 
+[tool.poetry.scripts]
+test_serialize = "protocol:test_serialize"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"

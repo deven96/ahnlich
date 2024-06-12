@@ -37,6 +37,37 @@ class ConnectedClient:
         return v
 
 
+class Result:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[Result]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, Result)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> 'Result':
+        v, buffer = bincode.deserialize(input, Result)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read");
+        return v
+
+
+@dataclass(frozen=True)
+class Result__Ok(Result):
+    INDEX = 0  # type: int
+    value: "ServerResponse"
+
+
+@dataclass(frozen=True)
+class Result__Err(Result):
+    INDEX = 1  # type: int
+    value: str
+
+Result.VARIANTS = [
+    Result__Ok,
+    Result__Err,
+]
+
+
 @dataclass(frozen=True)
 class ServerInfo:
     address: str
@@ -141,6 +172,21 @@ ServerResponse.VARIANTS = [
     ServerResponse__Del,
     ServerResponse__CreateIndex,
 ]
+
+
+@dataclass(frozen=True)
+class ServerResult:
+    results: typing.Sequence["Result"]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, ServerResult)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> 'ServerResult':
+        v, buffer = bincode.deserialize(input, ServerResult)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read");
+        return v
 
 
 class ServerType:

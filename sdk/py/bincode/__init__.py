@@ -32,6 +32,8 @@ class BincodeSerializer(sb.BinarySerializer):
         self.output.write(int(value).to_bytes(8, "little", signed=False))
 
     def serialize_variant_index(self, value: int):
+        a = int(value)
+        print(value, value.to_bytes(4, "big"))
         self.output.write(int(value).to_bytes(4, "little", signed=False))
         
 

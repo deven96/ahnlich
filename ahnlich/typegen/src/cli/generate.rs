@@ -20,6 +20,10 @@ pub struct GenerateTypesConfig {
     /// location to output generated client language spec
     #[arg(long)]
     pub(crate) output_dir: Option<std::path::PathBuf>,
+
+    /// Language for client. Could be python, go etc
+    #[arg(value_enum)]
+    pub(crate) language: Language,
 }
 
 #[derive(Args, Debug, Clone)]

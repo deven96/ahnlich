@@ -284,5 +284,16 @@
         "Ping": "UNIT"
       }
     }
+  },
+  "ServerQuery": {
+    "STRUCT": [
+      {
+        "queries": {
+          "SEQ": {
+            "TYPENAME": "Query"
+          }
+        }
+      }
+    ]
   }
 }
