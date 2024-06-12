@@ -193,7 +193,7 @@ impl ServerTask {
                             }
                             // cap the message size to be of length 1MiB
                             self.reader.read_exact(&mut length_buf).await?;
-                            let data_length = u64::from_be_bytes(length_buf);
+                            let data_length = u64::from_le_bytes(length_buf);
                             if data_length > self.maximum_message_size {
                                 tracing::error!("{}", self.prefix_log(format!("Message cannot exceed {} bytes, configure `message_size` for higher", self.maximum_message_size)));
                                 break

@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Vec of queries are to be sent by clients in bincode
 /// - Length encoding must use fixed int and not var int
-/// - Endianess must be Big Endian.
+/// - Endianess must be Little Endian.
 /// - First 8 bytes must contain length of the entire vec of queries
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Query {

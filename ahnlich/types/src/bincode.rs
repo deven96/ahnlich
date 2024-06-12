@@ -11,7 +11,7 @@ pub const VERSION_LENGTH: usize = 5;
 pub const LENGTH_HEADER_SIZE: usize = 8;
 
 /// - Length encoding must use fixed int and not var int
-/// - Endianess must be Big Endian.
+/// - Endianess must be Little Endian.
 /// - First 8 bytes must be the magic bytes
 /// - Followed by 5 bytes marking the version used. Server should typically agree to service
 /// request where major version matches according to semver
@@ -26,7 +26,7 @@ where
     fn serialize(&self) -> Result<Vec<u8>, bincode::Error> {
         let config = DefaultOptions::new()
             .with_fixint_encoding()
-            .with_big_endian();
+            .with_little_endian();
         let serialized_version_data = config.serialize(&*VERSION)?;
         let serialized_data = config.serialize(self)?;
         let data_length = serialized_data.len() as u64;
@@ -36,7 +36,7 @@ where
         );
         buffer.extend(MAGIC_BYTES);
         buffer.extend(serialized_version_data);
-        buffer.extend(&data_length.to_be_bytes());
+        buffer.extend(&data_length.to_le_bytes());
         buffer.extend(&serialized_data);
         Ok(buffer)
     }
@@ -44,7 +44,7 @@ where
     fn deserialize(bytes: &'a [u8]) -> Result<Self, bincode::Error> {
         let config = DefaultOptions::new()
             .with_fixint_encoding()
-            .with_big_endian();
+            .with_little_endian();
         config.deserialize(bytes)
     }
 }
