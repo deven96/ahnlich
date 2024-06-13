@@ -59,11 +59,8 @@ class Array:
         return v
 
 
-@dataclass(frozen=True)
 class Predicate:
-    key: str
-    value: str
-    op: "PredicateOp"
+    VARIANTS = []  # type: typing.Sequence[typing.Type[Predicate]]
 
     def bincode_serialize(self) -> bytes:
         return bincode.serialize(self, Predicate)
@@ -74,6 +71,41 @@ class Predicate:
         if buffer:
             raise st.DeserializationError("Some input bytes were not read");
         return v
+
+
+@dataclass(frozen=True)
+class Predicate__Equals(Predicate):
+    INDEX = 0  # type: int
+    key: str
+    value: str
+
+
+@dataclass(frozen=True)
+class Predicate__NotEquals(Predicate):
+    INDEX = 1  # type: int
+    key: str
+    value: str
+
+
+@dataclass(frozen=True)
+class Predicate__In(Predicate):
+    INDEX = 2  # type: int
+    key: str
+    value: typing.Sequence[str]
+
+
+@dataclass(frozen=True)
+class Predicate__NotIn(Predicate):
+    INDEX = 3  # type: int
+    key: str
+    value: typing.Sequence[str]
+
+Predicate.VARIANTS = [
+    Predicate__Equals,
+    Predicate__NotEquals,
+    Predicate__In,
+    Predicate__NotIn,
+]
 
 
 class PredicateCondition:
@@ -111,37 +143,6 @@ PredicateCondition.VARIANTS = [
     PredicateCondition__Value,
     PredicateCondition__And,
     PredicateCondition__Or,
-]
-
-
-class PredicateOp:
-    VARIANTS = []  # type: typing.Sequence[typing.Type[PredicateOp]]
-
-    def bincode_serialize(self) -> bytes:
-        return bincode.serialize(self, PredicateOp)
-
-    @staticmethod
-    def bincode_deserialize(input: bytes) -> 'PredicateOp':
-        v, buffer = bincode.deserialize(input, PredicateOp)
-        if buffer:
-            raise st.DeserializationError("Some input bytes were not read");
-        return v
-
-
-@dataclass(frozen=True)
-class PredicateOp__Equals(PredicateOp):
-    INDEX = 0  # type: int
-    pass
-
-
-@dataclass(frozen=True)
-class PredicateOp__NotEquals(PredicateOp):
-    INDEX = 1  # type: int
-    pass
-
-PredicateOp.VARIANTS = [
-    PredicateOp__Equals,
-    PredicateOp__NotEquals,
 ]
 
 
