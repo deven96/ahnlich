@@ -2,22 +2,40 @@ use crate::metadata::MetadataKey;
 use crate::metadata::MetadataValue;
 use serde::Deserialize;
 use serde::Serialize;
-
-/// PredicateOp are the various operations that can be conducted against a predicate value
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum PredicateOp {
-    Equals,
-    NotEquals,
-}
+use std::collections::HashSet;
 
 /// Representation of how one predicate value and ops looks
 /// to specify a predicate of name != "David", one would use the format
 /// PredicateOp { key: "name", value: "David", op: NotEquals }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Predicate {
-    pub key: MetadataKey,
-    pub value: MetadataValue,
-    pub op: PredicateOp,
+pub enum Predicate {
+    Equals {
+        key: MetadataKey,
+        value: MetadataValue,
+    },
+    NotEquals {
+        key: MetadataKey,
+        value: MetadataValue,
+    },
+    In {
+        key: MetadataKey,
+        value: HashSet<MetadataValue>,
+    },
+    NotIn {
+        key: MetadataKey,
+        value: HashSet<MetadataValue>,
+    },
+}
+
+impl Predicate {
+    pub fn get_key(&self) -> &MetadataKey {
+        match self {
+            Predicate::Equals { key, .. } => key,
+            Predicate::NotEquals { key, .. } => key,
+            Predicate::In { key, .. } => key,
+            Predicate::NotIn { key, .. } => key,
+        }
+    }
 }
 
 /// All possible representations of a predicate condition

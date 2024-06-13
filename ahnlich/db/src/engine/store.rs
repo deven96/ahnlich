@@ -3,11 +3,8 @@ use crate::errors::ServerError;
 use super::super::algorithm::FindSimilarN;
 use super::predicate::PredicateIndices;
 use flurry::HashMap as ConcurrentHashMap;
-use sha2::Digest;
-use sha2::Sha256;
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
-use std::fmt::Write;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
@@ -43,21 +40,15 @@ impl From<&str> for StoreKeyId {
 
 impl From<&StoreKey> for StoreKeyId {
     fn from(value: &StoreKey) -> Self {
-        // compute a standard SHA256 hash of the vector to ensure it always gives us the same value
+        // compute a fast blake hash of the vector to ensure it always gives us the same value
         // and use that as a reference to the vector
-        let mut hasher = Sha256::new();
+        let mut hasher = blake3::Hasher::new();
         for element in value.0.iter() {
             let bytes = element.to_ne_bytes();
-            hasher.update(bytes);
+            hasher.update(&bytes);
         }
         let result = hasher.finalize();
-        // Convert the hash bytes to a hexadecimal string
-
-        let hash_string = result.iter().fold(String::new(), |mut acc, byte| {
-            let _ = write!(acc, "{byte:02x}");
-            acc
-        });
-        Self(hash_string)
+        Self(format!("{result}"))
     }
 }
 
@@ -485,7 +476,6 @@ mod tests {
     use types::metadata::MetadataKey;
     use types::metadata::MetadataValue;
     use types::predicate::Predicate;
-    use types::predicate::PredicateOp;
 
     #[test]
     fn test_compute_store_key_id_empty_vector() {
@@ -493,7 +483,7 @@ mod tests {
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
-            StoreKeyId("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".into())
+            StoreKeyId("af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262".into())
         );
     }
 
@@ -503,7 +493,7 @@ mod tests {
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
-            StoreKeyId("b2d6f6f0d78e1e5c6b4d42226c1c42105ea241d2642d6f96f69141788a1d16db".into())
+            StoreKeyId("ae69ac20168542c9058847862a41c0f24ecd5a935dfabb640bed7d591dd48ae8".into())
         );
     }
 
@@ -513,7 +503,7 @@ mod tests {
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
-            StoreKeyId("1cb232f8e9e23d1576db3d7d1b93a15922263b31b6bf83c57d6b9b0ce913c1bf".into())
+            StoreKeyId("c8d293fab65705ee27956818a9b02139fa002b71e4cd416fea055344a907db67".into())
         );
     }
 
@@ -733,29 +723,25 @@ mod tests {
                 )],
             )
             .unwrap();
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("author".into()),
             value: MetadataValue::new("Lex Luthor".into()),
-            op: PredicateOp::Equals,
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 1);
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("author".into()),
             value: MetadataValue::new("Lex Luthor".into()),
-            op: PredicateOp::NotEquals,
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 2);
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("author".into()),
             value: MetadataValue::new("Lex Luthor".into()),
-            op: PredicateOp::NotEquals,
         })
-        .or(PredicateCondition::Value(Predicate {
+        .or(PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("planet".into()),
             value: MetadataValue::new("earth".into()),
-            op: PredicateOp::NotEquals,
         }));
         let res = handler.get_pred_in_store(&even_store, &condition);
         assert_eq!(
@@ -866,24 +852,21 @@ mod tests {
                 )],
             )
             .unwrap();
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("rank".into()),
             value: MetadataValue::new("Hokage".into()),
-            op: PredicateOp::Equals,
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert!(res.is_empty());
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("rank".into()),
             value: MetadataValue::new("Hokage".into()),
-            op: PredicateOp::NotEquals,
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 2);
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("rank".into()),
             value: MetadataValue::new("Joinin".into()),
-            op: PredicateOp::Equals,
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 1);
@@ -989,10 +972,9 @@ mod tests {
                 )],
             )
             .unwrap();
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("rank".into()),
             value: MetadataValue::new("Chunin".into()),
-            op: PredicateOp::Equals,
         });
         let search_input = StoreKey(vectors.get(SEACH_TEXT).unwrap().0.clone());
         let algorithm = Algorithm::CosineSimilarity;
@@ -1022,10 +1004,9 @@ mod tests {
         assert_eq!(res.len(), 1);
         assert!(res[0].0 == *vectors.get(MOST_SIMILAR[0]).unwrap());
 
-        let condition = &PredicateCondition::Value(Predicate {
+        let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("rank".into()),
             value: MetadataValue::new("Chunin".into()),
-            op: PredicateOp::NotEquals,
         });
         let closest_n = NonZeroUsize::new(3).unwrap();
         let res = handler

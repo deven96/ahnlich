@@ -17,7 +17,6 @@ use types::metadata::MetadataKey;
 use types::metadata::MetadataValue;
 use types::predicate::Predicate;
 use types::predicate::PredicateCondition;
-use types::predicate::PredicateOp;
 use types::query::Query;
 use types::query::ServerQuery;
 use types::server::ConnectedClient;
@@ -151,10 +150,9 @@ async fn test_del_pred() {
         // should error as store does not exist
         Query::DelPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("planet".into()),
                 value: MetadataValue::new("earth".into()),
-                op: PredicateOp::NotEquals,
             }),
         },
         Query::CreateStore {
@@ -167,10 +165,9 @@ async fn test_del_pred() {
         // but should delete nothing as nothing matches predicate
         Query::DelPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("planet".into()),
                 value: MetadataValue::new("earth".into()),
-                op: PredicateOp::Equals,
             }),
         },
         Query::Set {
@@ -196,10 +193,9 @@ async fn test_del_pred() {
         // should delete the jupiter planet key
         Query::DelPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("planet".into()),
                 value: MetadataValue::new("mars".into()),
-                op: PredicateOp::NotEquals,
             }),
         },
         Query::GetKey {
@@ -209,10 +205,9 @@ async fn test_del_pred() {
         // should delete the mars planet key
         Query::DelPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("planet".into()),
                 value: MetadataValue::new("mars".into()),
-                op: PredicateOp::Equals,
             }),
         },
         Query::ListStores,
@@ -468,10 +463,9 @@ async fn test_get_sim_n() {
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::CosineSimilarity,
             search_input: StoreKey(array![5.0, 2.1, 2.2]),
-            condition: Some(PredicateCondition::Value(Predicate {
+            condition: Some(PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("medal".into()),
                 value: MetadataValue::new("gold".into()),
-                op: PredicateOp::Equals,
             })),
         },
         // Get closest 2 without precondition using DotProduct
@@ -496,10 +490,9 @@ async fn test_get_sim_n() {
             closest_n: NonZeroUsize::new(1).unwrap(),
             algorithm: Algorithm::CosineSimilarity,
             search_input: StoreKey(array![5.0, 2.1, 2.2]),
-            condition: Some(PredicateCondition::Value(Predicate {
+            condition: Some(PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("medal".into()),
                 value: MetadataValue::new("gold".into()),
-                op: PredicateOp::NotEquals,
             })),
         },
     ]);
@@ -583,10 +576,9 @@ async fn test_get_pred() {
         // should error as store does not yet exist
         Query::GetPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("medal".into()),
                 value: MetadataValue::new("gold".into()),
-                op: PredicateOp::Equals,
             }),
         },
         Query::CreateStore {
@@ -617,26 +609,23 @@ async fn test_get_pred() {
         // should not error but return 0
         Query::GetPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::In {
                 key: MetadataKey::new("medal".into()),
-                value: MetadataValue::new("gold".into()),
-                op: PredicateOp::Equals,
+                value: HashSet::from_iter([MetadataValue::new("gold".into())]),
             }),
         },
         Query::GetPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("medal".into()),
                 value: MetadataValue::new("silver".into()),
-                op: PredicateOp::NotEquals,
             }),
         },
         Query::GetPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("medal".into()),
                 value: MetadataValue::new("bronze".into()),
-                op: PredicateOp::NotEquals,
             }),
         },
     ]);
@@ -831,19 +820,17 @@ async fn test_create_index() {
         // get predicate should work as galaxy is indexed
         Query::GetPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("galaxy".into()),
                 value: MetadataValue::new("milkyway".into()),
-                op: PredicateOp::Equals,
             }),
         },
         // get predicate should fail as life-form is not indexed
         Query::GetPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("life-form".into()),
                 value: MetadataValue::new("humanoid".into()),
-                op: PredicateOp::Equals,
             }),
         },
         // should create 2 new indexes
@@ -858,10 +845,9 @@ async fn test_create_index() {
         // now get pred for life-form should work as it is indexed
         Query::GetPred {
             store: StoreName("Main".to_string()),
-            condition: PredicateCondition::Value(Predicate {
+            condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("life-form".into()),
                 value: MetadataValue::new("humanoid".into()),
-                op: PredicateOp::Equals,
             }),
         },
     ]);

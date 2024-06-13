@@ -3,8 +3,8 @@ use serde_reflection::{Samples, Tracer, TracerConfig};
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
+use types::predicate::Predicate;
 use types::predicate::PredicateCondition;
-use types::predicate::PredicateOp;
 use types::similarity::Algorithm;
 use types::{
     keyval::{StoreKey, StoreName},
@@ -22,10 +22,9 @@ pub fn trace_query_enum() -> Registry {
 
     let sample_store_name = StoreName("ijdfsdf".into());
     let sample_store_keys = vec![store_key.clone()];
-    let test_predicate_condition = &PredicateCondition::Value(types::predicate::Predicate {
+    let test_predicate_condition = &PredicateCondition::Value(Predicate::Equals {
         key: MetadataKey::new("author".into()),
         value: MetadataValue::new("Lex Luthor".into()),
-        op: PredicateOp::Equals,
     });
 
     let test_create_predicates = HashSet::from_iter([MetadataKey::new(String::from("username"))]);
@@ -65,10 +64,9 @@ pub fn trace_query_enum() -> Registry {
         inputs: vec![(store_key.clone(), store_value)],
     };
 
-    let test_predicate_condition = &PredicateCondition::Value(types::predicate::Predicate {
+    let test_predicate_condition = &PredicateCondition::Value(Predicate::NotEquals {
         key: MetadataKey::new("author".into()),
         value: MetadataValue::new("Lex Luthor".into()),
-        op: PredicateOp::Equals,
     });
 
     let getpred_variant = Query::GetPred {
@@ -114,6 +112,10 @@ pub fn trace_query_enum() -> Registry {
     tracer
         .trace_simple_type::<Algorithm>()
         .expect("Error tracing Algorithm");
+
+    tracer
+        .trace_simple_type::<Predicate>()
+        .expect("Error tracing Predicate");
     //
     // predicate conditions
     let _ = tracer
