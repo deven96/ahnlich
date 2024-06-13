@@ -1,9 +1,16 @@
 [tool.poetry]
-name = "ahnlich-python-client"
+name = "ahnlich-client-py"
 version = "0.1.0"
-description = "A python client for interacting with Ahnlich DB"
+description = "A python client for interacting with Ahnlich DB and AI"
 authors = ["David Onuh <davidonuh1@gmail.com>"]
 readme = "README.md"
+
+packages = [
+    { include = "bincode" },
+    { include = "serde_binary" },
+    { include = "serde_types" },
+    { include = "*.py" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -19,3 +26,4 @@ isort = "^5.13.2"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
