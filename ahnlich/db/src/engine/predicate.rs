@@ -3,6 +3,8 @@ use super::store::StoreKeyId;
 use flurry::HashMap as ConcurrentHashMap;
 use flurry::HashSet as ConcurrentHashSet;
 use itertools::Itertools;
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 use types::keyval::StoreValue;
@@ -15,7 +17,7 @@ type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, ConcurrentHashSet<St
 type InnerPredicateIndices = ConcurrentHashMap<MetadataKey, PredicateIndex>;
 
 /// Predicate indices are all the indexes referenced by their names
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(super) struct PredicateIndices {
     inner: InnerPredicateIndices,
     /// These are the index keys that are meant to generate predicate indexes
@@ -199,7 +201,7 @@ impl PredicateIndices {
 /// A predicate index is a simple datastructure that stores a value key to all matching store key
 /// ids. This is essential in helping us filter down the entire dataset using a predicate before
 /// performing similarity algorithmic search
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct PredicateIndex(InnerPredicateIndex);
 
 impl PredicateIndex {

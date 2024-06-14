@@ -6,6 +6,8 @@ use pretty_assertions::assert_eq;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
+use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 use std::time::SystemTime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
@@ -28,7 +30,17 @@ use types::server::StoreUpsert;
 use types::similarity::Algorithm;
 use types::similarity::Similarity;
 
-static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
+static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
+
+static PERSISTENCE_FILE: Lazy<PathBuf> =
+    Lazy::new(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ahnlich.dat"));
+
+static CONFIG_WITH_PERSISTENCE: Lazy<ServerConfig> = Lazy::new(|| {
+    ServerConfig::default()
+        .os_select_port()
+        .persistence_interval(200)
+        .persist_location((*PERSISTENCE_FILE).clone())
+});
 
 #[tokio::test]
 async fn test_server_client_info() {
@@ -323,8 +335,133 @@ async fn test_del_key() {
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(stream);
-    query_server_assert_result(&mut reader, message, expected).await
+    query_server_assert_result(&mut reader, message, expected).await;
 }
+
+#[tokio::test]
+async fn test_server_with_persistence() {
+    let server = db::Server::new(&CONFIG_WITH_PERSISTENCE)
+        .await
+        .expect("Could not initialize server");
+    let write_flag = server.write_flag();
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should error as store does not exist
+        Query::DelKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![],
+        },
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(4).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            error_if_exists: true,
+        },
+        // should not error as it is correct dimensions
+        // but should delete nothing as nothing exists in the store yet
+        Query::DelKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+        },
+        Query::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![
+                (StoreKey(array![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
+                (StoreKey(array![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
+            ],
+        },
+        Query::ListStores,
+        // should error as different dimensions
+        Query::DelKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![StoreKey(array![1.0, 1.1, 1.2])],
+        },
+        // should work as key exists
+        Query::DelKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+        },
+        Query::ListStores,
+    ]);
+    let mut expected = ServerResult::with_capacity(8);
+    expected.push(Err("Store Main not found".to_string()));
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Del(0)));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 2,
+        updated: 0,
+    })));
+    expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+        StoreInfo {
+            name: StoreName("Main".to_string()),
+            len: 2,
+            size_in_bytes: 1880,
+        },
+    ]))));
+    expected.push(Err(
+        "Store dimension is [4], input dimension of [3] was specified".to_string(),
+    ));
+    expected.push(Ok(ServerResponse::Del(1)));
+    expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+        StoreInfo {
+            name: StoreName("Main".to_string()),
+            len: 1,
+            size_in_bytes: 1808,
+        },
+    ]))));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await;
+    // write flag should show that a write has occured
+    assert!(write_flag.load(Ordering::SeqCst));
+    // Allow some time for persistence to kick in
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    // start another server with existing persistence
+    let server = db::Server::new(&CONFIG_WITH_PERSISTENCE)
+        .await
+        .expect("Could not initialize server");
+    let write_flag = server.write_flag();
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerQuery::from_queries(&[
+        // should error as store was loaded from previous persistence and main still exists
+        Query::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(2).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            error_if_exists: true,
+        },
+        // should not error as store exists
+        Query::DelKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![],
+        },
+        Query::GetKey {
+            store: StoreName("Main".to_string()),
+            keys: vec![StoreKey(array![1.1, 1.2, 1.3, 1.4])],
+        },
+    ]);
+
+    let mut expected = ServerResult::with_capacity(3);
+    expected.push(Err("Store Main already exists".to_string()));
+    expected.push(Ok(ServerResponse::Del(0)));
+    expected.push(Ok(ServerResponse::Get(vec![(
+        StoreKey(array![1.1, 1.2, 1.3, 1.4]),
+        HashMap::new(),
+    )])));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await;
+    assert!(!write_flag.load(Ordering::SeqCst));
+    // delete persistence
+    let _ = std::fs::remove_file(&*PERSISTENCE_FILE);
+}
+
 #[tokio::test]
 async fn test_set_in_store() {
     let server = db::Server::new(&CONFIG)

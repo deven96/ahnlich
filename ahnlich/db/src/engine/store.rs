@@ -3,10 +3,16 @@ use crate::errors::ServerError;
 use super::super::algorithm::FindSimilarN;
 use super::predicate::PredicateIndices;
 use flurry::HashMap as ConcurrentHashMap;
+use serde::Deserialize;
+use serde::Serialize;
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
+use std::fs::File;
+use std::io::BufReader;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use types::keyval::StoreKey;
 use types::keyval::StoreName;
@@ -21,7 +27,7 @@ use types::similarity::Similarity;
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 pub(crate) struct StoreKeyId(String);
 
 #[cfg(test)]
@@ -56,14 +62,44 @@ impl From<&StoreKey> for StoreKeyId {
 #[derive(Debug)]
 pub(crate) struct StoreHandler {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
-    stores: ConcurrentHashMap<StoreName, Arc<Store>>,
+    stores: Stores,
+    pub write_flag: Arc<AtomicBool>,
 }
 
+pub type Stores = Arc<ConcurrentHashMap<StoreName, Arc<Store>>>;
+
 impl StoreHandler {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(write_flag: Arc<AtomicBool>) -> Self {
         Self {
-            stores: ConcurrentHashMap::new(),
+            stores: Arc::new(ConcurrentHashMap::new()),
+            write_flag,
         }
+    }
+
+    pub(crate) fn get_stores(&self) -> Stores {
+        self.stores.clone()
+    }
+
+    pub fn write_flag(&self) -> Arc<AtomicBool> {
+        self.write_flag.clone()
+    }
+
+    fn set_write_flag(&self) {
+        let _ = self
+            .write_flag
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst);
+    }
+
+    pub(crate) fn load_snapshot(
+        &mut self,
+        persist_location: &std::path::PathBuf,
+    ) -> Result<(), ServerError> {
+        let file = File::open(persist_location)
+            .map_err(|e| ServerError::SnapshotLoadError(e.to_string()))?;
+        let reader = BufReader::new(file);
+        self.stores = serde_json::from_reader(reader)
+            .map_err(|e| ServerError::SnapshotLoadError(e.to_string()))?;
+        Ok(())
     }
 
     /// Returns a store using the store name, else returns an error
@@ -85,7 +121,11 @@ impl StoreHandler {
         predicates: Vec<MetadataKey>,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        Ok(store.create_index(predicates))
+        let created_predicates = store.create_index(predicates);
+        if created_predicates > 0 {
+            self.set_write_flag()
+        }
+        Ok(created_predicates)
     }
 
     /// Matches DELKEY - removes keys from a store
@@ -96,7 +136,11 @@ impl StoreHandler {
         keys: Vec<StoreKey>,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        store.delete_keys(keys)
+        let deleted = store.delete_keys(keys)?;
+        if deleted > 0 {
+            self.set_write_flag();
+        };
+        Ok(deleted)
     }
 
     /// Matches DELPRED - removes keys from a store when value matches predicate
@@ -107,7 +151,11 @@ impl StoreHandler {
         condition: &PredicateCondition,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        store.delete_matches(condition)
+        let deleted = store.delete_matches(condition)?;
+        if deleted > 0 {
+            self.set_write_flag();
+        };
+        Ok(deleted)
     }
 
     /// Matches GETSIMN - gets all similar from a store that also match a predicate
@@ -190,7 +238,11 @@ impl StoreHandler {
         new: Vec<(StoreKey, StoreValue)>,
     ) -> Result<StoreUpsert, ServerError> {
         let store = self.get(store_name)?;
-        store.add(new)
+        let upsert = store.add(new)?;
+        if upsert.modified() {
+            self.set_write_flag();
+        }
+        Ok(upsert)
     }
 
     /// matches LISTSTORES - to return statistics of all stores
@@ -227,6 +279,7 @@ impl StoreHandler {
         {
             return Err(ServerError::StoreAlreadyExists(store_name));
         }
+        self.set_write_flag();
         Ok(())
     }
 
@@ -239,7 +292,11 @@ impl StoreHandler {
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        store.drop_predicates(predicates, error_if_not_exists)
+        let deleted = store.drop_predicates(predicates, error_if_not_exists)?;
+        if deleted > 0 {
+            self.set_write_flag();
+        };
+        Ok(deleted)
     }
 
     /// Matches DROPSTORE - Drops a store if exist, else returns an error
@@ -254,14 +311,19 @@ impl StoreHandler {
         if !removed && error_if_not_exists {
             return Err(ServerError::StoreNotFound(store_name));
         }
-        let removed = if !removed { 0 } else { 1 };
+        let removed = if !removed {
+            0
+        } else {
+            self.set_write_flag();
+            1
+        };
         Ok(removed)
     }
 }
 
 /// A Store is a single database containing multiple N*1 arrays where N is the dimension of the
 /// store to which all arrays must conform
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct Store {
     dimension: NonZeroUsize,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
@@ -512,7 +574,8 @@ mod tests {
         even_dimensions: Option<usize>,
         odd_dimensions: Option<usize>,
     ) -> Arc<StoreHandler> {
-        let handler = Arc::new(StoreHandler::new());
+        let write_flag = Arc::new(AtomicBool::new(false));
+        let handler = Arc::new(StoreHandler::new(write_flag));
         let handles = (0..3).map(|i| {
             let predicates = predicates.clone();
             let shared_handler = handler.clone();
@@ -544,7 +607,8 @@ mod tests {
         Vec<Result<(), ServerError>>,
         Vec<Result<(), ServerError>>,
     ) {
-        let handler = Arc::new(StoreHandler::new());
+        let write_flag = Arc::new(AtomicBool::new(false));
+        let handler = Arc::new(StoreHandler::new(write_flag));
         let handles = (0..3).map(|i| {
             let predicates = predicates.clone();
             let shared_handler = handler.clone();

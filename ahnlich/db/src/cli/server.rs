@@ -29,9 +29,11 @@ pub struct ServerConfig {
     #[arg(long, requires_if("true", "enable_persistence"))]
     pub(crate) persist_location: Option<std::path::PathBuf>,
 
-    /// persistence intervals in milliseconds
+    /// persistence interval in milliseconds
+    /// A new persistence round would be scheduled for persistence_interval into the future after
+    /// current persistence round is completed
     #[arg(long, default_value_t = 1000 * 60 * 5)]
-    pub(crate) persistence_intervals: u64,
+    pub(crate) persistence_interval: u64,
 
     /// sets size(in bytes) for global allocator used
     /// Defaults to 1 Gi (1 * 1024 * 1024 * 1024)
@@ -58,14 +60,10 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             host: String::from("127.0.0.1"),
-            #[cfg(not(test))]
             port: 1369,
-            // allow OS to pick a port
-            #[cfg(test)]
-            port: 0,
             enable_persistence: false,
             persist_location: None,
-            persistence_intervals: 1000 * 60 * 5,
+            persistence_interval: 1000 * 60 * 5,
             allocator_size: 1_073_741_824,
             message_size: 1_048_576,
 
@@ -73,5 +71,24 @@ impl Default for ServerConfig {
             otel_endpoint: None,
             log_level: String::from("info"),
         }
+    }
+}
+
+impl ServerConfig {
+    pub fn os_select_port(mut self) -> Self {
+        // allow OS to pick a port
+        self.port = 0;
+        self
+    }
+
+    pub fn persist_location(mut self, location: std::path::PathBuf) -> Self {
+        self.persist_location = Some(location);
+        self
+    }
+
+    pub fn persistence_interval(mut self, interval: u64) -> Self {
+        self.enable_persistence = true;
+        self.persistence_interval = interval;
+        self
     }
 }
