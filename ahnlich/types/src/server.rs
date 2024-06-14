@@ -39,6 +39,12 @@ pub struct StoreUpsert {
     pub updated: usize,
 }
 
+impl StoreUpsert {
+    pub fn modified(&self) -> bool {
+        self.inserted + self.updated > 0
+    }
+}
+
 /// StoreInfo just shows store name, size and length
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StoreInfo {
@@ -59,8 +65,7 @@ pub struct ServerInfo {
 /// ignore `remaining` field during comparison for server info as a server might allocate memory
 impl PartialEq for ServerInfo {
     fn eq(&self, other: &Self) -> bool {
-        self.address.eq(&other.address)
-            && self.version.eq(&other.version)
+        self.version.eq(&other.version)
             && self.r#type.eq(&other.r#type)
             && self.limit.eq(&other.limit)
     }
