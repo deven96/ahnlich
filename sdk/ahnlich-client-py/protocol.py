@@ -33,11 +33,14 @@ class AhnlichProtocol:
 
     def receive(self):
         header = self.client.recv(8)
+        if header == b'':
+            self.client.close()
+            raise RuntimeError("socket connection broken")
+
         if header != HEADER:
             exit("Fake server")
         # ignore version of 5 bytes
-        version = self.client.recv(5)
-        print(server_response.Version.bincode_deserialize(version))
+        _version = self.client.recv(5)
         length = self.client.recv(8)
         # header length u64, little endian
         length_to_read = int.from_bytes(length, byteorder="little")
@@ -46,6 +49,9 @@ class AhnlichProtocol:
         data = self.client.recv(length_to_read)
         response = self.deserialize_server_response(data)
         return response
+
+
+
 
 
 def test_serialize():
@@ -65,5 +71,5 @@ def test_serialize():
     ahnlich_protocol = AhnlichProtocol(address="127.0.0.1", port=1369)
     ahnlich_protocol.send(message=ping)
     response = ahnlich_protocol.receive()
+    ahnlich_protocol.client.close()
     print(response)
-
