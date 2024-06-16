@@ -40,7 +40,6 @@ serde_json.workspace = true
 
 
 [dev-dependencies]
-loom = "0.7.2"
 reqwest = "0.12.4"
 tokio = { version = "1.37.0", features = ["io-util", "sync"] }
 futures.workspace = true
