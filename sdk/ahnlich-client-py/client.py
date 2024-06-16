@@ -95,10 +95,12 @@ class AhnlichDBClient:
     """Wrapper for interacting with Ahnlich database or ai"""
 
     def __init__(
-        self, client: protocol.AhnlichProtocol, builder: AhnlichRequestBuilder
+        self,
+        client: protocol.AhnlichProtocol,
     ) -> None:
         self.client = client
-        self.builder = builder
+        # would abstract this away eventually, but for now easy does it
+        self.builder = AhnlichRequestBuilder()
 
     def create_store(
         self,
