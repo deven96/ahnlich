@@ -1,7 +1,7 @@
 import socket
 
-import query
-import server_response
+from internals import query
+from internals import server_response
 
 HEADER = b"AHNLICH;"
 BUFFER_SIZE = 1024
@@ -31,9 +31,9 @@ class AhnlichProtocol:
         serialized_bin = self.serialize_query(message)
         self.client.sendall(serialized_bin)
 
-    def receive(self):
+    def receive(self) -> server_response.ServerResult:
         header = self.client.recv(8)
-        if header == b'':
+        if header == b"":
             self.client.close()
             raise RuntimeError("socket connection broken")
 
@@ -50,26 +50,11 @@ class AhnlichProtocol:
         response = self.deserialize_server_response(data)
         return response
 
+    def process_request(
+        self, message: query.ServerQuery
+    ) -> server_response.ServerResult:
+        self.send(message=message)
+        response = self.receive()
+        return response
 
 
-
-
-def test_serialize():
-    ping = query.ServerQuery(
-        queries=[
-            query.Query__Ping(),
-            query.Query__InfoServer(),
-            query.Query__ListClients(),
-            query.Query__CreateStore(
-                store="First Store",
-                dimension=5,
-                create_predicates=[],
-                error_if_exists=True,
-            ),
-        ],
-    )
-    ahnlich_protocol = AhnlichProtocol(address="127.0.0.1", port=1369)
-    ahnlich_protocol.send(message=ping)
-    response = ahnlich_protocol.receive()
-    ahnlich_protocol.client.close()
-    print(response)
