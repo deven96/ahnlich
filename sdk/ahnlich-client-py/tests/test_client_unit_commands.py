@@ -23,7 +23,7 @@ def test_serialize():
     print(response)
 
 
-def test_client_sends_ping_success(base_protocol):
+def test_client_sends_ping_to_db_success(base_protocol):
     db_client = AhnlichDBClient(client=base_protocol)
     response: server_response.ServerResult = db_client.ping()
 
@@ -31,3 +31,16 @@ def test_client_sends_ping_success(base_protocol):
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__Pong()
     )
+
+def test_client_sends_list_clients_to_db_success(base_protocol):
+    db_client = AhnlichDBClient(client=base_protocol)
+    response: server_response.ServerResult = db_client.list_clients()
+    assert len(response.results) == 1
+
+def test_client_sends_info_server_to_db_success(base_protocol):
+    db_client = AhnlichDBClient(client=base_protocol)
+    response: server_response.ServerResult = db_client.info_server()
+    assert len(response.results) == 1
+    info_server: server_response.ServerInfo = response.results[0].value
+    assert info_server.value.version == db_client.client.version
+    assert info_server.value.type == server_response.ServerType__Database()

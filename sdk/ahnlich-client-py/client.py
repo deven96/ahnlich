@@ -1,7 +1,6 @@
 import typing
 import serde_types as st
 from internals import protocol, query, server_response
-import config
 
 
 class NonZeroSizeInteger:
