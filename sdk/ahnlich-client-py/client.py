@@ -1,4 +1,3 @@
-from re import A
 import typing
 import serde_types as st
 from internals import protocol, query, server_response
@@ -16,7 +15,7 @@ class NonZeroSizeInteger:
 # composition of the underlying clients
 class AhnlichRequestBuilder:
     def __init__(self) -> None:
-        self.queries = []
+        self.queries: typing.List[query.Query] = []
 
     def create_store(
         self,
@@ -28,66 +27,107 @@ class AhnlichRequestBuilder:
 
         non_zero = NonZeroSizeInteger(num=dimension)
         self.queries.append(
-            query.ServerQuery(
-                queries=[
-                    query.Query__CreateStore(
-                        store=store_name,
-                        dimension=non_zero.value,
-                        create_predicates=create_predicates,
-                        error_if_exists=error_if_exists,
-                    )
-                ]
+            query.Query__CreateStore(
+                store=store_name,
+                dimension=non_zero.value,
+                create_predicates=create_predicates,
+                error_if_exists=error_if_exists,
             )
         )
 
-    def get_key(self):
-        pass
+    def get_key(self, store_name: str, keys: typing.Sequence[query.Array]):
 
-    def get_predicate():
-        pass
+        self.queries.append(query.Query__GetKey(store=store_name, keys=keys))
 
-    def get_sim_n():
-        pass
+    def get_predicate(self, store_name: str, condition: query.PredicateCondition):
+        self.queries.append(query.Query__GetPred(store=store_name, condition=condition))
 
-    def create_index():
-        pass
+    def get_sim_n(
+        self,
+        store_name: str,
+        search_input: query.Array,
+        closest_n: st.uint64,
+        algorithm: query.Algorithm,
+        condition: query.PredicateCondition = None,
+    ):
+        nonzero = NonZeroSizeInteger(closest_n)
+        self.queries.append(
+            query.Query__GetSimN(
+                store=store_name,
+                search_input=search_input,
+                closest_n=nonzero.value,
+                algorithm=algorithm,
+                condition=condition,
+            )
+        )
 
-    def drop_index():
-        pass
+    def create_index(self, store_name: str, predicates: typing.Sequence[str]):
+        self.queries.append(
+            query.Query__CreateIndex(store=store_name, predicates=predicates)
+        )
 
-    def set_value():
-        pass
+    def drop_index(
+        self,
+        store_name: str,
+        predicates: typing.Sequence[str],
+        error_if_not_exists: bool,
+    ):
+        self.queries.append(
+            query.Query__DropIndex(
+                store=store_name,
+                predicates=predicates,
+                error_if_not_exists=error_if_not_exists,
+            )
+        )
 
-    def delete_key():
-        pass
+    def set(
+        self,
+        store_name,
+        inputs: typing.Sequence[typing.Tuple[query.Array, typing.Dict[str, str]]],
+    ):
+        self.queries.append(query.Query__Set(store=store_name, inputs=inputs))
 
-    def delete_predicate():
-        pass
+    def delete_key(self, store_name: str, keys: typing.Sequence[query.Array]):
+        self.queries.append(query.Query__DelKey(store=store_name, keys=keys))
 
-    def drop_store():
-        pass
+    def delete_predicate(self, store_name: str, condition: query.PredicateCondition):
+        self.queries.append(query.Query__DelPred(store=store_name, condition=condition))
 
-    def list_stores():
-        pass
+    def drop_store(self, store_name: str, error_if_not_exists: bool):
+        self.queries.append(
+            query.Query__DropStore(
+                store=store_name, error_if_not_exists=error_if_not_exists
+            )
+        )
+
+    def list_stores(self):
+        self.queries.append(query.Query__ListStores())
 
     def info_server(self):
-        self.queries.append(query.ServerQuery(queries=[query.Query__InfoServer()]))
+        self.queries.append(query.Query__InfoServer())
 
     def list_clients(self):
-        self.queries.append(query.ServerQuery(queries=[query.Query__ListClients()]))
+        self.queries.append(query.Query__ListClients())
 
     def ping(self):
-        self.queries.append(query.ServerQuery(queries=[query.Query__Ping()]))
+        self.queries.append(query.Query__Ping())
 
     def drop(self):
         self.queries.clear()
 
-    def execute_requests(self, client: protocol.AhnlichProtocol):
-
+    def to_server_query(self) -> query.ServerQuery:
         if not self.queries:
             raise Exception("Must have atleast one request to be processed")
-        response = client.process_request(query.ServerQuery(queries=self.queries))
+        # not optimal, but so far, recreating the list and dropping the internal store.
+        # seems straight forward
+        queries = self.queries[:]
+
+        server_query = query.ServerQuery(queries=queries)
         self.drop()
+        return server_query
+
+    def execute_requests(self, client: protocol.AhnlichProtocol):
+        response = client.process_request(message=self.to_server_query())
         return response
 
 
@@ -101,6 +141,70 @@ class AhnlichDBClient:
         self.client = client
         # would abstract this away eventually, but for now easy does it
         self.builder = AhnlichRequestBuilder()
+
+    def get_key(self, store_name: str, keys: typing.Sequence[query.Array]):
+
+        self.builder.get_key(store_name=store_name, keys=keys)
+        self.client.process_request(self.builder.to_server_query())
+
+    def get_predicate(self, store_name: str, condition: query.PredicateCondition):
+        self.builder.get_predicate(store_name=store_name, condition=condition)
+
+    def get_sim_n(
+        self,
+        store_name: str,
+        search_input: query.Array,
+        closest_n: st.uint64,
+        algorithm: query.Algorithm,
+        condition: query.PredicateCondition = None,
+    ):
+        self.builder.get_sim_n(
+            store_name=store_name,
+            search_input=search_input,
+            closest_n=closest_n,
+            algorithm=algorithm,
+            condition=condition,
+        )
+        self.client.process_request(self.builder.to_server_query())
+
+    def create_index(self, store_name: str, predicates: typing.Sequence[str]):
+        self.builder.create_index(store_name=store_name, predicates=predicates)
+        self.client.process_request(self.builder.to_server_query())
+
+    def drop_index(
+        self,
+        store_name: str,
+        predicates: typing.Sequence[str],
+        error_if_not_exists: bool,
+    ):
+        self.builder.drop_index(
+            store_name=store_name,
+            predicates=predicates,
+            error_if_not_exists=error_if_not_exists,
+        )
+        self.client.process_request(self.builder.to_server_query())
+
+    def set(
+        self,
+        store_name,
+        inputs: typing.Sequence[typing.Tuple[query.Array, typing.Dict[str, str]]],
+    ):
+        self.builder.set(store_name=store_name, inputs=inputs)
+        self.client.process_request(self.builder.to_server_query())
+
+    def delete_key(self, store_name: str, keys: typing.Sequence[query.Array]):
+        self.builder.delete_key(store_name=store_name, keys=keys)
+        self.client.process_request(self.builder.to_server_query())
+
+    def delete_predicate(self, store_name: str, condition: query.PredicateCondition):
+        self.builder.delete_predicate(store_name=store_name, condition=condition)
+        self.client.process_request(self.builder.to_server_query())
+
+    def drop_store(self, store_name: str, error_if_not_exists: bool):
+        self.builder.drop_store(
+            store_name=store_name, error_if_not_exists=error_if_not_exists
+        )
+        self.client.process_request(self.builder.to_server_query())
 
     def create_store(
         self,
@@ -116,46 +220,25 @@ class AhnlichDBClient:
             create_predicates=create_predicates,
             error_if_exists=error_if_exists,
         )
-        return self.builder.execute_requests(client=self.client)
+        message = self.builder.to_server_query()
+        return self.client.process_request(message=message)
 
-    def get_key(self):
-        pass
-
-    def get_predicate():
-        pass
-
-    def get_sim_n():
-        pass
-
-    def create_index():
-        pass
-
-    def drop_index():
-        pass
-
-    def set_value():
-        pass
-
-    def delete_key():
-        pass
-
-    def delete_predicate():
-        pass
-
-    def drop_store():
-        pass
-
-    def list_stores():
-        pass
+    def list_stores(self):
+        self.builder.list_stores()
+        self.client.process_request(self.builder.to_server_query())
 
     def info_server(self) -> server_response.ServerResult:
-        req = query.ServerQuery(queries=[query.Query__InfoServer()])
-        return self.client.process_request(req)
+        self.builder.info_server()
+        return self.client.process_request(
+            message=self.builder.to_server_query(),
+        )
 
     def list_clients(self) -> server_response.ServerResult:
-        req = query.ServerQuery(queries=[query.Query__ListClients()])
-        return self.client.process_request(req)
+        self.builder.list_clients()
+        return self.client.process_request(
+            message=self.builder.to_server_query(),
+        )
 
     def ping(self) -> server_response.ServerResult:
-        req = query.ServerQuery(queries=[query.Query__Ping()])
-        return self.client.process_request(req)
+        self.builder.ping()
+        return self.client.process_request(message=self.builder.to_server_query())
