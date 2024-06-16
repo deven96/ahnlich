@@ -6,15 +6,18 @@ mod client;
 mod engine;
 mod errors;
 mod network;
+mod persistence;
 mod storage;
 use crate::cli::ServerConfig;
 use crate::client::ClientHandler;
 use crate::engine::store::StoreHandler;
+use crate::persistence::PersistenceTask;
 use cap::Cap;
 use std::alloc;
 use std::io::Error;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
@@ -42,9 +45,9 @@ static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value(
 
 pub struct Server<'a> {
     listener: TcpListener,
+    shutdown_token: Shutdown,
     store_handler: Arc<StoreHandler>,
     client_handler: Arc<ClientHandler>,
-    shutdown_token: Shutdown,
     config: &'a ServerConfig,
 }
 
@@ -64,17 +67,35 @@ impl<'a> Server<'a> {
                 .unwrap_or("http://127.0.0.1:4317".to_string());
             tracer::init_tracing("ahnlich-db", Some(&config.log_level), &otel_url)
         }
-        // TODO: replace with rules to retrieve store handler from persistence if persistence exist
-        let store_handler = Arc::new(StoreHandler::new());
-        let client_handler = Arc::new(ClientHandler::new());
         let shutdown_token = Shutdown::default();
+        let write_flag = Arc::new(AtomicBool::new(false));
+        let client_handler = Arc::new(ClientHandler::new());
+        let mut store_handler = StoreHandler::new(write_flag.clone());
+        if let Some(persist_location) = &config.persist_location {
+            if let Err(e) = store_handler.load_snapshot(persist_location) {
+                tracing::error!("Failed to load snapshot from persist location {e}");
+            }
+            // spawn the persistence task
+            let mut persistence_task = PersistenceTask::new(
+                write_flag,
+                config.persistence_interval,
+                persist_location,
+                store_handler.get_stores(),
+            );
+            shutdown_token
+                .spawn_task_fn(|guard| async move { persistence_task.monitor(guard).await });
+        };
         Ok(Self {
             listener,
-            store_handler,
-            client_handler,
             shutdown_token,
+            store_handler: Arc::new(store_handler),
+            client_handler,
             config,
         })
+    }
+
+    pub fn write_flag(&self) -> Arc<AtomicBool> {
+        self.store_handler.write_flag()
     }
 
     /// starts accepting connections using the listener and processing the incoming streams
@@ -161,14 +182,14 @@ impl ServerTask {
     }
 
     /// processes messages from a stream
-    async fn process(&mut self, shutdown_token: ShutdownGuard) -> IoResult<()> {
+    async fn process(&mut self, shutdown_guard: ShutdownGuard) -> IoResult<()> {
         let mut magic_bytes_buf = [0u8; MAGIC_BYTES.len()];
         let mut version_buf = [0u8; VERSION_LENGTH];
         let mut length_buf = [0u8; LENGTH_HEADER_SIZE];
 
         loop {
             select! {
-                _ = shutdown_token.cancelled() => {
+                _ = shutdown_guard.cancelled() => {
                     tracing::debug!("{}", self.prefix_log("Cancelling stream as server is shutting down"));
                     break;
                 }
