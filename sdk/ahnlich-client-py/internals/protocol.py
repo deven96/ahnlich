@@ -2,9 +2,7 @@ import socket
 
 from internals import query
 from internals import server_response
-
-HEADER = b"AHNLICH;"
-BUFFER_SIZE = 1024
+import config
 
 
 class AhnlichProtocol:
@@ -12,12 +10,13 @@ class AhnlichProtocol:
         self.address = address
         self.port = port
         self.client = self.connect()
+        self.version = self.get_version()
 
     def serialize_query(self, server_query: query.ServerQuery) -> bytes:
-        version = server_response.Version(0, 1, 0).bincode_serialize()
+        version = self.version.bincode_serialize()
         response = server_query.bincode_serialize()
         response_length = int(len(response)).to_bytes(8, "little")
-        return HEADER + version + response_length + response
+        return config.HEADER + version + response_length + response
 
     def deserialize_server_response(self, b: bytes) -> server_response.ServerResult:
         return server_response.ServerResult([]).bincode_deserialize(b)
@@ -37,7 +36,7 @@ class AhnlichProtocol:
             self.client.close()
             raise RuntimeError("socket connection broken")
 
-        if header != HEADER:
+        if header != config.HEADER:
             exit("Fake server")
         # ignore version of 5 bytes
         _version = self.client.recv(5)
@@ -57,4 +56,18 @@ class AhnlichProtocol:
         response = self.receive()
         return response
 
+    @staticmethod
+    def get_version() -> server_response.Version:
+        from importlib import metadata
 
+        try:
+            str_version = metadata.version(config.PACKAGE_NAME)
+        except metadata.PackageNotFoundError:
+            import toml
+
+            with open(config.BASE_DIR / "pyproject.toml", "r") as f:
+                reader = toml.load(f)
+                str_version = reader["tool"]["poetry"]["version"]
+
+        # split and convert from str to int
+        return server_response.Version(*map(lambda x: int(x), str_version.split(".")))

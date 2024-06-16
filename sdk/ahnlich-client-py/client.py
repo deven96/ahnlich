@@ -1,6 +1,7 @@
 import typing
 import serde_types as st
 from internals import protocol, query, server_response
+import config
 
 
 class NonZeroSizeInteger:
@@ -64,13 +65,13 @@ class AhnlichDBClient:
 
     def drop_store():
         pass
+
     def list_stores():
         pass
 
     def info_server(self) -> server_response.ServerResult:
         req = query.ServerQuery(queries=[query.Query__InfoServer()])
         return self.client.process_request(req)
-
 
     def list_clients(self) -> server_response.ServerResult:
         req = query.ServerQuery(queries=[query.Query__ListClients()])
