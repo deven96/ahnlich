@@ -99,6 +99,7 @@ jobs:
         poetry run pytest
 
     - name: Stop Ahnlich DB Server
+      working-directory: ./ahnlich
       run: |
         kill $(cat server_pid.txt)
 
