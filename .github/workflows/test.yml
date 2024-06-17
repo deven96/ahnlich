@@ -88,7 +88,7 @@ jobs:
       working-directory: ./ahnlich
       run: |
         chmod +x wait-for-it.sh  
-        ./wait-for-it.sh localhost:1349 -t 30
+        ./wait-for-it.sh localhost 1349 -t 30
     
     - name: Run Python Client Tests
       working-directory: ./sdk/ahnlich-client-py
