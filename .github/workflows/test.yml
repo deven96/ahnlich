@@ -82,8 +82,8 @@ jobs:
       run: |
         cargo run --bin ahnlich-db run --port 1349 &
     
-    - name: Sleep for 7 seconds for Server Bootup
-      run: sleep 7
+    - name: Sleep for 30 seconds for Server Bootup
+      run: sleep 30
     
     - name: Run Python Client Tests
       working-directory: ./sdk/ahnlich-client-py
