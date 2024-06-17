@@ -77,23 +77,29 @@ jobs:
       with:
         workspaces: ahnlich
 
-    - name: Run Rust DB Server And Run Python Client Tests
+    - name: Run Ahnlich DB Server 
       working-directory: ./ahnlich
+      run: |
+        cargo run --bin ahnlich-db run --port 1349 &
+        echo $! > server_pid.txt
+    
+
+    - name: Wait for Ahnlich DB to be ready
+      working-directory: ./ahnlich
+      run: |
+        chmod +x wait-for-it.sh  
+        ./wait-for-it.sh localhost:1349 -t 30
+    
+    - name: Run Python Client Tests
+      working-directory: ./sdk/ahnlich-client-py
       env:
           AHNLICH_DB_HOST: "127.0.0.1"
           AHNLICH_DB_PORT: 1349
       run: |
-        cargo run --bin ahnlich-db run --port 1349 && cd ../sdk/ahnlich-client-py && poetry run pytest
-    
-    # - name: Sleep for 30 seconds for Server Bootup
-    #   run: sleep 30
-    
-    # - name: Run Python Client Tests
-    #   working-directory: ./sdk/ahnlich-client-py
-    #   env:
-    #       AHNLICH_DB_HOST: "127.0.0.1"
-    #       AHNLICH_DB_PORT: 1349
-    #   run: |
-    #     poetry run pytest
+        poetry run pytest
+
+    - name: Stop Ahnlich DB Server
+      run: |
+        kill $(cat server_pid.txt)
 
 
