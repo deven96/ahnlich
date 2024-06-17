@@ -9,8 +9,8 @@ cmd="$@"
 
 until nc -z -v -w30 $host $port; do
   >&2 echo "Waiting for $host:$port to be available..."
-  sleep 1
+  sleep 5
 done
 
 >&2 echo "$host:$port is available"
-exec $cmd
+# exec $cmd
