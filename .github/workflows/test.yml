@@ -50,9 +50,7 @@ jobs:
     if: ${{ always() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     needs: ["build"]
-    defaults:
-      run:
-        working-directory: ./
+
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v4
@@ -70,9 +68,6 @@ jobs:
         path: ./.venv
         key: venv-${{ hashFiles('poetry.lock') }}  
     
-    - name: Testing dir 
-      run: |
-        ls && pwd
     - name: Installing poetry dependencies
       working-directory: ./sdk/ahnlich-client-py
       run: poetry install
@@ -86,6 +81,9 @@ jobs:
       working-directory: ./ahnlich
       run: |
         cargo run --bin ahnlich-db run --port 1349 &
+    
+    - name: Sleep for 7 seconds for Server Bootup
+      run: sleep 7
     
     - name: Run Python Client Tests
       working-directory: ./sdk/ahnlich-client-py
