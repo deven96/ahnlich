@@ -43,3 +43,28 @@ jobs:
       run: |
         make test
 
+
+  run-python-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ahnlich
+
+    - name: Run Rust DB Server 
+      working-directory: ./ahnlich
+      run: |
+        cargo run --bin ahnlich-db run --port 1349 
+    
+    - name: Run Python Client Tests
+      working-directory: ./sdk/ahnlich-client-py
+      env:
+          AHNLICH_DB_HOST: "127.0.0.1"
+          AHNLICH_DB_PORT: 1349
+      run: |
+        pytest
+
+
