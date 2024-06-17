@@ -5,10 +5,12 @@ on:
     branches: ["main"]
     paths:
       - ahnlich/**
+      - sdk/**
   pull_request:
     branches: ["main"]
     paths:
       - ahnlich/**
+      - sdk/**
 
 env:
   CARGO_TERM_COLOR: always
@@ -57,7 +59,7 @@ jobs:
     - name: Run Rust DB Server 
       working-directory: ./ahnlich
       run: |
-        cargo run --bin ahnlich-db run --port 1349 
+        cargo run --bin ahnlich-db run --port 1349 &
     
     - name: Run Python Client Tests
       working-directory: ./sdk/ahnlich-client-py
