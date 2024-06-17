@@ -69,7 +69,7 @@ jobs:
         key: venv-${{ hashFiles('poetry.lock') }}  
     
     - name: Installing poetry dependencies
-      working-directory: ./sdk/ahnlich-client-py
+      working-directory: ../sdk/ahnlich-client-py
       run: poetry install
       
 
@@ -86,7 +86,7 @@ jobs:
         cargo run --bin ahnlich-db run --port 1349 &
     
     - name: Run Python Client Tests
-      working-directory: ./sdk/ahnlich-client-py
+      working-directory: ../sdk/ahnlich-client-py
       env:
           AHNLICH_DB_HOST: "127.0.0.1"
           AHNLICH_DB_PORT: 1349
