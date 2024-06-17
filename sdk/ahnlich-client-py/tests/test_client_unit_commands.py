@@ -16,11 +16,6 @@ def test_serialize():
             ),
         ],
     )
-    ahnlich_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-    ahnlich_protocol.send(message=ping)
-    response = ahnlich_protocol.receive()
-    ahnlich_protocol.client.close()
-    print(response)
 
 
 def test_client_sends_ping_to_db_success(base_protocol):
