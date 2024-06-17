@@ -77,20 +77,23 @@ jobs:
       with:
         workspaces: ahnlich
 
-    - name: Run Rust DB Server 
+    - name: Run Rust DB Server And Run Python Client Tests
       working-directory: ./ahnlich
-      run: |
-        cargo run --bin ahnlich-db run --port 1349 &
-    
-    - name: Sleep for 30 seconds for Server Bootup
-      run: sleep 30
-    
-    - name: Run Python Client Tests
-      working-directory: ./sdk/ahnlich-client-py
       env:
           AHNLICH_DB_HOST: "127.0.0.1"
           AHNLICH_DB_PORT: 1349
       run: |
-        poetry run pytest
+        cargo run --bin ahnlich-db run --port 1349 && cd ../sdk/ahnlich-client-py && poetry run pytest
+    
+    # - name: Sleep for 30 seconds for Server Bootup
+    #   run: sleep 30
+    
+    # - name: Run Python Client Tests
+    #   working-directory: ./sdk/ahnlich-client-py
+    #   env:
+    #       AHNLICH_DB_HOST: "127.0.0.1"
+    #       AHNLICH_DB_PORT: 1349
+    #   run: |
+    #     poetry run pytest
 
 
