@@ -52,7 +52,7 @@ jobs:
     needs: ["build"]
     
     steps:
-  
+    - uses: actions/checkout@v4
     - uses: actions/setup-python@v4
       with:
         python-version: 3.11
@@ -68,12 +68,11 @@ jobs:
         path: ./.venv
         key: venv-${{ hashFiles('poetry.lock') }}  
     
-    - uses: actions/checkout@v4
     - name: Testing dir 
       run: |
-        ls && pwd
+        ls && pwd && cd ../
     - name: Installing poetry dependencies
-      working-directory: ../sdk/ahnlich-client-py
+      working-directory: ./sdk/ahnlich-client-py
       run: poetry install
       
     - name: Set up Rust cache
