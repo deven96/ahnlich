@@ -31,10 +31,24 @@ def random_port():
     port = random.randint(5000, 8000)
     return port
 
-
 @pytest.fixture
 def spin_up_ahnlich_db(random_port):
     port = random_port
+    command = f"cargo run --bin ahnlich-db run --port {port}".split(" ")
+    process = subprocess.Popen(args=command, cwd=config.AHNLISH_BIN_DIR)
+    time.sleep(2)
+    assert is_port_occupied(port)
+    print("Server is spun up")
+    yield port
+    # cleanup
+    print("Server is shutting down")
+    os.kill(process.pid, signal.SIGINT)
+    # wait for process to clean up
+    process.wait(5)
+
+@pytest.fixture(scope="module")
+def module_scopped_ahnlich_db():
+    port = 8001
     command = f"cargo run --bin ahnlich-db run --port {port}".split(" ")
     process = subprocess.Popen(args=command, cwd=config.AHNLISH_BIN_DIR)
     time.sleep(2)

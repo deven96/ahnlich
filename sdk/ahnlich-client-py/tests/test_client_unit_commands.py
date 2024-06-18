@@ -1,21 +1,6 @@
 from client import AhnlichDBClient
-from internals import query, server_response
+from internals import protocol, query, server_response
 
-
-def test_serialize():
-    ping = query.ServerQuery(
-        queries=[
-            query.Query__Ping(),
-            query.Query__InfoServer(),
-            query.Query__ListClients(),
-            query.Query__CreateStore(
-                store="First Store",
-                dimension=5,
-                create_predicates=[],
-                error_if_exists=True,
-            ),
-        ],
-    )
 
 
 def test_client_sends_ping_to_db_success(base_protocol):
@@ -41,3 +26,14 @@ def test_client_sends_info_server_to_db_success(base_protocol):
     info_server: server_response.ServerInfo = response.results[0].value
     assert info_server.value.version == db_client.client.version
     assert info_server.value.type == server_response.ServerType__Database()
+
+
+def test_client_sends_list_stores_to_fresh_database_succeeds(spin_up_ahnlich_db):
+    port = spin_up_ahnlich_db
+    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
+    db_client = AhnlichDBClient(client=test_protocol)
+    response: server_response.ServerResult = db_client.list_stores()
+
+    assert response.results[0] == server_response.Result__Ok(
+        server_response.ServerResponse__StoreList([])
+    )
