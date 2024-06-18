@@ -15,13 +15,18 @@ class AhnlichDBClient:
         # would abstract this away eventually, but for now easy does it
         self.builder = builders.AhnlichRequestBuilder()
 
-    def get_key(self, store_name: str, keys: typing.Sequence[query.Array]):
+    def get_key(
+        self, store_name: str, keys: typing.Sequence[query.Array]
+    ) -> server_response.ServerResult:
 
         self.builder.get_key(store_name=store_name, keys=keys)
-        self.client.process_request(self.builder.to_server_query())
+        return self.client.process_request(self.builder.to_server_query())
 
-    def get_predicate(self, store_name: str, condition: query.PredicateCondition):
+    def get_predicate(
+        self, store_name: str, condition: query.PredicateCondition
+    ) -> server_response.ServerResult:
         self.builder.get_predicate(store_name=store_name, condition=condition)
+        return self.client.process_request(self.builder.to_server_query())
 
     def get_sim_n(
         self,
@@ -30,7 +35,7 @@ class AhnlichDBClient:
         closest_n: st.uint64,
         algorithm: query.Algorithm,
         condition: query.PredicateCondition = None,
-    ):
+    ) -> server_response.ServerResult:
         self.builder.get_sim_n(
             store_name=store_name,
             search_input=search_input,
@@ -38,46 +43,54 @@ class AhnlichDBClient:
             algorithm=algorithm,
             condition=condition,
         )
-        self.client.process_request(self.builder.to_server_query())
+        return self.client.process_request(self.builder.to_server_query())
 
-    def create_index(self, store_name: str, predicates: typing.Sequence[str]):
+    def create_index(
+        self, store_name: str, predicates: typing.Sequence[str]
+    ) -> server_response.ServerResult:
         self.builder.create_index(store_name=store_name, predicates=predicates)
-        self.client.process_request(self.builder.to_server_query())
+        return self.client.process_request(self.builder.to_server_query())
 
     def drop_index(
         self,
         store_name: str,
         predicates: typing.Sequence[str],
         error_if_not_exists: bool,
-    ):
+    ) -> server_response.ServerResult:
         self.builder.drop_index(
             store_name=store_name,
             predicates=predicates,
             error_if_not_exists=error_if_not_exists,
         )
-        self.client.process_request(self.builder.to_server_query())
+        return self.client.process_request(self.builder.to_server_query())
 
     def set(
         self,
         store_name,
         inputs: typing.Sequence[typing.Tuple[query.Array, typing.Dict[str, str]]],
-    ):
+    ) -> server_response.ServerResult:
         self.builder.set(store_name=store_name, inputs=inputs)
-        self.client.process_request(self.builder.to_server_query())
+        return self.client.process_request(self.builder.to_server_query())
 
-    def delete_key(self, store_name: str, keys: typing.Sequence[query.Array]):
+    def delete_key(
+        self, store_name: str, keys: typing.Sequence[query.Array]
+    ) -> server_response.ServerResult:
         self.builder.delete_key(store_name=store_name, keys=keys)
-        self.client.process_request(self.builder.to_server_query())
+        return self.client.process_request(self.builder.to_server_query())
 
-    def delete_predicate(self, store_name: str, condition: query.PredicateCondition):
+    def delete_predicate(
+        self, store_name: str, condition: query.PredicateCondition
+    ) -> server_response.ServerResult:
         self.builder.delete_predicate(store_name=store_name, condition=condition)
-        self.client.process_request(self.builder.to_server_query())
+        return self.client.process_request(self.builder.to_server_query())
 
-    def drop_store(self, store_name: str, error_if_not_exists: bool):
+    def drop_store(
+        self, store_name: str, error_if_not_exists: bool
+    ) -> server_response.ServerResult:
         self.builder.drop_store(
             store_name=store_name, error_if_not_exists=error_if_not_exists
         )
-        self.client.process_request(self.builder.to_server_query())
+        return self.client.process_request(self.builder.to_server_query())
 
     def create_store(
         self,
@@ -96,9 +109,9 @@ class AhnlichDBClient:
         message = self.builder.to_server_query()
         return self.client.process_request(message=message)
 
-    def list_stores(self):
+    def list_stores(self) -> server_response.ServerResult:
         self.builder.list_stores()
-        self.client.process_request(self.builder.to_server_query())
+        return self.client.process_request(self.builder.to_server_query())
 
     def info_server(self) -> server_response.ServerResult:
         self.builder.info_server()
