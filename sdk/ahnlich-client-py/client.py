@@ -1,6 +1,6 @@
 import typing
 import serde_types as st
-from internals import protocol, query, server_response, request_builder
+from internals import protocol, query, server_response, builders
 
 
 class AhnlichDBClient:
@@ -12,7 +12,7 @@ class AhnlichDBClient:
     ) -> None:
         self.client = client
         # would abstract this away eventually, but for now easy does it
-        self.builder = request_builder.AhnlichRequestBuilder()
+        self.builder = builders.AhnlichRequestBuilder()
 
     def get_key(self, store_name: str, keys: typing.Sequence[query.Array]):
 
