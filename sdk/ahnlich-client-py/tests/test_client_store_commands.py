@@ -64,5 +64,5 @@ def test_client_list_stores_finds_created_store_with_predicate(
     store_lists: server_response.ServerResponse__StoreList = response.results[0].value
     assert len(store_lists.value) == 2
     store_info: server_response.StoreInfo = store_lists.value[1]
-    assert store_info.name == store_payload_no_predicates["store_name"]
+    assert store_info.name == store_payload_with_predicates["store_name"]
     assert isinstance(response.results[0], server_response.Result__Ok)
