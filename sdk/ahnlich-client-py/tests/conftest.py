@@ -1,12 +1,14 @@
-import time
+import os
 import random
 import signal
 import socket
-import pytest
-from internals import protocol
-import os
 import subprocess
+import time
+
+import pytest
+
 import config
+from internals import protocol
 
 
 def is_port_occupied(port, host="127.0.0.1") -> bool:
@@ -44,7 +46,3 @@ def spin_up_ahnlich_db(random_port):
     os.kill(process.pid, signal.SIGINT)
     # wait for process to clean up
     process.wait(5)
-
-
-
-

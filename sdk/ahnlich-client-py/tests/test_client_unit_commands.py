@@ -1,5 +1,5 @@
-from internals import query, protocol, server_response
 from client import AhnlichDBClient
+from internals import query, server_response
 
 
 def test_serialize():
@@ -27,10 +27,12 @@ def test_client_sends_ping_to_db_success(base_protocol):
         server_response.ServerResponse__Pong()
     )
 
+
 def test_client_sends_list_clients_to_db_success(base_protocol):
     db_client = AhnlichDBClient(client=base_protocol)
     response: server_response.ServerResult = db_client.list_clients()
     assert len(response.results) == 1
+
 
 def test_client_sends_info_server_to_db_success(base_protocol):
     db_client = AhnlichDBClient(client=base_protocol)

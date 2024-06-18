@@ -21,6 +21,7 @@ toml = "^0.10.2"
 black = "^24.4.2"
 isort = "^5.13.2"
 pytest = "^8.2.2"
+pylint = "^3.2.3"
 
 [build-system]
 requires = ["poetry-core"]

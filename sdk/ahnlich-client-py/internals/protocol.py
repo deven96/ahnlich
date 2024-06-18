@@ -1,8 +1,7 @@
 import socket
 
-from internals import query
-from internals import server_response
 import config
+from internals import query, server_response
 
 
 class AhnlichProtocol:

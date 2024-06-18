@@ -1,4 +1,5 @@
 import typing
+
 import serde_types as st
 from internals import query
 from internals.protocol import AhnlichProtocol

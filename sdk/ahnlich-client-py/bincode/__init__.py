@@ -1,16 +1,16 @@
 # Copyright (c) Facebook, Inc. and its affiliates
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
-import dataclasses
 import collections
+import dataclasses
 import io
 import struct
 import typing
 from copy import copy
 from typing import get_type_hints
 
-import serde_types as st
 import serde_binary as sb
+import serde_types as st
 
 # Maximum length in practice for sequences (e.g. in Java).
 MAX_LENGTH = (1 << 31) - 1
