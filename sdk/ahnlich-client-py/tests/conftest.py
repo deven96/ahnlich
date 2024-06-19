@@ -5,10 +5,12 @@ import socket
 import subprocess
 import time
 
+import numpy as np
 import pytest
 
 import config
-from internals import protocol
+import serde_types as st
+from internals import protocol, query
 
 
 def is_port_occupied(port, host="127.0.0.1") -> bool:
@@ -22,7 +24,6 @@ def is_port_occupied(port, host="127.0.0.1") -> bool:
 def base_protocol():
     host = os.environ.get("AHNLICH_DB_HOST", "127.0.0.1")
     port = int(os.environ.get("AHNLICH_DB_PORT", 1369))
-    print(host, port)
     return protocol.AhnlichProtocol(address=host, port=port)
 
 
@@ -31,6 +32,7 @@ def random_port():
     port = random.randint(5000, 8000)
     return port
 
+
 @pytest.fixture
 def spin_up_ahnlich_db(random_port):
     port = random_port
@@ -38,13 +40,12 @@ def spin_up_ahnlich_db(random_port):
     process = subprocess.Popen(args=command, cwd=config.AHNLISH_BIN_DIR)
     time.sleep(2)
     assert is_port_occupied(port)
-    print("Server is spun up")
     yield port
     # cleanup
-    print("Server is shutting down")
     os.kill(process.pid, signal.SIGINT)
     # wait for process to clean up
     process.wait(5)
+
 
 @pytest.fixture(scope="module")
 def module_scopped_ahnlich_db():
@@ -53,10 +54,22 @@ def module_scopped_ahnlich_db():
     process = subprocess.Popen(args=command, cwd=config.AHNLISH_BIN_DIR)
     time.sleep(2)
     assert is_port_occupied(port)
-    print("Server is spun up")
     yield port
     # cleanup
-    print("Server is shutting down")
     os.kill(process.pid, signal.SIGINT)
     # wait for process to clean up
     process.wait(5)
+
+
+@pytest.fixture
+def store_key():
+    sample_array = np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype=np.float32)
+    dimensions = (st.uint64(sample_array.shape[0]),)
+    store_key = query.Array(v=st.uint8(1), dim=dimensions, data=sample_array.tolist())
+    return store_key
+
+
+@pytest.fixture
+def store_value():
+    store_value = dict(job="sorcerer")
+    return store_value

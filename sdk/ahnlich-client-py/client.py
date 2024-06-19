@@ -66,7 +66,7 @@ class AhnlichDBClient:
 
     def set(
         self,
-        store_name,
+        store_name: str,
         inputs: typing.Sequence[typing.Tuple[query.Array, typing.Dict[str, str]]],
     ) -> server_response.ServerResult:
         self.builder.set(store_name=store_name, inputs=inputs)

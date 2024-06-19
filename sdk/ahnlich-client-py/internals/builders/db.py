@@ -1,5 +1,7 @@
 import typing
 
+import numpy as np
+
 import serde_types as st
 from internals import query
 from internals.protocol import AhnlichProtocol
@@ -131,3 +133,10 @@ class AhnlichRequestBuilder:
     def execute_requests(self, client: AhnlichProtocol):
         response = client.process_request(message=self.to_server_query())
         return response
+
+
+def create_store_key(data: typing.List[float], v: int = 1) -> query.Array:
+    np_array = np.array(data, dtype=np.float32)
+    dimensions = (st.uint64(np_array.shape[0]),)
+    store_key = query.Array(v=st.uint8(v), dim=dimensions, data=np_array.tolist())
+    return store_key
