@@ -1,4 +1,4 @@
-name: Rust Test
+name: Ahnlich TestSuite
 
 on:
   push:
