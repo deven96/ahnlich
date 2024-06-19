@@ -37,9 +37,9 @@ def random_port():
 def spin_up_ahnlich_db(random_port):
     port = random_port
     command = f"cargo run --bin ahnlich-db run --port {port}".split(" ")
-    process = subprocess.Popen(args=command, cwd=config.AHNLISH_BIN_DIR)
-    time.sleep(2)
-    assert is_port_occupied(port)
+    process = subprocess.Popen(args=command, cwd=config.AHNLICH_BIN_DIR)
+    while not is_port_occupied(port):
+        time.sleep(0.2)
     yield port
     # cleanup
     os.kill(process.pid, signal.SIGINT)
@@ -51,9 +51,9 @@ def spin_up_ahnlich_db(random_port):
 def module_scopped_ahnlich_db():
     port = 8001
     command = f"cargo run --bin ahnlich-db run --port {port}".split(" ")
-    process = subprocess.Popen(args=command, cwd=config.AHNLISH_BIN_DIR)
-    time.sleep(2)
-    assert is_port_occupied(port)
+    process = subprocess.Popen(args=command, cwd=config.AHNLICH_BIN_DIR)
+    while not is_port_occupied(port):
+        time.sleep(0.2)
     yield port
     # cleanup
     os.kill(process.pid, signal.SIGINT)

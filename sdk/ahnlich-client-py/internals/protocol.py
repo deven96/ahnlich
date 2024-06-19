@@ -6,12 +6,12 @@ from internals.exceptions import AhnlichProtocolException
 
 
 class AhnlichProtocol:
-    def __init__(self, address: str, port: int, timeout: int = 5):
+    def __init__(self, address: str, port: int, timeout_sec: float = 5.0):
         self.address = address
         self.port = port
         self.client = self.connect()
         self.version = self.get_version()
-        self.timeout = timeout
+        self.timeout_sec = timeout_sec
 
     def serialize_query(self, server_query: query.ServerQuery) -> bytes:
         version = self.version.bincode_serialize()
@@ -45,7 +45,7 @@ class AhnlichProtocol:
         # header length u64, little endian
         length_to_read = int.from_bytes(length, byteorder="little")
         # information data
-        self.client.settimeout(self.timeout)
+        self.client.settimeout(self.timeout_sec)
         data = self.client.recv(length_to_read)
         response = self.deserialize_server_response(data)
         return response
