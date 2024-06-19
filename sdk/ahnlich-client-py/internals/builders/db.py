@@ -3,6 +3,7 @@ import typing
 import numpy as np
 
 import serde_types as st
+from internals import exceptions as ah_exceptions
 from internals import query
 from internals.protocol import AhnlichProtocol
 
@@ -11,7 +12,9 @@ class NonZeroSizeInteger:
     def __init__(self, num: st.uint64) -> None:
 
         if num <= 0:
-            raise Exception("Ahnlich expects a Non zero value as integers")
+            raise ah_exceptions.AhnlichValidationError(
+                "Ahnlich expects a Non zero value as integers"
+            )
         self.value = num
 
 
@@ -121,7 +124,9 @@ class AhnlichRequestBuilder:
 
     def to_server_query(self) -> query.ServerQuery:
         if not self.queries:
-            raise Exception("Must have atleast one request to be processed")
+            raise ah_exceptions.AhnlichClientException(
+                "Must have atleast one request to be processed"
+            )
         # not optimal, but so far, recreating the list and dropping the internal store.
         # seems straight forward
         queries = self.queries[:]

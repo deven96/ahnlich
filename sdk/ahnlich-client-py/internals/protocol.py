@@ -2,14 +2,16 @@ import socket
 
 import config
 from internals import query, server_response
+from internals.exceptions import AhnlichProtocolException
 
 
 class AhnlichProtocol:
-    def __init__(self, address: str, port: int):
+    def __init__(self, address: str, port: int, timeout: int = 5):
         self.address = address
         self.port = port
         self.client = self.connect()
         self.version = self.get_version()
+        self.timeout = timeout
 
     def serialize_query(self, server_query: query.ServerQuery) -> bytes:
         version = self.version.bincode_serialize()
@@ -33,17 +35,17 @@ class AhnlichProtocol:
         header = self.client.recv(8)
         if header == b"":
             self.client.close()
-            raise RuntimeError("socket connection broken")
+            raise AhnlichProtocolException("socket connection broken")
 
         if header != config.HEADER:
-            exit("Fake server")
+            raise AhnlichProtocolException("Fake server")
         # ignore version of 5 bytes
         _version = self.client.recv(5)
         length = self.client.recv(8)
         # header length u64, little endian
         length_to_read = int.from_bytes(length, byteorder="little")
         # information data
-        self.client.settimeout(5)
+        self.client.settimeout(self.timeout)
         data = self.client.recv(length_to_read)
         response = self.deserialize_server_response(data)
         return response
