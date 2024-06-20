@@ -49,8 +49,8 @@ jobs:
         run: |
           git config --global user.name '${{github.actor}}'
           git config --global user.email '${{github.actor}}@users.noreply.github.com'
-          git tag -a "${CLIENT_VERSION}" -m "${TAG_MESSAGE}"
-          git push origin "${CLIENT_VERSION}"
+          git tag -a "${{steps.check_changes.outputs.CLIENT_VERSION}}" -m "${{steps.check_changes.outputs.TAG_MESSAGE}}"
+          git push origin "${{steps.check_changes.outputs.CLIENT_VERSION}}"
 
   deploy_tag:
     runs-on: ubuntu-latest
@@ -61,7 +61,7 @@ jobs:
       - name: Checkout tag
         uses: actions/checkout@v4
         with:
-          ref: ${CLIENT_VERSION}
+          ref: ${{needs.check_changes_and_tag.outputs.CLIENT_VERSION}}
     
       - name: Deploy using tag
         working-directory: ./sdk/ahnlich-client-py
@@ -71,5 +71,7 @@ jobs:
           poetry config repositories.test-pypi https://test.pypi.org/legacy/
           sed -i 's/version.*/version = "${CLIENT_VERSION}"/g' pyproject.toml
           echo "${CLIENT_VERSION}" > CLIENT_VERSION
+          # poetry config pypi-token.test-pypi  ${{ secrets.TEST_PYPI_TOKEN }}
+          # poetry build && poetry publish -r test-pypi
 
 
