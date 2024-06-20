@@ -9,6 +9,8 @@ A Python client that interacts with both ahnlich DB and AI
 
 ### How to Deploy to Artifactory
 
+Replace the contents of `MSG_TAG` file with your new tag message
+
 From Feature branch, either use the makefile :
 ```bash
 make bump-python-version [major, minor, patch] 
