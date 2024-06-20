@@ -2,9 +2,9 @@ import typing
 
 import numpy as np
 
-from ahnlich_client_py import serde_types as st
 from ahnlich_client_py.internals import exceptions as ah_exceptions
 from ahnlich_client_py.internals import query
+from ahnlich_client_py.internals import serde_types as st
 from ahnlich_client_py.internals.protocol import AhnlichProtocol
 
 
@@ -136,10 +136,3 @@ class AhnlichDBRequestBuilder:
     def execute_requests(self, client: AhnlichProtocol):
         response = client.process_request(message=self.to_server_query())
         return response
-
-
-def create_store_key(data: typing.List[float], v: int = 1) -> query.Array:
-    np_array = np.array(data, dtype=np.float32)
-    dimensions = (st.uint64(np_array.shape[0]),)
-    store_key = query.Array(v=st.uint8(v), dim=dimensions, data=np_array.tolist())
-    return store_key

@@ -9,8 +9,8 @@ import numpy as np
 import pytest
 
 from ahnlich_client_py import config
-from ahnlich_client_py import serde_types as st
 from ahnlich_client_py.internals import protocol, query
+from ahnlich_client_py.internals import serde_types as st
 
 
 def is_port_occupied(port, host="127.0.0.1") -> bool:
