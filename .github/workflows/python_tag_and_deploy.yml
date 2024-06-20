@@ -44,8 +44,8 @@ jobs:
         if: steps.check_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
         working-directory: ./sdk/ahnlich-client-py
         run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git config --global user.name '${{github.actor}}'
+          git config --global user.email '${{github.actor}}@users.noreply.github.com'
           CLIENT_VERSION=$(cat CLIENT_VERSION)
           git tag -a "client/v${CLIENT_VERSION}" -m "Tag for client version ${CLIENT_VERSION}"
           git push origin "client/v${CLIENT_VERSION}"
