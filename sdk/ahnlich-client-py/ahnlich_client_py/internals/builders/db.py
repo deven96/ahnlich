@@ -18,9 +18,7 @@ class NonZeroSizeInteger:
         self.value = num
 
 
-# TODO: might become a  class that both ahnlichai and db would use, without really changing the
-# composition of the underlying clients
-class AhnlichRequestBuilder:
+class AhnlichDBRequestBuilder:
     def __init__(self) -> None:
         self.queries: typing.List[query.Query] = []
 

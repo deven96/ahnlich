@@ -13,7 +13,7 @@ class AhnlichDBClient:
     ) -> None:
         self.client = client
         # would abstract this away eventually, but for now easy does it
-        self.builder = builders.AhnlichRequestBuilder()
+        self.builder = builders.AhnlichDBRequestBuilder()
 
     def get_key(
         self, store_name: str, keys: typing.Sequence[query.Array]
