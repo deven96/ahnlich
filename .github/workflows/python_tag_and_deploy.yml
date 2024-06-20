@@ -52,8 +52,9 @@ jobs:
         run: |
           git config --global user.name '${{github.actor}}'
           git config --global user.email '${{github.actor}}@users.noreply.github.com'
-          git push origin "${{ steps.get_version.outputs.TAG_VERSION }}"
           git tag -a "${{ steps.get_version.outputs.TAG_VERSION }}" -m "${{steps.set_tag_message.outputs.TAG_MESSAGE}}"
+          git push origin "${{ steps.get_version.outputs.TAG_VERSION }}"
+          
 
   deploy_tag:
     runs-on: ubuntu-latest
