@@ -11,6 +11,7 @@ jobs:
     # if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     outputs:
+      client_version: ${{ steps.get_version.outputs.CLIENT_VERSION }}
       tag_version: ${{ steps.get_version.outputs.TAG_VERSION }}
     steps:
       - name: Checkout code
@@ -36,6 +37,7 @@ jobs:
         if: steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
         run: |
           CLIENT_VERSION=$(cat CLIENT_VERSION)
+          echo "CLIENT_VERSION=${CLIENT_VERSION}" >> $GITHUB_OUTPUT
           echo "TAG_VERSION=client/py/${CLIENT_VERSION}" >> $GITHUB_OUTPUT
 
 
@@ -77,6 +79,7 @@ jobs:
           echo "Deploying tag ${{needs.check_version_changes_and_tag.outputs.tag_version}}"
           # Add your deployment commands here
           poetry config repositories.test-pypi https://test.pypi.org/legacy/
+          sed -i "" "s/^version.*/version = 'client\/py\/v${{needs.check_version_changes_and_tag.outputs.client_version}}'/g" pyproject.toml
           sed -i 's/version.*/version = "${{needs.check_version_changes_and_tag.outputs.tag_version}}"/g' pyproject.toml
           echo "${{needs.check_version_changes_and_tag.outputs.tag_version}}" > CLIENT_VERSION
           poetry config pypi-token.test-pypi  ${{ secrets.TEST_PYPI_TOKEN }}
