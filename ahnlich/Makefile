@@ -34,7 +34,7 @@ test: ## cargo test
 	cargo nextest run --no-capture
 
 
-bumpversion: ## Bump project versions. Rules for bump-version: patch, minor, major.
+bumpversion: ## Bump project versions. Rules for bumpversion: patch, minor, major.
 	@echo "Bumping Rust project version to $${RULE:-$(BUMP_RULE)}"
 	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(RUST_TYPES_NAME)
 	@echo "Rust project version bumped to $(BUMP_RULE)"
@@ -42,8 +42,14 @@ bumpversion: ## Bump project versions. Rules for bump-version: patch, minor, maj
 	@cd $(PYTHON_PROJECT_DIR) && poetry version $(BUMP_RULE)
 	@echo "Python project version bumped using rule $(BUMP_RULE)"
 
+bump-python-version: ## Bump python client versions. Rules for bump-python-version: patch, minor, major.
+	@echo "Bumping Python client version with rule $(BUMP_RULE)"
+	@cd $(PYTHON_PROJECT_DIR) && poetry run bumpversion $(BUMP_RULE)
+	@echo "Python client version bumped using rule $(BUMP_RULE)"
 
-all: format check test clippy bumpversion ## format, clip, test code, and bumpversions
+
+
+all: format check test clippy bumpversion bump-python-version ## format, clip, test code, and bumpversions
 
 # --------------Configuration-------------
 #
