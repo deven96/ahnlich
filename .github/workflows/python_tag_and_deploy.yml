@@ -20,22 +20,23 @@ jobs:
         run: |
           if git diff HEAD^ HEAD --exit-code .bumpversion.cfg CLIENT_VERSION > /dev/null; then
             echo "No changes in .bumpversion.cfg or CLIENT_VERSION."
-            echo "::set-output name=changes::true"
+            echo "client_version_changed=$(true)" >> $GITHUB_OUTPUT
           else
             echo "Changes detected in .bumpversion.cfg or CLIENT_VERSION."
-            echo "::set-output name=changes::true"
+            echo "client_version_changed=$(true)" >> $GITHUB_OUTPUT
           fi
 
       - name: Get client version
         id: get_version
         working-directory: ./sdk/ahnlich-client-py
-        if: steps.check_changes.outputs.changes == 'true'
+        if: steps.check_changes.outputs.client_version_changed == 'true'
         run: |
           CLIENT_VERSION=$(cat CLIENT_VERSION)
           echo "::set-output name=version::${CLIENT_VERSION}"
 
       - name: Create new tag
-        if: steps.check_changes.outputs.changes == 'true'
+        if: steps.check_changes.outputs.client_version_changed == 'true'
+        working-directory: ./sdk/ahnlich-client-py
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
