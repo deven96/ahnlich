@@ -6,10 +6,7 @@ authors = ["David Onuh <davidonuh1@gmail.com>"]
 readme = "README.md"
 
 packages = [
-    { include = "bincode" },
-    { include = "serde_binary" },
-    { include = "serde_types" },
-    { include = "*.py" },
+    { include = "ahnlich_client_py" },
 ]
 
 [tool.poetry.dependencies]

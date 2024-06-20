@@ -2,10 +2,10 @@ import typing
 
 import numpy as np
 
-import serde_types as st
-from internals import exceptions as ah_exceptions
-from internals import query
-from internals.protocol import AhnlichProtocol
+from ahnlich_client_py import serde_types as st
+from ahnlich_client_py.internals import exceptions as ah_exceptions
+from ahnlich_client_py.internals import query
+from ahnlich_client_py.internals.protocol import AhnlichProtocol
 
 
 class NonZeroSizeInteger:

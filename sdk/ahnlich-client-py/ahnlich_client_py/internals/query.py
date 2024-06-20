@@ -2,8 +2,8 @@
 import typing
 from dataclasses import dataclass
 
-import bincode
-import serde_types as st
+from ahnlich_client_py import bincode
+from ahnlich_client_py import serde_types as st
 
 
 class Algorithm:

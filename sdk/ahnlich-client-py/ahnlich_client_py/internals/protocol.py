@@ -1,8 +1,8 @@
 import socket
 
-import config
-from internals import query, server_response
-from internals.exceptions import AhnlichProtocolException
+from ahnlich_client_py import config
+from ahnlich_client_py.internals import query, server_response
+from ahnlich_client_py.internals.exceptions import AhnlichProtocolException
 
 
 class AhnlichProtocol:
