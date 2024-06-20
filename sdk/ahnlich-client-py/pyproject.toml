@@ -16,6 +16,7 @@ packages = [
 python = "^3.11"
 numpy = "^1.26.4"
 toml = "^0.10.2"
+bump2version = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"
