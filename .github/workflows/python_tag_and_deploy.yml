@@ -59,13 +59,13 @@ jobs:
   deploy_tag:
     runs-on: ubuntu-latest
     needs: check_changes_and_tag
-    if: needs.check_changes_and_tag.outputs.CLIENT_VERSION_CHANGED == 'true'
+    if: ${{ needs.check_changes_and_tag.result == 'success' }}
     steps:
 
       - name: Checkout tag
         uses: actions/checkout@v4
         with:
-          ref: ${{needs.check_changes_and_tag.outputs.TAG_VERSION}}
+          ref: ${{needs.check_changes_and_tag.outputs.tag_version}}
     
       - name: Deploy using tag
         working-directory: ./sdk/ahnlich-client-py
