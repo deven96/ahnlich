@@ -33,8 +33,12 @@ jobs:
         working-directory: ./sdk/ahnlich-client-py
         if: steps.check_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
         run: |
-          CLIENT_VERSION=$(cat CLIENT_VERSION)
-          echo "::set-output name=version::${CLIENT_VERSION}"
+          echo "CLIENT_VERSION=$(cat CLIENT_VERSION)" >> $GITHUB_OUTPUT
+      
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJson(github) }}
+        run: echo "$GITHUB_CONTEXT"
 
       - name: Create new tag
         if: steps.check_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
@@ -43,7 +47,6 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           CLIENT_VERSION=$(cat CLIENT_VERSION)
-          echo "${{ github}}"
           git tag -a "client/v${CLIENT_VERSION}" -m "Tag for client version ${CLIENT_VERSION}"
           git push origin "client/v${CLIENT_VERSION}"
 
