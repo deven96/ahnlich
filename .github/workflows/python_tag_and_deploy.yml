@@ -2,7 +2,7 @@ name: Ahnlich Python Client Tag and Deploy
 
 on:
   pull_request:
-    branches: ["main"]
+    branches: ["**"]
     # types:
     #   - closed
 
