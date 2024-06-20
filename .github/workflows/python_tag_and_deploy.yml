@@ -33,7 +33,7 @@ jobs:
         working-directory: ./sdk/ahnlich-client-py
         if: steps.check_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
         run: |
-          echo "CLIENT_VERSION=$(cat CLIENT_VERSION)" >> $GITHUB_OUTPUT
+          echo "CLIENT_VERSION=client/py/$(cat CLIENT_VERSION)" >> $GITHUB_OUTPUT
 
 
       - name: Set tag message
@@ -46,22 +46,30 @@ jobs:
       - name: Create new tag
         if: steps.check_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
         working-directory: ./sdk/ahnlich-client-py
-        env:
-          SSH_AUTH_SOCK: /tmp/ssh_agent.sock
         run: |
           git config --global user.name '${{github.actor}}'
           git config --global user.email '${{github.actor}}@users.noreply.github.com'
-          CLIENT_VERSION=$(cat CLIENT_VERSION)
-          git tag -a "client/py/v${CLIENT_VERSION}" -m "${TAG_MESSAGE}"
-          git push origin "client/py/v${CLIENT_VERSION}"
+          git tag -a "${CLIENT_VERSION}" -m "${TAG_MESSAGE}"
+          git push origin "${CLIENT_VERSION}"
 
-  # deploy_tag:
-  #   runs-on: ubuntu-latest
-  #   needs: check_changes_and_tag
-  #   if: needs.check_changes_and_tag.outputs.CLIENT_VERSION_CHANGED == 'true'
-  #   steps:
-  #     - name: Deploy using tag
-  #       run: |
-  #         CLIENT_VERSION=$(cat CLIENT_VERSION)
-  #         echo "Deploying tag client/v${CLIENT_VERSION}"
-  #         # Add your deployment commands here
+  deploy_tag:
+    runs-on: ubuntu-latest
+    needs: check_changes_and_tag
+    if: needs.check_changes_and_tag.outputs.CLIENT_VERSION_CHANGED == 'true'
+    steps:
+
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${CLIENT_VERSION}
+    
+      - name: Deploy using tag
+        working-directory: ./sdk/ahnlich-client-py
+        run: |
+          echo "Deploying tag ${CLIENT_VERSION}"
+          # Add your deployment commands here
+          poetry config repositories.test-pypi https://test.pypi.org/legacy/
+          sed -i 's/version.*/version = "${CLIENT_VERSION}"/g' pyproject.toml
+          echo "${CLIENT_VERSION}" > CLIENT_VERSION
+
+
