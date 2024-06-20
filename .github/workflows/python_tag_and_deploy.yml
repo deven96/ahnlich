@@ -20,7 +20,7 @@ jobs:
         run: |
           if git diff HEAD^ HEAD --exit-code .bumpversion.cfg CLIENT_VERSION > /dev/null; then
             echo "No changes in .bumpversion.cfg or CLIENT_VERSION."
-            echo "::set-output name=changes::false"
+            echo "::set-output name=changes::true"
           else
             echo "Changes detected in .bumpversion.cfg or CLIENT_VERSION."
             echo "::set-output name=changes::true"
@@ -34,14 +34,14 @@ jobs:
           CLIENT_VERSION=$(cat CLIENT_VERSION)
           echo "::set-output name=version::${CLIENT_VERSION}"
 
-  #     - name: Create new tag
-  #       if: steps.check_changes.outputs.changes == 'true'
-  #       run: |
-  #         git config --global user.name 'github-actions[bot]'
-  #         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-  #         CLIENT_VERSION=$(cat CLIENT_VERSION)
-  #         git tag -a "client/v${CLIENT_VERSION}" -m "Tag for client version ${CLIENT_VERSION}"
-  #         git push origin "client/v${CLIENT_VERSION}"
+      - name: Create new tag
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          CLIENT_VERSION=$(cat CLIENT_VERSION)
+          git tag -a "client/v${CLIENT_VERSION}" -m "Tag for client version ${CLIENT_VERSION}"
+          git push origin "client/v${CLIENT_VERSION}"
 
   # deploy_tag:
   #   runs-on: ubuntu-latest
