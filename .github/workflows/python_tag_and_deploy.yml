@@ -43,13 +43,6 @@ jobs:
         run: |
           echo "TAG_MESSAGE=$(cat MSG_TAG)" >> $GITHUB_OUTPUT
 
-      - name: Setup SSH Keys and known_hosts
-        env:
-            SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-        run: |
-            ssh-agent -a $SSH_AUTH_SOCK > /dev/null
-            ssh-add - <<< "${{ secrets.DEPLOY_TOKEN }}"
-
       - name: Create new tag
         if: steps.check_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
         working-directory: ./sdk/ahnlich-client-py
