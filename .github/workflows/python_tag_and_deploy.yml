@@ -33,7 +33,8 @@ jobs:
         working-directory: ./sdk/ahnlich-client-py
         if: steps.check_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
         run: |
-          echo "CLIENT_VERSION=client/py/$(cat CLIENT_VERSION)" >> $GITHUB_OUTPUT
+          CLIENT_VERSION=$(cat CLIENT_VERSION)
+          echo "TAG_VERSION=client/py/${CLIENT_VERSION}" >> $GITHUB_OUTPUT
 
 
       - name: Set tag message
@@ -49,8 +50,8 @@ jobs:
         run: |
           git config --global user.name '${{github.actor}}'
           git config --global user.email '${{github.actor}}@users.noreply.github.com'
-          git tag -a "${{steps.check_changes.outputs.CLIENT_VERSION}}" -m "${{steps.check_changes.outputs.TAG_MESSAGE}}"
-          git push origin "${{steps.check_changes.outputs.CLIENT_VERSION}}"
+          git tag -a "${TAG_VERSION}" -m "${{steps.check_changes.outputs.TAG_MESSAGE}}"
+          git push origin "${TAG_VERSION}"
 
   deploy_tag:
     runs-on: ubuntu-latest
@@ -61,7 +62,7 @@ jobs:
       - name: Checkout tag
         uses: actions/checkout@v4
         with:
-          ref: ${{needs.check_changes_and_tag.outputs.CLIENT_VERSION}}
+          ref: ${{needs.check_changes_and_tag.outputs.TAG_VERSION}}
     
       - name: Deploy using tag
         working-directory: ./sdk/ahnlich-client-py
