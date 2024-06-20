@@ -43,6 +43,7 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           CLIENT_VERSION=$(cat CLIENT_VERSION)
+          echo "${{ github}}"
           git tag -a "client/v${CLIENT_VERSION}" -m "Tag for client version ${CLIENT_VERSION}"
           git push origin "client/v${CLIENT_VERSION}"
 
