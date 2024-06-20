@@ -96,7 +96,10 @@ struct OutputFile<'a> {
 impl<'a> OutputFile<'a> {
     fn generate(&self, config: &CodeGeneratorConfig, registry: &Registry) {
         let extension: &str = (&self.language).into();
-        let output_dir = self.output_dir.join(format!("ahnlich-client-{extension}"));
+        let output_dir = self
+            .output_dir
+            .join(format!("ahnlich-client-{extension}"))
+            .join(format!("ahnlich_client_{extension}"));
         let _ = std::fs::create_dir_all(&output_dir);
         let output_file = output_dir.join(format!("{}.{extension}", self.output_file));
 
