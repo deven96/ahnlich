@@ -68,7 +68,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{needs.check_version_changes_and_tag.outputs.tag_version}}
-          fetch-depth: 0
+          fetch-depth: 2
       - name: Run image
         uses: abatilo/actions-poetry@v3
         with:
@@ -79,6 +79,7 @@ jobs:
         run: |
           echo "Deploying tag ${{needs.check_version_changes_and_tag.outputs.tag_version}}"
           # Add your deployment commands here
+          ls -la
           poetry config repositories.test-pypi https://test.pypi.org/legacy/
           sed -i "" "s/^version.*/version = 'client\/py\/v${{needs.check_version_changes_and_tag.outputs.client_version}}'/g" pyproject.toml
           echo "${{needs.check_version_changes_and_tag.outputs.tag_version}}" > CLIENT_VERSION
