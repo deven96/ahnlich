@@ -10,6 +10,8 @@ jobs:
   check_changes_and_tag:
     # if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    outputs:
+      tag_version: ${{ steps.get_version.outputs.TAG_VERSION }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -50,8 +52,8 @@ jobs:
         run: |
           git config --global user.name '${{github.actor}}'
           git config --global user.email '${{github.actor}}@users.noreply.github.com'
-          git tag -a "${{steps.set_tag_message.outputs.TAG_VERSION}}" -m "${{steps.set_tag_message.outputs.TAG_MESSAGE}}"
-          git push origin "${{steps.set_tag_message.outputs.TAG_VERSION}}"
+          git push origin "${{ steps.get_version.outputs.TAG_VERSION }}"
+          git tag -a "${{ steps.get_version.outputs.TAG_VERSION }}" -m "${{steps.set_tag_message.outputs.TAG_MESSAGE}}"
 
   deploy_tag:
     runs-on: ubuntu-latest
