@@ -1,0 +1,55 @@
+name: Ahnlich Python Client Tag and Deploy
+
+on:
+  pull_request:
+    branches: ["main"]
+    # types:
+    #   - closed
+
+jobs:
+  check_changes_and_tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for changes in .bumpversion.cfg and CLIENT_VERSION
+        id: check_changes
+        working-directory: ./sdk/ahnlich-client-py
+        run: |
+          if git diff HEAD^ HEAD --exit-code .bumpversion.cfg CLIENT_VERSION > /dev/null; then
+            echo "No changes in .bumpversion.cfg or CLIENT_VERSION."
+            echo "::set-output name=changes::false"
+          else
+            echo "Changes detected in .bumpversion.cfg or CLIENT_VERSION."
+            echo "::set-output name=changes::true"
+          fi
+
+      - name: Get client version
+        id: get_version
+        working-directory: ./sdk/ahnlich-client-py
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          CLIENT_VERSION=$(cat CLIENT_VERSION)
+          echo "::set-output name=version::${CLIENT_VERSION}"
+
+  #     - name: Create new tag
+  #       if: steps.check_changes.outputs.changes == 'true'
+  #       run: |
+  #         git config --global user.name 'github-actions[bot]'
+  #         git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+  #         CLIENT_VERSION=$(cat CLIENT_VERSION)
+  #         git tag -a "client/v${CLIENT_VERSION}" -m "Tag for client version ${CLIENT_VERSION}"
+  #         git push origin "client/v${CLIENT_VERSION}"
+
+  # deploy_tag:
+  #   runs-on: ubuntu-latest
+  #   needs: check_changes_and_tag
+  #   if: needs.check_changes_and_tag.outputs.changes == 'true'
+  #   steps:
+  #     - name: Deploy using tag
+  #       run: |
+  #         CLIENT_VERSION=$(cat CLIENT_VERSION)
+  #         echo "Deploying tag client/v${CLIENT_VERSION}"
+  #         # Add your deployment commands here
