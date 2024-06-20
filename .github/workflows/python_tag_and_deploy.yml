@@ -59,8 +59,8 @@ jobs:
           git config --global user.name '${{github.actor}}'
           git config --global user.email '${{github.actor}}@users.noreply.github.com'
           CLIENT_VERSION=$(cat CLIENT_VERSION)
-          git tag -a "client/v${CLIENT_VERSION}" -m "${TAG_MESSAGE}"
-          git push origin "client/v${CLIENT_VERSION}"
+          git tag -a "client/py/v${CLIENT_VERSION}" -m "${TAG_MESSAGE}"
+          git push origin "client/py/v${CLIENT_VERSION}"
 
   # deploy_tag:
   #   runs-on: ubuntu-latest
