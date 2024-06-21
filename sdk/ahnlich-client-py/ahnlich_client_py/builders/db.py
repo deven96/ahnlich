@@ -26,9 +26,11 @@ class AhnlichDBRequestBuilder:
         self,
         store_name: str,
         dimension: st.uint64,
-        create_predicates: typing.Sequence[str] = [],
+        create_predicates: typing.Sequence[str] = None,
         error_if_exists: bool = True,
     ):
+        if not create_predicates:
+            create_predicates = []
 
         non_zero = NonZeroSizeInteger(num=dimension)
         self.queries.append(

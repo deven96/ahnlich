@@ -9,7 +9,7 @@ class AhnlichProtocol:
     def __init__(self, address: str, port: int, timeout_sec: float = 5.0):
         self.address = address
         self.port = port
-        self.client = self.connect()
+        self.conn = self.connect()
         self.version = self.get_version()
         self.timeout_sec = timeout_sec
 
@@ -29,24 +29,24 @@ class AhnlichProtocol:
 
     def send(self, message: query.ServerQuery):
         serialized_bin = self.serialize_query(message)
-        self.client.sendall(serialized_bin)
+        self.conn.sendall(serialized_bin)
 
     def receive(self) -> server_response.ServerResult:
-        header = self.client.recv(8)
+        header = self.conn.recv(8)
         if header == b"":
-            self.client.close()
+            self.conn.close()
             raise AhnlichProtocolException("socket connection broken")
 
         if header != config.HEADER:
             raise AhnlichProtocolException("Fake server")
         # ignore version of 5 bytes
-        _version = self.client.recv(5)
-        length = self.client.recv(8)
+        _version = self.conn.recv(5)
+        length = self.conn.recv(8)
         # header length u64, little endian
         length_to_read = int.from_bytes(length, byteorder="little")
         # information data
-        self.client.settimeout(self.timeout_sec)
-        data = self.client.recv(length_to_read)
+        self.conn.settimeout(self.timeout_sec)
+        data = self.conn.recv(length_to_read)
         response = self.deserialize_server_response(data)
         return response
 

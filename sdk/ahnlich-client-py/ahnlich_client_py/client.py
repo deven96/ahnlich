@@ -9,11 +9,10 @@ from ahnlich_client_py.internals import server_response
 class AhnlichDBClient:
     """Wrapper for interacting with Ahnlich database or ai"""
 
-    def __init__(
-        self,
-        ahnlich_protocol: protocol.AhnlichProtocol,
-    ) -> None:
-        self.protocol = ahnlich_protocol
+    def __init__(self, address: str, port: int, timeout_sec: float = 5.0) -> None:
+        self.protocol = protocol.AhnlichProtocol(
+            address=address, port=port, timeout_sec=timeout_sec
+        )
         # would abstract this away eventually, but for now easy does it
         self.builder = builders.AhnlichDBRequestBuilder()
 
@@ -98,10 +97,11 @@ class AhnlichDBClient:
         self,
         store_name: str,
         dimension: st.uint64,
-        create_predicates: typing.Sequence[str] = [],
+        create_predicates: typing.Sequence[str] = None,
         error_if_exists: bool = True,
     ) -> server_response.ServerResult:
-
+        if not create_predicates:
+            create_predicates = []
         self.builder.create_store(
             store_name=store_name,
             dimension=dimension,
@@ -129,4 +129,12 @@ class AhnlichDBClient:
 
     def ping(self) -> server_response.ServerResult:
         self.builder.ping()
+        return self.protocol.process_request(message=self.builder.to_server_query())
+
+    def pipeline(self) -> builders.AhnlichDBRequestBuilder:
+        """Gives you a request builder to create multple requests"""
+        return self.builder
+
+    def exec(self) -> server_response.ServerResult:
+        """Executes a pipelined request"""
         return self.protocol.process_request(message=self.builder.to_server_query())

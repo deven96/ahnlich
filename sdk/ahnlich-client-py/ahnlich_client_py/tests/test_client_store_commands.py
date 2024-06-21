@@ -1,4 +1,3 @@
-from ahnlich_client_py import protocol
 from ahnlich_client_py.client import AhnlichDBClient
 from ahnlich_client_py.internals import query, server_response
 from ahnlich_client_py.libs import create_store_key
@@ -19,8 +18,8 @@ store_payload_with_predicates = {
 
 def test_client_sends_create_stores_succeeds(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
     response: server_response.ServerResult = db_client.create_store(
         **store_payload_no_predicates
     )
@@ -34,8 +33,7 @@ def test_client_sends_list_stores_on_existing_database_succeeds(
     module_scopped_ahnlich_db,
 ):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
     response: server_response.ServerResult = db_client.list_stores()
     store_list: server_response.ServerResponse__StoreList = response.results[0].value
     store_info: server_response.StoreInfo = store_list.value[0]
@@ -45,8 +43,7 @@ def test_client_sends_list_stores_on_existing_database_succeeds(
 
 def test_client_sends_create_stores_with_predicates_succeeds(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
     response: server_response.ServerResult = db_client.create_store(
         **store_payload_with_predicates
     )
@@ -60,8 +57,7 @@ def test_client_list_stores_finds_created_store_with_predicate(
     module_scopped_ahnlich_db,
 ):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
     response: server_response.ServerResult = db_client.list_stores()
     assert isinstance(response.results[0], server_response.Result__Ok)
 
@@ -78,8 +74,7 @@ def test_client_set_in_store_succeeds(
     module_scopped_ahnlich_db, store_key, store_value
 ):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
     store_key_2 = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
 
     # prepare data
@@ -101,8 +96,7 @@ def test_client_set_in_store_succeeds(
 
 def test_client_get_key_succeeds(module_scopped_ahnlich_db, store_key, store_value):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
     # prepare data
     get_key_data = {
@@ -122,8 +116,7 @@ def test_client_get_by_predicate_fails_no_index_found_in_store(
     module_scopped_ahnlich_db, store_key, store_value
 ):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
     # prepare data
     get_predicate_data = {
@@ -145,8 +138,7 @@ def test_client_get_by_predicate_fails_no_index_found_in_store(
 
 def test_client_create_index_succeeds(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
     create_index_data = {
         "store_name": store_payload_no_predicates["store_name"],
@@ -162,8 +154,7 @@ def test_client_get_by_predicate_succeeds(
     module_scopped_ahnlich_db, store_key, store_value
 ):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
     # prepare data
     get_predicate_data = {
@@ -185,8 +176,7 @@ def test_client_get_by_predicate_succeeds(
 
 def test_client_get_sim_n_succeeds(module_scopped_ahnlich_db, store_key, store_value):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
     # closest to 1.0,2.0,3.0,4.0,5.0
     search_input = create_store_key(data=[1.0, 2.0, 3.0, 3.9, 4.9])
@@ -217,8 +207,7 @@ def test_client_get_sim_n_succeeds(module_scopped_ahnlich_db, store_key, store_v
 
 def test_client_drop_index_succeeds(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
     create_index_data = {
         "store_name": store_payload_no_predicates["store_name"],
@@ -243,8 +232,7 @@ def test_client_drop_index_succeeds(module_scopped_ahnlich_db):
 
 def test_client_delete_predicate_succeeds(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
     delete_predicate_data = {
         "store_name": store_payload_no_predicates["store_name"],
@@ -263,8 +251,7 @@ def test_client_delete_predicate_succeeds(module_scopped_ahnlich_db):
 
 def test_client_delete_key_succeeds(module_scopped_ahnlich_db, store_key):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
     delete_key_data = {
         "store_name": store_payload_no_predicates["store_name"],
@@ -279,8 +266,7 @@ def test_client_delete_key_succeeds(module_scopped_ahnlich_db, store_key):
 
 def test_client_drop_store_succeeds(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
     drop_store_data = {
         "store_name": store_payload_no_predicates["store_name"],
@@ -297,8 +283,7 @@ def test_client_list_stores_reflects_dropped_store(
     module_scopped_ahnlich_db,
 ):
     port = module_scopped_ahnlich_db
-    test_protocol = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
-    db_client = AhnlichDBClient(ahnlich_protocol=test_protocol)
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
     response: server_response.ServerResult = db_client.list_stores()
     store_list: server_response.ServerResponse__StoreList = response.results[0].value
     assert len(store_list.value) == 1

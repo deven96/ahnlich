@@ -22,12 +22,12 @@ The following topics are covered:
     * [List Connected Clients](#list-connected-clients)
     * [List Stores](#list-stores)
     * [Create Store](#create-store)
+    * [Set](#set)
     * [Drop Store](#drop-store)
     * [Get Key](#get-key)
     * [Get By Predicate](#get-by-predicate)
     * [Create Index](#create-index)
     * [Drop Index](#drop-index)
-    * [Set](#set)
     * [Delete Key](#delete-key)
     * [Delete Predicate](#delete-predicate)
 * [Bulk Requests](#bulk-requests)
@@ -79,9 +79,8 @@ pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
 ### Client
 
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 ```
 
 
@@ -90,9 +89,8 @@ client = client.AhnlichProtocol(ahnlich_protocol=pro)
 ### Ping
 
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 response = client.ping()
 ```
@@ -100,9 +98,8 @@ response = client.ping()
 ###  Info Server
 
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 response = client.info_server()
 ```
@@ -110,9 +107,8 @@ response = client.info_server()
 ###  List Connected Clients 
 
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 response = client.list_clients()
 ```
@@ -120,9 +116,8 @@ response = client.list_clients()
 ###  List Stores
 
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 response = client.list_stores()
 ```
@@ -130,13 +125,12 @@ response = client.list_stores()
 ###  Create Store
 
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 response = client.create_store(
     store_name = "test store",
-    dimension = 9,
+    dimension = 5,
     create_predicates = [
         "job"
     ],
@@ -148,11 +142,27 @@ Note we only accept 1 dimensional arrays/vectors of length N.
 Store dimensions is a one dimensional array of length N
 
 
+### Set
+```py
+from libs import create_store_key
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
+
+store_key = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
+store_value =  {"rank": "chunin"}
+
+
+response = client.set(
+    store_name = "test store",
+    inputs=[(store_key, store_value)]
+)
+```
+
+
 ### Drop store
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 response = client.drop_store(
     store_name = "test store",
@@ -164,12 +174,11 @@ response = client.drop_store(
 
 
 ### Get Sim N
-Returns an array of tuple of (store_key, store_value) of specified N
+Returns an array of tuple of (store_key, store_value) of Maximum specified N
 
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol, query
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 
 
@@ -189,9 +198,8 @@ response = client.get_sim_n(
 Returns an array of tuple of (store_key, store_value)
 
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 key = some_store_key
 response = client.get_key(
@@ -205,9 +213,8 @@ response = client.get_key(
 Same as Get_key but returns results based defined conditions
 
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol, query
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 condition = query.PredicateCondition__Value(
                 query.Predicate__Equals(key="job", value="sorcerer")
@@ -220,9 +227,8 @@ response = client.get_by_predicate(
 
 ### Create Index
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 response = client.create_index(
     store_name = "test store",
@@ -232,9 +238,8 @@ response = client.create_index(
 
 ### Drop Index
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 response = client.drop_index(
     store_name = "test store",
@@ -244,29 +249,14 @@ response = client.drop_index(
 ```
 
 
-### Set
-```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-from libs import create_store_key
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
-
-store_key = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
-store_value =  {"rank": "chunin"}
-
-
-response = client.set(
-    store_name = "test store",
-    inputs=[(store_key, store_value)]
-)
-```
 
 ### Delete Key
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
-from libs import create_store_key
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py.libs import create_store_key
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
+
+
 
 store_key = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
 
@@ -279,9 +269,8 @@ response = client.delete_key(
 
 ### Delete Predicate
 ```py
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol, query
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(ahnlich_protocol=pro)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 condition = query.PredicateCondition__Value(
                 query.Predicate__Equals(key="job", value="sorcerer")
@@ -297,23 +286,21 @@ response = client.delete_predicate(
 
 
 ## Bulk Requests
-The client has the ability to send multiple requests at once, and this requests will be handled sequentially. The builder class takes care of this. The response is a list of all individual request responses.
+The client has the ability to send multiple requests at once, and these requests will be handled sequentially. The builder class takes care of this. The response is a list of all individual request responses.
 
 
 ```py
 from ahnlich_client_py.builders import AhnlichDBRequestBuilder
-from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol, query
+from ahnlich_client_py import query
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
 
-request_builder = AhnlichDBRequestBuilder()
+request_builder = db_client.pipeline()
 request_builder.ping()
 request_builder.info_server()
 request_builder.list_clients()
 request_builder.list_stores()
 
-response: server_response.ServerResult = request_builder.execute_requests(
-    protocol=pro
-)
+response: server_response.ServerResult = db_client.exec()
 
 ```
 

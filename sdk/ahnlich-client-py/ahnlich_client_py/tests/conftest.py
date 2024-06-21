@@ -8,7 +8,7 @@ import time
 import numpy as np
 import pytest
 
-from ahnlich_client_py import config, protocol
+from ahnlich_client_py import client, config
 from ahnlich_client_py.internals import query
 from ahnlich_client_py.internals import serde_types as st
 
@@ -20,11 +20,12 @@ def is_port_occupied(port, host="127.0.0.1") -> bool:
         return result == 0
 
 
-@pytest.fixture
-def base_protocol():
+@pytest.fixture(scope="module")
+def db_client():
     host = os.environ.get("AHNLICH_DB_HOST", "127.0.0.1")
     port = int(os.environ.get("AHNLICH_DB_PORT", 1369))
-    return protocol.AhnlichProtocol(address=host, port=port)
+    timeout_sec = float(os.environ.get("AHNLICH_DB_CLIENT_TIMEOUT", 5.0))
+    return client.AhnlichDBClient(address=host, port=port, timeout_sec=timeout_sec)
 
 
 @pytest.fixture
