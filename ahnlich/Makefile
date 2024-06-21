@@ -3,6 +3,18 @@
 # # change the 20 value in printf to adjust width
 # # Use ' ## some comment' behind a command and it will be added to the help message automatically
 
+
+# Define paths to the project files
+RUST_PROJECT_DIR := ../ahnlich
+RUST_TYPES_NAME := types
+PYTHON_PROJECT_DIR := ../sdk/ahnlich-client-py
+CARGO_TOML := $(RUST_PROJECT_DIR)/Cargo.toml
+PYPOETRY_TOML := $(PYTHON_PROJECT_DIR)/pyproject.toml
+
+# Default version bump rule 
+BUMP_RULE := patch
+
+
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | grep -v '^help:.*?## '
 
@@ -21,7 +33,23 @@ check: ## cargo check
 test: ## cargo test
 	cargo nextest run --no-capture
 
-all: format check test clippy ## format, clip and test code
+
+bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, minor, major.
+	@echo "Bumping Rust project version to $${RULE:-$(BUMP_RULE)}"
+	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(RUST_TYPES_NAME)
+	@echo "Rust project version bumped to $(BUMP_RULE)"
+	@echo "Bumping Python project version with rule $(BUMP_RULE)"
+	@cd $(PYTHON_PROJECT_DIR) && poetry version $(BUMP_RULE)
+	@echo "Python project version bumped using rule $(BUMP_RULE)"
+
+bump-python-version: ## Bump python client versions. Rules for bump-python-version: patch, minor, major.
+	@echo "Bumping Python client version with rule $(BUMP_RULE)"
+	@cd $(PYTHON_PROJECT_DIR) && poetry run bumpversion $(BUMP_RULE)
+	@echo "Python client version bumped using rule $(BUMP_RULE)"
+
+
+
+all: format check test clippy bumpversion bump-python-version ## format, clip, test code, and bumpversions
 
 # --------------Configuration-------------
 #

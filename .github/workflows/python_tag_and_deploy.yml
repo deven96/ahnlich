@@ -1,0 +1,89 @@
+name: Ahnlich Python Client Tag and Deploy
+
+on:
+  pull_request:
+    branches: ["main"]
+    types:
+      - closed
+
+jobs:
+  check_version_changes_and_tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      client_version: ${{ steps.get_version.outputs.CLIENT_VERSION }}
+      tag_version: ${{ steps.get_version.outputs.TAG_VERSION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes in .bumpversion.cfg and CLIENT_VERSION
+        id: check_version_changes
+        working-directory: ./sdk/ahnlich-client-py
+        run: |
+          if git diff HEAD^ HEAD --exit-code .bumpversion.cfg CLIENT_VERSION MSG_TAG > /dev/null; then
+            echo "No changes in .bumpversion.cfg or CLIENT_VERSION."
+            echo "CLIENT_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected in .bumpversion.cfg or CLIENT_VERSION."
+            echo "CLIENT_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get client version
+        id: get_version
+        working-directory: ./sdk/ahnlich-client-py
+        if: steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
+        run: |
+          CLIENT_VERSION=$(cat CLIENT_VERSION)
+          echo "CLIENT_VERSION=${CLIENT_VERSION}" >> $GITHUB_OUTPUT
+          echo "TAG_VERSION=client/py/${CLIENT_VERSION}" >> $GITHUB_OUTPUT
+
+
+      - name: Set tag message
+        id: set_tag_message
+        working-directory: ./sdk/ahnlich-client-py
+        if: steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
+        run: |
+          echo "TAG_MESSAGE=$(cat MSG_TAG)" >> $GITHUB_OUTPUT
+
+      - name: Create new tag
+        if: steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
+        working-directory: ./sdk/ahnlich-client-py
+        run: |
+          git config --global user.name '${{github.actor}}'
+          git config --global user.email '${{github.actor}}@users.noreply.github.com'
+          git tag -a "${{ steps.get_version.outputs.TAG_VERSION }}" -m "${{steps.set_tag_message.outputs.TAG_MESSAGE}}"
+          git push origin "${{ steps.get_version.outputs.TAG_VERSION }}"
+          
+
+  deploy_tag:
+    runs-on: ubuntu-latest
+    needs: check_version_changes_and_tag
+    if: ${{ needs.check_version_changes_and_tag.result == 'success' }}
+    steps:
+
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{needs.check_version_changes_and_tag.outputs.tag_version}}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+      - name: Run image
+        uses: abatilo/actions-poetry@v3
+        with:
+          poetry-version: 1.7.0
+
+      - name: Deploy using tag
+        working-directory: ./sdk/ahnlich-client-py
+        run: |
+          echo "Deploying tag ${{needs.check_version_changes_and_tag.outputs.tag_version}}"
+          # Add your deployment commands here
+          poetry config repositories.test-pypi https://test.pypi.org/legacy/
+          echo "${{needs.check_version_changes_and_tag.outputs.tag_version}}" > CLIENT_VERSION
+          poetry config pypi-token.test-pypi  ${{ secrets.TEST_PYPI_TOKEN }}
+          poetry build && poetry publish -r test-pypi
+
+

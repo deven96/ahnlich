@@ -30,6 +30,22 @@
       }
     ]
   },
+  "Result": {
+    "ENUM": {
+      "0": {
+        "Ok": {
+          "NEWTYPE": {
+            "TYPENAME": "ServerResponse"
+          }
+        }
+      },
+      "1": {
+        "Err": {
+          "NEWTYPE": "STR"
+        }
+      }
+    }
+  },
   "ServerInfo": {
     "STRUCT": [
       {
@@ -145,6 +161,17 @@
         }
       }
     }
+  },
+  "ServerResult": {
+    "STRUCT": [
+      {
+        "results": {
+          "SEQ": {
+            "TYPENAME": "Result"
+          }
+        }
+      }
+    ]
   },
   "ServerType": {
     "ENUM": {

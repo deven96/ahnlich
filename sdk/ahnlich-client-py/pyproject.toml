@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "ahnlich-client-py"
+version = "0.1.0"
+description = "A python client for interacting with Ahnlich DB and AI"
+authors = ["David Onuh <davidonuh1@gmail.com>"]
+readme = "README.md"
+
+packages = [
+    { include = "ahnlich_client_py" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^1.26.4"
+toml = "^0.10.2"
+bump2version = "^1.0.1"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.4.2"
+isort = "^5.13.2"
+pytest = "^8.2.2"
+pylint = "^3.2.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
