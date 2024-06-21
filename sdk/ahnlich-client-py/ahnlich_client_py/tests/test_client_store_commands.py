@@ -118,7 +118,7 @@ def test_client_get_key_succeeds(module_scopped_ahnlich_db, store_key, store_val
     assert actual_response[0][0].data == store_key.data
 
 
-def test_client_get_predicate_fails_no_index_found_in_store(
+def test_client_get_by_predicate_fails_no_index_found_in_store(
     module_scopped_ahnlich_db, store_key, store_value
 ):
     port = module_scopped_ahnlich_db
@@ -133,7 +133,7 @@ def test_client_get_predicate_fails_no_index_found_in_store(
         ),
     }
     # process data
-    response: server_response.ServerResult = db_client.get_predicate(
+    response: server_response.ServerResult = db_client.get_by_predicate(
         **get_predicate_data
     )
     assert isinstance(response.results[0], server_response.Result__Err)
@@ -158,7 +158,7 @@ def test_client_create_index_succeeds(module_scopped_ahnlich_db):
     )
 
 
-def test_client_get_predicate_succeeds(
+def test_client_get_by_predicate_succeeds(
     module_scopped_ahnlich_db, store_key, store_value
 ):
     port = module_scopped_ahnlich_db
@@ -173,7 +173,7 @@ def test_client_get_predicate_succeeds(
         ),
     }
     # process data
-    response: server_response.ServerResult = db_client.get_predicate(
+    response: server_response.ServerResult = db_client.get_by_predicate(
         **get_predicate_data
     )
     assert isinstance(response.results[0], server_response.Result__Ok)

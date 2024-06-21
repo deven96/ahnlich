@@ -24,10 +24,10 @@ class AhnlichDBClient:
         self.builder.get_key(store_name=store_name, keys=keys)
         return self.client.process_request(self.builder.to_server_query())
 
-    def get_predicate(
+    def get_by_predicate(
         self, store_name: str, condition: query.PredicateCondition
     ) -> server_response.ServerResult:
-        self.builder.get_predicate(store_name=store_name, condition=condition)
+        self.builder.get_by_predicate(store_name=store_name, condition=condition)
         return self.client.process_request(self.builder.to_server_query())
 
     def get_sim_n(

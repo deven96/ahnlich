@@ -44,7 +44,7 @@ class AhnlichDBRequestBuilder:
 
         self.queries.append(query.Query__GetKey(store=store_name, keys=keys))
 
-    def get_predicate(self, store_name: str, condition: query.PredicateCondition):
+    def get_by_predicate(self, store_name: str, condition: query.PredicateCondition):
         self.queries.append(query.Query__GetPred(store=store_name, condition=condition))
 
     def get_sim_n(
