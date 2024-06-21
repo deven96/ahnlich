@@ -5,12 +5,10 @@ import socket
 import subprocess
 import time
 
-import numpy as np
 import pytest
 
 from ahnlich_client_py import client, config
-from ahnlich_client_py.internals import query
-from ahnlich_client_py.internals import serde_types as st
+from ahnlich_client_py.libs import create_store_key
 
 
 def is_port_occupied(port, host="127.0.0.1") -> bool:
@@ -64,13 +62,10 @@ def module_scopped_ahnlich_db():
 
 @pytest.fixture
 def store_key():
-    sample_array = np.array([1.0, 2.0, 3.0, 4.0, 5.0], dtype=np.float32)
-    dimensions = (st.uint64(sample_array.shape[0]),)
-    store_key = query.Array(v=st.uint8(1), dim=dimensions, data=sample_array.tolist())
-    return store_key
+    sample_array = [1.0, 2.0, 3.0, 4.0, 5.0]
+    return create_store_key(sample_array)
 
 
 @pytest.fixture
 def store_value():
-    store_value = dict(job="sorcerer")
-    return store_value
+    return dict(job="sorcerer")

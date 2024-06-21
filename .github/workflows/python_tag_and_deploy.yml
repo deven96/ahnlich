@@ -82,7 +82,6 @@ jobs:
           echo "Deploying tag ${{needs.check_version_changes_and_tag.outputs.tag_version}}"
           # Add your deployment commands here
           poetry config repositories.test-pypi https://test.pypi.org/legacy/
-          #sed -i "" -e "s/^version.*/version = 'client\/py\/v${{needs.check_version_changes_and_tag.outputs.client_version}}'/g" pyproject.toml
           echo "${{needs.check_version_changes_and_tag.outputs.tag_version}}" > CLIENT_VERSION
           poetry config pypi-token.test-pypi  ${{ secrets.TEST_PYPI_TOKEN }}
           poetry build && poetry publish -r test-pypi

@@ -34,7 +34,7 @@ test: ## cargo test
 	cargo nextest run --no-capture
 
 
-bumpversion: ## Bump project versions. Rules for bumpversion: patch, minor, major.
+bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, minor, major.
 	@echo "Bumping Rust project version to $${RULE:-$(BUMP_RULE)}"
 	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(RUST_TYPES_NAME)
 	@echo "Rust project version bumped to $(BUMP_RULE)"
