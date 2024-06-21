@@ -1,7 +1,7 @@
+from ahnlich_client_py import protocol
 from ahnlich_client_py.client import AhnlichDBClient
 from ahnlich_client_py.internals import query, server_response
 from ahnlich_client_py.libs import create_store_key
-from ahnlich_client_py import protocol
 
 store_payload_no_predicates = {
     "store_name": "Diretnan Station",

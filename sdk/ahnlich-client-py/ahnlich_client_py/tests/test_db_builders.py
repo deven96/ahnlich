@@ -1,5 +1,5 @@
-from ahnlich_client_py.builders import AhnlichDBRequestBuilder
 from ahnlich_client_py import protocol
+from ahnlich_client_py.builders import AhnlichDBRequestBuilder
 from ahnlich_client_py.internals import server_response
 
 
