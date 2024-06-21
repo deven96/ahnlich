@@ -1,7 +1,7 @@
 import typing
 
-from ahnlich_client_py import builders
-from ahnlich_client_py.internals import protocol, query
+from ahnlich_client_py import builders, protocol
+from ahnlich_client_py.internals import query
 from ahnlich_client_py.internals import serde_types as st
 from ahnlich_client_py.internals import server_response
 

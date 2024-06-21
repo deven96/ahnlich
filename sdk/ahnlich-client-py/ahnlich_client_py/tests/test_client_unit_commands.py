@@ -1,5 +1,6 @@
 from ahnlich_client_py.client import AhnlichDBClient
-from ahnlich_client_py.internals import protocol, server_response
+from ahnlich_client_py.internals import server_response
+from ahnlich_client_py import protocol
 
 
 def test_client_sends_ping_to_db_success(base_protocol):
