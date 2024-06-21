@@ -30,6 +30,7 @@ The following topics are covered:
     * [Set](#set)
     * [Delete Key](#delete-key)
     * [Delete Predicate](#delete-predicate)
+* [Bulk Requests](#bulk-requests)
 * [How to Deploy to Artifactory](#deploy-to-artifactory)
 * [Type Meanings](#type-meanings)
 * [Change Log](#change-log)
@@ -293,6 +294,29 @@ response = client.delete_predicate(
 )
 ```
 
+
+
+## Bulk Requests
+The client has the ability to send multiple requests at once, and this requests will be handled sequentially. The builder class takes care of this. The response is a list of all individual request responses.
+
+
+```py
+from ahnlich_client_py.builders import AhnlichDBRequestBuilder
+from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol, query
+pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
+client = client.AhnlichProtocol(client=pro)
+
+request_builder = AhnlichDBRequestBuilder()
+request_builder.ping()
+request_builder.info_server()
+request_builder.list_clients()
+request_builder.list_stores()
+
+response: server_response.ServerResult = request_builder.execute_requests(
+    client=client
+)
+
+```
 
 
 
