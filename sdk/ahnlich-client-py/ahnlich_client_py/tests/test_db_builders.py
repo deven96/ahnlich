@@ -5,7 +5,7 @@ from ahnlich_client_py.internals import server_response
 
 def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
     port = spin_up_ahnlich_db
-    client = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
+    proto = protocol.AhnlichProtocol(address="127.0.0.1", port=port)
     request_builder = AhnlichDBRequestBuilder()
     request_builder.ping()
     request_builder.info_server()
@@ -13,7 +13,7 @@ def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
     request_builder.list_stores()
 
     response: server_response.ServerResult = request_builder.execute_requests(
-        client=client
+        protocol=proto
     )
 
     assert len(response.results) == 4
@@ -22,7 +22,7 @@ def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
     )
     # assert info servers
     info_server: server_response.ServerInfo = response.results[1].value
-    assert info_server.value.version == client.version
+    assert info_server.value.version == proto.version
     assert info_server.value.type == server_response.ServerType__Database()
 
     # assert list_stores

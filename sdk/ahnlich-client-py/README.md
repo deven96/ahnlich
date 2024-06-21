@@ -81,7 +81,7 @@ pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 ```
 
 
@@ -92,7 +92,7 @@ client = client.AhnlichProtocol(client=pro)
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 response = client.ping()
 ```
@@ -102,7 +102,7 @@ response = client.ping()
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 response = client.info_server()
 ```
@@ -112,7 +112,7 @@ response = client.info_server()
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 response = client.list_clients()
 ```
@@ -122,7 +122,7 @@ response = client.list_clients()
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 response = client.list_stores()
 ```
@@ -132,7 +132,7 @@ response = client.list_stores()
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 response = client.create_store(
     store_name = "test store",
@@ -152,7 +152,7 @@ Store dimensions is a one dimensional array of length N
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 response = client.drop_store(
     store_name = "test store",
@@ -169,7 +169,7 @@ Returns an array of tuple of (store_key, store_value) of specified N
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol, query
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 
 
@@ -191,7 +191,7 @@ Returns an array of tuple of (store_key, store_value)
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 key = some_store_key
 response = client.get_key(
@@ -207,7 +207,7 @@ Same as Get_key but returns results based defined conditions
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol, query
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 condition = query.PredicateCondition__Value(
                 query.Predicate__Equals(key="job", value="sorcerer")
@@ -222,7 +222,7 @@ response = client.get_by_predicate(
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 response = client.create_index(
     store_name = "test store",
@@ -234,7 +234,7 @@ response = client.create_index(
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 response = client.drop_index(
     store_name = "test store",
@@ -249,7 +249,7 @@ response = client.drop_index(
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 from libs import create_store_key
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 store_key = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
 store_value =  {"rank": "chunin"}
@@ -266,7 +266,7 @@ response = client.set(
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol
 from libs import create_store_key
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 store_key = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
 
@@ -281,7 +281,7 @@ response = client.delete_key(
 ```py
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol, query
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
+client = client.AhnlichProtocol(ahnlich_protocol=pro)
 
 condition = query.PredicateCondition__Value(
                 query.Predicate__Equals(key="job", value="sorcerer")
@@ -304,7 +304,6 @@ The client has the ability to send multiple requests at once, and this requests 
 from ahnlich_client_py.builders import AhnlichDBRequestBuilder
 from ahnlich_client_py import AhnlichProtocol, AhnlichProtocol, query
 pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-client = client.AhnlichProtocol(client=pro)
 
 request_builder = AhnlichDBRequestBuilder()
 request_builder.ping()
@@ -313,7 +312,7 @@ request_builder.list_clients()
 request_builder.list_stores()
 
 response: server_response.ServerResult = request_builder.execute_requests(
-    client=client
+    protocol=pro
 )
 
 ```

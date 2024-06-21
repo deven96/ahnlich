@@ -133,6 +133,6 @@ class AhnlichDBRequestBuilder:
         self.drop()
         return server_query
 
-    def execute_requests(self, client: AhnlichProtocol):
-        response = client.process_request(message=self.to_server_query())
+    def execute_requests(self, protocol: AhnlichProtocol):
+        response = protocol.process_request(message=self.to_server_query())
         return response

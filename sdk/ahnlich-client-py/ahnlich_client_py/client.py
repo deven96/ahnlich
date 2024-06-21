@@ -11,9 +11,9 @@ class AhnlichDBClient:
 
     def __init__(
         self,
-        client: protocol.AhnlichProtocol,
+        ahnlich_protocol: protocol.AhnlichProtocol,
     ) -> None:
-        self.client = client
+        self.protocol = ahnlich_protocol
         # would abstract this away eventually, but for now easy does it
         self.builder = builders.AhnlichDBRequestBuilder()
 
@@ -22,13 +22,13 @@ class AhnlichDBClient:
     ) -> server_response.ServerResult:
 
         self.builder.get_key(store_name=store_name, keys=keys)
-        return self.client.process_request(self.builder.to_server_query())
+        return self.protocol.process_request(self.builder.to_server_query())
 
     def get_by_predicate(
         self, store_name: str, condition: query.PredicateCondition
     ) -> server_response.ServerResult:
         self.builder.get_by_predicate(store_name=store_name, condition=condition)
-        return self.client.process_request(self.builder.to_server_query())
+        return self.protocol.process_request(self.builder.to_server_query())
 
     def get_sim_n(
         self,
@@ -45,13 +45,13 @@ class AhnlichDBClient:
             algorithm=algorithm,
             condition=condition,
         )
-        return self.client.process_request(self.builder.to_server_query())
+        return self.protocol.process_request(self.builder.to_server_query())
 
     def create_index(
         self, store_name: str, predicates: typing.Sequence[str]
     ) -> server_response.ServerResult:
         self.builder.create_index(store_name=store_name, predicates=predicates)
-        return self.client.process_request(self.builder.to_server_query())
+        return self.protocol.process_request(self.builder.to_server_query())
 
     def drop_index(
         self,
@@ -64,7 +64,7 @@ class AhnlichDBClient:
             predicates=predicates,
             error_if_not_exists=error_if_not_exists,
         )
-        return self.client.process_request(self.builder.to_server_query())
+        return self.protocol.process_request(self.builder.to_server_query())
 
     def set(
         self,
@@ -72,19 +72,19 @@ class AhnlichDBClient:
         inputs: typing.Sequence[typing.Tuple[query.Array, typing.Dict[str, str]]],
     ) -> server_response.ServerResult:
         self.builder.set(store_name=store_name, inputs=inputs)
-        return self.client.process_request(self.builder.to_server_query())
+        return self.protocol.process_request(self.builder.to_server_query())
 
     def delete_key(
         self, store_name: str, keys: typing.Sequence[query.Array]
     ) -> server_response.ServerResult:
         self.builder.delete_key(store_name=store_name, keys=keys)
-        return self.client.process_request(self.builder.to_server_query())
+        return self.protocol.process_request(self.builder.to_server_query())
 
     def delete_predicate(
         self, store_name: str, condition: query.PredicateCondition
     ) -> server_response.ServerResult:
         self.builder.delete_predicate(store_name=store_name, condition=condition)
-        return self.client.process_request(self.builder.to_server_query())
+        return self.protocol.process_request(self.builder.to_server_query())
 
     def drop_store(
         self, store_name: str, error_if_not_exists: bool
@@ -92,7 +92,7 @@ class AhnlichDBClient:
         self.builder.drop_store(
             store_name=store_name, error_if_not_exists=error_if_not_exists
         )
-        return self.client.process_request(self.builder.to_server_query())
+        return self.protocol.process_request(self.builder.to_server_query())
 
     def create_store(
         self,
@@ -109,24 +109,24 @@ class AhnlichDBClient:
             error_if_exists=error_if_exists,
         )
         message = self.builder.to_server_query()
-        return self.client.process_request(message=message)
+        return self.protocol.process_request(message=message)
 
     def list_stores(self) -> server_response.ServerResult:
         self.builder.list_stores()
-        return self.client.process_request(self.builder.to_server_query())
+        return self.protocol.process_request(self.builder.to_server_query())
 
     def info_server(self) -> server_response.ServerResult:
         self.builder.info_server()
-        return self.client.process_request(
+        return self.protocol.process_request(
             message=self.builder.to_server_query(),
         )
 
     def list_clients(self) -> server_response.ServerResult:
         self.builder.list_clients()
-        return self.client.process_request(
+        return self.protocol.process_request(
             message=self.builder.to_server_query(),
         )
 
     def ping(self) -> server_response.ServerResult:
         self.builder.ping()
-        return self.client.process_request(message=self.builder.to_server_query())
+        return self.protocol.process_request(message=self.builder.to_server_query())
