@@ -13,7 +13,6 @@ The following topics are covered:
 * [Package Information](#package-information)
 * [Server Response](#server-response)
 * [Initialization](#initialization)
-    * [Protocol](#protocol)
     * [Client](#client)
 
 * [Requests](#requests)
@@ -70,12 +69,6 @@ from ahnlich_client_py import server_response
 
 ## Initialization
 
-### Protocol
-
-```py
-from ahnlich_client_py import AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-```
 ### Client
 
 ```py
@@ -290,18 +283,16 @@ The client has the ability to send multiple requests at once, and these requests
 
 
 ```py
-from ahnlich_client_py.builders import AhnlichDBRequestBuilder
-from ahnlich_client_py import query
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
-request_builder = db_client.pipeline()
+request_builder = client.pipeline()
 request_builder.ping()
 request_builder.info_server()
 request_builder.list_clients()
 request_builder.list_stores()
 
-response: server_response.ServerResult = db_client.exec()
-
+response: server_response.ServerResult = client.exec()
 ```
 
 
