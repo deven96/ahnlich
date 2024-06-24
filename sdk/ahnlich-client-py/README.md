@@ -79,34 +79,34 @@ client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 ## Connection Pooling
 
-The ahnlich client has the ability to reuse connections. Configurations can be set using environmental variables. 
+The ahnlich client has the ability to reuse connections. Configurations can be changed by overiding the default class initialization. 
 
 ```py
         
-float(os.environ.get("AHNLICH_IDLE_TIMEOUT", 30.0))
-
-float(os.environ.get("AHNLICH_POOL_MAX_LIFETIME", 600.0))
-
-int(os.environ.get("AHNLICH_POOL_MIN_IDLE_CONNECTION", 3))
-
-int(os.environ.get("AHNLICH_MAX_POOL_SIZE", 10))
-bool(int(os.environ.get("AHNLICH_POOL_ENABLE_BACKGROUND_COLLECTOR", 1)))
+@dataclass
+class AhnlichDBPoolSettings:
+    idle_timeout: float = 30.0
+    max_lifetime: float = 600.0
+    min_idle_connections: int = 3
+    max_pool_size: int = 10
+    enable_background_collector: bool = True
+    dispose_batch_size: int = 0
 
 ```
 Where:
 
 
-- **AHNLICH_POOL_ENABLE_BACKGROUND_COLLECTOR** -> `defaults 1`: if True starts a background worker that disposes expired and idle connections maintaining requested pool state. If False the connections will be disposed on each connection release.
+- **enable_background_collector** -> `defaults 1`: if True starts a background worker that disposes expired and idle connections maintaining requested pool state. If False the connections will be disposed on each connection release.
 
-- **AHNLICH_IDLE_TIMEOUT** -> `defaults 30.0`: inactivity time (`in seconds`) after which an extra connection will be disposed (a connection considered as extra if the number of endpoint connection exceeds min_idle).
+- **idle_timeout** -> `defaults 30.0`: inactivity time (`in seconds`) after which an extra connection will be disposed (a connection considered as extra if the number of endpoint connection exceeds min_idle).
 
-- **AHNLICH_POOL_MAX_LIFETIME** -> `defaults 600.0`: number of seconds after which any connection will be disposed.
+- **max_lifetime** -> `defaults 600.0`: number of seconds after which any connection will be disposed.
 
-- **AHNLICH_POOL_MIN_IDLE_CONNECTION** -> `default 3`: minimum number of connections for the ahnlich db endpoint the pool tries to hold. Connections that exceed that number will be considered as extra and disposed after idle_timeout seconds of inactivity.
+- **min_idle_connections** -> `default 3`: minimum number of connections for the ahnlich db endpoint the pool tries to hold. Connections that exceed that number will be considered as extra and disposed after idle_timeout seconds of inactivity.
 
-- **AHNLICH_MAX_POOL_SIZE** -> `defaults 10`: maximum number of  connections in the pool.
+- **max_pool_size** -> `defaults 10`: maximum number of  connections in the pool.
 
-- **POOL_DISPOSE_BATCH_SIZE**: maximum number of expired and idle connections to be disposed on connection release (if background collector is started the parameter is ignored).
+- **dispose_batch_size**: maximum number of expired and idle connections to be disposed on connection release (if background collector is started the parameter is ignored).
 
 ## Requests
 
