@@ -7,7 +7,8 @@ import time
 
 import pytest
 
-from ahnlich_client_py import client, config
+from ahnlich_client_py import client
+from ahnlich_client_py.config import service_config
 from ahnlich_client_py.libs import create_store_key
 
 
@@ -38,7 +39,7 @@ def random_port():
 def spin_up_ahnlich_db(random_port):
     port = random_port
     command = f"cargo run --bin ahnlich-db run --port {port}".split(" ")
-    process = subprocess.Popen(args=command, cwd=config.AHNLICH_BIN_DIR)
+    process = subprocess.Popen(args=command, cwd=service_config.AHNLICH_BIN_DIR)
     while not is_port_occupied(port):
         time.sleep(0.2)
     yield port
@@ -52,7 +53,7 @@ def spin_up_ahnlich_db(random_port):
 def module_scopped_ahnlich_db():
     port = 8001
     command = f"cargo run --bin ahnlich-db run --port {port}".split(" ")
-    process = subprocess.Popen(args=command, cwd=config.AHNLICH_BIN_DIR)
+    process = subprocess.Popen(args=command, cwd=service_config.AHNLICH_BIN_DIR)
     while not is_port_occupied(port):
         time.sleep(0.2)
     yield port

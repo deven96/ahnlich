@@ -27,4 +27,3 @@ def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
         server_response.ServerResponse__StoreList([])
     )
     db_client.cleanup()
-

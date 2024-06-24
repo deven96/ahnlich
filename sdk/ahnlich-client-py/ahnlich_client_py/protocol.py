@@ -1,11 +1,12 @@
 import socket
-
-from generic_connection_pool.threading import ConnectionPool
-from generic_connection_pool.contrib.socket import TcpSocketConnectionManager
-from ahnlich_client_py import config
-from ahnlich_client_py.internals import query, server_response
-from ahnlich_client_py.exceptions import AhnlichProtocolException
 from ipaddress import IPv4Address
+
+from generic_connection_pool.contrib.socket import TcpSocketConnectionManager
+from generic_connection_pool.threading import ConnectionPool
+
+from ahnlich_client_py.config import service_config
+from ahnlich_client_py.exceptions import AhnlichProtocolException
+from ahnlich_client_py.internals import query, server_response
 
 
 class AhnlichProtocol:
@@ -21,7 +22,7 @@ class AhnlichProtocol:
         version = self.version.bincode_serialize()
         response = server_query.bincode_serialize()
         response_length = int(len(response)).to_bytes(8, "little")
-        return config.HEADER + version + response_length + response
+        return service_config.HEADER + version + response_length + response
 
     def deserialize_server_response(self, b: bytes) -> server_response.ServerResult:
         return server_response.ServerResult([]).bincode_deserialize(b)
@@ -42,7 +43,7 @@ class AhnlichProtocol:
             self.connection_pool.close()
             raise AhnlichProtocolException("socket connection broken")
 
-        if header != config.HEADER:
+        if header != service_config.HEADER:
             raise AhnlichProtocolException("Fake server")
         # ignore version of 5 bytes
         _version = self.conn.recv(5)
@@ -63,14 +64,16 @@ class AhnlichProtocol:
         return response
 
     def create_connection_pool(self) -> ConnectionPool:
+
         return ConnectionPool(
             connection_manager=TcpSocketConnectionManager(),
-            idle_timeout=30.0,
-            max_lifetime=600.0,
-            min_idle=3,
-            max_size=20,
-            total_max_size=100,
-            background_collector=True,
+            idle_timeout=service_config.POOL_IDLE_TIMEOUT,
+            max_lifetime=service_config.POOL_MAX_LIFETIME,
+            min_idle=service_config.POOL_MIN_IDLE_CONNECTIONS,
+            max_size=service_config.POOL_MAX_SIZE,
+            total_max_size=service_config.POOL_MAX_SIZE,
+            background_collector=service_config.POOL_ENABLE_BACKGROUND_COLLECTOR,
+            dispose_batch_size=service_config.POOL_DISPOSE_BATCH_SIZE,
         )
 
     def close(self):
@@ -86,11 +89,11 @@ class AhnlichProtocol:
         from importlib import metadata
 
         try:
-            str_version = metadata.version(config.PACKAGE_NAME)
+            str_version = metadata.version(service_config.PACKAGE_NAME)
         except metadata.PackageNotFoundError:
             import toml
 
-            with open(config.BASE_DIR / "pyproject.toml", "r") as f:
+            with open(service_config.BASE_DIR / "pyproject.toml", "r") as f:
                 reader = toml.load(f)
                 str_version = reader["tool"]["poetry"]["version"]
 
