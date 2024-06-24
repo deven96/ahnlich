@@ -23,7 +23,9 @@ def db_client():
     host = os.environ.get("AHNLICH_DB_HOST", "127.0.0.1")
     port = int(os.environ.get("AHNLICH_DB_PORT", 1369))
     timeout_sec = float(os.environ.get("AHNLICH_DB_CLIENT_TIMEOUT", 5.0))
-    return client.AhnlichDBClient(address=host, port=port, timeout_sec=timeout_sec)
+    conn = client.AhnlichDBClient(address=host, port=port, timeout_sec=timeout_sec)
+    yield conn
+    conn.cleanup()
 
 
 @pytest.fixture

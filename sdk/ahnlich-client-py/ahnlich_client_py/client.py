@@ -138,3 +138,12 @@ class AhnlichDBClient:
     def exec(self) -> server_response.ServerResult:
         """Executes a pipelined request"""
         return self.protocol.process_request(message=self.builder.to_server_query())
+
+    def close(self):
+        """closes the socket connection"""
+        self.protocol.close()
+
+    def cleanup(self):
+        """closes the socket connection as well as connection pool"""
+        self.close()
+        self.protocol.cleanup()

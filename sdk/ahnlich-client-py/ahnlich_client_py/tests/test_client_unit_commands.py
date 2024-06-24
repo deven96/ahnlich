@@ -33,3 +33,4 @@ def test_client_sends_list_stores_to_fresh_database_succeeds(spin_up_ahnlich_db)
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__StoreList([])
     )
+    db_client.cleanup()

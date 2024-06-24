@@ -107,6 +107,22 @@ graph = ["objgraph (>=1.7.2)"]
 profile = ["gprof2dot (>=2022.7.29)"]
 
 [[package]]
+name = "generic-connection-pool"
+version = "0.7.0"
+description = "generic connection pool"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "generic_connection_pool-0.7.0-py3-none-any.whl", hash = "sha256:b6d7b36649084559b40e0796a713d9a91ca82680582f4840801a4f7d79588034"},
+    {file = "generic_connection_pool-0.7.0.tar.gz", hash = "sha256:e8b5d3cd220953313bf5009fea28e205b2e7e4318bfb5cd199aac815cc64aa00"},
+]
+
+[package.extras]
+asyncpg = ["asyncpg (>=0.29.0,<0.30.0)"]
+docs = ["Sphinx (>=6.2.1,<7.0.0)", "furo (>=2023.7.26,<2024.0.0)", "sphinx-copybutton (>=0.5.2,<0.6.0)", "sphinx_design (>=0.5.0,<0.6.0)", "toml (>=0.10.2,<0.11.0)"]
+psycopg2 = ["psycopg2 (>=2.9.5)"]
+
+[[package]]
 name = "iniconfig"
 version = "2.0.0"
 description = "brain-dead simple config-ini parsing"
@@ -323,4 +339,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "7b449a2fcfdfae35c09e0fea287dba525e9d4cb74004c39d5ecbcd5a7e1e3c23"
+content-hash = "d8d9266deae567b1c92fc210d546e437185f4b27fa771e2f82416ac12ddd52f9"

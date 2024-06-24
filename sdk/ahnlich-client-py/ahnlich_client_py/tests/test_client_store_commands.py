@@ -23,6 +23,7 @@ def test_client_sends_create_stores_succeeds(module_scopped_ahnlich_db):
     response: server_response.ServerResult = db_client.create_store(
         **store_payload_no_predicates
     )
+    db_client.cleanup()
 
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__Unit()
@@ -39,6 +40,7 @@ def test_client_sends_list_stores_on_existing_database_succeeds(
     store_info: server_response.StoreInfo = store_list.value[0]
     assert store_info.name == store_payload_no_predicates["store_name"]
     assert isinstance(response.results[0], server_response.Result__Ok)
+    db_client.cleanup()
 
 
 def test_client_sends_create_stores_with_predicates_succeeds(module_scopped_ahnlich_db):
@@ -51,6 +53,7 @@ def test_client_sends_create_stores_with_predicates_succeeds(module_scopped_ahnl
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__Unit()
     )
+    db_client.cleanup()
 
 
 def test_client_list_stores_finds_created_store_with_predicate(
@@ -59,6 +62,7 @@ def test_client_list_stores_finds_created_store_with_predicate(
     port = module_scopped_ahnlich_db
     db_client = AhnlichDBClient(address="127.0.0.1", port=port)
     response: server_response.ServerResult = db_client.list_stores()
+    db_client.cleanup()
     assert isinstance(response.results[0], server_response.Result__Ok)
 
     store_lists: server_response.ServerResponse__StoreList = response.results[0].value
@@ -84,6 +88,7 @@ def test_client_set_in_store_succeeds(
     }
     # process data
     response: server_response.ServerResult = db_client.set(**store_data)
+    db_client.cleanup()
 
     assert isinstance(response.results[0], server_response.Result__Ok)
 
@@ -105,6 +110,7 @@ def test_client_get_key_succeeds(module_scopped_ahnlich_db, store_key, store_val
     }
     # process data
     response: server_response.ServerResult = db_client.get_key(**get_key_data)
+    db_client.cleanup()
     assert isinstance(response.results[0], server_response.Result__Ok)
     expected_result = [(store_key, store_value)]
     actual_response = response.results[0].value.value
@@ -113,7 +119,7 @@ def test_client_get_key_succeeds(module_scopped_ahnlich_db, store_key, store_val
 
 
 def test_client_get_by_predicate_fails_no_index_found_in_store(
-    module_scopped_ahnlich_db, store_key, store_value
+    module_scopped_ahnlich_db,
 ):
     port = module_scopped_ahnlich_db
     db_client = AhnlichDBClient(address="127.0.0.1", port=port)
@@ -129,6 +135,7 @@ def test_client_get_by_predicate_fails_no_index_found_in_store(
     response: server_response.ServerResult = db_client.get_by_predicate(
         **get_predicate_data
     )
+    db_client.cleanup()
     assert isinstance(response.results[0], server_response.Result__Err)
 
     error_message = "Predicate job not found in store"
@@ -145,6 +152,7 @@ def test_client_create_index_succeeds(module_scopped_ahnlich_db):
         "predicates": ["job", "rank"],
     }
     response: server_response.ServerResult = db_client.create_index(**create_index_data)
+    db_client.cleanup()
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__CreateIndex(2)
     )
@@ -167,6 +175,7 @@ def test_client_get_by_predicate_succeeds(
     response: server_response.ServerResult = db_client.get_by_predicate(
         **get_predicate_data
     )
+    db_client.cleanup()
     assert isinstance(response.results[0], server_response.Result__Ok)
     expected_result = [(store_key, store_value)]
     actual_response = response.results[0].value.value
@@ -191,6 +200,7 @@ def test_client_get_sim_n_succeeds(module_scopped_ahnlich_db, store_key, store_v
     # process data
     response: server_response.ServerResult = db_client.get_sim_n(**get_sim_n_data)
 
+    db_client.cleanup()
     actual_results: server_response.ServerResponse__GetSimN = response.results[
         0
     ].value.value
@@ -225,6 +235,7 @@ def test_client_drop_index_succeeds(module_scopped_ahnlich_db):
     }
 
     response: server_response.ServerResult = db_client.drop_index(**drop_index_data)
+    db_client.cleanup()
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__Del(1)
     )
@@ -247,6 +258,7 @@ def test_client_delete_predicate_succeeds(module_scopped_ahnlich_db):
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__Del(1)
     )
+    db_client.cleanup()
 
 
 def test_client_delete_key_succeeds(module_scopped_ahnlich_db, store_key):
@@ -262,6 +274,7 @@ def test_client_delete_key_succeeds(module_scopped_ahnlich_db, store_key):
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__Del(1)
     )
+    db_client.cleanup()
 
 
 def test_client_drop_store_succeeds(module_scopped_ahnlich_db):
@@ -277,6 +290,7 @@ def test_client_drop_store_succeeds(module_scopped_ahnlich_db):
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__Del(1)
     )
+    db_client.cleanup()
 
 
 def test_client_list_stores_reflects_dropped_store(
@@ -290,3 +304,4 @@ def test_client_list_stores_reflects_dropped_store(
     store_info: server_response.StoreInfo = store_list.value[0]
     assert store_info.name == store_payload_with_predicates["store_name"]
     assert isinstance(response.results[0], server_response.Result__Ok)
+    db_client.cleanup()
