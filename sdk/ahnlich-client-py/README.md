@@ -13,9 +13,9 @@ The following topics are covered:
 * [Package Information](#package-information)
 * [Server Response](#server-response)
 * [Initialization](#initialization)
-    * [Protocol](#protocol)
     * [Client](#client)
 
+* [Connection Pooling](#connection-pooling)
 * [Requests](#requests)
     * [Ping](#ping)
     * [Info Server](#info-server)
@@ -70,12 +70,6 @@ from ahnlich_client_py import server_response
 
 ## Initialization
 
-### Protocol
-
-```py
-from ahnlich_client_py import AhnlichProtocol
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
-```
 ### Client
 
 ```py
@@ -83,6 +77,36 @@ from ahnlich_client_py import AhnlichDBClient
 client = AhnlichDBClient(address="127.0.0.1", port=port)
 ```
 
+## Connection Pooling
+
+The ahnlich client has the ability to reuse connections. Configurations can be changed by overiding the default class initialization. 
+
+```py
+        
+@dataclass
+class AhnlichDBPoolSettings:
+    idle_timeout: float = 30.0
+    max_lifetime: float = 600.0
+    min_idle_connections: int = 3
+    max_pool_size: int = 10
+    enable_background_collector: bool = True
+    dispose_batch_size: int = 0
+
+```
+Where:
+
+
+- **enable_background_collector** -> `defaults 1`: if True starts a background worker that disposes expired and idle connections maintaining requested pool state. If False the connections will be disposed on each connection release.
+
+- **idle_timeout** -> `defaults 30.0`: inactivity time (`in seconds`) after which an extra connection will be disposed (a connection considered as extra if the number of endpoint connection exceeds min_idle).
+
+- **max_lifetime** -> `defaults 600.0`: number of seconds after which any connection will be disposed.
+
+- **min_idle_connections** -> `default 3`: minimum number of connections for the ahnlich db endpoint the pool tries to hold. Connections that exceed that number will be considered as extra and disposed after idle_timeout seconds of inactivity.
+
+- **max_pool_size** -> `defaults 10`: maximum number of  connections in the pool.
+
+- **dispose_batch_size**: maximum number of expired and idle connections to be disposed on connection release (if background collector is started the parameter is ignored).
 
 ## Requests
 
@@ -290,18 +314,16 @@ The client has the ability to send multiple requests at once, and these requests
 
 
 ```py
-from ahnlich_client_py.builders import AhnlichDBRequestBuilder
-from ahnlich_client_py import query
-pro = protocol.AhnlichProtocol(address="127.0.0.1", port=1369)
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
 
-request_builder = db_client.pipeline()
+request_builder = client.pipeline()
 request_builder.ping()
 request_builder.info_server()
 request_builder.list_clients()
 request_builder.list_stores()
 
-response: server_response.ServerResult = db_client.exec()
-
+response: server_response.ServerResult = client.exec()
 ```
 
 
@@ -367,6 +389,7 @@ condition = query.PredicateCondition__AND(
 | Version| Description           |
 | -------|:-------------:|
 | 0.1.0 | Base Python client to connect to ahnlich db. Bincode serialization and deserialization implemented |
+| 0.1.1 |  Add Connection pooling  mechanism for `AhnlichDBClient` |
 | |       |
 
 

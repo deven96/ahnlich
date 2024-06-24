@@ -1,17 +1,29 @@
 import socket
+from ipaddress import IPv4Address
+
+from generic_connection_pool.contrib.socket import TcpSocketConnectionManager
+from generic_connection_pool.threading import ConnectionPool
 
 from ahnlich_client_py import config
+from ahnlich_client_py.config import AhnlichDBPoolSettings
 from ahnlich_client_py.exceptions import AhnlichProtocolException
 from ahnlich_client_py.internals import query, server_response
 
 
 class AhnlichProtocol:
-    def __init__(self, address: str, port: int, timeout_sec: float = 5.0):
-        self.address = address
+    def __init__(
+        self,
+        address: str,
+        port: int,
+        timeout_sec: float = 5.0,
+        pool_settings: AhnlichDBPoolSettings = AhnlichDBPoolSettings(),
+    ):
+        self.address = IPv4Address(address)
         self.port = port
-        self.conn = self.connect()
+        self.connection_pool = self.create_connection_pool(pool_settings)
         self.version = self.get_version()
         self.timeout_sec = timeout_sec
+        self.conn = self.connect()
 
     def serialize_query(self, server_query: query.ServerQuery) -> bytes:
         version = self.version.bincode_serialize()
@@ -23,9 +35,10 @@ class AhnlichProtocol:
         return server_response.ServerResult([]).bincode_deserialize(b)
 
     def connect(self) -> socket.socket:
-        tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        tcp_socket.connect((self.address, self.port))
-        return tcp_socket
+        with self.connection_pool.connection(
+            endpoint=(self.address, self.port), timeout=self.timeout_sec
+        ) as conn:
+            return conn
 
     def send(self, message: query.ServerQuery):
         serialized_bin = self.serialize_query(message)
@@ -34,7 +47,7 @@ class AhnlichProtocol:
     def receive(self) -> server_response.ServerResult:
         header = self.conn.recv(8)
         if header == b"":
-            self.conn.close()
+            self.connection_pool.close()
             raise AhnlichProtocolException("socket connection broken")
 
         if header != config.HEADER:
@@ -56,6 +69,26 @@ class AhnlichProtocol:
         self.send(message=message)
         response = self.receive()
         return response
+
+    def create_connection_pool(self, settings: AhnlichDBPoolSettings) -> ConnectionPool:
+        return ConnectionPool(
+            connection_manager=TcpSocketConnectionManager(),
+            idle_timeout=settings.idle_timeout,
+            max_lifetime=settings.max_lifetime,
+            min_idle=settings.min_idle_connections,
+            max_size=settings.max_pool_size,
+            total_max_size=settings.max_pool_size,
+            background_collector=settings.enable_background_collector,
+            dispose_batch_size=settings.dispose_batch_size,
+        )
+
+    def close(self):
+        """closes a socket connection"""
+        self.conn.close()
+
+    def cleanup(self):
+        self.conn.close()
+        self.connection_pool.close()
 
     @staticmethod
     def get_version() -> server_response.Version:
