@@ -7,8 +7,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
-use std::fs::File;
-use std::io::BufReader;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicBool;
@@ -91,16 +89,8 @@ impl StoreHandler {
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst);
     }
 
-    pub(crate) fn load_snapshot(
-        &mut self,
-        persist_location: &std::path::PathBuf,
-    ) -> Result<(), ServerError> {
-        let file = File::open(persist_location)
-            .map_err(|e| ServerError::SnapshotLoadError(e.to_string()))?;
-        let reader = BufReader::new(file);
-        self.stores = serde_json::from_reader(reader)
-            .map_err(|e| ServerError::SnapshotLoadError(e.to_string()))?;
-        Ok(())
+    pub(crate) fn use_snapshot(&mut self, stores_snapshot: Stores) {
+        self.stores = stores_snapshot;
     }
 
     /// Returns a store using the store name, else returns an error

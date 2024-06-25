@@ -1,8 +1,6 @@
 use super::task::ServerTask;
 use crate::cli::ServerConfig;
-use crate::client::ClientHandler;
 use crate::engine::store::StoreHandler;
-use crate::persistence::PersistenceTask;
 use cap::Cap;
 use std::alloc;
 use std::io::Result as IoResult;
@@ -17,6 +15,8 @@ use tokio::select;
 use tokio_graceful::Shutdown;
 use tracing::Instrument;
 use types::server::ConnectedClient;
+use utils::client::ClientHandler;
+use utils::persistence::Persistence;
 
 #[global_allocator]
 pub(super) static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
@@ -50,11 +50,16 @@ impl<'a> Server<'a> {
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
         let mut store_handler = StoreHandler::new(write_flag.clone());
         if let Some(persist_location) = &config.persist_location {
-            if let Err(e) = store_handler.load_snapshot(persist_location) {
-                tracing::error!("Failed to load snapshot from persist location {e}");
+            match Persistence::load_snapshot(persist_location) {
+                Err(e) => {
+                    tracing::error!("Failed to load snapshot from persist location {e}");
+                }
+                Ok(snapshot) => {
+                    store_handler.use_snapshot(snapshot);
+                }
             }
             // spawn the persistence task
-            let mut persistence_task = PersistenceTask::new(
+            let mut persistence_task = Persistence::task(
                 write_flag,
                 config.persistence_interval,
                 persist_location,
