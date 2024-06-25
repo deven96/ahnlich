@@ -1,12 +1,15 @@
 import socket
 from ipaddress import IPv4Address
-
+import re
 from generic_connection_pool.contrib.socket import TcpSocketConnectionManager
 from generic_connection_pool.threading import ConnectionPool
 
 from ahnlich_client_py import config
 from ahnlich_client_py.config import AhnlichDBPoolSettings
-from ahnlich_client_py.exceptions import AhnlichProtocolException
+from ahnlich_client_py.exceptions import (
+    AhnlichClientException,
+    AhnlichProtocolException,
+)
 from ahnlich_client_py.internals import query, server_response
 
 
@@ -92,16 +95,14 @@ class AhnlichProtocol:
 
     @staticmethod
     def get_version() -> server_response.Version:
-        from importlib import metadata
 
-        try:
-            str_version = metadata.version(config.PACKAGE_NAME)
-        except metadata.PackageNotFoundError:
-            import toml
-
-            with open(config.BASE_DIR / "pyproject.toml", "r") as f:
-                reader = toml.load(f)
-                str_version = reader["tool"]["poetry"]["version"]
-
-        # split and convert from str to int
-        return server_response.Version(*map(lambda x: int(x), str_version.split(".")))
+        with open(config.BASE_DIR / "VERSION", "r") as f:
+            content = f.read()
+            match = re.search('PROTOCOL="([^"]+)"', content)
+            if not match:
+                raise AhnlichClientException("Unable to Parse Protocol Version")
+            str_version: str = match.group(1)
+            # split and convert from str to int
+            return server_response.Version(
+                *map(lambda x: int(x), str_version.split("."))
+            )

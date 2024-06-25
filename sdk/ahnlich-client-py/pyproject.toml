@@ -9,6 +9,9 @@ packages = [
     { include = "ahnlich_client_py" },
 ]
 
+[tool.poetry.scripts]
+bumpversion = "bumpversion:main"
+
 [tool.poetry.dependencies]
 python = "^3.11"
 numpy = "^1.26.4"
