@@ -7,24 +7,34 @@ use types::server::ConnectedClient;
 #[derive(Debug)]
 pub(crate) struct ClientHandler {
     clients: ConcurrentHashSet<ConnectedClient>,
+    maximum_clients: usize,
 }
 
 impl ClientHandler {
-    pub fn new() -> Self {
+    pub fn new(maximum_clients: usize) -> Self {
         Self {
-            clients: ConcurrentHashSet::new(),
+            clients: ConcurrentHashSet::with_capacity(maximum_clients),
+            maximum_clients,
         }
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn connect(&self, addr: SocketAddr) -> ConnectedClient {
+    pub fn connect(&self, addr: SocketAddr) -> Option<ConnectedClient> {
+        let pinned = self.clients.pin();
+        if pinned.len() >= self.maximum_clients {
+            tracing::error!(
+                "Maximum clients count {} reached or exceeded with {}",
+                pinned.len(),
+                self.maximum_clients
+            );
+            return None;
+        };
         let client = ConnectedClient {
             address: format!("{addr}"),
             time_connected: SystemTime::now(),
         };
-        let pinned = self.clients.pin();
         pinned.insert(client.clone());
-        client
+        Some(client)
     }
 
     #[tracing::instrument(skip(self))]

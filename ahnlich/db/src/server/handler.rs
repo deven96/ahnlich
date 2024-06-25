@@ -16,6 +16,7 @@ use tokio::net::TcpStream;
 use tokio::select;
 use tokio_graceful::Shutdown;
 use tracing::Instrument;
+use types::server::ConnectedClient;
 
 #[global_allocator]
 pub(super) static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
@@ -46,7 +47,7 @@ impl<'a> Server<'a> {
         }
         let shutdown_token = Shutdown::default();
         let write_flag = Arc::new(AtomicBool::new(false));
-        let client_handler = Arc::new(ClientHandler::new());
+        let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
         let mut store_handler = StoreHandler::new(write_flag.clone());
         if let Some(persist_location) = &config.persist_location {
             if let Err(e) = store_handler.load_snapshot(persist_location) {
@@ -98,12 +99,14 @@ impl<'a> Server<'a> {
                     //  - Block new incoming connections on shutdown by no longer accepting and then
                     //  cancelling existing ServerTask or forcing them to run to completion
 
-                    let mut task = self.create_task(stream, server_addr)?;
-                    shutdown_guard.spawn_task_fn(|guard| async move {
-                        if let Err(e) = task.process(guard).instrument(tracing::info_span!("server_task").or_current()).await {
-                            tracing::error!("Error handling connection: {}", e)
-                        };
-                    });
+                    if let Some(connected_client) = self.client_handler.connect(stream.peer_addr()?) {
+                        let mut task = self.create_task(stream, server_addr, connected_client)?;
+                        shutdown_guard.spawn_task_fn(|guard| async move {
+                            if let Err(e) = task.process(guard).instrument(tracing::info_span!("server_task").or_current()).await {
+                                tracing::error!("Error handling connection: {}", e)
+                            };
+                        });
+                    }
                 }
             }
         }
@@ -128,8 +131,12 @@ impl<'a> Server<'a> {
         self.listener.local_addr()
     }
 
-    fn create_task(&self, stream: TcpStream, server_addr: SocketAddr) -> IoResult<ServerTask> {
-        let connected_client = self.client_handler.connect(stream.peer_addr()?);
+    fn create_task(
+        &self,
+        stream: TcpStream,
+        server_addr: SocketAddr,
+        connected_client: ConnectedClient,
+    ) -> IoResult<ServerTask> {
         let reader = BufReader::new(stream);
         // add client to client_handler
         Ok(ServerTask {

@@ -1,3 +1,5 @@
+mod server_test;
+
 use std::collections::HashMap;
 use types::keyval::StoreKey;
 

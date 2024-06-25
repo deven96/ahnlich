@@ -58,7 +58,7 @@ pub struct ServerConfig {
     ///  Maximum client connections allowed
     ///  Defaults to 1000
     #[arg(long, default_value_t = 1000)]
-    pub(crate) maximum_clients: u32,
+    pub(crate) maximum_clients: usize,
 }
 
 impl Default for ServerConfig {
@@ -98,7 +98,7 @@ impl ServerConfig {
         self
     }
 
-    pub fn maximum_clients(mut self, maximum_clients: u32) -> Self {
+    pub fn maximum_clients(mut self, maximum_clients: usize) -> Self {
         self.maximum_clients = maximum_clients;
         self
     }
