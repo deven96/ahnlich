@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use super::SimilarityVector;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;

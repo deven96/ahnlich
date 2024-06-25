@@ -118,6 +118,12 @@ impl ServerResult {
         }
     }
 
+    pub fn from_error(err: String) -> Self {
+        Self {
+            results: vec![Err(err)],
+        }
+    }
+
     pub fn push(&mut self, entry: Result<ServerResponse, String>) {
         self.results.push(entry)
     }

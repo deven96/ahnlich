@@ -128,7 +128,7 @@ fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fixtures::*;
+    use crate::tests::*;
 
     #[test]
     fn test_find_top_3_similar_words_using_cosine_similarity() {
