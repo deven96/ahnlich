@@ -46,7 +46,7 @@ jobs:
         make test
 
     - name: Upload Test Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: rust
@@ -105,7 +105,7 @@ jobs:
         poetry run pytest --junitxml=./python.xml
 
     - name: Upload Test Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: python
@@ -124,13 +124,13 @@ jobs:
 
     steps:
     - name: Download Rust Test Output
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: rust
         path: ./rust
 
     - name: Download Python Test Output
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: python
         path: ./python

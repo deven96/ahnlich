@@ -384,7 +384,7 @@ condition = query.PredicateCondition__AND(
 | Version| Description           |
 | -------|:-------------:|
 | 0.1.0 | Base Python client to connect to ahnlich db. Bincode serialization and deserialization implemented |
-| 0.1.1 |  Add Connection pooling  mechanism for `AhnlichDBClient` |
+| 0.2.0 |  Add Connection pooling  mechanism for `AhnlichDBClient` |
 | |       |
 
 
