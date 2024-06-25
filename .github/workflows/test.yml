@@ -16,7 +16,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  run-rust-tests:
     runs-on: ubuntu-latest
     
     steps:
@@ -45,11 +45,17 @@ jobs:
       run: |
         make test
 
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: rust
+        path: ahnlich/target/nextest/default/rust.xml
+
 
   run-python-tests:
-    if: ${{ always() && needs.build.result == 'success' }}
+    if: always()
     runs-on: ubuntu-latest
-    needs: ["build"]
 
     steps:
     - uses: actions/checkout@v4
@@ -96,7 +102,14 @@ jobs:
           AHNLICH_DB_HOST: "127.0.0.1"
           AHNLICH_DB_PORT: 1349
       run: |
-        poetry run pytest
+        poetry run pytest --junitxml=./python.xml
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: python
+        path: sdk/ahnlich-client-py/python.xml
 
     - name: Stop Ahnlich DB Server
       working-directory: ./ahnlich
@@ -104,3 +117,28 @@ jobs:
         kill $(cat server_pid.txt)
 
 
+  upload-test-results:
+    if: always()
+    runs-on: ubuntu-latest
+    needs: ["run-rust-tests", "run-python-tests"]
+
+    steps:
+    - name: Download Rust Test Output
+      uses: actions/download-artifact@v3
+      with:
+        name: rust
+        path: ./rust
+
+    - name: Download Python Test Output
+      uses: actions/download-artifact@v3
+      with:
+        name: python
+        path: ./python
+
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action/macos@v2
+      if: always()
+      with:
+        files: |
+          rust/*.xml
+          python/*.xml
