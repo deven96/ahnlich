@@ -190,7 +190,7 @@ client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 response = client.drop_store(
     store_name = "test store",
-    error_if_exists=True
+    error_if_not_exists=True
 )
 
 

@@ -7,6 +7,7 @@ readme = "README.md"
 
 packages = [
     { include = "ahnlich_client_py" },
+    { include = "VERSION" }
 ]
 
 [tool.poetry.scripts]
