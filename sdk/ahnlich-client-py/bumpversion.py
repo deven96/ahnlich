@@ -44,7 +44,6 @@ def update_version_in_file(component, new_version):
     )
 
     with open(VERSION_FILE, "w+") as f:
-        print("writing content in version file", VERSION_FILE, new_content, new_version)
         f.write(new_content)
 
 
