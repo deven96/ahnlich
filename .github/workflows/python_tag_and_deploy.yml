@@ -2,13 +2,13 @@ name: Ahnlich Python Client Tag and Deploy
 
 on:
   pull_request:
-    branches: ["*"]
-    # types:
-    #   - closed
+    branches: ["main"]
+    types:
+      - closed
 
 jobs:
   check_version_changes_and_tag:
-    # if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     outputs:
       client_version: ${{ steps.get_version.outputs.CLIENT_VERSION }}
@@ -23,12 +23,11 @@ jobs:
         id: check_version_changes
         working-directory: ./sdk/ahnlich-client-py
         run: |
-          if git diff HEAD^ HEAD --exit-code VERSION MSG_TAG > /dev/null; then
+          if git diff HEAD^ HEAD --exit-code VERSION > /dev/null; then
             echo "No changes in VERSION file."
-            echo "CLIENT_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
+            echo "CLIENT_VERSION_CHANGED=false" >> $GITHUB_OUTPUT
           else
             echo "Changes detected in VERSION file."
-            # turn to false after test
             echo "CLIENT_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
           fi
 
@@ -85,6 +84,6 @@ jobs:
           poetry run change_poetry_version
           echo "${{needs.check_version_changes_and_tag.outputs.tag_version}}" > CLIENT_VERSION
           poetry config pypi-token.test-pypi  ${{ secrets.TEST_PYPI_TOKEN }}
-          # poetry build && poetry publish -r test-pypi
+          poetry build && poetry publish -r test-pypi
 
 
