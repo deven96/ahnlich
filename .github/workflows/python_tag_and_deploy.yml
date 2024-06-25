@@ -23,7 +23,7 @@ jobs:
         id: check_version_changes
         working-directory: ./sdk/ahnlich-client-py
         run: |
-          if git diff HEAD^ HEAD --exit-code VERSION MSG_TAG > /dev/null; then
+          if git diff HEAD^ HEAD --exit-code VERSION > /dev/null; then
             echo "No changes in VERSION file."
             echo "CLIENT_VERSION_CHANGED=false" >> $GITHUB_OUTPUT
           else
