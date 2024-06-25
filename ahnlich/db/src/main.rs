@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 #![allow(clippy::size_of_ref)]
 use clap::Parser;
 use std::error::Error;
@@ -14,7 +13,7 @@ mod server;
 mod storage;
 
 #[cfg(test)]
-mod fixtures;
+mod tests;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
