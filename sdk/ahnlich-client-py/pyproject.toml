@@ -7,7 +7,12 @@ readme = "README.md"
 
 packages = [
     { include = "ahnlich_client_py" },
+    { include = "VERSION" }
 ]
+
+[tool.poetry.scripts]
+bumpversion = "bumpversion:main"
+change_poetry_version = "poetry-versioning:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"
