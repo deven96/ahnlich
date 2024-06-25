@@ -7,7 +7,10 @@ use types::similarity::Similarity;
 use types::{
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
-    server::{ConnectedClient, ServerInfo, ServerResponse, ServerResult, ServerType, StoreInfo, StoreUpsert},
+    server::{
+        ConnectedClient, ServerInfo, ServerResponse, ServerResult, ServerType, StoreInfo,
+        StoreUpsert,
+    },
     version::Version,
 };
 
@@ -104,7 +107,7 @@ pub fn trace_server_response_enum() -> Registry {
         .trace_type::<Result<ServerResponse, String>>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
-    
+
     let _ = tracer
         .trace_type::<ServerResult>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))

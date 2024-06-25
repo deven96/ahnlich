@@ -78,7 +78,7 @@ impl FindSimilarN for Algorithm {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fixtures::*;
+    use crate::tests::*;
 
     #[test]
     fn test_teststore_find_top_3_similar_words_using_find_nearest_n() {

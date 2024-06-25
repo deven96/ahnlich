@@ -18,6 +18,4 @@ pub enum ServerError {
     },
     #[error("Could not deserialize query, error is {0}")]
     QueryDeserializeError(String),
-    #[error("Could not load store snapshot: {0}")]
-    SnapshotLoadError(String),
 }

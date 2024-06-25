@@ -1,4 +1,5 @@
-use db::cli::ServerConfig;
+use crate::cli::ServerConfig;
+use crate::server::handler::Server;
 use futures::future::join_all;
 use ndarray::array;
 use once_cell::sync::Lazy;
@@ -32,6 +33,9 @@ use types::similarity::Similarity;
 
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 
+static CONFIG_WITH_MAX_CLIENTS: Lazy<ServerConfig> =
+    Lazy::new(|| ServerConfig::default().os_select_port().maximum_clients(2));
+
 static PERSISTENCE_FILE: Lazy<PathBuf> =
     Lazy::new(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ahnlich.dat"));
 
@@ -43,8 +47,48 @@ static CONFIG_WITH_PERSISTENCE: Lazy<ServerConfig> = Lazy::new(|| {
 });
 
 #[tokio::test]
+async fn test_maximum_client_restriction_works() {
+    let server = Server::new(&CONFIG_WITH_MAX_CLIENTS)
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    //
+    // Connect to the server multiple times
+    let first_stream = TcpStream::connect(address).await.unwrap();
+    let first_stream_addr = first_stream.local_addr().unwrap();
+    let other_stream = TcpStream::connect(address).await.unwrap();
+    let mut third_stream_fail = TcpStream::connect(address).await.unwrap();
+    // failed stream should return EOF '0' as it was closed by server
+    assert_eq!(
+        third_stream_fail
+            .read(&mut [])
+            .await
+            .expect("Could not read failed stream"),
+        0
+    );
+    let message = ServerQuery::from_queries(&[Query::ListClients]);
+    let expected_response = HashSet::from_iter([
+        ConnectedClient {
+            address: format!("{first_stream_addr}"),
+            time_connected: SystemTime::now(),
+        },
+        ConnectedClient {
+            address: format!("{}", other_stream.local_addr().unwrap()),
+            time_connected: SystemTime::now(),
+        },
+    ]);
+    let mut expected = ServerResult::with_capacity(1);
+    expected.push(Ok(ServerResponse::ClientList(expected_response.clone())));
+    let mut reader = BufReader::new(first_stream);
+    query_server_assert_result(&mut reader, message, expected.clone()).await;
+}
+
+#[tokio::test]
 async fn test_server_client_info() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -85,7 +129,7 @@ async fn test_server_client_info() {
 
 #[tokio::test]
 async fn test_simple_stores_list() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -103,7 +147,7 @@ async fn test_simple_stores_list() {
 
 #[tokio::test]
 async fn test_create_stores() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -151,7 +195,7 @@ async fn test_create_stores() {
 
 #[tokio::test]
 async fn test_del_pred() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -262,7 +306,7 @@ async fn test_del_pred() {
 
 #[tokio::test]
 async fn test_del_key() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -340,7 +384,7 @@ async fn test_del_key() {
 
 #[tokio::test]
 async fn test_server_with_persistence() {
-    let server = db::Server::new(&CONFIG_WITH_PERSISTENCE)
+    let server = Server::new(&CONFIG_WITH_PERSISTENCE)
         .await
         .expect("Could not initialize server");
     let write_flag = server.write_flag();
@@ -420,7 +464,7 @@ async fn test_server_with_persistence() {
     // Allow some time for persistence to kick in
     tokio::time::sleep(Duration::from_millis(200)).await;
     // start another server with existing persistence
-    let server = db::Server::new(&CONFIG_WITH_PERSISTENCE)
+    let server = Server::new(&CONFIG_WITH_PERSISTENCE)
         .await
         .expect("Could not initialize server");
     let write_flag = server.write_flag();
@@ -464,7 +508,7 @@ async fn test_server_with_persistence() {
 
 #[tokio::test]
 async fn test_set_in_store() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -537,7 +581,7 @@ async fn test_set_in_store() {
 
 #[tokio::test]
 async fn test_get_sim_n() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -702,7 +746,7 @@ async fn test_get_sim_n() {
 
 #[tokio::test]
 async fn test_get_pred() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -795,7 +839,7 @@ async fn test_get_pred() {
 
 #[tokio::test]
 async fn test_get_key() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -899,7 +943,7 @@ async fn test_get_key() {
 
 #[tokio::test]
 async fn test_create_index() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -1021,7 +1065,7 @@ async fn test_create_index() {
 
 #[tokio::test]
 async fn test_drop_index() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -1075,7 +1119,7 @@ async fn test_drop_index() {
 
 #[tokio::test]
 async fn test_drop_stores() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
@@ -1125,7 +1169,7 @@ async fn test_drop_stores() {
 
 #[tokio::test]
 async fn test_run_server_echos() {
-    let server = db::Server::new(&CONFIG)
+    let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");

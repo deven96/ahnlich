@@ -1,35 +1,53 @@
-use crate::engine::store::Stores;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::fs::File;
+use std::io::BufReader;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tempfile::NamedTempFile;
+use thiserror::Error;
 use tokio::select;
 use tokio::time::sleep;
 use tokio::time::Duration;
 use tokio_graceful::ShutdownGuard;
 
-pub struct PersistenceTask {
+#[derive(Error, Debug)]
+pub enum PersistenceTaskError {
+    #[error("Error with file {0}")]
+    FileError(#[from] std::io::Error),
+    #[error("SerdeError {0}")]
+    SerdeError(#[from] serde_json::error::Error),
+}
+
+pub struct Persistence<T> {
     write_flag: Arc<AtomicBool>,
     persistence_interval: u64,
     persist_location: std::path::PathBuf,
-    stores: Stores,
+    persist_object: T,
 }
 
-impl PersistenceTask {
-    pub(crate) fn new(
+impl<T: Serialize + DeserializeOwned> Persistence<T> {
+    pub fn load_snapshot(persist_location: &std::path::PathBuf) -> Result<T, PersistenceTaskError> {
+        let file = File::open(persist_location)?;
+        let reader = BufReader::new(file);
+        let loaded: T = serde_json::from_reader(reader)?;
+        Ok(loaded)
+    }
+
+    pub fn task(
         write_flag: Arc<AtomicBool>,
         persistence_interval: u64,
         persist_location: &std::path::PathBuf,
-        stores: Stores,
+        persist_object: T,
     ) -> Self {
         let _ = File::create(persist_location)
             .expect("Persistence enabled but could not open peristence file");
         Self {
             write_flag,
             persistence_interval,
-            stores,
+            persist_object,
             persist_location: persist_location.clone(),
         }
     }
@@ -40,7 +58,7 @@ impl PersistenceTask {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) async fn monitor(&mut self, shutdown_guard: ShutdownGuard) {
+    pub async fn monitor(&mut self, shutdown_guard: ShutdownGuard) {
         loop {
             select! {
                 _  = shutdown_guard.cancelled() => {
@@ -58,7 +76,7 @@ impl PersistenceTask {
                         let temp_path = writer.path();
                         // set write flag to false before writing to it
                         let _ = self.write_flag.compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst);
-                        if let Err(e) = serde_json::to_writer(&writer, &self.stores) {
+                        if let Err(e) = serde_json::to_writer(&writer, &self.persist_object) {
                             tracing::error!("Error writing stores to temp file {e}");
 
                         } else {

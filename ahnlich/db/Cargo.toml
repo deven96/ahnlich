@@ -7,31 +7,21 @@ edition = "2021"
 name = "ahnlich-db"
 path = "src/main.rs"
 
-[lib]
-path = "src/lib.rs"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tempfile = "3.5"
-flurry = { version = "0.5.1", features = ["serde"] }
+flurry.workspace = true
 serde.workspace = true
 blake3.workspace = true
 ndarray.workspace = true
 bincode.workspace = true
 itertools.workspace = true
 clap.workspace = true
-thiserror = "1.0"
+thiserror.workspace = true
+utils = { path = "../utils", version = "*" }
 types = { path = "../types", version = "*" }
-tokio = { version = "1.37.0", features = [
-  "net",
-  "macros",
-  "io-util",
-  "rt-multi-thread",
-  "sync",
-  "signal"
-]}
-tokio-graceful = "0.1.6"
+tokio.workspace = true
+tokio-graceful.workspace = true
 cap = "0.1.2"
 once_cell.workspace = true
 tracing.workspace = true
