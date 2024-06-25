@@ -54,6 +54,11 @@ pub struct ServerConfig {
     ///  Log level
     #[arg(long, default_value_t = String::from("info"))]
     pub(crate) log_level: String,
+
+    ///  Maximum client connections allowed
+    ///  Defaults to 1000
+    #[arg(long, default_value_t = 1000)]
+    pub(crate) maximum_clients: u32,
 }
 
 impl Default for ServerConfig {
@@ -70,6 +75,7 @@ impl Default for ServerConfig {
             enable_tracing: false,
             otel_endpoint: None,
             log_level: String::from("info"),
+            maximum_clients: 1000,
         }
     }
 }
@@ -89,6 +95,11 @@ impl ServerConfig {
     pub fn persistence_interval(mut self, interval: u64) -> Self {
         self.enable_persistence = true;
         self.persistence_interval = interval;
+        self
+    }
+
+    pub fn maximum_clients(mut self, maximum_clients: u32) -> Self {
+        self.maximum_clients = maximum_clients;
         self
     }
 }

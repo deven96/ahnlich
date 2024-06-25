@@ -80,6 +80,7 @@ impl StoreHandler {
         self.stores.clone()
     }
 
+    #[cfg(test)]
     pub fn write_flag(&self) -> Arc<AtomicBool> {
         self.write_flag.clone()
     }

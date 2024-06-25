@@ -1,13 +1,27 @@
+#![allow(dead_code)]
+#![allow(clippy::size_of_ref)]
 use clap::Parser;
-use db::cli::{Cli, Commands};
 use std::error::Error;
+
+mod algorithm;
+pub mod cli;
+mod client;
+mod engine;
+mod errors;
+mod network;
+mod persistence;
+mod server;
+mod storage;
+
+#[cfg(test)]
+mod fixtures;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let cli = Cli::parse();
+    let cli = cli::Cli::parse();
     match &cli.command {
-        Commands::Run(config) => {
-            let server = db::Server::new(config).await?;
+        cli::Commands::Run(config) => {
+            let server = server::handler::Server::new(config).await?;
             server.start().await?;
         }
     }
