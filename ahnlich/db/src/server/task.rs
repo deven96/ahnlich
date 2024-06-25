@@ -1,4 +1,3 @@
-use crate::client::ClientHandler;
 use crate::engine::store::StoreHandler;
 use crate::errors::ServerError;
 use crate::server::handler::ALLOCATOR;
@@ -22,6 +21,7 @@ use types::server::ServerResponse;
 use types::server::ServerResult;
 use types::version::Version;
 use types::version::VERSION;
+use utils::client::ClientHandler;
 
 #[derive(Debug)]
 pub(super) struct ServerTask {

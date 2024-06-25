@@ -4,11 +4,9 @@ use std::error::Error;
 
 mod algorithm;
 pub mod cli;
-mod client;
 mod engine;
 mod errors;
 mod network;
-mod persistence;
 mod server;
 mod storage;
 

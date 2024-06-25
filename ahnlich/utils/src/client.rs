@@ -4,8 +4,10 @@ use std::net::SocketAddr;
 use std::time::SystemTime;
 use types::server::ConnectedClient;
 
+/// Datastructure to keep track of clients that have connected to a server while allowing limiting
+/// the maximum number
 #[derive(Debug)]
-pub(crate) struct ClientHandler {
+pub struct ClientHandler {
     clients: ConcurrentHashSet<ConnectedClient>,
     maximum_clients: usize,
 }

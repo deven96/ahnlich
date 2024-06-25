@@ -62,7 +62,13 @@ async fn test_maximum_client_restriction_works() {
     let other_stream = TcpStream::connect(address).await.unwrap();
     let mut third_stream_fail = TcpStream::connect(address).await.unwrap();
     // failed stream should return EOF '0' as it was closed by server
-    assert_eq!(third_stream_fail.read(&mut []).await.expect("Could not read failed stream"), 0);
+    assert_eq!(
+        third_stream_fail
+            .read(&mut [])
+            .await
+            .expect("Could not read failed stream"),
+        0
+    );
     let message = ServerQuery::from_queries(&[Query::ListClients]);
     let expected_response = HashSet::from_iter([
         ConnectedClient {
