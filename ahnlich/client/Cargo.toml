@@ -1,10 +1,19 @@
 [package]
-name = "client"
-version = "0.1.0"
+name = "ahnlich_client_rs"
+version = "0.1.1"
+authors = ["Diretnan Domnan <diretnandomnan@gmail.com>"]
+categories = ["database-implementations", "database", "web-programming"]
+keywords = ["ahnlich", "in-memory", "artificial-intelligence", "ai"]
 edition = "2021"
+license-file = "LICENSE"
+homepage = "https://github.com/deven96/ahnlich"
+repository = "https://github.com/deven96/ahnlich"
+description = "Client library for accessing in-memory ahnlich vector database and ai-proxy"
+
+[badges]
+maintenance = { status = "actively-developed" }
 
 [lib]
-name = "ahnlich_client_rs"
 crate_type = ["cdylib", "lib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

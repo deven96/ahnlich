@@ -1,0 +1,75 @@
+name: Ahnlich Python Client Tag and Deploy
+
+on:
+  pull_request:
+    branches: ["main"]
+    types:
+      - closed
+
+jobs:
+  check_version_changes_and_tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      client_version: ${{ steps.get_version.outputs.CLIENT_VERSION }}
+      tag_version: ${{ steps.get_version.outputs.TAG_VERSION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes in rust client toml
+        id: check_version_changes
+        working-directory: ./ahnlich/client
+        run: |
+          if git diff -G 'version = ' HEAD^ HEAD --exit-code Cargo.toml > /dev/null; then
+            echo "No version changes in Cargo.toml file."
+            echo "CLIENT_VERSION_CHANGED=false" >> $GITHUB_OUTPUT
+          else
+            echo "Changes detected in Cargo.toml file."
+            echo "CLIENT_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get client version
+        id: get_version
+        working-directory: ./ahnlich/client
+        if: steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
+        run: |
+          CLIENT_VERSION=$(cat Cargo.toml | grep -m 'version = ' | sed 's/version = "\([^"]*\)"/\1/')
+          echo "CLIENT_VERSION=${CLIENT_VERSION}" >> $GITHUB_OUTPUT
+          echo "TAG_VERSION=client/rs/${CLIENT_VERSION}" >> $GITHUB_OUTPUT
+
+
+      - name: Create new tag
+        if: steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
+        working-directory: ./ahnlich/client
+        run: |
+          git config --global user.name '${{github.actor}}'
+          git config --global user.email '${{github.actor}}@users.noreply.github.com'
+          git tag -a "${{ steps.get_version.outputs.TAG_VERSION }}" -m "Releasing Rust client version ${{ steps.get_version.outputs.TAG_VERSION }}"
+          git push origin "${{ steps.get_version.outputs.TAG_VERSION }}"
+          
+
+  deploy_tag:
+    runs-on: ubuntu-latest
+    needs: check_version_changes_and_tag
+    if: ${{ needs.check_version_changes_and_tag.result == 'success' }}
+    steps:
+
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{needs.check_version_changes_and_tag.outputs.tag_version}}
+
+      - name: Get publish action
+        uses: actions-rs/toolchain@v1
+
+      - name: Deploy using tag
+        working-directory: ./ahnlich/client
+        uses: katyo/publish-crates@v2
+        with:
+          registry-token: ${{ secrets.CARGO_TOKEN }}
+          dry-run: true
+
+

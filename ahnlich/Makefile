@@ -7,6 +7,7 @@
 # Define paths to the project files
 RUST_PROJECT_DIR := ../ahnlich
 RUST_TYPES_NAME := types
+RUST_CLIENT_NAME := client
 PYTHON_PROJECT_DIR := ../sdk/ahnlich-client-py
 CARGO_TOML := $(RUST_PROJECT_DIR)/Cargo.toml
 PYPOETRY_TOML := $(PYTHON_PROJECT_DIR)/pyproject.toml
@@ -42,14 +43,18 @@ bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, m
 	@cd $(PYTHON_PROJECT_DIR) && poetry run bumpversion --component Protocol --bump-type $(BUMP_RULE)
 	@echo "Python project version bumped using rule $(BUMP_RULE)"
 
-bump-python-version: ## Bump python client versions. Rules for bump-python-version: patch, minor, major.
+bump-py-client: ## Bump python client versions. Rules for bump-py-client: patch, minor, major.
 	@echo "Bumping Python client version with rule $(BUMP_RULE)"
 	@cd $(PYTHON_PROJECT_DIR) && poetry run bumpversion --component Client --bump-type $(BUMP_RULE)
 	@echo "Python client version bumped using rule $(BUMP_RULE)"
 
+bump-rs-client: ## Bump python client versions. Rules for bump-rs-client: patch, minor, major.
+	@echo "Bumping Rust client version with rule $(BUMP_RULE)"
+	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(RUST_CLIENT_NAME)
+	@echo "Rust client version bumped to $(BUMP_RULE)"
 
 
-all: format check test clippy bumpversion bump-python-version ## format, clip, test code, and bumpversions
+all: format check test clippy bumpversion bump-py-client bump-rs-client ## format, clip, test code, and bumpversions
 
 # --------------Configuration-------------
 #
