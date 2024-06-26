@@ -330,8 +330,10 @@ mod tests {
     use super::*;
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
+    use ndarray::array;
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_eq;
+    use std::collections::HashMap;
     use tokio::time::Duration;
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
@@ -440,5 +442,176 @@ mod tests {
         ]))));
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
+    }
+
+    #[tokio::test]
+    async fn test_del_key() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+        let _ = tokio::spawn(async move { server.start().await });
+        // Allow some time for the server to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let host = address.ip();
+        let port = address.port();
+        let db_client = DbClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        assert!(db_client
+            .del_key(StoreName("Main".to_string()), vec![],)
+            .await
+            .is_err());
+        assert!(db_client
+            .create_store(
+                StoreName("Main".to_string()),
+                NonZeroUsize::new(4).unwrap(),
+                HashSet::from_iter([MetadataKey::new("role".into())]),
+                true,
+            )
+            .await
+            .is_ok());
+        assert_eq!(
+            db_client
+                .del_key(
+                    StoreName("Main".to_string()),
+                    vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+                )
+                .await
+                .unwrap(),
+            ServerResponse::Del(0)
+        );
+        assert!(db_client
+            .set(
+                StoreName("Main".to_string()),
+                vec![
+                    (StoreKey(array![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
+                    (StoreKey(array![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
+                ],
+            )
+            .await
+            .is_ok());
+        assert_eq!(
+            db_client.list_stores().await.unwrap(),
+            ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
+                name: StoreName("Main".to_string()),
+                len: 2,
+                size_in_bytes: 1880,
+            },]))
+        );
+        // error as different dimensions
+        assert!(db_client
+            .del_key(
+                StoreName("Main".to_string()),
+                vec![StoreKey(array![1.0, 1.2])],
+            )
+            .await
+            .is_err());
+        assert_eq!(
+            db_client
+                .del_key(
+                    StoreName("Main".to_string()),
+                    vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+                )
+                .await
+                .unwrap(),
+            ServerResponse::Del(1)
+        );
+        assert_eq!(
+            db_client.list_stores().await.unwrap(),
+            ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
+                name: StoreName("Main".to_string()),
+                len: 1,
+                size_in_bytes: 1808,
+            },]))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_sim_n() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+        let _ = tokio::spawn(async move { server.start().await });
+        // Allow some time for the server to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let host = address.ip();
+        let port = address.port();
+        let db_client = DbClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        assert!(db_client
+            .create_store(
+                StoreName("Main".to_string()),
+                NonZeroUsize::new(3).unwrap(),
+                HashSet::from_iter([MetadataKey::new("medal".into())]),
+                true,
+            )
+            .await
+            .is_ok());
+        assert!(db_client
+            .set(
+                StoreName("Main".to_string()),
+                vec![
+                    (
+                        StoreKey(array![1.2, 1.3, 1.4]),
+                        HashMap::from_iter([(
+                            MetadataKey::new("medal".into()),
+                            MetadataValue::new("silver".into()),
+                        )]),
+                    ),
+                    (
+                        StoreKey(array![2.0, 2.1, 2.2]),
+                        HashMap::from_iter([(
+                            MetadataKey::new("medal".into()),
+                            MetadataValue::new("gold".into()),
+                        )]),
+                    ),
+                    (
+                        StoreKey(array![5.0, 5.1, 5.2]),
+                        HashMap::from_iter([(
+                            MetadataKey::new("medal".into()),
+                            MetadataValue::new("bronze".into()),
+                        )]),
+                    ),
+                ],
+            )
+            .await
+            .is_ok());
+        // error due to dimension mismatch
+        assert!(db_client
+            .get_sim_n(
+                StoreName("Main".to_string()),
+                StoreKey(array![1.1, 2.0]),
+                NonZeroUsize::new(2).unwrap(),
+                Algorithm::EuclideanDistance,
+                None,
+            )
+            .await
+            .is_err());
+        assert_eq!(
+            db_client
+                .get_sim_n(
+                    StoreName("Main".to_string()),
+                    StoreKey(array![5.0, 2.1, 2.2]),
+                    NonZeroUsize::new(2).unwrap(),
+                    Algorithm::CosineSimilarity,
+                    Some(PredicateCondition::Value(Predicate::Equals {
+                        key: MetadataKey::new("medal".into()),
+                        value: MetadataValue::new("gold".into()),
+                    })),
+                )
+                .await
+                .unwrap(),
+            ServerResponse::GetSimN(vec![(
+                StoreKey(array![2.0, 2.1, 2.2]),
+                HashMap::from_iter([(
+                    MetadataKey::new("medal".into()),
+                    MetadataValue::new("gold".into()),
+                )]),
+                Similarity(0.9036338825194858),
+            )])
+        );
     }
 }

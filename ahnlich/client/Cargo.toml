@@ -30,3 +30,4 @@ deadpool = { version = "0.10", features = ["rt_tokio_1"]}
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true
+ndarray.workspace = true
