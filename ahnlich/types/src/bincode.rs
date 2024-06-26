@@ -1,7 +1,7 @@
 use crate::version::VERSION;
 use bincode::config::DefaultOptions;
 use bincode::config::Options;
-use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 pub const MAGIC_BYTES: &[u8] = b"AHNLICH;";
@@ -9,6 +9,8 @@ pub const MAGIC_BYTES: &[u8] = b"AHNLICH;";
 /// which is 8-16-16 bits or 5 bytes
 pub const VERSION_LENGTH: usize = 5;
 pub const LENGTH_HEADER_SIZE: usize = 8;
+/// corresponds to the entire header length
+pub const RESPONSE_HEADER_LEN: usize = MAGIC_BYTES.len() + VERSION_LENGTH + LENGTH_HEADER_SIZE;
 
 /// - Length encoding must use fixed int and not var int
 /// - Endianess must be Little Endian.
@@ -19,9 +21,9 @@ pub const LENGTH_HEADER_SIZE: usize = 8;
 /// - Final N bytes contain the vec of response or queries
 ///
 /// Used to serialize and deserialize queries and responses into bincode
-pub trait BinCodeSerAndDeser<'a>
+pub trait BinCodeSerAndDeser
 where
-    Self: Serialize + Deserialize<'a>,
+    Self: Serialize + DeserializeOwned,
 {
     fn serialize(&self) -> Result<Vec<u8>, bincode::Error> {
         let config = DefaultOptions::new()
@@ -41,7 +43,7 @@ where
         Ok(buffer)
     }
 
-    fn deserialize(bytes: &'a [u8]) -> Result<Self, bincode::Error> {
+    fn deserialize(bytes: &[u8]) -> Result<Self, bincode::Error> {
         let config = DefaultOptions::new()
             .with_fixint_encoding()
             .with_little_endian();

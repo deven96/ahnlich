@@ -96,4 +96,4 @@ impl ServerQuery {
     }
 }
 
-impl BinCodeSerAndDeser<'_> for ServerQuery {}
+impl BinCodeSerAndDeser for ServerQuery {}

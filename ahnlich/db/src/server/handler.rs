@@ -21,7 +21,7 @@ use utils::persistence::Persistence;
 #[global_allocator]
 pub(super) static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
 
-pub(crate) struct Server<'a> {
+pub struct Server<'a> {
     listener: TcpListener,
     shutdown_token: Shutdown,
     store_handler: Arc<StoreHandler>,
@@ -30,8 +30,11 @@ pub(crate) struct Server<'a> {
 }
 
 impl<'a> Server<'a> {
-    /// initializes a server using server configuration
-    pub async fn new(config: &'a ServerConfig) -> IoResult<Self> {
+    /// creates a server while injecting a shutdown_token
+    pub async fn new_with_shutdown(
+        config: &'a ServerConfig,
+        shutdown_token: Shutdown,
+    ) -> IoResult<Self> {
         ALLOCATOR
             .set_limit(config.allocator_size)
             .expect("Could not set up server with allocator_size");
@@ -45,7 +48,6 @@ impl<'a> Server<'a> {
                 .unwrap_or("http://127.0.0.1:4317".to_string());
             tracer::init_tracing("ahnlich-db", Some(&config.log_level), &otel_url)
         }
-        let shutdown_token = Shutdown::default();
         let write_flag = Arc::new(AtomicBool::new(false));
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
         let mut store_handler = StoreHandler::new(write_flag.clone());
@@ -75,6 +77,11 @@ impl<'a> Server<'a> {
             client_handler,
             config,
         })
+    }
+    /// initializes a server using server configuration
+    pub async fn new(config: &'a ServerConfig) -> IoResult<Self> {
+        let shutdown_token = Shutdown::default();
+        Self::new_with_shutdown(config, shutdown_token).await
     }
 
     #[cfg(test)]

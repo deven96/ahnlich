@@ -1223,9 +1223,7 @@ async fn query_server_assert_result(
     reader.write_all(&serialized_message).await.unwrap();
 
     // get length of response header
-    let mut header = [0u8; types::bincode::MAGIC_BYTES.len()
-        + types::bincode::VERSION_LENGTH
-        + types::bincode::LENGTH_HEADER_SIZE];
+    let mut header = [0u8; types::bincode::RESPONSE_HEADER_LEN];
     timeout(Duration::from_secs(1), reader.read_exact(&mut header))
         .await
         .unwrap()
