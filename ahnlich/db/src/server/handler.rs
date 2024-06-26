@@ -12,7 +12,6 @@ use tokio::io::BufReader;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::select;
-use tokio::task::JoinHandle;
 use tokio_graceful::Shutdown;
 use tracing::Instrument;
 use types::server::ConnectedClient;

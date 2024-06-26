@@ -34,6 +34,29 @@
 //! pipeline.list_stores();
 //! let results = pipeline.exec().await.unwrap();
 //! ```
+//!
+//! ## Lib Types
+//!
+//! Necessary library types to pass into client methods can be found from prelude
+//!
+//! ```rust
+//! use ahnlich_client_rs::db::DbClient;
+//! use ahnlich_client_rs::prelude::*;
+//! use std::num::NonZeroUsize;
+//! use std::collections::HashSet;
+//!
+//! let db_client = DbClient::new("127.0.0.1".into(), 1369).await;
+//! let mut pipeline = db_client.pipeline(1).unwrap();
+//! pipeline.create_store(
+//!     // StoreName found in prelude
+//!     StoreName("Main".to_string()),
+//!     NonZeroUsize::new(3).unwap(),
+//!     HashSet::new(),
+//!     true,
+//! );
+//! let results = pipeline.exec().await.unwrap();
+//! ```
 pub mod conn;
 pub mod db;
 pub mod error;
+pub mod prelude;

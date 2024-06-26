@@ -1,13 +1,14 @@
 use crate::conn::Conn;
 use crate::error::AhnlichError;
+use crate::prelude::*;
 use deadpool::managed::Manager;
 use deadpool::managed::Metrics;
 use deadpool::managed::Object;
 use deadpool::managed::Pool;
 use deadpool::managed::RecycleError;
 use deadpool::managed::RecycleResult;
-pub use types::query::*;
-pub use types::server::*;
+use std::collections::HashSet;
+use std::num::NonZeroUsize;
 
 /// TCP Connection manager to ahnlich db
 #[derive(Debug)]
@@ -44,6 +45,91 @@ pub struct DbPipeline {
 }
 
 impl DbPipeline {
+    /// push create store command to pipeline
+    pub fn create_store(
+        &mut self,
+        store: StoreName,
+        dimension: NonZeroUsize,
+        create_predicates: HashSet<MetadataKey>,
+        error_if_exists: bool,
+    ) {
+        self.queries.push(Query::CreateStore {
+            store,
+            dimension,
+            create_predicates,
+            error_if_exists,
+        })
+    }
+
+    /// push get key command to pipeline
+    pub async fn get_key(&mut self, store: StoreName, keys: Vec<StoreKey>) {
+        self.queries.push(Query::GetKey { store, keys })
+    }
+
+    /// push get pred command to pipeline
+    pub async fn get_pred(&mut self, store: StoreName, condition: PredicateCondition) {
+        self.queries.push(Query::GetPred { store, condition })
+    }
+
+    /// push get sim n command to pipeline
+    pub async fn get_sim_n(
+        &mut self,
+        store: StoreName,
+        search_input: StoreKey,
+        closest_n: NonZeroUsize,
+        algorithm: Algorithm,
+        condition: Option<PredicateCondition>,
+    ) {
+        self.queries.push(Query::GetSimN {
+            store,
+            search_input,
+            closest_n,
+            algorithm,
+            condition,
+        })
+    }
+
+    /// push create index command to pipeline
+    pub async fn create_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
+        self.queries.push(Query::CreateIndex { store, predicates })
+    }
+
+    /// push drop index command to pipeline
+    pub async fn drop_index(
+        &mut self,
+        store: StoreName,
+        predicates: HashSet<MetadataKey>,
+        error_if_not_exists: bool,
+    ) {
+        self.queries.push(Query::DropIndex {
+            store,
+            predicates,
+            error_if_not_exists,
+        })
+    }
+
+    /// push set command to pipeline
+    pub async fn set(&mut self, store: StoreName, inputs: Vec<(StoreKey, StoreValue)>) {
+        self.queries.push(Query::Set { store, inputs })
+    }
+
+    /// push del key command to pipeline
+    pub async fn del_key(&mut self, store: StoreName, keys: Vec<StoreKey>) {
+        self.queries.push(Query::DelKey { store, keys })
+    }
+
+    /// push del pred command to pipeline
+    pub async fn del_pred(&mut self, store: StoreName, condition: PredicateCondition) {
+        self.queries.push(Query::DelPred { store, condition })
+    }
+
+    /// push drop store command to pipeline
+    pub async fn drop_store(&mut self, store: StoreName, error_if_not_exists: bool) {
+        self.queries.push(Query::DropStore {
+            store,
+            error_if_not_exists,
+        })
+    }
     /// push ping command to pipeline
     pub fn ping(&mut self) {
         self.queries.push(Query::Ping)
@@ -92,11 +178,121 @@ impl DbClient {
         Self { pool }
     }
 
+    /// Instantiate a new pipeline of a given capacity for which commands would be run sequentially
+    /// on `pipeline.exec`
     pub async fn pipeline(&self, capacity: usize) -> Result<DbPipeline, AhnlichError> {
         Ok(DbPipeline {
             queries: ServerQuery::with_capacity(capacity),
             conn: self.pool.get().await?,
         })
+    }
+
+    pub async fn create_store(
+        &self,
+        store: StoreName,
+        dimension: NonZeroUsize,
+        create_predicates: HashSet<MetadataKey>,
+        error_if_exists: bool,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(Query::CreateStore {
+            store,
+            dimension,
+            create_predicates,
+            error_if_exists,
+        })
+        .await
+    }
+
+    pub async fn get_key(
+        &self,
+        store: StoreName,
+        keys: Vec<StoreKey>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(Query::GetKey { store, keys }).await
+    }
+
+    pub async fn get_pred(
+        &self,
+        store: StoreName,
+        condition: PredicateCondition,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(Query::GetPred { store, condition }).await
+    }
+
+    pub async fn get_sim_n(
+        &self,
+        store: StoreName,
+        search_input: StoreKey,
+        closest_n: NonZeroUsize,
+        algorithm: Algorithm,
+        condition: Option<PredicateCondition>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(Query::GetSimN {
+            store,
+            search_input,
+            closest_n,
+            algorithm,
+            condition,
+        })
+        .await
+    }
+
+    pub async fn create_index(
+        &self,
+        store: StoreName,
+        predicates: HashSet<MetadataKey>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(Query::CreateIndex { store, predicates }).await
+    }
+
+    pub async fn drop_index(
+        &self,
+        store: StoreName,
+        predicates: HashSet<MetadataKey>,
+        error_if_not_exists: bool,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(Query::DropIndex {
+            store,
+            predicates,
+            error_if_not_exists,
+        })
+        .await
+    }
+
+    pub async fn set(
+        &self,
+        store: StoreName,
+        inputs: Vec<(StoreKey, StoreValue)>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(Query::Set { store, inputs }).await
+    }
+
+    pub async fn del_key(
+        &self,
+        store: StoreName,
+        keys: Vec<StoreKey>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(Query::DelKey { store, keys }).await
+    }
+
+    pub async fn del_pred(
+        &self,
+        store: StoreName,
+        condition: PredicateCondition,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(Query::DelPred { store, condition }).await
+    }
+
+    pub async fn drop_store(
+        &self,
+        store: StoreName,
+        error_if_not_exists: bool,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(Query::DropStore {
+            store,
+            error_if_not_exists,
+        })
+        .await
     }
 
     pub async fn ping(&self) -> Result<ServerResponse, AhnlichError> {
@@ -136,7 +332,6 @@ mod tests {
     use ahnlich_db::server::handler::Server;
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_eq;
-    use std::collections::HashSet;
     use tokio::time::Duration;
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
@@ -178,34 +373,72 @@ mod tests {
             .expect("Could not create pipeline");
         pipeline.list_stores();
         pipeline.ping();
-        let res = pipeline.exec().await.expect("Could not execute pipeline");
         let mut expected = ServerResult::with_capacity(2);
         expected.push(Ok(ServerResponse::StoreList(HashSet::new())));
         expected.push(Ok(ServerResponse::Pong));
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
     }
 
     #[tokio::test]
-    async fn test_pool_fails_if_server_not_exist() {
+    async fn test_pool_commands_fail_if_server_not_exist() {
         let host = "127.0.0.1";
         let port = 1234;
         let db_client = DbClient::new(host.to_string(), port)
             .await
             .expect("Could not initialize client");
         assert!(db_client.ping().await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_stores_with_pipeline() {
         let server = Server::new(&CONFIG)
             .await
             .expect("Could not initialize server");
         let address = server.local_addr().expect("Could not get local addr");
-        let host = address.ip();
-        let port = address.port();
-        tokio::spawn(async { server.start().await });
+        let _ = tokio::spawn(async move { server.start().await });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
+        let host = address.ip();
+        let port = address.port();
         let db_client = DbClient::new(host.to_string(), port)
             .await
             .expect("Could not initialize client");
-        let res = db_client.ping().await.expect("timeout");
-        assert_eq!(res, ServerResponse::Pong);
+        let mut pipeline = db_client
+            .pipeline(4)
+            .await
+            .expect("Could not create pipeline");
+        pipeline.create_store(
+            StoreName("Main".to_string()),
+            NonZeroUsize::new(3).unwrap(),
+            HashSet::new(),
+            true,
+        );
+        pipeline.create_store(
+            StoreName("Main".to_string()),
+            NonZeroUsize::new(2).unwrap(),
+            HashSet::new(),
+            true,
+        );
+        pipeline.create_store(
+            StoreName("Main".to_string()),
+            NonZeroUsize::new(2).unwrap(),
+            HashSet::new(),
+            false,
+        );
+        pipeline.list_stores();
+        let mut expected = ServerResult::with_capacity(4);
+        expected.push(Ok(ServerResponse::Unit));
+        expected.push(Err("Store Main already exists".to_string()));
+        expected.push(Ok(ServerResponse::Unit));
+        expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+            StoreInfo {
+                name: StoreName("Main".to_string()),
+                len: 0,
+                size_in_bytes: 1712,
+            },
+        ]))));
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res, expected);
     }
 }
