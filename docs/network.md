@@ -8,4 +8,4 @@
 - Server errors must also be Serializable, Deserializable. This is because they have to also be sent across the wire incase the client makes a request that results in a server error
 - Server must be able to give a report of all network clients connected at any given time.
 - Messages can be sent across the wire using BinCode/MessagePack as both are supported by serde and all datastructuresused in the messages e.g ndarray, are serde compatible.
-- Clients must be able to connect to server and then subsequently use to issue every possible Query. Subsequently we can look into using r2d2 to enable connection pooling to hold on to a pool of connections to the ahnlich server. We can also look into sending a batch of commands all at once (pipelining) rather than one at a time.
+- Clients must be able to connect to server and then subsequently use to issue every possible Query. Subsequently we can look into using r2d2/deadpool to enable connection pooling to hold on to a pool of connections to the ahnlich server. We can also look into sending a batch of commands all at once (pipelining) rather than one at a time.

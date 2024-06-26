@@ -10,6 +10,18 @@ pub enum AhnlichError {
     DbError(String),
     #[error("empty response")]
     EmptyResponse,
-    #[error("r2d2 pool error")]
-    PoolError(#[from] r2d2::Error),
+    #[error("deadpool error {0}")]
+    PoolError(String),
+}
+
+impl<E: std::fmt::Debug> From<deadpool::managed::PoolError<E>> for AhnlichError {
+    fn from(input: deadpool::managed::PoolError<E>) -> Self {
+        Self::PoolError(format!("{input:?}"))
+    }
+}
+
+impl From<deadpool::managed::BuildError> for AhnlichError {
+    fn from(input: deadpool::managed::BuildError) -> Self {
+        Self::PoolError(format!("{input}"))
+    }
 }

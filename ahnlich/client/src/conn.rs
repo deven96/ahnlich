@@ -1,7 +1,6 @@
 use crate::error::AhnlichError;
-use std::io::Read;
-use std::io::Write;
-use std::net::TcpStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 use types::bincode::BinCodeSerAndDeser;
 use types::query::Query;
 use types::query::ServerQuery;
@@ -15,19 +14,16 @@ pub struct Conn {
 }
 
 impl Conn {
-    pub(crate) fn new(host: &str, port: u16) -> Result<Self, AhnlichError> {
-        let stream = TcpStream::connect(format!("{host}:{port}"))?;
+    pub(crate) async fn new(host: &str, port: u16) -> Result<Self, AhnlichError> {
+        println!("Creating pool with {host}:{port}");
+        let stream = TcpStream::connect(format!("{host}:{port}")).await?;
         Ok(Self { stream })
     }
 
-    pub(crate) fn is_db_conn_broken(&mut self) -> bool {
-        self.is_db_conn_valid().is_err()
-    }
-
-    pub(crate) fn is_db_conn_valid(&mut self) -> Result<(), AhnlichError> {
+    pub(crate) async fn is_db_conn_valid(&mut self) -> Result<(), AhnlichError> {
         let mut queries = ServerQuery::with_capacity(1);
         queries.push(Query::Ping);
-        let response = self.send_db_query(queries)?;
+        let response = self.send_db_query(queries).await?;
         let mut expected_response = ServerResult::with_capacity(1);
         expected_response.push(Ok(ServerResponse::Pong));
         if response != expected_response {
@@ -36,26 +32,26 @@ impl Conn {
         Ok(())
     }
 
-    pub(crate) fn send_db_query(
+    pub(crate) async fn send_db_query(
         &mut self,
         query: ServerQuery,
     ) -> Result<ServerResult, AhnlichError> {
         let serialized_message = query.serialize()?;
-        self.stream.write_all(&serialized_message)?;
-        let response: ServerResult = self.deserialize_from_stream()?;
+        self.stream.write_all(&serialized_message).await?;
+        let response: ServerResult = self.deserialize_from_stream().await?;
         Ok(response)
     }
 
-    pub(crate) fn deserialize_from_stream<T: BinCodeSerAndDeser>(
+    pub(crate) async fn deserialize_from_stream<T: BinCodeSerAndDeser>(
         &mut self,
     ) -> Result<T, AhnlichError> {
         let mut header = [0u8; types::bincode::RESPONSE_HEADER_LEN];
-        self.stream.read_exact(&mut header)?;
+        self.stream.read_exact(&mut header).await?;
         let mut length_header = [0u8; types::bincode::LENGTH_HEADER_SIZE];
         length_header.copy_from_slice(&header[13..=20]);
         let data_length = u64::from_le_bytes(length_header);
         let mut response = vec![0u8; data_length as usize];
-        self.stream.read_exact(&mut response)?;
+        self.stream.read_exact(&mut response).await?;
         let response = <T as BinCodeSerAndDeser>::deserialize(&response)?;
         Ok(response)
     }

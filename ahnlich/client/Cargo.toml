@@ -12,6 +12,12 @@ crate_type = ["cdylib", "lib"]
 [dependencies]
 types = { path = "../types", version = "*" }
 thiserror.workspace = true
-tokio.workspace = true
+once_cell.workspace = true
 bincode.workspace = true
-r2d2 = "0.8.10"
+async-trait.workspace = true
+tokio.workspace = true
+deadpool = { version = "0.10", features = ["rt_tokio_1"]}
+
+[dev-dependencies]
+db = { path = "../db", version = "*" }
+pretty_assertions.workspace = true
