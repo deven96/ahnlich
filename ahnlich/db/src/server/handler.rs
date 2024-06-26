@@ -21,7 +21,7 @@ use utils::persistence::Persistence;
 #[global_allocator]
 pub(super) static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
 
-pub(crate) struct Server<'a> {
+pub struct Server<'a> {
     listener: TcpListener,
     shutdown_token: Shutdown,
     store_handler: Arc<StoreHandler>,

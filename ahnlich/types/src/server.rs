@@ -109,13 +109,17 @@ pub struct ServerResult {
     results: Vec<Result<ServerResponse, String>>,
 }
 
-impl BinCodeSerAndDeser<'_> for ServerResult {}
+impl BinCodeSerAndDeser for ServerResult {}
 
 impl ServerResult {
     pub fn with_capacity(len: usize) -> Self {
         Self {
             results: Vec::with_capacity(len),
         }
+    }
+
+    pub fn pop(mut self) -> Option<Result<ServerResponse, String>> {
+        self.results.pop()
     }
 
     pub fn from_error(err: String) -> Self {
