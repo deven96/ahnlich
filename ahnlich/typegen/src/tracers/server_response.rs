@@ -1,10 +1,5 @@
-use serde_reflection::Registry;
-use serde_reflection::{Samples, Tracer, TracerConfig};
-use std::collections::HashMap as StdHashMap;
-use std::collections::HashSet;
-use std::time::SystemTime;
-use types::similarity::Similarity;
-use types::{
+use ahnlich_types::similarity::Similarity;
+use ahnlich_types::{
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
     server::{
@@ -13,6 +8,11 @@ use types::{
     },
     version::Version,
 };
+use serde_reflection::Registry;
+use serde_reflection::{Samples, Tracer, TracerConfig};
+use std::collections::HashMap as StdHashMap;
+use std::collections::HashSet;
+use std::time::SystemTime;
 
 pub fn trace_server_response_enum() -> Registry {
     let mut tracer = Tracer::new(TracerConfig::default());

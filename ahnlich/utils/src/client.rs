@@ -1,8 +1,8 @@
+use ahnlich_types::server::ConnectedClient;
 use flurry::HashSet as ConcurrentHashSet;
 use std::collections::HashSet as StdHashSet;
 use std::net::SocketAddr;
 use std::time::SystemTime;
-use types::server::ConnectedClient;
 
 /// Datastructure to keep track of clients that have connected to a server while allowing limiting
 /// the maximum number

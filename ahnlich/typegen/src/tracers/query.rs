@@ -1,16 +1,16 @@
+use ahnlich_types::predicate::Predicate;
+use ahnlich_types::predicate::PredicateCondition;
+use ahnlich_types::similarity::Algorithm;
+use ahnlich_types::{
+    keyval::{StoreKey, StoreName},
+    metadata::{MetadataKey, MetadataValue},
+    query::{Query, ServerQuery},
+};
 use serde_reflection::Registry;
 use serde_reflection::{Samples, Tracer, TracerConfig};
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
-use types::predicate::Predicate;
-use types::predicate::PredicateCondition;
-use types::similarity::Algorithm;
-use types::{
-    keyval::{StoreKey, StoreName},
-    metadata::{MetadataKey, MetadataValue},
-    query::{Query, ServerQuery},
-};
 
 pub fn trace_query_enum() -> Registry {
     let input_arr_1 = ndarray::array![0.1, 0.2, 0.3, 0.4, 0.5];
@@ -48,7 +48,7 @@ pub fn trace_query_enum() -> Registry {
         store: sample_store_name.clone(),
         search_input: store_key.clone(),
         closest_n: NonZeroUsize::new(2).unwrap(),
-        algorithm: types::similarity::Algorithm::CosineSimilarity,
+        algorithm: ahnlich_types::similarity::Algorithm::CosineSimilarity,
         condition: Some(test_predicate_condition.clone()),
     };
 

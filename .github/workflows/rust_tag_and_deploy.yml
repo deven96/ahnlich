@@ -1,14 +1,16 @@
 name: Ahnlich Rust Client Tag and Deploy
 
 on:
-  pull_request:
+  push:
     branches: ["main"]
-    types:
-      - closed
+#  pull_request:
+#    branches: ["main"]
+#    types:
+#      - closed
 
 jobs:
   check_version_changes_and_tag:
-    if: github.event.pull_request.merged == true
+#    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     outputs:
       client_version: ${{ steps.get_version.outputs.CLIENT_VERSION }}
@@ -36,7 +38,7 @@ jobs:
         working-directory: ./ahnlich/client
         if: steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
         run: |
-          CLIENT_VERSION=$(cat Cargo.toml | grep -m 'version = ' | sed 's/version = "\([^"]*\)"/\1/')
+          CLIENT_VERSION=$(cat Cargo.toml | grep -m1 'version = ' | sed 's/version = "\([^"]*\)"/\1/')
           echo "CLIENT_VERSION=${CLIENT_VERSION}" >> $GITHUB_OUTPUT
           echo "TAG_VERSION=client/rs/${CLIENT_VERSION}" >> $GITHUB_OUTPUT
 
@@ -62,14 +64,13 @@ jobs:
         with:
           ref: ${{needs.check_version_changes_and_tag.outputs.tag_version}}
 
-      - name: Get publish action
+      - name: Get Cargo toolchain
         uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.78.0
 
       - name: Deploy using tag
-        working-directory: ./ahnlich/client
-        uses: katyo/publish-crates@v2
-        with:
-          registry-token: ${{ secrets.CARGO_TOKEN }}
-          dry-run: true
-
-
+        working-directory: ./ahnlich
+        run: |
+          cargo publish -p ahnlich_types --dry-run --token '${{secrets.CARGO_TOKEN}}'
+          cargo publish -p ahnlich_client_rs --dry-run --token '${{secrets.CARGO_TOKEN}}'

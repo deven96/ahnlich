@@ -3,8 +3,8 @@ mod similarity;
 
 use std::num::NonZeroUsize;
 
-use types::keyval::StoreKey;
-use types::similarity::Algorithm;
+use ahnlich_types::keyval::StoreKey;
+use ahnlich_types::similarity::Algorithm;
 
 use self::{heap::AlgorithmHeapType, similarity::SimilarityFunc};
 

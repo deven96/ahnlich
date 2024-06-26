@@ -1,6 +1,18 @@
 use crate::engine::store::StoreHandler;
 use crate::errors::ServerError;
 use crate::server::handler::ALLOCATOR;
+use ahnlich_types::bincode::BinCodeSerAndDeser;
+use ahnlich_types::bincode::LENGTH_HEADER_SIZE;
+use ahnlich_types::bincode::MAGIC_BYTES;
+use ahnlich_types::bincode::VERSION_LENGTH;
+use ahnlich_types::query::Query;
+use ahnlich_types::query::ServerQuery;
+use ahnlich_types::server::ConnectedClient;
+use ahnlich_types::server::ServerInfo;
+use ahnlich_types::server::ServerResponse;
+use ahnlich_types::server::ServerResult;
+use ahnlich_types::version::Version;
+use ahnlich_types::version::VERSION;
 use std::io::Error;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
@@ -9,18 +21,6 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::select;
 use tokio_graceful::ShutdownGuard;
-use types::bincode::BinCodeSerAndDeser;
-use types::bincode::LENGTH_HEADER_SIZE;
-use types::bincode::MAGIC_BYTES;
-use types::bincode::VERSION_LENGTH;
-use types::query::Query;
-use types::query::ServerQuery;
-use types::server::ConnectedClient;
-use types::server::ServerInfo;
-use types::server::ServerResponse;
-use types::server::ServerResult;
-use types::version::Version;
-use types::version::VERSION;
 use utils::client::ClientHandler;
 
 #[derive(Debug)]
@@ -205,7 +205,7 @@ impl ServerTask {
         ServerInfo {
             address: format!("{}", self.server_addr),
             version: *VERSION,
-            r#type: types::server::ServerType::Database,
+            r#type: ahnlich_types::server::ServerType::Database,
             limit: ALLOCATOR.limit(),
             remaining: ALLOCATOR.remaining(),
         }

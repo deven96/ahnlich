@@ -1,5 +1,5 @@
+use ahnlich_types::{keyval::StoreKey, similarity::Algorithm};
 use std::ops::Deref;
-use types::{keyval::StoreKey, similarity::Algorithm};
 
 type SimFuncSig = fn(&StoreKey, &StoreKey) -> f32;
 

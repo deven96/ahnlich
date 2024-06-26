@@ -1,6 +1,6 @@
+use ahnlich_types::keyval::StoreName;
+use ahnlich_types::metadata::MetadataKey;
 use thiserror::Error;
-use types::keyval::StoreName;
-use types::metadata::MetadataKey;
 
 /// TODO: Move to shared rust types so library can deserialize it from the TCP response
 #[derive(Error, Debug, Eq, PartialEq, PartialOrd, Ord)]

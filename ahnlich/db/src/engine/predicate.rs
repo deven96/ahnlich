@@ -1,5 +1,10 @@
 use super::super::errors::ServerError;
 use super::store::StoreKeyId;
+use ahnlich_types::keyval::StoreValue;
+use ahnlich_types::metadata::MetadataKey;
+use ahnlich_types::metadata::MetadataValue;
+use ahnlich_types::predicate::Predicate;
+use ahnlich_types::predicate::PredicateCondition;
 use flurry::HashMap as ConcurrentHashMap;
 use flurry::HashSet as ConcurrentHashSet;
 use itertools::Itertools;
@@ -7,11 +12,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
-use types::keyval::StoreValue;
-use types::metadata::MetadataKey;
-use types::metadata::MetadataValue;
-use types::predicate::Predicate;
-use types::predicate::PredicateCondition;
 
 type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, ConcurrentHashSet<StoreKeyId>>;
 type InnerPredicateIndices = ConcurrentHashMap<MetadataKey, PredicateIndex>;

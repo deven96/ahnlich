@@ -1,6 +1,7 @@
 use super::task::ServerTask;
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
+use ahnlich_types::server::ConnectedClient;
 use cap::Cap;
 use std::alloc;
 use std::io::Result as IoResult;
@@ -14,7 +15,6 @@ use tokio::net::TcpStream;
 use tokio::select;
 use tokio_graceful::Shutdown;
 use tracing::Instrument;
-use types::server::ConnectedClient;
 use utils::client::ClientHandler;
 use utils::persistence::Persistence;
 
