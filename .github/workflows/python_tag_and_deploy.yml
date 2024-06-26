@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       client_version: ${{ steps.get_version.outputs.CLIENT_VERSION }}
+      client_version_changed: ${{ steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED }}
       tag_version: ${{ steps.get_version.outputs.TAG_VERSION }}
     steps:
       - name: Checkout code
@@ -61,7 +62,7 @@ jobs:
   deploy_tag:
     runs-on: ubuntu-latest
     needs: check_version_changes_and_tag
-    if: ${{ needs.check_version_changes_and_tag.result == 'success' }}
+    if: ${{ needs.check_version_changes_and_tag.outputs.client_version_changed == 'true' }}
     steps:
 
       - name: Checkout tag
@@ -82,7 +83,6 @@ jobs:
           echo "Deploying tag ${{needs.check_version_changes_and_tag.outputs.client_version}}"
           poetry config repositories.test-pypi https://test.pypi.org/legacy/
           poetry run change_poetry_version
-          echo "${{needs.check_version_changes_and_tag.outputs.tag_version}}" > CLIENT_VERSION
           poetry config pypi-token.test-pypi  ${{ secrets.TEST_PYPI_TOKEN }}
           poetry build && poetry publish -r test-pypi
 
