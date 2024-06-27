@@ -37,7 +37,7 @@ jobs:
         working-directory: ./ahnlich/client
         if: steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
         run: |
-          CLIENT_VERSION=$(cat Cargo.toml | grep -m 'version = ' | sed 's/version = "\([^"]*\)"/\1/')
+          CLIENT_VERSION=$(cat Cargo.toml | grep -m1 'version = ' | sed 's/version = "\([^"]*\)"/\1/')
           echo "CLIENT_VERSION=${CLIENT_VERSION}" >> $GITHUB_OUTPUT
           echo "TAG_VERSION=client/rs/${CLIENT_VERSION}" >> $GITHUB_OUTPUT
 
@@ -65,10 +65,11 @@ jobs:
 
       - name: Get Cargo toolchain
         uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.78.0
 
       - name: Deploy using tag
-        uses: katyo/publish-crates@v2
-        with:
-          path: './ahnlich/client'
-          registry-token: ${{ secrets.CARGO_TOKEN }}
-          dry-run: true
+        working-directory: ./ahnlich
+        run: |
+          cargo publish -p ahnlich_types --dry-run --token '${{secrets.CARGO_TOKEN}}'
+          cargo publish -p ahnlich_client_rs --dry-run --token '${{secrets.CARGO_TOKEN}}'

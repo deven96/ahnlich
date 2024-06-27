@@ -2,6 +2,15 @@ use crate::errors::ServerError;
 
 use super::super::algorithm::FindSimilarN;
 use super::predicate::PredicateIndices;
+use ahnlich_types::keyval::StoreKey;
+use ahnlich_types::keyval::StoreName;
+use ahnlich_types::keyval::StoreValue;
+use ahnlich_types::metadata::MetadataKey;
+use ahnlich_types::predicate::PredicateCondition;
+use ahnlich_types::server::StoreInfo;
+use ahnlich_types::server::StoreUpsert;
+use ahnlich_types::similarity::Algorithm;
+use ahnlich_types::similarity::Similarity;
 use flurry::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
 use serde::Serialize;
@@ -12,15 +21,6 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use types::keyval::StoreKey;
-use types::keyval::StoreName;
-use types::keyval::StoreValue;
-use types::metadata::MetadataKey;
-use types::predicate::PredicateCondition;
-use types::server::StoreInfo;
-use types::server::StoreUpsert;
-use types::similarity::Algorithm;
-use types::similarity::Similarity;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
@@ -523,12 +523,12 @@ mod tests {
     use std::num::NonZeroUsize;
 
     use super::*;
+    use ahnlich_types::metadata::MetadataKey;
+    use ahnlich_types::metadata::MetadataValue;
+    use ahnlich_types::predicate::Predicate;
     use ndarray::array;
     use ndarray::Array1;
     use std::collections::HashMap as StdHashMap;
-    use types::metadata::MetadataKey;
-    use types::metadata::MetadataValue;
-    use types::predicate::Predicate;
 
     #[test]
     fn test_compute_store_key_id_empty_vector() {

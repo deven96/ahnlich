@@ -1,11 +1,11 @@
 use crate::error::AhnlichError;
+use ahnlich_types::bincode::BinCodeSerAndDeser;
+use ahnlich_types::query::Query;
+use ahnlich_types::query::ServerQuery;
+use ahnlich_types::server::ServerResponse;
+use ahnlich_types::server::ServerResult;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use types::bincode::BinCodeSerAndDeser;
-use types::query::Query;
-use types::query::ServerQuery;
-use types::server::ServerResponse;
-use types::server::ServerResult;
 
 /// Simple TCP Connection to a host and port
 #[derive(Debug)]
@@ -45,9 +45,9 @@ impl Conn {
     pub(crate) async fn deserialize_from_stream<T: BinCodeSerAndDeser>(
         &mut self,
     ) -> Result<T, AhnlichError> {
-        let mut header = [0u8; types::bincode::RESPONSE_HEADER_LEN];
+        let mut header = [0u8; ahnlich_types::bincode::RESPONSE_HEADER_LEN];
         self.stream.read_exact(&mut header).await?;
-        let mut length_header = [0u8; types::bincode::LENGTH_HEADER_SIZE];
+        let mut length_header = [0u8; ahnlich_types::bincode::LENGTH_HEADER_SIZE];
         length_header.copy_from_slice(&header[13..=20]);
         let data_length = u64::from_le_bytes(length_header);
         let mut response = vec![0u8; data_length as usize];

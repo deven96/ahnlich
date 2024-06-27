@@ -1,7 +1,7 @@
 mod server_test;
 
+use ahnlich_types::keyval::StoreKey;
 use std::collections::HashMap;
-use types::keyval::StoreKey;
 
 pub fn key_to_words(
     key: &StoreKey,

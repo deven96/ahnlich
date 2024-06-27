@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 use super::SimilarityVector;
+use ahnlich_types::keyval::StoreKey;
+use ahnlich_types::similarity::Algorithm;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::num::NonZeroUsize;
-use types::keyval::StoreKey;
-use types::similarity::Algorithm;
 
 pub(crate) struct MinHeap<'a> {
     max_capacity: NonZeroUsize,

@@ -1,5 +1,22 @@
 use crate::cli::ServerConfig;
 use crate::server::handler::Server;
+use ahnlich_types::bincode::BinCodeSerAndDeser;
+use ahnlich_types::keyval::StoreKey;
+use ahnlich_types::keyval::StoreName;
+use ahnlich_types::metadata::MetadataKey;
+use ahnlich_types::metadata::MetadataValue;
+use ahnlich_types::predicate::Predicate;
+use ahnlich_types::predicate::PredicateCondition;
+use ahnlich_types::query::Query;
+use ahnlich_types::query::ServerQuery;
+use ahnlich_types::server::ConnectedClient;
+use ahnlich_types::server::ServerInfo;
+use ahnlich_types::server::ServerResponse;
+use ahnlich_types::server::ServerResult;
+use ahnlich_types::server::StoreInfo;
+use ahnlich_types::server::StoreUpsert;
+use ahnlich_types::similarity::Algorithm;
+use ahnlich_types::similarity::Similarity;
 use futures::future::join_all;
 use ndarray::array;
 use once_cell::sync::Lazy;
@@ -13,23 +30,6 @@ use std::time::SystemTime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
-use types::bincode::BinCodeSerAndDeser;
-use types::keyval::StoreKey;
-use types::keyval::StoreName;
-use types::metadata::MetadataKey;
-use types::metadata::MetadataValue;
-use types::predicate::Predicate;
-use types::predicate::PredicateCondition;
-use types::query::Query;
-use types::query::ServerQuery;
-use types::server::ConnectedClient;
-use types::server::ServerInfo;
-use types::server::ServerResponse;
-use types::server::ServerResult;
-use types::server::StoreInfo;
-use types::server::StoreUpsert;
-use types::similarity::Algorithm;
-use types::similarity::Similarity;
 
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 
@@ -931,8 +931,8 @@ async fn test_get_key() {
     ])));
     expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
         address: "127.0.0.1:1369".to_string(),
-        version: *types::version::VERSION,
-        r#type: types::server::ServerType::Database,
+        version: *ahnlich_types::version::VERSION,
+        r#type: ahnlich_types::server::ServerType::Database,
         limit: CONFIG.allocator_size,
         remaining: 1073609219,
     })));
@@ -1182,8 +1182,8 @@ async fn test_run_server_echos() {
             let mut expected = ServerResult::with_capacity(2);
             expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
                 address: "127.0.0.1:1369".to_string(),
-                version: *types::version::VERSION,
-                r#type: types::server::ServerType::Database,
+                version: *ahnlich_types::version::VERSION,
+                r#type: ahnlich_types::server::ServerType::Database,
                 limit: CONFIG.allocator_size,
                 remaining: 1073614873,
             })));
@@ -1198,8 +1198,8 @@ async fn test_run_server_echos() {
             expected.push(Ok(ServerResponse::Pong));
             expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
                 address: "127.0.0.1:1369".to_string(),
-                version: *types::version::VERSION,
-                r#type: types::server::ServerType::Database,
+                version: *ahnlich_types::version::VERSION,
+                r#type: ahnlich_types::server::ServerType::Database,
                 limit: CONFIG.allocator_size,
                 remaining: 1073614873,
             })));
@@ -1223,12 +1223,12 @@ async fn query_server_assert_result(
     reader.write_all(&serialized_message).await.unwrap();
 
     // get length of response header
-    let mut header = [0u8; types::bincode::RESPONSE_HEADER_LEN];
+    let mut header = [0u8; ahnlich_types::bincode::RESPONSE_HEADER_LEN];
     timeout(Duration::from_secs(1), reader.read_exact(&mut header))
         .await
         .unwrap()
         .unwrap();
-    let mut length_header = [0u8; types::bincode::LENGTH_HEADER_SIZE];
+    let mut length_header = [0u8; ahnlich_types::bincode::LENGTH_HEADER_SIZE];
     length_header.copy_from_slice(&header[13..=20]);
 
     // read only the actual length size

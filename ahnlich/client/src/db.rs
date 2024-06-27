@@ -62,17 +62,17 @@ impl DbPipeline {
     }
 
     /// push get key command to pipeline
-    pub async fn get_key(&mut self, store: StoreName, keys: Vec<StoreKey>) {
+    pub fn get_key(&mut self, store: StoreName, keys: Vec<StoreKey>) {
         self.queries.push(Query::GetKey { store, keys })
     }
 
     /// push get pred command to pipeline
-    pub async fn get_pred(&mut self, store: StoreName, condition: PredicateCondition) {
+    pub fn get_pred(&mut self, store: StoreName, condition: PredicateCondition) {
         self.queries.push(Query::GetPred { store, condition })
     }
 
     /// push get sim n command to pipeline
-    pub async fn get_sim_n(
+    pub fn get_sim_n(
         &mut self,
         store: StoreName,
         search_input: StoreKey,
@@ -90,12 +90,12 @@ impl DbPipeline {
     }
 
     /// push create index command to pipeline
-    pub async fn create_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
+    pub fn create_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
         self.queries.push(Query::CreateIndex { store, predicates })
     }
 
     /// push drop index command to pipeline
-    pub async fn drop_index(
+    pub fn drop_index(
         &mut self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
@@ -109,22 +109,22 @@ impl DbPipeline {
     }
 
     /// push set command to pipeline
-    pub async fn set(&mut self, store: StoreName, inputs: Vec<(StoreKey, StoreValue)>) {
+    pub fn set(&mut self, store: StoreName, inputs: Vec<(StoreKey, StoreValue)>) {
         self.queries.push(Query::Set { store, inputs })
     }
 
     /// push del key command to pipeline
-    pub async fn del_key(&mut self, store: StoreName, keys: Vec<StoreKey>) {
+    pub fn del_key(&mut self, store: StoreName, keys: Vec<StoreKey>) {
         self.queries.push(Query::DelKey { store, keys })
     }
 
     /// push del pred command to pipeline
-    pub async fn del_pred(&mut self, store: StoreName, condition: PredicateCondition) {
+    pub fn del_pred(&mut self, store: StoreName, condition: PredicateCondition) {
         self.queries.push(Query::DelPred { store, condition })
     }
 
     /// push drop store command to pipeline
-    pub async fn drop_store(&mut self, store: StoreName, error_if_not_exists: bool) {
+    pub fn drop_store(&mut self, store: StoreName, error_if_not_exists: bool) {
         self.queries.push(Query::DropStore {
             store,
             error_if_not_exists,

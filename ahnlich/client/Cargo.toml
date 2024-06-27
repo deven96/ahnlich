@@ -1,6 +1,6 @@
 [package]
 name = "ahnlich_client_rs"
-version = "0.1.2"
+version = "0.1.0"
 authors = ["Diretnan Domnan <diretnandomnan@gmail.com>"]
 categories = ["database-implementations", "database", "web-programming"]
 keywords = ["ahnlich", "in-memory", "artificial-intelligence", "ai"]
@@ -12,14 +12,10 @@ description = "Client library for accessing in-memory ahnlich vector database an
 
 [badges]
 maintenance = { status = "actively-developed" }
-
-[lib]
-crate_type = ["cdylib", "lib"]
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-types = { path = "../types", version = "*" }
+ahnlich_types = { path = "../types", version = "*" }
 thiserror.workspace = true
 once_cell.workspace = true
 bincode.workspace = true
