@@ -1,16 +1,14 @@
 name: Ahnlich Rust Client Tag and Deploy
 
 on:
-  push:
+  pull_request:
     branches: ["main"]
-#  pull_request:
-#    branches: ["main"]
-#    types:
-#      - closed
+    types:
+      - closed
 
 jobs:
   check_version_changes_and_tag:
-#    if: github.event.pull_request.merged == true
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     outputs:
       client_version: ${{ steps.get_version.outputs.CLIENT_VERSION }}
