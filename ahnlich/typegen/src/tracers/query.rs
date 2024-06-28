@@ -24,7 +24,7 @@ pub fn trace_query_enum() -> Registry {
     let sample_store_keys = vec![store_key.clone()];
     let test_predicate_condition = &PredicateCondition::Value(Predicate::Equals {
         key: MetadataKey::new("author".into()),
-        value: MetadataValue::new("Lex Luthor".into()),
+        value: MetadataValue::RawString("Lex Luthor".into()),
     });
 
     let test_create_predicates = HashSet::from_iter([MetadataKey::new(String::from("username"))]);
@@ -56,7 +56,11 @@ pub fn trace_query_enum() -> Registry {
     let mut store_value = StdHashMap::new();
     store_value.insert(
         MetadataKey::new(String::from("username")),
-        MetadataValue::new(String::from("buster_matthews")),
+        MetadataValue::RawString(String::from("buster_matthews")),
+    );
+    store_value.insert(
+        MetadataKey::new(String::from("bin_data")),
+        MetadataValue::Binary(vec![6, 4, 2]),
     );
 
     let set_query = Query::Set {
@@ -66,7 +70,7 @@ pub fn trace_query_enum() -> Registry {
 
     let test_predicate_condition = &PredicateCondition::Value(Predicate::NotEquals {
         key: MetadataKey::new("author".into()),
-        value: MetadataValue::new("Lex Luthor".into()),
+        value: MetadataValue::RawString("Lex Luthor".into()),
     });
 
     let getpred_variant = Query::GetPred {
@@ -129,6 +133,11 @@ pub fn trace_query_enum() -> Registry {
 
     let _ = tracer
         .trace_type::<ServerQuery>(&samples)
+        .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
+        .unwrap();
+
+    let _ = tracer
+        .trace_type::<MetadataValue>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 

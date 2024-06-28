@@ -18,10 +18,7 @@ impl fmt::Display for MetadataKey {
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct MetadataValue(String);
-impl MetadataValue {
-    pub fn new(input: String) -> Self {
-        Self(input)
-    }
+pub enum MetadataValue {
+    RawString(String),
+    Binary(Vec<u8>),
 }

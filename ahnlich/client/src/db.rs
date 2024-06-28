@@ -558,21 +558,21 @@ mod tests {
                         StoreKey(array![1.2, 1.3, 1.4]),
                         HashMap::from_iter([(
                             MetadataKey::new("medal".into()),
-                            MetadataValue::new("silver".into()),
+                            MetadataValue::RawString("silver".into()),
                         )]),
                     ),
                     (
                         StoreKey(array![2.0, 2.1, 2.2]),
                         HashMap::from_iter([(
                             MetadataKey::new("medal".into()),
-                            MetadataValue::new("gold".into()),
+                            MetadataValue::RawString("gold".into()),
                         )]),
                     ),
                     (
                         StoreKey(array![5.0, 5.1, 5.2]),
                         HashMap::from_iter([(
                             MetadataKey::new("medal".into()),
-                            MetadataValue::new("bronze".into()),
+                            MetadataValue::RawString("bronze".into()),
                         )]),
                     ),
                 ],
@@ -599,7 +599,7 @@ mod tests {
                     Algorithm::CosineSimilarity,
                     Some(PredicateCondition::Value(Predicate::Equals {
                         key: MetadataKey::new("medal".into()),
-                        value: MetadataValue::new("gold".into()),
+                        value: MetadataValue::RawString("gold".into()),
                     })),
                 )
                 .await
@@ -608,7 +608,7 @@ mod tests {
                 StoreKey(array![2.0, 2.1, 2.2]),
                 HashMap::from_iter([(
                     MetadataKey::new("medal".into()),
-                    MetadataValue::new("gold".into()),
+                    MetadataValue::RawString("gold".into()),
                 )]),
                 Similarity(0.9036338825194858),
             )])
