@@ -1,9 +1,9 @@
 use crate::error::AhnlichError;
 use ahnlich_types::bincode::BinCodeSerAndDeser;
-use ahnlich_types::query::Query;
-use ahnlich_types::query::ServerQuery;
-use ahnlich_types::server::ServerResponse;
-use ahnlich_types::server::ServerResult;
+use ahnlich_types::query::DBQuery;
+use ahnlich_types::query::ServerDBQuery;
+use ahnlich_types::server::db::ServerResponse;
+use ahnlich_types::server::db::ServerResult;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
@@ -21,8 +21,8 @@ impl Conn {
     }
 
     pub(crate) async fn is_db_conn_valid(&mut self) -> Result<(), AhnlichError> {
-        let mut queries = ServerQuery::with_capacity(1);
-        queries.push(Query::Ping);
+        let mut queries = ServerDBQuery::with_capacity(1);
+        queries.push(DBQuery::Ping);
         let response = self.send_db_query(queries).await?;
         let mut expected_response = ServerResult::with_capacity(1);
         expected_response.push(Ok(ServerResponse::Pong));
@@ -34,7 +34,7 @@ impl Conn {
 
     pub(crate) async fn send_db_query(
         &mut self,
-        query: ServerQuery,
+        query: ServerDBQuery,
     ) -> Result<ServerResult, AhnlichError> {
         let serialized_message = query.serialize()?;
         self.stream.write_all(&serialized_message).await?;

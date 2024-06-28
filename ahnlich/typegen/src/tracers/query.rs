@@ -4,7 +4,7 @@ use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::{
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
-    query::{Query, ServerQuery},
+    query::{DBQuery, ServerDBQuery},
 };
 use serde_reflection::Registry;
 use serde_reflection::{Samples, Tracer, TracerConfig};
@@ -29,22 +29,22 @@ pub fn trace_query_enum() -> Registry {
 
     let test_create_predicates = HashSet::from_iter([MetadataKey::new(String::from("username"))]);
 
-    let create_store = Query::CreateStore {
+    let create_store = DBQuery::CreateStore {
         store: sample_store_name.clone(),
         dimension: NonZeroUsize::new(1).unwrap(),
         create_predicates: test_create_predicates.clone(),
         error_if_exists: true,
     };
 
-    let get_key = Query::GetKey {
+    let get_key = DBQuery::GetKey {
         store: sample_store_name.clone(),
         keys: sample_store_keys.clone(),
     };
-    let delete_key = Query::DelKey {
+    let delete_key = DBQuery::DelKey {
         store: sample_store_name.clone(),
         keys: sample_store_keys.clone(),
     };
-    let get_sim_n = Query::GetSimN {
+    let get_sim_n = DBQuery::GetSimN {
         store: sample_store_name.clone(),
         search_input: store_key.clone(),
         closest_n: NonZeroUsize::new(2).unwrap(),
@@ -63,7 +63,7 @@ pub fn trace_query_enum() -> Registry {
         MetadataValue::Binary(vec![6, 4, 2]),
     );
 
-    let set_query = Query::Set {
+    let set_query = DBQuery::Set {
         store: sample_store_name.clone(),
         inputs: vec![(store_key.clone(), store_value)],
     };
@@ -73,16 +73,16 @@ pub fn trace_query_enum() -> Registry {
         value: MetadataValue::RawString("Lex Luthor".into()),
     });
 
-    let getpred_variant = Query::GetPred {
+    let getpred_variant = DBQuery::GetPred {
         store: sample_store_name.clone(),
         condition: test_predicate_condition.clone(),
     };
-    let deletepred_variant = Query::DelPred {
+    let deletepred_variant = DBQuery::DelPred {
         store: sample_store_name.clone(),
         condition: test_predicate_condition.clone(),
     };
 
-    let server_query = ServerQuery::from_queries(&[deletepred_variant.clone(), set_query.clone()]);
+    let server_query = ServerDBQuery::from_queries(&[deletepred_variant.clone(), set_query.clone()]);
 
     let _ = tracer
         .trace_value(&mut samples, &create_store)
@@ -127,12 +127,12 @@ pub fn trace_query_enum() -> Registry {
         .expect("Error tracing predicate condition");
 
     let _ = tracer
-        .trace_type::<Query>(&samples)
+        .trace_type::<DBQuery>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 
     let _ = tracer
-        .trace_type::<ServerQuery>(&samples)
+        .trace_type::<ServerDBQuery>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 

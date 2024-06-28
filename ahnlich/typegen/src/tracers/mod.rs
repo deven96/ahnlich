@@ -27,7 +27,7 @@ pub(crate) fn save_registry_into_file(registry: &Registry, file_path: std::path:
     let buffer = std::io::BufWriter::new(query_file);
 
     serde_json::to_writer_pretty(buffer, &registry)
-        .expect("Query: Failed to write tracer registry into json file");
+        .expect("DBQuery: Failed to write tracer registry into json file");
 }
 
 pub(crate) fn generate_language_definition(

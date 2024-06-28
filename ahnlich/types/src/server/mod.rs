@@ -1,6 +1,11 @@
-mod ai;
-mod db;
+use serde::Deserialize;
+use serde::Serialize;
 
-pub use db::{
-    ConnectedClient, ServerInfo, ServerResponse, ServerResult, ServerType, StoreInfo, StoreUpsert,
-};
+pub mod ai;
+pub mod db;
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ServerType {
+    Database,
+    AI,
+}

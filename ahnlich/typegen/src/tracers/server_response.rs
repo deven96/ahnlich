@@ -2,10 +2,10 @@ use ahnlich_types::similarity::Similarity;
 use ahnlich_types::{
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
-    server::{
-        ConnectedClient, ServerInfo, ServerResponse, ServerResult, ServerType, StoreInfo,
-        StoreUpsert,
+    server::db::{
+        ConnectedClient, ServerInfo, ServerResponse, ServerResult, StoreInfo, StoreUpsert,
     },
+    server::ServerType,
     version::Version,
 };
 use serde_reflection::Registry;

@@ -1,7 +1,7 @@
 use super::task::ServerTask;
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
-use ahnlich_types::server::ConnectedClient;
+use ahnlich_types::server::db::ConnectedClient;
 use cap::Cap;
 use std::alloc;
 use std::io::Result as IoResult;
@@ -106,7 +106,7 @@ impl<'a> Server<'a> {
                 Ok((stream, connect_addr)) = self.listener.accept() => {
                     tracing::info!("Connecting to {}", connect_addr);
                     //  - Spawn a tokio task to handle the command while holding on to a reference to self
-                    //  - Convert the incoming bincode in a chunked manner to a Vec<Query>
+                    //  - Convert the incoming bincode in a chunked manner to a Vec<DBQuery>
                     //  - Use store_handler to process the queries
                     //  - Block new incoming connections on shutdown by no longer accepting and then
                     //  cancelling existing ServerTask or forcing them to run to completion

@@ -2,6 +2,7 @@ use crate::bincode::BinCodeSerAndDeser;
 use crate::keyval::StoreKey;
 use crate::keyval::StoreName;
 use crate::keyval::StoreValue;
+use crate::server::ServerType;
 use crate::similarity::Similarity;
 use crate::version::Version;
 use serde::Deserialize;
@@ -69,12 +70,6 @@ impl PartialEq for ServerInfo {
             && self.r#type.eq(&other.r#type)
             && self.limit.eq(&other.limit)
     }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ServerType {
-    Database,
-    AI,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialOrd, Ord)]
