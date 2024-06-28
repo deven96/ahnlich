@@ -974,7 +974,7 @@ async fn test_create_index() {
                         ),
                         (
                             MetadataKey::new("life-form".into()),
-                            MetadataValue::RawString("insects".into()),
+                            MetadataValue::RawString("humanoid".into()),
                         ),
                     ]),
                 ),
@@ -1006,12 +1006,28 @@ async fn test_create_index() {
                 value: MetadataValue::RawString("milkyway".into()),
             }),
         },
-        // get predicate should fail as life-form is not indexed
+        // lifeform should return 1 as there is humanoid
         Query::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("life-form".into()),
                 value: MetadataValue::RawString("humanoid".into()),
+            }),
+        },
+        // lifeform should return 1 as there is insects
+        Query::GetPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate::In {
+                key: MetadataKey::new("life-form".into()),
+                value: HashSet::from_iter([MetadataValue::RawString("insects".into())]),
+            }),
+        },
+        // lifeform should return 1 insects doesn't match humanoid
+        Query::GetPred {
+            store: StoreName("Main".to_string()),
+            condition: PredicateCondition::Value(Predicate::NotIn {
+                key: MetadataKey::new("life-form".into()),
+                value: HashSet::from_iter([MetadataValue::RawString("humanoid".into())]),
             }),
         },
         // should create 2 new indexes
@@ -1023,7 +1039,7 @@ async fn test_create_index() {
                 MetadataKey::new("galaxy".into()),
             ]),
         },
-        // now get pred for life-form should work as it is indexed
+        // humanoid should still work after indexing
         Query::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
@@ -1053,11 +1069,59 @@ async fn test_create_index() {
             ),
         ]),
     )])));
-    expected.push(Err(
-        "Predicate life-form not found in store, attempt CREATEINDEX with predicate".into(),
-    ));
+    expected.push(Ok(ServerResponse::Get(vec![(
+        StoreKey(array![1.4, 1.5]),
+        HashMap::from_iter([
+            (
+                MetadataKey::new("galaxy".into()),
+                MetadataValue::RawString("andromeda".into()),
+            ),
+            (
+                MetadataKey::new("life-form".into()),
+                MetadataValue::RawString("humanoid".into()),
+            ),
+        ]),
+    )])));
+    expected.push(Ok(ServerResponse::Get(vec![(
+        StoreKey(array![1.6, 1.7]),
+        HashMap::from_iter([
+            (
+                MetadataKey::new("galaxy".into()),
+                MetadataValue::RawString("milkyway".into()),
+            ),
+            (
+                MetadataKey::new("life-form".into()),
+                MetadataValue::RawString("insects".into()),
+            ),
+        ]),
+    )])));
+    expected.push(Ok(ServerResponse::Get(vec![(
+        StoreKey(array![1.6, 1.7]),
+        HashMap::from_iter([
+            (
+                MetadataKey::new("galaxy".into()),
+                MetadataValue::RawString("milkyway".into()),
+            ),
+            (
+                MetadataKey::new("life-form".into()),
+                MetadataValue::RawString("insects".into()),
+            ),
+        ]),
+    )])));
     expected.push(Ok(ServerResponse::CreateIndex(2)));
-    expected.push(Ok(ServerResponse::Get(vec![])));
+    expected.push(Ok(ServerResponse::Get(vec![(
+        StoreKey(array![1.4, 1.5]),
+        HashMap::from_iter([
+            (
+                MetadataKey::new("galaxy".into()),
+                MetadataValue::RawString("andromeda".into()),
+            ),
+            (
+                MetadataKey::new("life-form".into()),
+                MetadataValue::RawString("humanoid".into()),
+            ),
+        ]),
+    )])));
     let stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(stream);
     query_server_assert_result(&mut reader, message, expected).await
