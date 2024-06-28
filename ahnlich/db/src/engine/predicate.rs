@@ -173,15 +173,10 @@ impl PredicateIndices {
         match condition {
             PredicateCondition::Value(main_predicate) => {
                 let predicate_values = self.inner.pin();
-                let pinned_keys = self.allowed_predicates.pin();
                 let key = main_predicate.get_key();
                 if let Some(predicate) = predicate_values.get(key) {
                     // retrieve the precise predicate if it exists and check against it
                     return Ok(predicate.matches(main_predicate));
-                } else if pinned_keys.contains(key) {
-                    // predicate does not exist because perhaps we have not been passing a value
-                    // but it is within allowed so this isn't an error
-                    return Ok(StdHashSet::new());
                 }
                 store.get_match_without_predicate(main_predicate)
             }
