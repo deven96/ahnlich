@@ -58,7 +58,7 @@ pub fn trace_server_response_enum() -> Registry {
     //StoreValue = StdHashMap<MetadataKey, MetadataValue>
     let mut store_value = StdHashMap::new();
     store_value.insert(
-        MetadataKey::new(String::from("username")),
+        MetadataKey::RawString(String::from("username")),
         MetadataValue::new(String::from("buster_matthews")),
     );
 

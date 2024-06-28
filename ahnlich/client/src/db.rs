@@ -466,7 +466,7 @@ mod tests {
             .create_store(
                 StoreName("Main".to_string()),
                 NonZeroUsize::new(4).unwrap(),
-                HashSet::from_iter([MetadataKey::new("role".into())]),
+                HashSet::from_iter([MetadataKey::RawString("role".into())]),
                 true,
             )
             .await
@@ -496,7 +496,7 @@ mod tests {
             ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
                 name: StoreName("Main".to_string()),
                 len: 2,
-                size_in_bytes: 1880,
+                size_in_bytes: 1888,
             },]))
         );
         // error as different dimensions
@@ -522,7 +522,7 @@ mod tests {
             ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
                 name: StoreName("Main".to_string()),
                 len: 1,
-                size_in_bytes: 1808,
+                size_in_bytes: 1816,
             },]))
         );
     }
@@ -545,7 +545,7 @@ mod tests {
             .create_store(
                 StoreName("Main".to_string()),
                 NonZeroUsize::new(3).unwrap(),
-                HashSet::from_iter([MetadataKey::new("medal".into())]),
+                HashSet::from_iter([MetadataKey::RawString("medal".into())]),
                 true,
             )
             .await
@@ -557,21 +557,21 @@ mod tests {
                     (
                         StoreKey(array![1.2, 1.3, 1.4]),
                         HashMap::from_iter([(
-                            MetadataKey::new("medal".into()),
+                            MetadataKey::RawString("medal".into()),
                             MetadataValue::new("silver".into()),
                         )]),
                     ),
                     (
                         StoreKey(array![2.0, 2.1, 2.2]),
                         HashMap::from_iter([(
-                            MetadataKey::new("medal".into()),
+                            MetadataKey::RawString("medal".into()),
                             MetadataValue::new("gold".into()),
                         )]),
                     ),
                     (
                         StoreKey(array![5.0, 5.1, 5.2]),
                         HashMap::from_iter([(
-                            MetadataKey::new("medal".into()),
+                            MetadataKey::RawString("medal".into()),
                             MetadataValue::new("bronze".into()),
                         )]),
                     ),
@@ -598,7 +598,7 @@ mod tests {
                     NonZeroUsize::new(2).unwrap(),
                     Algorithm::CosineSimilarity,
                     Some(PredicateCondition::Value(Predicate::Equals {
-                        key: MetadataKey::new("medal".into()),
+                        key: MetadataKey::RawString("medal".into()),
                         value: MetadataValue::new("gold".into()),
                     })),
                 )
@@ -607,7 +607,7 @@ mod tests {
             ServerResponse::GetSimN(vec![(
                 StoreKey(array![2.0, 2.1, 2.2]),
                 HashMap::from_iter([(
-                    MetadataKey::new("medal".into()),
+                    MetadataKey::RawString("medal".into()),
                     MetadataValue::new("gold".into()),
                 )]),
                 Similarity(0.9036338825194858),

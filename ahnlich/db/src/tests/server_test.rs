@@ -207,14 +207,14 @@ async fn test_del_pred() {
         Query::DelPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::NotEquals {
-                key: MetadataKey::new("planet".into()),
+                key: MetadataKey::RawString("planet".into()),
                 value: MetadataValue::new("earth".into()),
             }),
         },
         Query::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
-            create_predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+            create_predicates: HashSet::from_iter([MetadataKey::RawString("planet".into())]),
             error_if_exists: true,
         },
         // should not error as it is correct query
@@ -222,7 +222,7 @@ async fn test_del_pred() {
         Query::DelPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("planet".into()),
+                key: MetadataKey::RawString("planet".into()),
                 value: MetadataValue::new("earth".into()),
             }),
         },
@@ -232,14 +232,14 @@ async fn test_del_pred() {
                 (
                     StoreKey(array![1.4, 1.5]),
                     HashMap::from_iter([(
-                        MetadataKey::new("planet".into()),
+                        MetadataKey::RawString("planet".into()),
                         MetadataValue::new("jupiter".into()),
                     )]),
                 ),
                 (
                     StoreKey(array![1.6, 1.7]),
                     HashMap::from_iter([(
-                        MetadataKey::new("planet".into()),
+                        MetadataKey::RawString("planet".into()),
                         MetadataValue::new("mars".into()),
                     )]),
                 ),
@@ -250,7 +250,7 @@ async fn test_del_pred() {
         Query::DelPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::NotEquals {
-                key: MetadataKey::new("planet".into()),
+                key: MetadataKey::RawString("planet".into()),
                 value: MetadataValue::new("mars".into()),
             }),
         },
@@ -262,7 +262,7 @@ async fn test_del_pred() {
         Query::DelPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("planet".into()),
+                key: MetadataKey::RawString("planet".into()),
                 value: MetadataValue::new("mars".into()),
             }),
         },
@@ -280,14 +280,14 @@ async fn test_del_pred() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 2104,
+            size_in_bytes: 2136,
         },
     ]))));
     expected.push(Ok(ServerResponse::Del(1)));
     expected.push(Ok(ServerResponse::Get(vec![(
         StoreKey(array![1.6, 1.7]),
         HashMap::from_iter([(
-            MetadataKey::new("planet".into()),
+            MetadataKey::RawString("planet".into()),
             MetadataValue::new("mars".into()),
         )]),
     )])));
@@ -296,7 +296,7 @@ async fn test_del_pred() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 0,
-            size_in_bytes: 1816,
+            size_in_bytes: 1832,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -322,7 +322,7 @@ async fn test_del_key() {
         Query::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(4).unwrap(),
-            create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            create_predicates: HashSet::from_iter([MetadataKey::RawString("role".into())]),
             error_if_exists: true,
         },
         // should not error as it is correct dimensions
@@ -363,7 +363,7 @@ async fn test_del_key() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 1880,
+            size_in_bytes: 1888,
         },
     ]))));
     expected.push(Err(
@@ -374,7 +374,7 @@ async fn test_del_key() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 1,
-            size_in_bytes: 1808,
+            size_in_bytes: 1816,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -401,7 +401,7 @@ async fn test_server_with_persistence() {
         Query::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(4).unwrap(),
-            create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            create_predicates: HashSet::from_iter([MetadataKey::RawString("role".into())]),
             error_if_exists: true,
         },
         // should not error as it is correct dimensions
@@ -442,7 +442,7 @@ async fn test_server_with_persistence() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 1880,
+            size_in_bytes: 1888,
         },
     ]))));
     expected.push(Err(
@@ -453,7 +453,7 @@ async fn test_server_with_persistence() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 1,
-            size_in_bytes: 1808,
+            size_in_bytes: 1816,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -477,7 +477,7 @@ async fn test_server_with_persistence() {
         Query::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
-            create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            create_predicates: HashSet::from_iter([MetadataKey::RawString("role".into())]),
             error_if_exists: true,
         },
         // should not error as store exists
@@ -524,7 +524,7 @@ async fn test_set_in_store() {
         Query::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
-            create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            create_predicates: HashSet::from_iter([MetadataKey::RawString("role".into())]),
             error_if_exists: true,
         },
         // should not error as it is correct dimensions
@@ -544,7 +544,7 @@ async fn test_set_in_store() {
                 (
                     StoreKey(array![1.23, 1.0, 0.2]),
                     HashMap::from_iter([(
-                        MetadataKey::new("role".into()),
+                        MetadataKey::RawString("role".into()),
                         MetadataValue::new("headmaster".into()),
                     )]),
                 ),
@@ -571,7 +571,7 @@ async fn test_set_in_store() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 2008,
+            size_in_bytes: 2032,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -600,7 +600,7 @@ async fn test_get_sim_n() {
         Query::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
-            create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
+            create_predicates: HashSet::from_iter([MetadataKey::RawString("medal".into())]),
             error_if_exists: true,
         },
         Query::Set {
@@ -609,21 +609,21 @@ async fn test_get_sim_n() {
                 (
                     StoreKey(array![1.2, 1.3, 1.4]),
                     HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
+                        MetadataKey::RawString("medal".into()),
                         MetadataValue::new("silver".into()),
                     )]),
                 ),
                 (
                     StoreKey(array![2.0, 2.1, 2.2]),
                     HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
+                        MetadataKey::RawString("medal".into()),
                         MetadataValue::new("gold".into()),
                     )]),
                 ),
                 (
                     StoreKey(array![5.0, 5.1, 5.2]),
                     HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
+                        MetadataKey::RawString("medal".into()),
                         MetadataValue::new("bronze".into()),
                     )]),
                 ),
@@ -645,7 +645,7 @@ async fn test_get_sim_n() {
             algorithm: Algorithm::CosineSimilarity,
             search_input: StoreKey(array![5.0, 2.1, 2.2]),
             condition: Some(PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("medal".into()),
+                key: MetadataKey::RawString("medal".into()),
                 value: MetadataValue::new("gold".into()),
             })),
         },
@@ -672,7 +672,7 @@ async fn test_get_sim_n() {
             algorithm: Algorithm::CosineSimilarity,
             search_input: StoreKey(array![5.0, 2.1, 2.2]),
             condition: Some(PredicateCondition::Value(Predicate::NotEquals {
-                key: MetadataKey::new("medal".into()),
+                key: MetadataKey::RawString("medal".into()),
                 value: MetadataValue::new("gold".into()),
             })),
         },
@@ -690,7 +690,7 @@ async fn test_get_sim_n() {
     expected.push(Ok(ServerResponse::GetSimN(vec![(
         StoreKey(array![2.0, 2.1, 2.2]),
         HashMap::from_iter([(
-            MetadataKey::new("medal".into()),
+            MetadataKey::RawString("medal".into()),
             MetadataValue::new("gold".into()),
         )]),
         Similarity(0.9036338825194858),
@@ -699,7 +699,7 @@ async fn test_get_sim_n() {
         (
             StoreKey(array![5.0, 5.1, 5.2]),
             HashMap::from_iter([(
-                MetadataKey::new("medal".into()),
+                MetadataKey::RawString("medal".into()),
                 MetadataValue::new("bronze".into()),
             )]),
             Similarity(27.149998),
@@ -707,7 +707,7 @@ async fn test_get_sim_n() {
         (
             StoreKey(array![2.0, 2.1, 2.2]),
             HashMap::from_iter([(
-                MetadataKey::new("medal".into()),
+                MetadataKey::RawString("medal".into()),
                 MetadataValue::new("gold".into()),
             )]),
             Similarity(11.25),
@@ -717,7 +717,7 @@ async fn test_get_sim_n() {
         (
             StoreKey(array![2.0, 2.1, 2.2]),
             HashMap::from_iter([(
-                MetadataKey::new("medal".into()),
+                MetadataKey::RawString("medal".into()),
                 MetadataValue::new("gold".into()),
             )]),
             Similarity(1.0),
@@ -725,7 +725,7 @@ async fn test_get_sim_n() {
         (
             StoreKey(array![1.2, 1.3, 1.4]),
             HashMap::from_iter([(
-                MetadataKey::new("medal".into()),
+                MetadataKey::RawString("medal".into()),
                 MetadataValue::new("silver".into()),
             )]),
             Similarity(1.1489125293076061),
@@ -734,7 +734,7 @@ async fn test_get_sim_n() {
     expected.push(Ok(ServerResponse::GetSimN(vec![(
         StoreKey(array![5.0, 5.1, 5.2]),
         HashMap::from_iter([(
-            MetadataKey::new("medal".into()),
+            MetadataKey::RawString("medal".into()),
             MetadataValue::new("bronze".into()),
         )]),
         Similarity(0.9119372494019118),
@@ -758,14 +758,14 @@ async fn test_get_pred() {
         Query::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("medal".into()),
+                key: MetadataKey::RawString("medal".into()),
                 value: MetadataValue::new("gold".into()),
             }),
         },
         Query::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
-            create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
+            create_predicates: HashSet::from_iter([MetadataKey::RawString("medal".into())]),
             error_if_exists: true,
         },
         Query::Set {
@@ -774,14 +774,14 @@ async fn test_get_pred() {
                 (
                     StoreKey(array![1.2, 1.3, 1.4]),
                     HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
+                        MetadataKey::RawString("medal".into()),
                         MetadataValue::new("silver".into()),
                     )]),
                 ),
                 (
                     StoreKey(array![1.3, 1.4, 1.5]),
                     HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
+                        MetadataKey::RawString("medal".into()),
                         MetadataValue::new("bronze".into()),
                     )]),
                 ),
@@ -791,21 +791,21 @@ async fn test_get_pred() {
         Query::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::In {
-                key: MetadataKey::new("medal".into()),
+                key: MetadataKey::RawString("medal".into()),
                 value: HashSet::from_iter([MetadataValue::new("gold".into())]),
             }),
         },
         Query::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::NotEquals {
-                key: MetadataKey::new("medal".into()),
+                key: MetadataKey::RawString("medal".into()),
                 value: MetadataValue::new("silver".into()),
             }),
         },
         Query::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::NotEquals {
-                key: MetadataKey::new("medal".into()),
+                key: MetadataKey::RawString("medal".into()),
                 value: MetadataValue::new("bronze".into()),
             }),
         },
@@ -821,14 +821,14 @@ async fn test_get_pred() {
     expected.push(Ok(ServerResponse::Get(vec![(
         StoreKey(array![1.3, 1.4, 1.5]),
         HashMap::from_iter([(
-            MetadataKey::new("medal".into()),
+            MetadataKey::RawString("medal".into()),
             MetadataValue::new("bronze".into()),
         )]),
     )])));
     expected.push(Ok(ServerResponse::Get(vec![(
         StoreKey(array![1.2, 1.3, 1.4]),
         HashMap::from_iter([(
-            MetadataKey::new("medal".into()),
+            MetadataKey::RawString("medal".into()),
             MetadataValue::new("silver".into()),
         )]),
     )])));
@@ -864,14 +864,14 @@ async fn test_get_key() {
                 (
                     StoreKey(array![1.0, 0.2]),
                     HashMap::from_iter([(
-                        MetadataKey::new("title".into()),
+                        MetadataKey::RawString("title".into()),
                         MetadataValue::new("sorcerer".into()),
                     )]),
                 ),
                 (
                     StoreKey(array![1.2, 0.3]),
                     HashMap::from_iter([(
-                        MetadataKey::new("title".into()),
+                        MetadataKey::RawString("title".into()),
                         MetadataValue::new("elf".into()),
                     )]),
                 ),
@@ -917,14 +917,14 @@ async fn test_get_key() {
         (
             StoreKey(array![1.2, 0.3]),
             HashMap::from_iter([(
-                MetadataKey::new("title".into()),
+                MetadataKey::RawString("title".into()),
                 MetadataValue::new("elf".into()),
             )]),
         ),
         (
             StoreKey(array![1.0, 0.2]),
             HashMap::from_iter([(
-                MetadataKey::new("title".into()),
+                MetadataKey::RawString("title".into()),
                 MetadataValue::new("sorcerer".into()),
             )]),
         ),
@@ -954,12 +954,12 @@ async fn test_create_index() {
         // should error as store does not yet exist
         Query::CreateIndex {
             store: StoreName("Main".to_string()),
-            predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+            predicates: HashSet::from_iter([MetadataKey::RawString("planet".into())]),
         },
         Query::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
-            create_predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+            create_predicates: HashSet::from_iter([MetadataKey::RawString("galaxy".into())]),
             error_if_exists: true,
         },
         Query::Set {
@@ -969,11 +969,11 @@ async fn test_create_index() {
                     StoreKey(array![1.4, 1.5]),
                     HashMap::from_iter([
                         (
-                            MetadataKey::new("galaxy".into()),
+                            MetadataKey::RawString("galaxy".into()),
                             MetadataValue::new("andromeda".into()),
                         ),
                         (
-                            MetadataKey::new("life-form".into()),
+                            MetadataKey::RawString("life-form".into()),
                             MetadataValue::new("insects".into()),
                         ),
                     ]),
@@ -982,11 +982,11 @@ async fn test_create_index() {
                     StoreKey(array![1.6, 1.7]),
                     HashMap::from_iter([
                         (
-                            MetadataKey::new("galaxy".into()),
+                            MetadataKey::RawString("galaxy".into()),
                             MetadataValue::new("milkyway".into()),
                         ),
                         (
-                            MetadataKey::new("life-form".into()),
+                            MetadataKey::RawString("life-form".into()),
                             MetadataValue::new("insects".into()),
                         ),
                     ]),
@@ -996,13 +996,13 @@ async fn test_create_index() {
         // should return CreateIndex(0) as nothing new was indexed
         Query::CreateIndex {
             store: StoreName("Main".to_string()),
-            predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+            predicates: HashSet::from_iter([MetadataKey::RawString("galaxy".into())]),
         },
         // get predicate should work as galaxy is indexed
         Query::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("galaxy".into()),
+                key: MetadataKey::RawString("galaxy".into()),
                 value: MetadataValue::new("milkyway".into()),
             }),
         },
@@ -1010,7 +1010,7 @@ async fn test_create_index() {
         Query::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("life-form".into()),
+                key: MetadataKey::RawString("life-form".into()),
                 value: MetadataValue::new("humanoid".into()),
             }),
         },
@@ -1018,16 +1018,16 @@ async fn test_create_index() {
         Query::CreateIndex {
             store: StoreName("Main".to_string()),
             predicates: HashSet::from_iter([
-                MetadataKey::new("technology".into()),
-                MetadataKey::new("life-form".into()),
-                MetadataKey::new("galaxy".into()),
+                MetadataKey::RawString("technology".into()),
+                MetadataKey::RawString("life-form".into()),
+                MetadataKey::RawString("galaxy".into()),
             ]),
         },
         // now get pred for life-form should work as it is indexed
         Query::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("life-form".into()),
+                key: MetadataKey::RawString("life-form".into()),
                 value: MetadataValue::new("humanoid".into()),
             }),
         },
@@ -1044,11 +1044,11 @@ async fn test_create_index() {
         StoreKey(array![1.6, 1.7]),
         HashMap::from_iter([
             (
-                MetadataKey::new("galaxy".into()),
+                MetadataKey::RawString("galaxy".into()),
                 MetadataValue::new("milkyway".into()),
             ),
             (
-                MetadataKey::new("life-form".into()),
+                MetadataKey::RawString("life-form".into()),
                 MetadataValue::new("insects".into()),
             ),
         ]),
@@ -1077,31 +1077,31 @@ async fn test_drop_index() {
         Query::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
-            predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+            predicates: HashSet::from_iter([MetadataKey::RawString("planet".into())]),
         },
         Query::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
-            create_predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+            create_predicates: HashSet::from_iter([MetadataKey::RawString("galaxy".into())]),
             error_if_exists: true,
         },
         // should not error even though predicate does not exist
         Query::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: false,
-            predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+            predicates: HashSet::from_iter([MetadataKey::RawString("planet".into())]),
         },
         // should error as predicate does not exist
         Query::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
-            predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+            predicates: HashSet::from_iter([MetadataKey::RawString("planet".into())]),
         },
         // should not error
         Query::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
-            predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+            predicates: HashSet::from_iter([MetadataKey::RawString("galaxy".into())]),
         },
     ]);
     let mut expected = ServerResult::with_capacity(5);

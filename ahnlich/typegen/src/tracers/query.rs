@@ -23,11 +23,12 @@ pub fn trace_query_enum() -> Registry {
     let sample_store_name = StoreName("ijdfsdf".into());
     let sample_store_keys = vec![store_key.clone()];
     let test_predicate_condition = &PredicateCondition::Value(Predicate::Equals {
-        key: MetadataKey::new("author".into()),
+        key: MetadataKey::RawString("author".into()),
         value: MetadataValue::new("Lex Luthor".into()),
     });
 
-    let test_create_predicates = HashSet::from_iter([MetadataKey::new(String::from("username"))]);
+    let test_create_predicates =
+        HashSet::from_iter([MetadataKey::RawString(String::from("username"))]);
 
     let create_store = Query::CreateStore {
         store: sample_store_name.clone(),
@@ -55,7 +56,7 @@ pub fn trace_query_enum() -> Registry {
     //StoreValue = StdHashMap<MetadataKey, MetadataValue>
     let mut store_value = StdHashMap::new();
     store_value.insert(
-        MetadataKey::new(String::from("username")),
+        MetadataKey::RawString(String::from("username")),
         MetadataValue::new(String::from("buster_matthews")),
     );
 
@@ -65,7 +66,7 @@ pub fn trace_query_enum() -> Registry {
     };
 
     let test_predicate_condition = &PredicateCondition::Value(Predicate::NotEquals {
-        key: MetadataKey::new("author".into()),
+        key: MetadataKey::RawString("author".into()),
         value: MetadataValue::new("Lex Luthor".into()),
     });
 

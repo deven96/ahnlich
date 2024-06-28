@@ -297,15 +297,15 @@ mod tests {
     fn store_value_0() -> StoreValue {
         StdHashMap::from_iter(vec![
             (
-                MetadataKey::new("name".into()),
+                MetadataKey::RawString("name".into()),
                 MetadataValue::new("David".into()),
             ),
             (
-                MetadataKey::new("country".into()),
+                MetadataKey::RawString("country".into()),
                 MetadataValue::new("Nigeria".into()),
             ),
             (
-                MetadataKey::new("state".into()),
+                MetadataKey::RawString("state".into()),
                 MetadataValue::new("Markudi".into()),
             ),
         ])
@@ -314,15 +314,15 @@ mod tests {
     fn store_value_1() -> StoreValue {
         StdHashMap::from_iter(vec![
             (
-                MetadataKey::new("name".into()),
+                MetadataKey::RawString("name".into()),
                 MetadataValue::new("David".into()),
             ),
             (
-                MetadataKey::new("country".into()),
+                MetadataKey::RawString("country".into()),
                 MetadataValue::new("USA".into()),
             ),
             (
-                MetadataKey::new("state".into()),
+                MetadataKey::RawString("state".into()),
                 MetadataValue::new("Washington".into()),
             ),
         ])
@@ -331,15 +331,15 @@ mod tests {
     fn store_value_2() -> StoreValue {
         StdHashMap::from_iter(vec![
             (
-                MetadataKey::new("name".into()),
+                MetadataKey::RawString("name".into()),
                 MetadataValue::new("Diretnan".into()),
             ),
             (
-                MetadataKey::new("country".into()),
+                MetadataKey::RawString("country".into()),
                 MetadataValue::new("Nigeria".into()),
             ),
             (
-                MetadataKey::new("state".into()),
+                MetadataKey::RawString("state".into()),
                 MetadataValue::new("Plateau".into()),
             ),
         ])
@@ -391,17 +391,18 @@ mod tests {
 
     #[test]
     fn test_add_index_to_predicate_after() {
-        let shared_pred = create_shared_predicate_indices(vec![MetadataKey::new("country".into())]);
+        let shared_pred =
+            create_shared_predicate_indices(vec![MetadataKey::RawString("country".into())]);
         let result = shared_pred.matches(&PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("name".into()),
+            key: MetadataKey::RawString("name".into()),
             value: MetadataValue::new("David".into()),
         }));
         // We expect to be an error as we didn't index name
         assert!(result.is_err());
         shared_pred.add_predicates(
             vec![
-                MetadataKey::new("country".into()),
-                MetadataKey::new("name".into()),
+                MetadataKey::RawString("country".into()),
+                MetadataKey::RawString("name".into()),
             ],
             Some(vec![
                 ("0".into(), store_value_0()),
@@ -411,7 +412,7 @@ mod tests {
         );
         let result = shared_pred
             .matches(&PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("name".into()),
+                key: MetadataKey::RawString("name".into()),
                 value: MetadataValue::new("David".into()),
             }))
             .unwrap();
@@ -422,14 +423,14 @@ mod tests {
     #[test]
     fn test_predicate_indices_matches() {
         let shared_pred = create_shared_predicate_indices(vec![
-            MetadataKey::new("country".into()),
-            MetadataKey::new("name".into()),
-            MetadataKey::new("state".into()),
-            MetadataKey::new("age".into()),
+            MetadataKey::RawString("country".into()),
+            MetadataKey::RawString("name".into()),
+            MetadataKey::RawString("state".into()),
+            MetadataKey::RawString("age".into()),
         ]);
         let result = shared_pred
             .matches(&PredicateCondition::Value(Predicate::NotEquals {
-                key: MetadataKey::new("age".into()),
+                key: MetadataKey::RawString("age".into()),
                 value: MetadataValue::new("14".into()),
             }))
             .unwrap();
@@ -437,7 +438,7 @@ mod tests {
         assert!(result.is_empty());
         let result = shared_pred
             .matches(&PredicateCondition::Value(Predicate::NotEquals {
-                key: MetadataKey::new("country".into()),
+                key: MetadataKey::RawString("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
             }))
             .unwrap();
@@ -445,39 +446,39 @@ mod tests {
         assert_eq!(result, StdHashSet::from_iter(["1".into()]));
         let result = shared_pred
             .matches(&PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("country".into()),
+                key: MetadataKey::RawString("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
             }))
             .unwrap();
         assert_eq!(result, StdHashSet::from_iter(["0".into(), "2".into()]),);
         let check = PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("state".into()),
+            key: MetadataKey::RawString("state".into()),
             value: MetadataValue::new("Washington".into()),
         })
         .or(PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("age".into()),
+            key: MetadataKey::RawString("age".into()),
             value: MetadataValue::new("14".into()),
         }));
         let result = shared_pred.matches(&check).unwrap();
         // only person 1 is from Washington
         assert_eq!(result, StdHashSet::from_iter(["1".into()]));
         let check = PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("country".into()),
+            key: MetadataKey::RawString("country".into()),
             value: MetadataValue::new("Nigeria".into()),
         })
         .and(PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("state".into()),
+            key: MetadataKey::RawString("state".into()),
             value: MetadataValue::new("Plateau".into()),
         }));
         let result = shared_pred.matches(&check).unwrap();
         // only person 1 is fulfills all
         assert_eq!(result, StdHashSet::from_iter(["2".into()]));
         let check = PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("name".into()),
+            key: MetadataKey::RawString("name".into()),
             value: MetadataValue::new("David".into()),
         })
         .or(PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("name".into()),
+            key: MetadataKey::RawString("name".into()),
             value: MetadataValue::new("Diretnan".into()),
         }));
         let result = shared_pred.matches(&check).unwrap();
@@ -487,7 +488,7 @@ mod tests {
             StdHashSet::from_iter(["2".into(), "0".into(), "1".into(),]),
         );
         let check = check.and(PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("country".into()),
+            key: MetadataKey::RawString("country".into()),
             value: MetadataValue::new("USA".into()),
         }));
         let result = shared_pred.matches(&check).unwrap();
@@ -498,13 +499,13 @@ mod tests {
         shared_pred.remove_store_keys(&["0".into(), "2".into()]);
         let result = shared_pred
             .matches(&PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("country".into()),
+                key: MetadataKey::RawString("country".into()),
                 value: MetadataValue::new("Nigeria".into()),
             }))
             .unwrap();
         assert!(result.is_empty());
         let check = check.and(PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("country".into()),
+            key: MetadataKey::RawString("country".into()),
             value: MetadataValue::new("USA".into()),
         }));
         let result = shared_pred.matches(&check).unwrap();
@@ -561,7 +562,7 @@ mod tests {
         assert_eq!(
             shared_pred
                 .matches(&Predicate::Equals {
-                    key: MetadataKey::new("".to_string()),
+                    key: MetadataKey::RawString("".to_string()),
                     value: MetadataValue::new("Even".into())
                 })
                 .len(),
@@ -570,7 +571,7 @@ mod tests {
         assert_eq!(
             shared_pred
                 .matches(&Predicate::NotEquals {
-                    key: MetadataKey::new("".to_string()),
+                    key: MetadataKey::RawString("".to_string()),
                     value: MetadataValue::new("Even".into())
                 })
                 .len(),
@@ -579,7 +580,7 @@ mod tests {
         assert_eq!(
             shared_pred
                 .matches(&Predicate::Equals {
-                    key: MetadataKey::new("".to_string()),
+                    key: MetadataKey::RawString("".to_string()),
                     value: MetadataValue::new("Odd".into())
                 })
                 .len(),
@@ -588,7 +589,7 @@ mod tests {
         assert_eq!(
             shared_pred
                 .matches(&Predicate::In {
-                    key: MetadataKey::new("".to_string()),
+                    key: MetadataKey::RawString("".to_string()),
                     value: StdHashSet::from_iter([
                         MetadataValue::new("Odd".into()),
                         MetadataValue::new("Even".into())
@@ -600,7 +601,7 @@ mod tests {
         assert_eq!(
             shared_pred
                 .matches(&Predicate::NotIn {
-                    key: MetadataKey::new("".to_string()),
+                    key: MetadataKey::RawString("".to_string()),
                     value: StdHashSet::from_iter([MetadataValue::new("Odd".into()),])
                 })
                 .len(),
@@ -609,7 +610,7 @@ mod tests {
         assert_eq!(
             shared_pred
                 .matches(&Predicate::NotIn {
-                    key: MetadataKey::new("".to_string()),
+                    key: MetadataKey::RawString("".to_string()),
                     value: StdHashSet::from_iter([MetadataValue::new("Even".into()),])
                 })
                 .len(),
@@ -618,7 +619,7 @@ mod tests {
         assert_eq!(
             shared_pred
                 .matches(&Predicate::NotEquals {
-                    key: MetadataKey::new("".to_string()),
+                    key: MetadataKey::RawString("".to_string()),
                     value: MetadataValue::new("Odd".into())
                 })
                 .len(),
@@ -627,7 +628,7 @@ mod tests {
         assert_eq!(
             shared_pred
                 .matches(&Predicate::NotEquals {
-                    key: MetadataKey::new("".to_string()),
+                    key: MetadataKey::RawString("".to_string()),
                     value: MetadataValue::new("NotExists".into())
                 })
                 .len(),
@@ -636,7 +637,7 @@ mod tests {
         assert_eq!(
             shared_pred
                 .matches(&Predicate::Equals {
-                    key: MetadataKey::new("".to_string()),
+                    key: MetadataKey::RawString("".to_string()),
                     value: MetadataValue::new("NotExists".into())
                 })
                 .len(),
