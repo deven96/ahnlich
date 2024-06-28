@@ -31,13 +31,31 @@
       }
     ]
   },
+  "MetadataKey": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": "STR"
+        }
+      },
+      "1": {
+        "Binary": {
+          "NEWTYPE": {
+            "SEQ": "U8"
+          }
+        }
+      }
+    }
+  },
   "Predicate": {
     "ENUM": {
       "0": {
         "Equals": {
           "STRUCT": [
             {
-              "key": "STR"
+              "key": {
+                "TYPENAME": "MetadataKey"
+              }
             },
             {
               "value": "STR"
@@ -49,7 +67,9 @@
         "NotEquals": {
           "STRUCT": [
             {
-              "key": "STR"
+              "key": {
+                "TYPENAME": "MetadataKey"
+              }
             },
             {
               "value": "STR"
@@ -61,7 +81,9 @@
         "In": {
           "STRUCT": [
             {
-              "key": "STR"
+              "key": {
+                "TYPENAME": "MetadataKey"
+              }
             },
             {
               "value": {
@@ -75,7 +97,9 @@
         "NotIn": {
           "STRUCT": [
             {
-              "key": "STR"
+              "key": {
+                "TYPENAME": "MetadataKey"
+              }
             },
             {
               "value": {
@@ -135,7 +159,9 @@
             },
             {
               "create_predicates": {
-                "SEQ": "STR"
+                "SEQ": {
+                  "TYPENAME": "MetadataKey"
+                }
               }
             },
             {
@@ -211,7 +237,9 @@
             },
             {
               "predicates": {
-                "SEQ": "STR"
+                "SEQ": {
+                  "TYPENAME": "MetadataKey"
+                }
               }
             }
           ]
@@ -225,7 +253,9 @@
             },
             {
               "predicates": {
-                "SEQ": "STR"
+                "SEQ": {
+                  "TYPENAME": "MetadataKey"
+                }
               }
             },
             {
@@ -249,7 +279,9 @@
                     },
                     {
                       "MAP": {
-                        "KEY": "STR",
+                        "KEY": {
+                          "TYPENAME": "MetadataKey"
+                        },
                         "VALUE": "STR"
                       }
                     }

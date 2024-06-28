@@ -59,6 +59,10 @@ pub fn trace_query_enum() -> Registry {
         MetadataKey::RawString(String::from("username")),
         MetadataValue::new(String::from("buster_matthews")),
     );
+    store_value.insert(
+        MetadataKey::Binary(vec![2, 3, 2]),
+        MetadataValue::new(String::from("Image file")),
+    );
 
     let set_query = Query::Set {
         store: sample_store_name.clone(),
@@ -130,6 +134,11 @@ pub fn trace_query_enum() -> Registry {
 
     let _ = tracer
         .trace_type::<ServerQuery>(&samples)
+        .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
+        .unwrap();
+
+    let _ = tracer
+        .trace_type::<MetadataKey>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 
