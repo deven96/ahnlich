@@ -164,7 +164,7 @@ def test_client_get_key_succeeds(module_scopped_ahnlich_db, store_key, store_val
     assert actual_response[0][0].data == store_key.data
 
 
-def test_client_get_by_predicate_fails_no_index_found_in_store(
+def test_client_get_by_predicate_succeeds_with_no_index_in_store(
     module_scopped_ahnlich_db,
 ):
     port = module_scopped_ahnlich_db
@@ -186,11 +186,7 @@ def test_client_get_by_predicate_fails_no_index_found_in_store(
         )
     finally:
         db_client.cleanup()
-    assert isinstance(response.results[0], server_response.Result__Err)
-
-    error_message = "Predicate job not found in store"
-    error_response = response.results[0].value
-    assert error_message.lower() in error_response.lower()
+    assert isinstance(response.results[0], server_response.Result__Ok)
 
 
 def test_client_create_index_succeeds(module_scopped_ahnlich_db):
