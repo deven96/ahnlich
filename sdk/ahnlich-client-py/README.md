@@ -173,7 +173,7 @@ from ahnlich_client_py import AhnlichDBClient
 client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 store_key = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
-store_value =  {"rank": "chunin"}
+store_value =  {"rank": query.MetadataValue__RawString(value="chunin")}
 
 
 response = client.set(
@@ -241,7 +241,10 @@ from ahnlich_client_py import AhnlichDBClient
 client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 condition = query.PredicateCondition__Value(
-                query.Predicate__Equals(key="job", value="sorcerer")
+                query.Predicate__Equals(
+                    key="job",
+                    value=query.MetadataValue__RawString(value="sorcerer")
+                )
             )
 response = client.get_by_predicate(
     store_name = "test store",
@@ -297,7 +300,10 @@ from ahnlich_client_py import AhnlichDBClient
 client = AhnlichDBClient(address="127.0.0.1", port=port)
 
 condition = query.PredicateCondition__Value(
-                query.Predicate__Equals(key="job", value="sorcerer")
+                query.Predicate__Equals(
+                    key="job",
+                    value=query.MetadataValue__RawString(value="sorcerer")
+                )
             )
 
 
@@ -347,17 +353,26 @@ When Your PR is made, changes in the client version file would trigger a release
 ## Type Meanings
 
 - Store Key: A one dimensional vector
-- Store Value: A Dictionary containing texts associated with a storekey
+- Store Value: A Dictionary containing texts or binary associated with a storekey
 - Store Predicates: Or Predicate indices are basically indices that improves the filtering of store_values
 - Predicates: These are operations that can be used to filter data(Equals, NotEquals, Contains, etc)
 - PredicateConditions: They are conditions that utilize one predicate or tie Multiple predicates together using the AND, OR or Value operation. Where Value means just a predicate.
 Example: 
 Value
-```
+```py
 condition = query.PredicateCondition__Value(
-                query.Predicate__Equals(key="job", value="sorcerer")
+                query.Predicate__Equals(key="job", value=query.MetadataValue__RawString(value="sorcerer"))
         )
 ```
+Metadatavalue can also be a binary(list of u8s)
+
+```py
+condition = query.PredicateCondition__Value(
+                query.Predicate__Equals(key="image_data", value=query.MetadataValue__Binary(value=[2,2,3,4,5,6,7]))
+        )
+```
+
+
 AND 
 
 
@@ -367,10 +382,10 @@ AND
 condition = query.PredicateCondition__AND(
     (
         query.PredicateCondition__Value(
-                query.Predicate__Equals(key="job", value="sorcerer")
+                query.Predicate__Equals(key="job", query.MetadataValue__RawString(value="sorcerer"))
         ),
         query.PredicateCondition__Value(
-                query.Predicate__Equals(key="rank", value="Chunin")
+                query.Predicate__Equals(key="rank", value=query.MetadataValue__RawString(value="chunin"))
         )
     )
     )

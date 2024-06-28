@@ -31,6 +31,22 @@
       }
     ]
   },
+  "MetadataValue": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": "STR"
+        }
+      },
+      "1": {
+        "Binary": {
+          "NEWTYPE": {
+            "SEQ": "U8"
+          }
+        }
+      }
+    }
+  },
   "Predicate": {
     "ENUM": {
       "0": {
@@ -40,7 +56,9 @@
               "key": "STR"
             },
             {
-              "value": "STR"
+              "value": {
+                "TYPENAME": "MetadataValue"
+              }
             }
           ]
         }
@@ -52,7 +70,9 @@
               "key": "STR"
             },
             {
-              "value": "STR"
+              "value": {
+                "TYPENAME": "MetadataValue"
+              }
             }
           ]
         }
@@ -65,7 +85,9 @@
             },
             {
               "value": {
-                "SEQ": "STR"
+                "SEQ": {
+                  "TYPENAME": "MetadataValue"
+                }
               }
             }
           ]
@@ -79,7 +101,9 @@
             },
             {
               "value": {
-                "SEQ": "STR"
+                "SEQ": {
+                  "TYPENAME": "MetadataValue"
+                }
               }
             }
           ]
@@ -250,7 +274,9 @@
                     {
                       "MAP": {
                         "KEY": "STR",
-                        "VALUE": "STR"
+                        "VALUE": {
+                          "TYPENAME": "MetadataValue"
+                        }
                       }
                     }
                   ]

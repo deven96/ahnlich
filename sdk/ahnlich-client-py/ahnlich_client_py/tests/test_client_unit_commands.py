@@ -28,9 +28,10 @@ def test_client_sends_info_server_to_db_success(db_client):
 def test_client_sends_list_stores_to_fresh_database_succeeds(spin_up_ahnlich_db):
     port = spin_up_ahnlich_db
     db_client = client.AhnlichDBClient(address="127.0.0.1", port=port)
-    response: server_response.ServerResult = db_client.list_stores()
-
+    try:
+        response: server_response.ServerResult = db_client.list_stores()
+    finally:
+        db_client.cleanup()
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__StoreList([])
     )
-    db_client.cleanup()

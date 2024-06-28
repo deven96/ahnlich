@@ -1,6 +1,7 @@
+import re
 import socket
 from ipaddress import IPv4Address
-import re
+
 from generic_connection_pool.contrib.socket import TcpSocketConnectionManager
 from generic_connection_pool.threading import ConnectionPool
 

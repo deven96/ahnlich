@@ -39,6 +39,38 @@ class ConnectedClient:
         return v
 
 
+class MetadataValue:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[MetadataValue]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, MetadataValue)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> "MetadataValue":
+        v, buffer = bincode.deserialize(input, MetadataValue)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read")
+        return v
+
+
+@dataclass(frozen=True)
+class MetadataValue__RawString(MetadataValue):
+    INDEX = 0  # type: int
+    value: str
+
+
+@dataclass(frozen=True)
+class MetadataValue__Binary(MetadataValue):
+    INDEX = 1  # type: int
+    value: typing.Sequence[st.uint8]
+
+
+MetadataValue.VARIANTS = [
+    MetadataValue__RawString,
+    MetadataValue__Binary,
+]
+
+
 class Result:
     VARIANTS = []  # type: typing.Sequence[typing.Type[Result]]
 
@@ -143,13 +175,15 @@ class ServerResponse__Set(ServerResponse):
 @dataclass(frozen=True)
 class ServerResponse__Get(ServerResponse):
     INDEX = 6  # type: int
-    value: typing.Sequence[typing.Tuple["Array", typing.Dict[str, str]]]
+    value: typing.Sequence[typing.Tuple["Array", typing.Dict[str, "MetadataValue"]]]
 
 
 @dataclass(frozen=True)
 class ServerResponse__GetSimN(ServerResponse):
     INDEX = 7  # type: int
-    value: typing.Sequence[typing.Tuple["Array", typing.Dict[str, str], "Similarity"]]
+    value: typing.Sequence[
+        typing.Tuple["Array", typing.Dict[str, "MetadataValue"], "Similarity"]
+    ]
 
 
 @dataclass(frozen=True)

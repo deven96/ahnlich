@@ -90,7 +90,9 @@ class AhnlichDBRequestBuilder:
     def set(
         self,
         store_name,
-        inputs: typing.Sequence[typing.Tuple[query.Array, typing.Dict[str, str]]],
+        inputs: typing.Sequence[
+            typing.Tuple[query.Array, typing.Dict[str, query.MetadataValue]]
+        ],
     ):
         self.queries.append(query.Query__Set(store=store_name, inputs=inputs))
 

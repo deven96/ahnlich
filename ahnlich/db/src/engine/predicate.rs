@@ -298,15 +298,15 @@ mod tests {
         StdHashMap::from_iter(vec![
             (
                 MetadataKey::new("name".into()),
-                MetadataValue::new("David".into()),
+                MetadataValue::RawString("David".into()),
             ),
             (
                 MetadataKey::new("country".into()),
-                MetadataValue::new("Nigeria".into()),
+                MetadataValue::RawString("Nigeria".into()),
             ),
             (
                 MetadataKey::new("state".into()),
-                MetadataValue::new("Markudi".into()),
+                MetadataValue::RawString("Markudi".into()),
             ),
         ])
     }
@@ -315,15 +315,15 @@ mod tests {
         StdHashMap::from_iter(vec![
             (
                 MetadataKey::new("name".into()),
-                MetadataValue::new("David".into()),
+                MetadataValue::RawString("David".into()),
             ),
             (
                 MetadataKey::new("country".into()),
-                MetadataValue::new("USA".into()),
+                MetadataValue::RawString("USA".into()),
             ),
             (
                 MetadataKey::new("state".into()),
-                MetadataValue::new("Washington".into()),
+                MetadataValue::RawString("Washington".into()),
             ),
         ])
     }
@@ -332,15 +332,15 @@ mod tests {
         StdHashMap::from_iter(vec![
             (
                 MetadataKey::new("name".into()),
-                MetadataValue::new("Diretnan".into()),
+                MetadataValue::RawString("Diretnan".into()),
             ),
             (
                 MetadataKey::new("country".into()),
-                MetadataValue::new("Nigeria".into()),
+                MetadataValue::RawString("Nigeria".into()),
             ),
             (
                 MetadataKey::new("state".into()),
-                MetadataValue::new("Plateau".into()),
+                MetadataValue::RawString("Plateau".into()),
             ),
         ])
     }
@@ -377,7 +377,7 @@ mod tests {
             let handle = std::thread::spawn(move || {
                 let key = if i % 2 == 0 { "Even" } else { "Odd" };
                 shared_data.add(vec![(
-                    MetadataValue::new(key.into()),
+                    MetadataValue::RawString(key.into()),
                     format!("{i}").into(),
                 )]);
             });
@@ -394,7 +394,7 @@ mod tests {
         let shared_pred = create_shared_predicate_indices(vec![MetadataKey::new("country".into())]);
         let result = shared_pred.matches(&PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("name".into()),
-            value: MetadataValue::new("David".into()),
+            value: MetadataValue::RawString("David".into()),
         }));
         // We expect to be an error as we didn't index name
         assert!(result.is_err());
@@ -412,7 +412,7 @@ mod tests {
         let result = shared_pred
             .matches(&PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("name".into()),
-                value: MetadataValue::new("David".into()),
+                value: MetadataValue::RawString("David".into()),
             }))
             .unwrap();
         // Now we expect index to be up to date
@@ -430,7 +430,7 @@ mod tests {
         let result = shared_pred
             .matches(&PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("age".into()),
-                value: MetadataValue::new("14".into()),
+                value: MetadataValue::RawString("14".into()),
             }))
             .unwrap();
         // There are no entries where age is 14
@@ -438,7 +438,7 @@ mod tests {
         let result = shared_pred
             .matches(&PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("country".into()),
-                value: MetadataValue::new("Nigeria".into()),
+                value: MetadataValue::RawString("Nigeria".into()),
             }))
             .unwrap();
         // only person 1 is not from Nigeria
@@ -446,39 +446,39 @@ mod tests {
         let result = shared_pred
             .matches(&PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("country".into()),
-                value: MetadataValue::new("Nigeria".into()),
+                value: MetadataValue::RawString("Nigeria".into()),
             }))
             .unwrap();
         assert_eq!(result, StdHashSet::from_iter(["0".into(), "2".into()]),);
         let check = PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("state".into()),
-            value: MetadataValue::new("Washington".into()),
+            value: MetadataValue::RawString("Washington".into()),
         })
         .or(PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("age".into()),
-            value: MetadataValue::new("14".into()),
+            value: MetadataValue::RawString("14".into()),
         }));
         let result = shared_pred.matches(&check).unwrap();
         // only person 1 is from Washington
         assert_eq!(result, StdHashSet::from_iter(["1".into()]));
         let check = PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("country".into()),
-            value: MetadataValue::new("Nigeria".into()),
+            value: MetadataValue::RawString("Nigeria".into()),
         })
         .and(PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("state".into()),
-            value: MetadataValue::new("Plateau".into()),
+            value: MetadataValue::RawString("Plateau".into()),
         }));
         let result = shared_pred.matches(&check).unwrap();
         // only person 1 is fulfills all
         assert_eq!(result, StdHashSet::from_iter(["2".into()]));
         let check = PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("name".into()),
-            value: MetadataValue::new("David".into()),
+            value: MetadataValue::RawString("David".into()),
         })
         .or(PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("name".into()),
-            value: MetadataValue::new("Diretnan".into()),
+            value: MetadataValue::RawString("Diretnan".into()),
         }));
         let result = shared_pred.matches(&check).unwrap();
         // all 3 fulfill this
@@ -488,7 +488,7 @@ mod tests {
         );
         let check = check.and(PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("country".into()),
-            value: MetadataValue::new("USA".into()),
+            value: MetadataValue::RawString("USA".into()),
         }));
         let result = shared_pred.matches(&check).unwrap();
         // only person 1 is from Washington with any of those names
@@ -499,13 +499,13 @@ mod tests {
         let result = shared_pred
             .matches(&PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("country".into()),
-                value: MetadataValue::new("Nigeria".into()),
+                value: MetadataValue::RawString("Nigeria".into()),
             }))
             .unwrap();
         assert!(result.is_empty());
         let check = check.and(PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("country".into()),
-            value: MetadataValue::new("USA".into()),
+            value: MetadataValue::RawString("USA".into()),
         }));
         let result = shared_pred.matches(&check).unwrap();
         // only person 1 is from Washington with any of those names
@@ -520,7 +520,7 @@ mod tests {
             shared_pred
                 .0
                 .pin()
-                .get(&MetadataValue::new("Even".into()))
+                .get(&MetadataValue::RawString("Even".into()))
                 .unwrap()
                 .len(),
             2
@@ -529,7 +529,7 @@ mod tests {
             shared_pred
                 .0
                 .pin()
-                .get(&MetadataValue::new("Odd".into()))
+                .get(&MetadataValue::RawString("Odd".into()))
                 .unwrap()
                 .len(),
             2
@@ -539,7 +539,7 @@ mod tests {
             shared_pred
                 .0
                 .pin()
-                .get(&MetadataValue::new("Even".into()))
+                .get(&MetadataValue::RawString("Even".into()))
                 .unwrap()
                 .len(),
             1
@@ -548,7 +548,7 @@ mod tests {
             shared_pred
                 .0
                 .pin()
-                .get(&MetadataValue::new("Odd".into()))
+                .get(&MetadataValue::RawString("Odd".into()))
                 .unwrap()
                 .len(),
             1
@@ -562,7 +562,7 @@ mod tests {
             shared_pred
                 .matches(&Predicate::Equals {
                     key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::new("Even".into())
+                    value: MetadataValue::RawString("Even".into())
                 })
                 .len(),
             2
@@ -571,7 +571,7 @@ mod tests {
             shared_pred
                 .matches(&Predicate::NotEquals {
                     key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::new("Even".into())
+                    value: MetadataValue::RawString("Even".into())
                 })
                 .len(),
             2
@@ -580,7 +580,7 @@ mod tests {
             shared_pred
                 .matches(&Predicate::Equals {
                     key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::new("Odd".into())
+                    value: MetadataValue::RawString("Odd".into())
                 })
                 .len(),
             2
@@ -590,8 +590,8 @@ mod tests {
                 .matches(&Predicate::In {
                     key: MetadataKey::new("".to_string()),
                     value: StdHashSet::from_iter([
-                        MetadataValue::new("Odd".into()),
-                        MetadataValue::new("Even".into())
+                        MetadataValue::RawString("Odd".into()),
+                        MetadataValue::RawString("Even".into())
                     ])
                 })
                 .len(),
@@ -601,7 +601,7 @@ mod tests {
             shared_pred
                 .matches(&Predicate::NotIn {
                     key: MetadataKey::new("".to_string()),
-                    value: StdHashSet::from_iter([MetadataValue::new("Odd".into()),])
+                    value: StdHashSet::from_iter([MetadataValue::RawString("Odd".into()),])
                 })
                 .len(),
             2
@@ -610,7 +610,7 @@ mod tests {
             shared_pred
                 .matches(&Predicate::NotIn {
                     key: MetadataKey::new("".to_string()),
-                    value: StdHashSet::from_iter([MetadataValue::new("Even".into()),])
+                    value: StdHashSet::from_iter([MetadataValue::RawString("Even".into()),])
                 })
                 .len(),
             2
@@ -619,7 +619,7 @@ mod tests {
             shared_pred
                 .matches(&Predicate::NotEquals {
                     key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::new("Odd".into())
+                    value: MetadataValue::RawString("Odd".into())
                 })
                 .len(),
             2
@@ -628,7 +628,7 @@ mod tests {
             shared_pred
                 .matches(&Predicate::NotEquals {
                     key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::new("NotExists".into())
+                    value: MetadataValue::RawString("NotExists".into())
                 })
                 .len(),
             4
@@ -637,7 +637,7 @@ mod tests {
             shared_pred
                 .matches(&Predicate::Equals {
                     key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::new("NotExists".into())
+                    value: MetadataValue::RawString("NotExists".into())
                 })
                 .len(),
             0

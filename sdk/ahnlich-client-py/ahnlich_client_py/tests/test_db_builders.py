@@ -11,7 +11,10 @@ def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
     request_builder.list_clients()
     request_builder.list_stores()
 
-    response: server_response.ServerResult = db_client.exec()
+    try:
+        response: server_response.ServerResult = db_client.exec()
+    finally:
+        db_client.cleanup()
 
     assert len(response.results) == 4
     assert response.results[0] == server_response.Result__Ok(
@@ -26,4 +29,3 @@ def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
     assert response.results[3] == server_response.Result__Ok(
         server_response.ServerResponse__StoreList([])
     )
-    db_client.cleanup()

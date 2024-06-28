@@ -30,6 +30,22 @@
       }
     ]
   },
+  "MetadataValue": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": "STR"
+        }
+      },
+      "1": {
+        "Binary": {
+          "NEWTYPE": {
+            "SEQ": "U8"
+          }
+        }
+      }
+    }
+  },
   "Result": {
     "ENUM": {
       "0": {
@@ -120,7 +136,9 @@
                 {
                   "MAP": {
                     "KEY": "STR",
-                    "VALUE": "STR"
+                    "VALUE": {
+                      "TYPENAME": "MetadataValue"
+                    }
                   }
                 }
               ]
@@ -139,7 +157,9 @@
                 {
                   "MAP": {
                     "KEY": "STR",
-                    "VALUE": "STR"
+                    "VALUE": {
+                      "TYPENAME": "MetadataValue"
+                    }
                   }
                 },
                 {

@@ -659,7 +659,7 @@ mod tests {
                         StoreKey(array![0.33, 0.44, 0.5]),
                         StdHashMap::from_iter(vec![(
                             MetadataKey::new("author".into()),
-                            MetadataValue::new("Vincent".into()),
+                            MetadataValue::RawString("Vincent".into()),
                         ),])
                     ),]
                 )
@@ -683,7 +683,7 @@ mod tests {
                     StoreKey(input_arr.clone()),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("author".into()),
-                        MetadataValue::new("Lex Luthor".into()),
+                        MetadataValue::RawString("Lex Luthor".into()),
                     )]),
                 )],
             )
@@ -702,7 +702,7 @@ mod tests {
                     StoreKey(input_arr.clone()),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("author".into()),
-                        MetadataValue::new("Clark Kent".into()),
+                        MetadataValue::RawString("Clark Kent".into()),
                     )]),
                 )],
             )
@@ -732,11 +732,11 @@ mod tests {
                     StdHashMap::from_iter(vec![
                         (
                             MetadataKey::new("author".into()),
-                            MetadataValue::new("Lex Luthor".into()),
+                            MetadataValue::RawString("Lex Luthor".into()),
                         ),
                         (
                             MetadataKey::new("planet".into()),
-                            MetadataValue::new("earth".into()),
+                            MetadataValue::RawString("earth".into()),
                         ),
                     ]),
                 )],
@@ -750,11 +750,11 @@ mod tests {
                     StdHashMap::from_iter(vec![
                         (
                             MetadataKey::new("author".into()),
-                            MetadataValue::new("Clark Kent".into()),
+                            MetadataValue::RawString("Clark Kent".into()),
                         ),
                         (
                             MetadataKey::new("planet".into()),
-                            MetadataValue::new("krypton".into()),
+                            MetadataValue::RawString("krypton".into()),
                         ),
                     ]),
                 )],
@@ -768,11 +768,11 @@ mod tests {
                     StdHashMap::from_iter(vec![
                         (
                             MetadataKey::new("author".into()),
-                            MetadataValue::new("General Zod".into()),
+                            MetadataValue::RawString("General Zod".into()),
                         ),
                         (
                             MetadataKey::new("planet".into()),
-                            MetadataValue::new("krypton".into()),
+                            MetadataValue::RawString("krypton".into()),
                         ),
                     ]),
                 )],
@@ -780,23 +780,23 @@ mod tests {
             .unwrap();
         let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("author".into()),
-            value: MetadataValue::new("Lex Luthor".into()),
+            value: MetadataValue::RawString("Lex Luthor".into()),
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 1);
         let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("author".into()),
-            value: MetadataValue::new("Lex Luthor".into()),
+            value: MetadataValue::RawString("Lex Luthor".into()),
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 2);
         let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("author".into()),
-            value: MetadataValue::new("Lex Luthor".into()),
+            value: MetadataValue::RawString("Lex Luthor".into()),
         })
         .or(PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("planet".into()),
-            value: MetadataValue::new("earth".into()),
+            value: MetadataValue::RawString("earth".into()),
         }));
         let res = handler.get_pred_in_store(&even_store, &condition);
         assert_eq!(
@@ -830,7 +830,7 @@ mod tests {
                     StoreKey(input_arr_1.clone()),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("author".into()),
-                        MetadataValue::new("Lex Luthor".into()),
+                        MetadataValue::RawString("Lex Luthor".into()),
                     )]),
                 )],
             )
@@ -842,7 +842,7 @@ mod tests {
                     StoreKey(input_arr_2.clone()),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("author".into()),
-                        MetadataValue::new("Clark Kent".into()),
+                        MetadataValue::RawString("Clark Kent".into()),
                     )]),
                 )],
             )
@@ -864,7 +864,7 @@ mod tests {
                 .get(&MetadataKey::new("author".into()))
                 .cloned()
                 .unwrap(),
-            MetadataValue::new("Lex Luthor".into())
+            MetadataValue::RawString("Lex Luthor".into())
         );
         assert_eq!(
             ret[1]
@@ -872,7 +872,7 @@ mod tests {
                 .get(&MetadataKey::new("author".into()))
                 .cloned()
                 .unwrap(),
-            MetadataValue::new("Clark Kent".into())
+            MetadataValue::RawString("Clark Kent".into())
         );
     }
 
@@ -890,7 +890,7 @@ mod tests {
                     StoreKey(input_arr_1.clone()),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("rank".into()),
-                        MetadataValue::new("Joinin".into()),
+                        MetadataValue::RawString("Joinin".into()),
                     )]),
                 )],
             )
@@ -902,26 +902,26 @@ mod tests {
                     StoreKey(input_arr_2.clone()),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("rank".into()),
-                        MetadataValue::new("Genin".into()),
+                        MetadataValue::RawString("Genin".into()),
                     )]),
                 )],
             )
             .unwrap();
         let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("rank".into()),
-            value: MetadataValue::new("Hokage".into()),
+            value: MetadataValue::RawString("Hokage".into()),
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert!(res.is_empty());
         let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("rank".into()),
-            value: MetadataValue::new("Hokage".into()),
+            value: MetadataValue::RawString("Hokage".into()),
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 2);
         let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("rank".into()),
-            value: MetadataValue::new("Joinin".into()),
+            value: MetadataValue::RawString("Joinin".into()),
         });
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 1);
@@ -942,7 +942,7 @@ mod tests {
                     StoreKey(input_arr_1.clone()),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("rank".into()),
-                        MetadataValue::new("Joinin".into()),
+                        MetadataValue::RawString("Joinin".into()),
                     )]),
                 )],
             )
@@ -954,7 +954,7 @@ mod tests {
                     StoreKey(input_arr_2.clone()),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("rank".into()),
-                        MetadataValue::new("Genin".into()),
+                        MetadataValue::RawString("Genin".into()),
                     )]),
                 )],
             )
@@ -966,7 +966,7 @@ mod tests {
                 StoreInfo {
                     name: odd_store,
                     len: 2,
-                    size_in_bytes: 2104,
+                    size_in_bytes: 2136,
                 },
                 StoreInfo {
                     name: even_store,
@@ -998,7 +998,7 @@ mod tests {
                     input_arr_1.clone(),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("rank".into()),
-                        MetadataValue::new("Chunin".into()),
+                        MetadataValue::RawString("Chunin".into()),
                     )]),
                 )],
             )
@@ -1010,7 +1010,7 @@ mod tests {
                     input_arr_2.clone(),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("rank".into()),
-                        MetadataValue::new("Chunin".into()),
+                        MetadataValue::RawString("Chunin".into()),
                     )]),
                 )],
             )
@@ -1022,14 +1022,14 @@ mod tests {
                     input_arr_3.clone(),
                     StdHashMap::from_iter(vec![(
                         MetadataKey::new("rank".into()),
-                        MetadataValue::new("Genin".into()),
+                        MetadataValue::RawString("Genin".into()),
                     )]),
                 )],
             )
             .unwrap();
         let condition = &PredicateCondition::Value(Predicate::Equals {
             key: MetadataKey::new("rank".into()),
-            value: MetadataValue::new("Chunin".into()),
+            value: MetadataValue::RawString("Chunin".into()),
         });
         let search_input = StoreKey(vectors.get(SEACH_TEXT).unwrap().0.clone());
         let algorithm = Algorithm::CosineSimilarity;
@@ -1061,7 +1061,7 @@ mod tests {
 
         let condition = &PredicateCondition::Value(Predicate::NotEquals {
             key: MetadataKey::new("rank".into()),
-            value: MetadataValue::new("Chunin".into()),
+            value: MetadataValue::RawString("Chunin".into()),
         });
         let closest_n = NonZeroUsize::new(3).unwrap();
         let res = handler
@@ -1084,7 +1084,7 @@ mod tests {
             .map(|(sentence, store_key)| {
                 let value: StdHashMap<MetadataKey, MetadataValue> = StdHashMap::from_iter(vec![(
                     meta_data_key.clone(),
-                    MetadataValue::new(sentence.into()),
+                    MetadataValue::RawString(sentence.into()),
                 )]);
                 (store_key.clone(), value)
             })
@@ -1104,15 +1104,15 @@ mod tests {
 
         assert_eq!(
             res[0].1.get(&meta_data_key).cloned().unwrap(),
-            MetadataValue::new(MOST_SIMILAR[0].into())
+            MetadataValue::RawString(MOST_SIMILAR[0].into())
         );
         assert_eq!(
             res[1].1.get(&meta_data_key).cloned().unwrap(),
-            MetadataValue::new(MOST_SIMILAR[1].into())
+            MetadataValue::RawString(MOST_SIMILAR[1].into())
         );
         assert_eq!(
             res[2].1.get(&meta_data_key).cloned().unwrap(),
-            MetadataValue::new(MOST_SIMILAR[2].into())
+            MetadataValue::RawString(MOST_SIMILAR[2].into())
         );
     }
 }
