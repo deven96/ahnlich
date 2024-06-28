@@ -1,6 +1,7 @@
 from ahnlich_client_py.client import AhnlichDBClient
 from ahnlich_client_py.internals import query, server_response
 from ahnlich_client_py.libs import create_store_key
+import typing
 
 store_payload_no_predicates = {
     "store_name": "Diretnan Station",
@@ -84,7 +85,10 @@ def test_client_set_in_store_succeeds(
     # prepare data
     store_data = {
         "store_name": store_payload_no_predicates["store_name"],
-        "inputs": [(store_key, store_value), (store_key_2, {"rank": "chunin"})],
+        "inputs": [
+            (store_key, store_value),
+            (store_key_2, {"rank": query.MetadataValue__RawString("chunin")}),
+        ],
     }
     # process data
     response: server_response.ServerResult = db_client.set(**store_data)
@@ -95,6 +99,34 @@ def test_client_set_in_store_succeeds(
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__Set(
             server_response.StoreUpsert(inserted=2, updated=0)
+        )
+    )
+
+
+def test_client_set_in_store_succeeds_with_binary(module_scopped_ahnlich_db):
+    port = module_scopped_ahnlich_db
+    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
+    store_key = create_store_key(data=[1.0, 4.0, 3.0, 3.9, 4.9])
+
+    # prepare data
+    store_data = {
+        "store_name": store_payload_no_predicates["store_name"],
+        "inputs": [
+            (
+                store_key,
+                {"image": query.MetadataValue__Binary(value=[2, 2, 3, 4, 5, 6, 7])},
+            ),
+        ],
+    }
+    # process data
+    response: server_response.ServerResult = db_client.set(**store_data)
+    db_client.cleanup()
+
+    assert isinstance(response.results[0], server_response.Result__Ok)
+
+    assert response.results[0] == server_response.Result__Ok(
+        server_response.ServerResponse__Set(
+            server_response.StoreUpsert(inserted=1, updated=0)
         )
     )
 
@@ -128,7 +160,9 @@ def test_client_get_by_predicate_fails_no_index_found_in_store(
     get_predicate_data = {
         "store_name": store_payload_no_predicates["store_name"],
         "condition": query.PredicateCondition__Value(
-            query.Predicate__Equals(key="job", value="sorcerer")
+            query.Predicate__Equals(
+                key="job", value=query.MetadataValue__RawString("sorcerer")
+            )
         ),
     }
     # process data
@@ -168,7 +202,9 @@ def test_client_get_by_predicate_succeeds(
     get_predicate_data = {
         "store_name": store_payload_no_predicates["store_name"],
         "condition": query.PredicateCondition__Value(
-            query.Predicate__Equals(key="job", value="sorcerer")
+            query.Predicate__Equals(
+                key="job", value=query.MetadataValue__RawString(value="sorcerer")
+            )
         ),
     }
     # process data
@@ -181,6 +217,16 @@ def test_client_get_by_predicate_succeeds(
     actual_response = response.results[0].value.value
     assert len(actual_response) == len(expected_result)
     assert actual_response[0][0].data == store_key.data
+
+
+def assert_store_value(
+    store_value_1: typing.Dict[str, query.MetadataValue],
+    store_value_2: typing.Dict[str, query.MetadataValue],
+):
+
+    for key_1, key_2 in zip(store_value_1.keys(), store_value_2.keys()):
+        assert key_1 == key_2
+        assert store_value_1[key_1].value == store_value_2[key_2].value
 
 
 def test_client_get_sim_n_succeeds(module_scopped_ahnlich_db, store_key, store_value):
@@ -211,7 +257,7 @@ def test_client_get_sim_n_succeeds(module_scopped_ahnlich_db, store_key, store_v
         0.9999504,
     ]
     assert len(actual_results) == 1
-    assert actual_results[0][1] == expected_results[1]
+    assert_store_value(actual_results[0][1], expected_results[1])
     assert str(expected_results[2]) in str(actual_results[0]).lower()
 
 
@@ -248,7 +294,9 @@ def test_client_delete_predicate_succeeds(module_scopped_ahnlich_db):
     delete_predicate_data = {
         "store_name": store_payload_no_predicates["store_name"],
         "condition": query.PredicateCondition__Value(
-            query.Predicate__Equals(key="rank", value="chunin")
+            query.Predicate__Equals(
+                key="rank", value=query.MetadataValue__RawString("chunin")
+            )
         ),
     }
 

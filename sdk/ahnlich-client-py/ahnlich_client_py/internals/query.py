@@ -62,6 +62,38 @@ class Array:
         return v
 
 
+class MetadataValue:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[MetadataValue]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, MetadataValue)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> "MetadataValue":
+        v, buffer = bincode.deserialize(input, MetadataValue)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read")
+        return v
+
+
+@dataclass(frozen=True)
+class MetadataValue__RawString(MetadataValue):
+    INDEX = 0  # type: int
+    value: str
+
+
+@dataclass(frozen=True)
+class MetadataValue__Binary(MetadataValue):
+    INDEX = 1  # type: int
+    value: typing.Sequence[st.uint8]
+
+
+MetadataValue.VARIANTS = [
+    MetadataValue__RawString,
+    MetadataValue__Binary,
+]
+
+
 class Predicate:
     VARIANTS = []  # type: typing.Sequence[typing.Type[Predicate]]
 
@@ -80,28 +112,28 @@ class Predicate:
 class Predicate__Equals(Predicate):
     INDEX = 0  # type: int
     key: str
-    value: str
+    value: "MetadataValue"
 
 
 @dataclass(frozen=True)
 class Predicate__NotEquals(Predicate):
     INDEX = 1  # type: int
     key: str
-    value: str
+    value: "MetadataValue"
 
 
 @dataclass(frozen=True)
 class Predicate__In(Predicate):
     INDEX = 2  # type: int
     key: str
-    value: typing.Sequence[str]
+    value: typing.Sequence["MetadataValue"]
 
 
 @dataclass(frozen=True)
 class Predicate__NotIn(Predicate):
     INDEX = 3  # type: int
     key: str
-    value: typing.Sequence[str]
+    value: typing.Sequence["MetadataValue"]
 
 
 Predicate.VARIANTS = [
@@ -217,7 +249,7 @@ class Query__DropIndex(Query):
 class Query__Set(Query):
     INDEX = 6  # type: int
     store: str
-    inputs: typing.Sequence[typing.Tuple["Array", typing.Dict[str, str]]]
+    inputs: typing.Sequence[typing.Tuple["Array", typing.Dict[str, "MetadataValue"]]]
 
 
 @dataclass(frozen=True)

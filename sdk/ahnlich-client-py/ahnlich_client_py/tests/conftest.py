@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from ahnlich_client_py import client, config
+from ahnlich_client_py import client, config, query
 from ahnlich_client_py.libs import create_store_key
 
 
@@ -70,4 +70,4 @@ def store_key():
 
 @pytest.fixture
 def store_value():
-    return dict(job="sorcerer")
+    return dict(job=query.MetadataValue__RawString("sorcerer"))
