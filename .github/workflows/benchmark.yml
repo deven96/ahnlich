@@ -43,6 +43,7 @@ jobs:
       working-directory: ./ahnlich
       run: |
         benchmark_output=$(cargo benchcmp main_bench.txt pr_bench.txt)
+        echo $benchmark_output
         echo "## Benchmark Results" >> bench_results.md
         echo "\`\`\`" >> bench_results.md
         echo "$benchmark_output" >> bench_results.md
