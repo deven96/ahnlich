@@ -12,7 +12,7 @@ use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
-pub fn trace_query_enum() -> Registry {
+pub fn trace_db_query_enum() -> Registry {
     let input_arr_1 = ndarray::array![0.1, 0.2, 0.3, 0.4, 0.5];
     let store_key = StoreKey(input_arr_1.clone());
 
@@ -82,7 +82,8 @@ pub fn trace_query_enum() -> Registry {
         condition: test_predicate_condition.clone(),
     };
 
-    let server_query = ServerDBQuery::from_queries(&[deletepred_variant.clone(), set_query.clone()]);
+    let server_query =
+        ServerDBQuery::from_queries(&[deletepred_variant.clone(), set_query.clone()]);
 
     let _ = tracer
         .trace_value(&mut samples, &create_store)
@@ -154,10 +155,11 @@ mod tests {
     use crate::tracers::load_type_into_registry;
 
     #[test]
-    fn test_spec_documents_matches_current_query_enum() {
-        let query_json_path = std::path::PathBuf::from("../../type_specs").join("query.json");
+    fn test_spec_documents_matches_current_db_query_enum() {
+        let query_json_path =
+            std::path::PathBuf::from("../../type_specs/query").join("db_query.json");
         let query_json = load_type_into_registry(query_json_path);
-        let query_from_types = trace_query_enum();
+        let query_from_types = trace_db_query_enum();
         assert_eq!(query_json, query_from_types)
     }
 }
