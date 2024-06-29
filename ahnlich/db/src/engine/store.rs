@@ -229,6 +229,7 @@ impl StoreHandler {
         store_name: &StoreName,
         new: Vec<(StoreKey, StoreValue)>,
     ) -> Result<StoreUpsert, ServerError> {
+        std::thread::sleep(std::time::Duration::from_millis(10));
         let store = self.get(store_name)?;
         let upsert = store.add(new)?;
         if upsert.modified() {
