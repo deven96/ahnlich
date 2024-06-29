@@ -1,7 +1,7 @@
 use super::task::ServerTask;
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
-use ahnlich_types::server::db::ConnectedClient;
+use ahnlich_types::db::ConnectedClient;
 use cap::Cap;
 use std::alloc;
 use std::io::Result as IoResult;

@@ -1,9 +1,6 @@
 use crate::error::AhnlichError;
 use ahnlich_types::bincode::BinCodeSerAndDeser;
-use ahnlich_types::query::DBQuery;
-use ahnlich_types::query::ServerDBQuery;
-use ahnlich_types::server::db::ServerResponse;
-use ahnlich_types::server::db::ServerResult;
+use ahnlich_types::db::{DBQuery, ServerDBQuery, ServerResponse, ServerResult};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 

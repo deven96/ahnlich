@@ -1,20 +1,20 @@
 use crate::cli::ServerConfig;
 use crate::server::handler::Server;
 use ahnlich_types::bincode::BinCodeSerAndDeser;
+use ahnlich_types::db::ConnectedClient;
+use ahnlich_types::db::DBQuery;
+use ahnlich_types::db::ServerDBQuery;
+use ahnlich_types::db::ServerInfo;
+use ahnlich_types::db::ServerResponse;
+use ahnlich_types::db::ServerResult;
+use ahnlich_types::db::StoreInfo;
+use ahnlich_types::db::StoreUpsert;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
-use ahnlich_types::query::DBQuery;
-use ahnlich_types::query::ServerDBQuery;
-use ahnlich_types::server::db::ConnectedClient;
-use ahnlich_types::server::db::ServerInfo;
-use ahnlich_types::server::db::ServerResponse;
-use ahnlich_types::server::db::ServerResult;
-use ahnlich_types::server::db::StoreInfo;
-use ahnlich_types::server::db::StoreUpsert;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::Similarity;
 use futures::future::join_all;
@@ -932,7 +932,7 @@ async fn test_get_key() {
     expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
         address: "127.0.0.1:1369".to_string(),
         version: *ahnlich_types::version::VERSION,
-        r#type: ahnlich_types::server::ServerType::Database,
+        r#type: ahnlich_types::ServerType::Database,
         limit: CONFIG.allocator_size,
         remaining: 1073609219,
     })));
@@ -1183,7 +1183,7 @@ async fn test_run_server_echos() {
             expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
                 address: "127.0.0.1:1369".to_string(),
                 version: *ahnlich_types::version::VERSION,
-                r#type: ahnlich_types::server::ServerType::Database,
+                r#type: ahnlich_types::ServerType::Database,
                 limit: CONFIG.allocator_size,
                 remaining: 1073614873,
             })));
@@ -1199,7 +1199,7 @@ async fn test_run_server_echos() {
             expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
                 address: "127.0.0.1:1369".to_string(),
                 version: *ahnlich_types::version::VERSION,
-                r#type: ahnlich_types::server::ServerType::Database,
+                r#type: ahnlich_types::ServerType::Database,
                 limit: CONFIG.allocator_size,
                 remaining: 1073614873,
             })));

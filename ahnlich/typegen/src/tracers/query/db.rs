@@ -2,9 +2,9 @@ use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::{
+    db::{DBQuery, ServerDBQuery},
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
-    query::{DBQuery, ServerDBQuery},
 };
 use serde_reflection::Registry;
 use serde_reflection::{Samples, Tracer, TracerConfig};

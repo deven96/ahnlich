@@ -1,12 +1,10 @@
 use ahnlich_types::similarity::Similarity;
 use ahnlich_types::{
+    db::{ConnectedClient, ServerInfo, ServerResponse, ServerResult, StoreInfo, StoreUpsert},
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
-    server::db::{
-        ConnectedClient, ServerInfo, ServerResponse, ServerResult, StoreInfo, StoreUpsert,
-    },
-    server::ServerType,
     version::Version,
+    ServerType,
 };
 use serde_reflection::Registry;
 use serde_reflection::{Samples, Tracer, TracerConfig};

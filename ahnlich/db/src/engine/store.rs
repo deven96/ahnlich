@@ -2,13 +2,13 @@ use crate::errors::ServerError;
 
 use super::super::algorithm::FindSimilarN;
 use super::predicate::PredicateIndices;
+use ahnlich_types::db::StoreInfo;
+use ahnlich_types::db::StoreUpsert;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::predicate::PredicateCondition;
-use ahnlich_types::server::db::StoreInfo;
-use ahnlich_types::server::db::StoreUpsert;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::Similarity;
 use flurry::HashMap as ConcurrentHashMap;

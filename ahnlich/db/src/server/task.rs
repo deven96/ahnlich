@@ -5,12 +5,9 @@ use ahnlich_types::bincode::BinCodeSerAndDeser;
 use ahnlich_types::bincode::LENGTH_HEADER_SIZE;
 use ahnlich_types::bincode::MAGIC_BYTES;
 use ahnlich_types::bincode::VERSION_LENGTH;
-use ahnlich_types::query::DBQuery;
-use ahnlich_types::query::ServerDBQuery;
-use ahnlich_types::server::db::ConnectedClient;
-use ahnlich_types::server::db::ServerInfo;
-use ahnlich_types::server::db::ServerResponse;
-use ahnlich_types::server::db::ServerResult;
+use ahnlich_types::db::{
+    ConnectedClient, DBQuery, ServerDBQuery, ServerInfo, ServerResponse, ServerResult,
+};
 use ahnlich_types::version::Version;
 use ahnlich_types::version::VERSION;
 use std::io::Error;
@@ -205,7 +202,7 @@ impl ServerTask {
         ServerInfo {
             address: format!("{}", self.server_addr),
             version: *VERSION,
-            r#type: ahnlich_types::server::ServerType::Database,
+            r#type: ahnlich_types::ServerType::Database,
             limit: ALLOCATOR.limit(),
             remaining: ALLOCATOR.remaining(),
         }
