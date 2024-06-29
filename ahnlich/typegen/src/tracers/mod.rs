@@ -1,8 +1,9 @@
-pub use query::trace_query_enum;
+pub(crate) use query::save_queries_registries_into_file;
 use serde_generate::CodeGeneratorConfig;
 use serde_generate::SourceInstaller;
 use serde_reflection::Registry;
-pub use server_response::trace_server_response_enum;
+pub(crate) use server_response::save_server_response_registries;
+
 use std::{
     fs::File,
     io::{BufReader, BufWriter},
@@ -30,13 +31,33 @@ pub(crate) fn save_registry_into_file(registry: &Registry, file_path: std::path:
         .expect("Query: Failed to write tracer registry into json file");
 }
 
-pub(crate) fn generate_language_definition(
-    language: Language,
-    input_dir: &std::path::PathBuf,
-    output_dir: &std::path::PathBuf,
-) {
-    let task = SpecToLanguage::build(language, input_dir.to_owned(), output_dir.to_owned());
-    task.generate_type_def_for_language()
+pub(crate) struct LanguageGeneratorTasks {
+    tasks: Vec<SpecToLanguage>,
+}
+/// We take the base dir of type_specs
+/// we find two folders, query and server_response dir and create tasks
+impl LanguageGeneratorTasks {
+    pub(crate) fn build(
+        input_dir: &std::path::Path,
+        output_dir: &std::path::PathBuf,
+        language: Language,
+    ) -> Self {
+        let input_dirs = [input_dir.join("query"), input_dir.join("server_response")];
+
+        let tasks = input_dirs
+            .iter()
+            .filter(|path| path.is_dir())
+            .map(|p| SpecToLanguage::build(language, p.to_owned(), output_dir.to_owned()))
+            .collect();
+
+        Self { tasks }
+    }
+
+    pub(crate) fn generate_language_definition(&self) {
+        for task in self.tasks.iter() {
+            task.generate_type_def_for_language()
+        }
+    }
 }
 
 struct SpecToLanguage {

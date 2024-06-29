@@ -2,12 +2,10 @@ mod cli;
 mod tracers;
 
 use crate::cli::{Cli, Commands};
-use crate::tracers::{
-    generate_language_definition, save_registry_into_file, trace_query_enum,
-    trace_server_response_enum,
-};
+use crate::tracers::{save_queries_registries_into_file, LanguageGeneratorTasks};
 use clap::Parser;
 use std::error::Error;
+use tracers::save_server_response_registries;
 const SPEC_DOC_PATH: &str = "../type_specs/";
 const SDK_PATH: &str = "../sdk";
 
@@ -29,13 +27,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .to_owned()
                 .unwrap_or(std::path::PathBuf::from(SPEC_DOC_PATH));
 
-            let query_registry = trace_query_enum();
-            save_registry_into_file(&query_registry, output_dir.to_owned().join("query.json"));
-            let server_response_reg = trace_server_response_enum();
-            save_registry_into_file(
-                &server_response_reg,
-                output_dir.to_owned().join("server_response.json"),
-            );
+            save_queries_registries_into_file(output_dir);
+            save_server_response_registries(output_dir);
 
             println!("Types spec successfully generated");
         }
@@ -60,7 +53,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .to_owned()
                 .unwrap_or(std::path::PathBuf::from(SDK_PATH));
 
-            generate_language_definition(config.language, input_dir, output_dir);
+            let language_gen =
+                LanguageGeneratorTasks::build(input_dir, output_dir, config.language);
+            language_gen.generate_language_definition();
 
             println!("Language type definition generated");
         }

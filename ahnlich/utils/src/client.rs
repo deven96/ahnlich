@@ -1,4 +1,4 @@
-use ahnlich_types::server::ConnectedClient;
+use ahnlich_types::db::ConnectedClient;
 use flurry::HashSet as ConcurrentHashSet;
 use std::collections::HashSet as StdHashSet;
 use std::net::SocketAddr;

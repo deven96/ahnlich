@@ -1,12 +1,10 @@
 use ahnlich_types::similarity::Similarity;
 use ahnlich_types::{
+    db::{ConnectedClient, ServerInfo, ServerResponse, ServerResult, StoreInfo, StoreUpsert},
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
-    server::{
-        ConnectedClient, ServerInfo, ServerResponse, ServerResult, ServerType, StoreInfo,
-        StoreUpsert,
-    },
     version::Version,
+    ServerType,
 };
 use serde_reflection::Registry;
 use serde_reflection::{Samples, Tracer, TracerConfig};
@@ -14,7 +12,7 @@ use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet;
 use std::time::SystemTime;
 
-pub fn trace_server_response_enum() -> Registry {
+pub fn trace_db_server_response_enum() -> Registry {
     let mut tracer = Tracer::new(TracerConfig::default());
 
     let mut samples = Samples::new();
@@ -130,14 +128,15 @@ pub fn trace_server_response_enum() -> Registry {
 #[cfg(test)]
 mod tests {
 
-    use crate::tracers::{load_type_into_registry, trace_server_response_enum};
+    use super::*;
+    use crate::tracers::load_type_into_registry;
 
     #[test]
-    fn test_spec_documents_matches_current_server_response_enum() {
+    fn test_spec_documents_matches_current_db_server_response_enum() {
         let server_response_json_path =
-            std::path::PathBuf::from("../../type_specs").join("server_response.json");
+            std::path::PathBuf::from("../../type_specs/response").join("db_response.json");
         let server_response_json = load_type_into_registry(server_response_json_path);
-        let server_response_from_types = trace_server_response_enum();
+        let server_response_from_types = trace_db_server_response_enum();
         assert_eq!(server_response_json, server_response_from_types)
     }
 }

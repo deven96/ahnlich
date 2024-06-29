@@ -4,6 +4,7 @@ use crate::keyval::StoreName;
 use crate::keyval::StoreValue;
 use crate::similarity::Similarity;
 use crate::version::Version;
+use crate::ServerType;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -69,12 +70,6 @@ impl PartialEq for ServerInfo {
             && self.r#type.eq(&other.r#type)
             && self.limit.eq(&other.limit)
     }
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ServerType {
-    Database,
-    AI,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialOrd, Ord)]

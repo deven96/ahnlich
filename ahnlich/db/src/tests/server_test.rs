@@ -1,20 +1,20 @@
 use crate::cli::ServerConfig;
 use crate::server::handler::Server;
 use ahnlich_types::bincode::BinCodeSerAndDeser;
+use ahnlich_types::db::ConnectedClient;
+use ahnlich_types::db::DBQuery;
+use ahnlich_types::db::ServerDBQuery;
+use ahnlich_types::db::ServerInfo;
+use ahnlich_types::db::ServerResponse;
+use ahnlich_types::db::ServerResult;
+use ahnlich_types::db::StoreInfo;
+use ahnlich_types::db::StoreUpsert;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
-use ahnlich_types::query::Query;
-use ahnlich_types::query::ServerQuery;
-use ahnlich_types::server::ConnectedClient;
-use ahnlich_types::server::ServerInfo;
-use ahnlich_types::server::ServerResponse;
-use ahnlich_types::server::ServerResult;
-use ahnlich_types::server::StoreInfo;
-use ahnlich_types::server::StoreUpsert;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::Similarity;
 use futures::future::join_all;
@@ -69,7 +69,7 @@ async fn test_maximum_client_restriction_works() {
             .expect("Could not read failed stream"),
         0
     );
-    let message = ServerQuery::from_queries(&[Query::ListClients]);
+    let message = ServerDBQuery::from_queries(&[DBQuery::ListClients]);
     let expected_response = HashSet::from_iter([
         ConnectedClient {
             address: format!("{first_stream_addr}"),
@@ -110,7 +110,7 @@ async fn test_server_client_info() {
             time_connected: SystemTime::now(),
         },
     ]);
-    let message = ServerQuery::from_queries(&[Query::ListClients]);
+    let message = ServerDBQuery::from_queries(&[DBQuery::ListClients]);
     let mut expected = ServerResult::with_capacity(1);
     expected.push(Ok(ServerResponse::ClientList(expected_response.clone())));
     let mut reader = BufReader::new(first_stream);
@@ -121,7 +121,7 @@ async fn test_server_client_info() {
         address: format!("{first_stream_addr}"),
         time_connected: SystemTime::now(),
     }]);
-    let message = ServerQuery::from_queries(&[Query::ListClients]);
+    let message = ServerDBQuery::from_queries(&[DBQuery::ListClients]);
     let mut expected = ServerResult::with_capacity(1);
     expected.push(Ok(ServerResponse::ClientList(expected_response.clone())));
     query_server_assert_result(&mut reader, message, expected.clone()).await;
@@ -136,7 +136,7 @@ async fn test_simple_stores_list() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[Query::ListStores]);
+    let message = ServerDBQuery::from_queries(&[DBQuery::ListStores]);
     let mut expected = ServerResult::with_capacity(1);
     let expected_response = HashSet::from_iter([]);
     expected.push(Ok(ServerResponse::StoreList(expected_response)));
@@ -154,28 +154,28 @@ async fn test_create_stores() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
-        Query::CreateStore {
+    let message = ServerDBQuery::from_queries(&[
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::new(),
             error_if_exists: true,
         },
         // difference in dimensions don't matter as name is the same so this should error
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::new(),
             error_if_exists: true,
         },
         // Should not error despite existing
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::new(),
             error_if_exists: false,
         },
-        Query::ListStores,
+        DBQuery::ListStores,
     ]);
     let mut expected = ServerResult::with_capacity(4);
     expected.push(Ok(ServerResponse::Unit));
@@ -202,16 +202,16 @@ async fn test_del_pred() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should error as store does not exist
-        Query::DelPred {
+        DBQuery::DelPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("planet".into()),
                 value: MetadataValue::RawString("earth".into()),
             }),
         },
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
@@ -219,14 +219,14 @@ async fn test_del_pred() {
         },
         // should not error as it is correct query
         // but should delete nothing as nothing matches predicate
-        Query::DelPred {
+        DBQuery::DelPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("planet".into()),
                 value: MetadataValue::RawString("earth".into()),
             }),
         },
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
@@ -245,28 +245,28 @@ async fn test_del_pred() {
                 ),
             ],
         },
-        Query::ListStores,
+        DBQuery::ListStores,
         // should delete the jupiter planet key
-        Query::DelPred {
+        DBQuery::DelPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("planet".into()),
                 value: MetadataValue::RawString("mars".into()),
             }),
         },
-        Query::GetKey {
+        DBQuery::GetKey {
             store: StoreName("Main".to_string()),
             keys: vec![StoreKey(array![1.4, 1.5]), StoreKey(array![1.6, 1.7])],
         },
         // should delete the mars planet key
-        Query::DelPred {
+        DBQuery::DelPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("planet".into()),
                 value: MetadataValue::RawString("mars".into()),
             }),
         },
-        Query::ListStores,
+        DBQuery::ListStores,
     ]);
     let mut expected = ServerResult::with_capacity(9);
     expected.push(Err("Store Main not found".to_string()));
@@ -313,13 +313,13 @@ async fn test_del_key() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should error as store does not exist
-        Query::DelKey {
+        DBQuery::DelKey {
             store: StoreName("Main".to_string()),
             keys: vec![],
         },
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(4).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
@@ -327,29 +327,29 @@ async fn test_del_key() {
         },
         // should not error as it is correct dimensions
         // but should delete nothing as nothing exists in the store yet
-        Query::DelKey {
+        DBQuery::DelKey {
             store: StoreName("Main".to_string()),
             keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
         },
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (StoreKey(array![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
                 (StoreKey(array![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
             ],
         },
-        Query::ListStores,
+        DBQuery::ListStores,
         // should error as different dimensions
-        Query::DelKey {
+        DBQuery::DelKey {
             store: StoreName("Main".to_string()),
             keys: vec![StoreKey(array![1.0, 1.1, 1.2])],
         },
         // should work as key exists
-        Query::DelKey {
+        DBQuery::DelKey {
             store: StoreName("Main".to_string()),
             keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
         },
-        Query::ListStores,
+        DBQuery::ListStores,
     ]);
     let mut expected = ServerResult::with_capacity(8);
     expected.push(Err("Store Main not found".to_string()));
@@ -392,13 +392,13 @@ async fn test_server_with_persistence() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should error as store does not exist
-        Query::DelKey {
+        DBQuery::DelKey {
             store: StoreName("Main".to_string()),
             keys: vec![],
         },
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(4).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
@@ -406,29 +406,29 @@ async fn test_server_with_persistence() {
         },
         // should not error as it is correct dimensions
         // but should delete nothing as nothing exists in the store yet
-        Query::DelKey {
+        DBQuery::DelKey {
             store: StoreName("Main".to_string()),
             keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
         },
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (StoreKey(array![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
                 (StoreKey(array![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
             ],
         },
-        Query::ListStores,
+        DBQuery::ListStores,
         // should error as different dimensions
-        Query::DelKey {
+        DBQuery::DelKey {
             store: StoreName("Main".to_string()),
             keys: vec![StoreKey(array![1.0, 1.1, 1.2])],
         },
         // should work as key exists
-        Query::DelKey {
+        DBQuery::DelKey {
             store: StoreName("Main".to_string()),
             keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
         },
-        Query::ListStores,
+        DBQuery::ListStores,
     ]);
     let mut expected = ServerResult::with_capacity(8);
     expected.push(Err("Store Main not found".to_string()));
@@ -472,20 +472,20 @@ async fn test_server_with_persistence() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should error as store was loaded from previous persistence and main still exists
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
             error_if_exists: true,
         },
         // should not error as store exists
-        Query::DelKey {
+        DBQuery::DelKey {
             store: StoreName("Main".to_string()),
             keys: vec![],
         },
-        Query::GetKey {
+        DBQuery::GetKey {
             store: StoreName("Main".to_string()),
             keys: vec![StoreKey(array![1.1, 1.2, 1.3, 1.4])],
         },
@@ -515,30 +515,30 @@ async fn test_set_in_store() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should error as store does not exist
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![],
         },
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
             error_if_exists: true,
         },
         // should not error as it is correct dimensions
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![(StoreKey(array![1.23, 1.0, 0.2]), HashMap::new())],
         },
         // should error as it is incorrect dimensions
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![(StoreKey(array![2.1]), HashMap::new())],
         },
         // should upsert existing value and add new value
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
@@ -551,7 +551,7 @@ async fn test_set_in_store() {
                 (StoreKey(array![0.03, 5.1, 3.23]), HashMap::new()),
             ],
         },
-        Query::ListStores,
+        DBQuery::ListStores,
     ]);
     let mut expected = ServerResult::with_capacity(6);
     expected.push(Err("Store Main not found".to_string()));
@@ -588,22 +588,22 @@ async fn test_get_sim_n() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should error as store does not yet exist
-        Query::GetSimN {
+        DBQuery::GetSimN {
             store: StoreName("Main".to_string()),
             search_input: StoreKey(array![]),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::CosineSimilarity,
             condition: None,
         },
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
             error_if_exists: true,
         },
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
@@ -630,7 +630,7 @@ async fn test_get_sim_n() {
             ],
         },
         // error due to dimension mismatch
-        Query::GetSimN {
+        DBQuery::GetSimN {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::EuclideanDistance,
@@ -639,7 +639,7 @@ async fn test_get_sim_n() {
         },
         // return just 1 entry regardless of closest_n
         // due to precondition satisfying just one
-        Query::GetSimN {
+        DBQuery::GetSimN {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::CosineSimilarity,
@@ -650,7 +650,7 @@ async fn test_get_sim_n() {
             })),
         },
         // Get closest 2 without precondition using DotProduct
-        Query::GetSimN {
+        DBQuery::GetSimN {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::DotProductSimilarity,
@@ -658,7 +658,7 @@ async fn test_get_sim_n() {
             condition: None,
         },
         // Get closest 2 without precondition using EuclideanDistance
-        Query::GetSimN {
+        DBQuery::GetSimN {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::EuclideanDistance,
@@ -666,7 +666,7 @@ async fn test_get_sim_n() {
             condition: None,
         },
         // get closest one where medal is not gold
-        Query::GetSimN {
+        DBQuery::GetSimN {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(1).unwrap(),
             algorithm: Algorithm::CosineSimilarity,
@@ -753,22 +753,22 @@ async fn test_get_pred() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should error as store does not yet exist
-        Query::GetPred {
+        DBQuery::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("medal".into()),
                 value: MetadataValue::RawString("gold".into()),
             }),
         },
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
             error_if_exists: true,
         },
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
@@ -788,21 +788,21 @@ async fn test_get_pred() {
             ],
         },
         // should not error but return 0
-        Query::GetPred {
+        DBQuery::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::In {
                 key: MetadataKey::new("medal".into()),
                 value: HashSet::from_iter([MetadataValue::RawString("gold".into())]),
             }),
         },
-        Query::GetPred {
+        DBQuery::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("medal".into()),
                 value: MetadataValue::RawString("silver".into()),
             }),
         },
-        Query::GetPred {
+        DBQuery::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("medal".into()),
@@ -846,19 +846,19 @@ async fn test_get_key() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should error as store does not yet exist
-        Query::GetKey {
+        DBQuery::GetKey {
             store: StoreName("Main".to_string()),
             keys: vec![],
         },
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::new(),
             error_if_exists: true,
         },
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
@@ -878,7 +878,7 @@ async fn test_get_key() {
             ],
         },
         // should error as dimension mismatch
-        Query::GetKey {
+        DBQuery::GetKey {
             store: StoreName("Main".to_string()),
             keys: vec![
                 StoreKey(array![0.2, 0.3, 0.4]),
@@ -887,12 +887,12 @@ async fn test_get_key() {
             ],
         },
         // should not error however the keys do not exist so should be empty
-        Query::GetKey {
+        DBQuery::GetKey {
             store: StoreName("Main".to_string()),
             keys: vec![StoreKey(array![0.4, 0.6]), StoreKey(array![0.2, 0.5])],
         },
         // Gets back the existing key in order
-        Query::GetKey {
+        DBQuery::GetKey {
             store: StoreName("Main".to_string()),
             keys: vec![
                 StoreKey(array![1.2, 0.3]),
@@ -900,7 +900,7 @@ async fn test_get_key() {
                 StoreKey(array![1.0, 0.2]),
             ],
         },
-        Query::InfoServer,
+        DBQuery::InfoServer,
     ]);
     let mut expected = ServerResult::with_capacity(7);
     expected.push(Err("Store Main not found".to_string()));
@@ -932,7 +932,7 @@ async fn test_get_key() {
     expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
         address: "127.0.0.1:1369".to_string(),
         version: *ahnlich_types::version::VERSION,
-        r#type: ahnlich_types::server::ServerType::Database,
+        r#type: ahnlich_types::ServerType::Database,
         limit: CONFIG.allocator_size,
         remaining: 1073609219,
     })));
@@ -950,19 +950,19 @@ async fn test_create_index() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should error as store does not yet exist
-        Query::CreateIndex {
+        DBQuery::CreateIndex {
             store: StoreName("Main".to_string()),
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
             error_if_exists: true,
         },
-        Query::Set {
+        DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
@@ -994,12 +994,12 @@ async fn test_create_index() {
             ],
         },
         // should return CreateIndex(0) as nothing new was indexed
-        Query::CreateIndex {
+        DBQuery::CreateIndex {
             store: StoreName("Main".to_string()),
             predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
         },
         // get predicate should work as galaxy is indexed
-        Query::GetPred {
+        DBQuery::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("galaxy".into()),
@@ -1007,7 +1007,7 @@ async fn test_create_index() {
             }),
         },
         // lifeform should return 1 as there is humanoid
-        Query::GetPred {
+        DBQuery::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("life-form".into()),
@@ -1015,7 +1015,7 @@ async fn test_create_index() {
             }),
         },
         // lifeform should return 1 as there is insects
-        Query::GetPred {
+        DBQuery::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::In {
                 key: MetadataKey::new("life-form".into()),
@@ -1023,7 +1023,7 @@ async fn test_create_index() {
             }),
         },
         // lifeform should return 1 insects doesn't match humanoid
-        Query::GetPred {
+        DBQuery::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::NotIn {
                 key: MetadataKey::new("life-form".into()),
@@ -1031,7 +1031,7 @@ async fn test_create_index() {
             }),
         },
         // should create 2 new indexes
-        Query::CreateIndex {
+        DBQuery::CreateIndex {
             store: StoreName("Main".to_string()),
             predicates: HashSet::from_iter([
                 MetadataKey::new("technology".into()),
@@ -1040,7 +1040,7 @@ async fn test_create_index() {
             ]),
         },
         // humanoid should still work after indexing
-        Query::GetPred {
+        DBQuery::GetPred {
             store: StoreName("Main".to_string()),
             condition: PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("life-form".into()),
@@ -1136,33 +1136,33 @@ async fn test_drop_index() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should error as store does not yet exist
-        Query::DropIndex {
+        DBQuery::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
             error_if_exists: true,
         },
         // should not error even though predicate does not exist
-        Query::DropIndex {
+        DBQuery::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: false,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
         // should error as predicate does not exist
-        Query::DropIndex {
+        DBQuery::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
         // should not error
-        Query::DropIndex {
+        DBQuery::DropIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
@@ -1190,26 +1190,26 @@ async fn test_drop_stores() {
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
-    let message = ServerQuery::from_queries(&[
+    let message = ServerDBQuery::from_queries(&[
         // should not error as error if not exists is set to false, however it should return Del(0)
-        Query::DropStore {
+        DBQuery::DropStore {
             store: StoreName("Main".to_string()),
             error_if_not_exists: false,
         },
-        Query::CreateStore {
+        DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::new(),
             error_if_exists: true,
         },
-        Query::ListStores,
+        DBQuery::ListStores,
         // should not error
-        Query::DropStore {
+        DBQuery::DropStore {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
         },
         // should error
-        Query::DropStore {
+        DBQuery::DropStore {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
         },
@@ -1242,12 +1242,12 @@ async fn test_run_server_echos() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     let tasks = vec![
         tokio::spawn(async move {
-            let message = ServerQuery::from_queries(&[Query::InfoServer, Query::Ping]);
+            let message = ServerDBQuery::from_queries(&[DBQuery::InfoServer, DBQuery::Ping]);
             let mut expected = ServerResult::with_capacity(2);
             expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
                 address: "127.0.0.1:1369".to_string(),
                 version: *ahnlich_types::version::VERSION,
-                r#type: ahnlich_types::server::ServerType::Database,
+                r#type: ahnlich_types::ServerType::Database,
                 limit: CONFIG.allocator_size,
                 remaining: 1073614873,
             })));
@@ -1257,13 +1257,13 @@ async fn test_run_server_echos() {
             query_server_assert_result(&mut reader, message, expected).await
         }),
         tokio::spawn(async move {
-            let message = ServerQuery::from_queries(&[Query::Ping, Query::InfoServer]);
+            let message = ServerDBQuery::from_queries(&[DBQuery::Ping, DBQuery::InfoServer]);
             let mut expected = ServerResult::with_capacity(2);
             expected.push(Ok(ServerResponse::Pong));
             expected.push(Ok(ServerResponse::InfoServer(ServerInfo {
                 address: "127.0.0.1:1369".to_string(),
                 version: *ahnlich_types::version::VERSION,
-                r#type: ahnlich_types::server::ServerType::Database,
+                r#type: ahnlich_types::ServerType::Database,
                 limit: CONFIG.allocator_size,
                 remaining: 1073614873,
             })));
@@ -1277,7 +1277,7 @@ async fn test_run_server_echos() {
 
 async fn query_server_assert_result(
     reader: &mut BufReader<TcpStream>,
-    query: ServerQuery,
+    query: ServerDBQuery,
     expected_result: ServerResult,
 ) {
     // Message to send

@@ -5,12 +5,9 @@ use ahnlich_types::bincode::BinCodeSerAndDeser;
 use ahnlich_types::bincode::LENGTH_HEADER_SIZE;
 use ahnlich_types::bincode::MAGIC_BYTES;
 use ahnlich_types::bincode::VERSION_LENGTH;
-use ahnlich_types::query::Query;
-use ahnlich_types::query::ServerQuery;
-use ahnlich_types::server::ConnectedClient;
-use ahnlich_types::server::ServerInfo;
-use ahnlich_types::server::ServerResponse;
-use ahnlich_types::server::ServerResult;
+use ahnlich_types::db::{
+    ConnectedClient, DBQuery, ServerDBQuery, ServerInfo, ServerResponse, ServerResult,
+};
 use ahnlich_types::version::Version;
 use ahnlich_types::version::VERSION;
 use std::io::Error;
@@ -84,7 +81,7 @@ impl ServerTask {
                             data.resize(data_length as usize, 0u8);
                             self.reader.read_exact(&mut data).await?;
                             // TODO: Add trace here to catch whenever queries could not be deserialized at all
-                            match ServerQuery::deserialize(&data) {
+                            match ServerDBQuery::deserialize(&data) {
                                 Ok(queries) => {
                                 tracing::debug!("Got Queries {:?}", queries);
                                 // TODO: Pass in store_handler and use to respond to queries
@@ -109,17 +106,17 @@ impl ServerTask {
     }
 
     #[tracing::instrument]
-    fn handle(&self, queries: Vec<Query>) -> ServerResult {
+    fn handle(&self, queries: Vec<DBQuery>) -> ServerResult {
         let mut result = ServerResult::with_capacity(queries.len());
         for query in queries {
             result.push(match query {
-                Query::Ping => Ok(ServerResponse::Pong),
-                Query::InfoServer => Ok(ServerResponse::InfoServer(self.server_info())),
-                Query::ListClients => Ok(ServerResponse::ClientList(self.client_handler.list())),
-                Query::ListStores => {
+                DBQuery::Ping => Ok(ServerResponse::Pong),
+                DBQuery::InfoServer => Ok(ServerResponse::InfoServer(self.server_info())),
+                DBQuery::ListClients => Ok(ServerResponse::ClientList(self.client_handler.list())),
+                DBQuery::ListStores => {
                     Ok(ServerResponse::StoreList(self.store_handler.list_stores()))
                 }
-                Query::CreateStore {
+                DBQuery::CreateStore {
                     store,
                     dimension,
                     create_predicates,
@@ -134,12 +131,12 @@ impl ServerTask {
                     )
                     .map(|_| ServerResponse::Unit)
                     .map_err(|e| format!("{e}")),
-                Query::CreateIndex { store, predicates } => self
+                DBQuery::CreateIndex { store, predicates } => self
                     .store_handler
                     .create_index(&store, predicates.into_iter().collect())
                     .map(ServerResponse::CreateIndex)
                     .map_err(|e| format!("{e}")),
-                Query::DropStore {
+                DBQuery::DropStore {
                     store,
                     error_if_not_exists,
                 } => self
@@ -147,7 +144,7 @@ impl ServerTask {
                     .drop_store(store, error_if_not_exists)
                     .map(ServerResponse::Del)
                     .map_err(|e| format!("{e}")),
-                Query::DropIndex {
+                DBQuery::DropIndex {
                     store,
                     error_if_not_exists,
                     predicates,
@@ -160,22 +157,22 @@ impl ServerTask {
                     )
                     .map(ServerResponse::Del)
                     .map_err(|e| format!("{e}")),
-                Query::Set { store, inputs } => self
+                DBQuery::Set { store, inputs } => self
                     .store_handler
                     .set_in_store(&store, inputs)
                     .map(ServerResponse::Set)
                     .map_err(|e| format!("{e}")),
-                Query::GetKey { store, keys } => self
+                DBQuery::GetKey { store, keys } => self
                     .store_handler
                     .get_key_in_store(&store, keys)
                     .map(ServerResponse::Get)
                     .map_err(|e| format!("{e}")),
-                Query::GetPred { store, condition } => self
+                DBQuery::GetPred { store, condition } => self
                     .store_handler
                     .get_pred_in_store(&store, &condition)
                     .map(ServerResponse::Get)
                     .map_err(|e| format!("{e}")),
-                Query::GetSimN {
+                DBQuery::GetSimN {
                     store,
                     search_input,
                     closest_n,
@@ -186,12 +183,12 @@ impl ServerTask {
                     .get_sim_in_store(&store, search_input, closest_n, algorithm, condition)
                     .map(ServerResponse::GetSimN)
                     .map_err(|e| format!("{e}")),
-                Query::DelKey { store, keys } => self
+                DBQuery::DelKey { store, keys } => self
                     .store_handler
                     .del_key_in_store(&store, keys)
                     .map(ServerResponse::Del)
                     .map_err(|e| format!("{e}")),
-                Query::DelPred { store, condition } => self
+                DBQuery::DelPred { store, condition } => self
                     .store_handler
                     .del_pred_in_store(&store, &condition)
                     .map(ServerResponse::Del)
@@ -205,7 +202,7 @@ impl ServerTask {
         ServerInfo {
             address: format!("{}", self.server_addr),
             version: *VERSION,
-            r#type: ahnlich_types::server::ServerType::Database,
+            r#type: ahnlich_types::ServerType::Database,
             limit: ALLOCATOR.limit(),
             remaining: ALLOCATOR.remaining(),
         }

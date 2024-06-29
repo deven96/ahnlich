@@ -40,7 +40,7 @@ impl Manager for DbConnManager {
 /// Allow executing multiple queries at once
 #[derive(Debug)]
 pub struct DbPipeline {
-    queries: ServerQuery,
+    queries: ServerDBQuery,
     conn: Object<DbConnManager>,
 }
 
@@ -53,7 +53,7 @@ impl DbPipeline {
         create_predicates: HashSet<MetadataKey>,
         error_if_exists: bool,
     ) {
-        self.queries.push(Query::CreateStore {
+        self.queries.push(DBQuery::CreateStore {
             store,
             dimension,
             create_predicates,
@@ -63,12 +63,12 @@ impl DbPipeline {
 
     /// push get key command to pipeline
     pub fn get_key(&mut self, store: StoreName, keys: Vec<StoreKey>) {
-        self.queries.push(Query::GetKey { store, keys })
+        self.queries.push(DBQuery::GetKey { store, keys })
     }
 
     /// push get pred command to pipeline
     pub fn get_pred(&mut self, store: StoreName, condition: PredicateCondition) {
-        self.queries.push(Query::GetPred { store, condition })
+        self.queries.push(DBQuery::GetPred { store, condition })
     }
 
     /// push get sim n command to pipeline
@@ -80,7 +80,7 @@ impl DbPipeline {
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     ) {
-        self.queries.push(Query::GetSimN {
+        self.queries.push(DBQuery::GetSimN {
             store,
             search_input,
             closest_n,
@@ -91,7 +91,8 @@ impl DbPipeline {
 
     /// push create index command to pipeline
     pub fn create_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
-        self.queries.push(Query::CreateIndex { store, predicates })
+        self.queries
+            .push(DBQuery::CreateIndex { store, predicates })
     }
 
     /// push drop index command to pipeline
@@ -101,7 +102,7 @@ impl DbPipeline {
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
     ) {
-        self.queries.push(Query::DropIndex {
+        self.queries.push(DBQuery::DropIndex {
             store,
             predicates,
             error_if_not_exists,
@@ -110,44 +111,44 @@ impl DbPipeline {
 
     /// push set command to pipeline
     pub fn set(&mut self, store: StoreName, inputs: Vec<(StoreKey, StoreValue)>) {
-        self.queries.push(Query::Set { store, inputs })
+        self.queries.push(DBQuery::Set { store, inputs })
     }
 
     /// push del key command to pipeline
     pub fn del_key(&mut self, store: StoreName, keys: Vec<StoreKey>) {
-        self.queries.push(Query::DelKey { store, keys })
+        self.queries.push(DBQuery::DelKey { store, keys })
     }
 
     /// push del pred command to pipeline
     pub fn del_pred(&mut self, store: StoreName, condition: PredicateCondition) {
-        self.queries.push(Query::DelPred { store, condition })
+        self.queries.push(DBQuery::DelPred { store, condition })
     }
 
     /// push drop store command to pipeline
     pub fn drop_store(&mut self, store: StoreName, error_if_not_exists: bool) {
-        self.queries.push(Query::DropStore {
+        self.queries.push(DBQuery::DropStore {
             store,
             error_if_not_exists,
         })
     }
     /// push ping command to pipeline
     pub fn ping(&mut self) {
-        self.queries.push(Query::Ping)
+        self.queries.push(DBQuery::Ping)
     }
 
     /// push info server command to pipeline
     pub fn info_server(&mut self) {
-        self.queries.push(Query::InfoServer)
+        self.queries.push(DBQuery::InfoServer)
     }
 
     /// push list stores command to pipeline
     pub fn list_stores(&mut self) {
-        self.queries.push(Query::ListStores)
+        self.queries.push(DBQuery::ListStores)
     }
 
     /// push list clients command to pipeline
     pub fn list_clients(&mut self) {
-        self.queries.push(Query::ListClients)
+        self.queries.push(DBQuery::ListClients)
     }
 
     /// execute queries all at once and return ordered list of results matching the order in which
@@ -182,7 +183,7 @@ impl DbClient {
     /// on `pipeline.exec`
     pub async fn pipeline(&self, capacity: usize) -> Result<DbPipeline, AhnlichError> {
         Ok(DbPipeline {
-            queries: ServerQuery::with_capacity(capacity),
+            queries: ServerDBQuery::with_capacity(capacity),
             conn: self.pool.get().await?,
         })
     }
@@ -194,7 +195,7 @@ impl DbClient {
         create_predicates: HashSet<MetadataKey>,
         error_if_exists: bool,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::CreateStore {
+        self.exec(DBQuery::CreateStore {
             store,
             dimension,
             create_predicates,
@@ -208,7 +209,7 @@ impl DbClient {
         store: StoreName,
         keys: Vec<StoreKey>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::GetKey { store, keys }).await
+        self.exec(DBQuery::GetKey { store, keys }).await
     }
 
     pub async fn get_pred(
@@ -216,7 +217,7 @@ impl DbClient {
         store: StoreName,
         condition: PredicateCondition,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::GetPred { store, condition }).await
+        self.exec(DBQuery::GetPred { store, condition }).await
     }
 
     pub async fn get_sim_n(
@@ -227,7 +228,7 @@ impl DbClient {
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::GetSimN {
+        self.exec(DBQuery::GetSimN {
             store,
             search_input,
             closest_n,
@@ -242,7 +243,7 @@ impl DbClient {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::CreateIndex { store, predicates }).await
+        self.exec(DBQuery::CreateIndex { store, predicates }).await
     }
 
     pub async fn drop_index(
@@ -251,7 +252,7 @@ impl DbClient {
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::DropIndex {
+        self.exec(DBQuery::DropIndex {
             store,
             predicates,
             error_if_not_exists,
@@ -264,7 +265,7 @@ impl DbClient {
         store: StoreName,
         inputs: Vec<(StoreKey, StoreValue)>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::Set { store, inputs }).await
+        self.exec(DBQuery::Set { store, inputs }).await
     }
 
     pub async fn del_key(
@@ -272,7 +273,7 @@ impl DbClient {
         store: StoreName,
         keys: Vec<StoreKey>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::DelKey { store, keys }).await
+        self.exec(DBQuery::DelKey { store, keys }).await
     }
 
     pub async fn del_pred(
@@ -280,7 +281,7 @@ impl DbClient {
         store: StoreName,
         condition: PredicateCondition,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::DelPred { store, condition }).await
+        self.exec(DBQuery::DelPred { store, condition }).await
     }
 
     pub async fn drop_store(
@@ -288,7 +289,7 @@ impl DbClient {
         store: StoreName,
         error_if_not_exists: bool,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::DropStore {
+        self.exec(DBQuery::DropStore {
             store,
             error_if_not_exists,
         })
@@ -296,24 +297,24 @@ impl DbClient {
     }
 
     pub async fn ping(&self) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::Ping).await
+        self.exec(DBQuery::Ping).await
     }
 
     pub async fn info_server(&self) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::InfoServer).await
+        self.exec(DBQuery::InfoServer).await
     }
 
     pub async fn list_stores(&self) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::ListStores).await
+        self.exec(DBQuery::ListStores).await
     }
 
     pub async fn list_clients(&self) -> Result<ServerResponse, AhnlichError> {
-        self.exec(Query::ListClients).await
+        self.exec(DBQuery::ListClients).await
     }
 
-    async fn exec(&self, query: Query) -> Result<ServerResponse, AhnlichError> {
+    async fn exec(&self, query: DBQuery) -> Result<ServerResponse, AhnlichError> {
         let mut conn = self.pool.get().await?;
-        let mut queries = ServerQuery::with_capacity(1);
+        let mut queries = ServerDBQuery::with_capacity(1);
         queries.push(query);
         let res = conn
             .send_db_query(queries)
