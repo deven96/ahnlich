@@ -59,7 +59,7 @@ impl From<&StoreKey> for StoreKeyId {
 
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]
-pub(crate) struct StoreHandler {
+pub struct StoreHandler {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     stores: Stores,
     pub write_flag: Arc<AtomicBool>,
@@ -68,7 +68,7 @@ pub(crate) struct StoreHandler {
 pub type Stores = Arc<ConcurrentHashMap<StoreName, Arc<Store>>>;
 
 impl StoreHandler {
-    pub(crate) fn new(write_flag: Arc<AtomicBool>) -> Self {
+    pub fn new(write_flag: Arc<AtomicBool>) -> Self {
         Self {
             stores: Arc::new(ConcurrentHashMap::new()),
             write_flag,
@@ -224,7 +224,7 @@ impl StoreHandler {
 
     /// Matches SET - adds new entries into a particular store
     #[tracing::instrument(skip(self))]
-    pub(crate) fn set_in_store(
+    pub fn set_in_store(
         &self,
         store_name: &StoreName,
         new: Vec<(StoreKey, StoreValue)>,
@@ -252,7 +252,7 @@ impl StoreHandler {
 
     /// Matches CREATESTORE - Creates a store if not exist, else return an error
     #[tracing::instrument(skip(self))]
-    pub(crate) fn create_store(
+    pub fn create_store(
         &self,
         store_name: StoreName,
         dimension: NonZeroUsize,
@@ -316,7 +316,7 @@ impl StoreHandler {
 /// A Store is a single database containing multiple N*1 arrays where N is the dimension of the
 /// store to which all arrays must conform
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Store {
+pub struct Store {
     dimension: NonZeroUsize,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     id_to_value: ConcurrentHashMap<StoreKeyId, (StoreKey, StoreValue)>,

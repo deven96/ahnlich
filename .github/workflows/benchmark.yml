@@ -1,0 +1,58 @@
+name: Ahnlich Test PRs for Performance Regression
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ahnlich/**
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  run-benchmark-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: main
+
+    - name: Set up Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ahnlich
+
+    - name: Install Cargo benchcmp
+      working-directory: ./ahnlich
+      run: cargo install critcmp
+
+    - name: Run benchmarks on main branch
+      working-directory: ./ahnlich
+      run: cargo bench --bench database -- --save-baseline main
+
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        clean: false
+
+    - name: Run benchmarks on PR branch
+      working-directory: ./ahnlich
+      run: cargo bench --bench database -- --save-baseline pr
+
+    - name: Compare benchmarks
+      working-directory: ./ahnlich
+      run: |
+        benchmark_output=$(critcmp main pr)
+        echo $benchmark_output
+        echo "## Benchmark Results" >> bench_results.md
+        echo "\`\`\`" >> bench_results.md
+        echo "$benchmark_output" >> bench_results.md
+        echo "\`\`\`" >> bench_results.md
+
+    - name: Comment PR with execution number
+      uses: thollander/actions-comment-pull-request@v2
+      with:
+        filePath: ahnlich/bench_results.md
+        comment_tag: benchmark
