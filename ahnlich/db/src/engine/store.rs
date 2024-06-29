@@ -8,6 +8,7 @@ use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataKey;
+use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::Similarity;
@@ -325,7 +326,7 @@ pub(crate) struct Store {
 
 impl Store {
     /// Creates a new empty store
-    fn create(dimension: NonZeroUsize, predicates: Vec<MetadataKey>) -> Self {
+    pub(super) fn create(dimension: NonZeroUsize, predicates: Vec<MetadataKey>) -> Self {
         Self {
             dimension,
             id_to_value: ConcurrentHashMap::new(),
@@ -384,7 +385,7 @@ impl Store {
     /// Deletes a bunch of store keys from the store matching a specific predicate
     #[tracing::instrument(skip(self))]
     fn delete_matches(&self, condition: &PredicateCondition) -> Result<usize, ServerError> {
-        let matches = self.predicate_indices.matches(condition)?.into_iter();
+        let matches = self.predicate_indices.matches(condition, self)?.into_iter();
         Ok(self.delete(matches))
     }
 
@@ -405,8 +406,54 @@ impl Store {
         &self,
         condition: &PredicateCondition,
     ) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
-        let matches = self.predicate_indices.matches(condition)?.into_iter();
+        let matches = self.predicate_indices.matches(condition, self)?.into_iter();
         Ok(self.get(matches))
+    }
+
+    /// Used whenever there is no found predicate and so we search directly within store
+    #[tracing::instrument(skip(self))]
+    pub(super) fn get_match_without_predicate(
+        &self,
+        predicate: &Predicate,
+    ) -> Result<StdHashSet<StoreKeyId>, ServerError> {
+        let store_val_pinned = self.id_to_value.pin();
+        let res = match predicate {
+            Predicate::Equals { key, value } => store_val_pinned
+                .into_iter()
+                .filter(|(_, (_, store_value))| {
+                    store_value.get(key).map(|v| v.eq(value)).unwrap_or(false)
+                })
+                .map(|(k, _)| k.clone())
+                .collect(),
+            Predicate::NotEquals { key, value } => store_val_pinned
+                .into_iter()
+                .filter(|(_, (_, store_value))| {
+                    store_value.get(key).map(|v| !v.eq(value)).unwrap_or(true)
+                })
+                .map(|(k, _)| k.clone())
+                .collect(),
+            Predicate::In { key, value } => store_val_pinned
+                .into_iter()
+                .filter(|(_, (_, store_value))| {
+                    store_value
+                        .get(key)
+                        .map(|v| value.contains(v))
+                        .unwrap_or(false)
+                })
+                .map(|(k, _)| k.clone())
+                .collect(),
+            Predicate::NotIn { key, value } => store_val_pinned
+                .into_iter()
+                .filter(|(_, (_, store_value))| {
+                    store_value
+                        .get(key)
+                        .map(|v| !value.contains(v))
+                        .unwrap_or(true)
+                })
+                .map(|(k, _)| k.clone())
+                .collect(),
+        };
+        Ok(res)
     }
 
     #[tracing::instrument(skip_all)]
@@ -799,10 +846,7 @@ mod tests {
             value: MetadataValue::RawString("earth".into()),
         }));
         let res = handler.get_pred_in_store(&even_store, &condition);
-        assert_eq!(
-            res.unwrap_err(),
-            ServerError::PredicateNotFound(MetadataKey::new("planet".into()))
-        );
+        assert_eq!(res.unwrap().len(), 2);
         handler
             .create_index(
                 &even_store,
