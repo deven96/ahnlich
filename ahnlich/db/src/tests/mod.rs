@@ -3,18 +3,6 @@ mod server_test;
 use ahnlich_types::keyval::StoreKey;
 use std::collections::HashMap;
 
-pub fn key_to_words(
-    key: &StoreKey,
-    vector_to_sentences: &Vec<(StoreKey, String)>,
-) -> Option<String> {
-    for (vector, word) in vector_to_sentences {
-        if key == vector {
-            return Some(word.to_string());
-        }
-    }
-    None
-}
-
 pub fn word_to_vector() -> HashMap<String, StoreKey> {
     let words = std::fs::read_to_string("src/tests/mock_data.json").unwrap();
 

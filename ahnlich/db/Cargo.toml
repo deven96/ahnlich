@@ -7,7 +7,7 @@ edition = "2021"
 name = "ahnlich-db"
 path = "src/main.rs"
 
-# only used for rust client test and not to be released
+# WARN!!! - used for rust client test, benchmarking and not to be released
 [lib]
 name = "ahnlich_db"
 path = "src/lib.rs"
@@ -38,3 +38,9 @@ serde_json.workspace = true
 futures.workspace = true
 once_cell.workspace = true
 pretty_assertions.workspace = true
+criterion = "0.4"
+rand = "0.8"
+
+[[bench]]
+name = "database"
+harness = false
