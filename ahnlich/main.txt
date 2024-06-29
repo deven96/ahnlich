@@ -1,0 +1,70 @@
+
+running 6 tests
+test db::tests::test_create_stores_with_pipeline ... ignored
+test db::tests::test_del_key ... ignored
+test db::tests::test_get_sim_n ... ignored
+test db::tests::test_pool_commands_fail_if_server_not_exist ... ignored
+test db::tests::test_simple_pipeline ... ignored
+test db::tests::test_simple_server_ping ... ignored
+
+test result: ok. 0 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 36 tests
+test algorithm::heap::tests::test_max_heap_ordering_works ... ignored
+test algorithm::heap::tests::test_min_heap_ordering_works ... ignored
+test algorithm::similarity::tests::test_find_top_3_similar_words_using_cosine_similarity ... ignored
+test algorithm::similarity::tests::test_find_top_3_similar_words_using_dot_product ... ignored
+test algorithm::similarity::tests::test_find_top_3_similar_words_using_euclidean_distance ... ignored
+test algorithm::tests::test_teststore_find_top_3_similar_words_using_find_nearest_n ... ignored
+test engine::predicate::tests::test_add_index_to_predicate_after ... ignored
+test engine::predicate::tests::test_adding_and_removing_entries_for_predicate ... ignored
+test engine::predicate::tests::test_matches_works_on_predicate_index ... ignored
+test engine::predicate::tests::test_predicate_indices_matches ... ignored
+test engine::store::tests::test_add_index_in_store ... ignored
+test engine::store::tests::test_compute_store_key_id_empty_vector ... ignored
+test engine::store::tests::test_compute_store_key_id_multiple_elements_array ... ignored
+test engine::store::tests::test_compute_store_key_id_single_element_array ... ignored
+test engine::store::tests::test_create_and_set_in_store_fails ... ignored
+test engine::store::tests::test_create_and_set_in_store_passes ... ignored
+test engine::store::tests::test_get_and_create_store_handler ... ignored
+test engine::store::tests::test_get_key_in_store ... ignored
+test engine::store::tests::test_get_pred_in_store ... ignored
+test engine::store::tests::test_get_sim_in_store_with_predicate ... ignored
+test engine::store::tests::test_get_store_info ... ignored
+test tests::server_test::test_create_index ... ignored
+test tests::server_test::test_create_stores ... ignored
+test tests::server_test::test_del_key ... ignored
+test tests::server_test::test_del_pred ... ignored
+test tests::server_test::test_drop_index ... ignored
+test tests::server_test::test_drop_stores ... ignored
+test tests::server_test::test_get_key ... ignored
+test tests::server_test::test_get_pred ... ignored
+test tests::server_test::test_get_sim_n ... ignored
+test tests::server_test::test_maximum_client_restriction_works ... ignored
+test tests::server_test::test_run_server_echos ... ignored
+test tests::server_test::test_server_client_info ... ignored
+test tests::server_test::test_server_with_persistence ... ignored
+test tests::server_test::test_set_in_store ... ignored
+test tests::server_test::test_simple_stores_list ... ignored
+
+test result: ok. 0 passed; 0 failed; 36 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+store_sequential_insertion_without_predicates/size_100
+                        time:   [1.4610 ms 1.4655 ms 1.4701 ms]
+                        change: [-0.6689% -0.3371% -0.0439%] (p = 0.06 > 0.05)
+                        No change in performance detected.
+store_sequential_insertion_without_predicates/size_1000
+                        time:   [14.761 ms 14.799 ms 14.831 ms]
+                        change: [-0.5577% +0.0688% +0.5933%] (p = 0.83 > 0.05)
+                        No change in performance detected.
