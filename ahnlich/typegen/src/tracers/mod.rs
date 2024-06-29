@@ -38,15 +38,15 @@ pub(crate) struct LanguageGeneratorTasks {
 /// we find two folders, query and server_response dir and create tasks
 impl LanguageGeneratorTasks {
     pub(crate) fn build(
-        input_dir: &std::path::PathBuf,
+        input_dir: &std::path::Path,
         output_dir: &std::path::PathBuf,
         language: Language,
     ) -> Self {
-        let input_dirs = vec![input_dir.join("query"), input_dir.join("server_response")];
+        let input_dirs = [input_dir.join("query"), input_dir.join("server_response")];
 
         let tasks = input_dirs
             .iter()
-            .filter_map(|path| if path.is_dir() { Some(path) } else { None })
+            .filter(|path| path.is_dir())
             .map(|p| SpecToLanguage::build(language, p.to_owned(), output_dir.to_owned()))
             .collect();
 
