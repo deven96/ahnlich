@@ -11,6 +11,7 @@ path = "src/main.rs"
 [lib]
 name = "ahnlich_db"
 path = "src/lib.rs"
+bench = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

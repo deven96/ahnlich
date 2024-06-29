@@ -15,34 +15,36 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: main
+
     - name: Set up Rust cache
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: ahnlich
 
-
     - name: Install Cargo benchcmp
       working-directory: ./ahnlich
-      run: cargo install cargo-benchcmp
-
-    - name: Run benchmarks on PR branch
-      working-directory: ./ahnlich
-      run: cargo bench > pr_bench.txt
-
-    - name: Checkout main branch
-      uses: actions/checkout@v4
-      with:
-        ref: main
-        clean: false
+      run: cargo install critcmp
 
     - name: Run benchmarks on main branch
       working-directory: ./ahnlich
-      run: cargo bench > main_bench.txt
+      run: cargo bench --bench database -- --save-baseline main
+
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        clean: false
+
+    - name: Run benchmarks on PR branch
+      working-directory: ./ahnlich
+      run: cargo bench --bench database -- --save-baseline pr
 
     - name: Compare benchmarks
       working-directory: ./ahnlich
       run: |
-        benchmark_output=$(cargo benchcmp main_bench.txt pr_bench.txt)
+        benchmark_output=$(critcmp main pr)
         echo $benchmark_output
         echo "## Benchmark Results" >> bench_results.md
         echo "\`\`\`" >> bench_results.md
