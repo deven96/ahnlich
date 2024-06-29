@@ -1,6 +1,6 @@
 use super::{AIModel, AIStoreType};
-use crate::keyval::{StoreKey, StoreName, StoreValue};
-use crate::metadata::{MetadataKey, MetadataValue};
+use crate::keyval::{StoreInput, StoreName};
+use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
 use crate::similarity::Algorithm;
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ pub enum AiQuery {
     },
     GetSimN {
         store: StoreName,
-        search_input: MetadataValue,
+        search_input: StoreInput,
         condition: Option<PredicateCondition>,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
@@ -37,11 +37,11 @@ pub enum AiQuery {
     },
     Set {
         store: StoreName,
-        inputs: Vec<MetadataValue>,
+        inputs: Vec<StoreInput>,
     },
     DelKey {
         store: StoreName,
-        key: MetadataValue,
+        key: StoreInput,
     },
     DropStore {
         store: StoreName,

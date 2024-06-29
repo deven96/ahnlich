@@ -7,4 +7,7 @@ use serde::{Deserialize, Serialize};
 pub enum AIModel {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum AIStoreType {}
+pub enum AIStoreType {
+    RawString,
+    Binary,
+}
