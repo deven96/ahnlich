@@ -27,7 +27,7 @@ jobs:
 
     - name: Run benchmarks on PR branch
       working-directory: ./ahnlich
-      run: cargo bench -- --output-format bencher > pr_bench.txt
+      run: cargo bench > pr_bench.txt
 
     - name: Checkout main branch
       uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
 
     - name: Run benchmarks on main branch
       working-directory: ./ahnlich
-      run: cargo bench -- --output-format bencher > main_bench.txt
+      run: cargo bench > main_bench.txt
 
     - name: Compare benchmarks
       working-directory: ./ahnlich
