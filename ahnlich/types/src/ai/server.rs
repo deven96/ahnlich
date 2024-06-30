@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use std::hash::Hash;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum ServerResponse {
+pub enum AIServerResponse {
     // Unit variant for no action
     Unit,
     Pong,
@@ -38,4 +38,35 @@ pub struct AIStoreInfo {
     pub model: AIModel,
     pub embedding_size: usize,
     pub size_in_bytes: usize,
+}
+
+// ServerResult: Given that an array of queries are sent in, we expect that an array of responses
+// be returned each being a potential error
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AIServerResult {
+    results: Vec<Result<AIServerResponse, String>>,
+}
+
+impl BinCodeSerAndDeser for AIServerResult {}
+
+impl AIServerResult {
+    pub fn with_capacity(len: usize) -> Self {
+        Self {
+            results: Vec::with_capacity(len),
+        }
+    }
+
+    pub fn pop(mut self) -> Option<Result<AIServerResponse, String>> {
+        self.results.pop()
+    }
+
+    pub fn from_error(err: String) -> Self {
+        Self {
+            results: vec![Err(err)],
+        }
+    }
+
+    pub fn push(&mut self, entry: Result<AIServerResponse, String>) {
+        self.results.push(entry)
+    }
 }
