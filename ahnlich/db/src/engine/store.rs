@@ -152,7 +152,7 @@ impl StoreHandler {
 
     /// Matches GETSIMN - gets all similar from a store that also match a predicate
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get_sim_in_store(
+    pub fn get_sim_in_store(
         &self,
         store_name: &StoreName,
         search_input: StoreKey,
