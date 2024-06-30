@@ -1,2 +1,2 @@
 mod predicate;
-pub(crate) mod store;
+pub mod store;
