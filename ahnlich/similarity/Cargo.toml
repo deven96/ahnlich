@@ -1,0 +1,33 @@
+[package]
+name = "ahnlich_similarity"
+version = "0.0.1"
+authors = ["Diretnan Domnan <diretnandomnan@gmail.com>"]
+categories = ["concurrency", "data-structures"]
+keywords = ["ahnlich", "array", "lock-free", "multidimensional", "matrix", "kdtree"]
+edition = "2021"
+license-file = "LICENSE"
+homepage = "https://github.com/deven96/ahnlich"
+repository = "https://github.com/deven96/ahnlich"
+description = "Lock free non-linear vector similarity algorithms"
+
+[badges]
+maintenance = { status = "actively-developed" }
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crossbeam = "0.8.4"
+serde = { workspace = true, features = ["derive"], optional = true }
+
+[dependencies.ndarray]
+workspace = true
+default-features = false
+features = []
+
+[features]
+default = []
+serde = ["dep:serde", "ndarray/serde"]
+
+
+[dev-dependencies]
+rand.workspace = true
+pretty_assertions.workspace = true
