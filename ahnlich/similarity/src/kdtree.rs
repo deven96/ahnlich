@@ -60,16 +60,25 @@ impl Ord for OrderedArray {
 pub struct KDTree {
     root: Atomic<KDNode>,
     dimension: NonZeroUsize,
+    depth: NonZeroUsize,
 }
 
 impl KDTree {
     /// initialize KDTree with a specified nonzero dimension
-    /// Every point within the tree is expected to then match the specified dimension
-    pub fn new(dimension: NonZeroUsize) -> Self {
-        Self {
+    /// dimension: The dimension of the 1-D arrays to be inserted in the tree
+    /// depth: The depth of dimension to compare each array. Must not exceed `dimension`
+    pub fn new(dimension: NonZeroUsize, depth: NonZeroUsize) -> Result<Self, Error> {
+        if depth > dimension {
+            return Err(Error::ImpossibleDepth {
+                maximum: dimension.get(),
+                found: depth.get(),
+            });
+        }
+        Ok(Self {
             root: Atomic::null(),
             dimension,
-        }
+            depth,
+        })
     }
 
     fn assert_shape(&self, input: &Array1<f32>) -> Result<(), Error> {
@@ -100,7 +109,7 @@ impl KDTree {
         depth: usize,
         guard: &Guard,
     ) {
-        let dim = depth % self.dimension.get();
+        let dim = depth % self.depth.get();
         loop {
             match node.compare_exchange(
                 Shared::null(),
@@ -166,7 +175,7 @@ impl KDTree {
         depth: usize,
         guard: &Guard,
     ) -> Option<Array1<f32>> {
-        let dim = depth % self.dimension.get();
+        let dim = depth % self.depth.get();
 
         match node.load(Ordering::Acquire, guard) {
             empty if empty == Shared::null() => None,
@@ -287,7 +296,7 @@ impl KDTree {
                 }
             }
 
-            let dim = depth % self.dimension.get();
+            let dim = depth % self.depth.get();
             let go_left_first = reference_point[dim] < shared.point[dim];
             if go_left_first {
                 self.n_nearest_recursive(&shared.left, reference_point, depth + 1, n, guard, heap);
@@ -342,7 +351,13 @@ mod tests {
     #[test]
     fn test_simple_insert_multithread() {
         let dimension = 5;
-        let kdtree = Arc::new(KDTree::new(NonZeroUsize::new(dimension).unwrap()));
+        let kdtree = Arc::new(
+            KDTree::new(
+                NonZeroUsize::new(dimension).unwrap(),
+                NonZeroUsize::new(3).unwrap(),
+            )
+            .unwrap(),
+        );
         let handlers = (0..3).map(|_| {
             let tree = kdtree.clone();
             let dimension = dimension.clone();
@@ -374,7 +389,7 @@ mod tests {
     fn test_results_are_accurate() {
         let dimension = NonZeroUsize::new(3).unwrap();
         let closest_n = NonZeroUsize::new(1).unwrap();
-        let kdtree = Arc::new(KDTree::new(dimension));
+        let kdtree = Arc::new(KDTree::new(dimension, dimension).unwrap());
         kdtree.insert(array![1.0, 2.0, 3.0]).unwrap();
         kdtree.insert(array![1.1, 2.2, 3.3]).unwrap();
         kdtree.insert(array![1.2, 2.3, 3.1]).unwrap();
@@ -425,7 +440,7 @@ mod tests {
     fn test_delete_sequence() {
         let dimension = NonZeroUsize::new(3).unwrap();
         let closest_n = NonZeroUsize::new(1).unwrap();
-        let kdtree = Arc::new(KDTree::new(dimension));
+        let kdtree = Arc::new(KDTree::new(dimension, dimension).unwrap());
         kdtree.insert(array![1.0, 2.0, 3.0]).unwrap();
         kdtree.insert(array![0.9, 2.0, 3.0]).unwrap();
         kdtree.insert(array![1.1, 2.0, 3.0]).unwrap();
