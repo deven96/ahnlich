@@ -1,0 +1,318 @@
+{
+  "AIModel": {
+    "ENUM": {
+      "0": {
+        "Llama3": "UNIT"
+      }
+    }
+  },
+  "AIQuery": {
+    "ENUM": {
+      "0": {
+        "CreateStore": {
+          "STRUCT": [
+            {
+              "type": {
+                "TYPENAME": "AIStoreType"
+              }
+            },
+            {
+              "store": "STR"
+            },
+            {
+              "model": {
+                "TYPENAME": "AIModel"
+              }
+            },
+            {
+              "predicates": {
+                "SEQ": "STR"
+              }
+            }
+          ]
+        }
+      },
+      "1": {
+        "GetPred": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "condition": {
+                "TYPENAME": "PredicateCondition"
+              }
+            }
+          ]
+        }
+      },
+      "2": {
+        "GetSimN": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "search_input": {
+                "TYPENAME": "StoreInput"
+              }
+            },
+            {
+              "condition": {
+                "OPTION": {
+                  "TYPENAME": "PredicateCondition"
+                }
+              }
+            },
+            {
+              "closest_n": "U64"
+            },
+            {
+              "algorithm": {
+                "TYPENAME": "Algorithm"
+              }
+            }
+          ]
+        }
+      },
+      "3": {
+        "CreateIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "predicates": {
+                "SEQ": "STR"
+              }
+            }
+          ]
+        }
+      },
+      "4": {
+        "DropIndexPred": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "predicates": {
+                "SEQ": "STR"
+              }
+            },
+            {
+              "error_if_not_exists": "BOOL"
+            }
+          ]
+        }
+      },
+      "5": {
+        "Set": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "inputs": {
+                "SEQ": {
+                  "TYPENAME": "StoreInput"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "6": {
+        "DelKey": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "key": {
+                "TYPENAME": "StoreInput"
+              }
+            }
+          ]
+        }
+      },
+      "7": {
+        "DropStore": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "error_if_not_exists": "BOOL"
+            }
+          ]
+        }
+      },
+      "8": {
+        "InfoServer": "UNIT"
+      },
+      "9": {
+        "ListStores": "UNIT"
+      },
+      "10": {
+        "Ping": "UNIT"
+      }
+    }
+  },
+  "AIServerQuery": {
+    "STRUCT": [
+      {
+        "queries": {
+          "SEQ": {
+            "TYPENAME": "AIQuery"
+          }
+        }
+      }
+    ]
+  },
+  "AIStoreType": {
+    "ENUM": {
+      "0": {
+        "RawString": "UNIT"
+      }
+    }
+  },
+  "Algorithm": {
+    "ENUM": {
+      "2": {
+        "CosineSimilarity": "UNIT"
+      }
+    }
+  },
+  "MetadataValue": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": "STR"
+        }
+      },
+      "1": {
+        "Binary": {
+          "NEWTYPE": {
+            "SEQ": "U8"
+          }
+        }
+      }
+    }
+  },
+  "Predicate": {
+    "ENUM": {
+      "0": {
+        "Equals": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": {
+                "TYPENAME": "MetadataValue"
+              }
+            }
+          ]
+        }
+      },
+      "1": {
+        "NotEquals": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": {
+                "TYPENAME": "MetadataValue"
+              }
+            }
+          ]
+        }
+      },
+      "2": {
+        "In": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": {
+                "SEQ": {
+                  "TYPENAME": "MetadataValue"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "3": {
+        "NotIn": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": {
+                "SEQ": {
+                  "TYPENAME": "MetadataValue"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "PredicateCondition": {
+    "ENUM": {
+      "0": {
+        "Value": {
+          "NEWTYPE": {
+            "TYPENAME": "Predicate"
+          }
+        }
+      },
+      "1": {
+        "And": {
+          "TUPLE": [
+            {
+              "TYPENAME": "PredicateCondition"
+            },
+            {
+              "TYPENAME": "PredicateCondition"
+            }
+          ]
+        }
+      },
+      "2": {
+        "Or": {
+          "TUPLE": [
+            {
+              "TYPENAME": "PredicateCondition"
+            },
+            {
+              "TYPENAME": "PredicateCondition"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "StoreInput": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": "STR"
+        }
+      },
+      "1": {
+        "Binary": {
+          "NEWTYPE": {
+            "SEQ": "U8"
+          }
+        }
+      }
+    }
+  }
+}

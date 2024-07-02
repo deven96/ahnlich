@@ -7,8 +7,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
+use crate::bincode::BinCodeSerAndDeser;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub enum AiQuery {
+pub enum AIQuery {
     CreateStore {
         r#type: AIStoreType,
         store: StoreName,
@@ -51,3 +53,32 @@ pub enum AiQuery {
     ListStores,
     Ping,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AIServerQuery {
+    queries: Vec<AIQuery>,
+}
+
+impl AIServerQuery {
+    pub fn with_capacity(len: usize) -> Self {
+        Self {
+            queries: Vec::with_capacity(len),
+        }
+    }
+
+    pub fn push(&mut self, entry: AIQuery) {
+        self.queries.push(entry)
+    }
+
+    pub fn from_queries(queries: &[AIQuery]) -> Self {
+        Self {
+            queries: queries.to_vec(),
+        }
+    }
+
+    pub fn into_inner(self) -> Vec<AIQuery> {
+        self.queries
+    }
+}
+
+impl BinCodeSerAndDeser for AIServerQuery {}
