@@ -6,6 +6,7 @@ members = [
   "tracer", 
   "typegen",
   "utils",
+  "ahnlich_ai",
 ]
 resolver = "2"
 

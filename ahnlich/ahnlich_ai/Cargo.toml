@@ -1,0 +1,26 @@
+[package]
+name = "ahnlich_ai"
+version = "0.1.0"
+edition = "2021"
+
+# only used for rust client test and not to be released
+[lib]
+name = "ahnlich_ai_proxy"
+path = "src/lib.rs"
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+blake3.workspace = true
+ndarray.workspace = true
+bincode.workspace = true
+itertools.workspace = true
+clap.workspace = true
+thiserror.workspace = true
+utils = { path = "../utils", version = "*" }
+ahnlich_types = { path = "../types", version = "*" }
+tokio-graceful.workspace = true
+once_cell.workspace = true
+tracing.workspace = true
+tracer = { path = "../tracer", version = "*" }
+
