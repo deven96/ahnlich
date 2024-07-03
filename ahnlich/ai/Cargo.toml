@@ -9,6 +9,7 @@ name = "ahnlich_ai_proxy"
 path = "src/lib.rs"
 
 [dependencies]
+flurry.workspace = true
 tokio.workspace = true
 serde.workspace = true
 blake3.workspace = true

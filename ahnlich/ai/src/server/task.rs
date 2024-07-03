@@ -8,11 +8,14 @@ use tokio::net::TcpStream;
 use utils::client::ClientHandler;
 use utils::protocol::AhnlichProtocol;
 
+use crate::engine::store::AIStoreHandler;
+
 #[derive(Debug)]
 pub(super) struct AIProxyTask {
     pub(super) server_addr: SocketAddr,
     pub(super) reader: BufReader<TcpStream>,
     pub(super) client_handler: Arc<ClientHandler>,
+    pub(super) store_handler: Arc<AIStoreHandler>,
     pub(super) connected_client: ConnectedClient,
     pub(super) maximum_message_size: u64,
 }
@@ -35,7 +38,23 @@ impl AhnlichProtocol for AIProxyTask {
         let mut result = AIServerResult::with_capacity(queries.len());
         for query in queries {
             result.push(match query {
-                _ => Ok(AIServerResponse::InfoServer(self.server_info())),
+                AIQuery::Ping => Ok(AIServerResponse::Pong),
+                AIQuery::ListStores => Ok(AIServerResponse::StoreList(
+                    self.store_handler.list_stores(),
+                )),
+                AIQuery::InfoServer => Ok(AIServerResponse::InfoServer(self.server_info())),
+                AIQuery::CreateStore {
+                    r#type,
+                    store,
+                    model,
+                    predicates,
+                } => self
+                    .store_handler
+                    .create_store(store, r#type, model, predicates.into_iter().collect())
+                    .map(|_| AIServerResponse::Unit)
+                    .map_err(|e| format!("{e}")),
+
+                _ => Ok(AIServerResponse::Pong),
             })
         }
         result

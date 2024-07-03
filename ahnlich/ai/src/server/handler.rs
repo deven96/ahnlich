@@ -1,7 +1,9 @@
 use crate::cli::AIProxyConfig;
+use crate::engine::store::AIStoreHandler;
 use crate::server::task::AIProxyTask;
 use ahnlich_types::db::ConnectedClient;
 use std::net::SocketAddr;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 use std::{io::Result as IoResult, sync::Arc};
 use tokio::io::BufReader;
@@ -15,6 +17,7 @@ pub struct AIProxyServer<'a> {
     listener: TcpListener,
     config: &'a AIProxyConfig,
     client_handler: Arc<ClientHandler>,
+    store_handler: Arc<AIStoreHandler>,
     shutdown_token: Shutdown,
 }
 
@@ -35,11 +38,14 @@ impl<'a> AIProxyServer<'a> {
                 .unwrap_or("http://127.0.0.1:4317".to_string());
             tracer::init_tracing("ahnlich-db", Some(&config.log_level), &otel_url)
         }
+        let write_flag = Arc::new(AtomicBool::new(false));
+        let mut store_handler = AIStoreHandler::new(write_flag.clone());
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
         Ok(Self {
             listener,
             shutdown_token,
             client_handler,
+            store_handler: Arc::new(store_handler),
             config,
         })
     }
@@ -112,6 +118,7 @@ impl<'a> AIProxyServer<'a> {
             maximum_message_size: self.config.message_size as u64,
             // "inexpensive" to clone handlers they can be passed around in an Arc
             client_handler: self.client_handler.clone(),
+            store_handler: self.store_handler.clone(),
         })
     }
 }
