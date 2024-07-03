@@ -23,7 +23,7 @@ pub const RESPONSE_HEADER_LEN: usize = MAGIC_BYTES.len() + VERSION_LENGTH + LENG
 /// Used to serialize and deserialize queries and responses into bincode
 pub trait BinCodeSerAndDeser
 where
-    Self: Serialize + DeserializeOwned,
+    Self: Serialize + DeserializeOwned + Send,
 {
     fn serialize(&self) -> Result<Vec<u8>, bincode::Error> {
         let config = DefaultOptions::new()
@@ -49,4 +49,16 @@ where
             .with_little_endian();
         config.deserialize(bytes)
     }
+}
+
+pub trait BinCodeSerAndDeserQuery: BinCodeSerAndDeser
+where
+    Self::Inner: Serialize + DeserializeOwned,
+{
+    type Inner;
+    fn into_inner(self) -> Self::Inner;
+}
+
+pub trait BinCodeSerAndDeserResponse: BinCodeSerAndDeser {
+    fn from_error(err: String) -> Self;
 }

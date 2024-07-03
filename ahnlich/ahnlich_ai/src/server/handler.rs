@@ -9,7 +9,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::select;
 use tokio_graceful::Shutdown;
 use tracing::Instrument;
-use utils::client::ClientHandler;
+use utils::{client::ClientHandler, protocol::AhnlichProtocol};
 
 pub struct AIProxyServer<'a> {
     listener: TcpListener,

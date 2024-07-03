@@ -1,6 +1,6 @@
 use super::AIModel;
 use super::AIStoreType;
-use crate::bincode::BinCodeSerAndDeser;
+use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserResponse};
 use crate::db::{ConnectedClient, ServerInfo, StoreUpsert};
 use crate::keyval::StoreInput;
 use crate::keyval::StoreName;
@@ -39,12 +39,12 @@ pub struct AIStoreInfo {
     pub embedding_size: usize,
     pub size_in_bytes: usize,
 }
-
+pub type AIServerResultInner = Vec<Result<AIServerResponse, String>>;
 // ServerResult: Given that an array of queries are sent in, we expect that an array of responses
 // be returned each being a potential error
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AIServerResult {
-    results: Vec<Result<AIServerResponse, String>>,
+    results: AIServerResultInner,
 }
 
 impl BinCodeSerAndDeser for AIServerResult {}
@@ -60,13 +60,15 @@ impl AIServerResult {
         self.results.pop()
     }
 
-    pub fn from_error(err: String) -> Self {
+    pub fn push(&mut self, entry: Result<AIServerResponse, String>) {
+        self.results.push(entry)
+    }
+}
+
+impl BinCodeSerAndDeserResponse for AIServerResult {
+    fn from_error(err: String) -> Self {
         Self {
             results: vec![Err(err)],
         }
-    }
-
-    pub fn push(&mut self, entry: Result<AIServerResponse, String>) {
-        self.results.push(entry)
     }
 }

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
-use crate::bincode::BinCodeSerAndDeser;
+use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserQuery};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AIQuery {
@@ -75,10 +75,14 @@ impl AIServerQuery {
             queries: queries.to_vec(),
         }
     }
-
-    pub fn into_inner(self) -> Vec<AIQuery> {
-        self.queries
-    }
 }
 
 impl BinCodeSerAndDeser for AIServerQuery {}
+
+impl BinCodeSerAndDeserQuery for AIServerQuery {
+    type Inner = Vec<AIQuery>;
+
+    fn into_inner(self) -> Self::Inner {
+        self.queries
+    }
+}

@@ -1,4 +1,4 @@
-use crate::bincode::BinCodeSerAndDeser;
+use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserResponse};
 use crate::keyval::StoreKey;
 use crate::keyval::StoreName;
 use crate::keyval::StoreValue;
@@ -96,12 +96,12 @@ impl PartialEq for ConnectedClient {
         self.address.eq(&other.address)
     }
 }
-
+pub type ServerResultInner = Vec<Result<ServerResponse, String>>;
 // ServerResult: Given that an array of queries are sent in, we expect that an array of responses
 // be returned each being a potential error
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ServerResult {
-    results: Vec<Result<ServerResponse, String>>,
+    results: ServerResultInner,
 }
 
 impl BinCodeSerAndDeser for ServerResult {}
@@ -117,13 +117,15 @@ impl ServerResult {
         self.results.pop()
     }
 
-    pub fn from_error(err: String) -> Self {
+    pub fn push(&mut self, entry: Result<ServerResponse, String>) {
+        self.results.push(entry)
+    }
+}
+
+impl BinCodeSerAndDeserResponse for ServerResult {
+    fn from_error(err: String) -> Self {
         Self {
             results: vec![Err(err)],
         }
-    }
-
-    pub fn push(&mut self, entry: Result<ServerResponse, String>) {
-        self.results.push(entry)
     }
 }
