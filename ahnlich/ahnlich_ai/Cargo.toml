@@ -17,6 +17,7 @@ bincode.workspace = true
 itertools.workspace = true
 clap.workspace = true
 thiserror.workspace = true
+async-trait.workspace = true
 utils = { path = "../utils", version = "*" }
 ahnlich_types = { path = "../types", version = "*" }
 tokio-graceful.workspace = true

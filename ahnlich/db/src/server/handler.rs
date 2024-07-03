@@ -15,8 +15,7 @@ use tokio::net::TcpStream;
 use tokio::select;
 use tokio_graceful::Shutdown;
 use tracing::Instrument;
-use utils::client::ClientHandler;
-use utils::persistence::Persistence;
+use utils::{client::ClientHandler, persistence::Persistence, protocol::AhnlichProtocol};
 
 #[global_allocator]
 pub(super) static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
