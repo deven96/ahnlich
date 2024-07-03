@@ -77,11 +77,9 @@ where
                             };
                             data.resize(data_length as usize, 0u8);
                             self.reader().read_exact(&mut data).await?;
-                            // TODO: Add trace here to catch whenever queries could not be deserialized at all
                             match Self::ServerQuery::deserialize(&data) {
                                 Ok(queries) => {
                                 tracing::debug!("Got Queries {:?}", queries);
-                                // TODO: Pass in store_handler and use to respond to queries
                                 let results = self.handle(queries.into_inner());
                                 if let Ok(binary_results) = results.serialize() {
                                     self.reader().get_mut().write_all(&binary_results).await?;
