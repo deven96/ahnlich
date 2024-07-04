@@ -1,3 +1,4 @@
+use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
 use ahnlich_types::db::{ConnectedClient, ServerInfo};
 use ahnlich_types::version::VERSION;
@@ -18,7 +19,10 @@ pub(super) struct AIProxyTask {
     pub(super) store_handler: Arc<AIStoreHandler>,
     pub(super) connected_client: ConnectedClient,
     pub(super) maximum_message_size: u64,
+    pub(super) db_client: Arc<DbClient>,
 }
+
+#[async_trait::async_trait]
 impl AhnlichProtocol for AIProxyTask {
     type ServerQuery = AIServerQuery;
     type ServerResponse = AIServerResult;
@@ -33,8 +37,7 @@ impl AhnlichProtocol for AIProxyTask {
         &mut self.reader
     }
 
-    #[tracing::instrument]
-    fn handle(&self, queries: Vec<AIQuery>) -> AIServerResult {
+    async fn handle(&self, queries: Vec<AIQuery>) -> AIServerResult {
         let mut result = AIServerResult::with_capacity(queries.len());
         for query in queries {
             result.push(match query {
@@ -48,11 +51,28 @@ impl AhnlichProtocol for AIProxyTask {
                     store,
                     model,
                     predicates,
-                } => self
-                    .store_handler
-                    .create_store(store, r#type, model, predicates.into_iter().collect())
-                    .map(|_| AIServerResponse::Unit)
-                    .map_err(|e| format!("{e}")),
+                } => {
+                    // TODO: Make sure you edit predicates to include _ahnlich_hash_id which is the
+                    // key mapping to the original input in the store, also validate predicates not
+                    // to have the _ahnlich_hash_id reserve key
+                    match self
+                        .db_client
+                        .create_store(
+                            store.clone(),
+                            model.embedding_size().clone(),
+                            predicates,
+                            false,
+                        )
+                        .await
+                    {
+                        Err(err) => Err(err.to_string()),
+                        Ok(_) => self
+                            .store_handler
+                            .create_store(store, r#type, model)
+                            .map(|_| AIServerResponse::Unit)
+                            .map_err(|e| e.to_string()),
+                    }
+                }
 
                 _ => Ok(AIServerResponse::Pong),
             })

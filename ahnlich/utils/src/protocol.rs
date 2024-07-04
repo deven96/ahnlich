@@ -14,6 +14,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::select;
 use tokio_graceful::ShutdownGuard;
+use tracing::Instrument;
 
 #[async_trait::async_trait]
 pub trait AhnlichProtocol
@@ -80,7 +81,8 @@ where
                             match Self::ServerQuery::deserialize(&data) {
                                 Ok(queries) => {
                                 tracing::debug!("Got Queries {:?}", queries);
-                                let results = self.handle(queries.into_inner());
+                                let results = self.handle(queries.into_inner()).instrument(tracing::info_span!("handle").or_current()).await;
+
                                 if let Ok(binary_results) = results.serialize() {
                                     self.reader().get_mut().write_all(&binary_results).await?;
                                     tracing::debug!("Sent Response of length {}, {:?}", binary_results.len(), binary_results);
@@ -100,7 +102,7 @@ where
         Ok(())
     }
 
-    fn handle(
+    async fn handle(
         &self,
         queries: <<Self as AhnlichProtocol>::ServerQuery as BinCodeSerAndDeserQuery>::Inner,
     ) -> Self::ServerResponse;

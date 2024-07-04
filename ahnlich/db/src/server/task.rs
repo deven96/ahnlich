@@ -21,6 +21,7 @@ pub(super) struct ServerTask {
     pub(super) maximum_message_size: u64,
 }
 
+#[async_trait::async_trait]
 impl AhnlichProtocol for ServerTask {
     type ServerQuery = ServerDBQuery;
     type ServerResponse = ServerResult;
@@ -35,8 +36,7 @@ impl AhnlichProtocol for ServerTask {
         &mut self.reader
     }
 
-    #[tracing::instrument]
-    fn handle(&self, queries: Vec<DBQuery>) -> ServerResult {
+    async fn handle(&self, queries: Vec<DBQuery>) -> ServerResult {
         let mut result = ServerResult::with_capacity(queries.len());
         for query in queries {
             result.push(match query {

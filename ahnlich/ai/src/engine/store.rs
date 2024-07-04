@@ -1,5 +1,4 @@
 use crate::error::AIProxyError;
-use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::AIModel;
 use ahnlich_types::ai::AIStoreInfo;
 use ahnlich_types::ai::AIStoreType;
@@ -22,17 +21,15 @@ pub struct AIStoreHandler {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     stores: AIStores,
     pub write_flag: Arc<AtomicBool>,
-    db_client: Arc<DbClient>,
 }
 
 pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
 
 impl AIStoreHandler {
-    pub fn new(write_flag: Arc<AtomicBool>, db_client: Arc<DbClient>) -> Self {
+    pub fn new(write_flag: Arc<AtomicBool>) -> Self {
         Self {
             stores: Arc::new(ConcurrentHashMap::new()),
             write_flag,
-            db_client,
         }
     }
 
@@ -42,7 +39,6 @@ impl AIStoreHandler {
         store_name: StoreName,
         store_type: AIStoreType,
         model: AIModel,
-        predicates: Vec<MetadataKey>,
     ) -> Result<(), AIProxyError> {
         self.stores
             .try_insert(
@@ -55,16 +51,6 @@ impl AIStoreHandler {
                 &self.stores.guard(),
             )
             .map_err(|_| AIProxyError::StoreAlreadyExists(store_name.clone()))?;
-        // Todo!: client create stores to the ahnlich db
-        self.db_client
-            .create_store(
-                store_name.clone(),
-                model.embedding_size().clone(),
-                StdHashSet::from_iter(predicates),
-                true,
-            )
-            .await
-            .map_err(|err| AIProxyError::DatabaseClientError(format!("{err}")))?;
 
         Ok(())
     }

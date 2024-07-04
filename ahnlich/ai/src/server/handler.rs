@@ -1,9 +1,7 @@
 use crate::cli::AIProxyConfig;
 use crate::engine::store::AIStoreHandler;
-use crate::error::AIProxyError;
 use crate::server::task::AIProxyTask;
 use ahnlich_types::db::ConnectedClient;
-use std::io::Error;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
@@ -24,6 +22,7 @@ pub struct AIProxyServer<'a> {
     client_handler: Arc<ClientHandler>,
     store_handler: Arc<AIStoreHandler>,
     shutdown_token: Shutdown,
+    db_client: Arc<DbClient>,
 }
 
 impl<'a> AIProxyServer<'a> {
@@ -44,8 +43,8 @@ impl<'a> AIProxyServer<'a> {
             tracer::init_tracing("ahnlich-db", Some(&config.log_level), &otel_url)
         }
         let write_flag = Arc::new(AtomicBool::new(false));
-        let db_client = Self::build_db_client(config).await?;
-        let mut store_handler = AIStoreHandler::new(write_flag.clone(), Arc::new(db_client));
+        let db_client = Self::build_db_client(config).await;
+        let mut store_handler = AIStoreHandler::new(write_flag.clone());
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
         Ok(Self {
             listener,
@@ -53,6 +52,7 @@ impl<'a> AIProxyServer<'a> {
             client_handler,
             store_handler: Arc::new(store_handler),
             config,
+            db_client: Arc::new(db_client),
         })
     }
     /// starts accepting connections using the listener and processing the incoming streams
@@ -125,19 +125,17 @@ impl<'a> AIProxyServer<'a> {
             // "inexpensive" to clone handlers they can be passed around in an Arc
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),
+            db_client: self.db_client.clone(),
         })
     }
 
-    async fn build_db_client(config: &'a AIProxyConfig) -> IoResult<DbClient> {
+    async fn build_db_client(config: &'a AIProxyConfig) -> DbClient {
         let manager = DbConnManager::new(config.db_host.clone(), config.db_port);
-        let created_pool = Pool::builder(manager)
+        let pool = Pool::builder(manager)
             .max_size(config.db_client_pool_size)
             .build()
-            .map_err(|e| AIProxyError::StandardError(format!("{e}")));
+            .expect("Cannot establish connection to the Database");
 
-        match created_pool {
-            Err(err) => Err(Error::new(std::io::ErrorKind::Other, err)),
-            Ok(pool) => Ok(DbClient::new_with_pool(pool)),
-        }
+        DbClient::new_with_pool(pool)
     }
 }
