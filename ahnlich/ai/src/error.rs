@@ -7,4 +7,8 @@ pub enum AIProxyError {
     StoreNotFound(StoreName),
     #[error("Store {0} already exists")]
     StoreAlreadyExists(StoreName),
+    #[error("Proxy Errored with {0} ")]
+    StandardError(String),
+    #[error("Proxy Errored with {0} ")]
+    DatabaseClientError(String),
 }

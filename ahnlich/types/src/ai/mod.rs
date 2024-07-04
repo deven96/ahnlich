@@ -1,6 +1,8 @@
 mod query;
 mod server;
 
+use std::num::NonZeroUsize;
+
 use serde::{Deserialize, Serialize};
 
 pub use query::{AIQuery, AIServerQuery};
@@ -12,7 +14,7 @@ pub enum AIModel {
 }
 
 impl AIModel {
-    pub fn embedding_size(&self) -> usize {
+    pub fn embedding_size(&self) -> NonZeroUsize {
         todo!()
     }
 }

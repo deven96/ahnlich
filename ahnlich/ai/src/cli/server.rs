@@ -45,6 +45,10 @@ pub struct AIProxyConfig {
     #[arg(long, default_value_t = 1369)]
     pub db_port: u16,
 
+    /// Ahnlich Database Client Connection Pool Size
+    #[arg(long, default_value_t = 10)]
+    pub db_client_pool_size: usize,
+
     /// sets size(in bytes) for global allocator used
     /// Defaults to 1 Gi (1 * 1024 * 1024 * 1024)
     #[arg(long, default_value_t = 1_073_741_824)]
@@ -82,6 +86,7 @@ impl Default for AIProxyConfig {
 
             db_host: String::from("127.0.0.1"),
             db_port: 8000,
+            db_client_pool_size: 10,
 
             allocator_size: 1_073_741_824,
             message_size: 1_048_576,

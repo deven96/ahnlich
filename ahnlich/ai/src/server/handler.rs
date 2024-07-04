@@ -1,7 +1,9 @@
 use crate::cli::AIProxyConfig;
 use crate::engine::store::AIStoreHandler;
+use crate::error::AIProxyError;
 use crate::server::task::AIProxyTask;
 use ahnlich_types::db::ConnectedClient;
+use std::io::Error;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
@@ -12,6 +14,9 @@ use tokio::select;
 use tokio_graceful::Shutdown;
 use tracing::Instrument;
 use utils::{client::ClientHandler, protocol::AhnlichProtocol};
+
+use ahnlich_client_rs::db::{DbClient, DbConnManager};
+use deadpool::managed::Pool;
 
 pub struct AIProxyServer<'a> {
     listener: TcpListener,
@@ -39,7 +44,8 @@ impl<'a> AIProxyServer<'a> {
             tracer::init_tracing("ahnlich-db", Some(&config.log_level), &otel_url)
         }
         let write_flag = Arc::new(AtomicBool::new(false));
-        let mut store_handler = AIStoreHandler::new(write_flag.clone());
+        let db_client = Self::build_db_client(config).await?;
+        let mut store_handler = AIStoreHandler::new(write_flag.clone(), Arc::new(db_client));
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
         Ok(Self {
             listener,
@@ -120,5 +126,18 @@ impl<'a> AIProxyServer<'a> {
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),
         })
+    }
+
+    async fn build_db_client(config: &'a AIProxyConfig) -> IoResult<DbClient> {
+        let manager = DbConnManager::new(config.db_host.clone(), config.db_port);
+        let created_pool = Pool::builder(manager)
+            .max_size(config.db_client_pool_size)
+            .build()
+            .map_err(|e| AIProxyError::StandardError(format!("{e}")));
+
+        match created_pool {
+            Err(err) => Err(Error::new(std::io::ErrorKind::Other, err)),
+            Ok(pool) => Ok(DbClient::new_with_pool(pool)),
+        }
     }
 }
