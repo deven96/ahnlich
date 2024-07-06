@@ -135,6 +135,7 @@ mod tests {
         let similar_n_search = cosine_algorithm.find_similar_n(
             &first_vector,
             search_list.iter(),
+            false,
             NonZeroUsize::new(no_similar_values).unwrap(),
         );
 

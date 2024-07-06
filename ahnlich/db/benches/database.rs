@@ -85,7 +85,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 true,
             )
             .unwrap();
-        non_linear_handler.set_in_store(&StoreName(store_name.to_string()), bulk_insert.clone());
+        non_linear_handler.set_in_store(&StoreName(store_name.to_string()), bulk_insert.clone()).unwrap();
         let random_input = StoreKey(Array::from(
             (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>(),
         ));
