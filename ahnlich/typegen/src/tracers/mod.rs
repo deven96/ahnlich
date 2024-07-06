@@ -42,7 +42,7 @@ impl LanguageGeneratorTasks {
         output_dir: &std::path::PathBuf,
         language: Language,
     ) -> Self {
-        let input_dirs = [input_dir.join("query"), input_dir.join("server_response")];
+        let input_dirs = [input_dir.join("query"), input_dir.join("response")];
 
         let tasks = input_dirs
             .iter()
@@ -115,19 +115,25 @@ struct OutputFile<'a> {
 }
 
 impl<'a> OutputFile<'a> {
+    fn get_output_buffer(&self, file_path: std::path::PathBuf) -> BufWriter<File> {
+        let spec_language_file =
+            std::fs::File::create(file_path).expect("Failed to create typegen output file");
+        std::io::BufWriter::new(spec_language_file)
+    }
+
     fn generate(&self, config: &CodeGeneratorConfig, registry: &Registry) {
         let extension: &str = (&self.language).into();
         let output_dir = self.output_dir.join(format!("ahnlich-client-{extension}"));
         let _ = std::fs::create_dir_all(&output_dir);
         let output_file = output_dir.join(format!("{}.{extension}", self.output_file));
-
-        let spec_language_file =
-            std::fs::File::create(output_file).expect("Failed to create typegen output file");
-        let mut buffer: BufWriter<File> = std::io::BufWriter::new(spec_language_file);
-
         let _ = match self.language {
             Language::Python => {
-                let output_dir = output_dir.join(format!("ahnlich_client_{extension}"));
+                let output_dir = output_dir
+                    .join(format!("ahnlich_client_{extension}"))
+                    .join("internals");
+                let _ = std::fs::create_dir_all(&output_dir);
+                let output_file = output_dir.join(format!("{}.{extension}", self.output_file));
+                let mut buffer = self.get_output_buffer(output_file);
                 let installer = serde_generate::python3::Installer::new(output_dir, None);
                 installer.install_bincode_runtime().unwrap();
                 installer.install_serde_runtime().unwrap();
@@ -135,9 +141,12 @@ impl<'a> OutputFile<'a> {
             }
             Language::Golang => {
                 // All packages are already published
+
+                let mut buffer = self.get_output_buffer(output_file);
                 serde_generate::golang::CodeGenerator::new(config).output(&mut buffer, registry)
             }
             Language::Typescript => {
+                let mut buffer = self.get_output_buffer(output_file);
                 let installer = serde_generate::typescript::Installer::new(output_dir);
                 installer.install_serde_runtime().unwrap();
                 installer.install_bincode_runtime().unwrap();
