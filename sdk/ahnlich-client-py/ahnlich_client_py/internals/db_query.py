@@ -1,10 +1,8 @@
 # pyre-strict
-import typing
 from dataclasses import dataclass
-
-from ahnlich_client_py.internals import bincode
-from ahnlich_client_py.internals import serde_types as st
-
+import typing
+import serde_types as st
+import bincode
 
 class Algorithm:
     VARIANTS = []  # type: typing.Sequence[typing.Type[Algorithm]]
@@ -13,10 +11,10 @@ class Algorithm:
         return bincode.serialize(self, Algorithm)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> "Algorithm":
+    def bincode_deserialize(input: bytes) -> 'Algorithm':
         v, buffer = bincode.deserialize(input, Algorithm)
         if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
+            raise st.DeserializationError("Some input bytes were not read");
         return v
 
 
@@ -38,10 +36,16 @@ class Algorithm__CosineSimilarity(Algorithm):
     pass
 
 
+@dataclass(frozen=True)
+class Algorithm__KDTree(Algorithm):
+    INDEX = 3  # type: int
+    pass
+
 Algorithm.VARIANTS = [
     Algorithm__EuclideanDistance,
     Algorithm__DotProductSimilarity,
     Algorithm__CosineSimilarity,
+    Algorithm__KDTree,
 ]
 
 
@@ -55,10 +59,10 @@ class Array:
         return bincode.serialize(self, Array)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> "Array":
+    def bincode_deserialize(input: bytes) -> 'Array':
         v, buffer = bincode.deserialize(input, Array)
         if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
+            raise st.DeserializationError("Some input bytes were not read");
         return v
 
 
@@ -69,10 +73,10 @@ class MetadataValue:
         return bincode.serialize(self, MetadataValue)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> "MetadataValue":
+    def bincode_deserialize(input: bytes) -> 'MetadataValue':
         v, buffer = bincode.deserialize(input, MetadataValue)
         if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
+            raise st.DeserializationError("Some input bytes were not read");
         return v
 
 
@@ -87,10 +91,33 @@ class MetadataValue__Binary(MetadataValue):
     INDEX = 1  # type: int
     value: typing.Sequence[st.uint8]
 
-
 MetadataValue.VARIANTS = [
     MetadataValue__RawString,
     MetadataValue__Binary,
+]
+
+
+class NonLinearAlgorithm:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[NonLinearAlgorithm]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, NonLinearAlgorithm)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> 'NonLinearAlgorithm':
+        v, buffer = bincode.deserialize(input, NonLinearAlgorithm)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read");
+        return v
+
+
+@dataclass(frozen=True)
+class NonLinearAlgorithm__KDTree(NonLinearAlgorithm):
+    INDEX = 0  # type: int
+    pass
+
+NonLinearAlgorithm.VARIANTS = [
+    NonLinearAlgorithm__KDTree,
 ]
 
 
@@ -101,10 +128,10 @@ class Predicate:
         return bincode.serialize(self, Predicate)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> "Predicate":
+    def bincode_deserialize(input: bytes) -> 'Predicate':
         v, buffer = bincode.deserialize(input, Predicate)
         if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
+            raise st.DeserializationError("Some input bytes were not read");
         return v
 
 
@@ -135,7 +162,6 @@ class Predicate__NotIn(Predicate):
     key: str
     value: typing.Sequence["MetadataValue"]
 
-
 Predicate.VARIANTS = [
     Predicate__Equals,
     Predicate__NotEquals,
@@ -151,10 +177,10 @@ class PredicateCondition:
         return bincode.serialize(self, PredicateCondition)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> "PredicateCondition":
+    def bincode_deserialize(input: bytes) -> 'PredicateCondition':
         v, buffer = bincode.deserialize(input, PredicateCondition)
         if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
+            raise st.DeserializationError("Some input bytes were not read");
         return v
 
 
@@ -175,7 +201,6 @@ class PredicateCondition__Or(PredicateCondition):
     INDEX = 2  # type: int
     value: typing.Tuple["PredicateCondition", "PredicateCondition"]
 
-
 PredicateCondition.VARIANTS = [
     PredicateCondition__Value,
     PredicateCondition__And,
@@ -190,10 +215,10 @@ class Query:
         return bincode.serialize(self, Query)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> "Query":
+    def bincode_deserialize(input: bytes) -> 'Query':
         v, buffer = bincode.deserialize(input, Query)
         if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
+            raise st.DeserializationError("Some input bytes were not read");
         return v
 
 
@@ -203,6 +228,7 @@ class Query__CreateStore(Query):
     store: str
     dimension: st.uint64
     create_predicates: typing.Sequence[str]
+    non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
     error_if_exists: bool
 
 
@@ -231,14 +257,14 @@ class Query__GetSimN(Query):
 
 
 @dataclass(frozen=True)
-class Query__CreateIndex(Query):
+class Query__CreatePredIndex(Query):
     INDEX = 4  # type: int
     store: str
     predicates: typing.Sequence[str]
 
 
 @dataclass(frozen=True)
-class Query__DropIndex(Query):
+class Query__DropPredIndex(Query):
     INDEX = 5  # type: int
     store: str
     predicates: typing.Sequence[str]
@@ -296,14 +322,13 @@ class Query__Ping(Query):
     INDEX = 13  # type: int
     pass
 
-
 Query.VARIANTS = [
     Query__CreateStore,
     Query__GetKey,
     Query__GetPred,
     Query__GetSimN,
-    Query__CreateIndex,
-    Query__DropIndex,
+    Query__CreatePredIndex,
+    Query__DropPredIndex,
     Query__Set,
     Query__DelKey,
     Query__DelPred,
@@ -323,8 +348,9 @@ class ServerQuery:
         return bincode.serialize(self, ServerQuery)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> "ServerQuery":
+    def bincode_deserialize(input: bytes) -> 'ServerQuery':
         v, buffer = bincode.deserialize(input, ServerQuery)
         if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
+            raise st.DeserializationError("Some input bytes were not read");
         return v
+

@@ -91,20 +91,20 @@ impl DbPipeline {
         })
     }
 
-    /// push create index command to pipeline
-    pub fn create_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
+    /// push create predicate index command to pipeline
+    pub fn create_pred_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
         self.queries
-            .push(DBQuery::CreateIndex { store, predicates })
+            .push(DBQuery::CreatePredIndex { store, predicates })
     }
 
-    /// push drop index command to pipeline
-    pub fn drop_index(
+    /// push drop pred index command to pipeline
+    pub fn drop_pred_index(
         &mut self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
     ) {
-        self.queries.push(DBQuery::DropIndex {
+        self.queries.push(DBQuery::DropPredIndex {
             store,
             predicates,
             error_if_not_exists,
@@ -242,21 +242,22 @@ impl DbClient {
         .await
     }
 
-    pub async fn create_index(
+    pub async fn create_pred_index(
         &self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::CreateIndex { store, predicates }).await
+        self.exec(DBQuery::CreatePredIndex { store, predicates })
+            .await
     }
 
-    pub async fn drop_index(
+    pub async fn drop_pred_index(
         &self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::DropIndex {
+        self.exec(DBQuery::DropPredIndex {
             store,
             predicates,
             error_if_not_exists,

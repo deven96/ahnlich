@@ -107,15 +107,15 @@ impl StoreHandler {
         Ok(store)
     }
 
-    /// Matches CREATEINDEX - reindexes a store with some predicate values
+    /// Matches CREATEPREDINDEX - reindexes a store with some predicate values
     #[tracing::instrument(skip(self))]
-    pub(crate) fn create_index(
+    pub(crate) fn create_pred_index(
         &self,
         store_name: &StoreName,
         predicates: Vec<MetadataKey>,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        let created_predicates = store.create_index(predicates);
+        let created_predicates = store.create_pred_index(predicates);
         if created_predicates > 0 {
             self.set_write_flag()
         }
@@ -292,9 +292,9 @@ impl StoreHandler {
         Ok(())
     }
 
-    /// Matches DROPINDEXPRED - Drops predicate index if exists, else returns an error
+    /// Matches DROPPREDINDEX - Drops predicate index if exists, else returns an error
     #[tracing::instrument(skip(self))]
-    pub(crate) fn drop_index_in_store(
+    pub(crate) fn drop_pred_index_in_store(
         &self,
         store_name: &StoreName,
         predicates: Vec<MetadataKey>,
@@ -546,7 +546,7 @@ impl Store {
     }
 
     #[tracing::instrument(skip(self))]
-    fn create_index(&self, requested_predicates: Vec<MetadataKey>) -> usize {
+    fn create_pred_index(&self, requested_predicates: Vec<MetadataKey>) -> usize {
         let current_predicates = self.predicate_indices.current_predicates();
         let new_predicates: Vec<_> = StdHashSet::from_iter(requested_predicates)
             .difference(&current_predicates)
@@ -883,7 +883,7 @@ mod tests {
         let res = handler.get_pred_in_store(&even_store, &condition);
         assert_eq!(res.unwrap().len(), 2);
         handler
-            .create_index(
+            .create_pred_index(
                 &even_store,
                 vec![
                     MetadataKey::new("author".into()),

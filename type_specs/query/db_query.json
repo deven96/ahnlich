@@ -245,7 +245,7 @@
         }
       },
       "4": {
-        "CreateIndex": {
+        "CreatePredIndex": {
           "STRUCT": [
             {
               "store": "STR"
@@ -259,7 +259,7 @@
         }
       },
       "5": {
-        "DropIndex": {
+        "DropPredIndex": {
           "STRUCT": [
             {
               "store": "STR"

@@ -1,7 +1,7 @@
 import typing
 
 from ahnlich_client_py import builders, protocol
-from ahnlich_client_py.internals import query
+from ahnlich_client_py.internals import db_query
 from ahnlich_client_py.internals import serde_types as st
 from ahnlich_client_py.internals import server_response
 
@@ -17,14 +17,14 @@ class AhnlichDBClient:
         self.builder = builders.AhnlichDBRequestBuilder()
 
     def get_key(
-        self, store_name: str, keys: typing.Sequence[query.Array]
+        self, store_name: str, keys: typing.Sequence[db_query.Array]
     ) -> server_response.ServerResult:
 
         self.builder.get_key(store_name=store_name, keys=keys)
         return self.protocol.process_request(self.builder.to_server_query())
 
     def get_by_predicate(
-        self, store_name: str, condition: query.PredicateCondition
+        self, store_name: str, condition: db_query.PredicateCondition
     ) -> server_response.ServerResult:
         self.builder.get_by_predicate(store_name=store_name, condition=condition)
         return self.protocol.process_request(self.builder.to_server_query())
@@ -32,10 +32,10 @@ class AhnlichDBClient:
     def get_sim_n(
         self,
         store_name: str,
-        search_input: query.Array,
+        search_input: db_query.Array,
         closest_n: st.uint64,
-        algorithm: query.Algorithm,
-        condition: query.PredicateCondition = None,
+        algorithm: db_query.Algorithm,
+        condition: db_query.PredicateCondition = None,
     ) -> server_response.ServerResult:
         self.builder.get_sim_n(
             store_name=store_name,
@@ -46,19 +46,19 @@ class AhnlichDBClient:
         )
         return self.protocol.process_request(self.builder.to_server_query())
 
-    def create_index(
+    def create_pred_index(
         self, store_name: str, predicates: typing.Sequence[str]
     ) -> server_response.ServerResult:
-        self.builder.create_index(store_name=store_name, predicates=predicates)
+        self.builder.create_pred_index(store_name=store_name, predicates=predicates)
         return self.protocol.process_request(self.builder.to_server_query())
 
-    def drop_index(
+    def drop_pred_index(
         self,
         store_name: str,
         predicates: typing.Sequence[str],
         error_if_not_exists: bool,
     ) -> server_response.ServerResult:
-        self.builder.drop_index(
+        self.builder.drop_pred_index(
             store_name=store_name,
             predicates=predicates,
             error_if_not_exists=error_if_not_exists,
@@ -69,20 +69,20 @@ class AhnlichDBClient:
         self,
         store_name: str,
         inputs: typing.Sequence[
-            typing.Tuple[query.Array, typing.Dict[str, query.MetadataValue]]
+            typing.Tuple[db_query.Array, typing.Dict[str, db_query.MetadataValue]]
         ],
     ) -> server_response.ServerResult:
         self.builder.set(store_name=store_name, inputs=inputs)
         return self.protocol.process_request(self.builder.to_server_query())
 
     def delete_key(
-        self, store_name: str, keys: typing.Sequence[query.Array]
+        self, store_name: str, keys: typing.Sequence[db_query.Array]
     ) -> server_response.ServerResult:
         self.builder.delete_key(store_name=store_name, keys=keys)
         return self.protocol.process_request(self.builder.to_server_query())
 
     def delete_predicate(
-        self, store_name: str, condition: query.PredicateCondition
+        self, store_name: str, condition: db_query.PredicateCondition
     ) -> server_response.ServerResult:
         self.builder.delete_predicate(store_name=store_name, condition=condition)
         return self.protocol.process_request(self.builder.to_server_query())

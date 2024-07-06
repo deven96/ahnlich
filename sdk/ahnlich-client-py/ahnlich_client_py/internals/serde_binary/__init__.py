@@ -7,13 +7,13 @@ Module describing the "binary" serialization formats.
 Note: This internal module is currently only meant to share code between the BCS and bincode formats. Internal APIs could change in the future.
 """
 
-import collections
 import dataclasses
+import collections
 import io
 import typing
 from typing import get_type_hints
 
-from ahnlich_client_py.internals import serde_types as st
+import serde_types as st
 
 
 @dataclasses.dataclass

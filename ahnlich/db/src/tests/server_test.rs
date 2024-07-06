@@ -1066,7 +1066,7 @@ async fn test_get_key() {
 }
 
 #[tokio::test]
-async fn test_create_index() {
+async fn test_create_pred_index() {
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
@@ -1076,7 +1076,7 @@ async fn test_create_index() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     let message = ServerDBQuery::from_queries(&[
         // should error as store does not yet exist
-        DBQuery::CreateIndex {
+        DBQuery::CreatePredIndex {
             store: StoreName("Main".to_string()),
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
@@ -1119,7 +1119,7 @@ async fn test_create_index() {
             ],
         },
         // should return CreateIndex(0) as nothing new was indexed
-        DBQuery::CreateIndex {
+        DBQuery::CreatePredIndex {
             store: StoreName("Main".to_string()),
             predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
         },
@@ -1156,7 +1156,7 @@ async fn test_create_index() {
             }),
         },
         // should create 2 new indexes
-        DBQuery::CreateIndex {
+        DBQuery::CreatePredIndex {
             store: StoreName("Main".to_string()),
             predicates: HashSet::from_iter([
                 MetadataKey::new("technology".into()),
@@ -1253,7 +1253,7 @@ async fn test_create_index() {
 }
 
 #[tokio::test]
-async fn test_drop_index() {
+async fn test_drop_pred_index() {
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
@@ -1263,7 +1263,7 @@ async fn test_drop_index() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     let message = ServerDBQuery::from_queries(&[
         // should error as store does not yet exist
-        DBQuery::DropIndex {
+        DBQuery::DropPredIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
@@ -1276,19 +1276,19 @@ async fn test_drop_index() {
             error_if_exists: true,
         },
         // should not error even though predicate does not exist
-        DBQuery::DropIndex {
+        DBQuery::DropPredIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: false,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
         // should error as predicate does not exist
-        DBQuery::DropIndex {
+        DBQuery::DropPredIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
         // should not error
-        DBQuery::DropIndex {
+        DBQuery::DropPredIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
@@ -1299,7 +1299,7 @@ async fn test_drop_index() {
     expected.push(Ok(ServerResponse::Unit));
     expected.push(Ok(ServerResponse::Del(0)));
     expected.push(Err(
-        "Predicate planet not found in store, attempt CREATEINDEX with predicate".into(),
+        "Predicate planet not found in store, attempt CREATEPREDINDEX with predicate".into(),
     ));
     expected.push(Ok(ServerResponse::Del(1)));
     let stream = TcpStream::connect(address).await.unwrap();

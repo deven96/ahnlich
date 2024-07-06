@@ -6,7 +6,7 @@ use thiserror::Error;
 /// TODO: Move to shared rust types so library can deserialize it from the TCP response
 #[derive(Error, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum ServerError {
-    #[error("Predicate {0} not found in store, attempt CREATEINDEX with predicate")]
+    #[error("Predicate {0} not found in store, attempt CREATEPREDINDEX with predicate")]
     PredicateNotFound(MetadataKey),
     #[error("Non linear algorithm {0} not found in store, create store with support")]
     NonLinearIndexNotFound(NonLinearAlgorithm),

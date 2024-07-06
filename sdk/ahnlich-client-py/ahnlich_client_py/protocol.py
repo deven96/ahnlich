@@ -11,7 +11,7 @@ from ahnlich_client_py.exceptions import (
     AhnlichClientException,
     AhnlichProtocolException,
 )
-from ahnlich_client_py.internals import query, server_response
+from ahnlich_client_py.internals import db_query, db_response
 
 
 class AhnlichProtocol:
@@ -29,14 +29,14 @@ class AhnlichProtocol:
         self.timeout_sec = timeout_sec
         self.conn = self.connect()
 
-    def serialize_query(self, server_query: query.ServerQuery) -> bytes:
+    def serialize_query(self, server_query: db_query.ServerQuery) -> bytes:
         version = self.version.bincode_serialize()
         response = server_query.bincode_serialize()
         response_length = int(len(response)).to_bytes(8, "little")
         return config.HEADER + version + response_length + response
 
-    def deserialize_server_response(self, b: bytes) -> server_response.ServerResult:
-        return server_response.ServerResult([]).bincode_deserialize(b)
+    def deserialize_server_response(self, b: bytes) -> db_response.ServerResult:
+        return db_response.ServerResult([]).bincode_deserialize(b)
 
     def connect(self) -> socket.socket:
         with self.connection_pool.connection(
@@ -44,11 +44,11 @@ class AhnlichProtocol:
         ) as conn:
             return conn
 
-    def send(self, message: query.ServerQuery):
+    def send(self, message: db_query.ServerQuery):
         serialized_bin = self.serialize_query(message)
         self.conn.sendall(serialized_bin)
 
-    def receive(self) -> server_response.ServerResult:
+    def receive(self) -> db_response.ServerResult:
         header = self.conn.recv(8)
         if header == b"":
             self.connection_pool.close()
@@ -68,8 +68,8 @@ class AhnlichProtocol:
         return response
 
     def process_request(
-        self, message: query.ServerQuery
-    ) -> server_response.ServerResult:
+        self, message: db_query.ServerQuery
+    ) -> db_response.ServerResult:
         self.send(message=message)
         response = self.receive()
         return response
@@ -95,7 +95,7 @@ class AhnlichProtocol:
         self.connection_pool.close()
 
     @staticmethod
-    def get_version() -> server_response.Version:
+    def get_version() -> db_response.Version:
 
         with open(config.BASE_DIR / "VERSION", "r") as f:
             content = f.read()
@@ -104,6 +104,6 @@ class AhnlichProtocol:
                 raise AhnlichClientException("Unable to Parse Protocol Version")
             str_version: str = match.group(1)
             # split and convert from str to int
-            return server_response.Version(
+            return db_response.Version(
                 *map(lambda x: int(x), str_version.split("."))
             )

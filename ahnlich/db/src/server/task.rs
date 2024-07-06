@@ -133,9 +133,9 @@ impl ServerTask {
                     )
                     .map(|_| ServerResponse::Unit)
                     .map_err(|e| format!("{e}")),
-                DBQuery::CreateIndex { store, predicates } => self
+                DBQuery::CreatePredIndex { store, predicates } => self
                     .store_handler
-                    .create_index(&store, predicates.into_iter().collect())
+                    .create_pred_index(&store, predicates.into_iter().collect())
                     .map(ServerResponse::CreateIndex)
                     .map_err(|e| format!("{e}")),
                 DBQuery::DropStore {
@@ -146,13 +146,13 @@ impl ServerTask {
                     .drop_store(store, error_if_not_exists)
                     .map(ServerResponse::Del)
                     .map_err(|e| format!("{e}")),
-                DBQuery::DropIndex {
+                DBQuery::DropPredIndex {
                     store,
                     error_if_not_exists,
                     predicates,
                 } => self
                     .store_handler
-                    .drop_index_in_store(
+                    .drop_pred_index_in_store(
                         &store,
                         predicates.into_iter().collect(),
                         error_if_not_exists,

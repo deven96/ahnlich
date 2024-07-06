@@ -189,17 +189,17 @@ def test_client_get_by_predicate_succeeds_with_no_index_in_store(
     assert isinstance(response.results[0], server_response.Result__Ok)
 
 
-def test_client_create_index_succeeds(module_scopped_ahnlich_db):
+def test_client_create_pred_index_succeeds(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
     db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
-    create_index_data = {
+    create_pred_index_data = {
         "store_name": store_payload_no_predicates["store_name"],
         "predicates": ["job", "rank"],
     }
     try:
-        response: server_response.ServerResult = db_client.create_index(
-            **create_index_data
+        response: server_response.ServerResult = db_client.create_pred_index(
+            **create_pred_index_data
         )
     finally:
         db_client.cleanup()
@@ -281,27 +281,27 @@ def test_client_get_sim_n_succeeds(module_scopped_ahnlich_db, store_key, store_v
     assert str(expected_results[2]) in str(actual_results[0]).lower()
 
 
-def test_client_drop_index_succeeds(module_scopped_ahnlich_db):
+def test_client_drop_pred_index_succeeds(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
     db_client = AhnlichDBClient(address="127.0.0.1", port=port)
 
-    create_index_data = {
+    create_pred_index_data = {
         "store_name": store_payload_no_predicates["store_name"],
         "predicates": ["to_drop"],
     }
-    response: server_response.ServerResult = db_client.create_index(**create_index_data)
+    response: server_response.ServerResult = db_client.create_pred_index(**create_pred_index_data)
     assert response.results[0] == server_response.Result__Ok(
         server_response.ServerResponse__CreateIndex(1)
     )
 
-    drop_index_data = {
+    drop_pred_index_data = {
         "store_name": store_payload_no_predicates["store_name"],
         "predicates": ["to_drop"],
         "error_if_not_exists": True,
     }
 
     try:
-        response: server_response.ServerResult = db_client.drop_index(**drop_index_data)
+        response: server_response.ServerResult = db_client.drop_pred_index(**drop_pred_index_data)
     finally:
         db_client.cleanup()
     assert response.results[0] == server_response.Result__Ok(
