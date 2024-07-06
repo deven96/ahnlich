@@ -50,16 +50,22 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
         &'a self,
         search_vector: &StoreKey,
         search_list: impl Iterator<Item = &'a StoreKey>,
+        used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKey, f32)> {
-        let accept_list: HashSet<_> = search_list
-            .cloned()
-            .map(|key| Array1F32Ordered(key.0))
-            .collect();
+        let accept_list = if used_all {
+            None
+        } else {
+            Some(
+                search_list
+                    .map(|key| Array1F32Ordered(key.0.clone()))
+                    .collect(),
+            )
+        };
         match self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
                 kdtree
-                    .n_nearest(&search_vector.0, n, Some(accept_list))
+                    .n_nearest(&search_vector.0, n, accept_list)
                     // we expect that algorithm shapes have already been confirmed before hand
                     .expect("KDTree does not have the same size as reference_point")
                     .into_iter()

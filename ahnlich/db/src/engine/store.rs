@@ -173,10 +173,10 @@ impl StoreHandler {
             });
         }
 
-        let filtered = if let Some(ref condition) = condition {
-            store.get_matches(condition)?
+        let (filtered, used_all) = if let Some(ref condition) = condition {
+            (store.get_matches(condition)?, false)
         } else {
-            store.get_all()
+            (store.get_all(), true)
         };
 
         // early stopping: predicate filters everything out so no need to search
@@ -189,14 +189,19 @@ impl StoreHandler {
         let algorithm_by_type: AlgorithmByType = algorithm.into();
         let similar_result = match algorithm_by_type {
             AlgorithmByType::Linear(linear_algo) => {
-                linear_algo.find_similar_n(&search_input, filtered_iter, closest_n)
+                linear_algo.find_similar_n(&search_input, filtered_iter, used_all, closest_n)
             }
             AlgorithmByType::NonLinear(non_linear_algo) => {
                 let non_linear_indices = store.non_linear_indices.algorithm_to_index.pin();
                 let non_linear_index_with_algo = non_linear_indices
                     .get(&non_linear_algo)
                     .ok_or(ServerError::NonLinearIndexNotFound(non_linear_algo))?;
-                non_linear_index_with_algo.find_similar_n(&search_input, filtered_iter, closest_n)
+                non_linear_index_with_algo.find_similar_n(
+                    &search_input,
+                    filtered_iter,
+                    used_all,
+                    closest_n,
+                )
             }
         };
 

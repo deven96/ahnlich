@@ -82,6 +82,7 @@ pub(crate) trait FindSimilarN {
         &'a self,
         search_vector: &StoreKey,
         search_list: impl Iterator<Item = &'a StoreKey>,
+        _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKey, f32)>;
 }
@@ -91,6 +92,7 @@ impl FindSimilarN for LinearAlgorithm {
         &'a self,
         search_vector: &StoreKey,
         search_list: impl Iterator<Item = &'a StoreKey>,
+        _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKey, f32)> {
         let mut heap: AlgorithmHeapType = (self, n).into();

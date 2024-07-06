@@ -34,3 +34,4 @@ tokio = { version = "1.37.0", features = [
 ]}
 tokio-graceful = "0.1.6"
 rand = "0.8"
+rayon = "1.10"
