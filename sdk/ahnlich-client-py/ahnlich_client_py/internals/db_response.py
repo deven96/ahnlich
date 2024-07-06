@@ -1,8 +1,8 @@
 # pyre-strict
 from dataclasses import dataclass
 import typing
-import serde_types as st
-import bincode
+from . import serde_types as st
+from . import bincode
 
 @dataclass(frozen=True)
 class Array:
