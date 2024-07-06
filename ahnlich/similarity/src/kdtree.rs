@@ -317,7 +317,7 @@ impl KDTree {
             .iter()
             .map(|del| self.delete(del))
             .collect::<Result<Vec<_>, Error>>()?;
-        let deleted_count = res.into_iter().flat_map(|a| a).count();
+        let deleted_count = res.into_iter().flatten().count();
         Ok(deleted_count)
     }
 
