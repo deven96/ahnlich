@@ -97,7 +97,7 @@ impl NonLinearAlgorithmIndices {
     pub(crate) fn delete(&self, old: &[Array1<f32>]) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {
-            algo.delete(&old);
+            algo.delete(old);
         }
     }
 }
