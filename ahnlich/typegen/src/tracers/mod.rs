@@ -134,7 +134,10 @@ impl<'a> OutputFile<'a> {
                 let _ = std::fs::create_dir_all(&output_dir);
                 let output_file = output_dir.join(format!("{}.{extension}", self.output_file));
                 let mut buffer = self.get_output_buffer(output_file);
-                let installer = serde_generate::python3::Installer::new(output_dir, None);
+                let installer = serde_generate::python3::Installer::new(
+                    output_dir,
+                    Some(format!("ahnlich_client_{extension}.internals")),
+                );
                 installer.install_bincode_runtime().unwrap();
                 installer.install_serde_runtime().unwrap();
                 serde_generate::python3::CodeGenerator::new(config).output(&mut buffer, registry)
