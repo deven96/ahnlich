@@ -1,5 +1,5 @@
 from ahnlich_client_py import client
-from ahnlich_client_py.internals import server_response
+from ahnlich_client_py.internals import db_response
 
 
 def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
@@ -12,20 +12,20 @@ def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
     request_builder.list_stores()
 
     try:
-        response: server_response.ServerResult = db_client.exec()
+        response: db_response.ServerResult = db_client.exec()
     finally:
         db_client.cleanup()
 
     assert len(response.results) == 4
-    assert response.results[0] == server_response.Result__Ok(
-        server_response.ServerResponse__Pong()
+    assert response.results[0] == db_response.Result__Ok(
+        db_response.ServerResponse__Pong()
     )
     # assert info servers
-    info_server: server_response.ServerInfo = response.results[1].value
+    info_server: db_response.ServerInfo = response.results[1].value
     assert info_server.value.version == db_client.protocol.version
-    assert info_server.value.type == server_response.ServerType__Database()
+    assert info_server.value.type == db_response.ServerType__Database()
 
     # assert list_stores
-    assert response.results[3] == server_response.Result__Ok(
-        server_response.ServerResponse__StoreList([])
+    assert response.results[3] == db_response.Result__Ok(
+        db_response.ServerResponse__StoreList([])
     )

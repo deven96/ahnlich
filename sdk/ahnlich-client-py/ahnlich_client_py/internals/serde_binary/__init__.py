@@ -13,7 +13,7 @@ import io
 import typing
 from typing import get_type_hints
 
-import serde_types as st
+from ahnlich_client_py.internals import serde_types as st
 
 
 @dataclasses.dataclass

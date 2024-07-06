@@ -1,8 +1,8 @@
 # pyre-strict
 from dataclasses import dataclass
 import typing
-from . import serde_types as st
-from . import bincode
+from ahnlich_client_py.internals import serde_types as st
+from ahnlich_client_py.internals import bincode
 
 class Algorithm:
     VARIANTS = []  # type: typing.Sequence[typing.Type[Algorithm]]

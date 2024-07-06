@@ -9,8 +9,8 @@ import typing
 from copy import copy
 from typing import get_type_hints
 
-import serde_types as st
-import serde_binary as sb
+from ahnlich_client_py.internals import serde_types as st
+from ahnlich_client_py.internals import serde_binary as sb
 
 # Maximum length in practice for sequences (e.g. in Java).
 MAX_LENGTH = (1 << 31) - 1
