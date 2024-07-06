@@ -6,6 +6,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::Array;
 use ndarray::Array1;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -36,6 +37,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 StoreName(store_name.to_string()),
                 NonZeroUsize::new(dimension).unwrap(),
                 vec![],
+                HashSet::new(),
                 true,
             )
             .unwrap();
@@ -77,6 +79,7 @@ fn bench_insertion(c: &mut Criterion) {
                 StoreName(store_name.to_string()),
                 NonZeroUsize::new(dimension).unwrap(),
                 vec![],
+                HashSet::new(),
                 true,
             )
             .unwrap();
@@ -116,6 +119,7 @@ fn bench_insertion(c: &mut Criterion) {
                 StoreName(store_name.to_string()),
                 NonZeroUsize::new(dimension).unwrap(),
                 vec![],
+                HashSet::new(),
                 true,
             )
             .unwrap();
