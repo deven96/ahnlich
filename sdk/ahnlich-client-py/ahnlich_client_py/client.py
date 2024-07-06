@@ -99,7 +99,8 @@ class AhnlichDBClient:
         self,
         store_name: str,
         dimension: st.uint64,
-        create_predicates: typing.Sequence[str] = None,
+        create_predicates: typing.Sequence[str] = [],
+        non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = [],
         error_if_exists: bool = True,
     ) -> server_response.ServerResult:
         if not create_predicates:
@@ -108,6 +109,7 @@ class AhnlichDBClient:
             store_name=store_name,
             dimension=dimension,
             create_predicates=create_predicates,
+            non_linear_indices=non_linear_indices,
             error_if_exists=error_if_exists,
         )
         message = self.builder.to_server_query()
