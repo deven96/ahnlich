@@ -2,6 +2,7 @@ use ahnlich_db::engine::store::StoreHandler;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::similarity::Algorithm;
+use ahnlich_types::similarity::NonLinearAlgorithm;
 use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::Array;
 use ndarray::Array1;
@@ -56,6 +57,49 @@ fn bench_retrieval(c: &mut Criterion) {
                         random_input.clone(),
                         NonZeroUsize::new(50).unwrap(),
                         Algorithm::CosineSimilarity,
+                        None,
+                    )
+                    .unwrap();
+            });
+        });
+    }
+    group.finish();
+
+    let mut group = c.benchmark_group("store_retrieval_non_linear_kdtree");
+    for size in sizes {
+        let handler = initialize_store_handler();
+        let dimension = 1024;
+        let bulk_insert: Vec<_> = (0..size)
+            .map(|_| {
+                let random_array: Array1<f32> =
+                    Array::from((0..dimension).map(|_| rand::random()).collect::<Vec<f32>>());
+                (StoreKey(random_array), HashMap::new())
+            })
+            .collect();
+        handler
+            .create_store(
+                StoreName(store_name.to_string()),
+                NonZeroUsize::new(dimension).unwrap(),
+                vec![],
+                HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+                true,
+            )
+            .unwrap();
+        handler
+            .set_in_store(&StoreName(store_name.to_string()), bulk_insert.clone())
+            .unwrap();
+        let random_input = StoreKey(Array::from(
+            (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>(),
+        ));
+        group.sampling_mode(criterion::SamplingMode::Flat);
+        group.bench_function(format!("size_{size}"), |b| {
+            b.iter(|| {
+                handler
+                    .get_sim_in_store(
+                        &StoreName(store_name.to_string()),
+                        random_input.clone(),
+                        NonZeroUsize::new(50).unwrap(),
+                        NonLinearAlgorithm::KDTree,
                         None,
                     )
                     .unwrap();
