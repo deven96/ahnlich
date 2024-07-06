@@ -531,18 +531,16 @@ impl Store {
             .collect();
         let pinned = self.id_to_value.pin();
         let (mut inserted, mut updated) = (0, 0);
-        let (mut inserted_keys, mut deleted_keys) = (Vec::new(), Vec::new());
+        let mut inserted_keys = Vec::new();
         for (key, val) in res {
-            if let Some(old_value) = pinned.insert(key, val.clone()) {
+            if pinned.insert(key, val.clone()).is_some() {
                 updated += 1;
-                deleted_keys.push(old_value.0 .0.to_owned());
             } else {
                 inserted += 1;
+                inserted_keys.push(val.0 .0);
             }
-            inserted_keys.push(val.0 .0);
         }
         self.predicate_indices.add(predicate_insert);
-        self.non_linear_indices.delete(&deleted_keys);
         self.non_linear_indices.insert(inserted_keys);
         Ok(StoreUpsert { inserted, updated })
     }
