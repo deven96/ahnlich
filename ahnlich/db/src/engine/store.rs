@@ -1,6 +1,7 @@
 use crate::errors::ServerError;
 
-use super::super::algorithm::FindSimilarN;
+use super::super::algorithm::non_linear::NonLinearAlgorithmIndices;
+use super::super::algorithm::{AlgorithmByType, FindSimilarN};
 use super::predicate::PredicateIndices;
 use ahnlich_types::db::StoreInfo;
 use ahnlich_types::db::StoreUpsert;
@@ -11,6 +12,7 @@ use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
 use ahnlich_types::similarity::Algorithm;
+use ahnlich_types::similarity::NonLinearAlgorithm;
 use ahnlich_types::similarity::Similarity;
 use flurry::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
@@ -128,7 +130,7 @@ impl StoreHandler {
         keys: Vec<StoreKey>,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
-        let deleted = store.delete_keys(keys)?;
+        let deleted = store.delete_keys(keys.clone())?;
         if deleted > 0 {
             self.set_write_flag();
         };
@@ -177,13 +179,27 @@ impl StoreHandler {
             store.get_all()
         };
 
+        // early stopping: predicate filters everything out so no need to search
         if filtered.is_empty() {
             return Ok(vec![]);
         }
 
         let filtered_iter = filtered.iter().map(|(key, _)| key);
 
-        let similar_result = algorithm.find_similar_n(&search_input, filtered_iter, closest_n);
+        let algorithm_by_type: AlgorithmByType = algorithm.into();
+        let similar_result = match algorithm_by_type {
+            AlgorithmByType::Linear(linear_algo) => {
+                linear_algo.find_similar_n(&search_input, filtered_iter, closest_n)
+            }
+            AlgorithmByType::NonLinear(non_linear_algo) => {
+                let non_linear_indices = store.non_linear_indices.algorithm_to_index.pin();
+                let non_linear_index_with_algo = non_linear_indices
+                    .get(&non_linear_algo)
+                    .ok_or(ServerError::NonLinearIndexNotFound(non_linear_algo))?;
+                non_linear_index_with_algo.find_similar_n(&search_input, filtered_iter, closest_n)
+            }
+        };
+
         let mut keys_to_value_map: StdHashMap<StoreKeyId, &StoreValue> = StdHashMap::from_iter(
             filtered
                 .iter()
@@ -194,8 +210,8 @@ impl StoreHandler {
             .into_iter()
             .flat_map(|(store_key, similarity)| {
                 keys_to_value_map
-                    .remove(&StoreKeyId::from(store_key))
-                    .map(|value| (store_key.to_owned(), value.clone(), Similarity(similarity)))
+                    .remove(&StoreKeyId::from(&store_key))
+                    .map(|value| (store_key, value.clone(), Similarity(similarity)))
             })
             .collect())
     }
@@ -257,13 +273,14 @@ impl StoreHandler {
         store_name: StoreName,
         dimension: NonZeroUsize,
         predicates: Vec<MetadataKey>,
+        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
     ) -> Result<(), ServerError> {
         if self
             .stores
             .try_insert(
                 store_name.clone(),
-                Arc::new(Store::create(dimension, predicates)),
+                Arc::new(Store::create(dimension, predicates, non_linear_indices)),
                 &self.stores.guard(),
             )
             .is_err()
@@ -322,15 +339,22 @@ pub struct Store {
     id_to_value: ConcurrentHashMap<StoreKeyId, (StoreKey, StoreValue)>,
     /// Indices to filter for the store
     predicate_indices: PredicateIndices,
+    /// Non linear Indices
+    non_linear_indices: NonLinearAlgorithmIndices,
 }
 
 impl Store {
     /// Creates a new empty store
-    pub(super) fn create(dimension: NonZeroUsize, predicates: Vec<MetadataKey>) -> Self {
+    pub(super) fn create(
+        dimension: NonZeroUsize,
+        predicates: Vec<MetadataKey>,
+        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+    ) -> Self {
         Self {
             dimension,
             id_to_value: ConcurrentHashMap::new(),
             predicate_indices: PredicateIndices::init(predicates),
+            non_linear_indices: NonLinearAlgorithmIndices::create(non_linear_indices, dimension),
         }
     }
 
@@ -348,9 +372,14 @@ impl Store {
     fn delete(&self, keys: impl Iterator<Item = StoreKeyId>) -> usize {
         let keys: Vec<StoreKeyId> = keys.collect();
         let pinned = self.id_to_value.pin();
-        let removed = keys.iter().flat_map(|k| pinned.remove(k));
+        let removed = keys
+            .iter()
+            .flat_map(|k| pinned.remove(k))
+            .map(|(k, _)| k.0.clone())
+            .collect::<Vec<_>>();
         self.predicate_indices.remove_store_keys(&keys);
-        removed.count()
+        self.non_linear_indices.delete(&removed);
+        removed.len()
     }
 
     /// filters input dimension to make sure it matches store dimension
@@ -379,7 +408,8 @@ impl Store {
             return Ok(0);
         }
         let keys = self.filter_dimension(del)?;
-        Ok(self.delete(keys.iter().map(From::from)))
+        let res = self.delete(keys.iter().map(From::from));
+        Ok(res)
     }
 
     /// Deletes a bunch of store keys from the store matching a specific predicate
@@ -501,14 +531,19 @@ impl Store {
             .collect();
         let pinned = self.id_to_value.pin();
         let (mut inserted, mut updated) = (0, 0);
+        let (mut inserted_keys, mut deleted_keys) = (Vec::new(), Vec::new());
         for (key, val) in res {
-            if pinned.insert(key, val).is_none() {
-                inserted += 1
+            if let Some(old_value) = pinned.insert(key, val.clone()) {
+                updated += 1;
+                deleted_keys.push(old_value.0 .0.to_owned());
             } else {
-                updated += 1
+                inserted += 1;
             }
+            inserted_keys.push(val.0 .0);
         }
         self.predicate_indices.add(predicate_insert);
+        self.non_linear_indices.delete(&deleted_keys);
+        self.non_linear_indices.insert(inserted_keys);
         Ok(StoreUpsert { inserted, updated })
     }
 
@@ -627,6 +662,7 @@ mod tests {
                     StoreName(store_name.to_string()),
                     NonZeroUsize::new(size).unwrap(),
                     predicates,
+                    StdHashSet::new(),
                     true,
                 )
             });
@@ -656,6 +692,7 @@ mod tests {
                     StoreName(store_name.to_string()),
                     NonZeroUsize::new(size).unwrap(),
                     predicates,
+                    StdHashSet::new(),
                     true,
                 )
             });

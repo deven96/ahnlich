@@ -31,3 +31,4 @@ serde = ["dep:serde", "ndarray/serde"]
 [dev-dependencies]
 rand.workspace = true
 pretty_assertions.workspace = true
+serde_json.workspace = true

@@ -26,6 +26,7 @@ clap.workspace = true
 thiserror.workspace = true
 utils = { path = "../utils", version = "*" }
 ahnlich_types = { path = "../types", version = "*" }
+ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
 tokio.workspace = true
 tokio-graceful.workspace = true
 cap = "0.1.2"

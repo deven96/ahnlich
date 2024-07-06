@@ -6,6 +6,7 @@ use crate::keyval::{StoreKey, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
 use crate::similarity::Algorithm;
+use crate::similarity::NonLinearAlgorithm;
 use serde::{Deserialize, Serialize};
 
 /// All possible queries for the server to respond to
@@ -21,6 +22,7 @@ pub enum Query {
         store: StoreName,
         dimension: NonZeroUsize,
         create_predicates: HashSet<MetadataKey>,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
     },
     GetKey {

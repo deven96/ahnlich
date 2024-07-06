@@ -16,6 +16,7 @@ use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
 use ahnlich_types::similarity::Algorithm;
+use ahnlich_types::similarity::NonLinearAlgorithm;
 use ahnlich_types::similarity::Similarity;
 use futures::future::join_all;
 use ndarray::array;
@@ -159,6 +160,7 @@ async fn test_create_stores() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // difference in dimensions don't matter as name is the same so this should error
@@ -166,6 +168,7 @@ async fn test_create_stores() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // Should not error despite existing
@@ -173,6 +176,7 @@ async fn test_create_stores() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
             error_if_exists: false,
         },
         DBQuery::ListStores,
@@ -215,6 +219,7 @@ async fn test_del_pred() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error as it is correct query
@@ -323,6 +328,7 @@ async fn test_del_key() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(4).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error as it is correct dimensions
@@ -402,6 +408,7 @@ async fn test_server_with_persistence() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(4).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error as it is correct dimensions
@@ -478,6 +485,7 @@ async fn test_server_with_persistence() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error as store exists
@@ -525,6 +533,7 @@ async fn test_set_in_store() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error as it is correct dimensions
@@ -601,6 +610,7 @@ async fn test_get_sim_n() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         DBQuery::Set {
@@ -628,6 +638,14 @@ async fn test_get_sim_n() {
                     )]),
                 ),
             ],
+        },
+        // error due to non linear algorithm not existing
+        DBQuery::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::KDTree,
+            search_input: StoreKey(array![1.1, 2.0, 3.0]),
+            condition: None,
         },
         // error due to dimension mismatch
         DBQuery::GetSimN {
@@ -684,6 +702,9 @@ async fn test_get_sim_n() {
         inserted: 3,
         updated: 0,
     })));
+    expected.push(Err(
+        "Non linear algorithm KDTree not found in store, create store with support".into(),
+    ));
     expected.push(Err(
         "Store dimension is [3], input dimension of [2] was specified".into(),
     ));
@@ -766,6 +787,7 @@ async fn test_get_pred() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         DBQuery::Set {
@@ -856,6 +878,7 @@ async fn test_get_key() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         DBQuery::Set {
@@ -960,6 +983,7 @@ async fn test_create_index() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         DBQuery::Set {
@@ -1147,6 +1171,7 @@ async fn test_drop_index() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error even though predicate does not exist
@@ -1200,6 +1225,7 @@ async fn test_drop_stores() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         DBQuery::ListStores,

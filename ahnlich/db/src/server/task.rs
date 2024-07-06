@@ -120,6 +120,7 @@ impl ServerTask {
                     store,
                     dimension,
                     create_predicates,
+                    non_linear_indices,
                     error_if_exists,
                 } => self
                     .store_handler
@@ -127,6 +128,7 @@ impl ServerTask {
                         store,
                         dimension,
                         create_predicates.into_iter().collect(),
+                        non_linear_indices,
                         error_if_exists,
                     )
                     .map(|_| ServerResponse::Unit)

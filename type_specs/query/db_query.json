@@ -9,6 +9,9 @@
       },
       "2": {
         "CosineSimilarity": "UNIT"
+      },
+      "3": {
+        "KDTree": "UNIT"
       }
     }
   },
@@ -44,6 +47,13 @@
             "SEQ": "U8"
           }
         }
+      }
+    }
+  },
+  "NonLinearAlgorithm": {
+    "ENUM": {
+      "0": {
+        "KDTree": "UNIT"
       }
     }
   },
@@ -160,6 +170,13 @@
             {
               "create_predicates": {
                 "SEQ": "STR"
+              }
+            },
+            {
+              "non_linear_indices": {
+                "SEQ": {
+                  "TYPENAME": "NonLinearAlgorithm"
+                }
               }
             },
             {

@@ -51,12 +51,14 @@ impl DbPipeline {
         store: StoreName,
         dimension: NonZeroUsize,
         create_predicates: HashSet<MetadataKey>,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
     ) {
         self.queries.push(DBQuery::CreateStore {
             store,
             dimension,
             create_predicates,
+            non_linear_indices,
             error_if_exists,
         })
     }
@@ -193,12 +195,14 @@ impl DbClient {
         store: StoreName,
         dimension: NonZeroUsize,
         create_predicates: HashSet<MetadataKey>,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::CreateStore {
             store,
             dimension,
             create_predicates,
+            non_linear_indices,
             error_if_exists,
         })
         .await
@@ -415,17 +419,20 @@ mod tests {
             StoreName("Main".to_string()),
             NonZeroUsize::new(3).unwrap(),
             HashSet::new(),
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Main".to_string()),
-            NonZeroUsize::new(2).unwrap(),
             HashSet::new(),
             true,
         );
         pipeline.create_store(
             StoreName("Main".to_string()),
             NonZeroUsize::new(2).unwrap(),
+            HashSet::new(),
+            HashSet::new(),
+            true,
+        );
+        pipeline.create_store(
+            StoreName("Main".to_string()),
+            NonZeroUsize::new(2).unwrap(),
+            HashSet::new(),
             HashSet::new(),
             false,
         );
@@ -468,6 +475,7 @@ mod tests {
                 StoreName("Main".to_string()),
                 NonZeroUsize::new(4).unwrap(),
                 HashSet::from_iter([MetadataKey::new("role".into())]),
+                HashSet::from_iter([NonLinearAlgorithm::KDTree]),
                 true,
             )
             .await
@@ -547,6 +555,7 @@ mod tests {
                 StoreName("Main".to_string()),
                 NonZeroUsize::new(3).unwrap(),
                 HashSet::from_iter([MetadataKey::new("medal".into())]),
+                HashSet::new(),
                 true,
             )
             .await

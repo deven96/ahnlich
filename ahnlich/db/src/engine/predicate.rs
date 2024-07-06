@@ -396,7 +396,7 @@ mod tests {
                 key: MetadataKey::new("name".into()),
                 value: MetadataValue::RawString("David".into()),
             }),
-            &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+            &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
         );
         // We don't have an index but it should use original store and return empty
         assert!(result.unwrap().is_empty());
@@ -417,7 +417,7 @@ mod tests {
                     key: MetadataKey::new("name".into()),
                     value: MetadataValue::RawString("David".into()),
                 }),
-                &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+                &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         // Now we expect index to be up to date
@@ -438,7 +438,7 @@ mod tests {
                     key: MetadataKey::new("age".into()),
                     value: MetadataValue::RawString("14".into()),
                 }),
-                &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+                &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         // There are no entries where age is 14
@@ -449,7 +449,7 @@ mod tests {
                     key: MetadataKey::new("country".into()),
                     value: MetadataValue::RawString("Nigeria".into()),
                 }),
-                &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+                &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         // only person 1 is not from Nigeria
@@ -460,7 +460,7 @@ mod tests {
                     key: MetadataKey::new("country".into()),
                     value: MetadataValue::RawString("Nigeria".into()),
                 }),
-                &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+                &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         assert_eq!(result, StdHashSet::from_iter(["0".into(), "2".into()]),);
@@ -475,7 +475,7 @@ mod tests {
         let result = shared_pred
             .matches(
                 &check,
-                &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+                &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         // only person 1 is from Washington
@@ -491,7 +491,7 @@ mod tests {
         let result = shared_pred
             .matches(
                 &check,
-                &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+                &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         // only person 1 is fulfills all
@@ -507,7 +507,7 @@ mod tests {
         let result = shared_pred
             .matches(
                 &check,
-                &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+                &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         // all 3 fulfill this
@@ -522,7 +522,7 @@ mod tests {
         let result = shared_pred
             .matches(
                 &check,
-                &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+                &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         // only person 1 is from Washington with any of those names
@@ -536,7 +536,7 @@ mod tests {
                     key: MetadataKey::new("country".into()),
                     value: MetadataValue::RawString("Nigeria".into()),
                 }),
-                &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+                &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         assert!(result.is_empty());
@@ -547,7 +547,7 @@ mod tests {
         let result = shared_pred
             .matches(
                 &check,
-                &Store::create(NonZeroUsize::new(1).unwrap(), vec![]),
+                &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         // only person 1 is from Washington with any of those names
