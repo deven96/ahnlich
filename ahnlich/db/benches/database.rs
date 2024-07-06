@@ -22,9 +22,9 @@ fn bench_retrieval(c: &mut Criterion) {
     let store_name = "TestRetrieval";
     let sizes = [100, 1000, 10000, 100000];
 
-    let mut group = c.benchmark_group("store_retrieval_no_condition");
+    let mut group_no_condition = c.benchmark_group("store_retrieval_no_condition");
     for size in sizes {
-        let handler = initialize_store_handler();
+        let no_condition_handler = initialize_store_handler();
         let dimension = 1024;
         let bulk_insert: Vec<_> = (0..size)
             .map(|_| {
@@ -33,7 +33,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 (StoreKey(random_array), HashMap::new())
             })
             .collect();
-        handler
+        no_condition_handler
             .create_store(
                 StoreName(store_name.to_string()),
                 NonZeroUsize::new(dimension).unwrap(),
@@ -42,16 +42,16 @@ fn bench_retrieval(c: &mut Criterion) {
                 true,
             )
             .unwrap();
-        handler
+        no_condition_handler
             .set_in_store(&StoreName(store_name.to_string()), bulk_insert.clone())
             .unwrap();
         let random_input = StoreKey(Array::from(
             (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>(),
         ));
-        group.sampling_mode(criterion::SamplingMode::Flat);
-        group.bench_function(format!("size_{size}"), |b| {
+        group_no_condition.sampling_mode(criterion::SamplingMode::Flat);
+        group_no_condition.bench_function(format!("size_{size}"), |b| {
             b.iter(|| {
-                handler
+                no_condition_handler
                     .get_sim_in_store(
                         &StoreName(store_name.to_string()),
                         random_input.clone(),
@@ -63,11 +63,11 @@ fn bench_retrieval(c: &mut Criterion) {
             });
         });
     }
-    group.finish();
+    group_no_condition.finish();
 
-    let mut group = c.benchmark_group("store_retrieval_non_linear_kdtree");
+    let mut group_non_linear_kdtree = c.benchmark_group("store_retrieval_non_linear_kdtree");
     for size in sizes {
-        let handler = initialize_store_handler();
+        let non_linear_handler = initialize_store_handler();
         let dimension = 1024;
         let bulk_insert: Vec<_> = (0..size)
             .map(|_| {
@@ -76,7 +76,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 (StoreKey(random_array), HashMap::new())
             })
             .collect();
-        handler
+        non_linear_handler
             .create_store(
                 StoreName(store_name.to_string()),
                 NonZeroUsize::new(dimension).unwrap(),
@@ -85,28 +85,26 @@ fn bench_retrieval(c: &mut Criterion) {
                 true,
             )
             .unwrap();
-        handler
-            .set_in_store(&StoreName(store_name.to_string()), bulk_insert.clone())
-            .unwrap();
+        non_linear_handler.set_in_store(&StoreName(store_name.to_string()), bulk_insert.clone());
         let random_input = StoreKey(Array::from(
             (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>(),
         ));
-        group.sampling_mode(criterion::SamplingMode::Flat);
-        group.bench_function(format!("size_{size}"), |b| {
+        group_non_linear_kdtree.sampling_mode(criterion::SamplingMode::Flat);
+        group_non_linear_kdtree.bench_function(format!("size_{size}"), |b| {
             b.iter(|| {
-                handler
+                non_linear_handler
                     .get_sim_in_store(
                         &StoreName(store_name.to_string()),
                         random_input.clone(),
                         NonZeroUsize::new(50).unwrap(),
-                        NonLinearAlgorithm::KDTree,
+                        Algorithm::KDTree,
                         None,
                     )
                     .unwrap();
             });
         });
     }
-    group.finish();
+    group_non_linear_kdtree.finish();
 }
 
 fn bench_insertion(c: &mut Criterion) {
