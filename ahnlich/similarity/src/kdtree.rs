@@ -452,10 +452,11 @@ impl KDTree {
 
     fn is_in_accept_list(
         accept_list: &Option<HashSet<Array1F32Ordered>>,
-        point: &Array1F32Ordered,
+        point: &Array1<f32>,
     ) -> bool {
         if let Some(accept_list) = accept_list {
-            return accept_list.contains(point);
+            let point = Array1F32Ordered(point.clone());
+            return accept_list.contains(&point);
         }
         true
     }
@@ -473,16 +474,14 @@ impl KDTree {
     ) {
         if let Some(shared) = unsafe { node.load(Ordering::Acquire, guard).as_ref() } {
             let distance = self.squared_distance(reference_point, &shared.point);
-            let ordered_point = Array1F32Ordered(shared.point.clone());
-            if heap.len() < n.get() && Self::is_in_accept_list(accept_list, &ordered_point) {
-                heap.push(Reverse(OrderedArray(ordered_point.0, distance)));
+            if heap.len() < n.get() && Self::is_in_accept_list(accept_list, &shared.point) {
+                heap.push(Reverse(OrderedArray(shared.point.clone(), distance)));
             } else if let Some(Reverse(OrderedArray(_, max_distance))) = heap.peek() {
-                if distance < *max_distance && Self::is_in_accept_list(accept_list, &ordered_point)
-                {
+                if distance < *max_distance && Self::is_in_accept_list(accept_list, &shared.point) {
                     if heap.len() >= n.get() {
                         heap.pop();
                     }
-                    heap.push(Reverse(OrderedArray(ordered_point.0, distance)));
+                    heap.push(Reverse(OrderedArray(shared.point.clone(), distance)));
                 }
             }
 
