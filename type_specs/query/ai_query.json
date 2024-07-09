@@ -115,7 +115,19 @@
             {
               "inputs": {
                 "SEQ": {
-                  "TYPENAME": "StoreInput"
+                  "TUPLE": [
+                    {
+                      "TYPENAME": "StoreInput"
+                    },
+                    {
+                      "MAP": {
+                        "KEY": "STR",
+                        "VALUE": {
+                          "TYPENAME": "MetadataValue"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }

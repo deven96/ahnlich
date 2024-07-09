@@ -1,5 +1,5 @@
 use super::{AIModel, AIStoreType};
-use crate::keyval::{StoreInput, StoreName};
+use crate::keyval::{StoreInput, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
 use crate::similarity::Algorithm;
@@ -39,7 +39,7 @@ pub enum AIQuery {
     },
     Set {
         store: StoreName,
-        inputs: Vec<StoreInput>,
+        inputs: Vec<(StoreInput, StoreValue)>,
     },
     DelKey {
         store: StoreName,
