@@ -1,4 +1,4 @@
-use ahnlich_types::keyval::StoreName;
+use ahnlich_types::{ai::AIStoreType, keyval::StoreName};
 use thiserror::Error;
 
 #[derive(Error, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -11,4 +11,12 @@ pub enum AIProxyError {
     StandardError(String),
     #[error("Proxy Errored with {0} ")]
     DatabaseClientError(String),
+    #[error("Reserved key {0} used")]
+    ReservedError(String),
+
+    #[error("Store dimension is [{store_type}], input dimension of [{input_type}] was specified")]
+    StoreTypeMismatch {
+        store_type: AIStoreType,
+        input_type: AIStoreType,
+    },
 }

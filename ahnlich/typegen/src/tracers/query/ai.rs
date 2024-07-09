@@ -11,7 +11,7 @@ use ahnlich_types::{
 };
 use serde_reflection::Registry;
 use serde_reflection::{Samples, Tracer, TracerConfig};
-use std::collections::HashSet;
+use std::collections::{HashMap as StdHashMap, HashSet};
 use std::num::NonZeroUsize;
 
 pub fn trace_ai_query_enum() -> Registry {
@@ -33,6 +33,16 @@ pub fn trace_ai_query_enum() -> Registry {
         MetadataKey::new("rank".into()),
         MetadataKey::new("job".into()),
     ]);
+    //StoreValue = StdHashMap<MetadataKey, MetadataValue>
+    let mut store_value = StdHashMap::new();
+    store_value.insert(
+        MetadataKey::new(String::from("username")),
+        MetadataValue::RawString(String::from("buster_matthews")),
+    );
+    store_value.insert(
+        MetadataKey::new(String::from("bin_data")),
+        MetadataValue::Binary(vec![6, 4, 2]),
+    );
 
     let create_store = AIQuery::CreateStore {
         r#type: AIStoreType::RawString,
@@ -67,7 +77,7 @@ pub fn trace_ai_query_enum() -> Registry {
 
     let set = AIQuery::Set {
         store: sample_store_name.clone(),
-        inputs: vec![test_search_input_bin.clone()],
+        inputs: vec![(test_search_input_bin.clone(), store_value)],
     };
 
     let del_key = AIQuery::DelKey {
