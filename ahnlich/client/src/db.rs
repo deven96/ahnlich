@@ -51,12 +51,14 @@ impl DbPipeline {
         store: StoreName,
         dimension: NonZeroUsize,
         create_predicates: HashSet<MetadataKey>,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
     ) {
         self.queries.push(DBQuery::CreateStore {
             store,
             dimension,
             create_predicates,
+            non_linear_indices,
             error_if_exists,
         })
     }
@@ -89,20 +91,20 @@ impl DbPipeline {
         })
     }
 
-    /// push create index command to pipeline
-    pub fn create_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
+    /// push create predicate index command to pipeline
+    pub fn create_pred_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
         self.queries
-            .push(DBQuery::CreateIndex { store, predicates })
+            .push(DBQuery::CreatePredIndex { store, predicates })
     }
 
-    /// push drop index command to pipeline
-    pub fn drop_index(
+    /// push drop pred index command to pipeline
+    pub fn drop_pred_index(
         &mut self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
     ) {
-        self.queries.push(DBQuery::DropIndex {
+        self.queries.push(DBQuery::DropPredIndex {
             store,
             predicates,
             error_if_not_exists,
@@ -193,12 +195,14 @@ impl DbClient {
         store: StoreName,
         dimension: NonZeroUsize,
         create_predicates: HashSet<MetadataKey>,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::CreateStore {
             store,
             dimension,
             create_predicates,
+            non_linear_indices,
             error_if_exists,
         })
         .await
@@ -238,21 +242,22 @@ impl DbClient {
         .await
     }
 
-    pub async fn create_index(
+    pub async fn create_pred_index(
         &self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::CreateIndex { store, predicates }).await
+        self.exec(DBQuery::CreatePredIndex { store, predicates })
+            .await
     }
 
-    pub async fn drop_index(
+    pub async fn drop_pred_index(
         &self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::DropIndex {
+        self.exec(DBQuery::DropPredIndex {
             store,
             predicates,
             error_if_not_exists,
@@ -415,17 +420,20 @@ mod tests {
             StoreName("Main".to_string()),
             NonZeroUsize::new(3).unwrap(),
             HashSet::new(),
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Main".to_string()),
-            NonZeroUsize::new(2).unwrap(),
             HashSet::new(),
             true,
         );
         pipeline.create_store(
             StoreName("Main".to_string()),
             NonZeroUsize::new(2).unwrap(),
+            HashSet::new(),
+            HashSet::new(),
+            true,
+        );
+        pipeline.create_store(
+            StoreName("Main".to_string()),
+            NonZeroUsize::new(2).unwrap(),
+            HashSet::new(),
             HashSet::new(),
             false,
         );
@@ -468,6 +476,7 @@ mod tests {
                 StoreName("Main".to_string()),
                 NonZeroUsize::new(4).unwrap(),
                 HashSet::from_iter([MetadataKey::new("role".into())]),
+                HashSet::from_iter([NonLinearAlgorithm::KDTree]),
                 true,
             )
             .await
@@ -547,6 +556,7 @@ mod tests {
                 StoreName("Main".to_string()),
                 NonZeroUsize::new(3).unwrap(),
                 HashSet::from_iter([MetadataKey::new("medal".into())]),
+                HashSet::new(),
                 true,
             )
             .await

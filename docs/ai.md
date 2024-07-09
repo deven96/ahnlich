@@ -13,8 +13,8 @@ Here is a rudimentary list of commands for the AI proxy to accept
 - `CREATESTORE`: Creates a store with a unique name, a supported ai model, predicate indices, store input type (string or Vec<u8>)
 - `GETPRED`: Takes in a store and predicates and returns all values matching the predicates.
 - `GETSIMN`: Takes in a store, an input of store input type T (String or Vec<u8>), predicate and N. It passes input through the stores AI model and gets an input vector to use against the database, where N is the max number of returns
-- `CREATEINDEX`: Creates indexes in a store using some predicates. Adds the predicates that did not exist previously so it is idempotent, and does not remove existing predicates
-- `DROPINDEXPRED`: takes in predicate, store and drops the predicate for that store
+- `CREATEPREDINDEX`: Creates indexes in a store using some predicates. Adds the predicates that did not exist previously so it is idempotent, and does not remove existing predicates
+- `DROPPREDINDEX`: takes in predicate, store and drops the predicate for that store
 - `SET`: takes in store, input of which each should be of store type T matching store dimension and value of type json.
 - `DELKEY`: Takes in a store, and key of type T and performs a delete matching that key.
 - `INFOSERVER`: returns the server information such as port, host, version, etc.

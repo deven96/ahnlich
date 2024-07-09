@@ -1,12 +1,44 @@
 mod heap;
+pub mod non_linear;
 mod similarity;
 
 use std::num::NonZeroUsize;
 
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::similarity::Algorithm;
+use ahnlich_types::similarity::NonLinearAlgorithm;
 
 use self::{heap::AlgorithmHeapType, similarity::SimilarityFunc};
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub(crate) enum AlgorithmByType {
+    Linear(LinearAlgorithm),
+    NonLinear(NonLinearAlgorithm),
+}
+
+impl From<Algorithm> for AlgorithmByType {
+    fn from(input: Algorithm) -> Self {
+        match input {
+            Algorithm::CosineSimilarity => {
+                AlgorithmByType::Linear(LinearAlgorithm::CosineSimilarity)
+            }
+            Algorithm::EuclideanDistance => {
+                AlgorithmByType::Linear(LinearAlgorithm::EuclideanDistance)
+            }
+            Algorithm::DotProductSimilarity => {
+                AlgorithmByType::Linear(LinearAlgorithm::DotProductSimilarity)
+            }
+            Algorithm::KDTree => AlgorithmByType::NonLinear(NonLinearAlgorithm::KDTree),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub(crate) enum LinearAlgorithm {
+    EuclideanDistance,
+    CosineSimilarity,
+    DotProductSimilarity,
+}
 
 #[derive(Debug)]
 pub(crate) struct SimilarityVector<'a>((&'a StoreKey, f32));
@@ -50,17 +82,19 @@ pub(crate) trait FindSimilarN {
         &'a self,
         search_vector: &StoreKey,
         search_list: impl Iterator<Item = &'a StoreKey>,
+        _used_all: bool,
         n: NonZeroUsize,
-    ) -> Vec<(&'a StoreKey, f32)>;
+    ) -> Vec<(StoreKey, f32)>;
 }
 
-impl FindSimilarN for Algorithm {
+impl FindSimilarN for LinearAlgorithm {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &StoreKey,
         search_list: impl Iterator<Item = &'a StoreKey>,
+        _used_all: bool,
         n: NonZeroUsize,
-    ) -> Vec<(&'a StoreKey, f32)> {
+    ) -> Vec<(StoreKey, f32)> {
         let mut heap: AlgorithmHeapType = (self, n).into();
 
         let similarity_function: SimilarityFunc = self.into();
@@ -96,11 +130,12 @@ mod tests {
 
         let no_similar_values: usize = 3;
 
-        let cosine_algorithm = Algorithm::CosineSimilarity;
+        let cosine_algorithm = LinearAlgorithm::CosineSimilarity;
 
         let similar_n_search = cosine_algorithm.find_similar_n(
             &first_vector,
             search_list.iter(),
+            false,
             NonZeroUsize::new(no_similar_values).unwrap(),
         );
 

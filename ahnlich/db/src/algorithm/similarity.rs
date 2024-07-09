@@ -1,4 +1,5 @@
-use ahnlich_types::{keyval::StoreKey, similarity::Algorithm};
+use super::LinearAlgorithm;
+use ahnlich_types::keyval::StoreKey;
 use std::ops::Deref;
 
 type SimFuncSig = fn(&StoreKey, &StoreKey) -> f32;
@@ -13,14 +14,14 @@ impl Deref for SimilarityFunc {
     }
 }
 
-impl From<&Algorithm> for SimilarityFunc {
-    fn from(value: &Algorithm) -> SimilarityFunc {
+impl From<&LinearAlgorithm> for SimilarityFunc {
+    fn from(value: &LinearAlgorithm) -> SimilarityFunc {
         match value {
-            Algorithm::CosineSimilarity => SimilarityFunc(cosine_similarity),
+            LinearAlgorithm::CosineSimilarity => SimilarityFunc(cosine_similarity),
 
-            Algorithm::EuclideanDistance => SimilarityFunc(euclidean_distance),
+            LinearAlgorithm::EuclideanDistance => SimilarityFunc(euclidean_distance),
 
-            Algorithm::DotProductSimilarity => SimilarityFunc(dot_product),
+            LinearAlgorithm::DotProductSimilarity => SimilarityFunc(dot_product),
         }
     }
 }

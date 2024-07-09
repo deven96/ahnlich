@@ -104,8 +104,8 @@
 
     Validation should check if predicate was enabled.
 
-    - `CREATEINDEX`: Creates indexes in a store using some predicates. Adds the predicates that did not exist previously so it is idempotent, and does not remove existing predicates
-    - `DROPINDEXPRED`: takes in predicate, store and drops the predicate for that store
+    - `CREATEPREDINDEX`: Creates indexes in a store using some predicates. Adds the predicates that did not exist previously so it is idempotent, and does not remove existing predicates
+    - `DROPPREDINDEX`: takes in predicate, store and drops the predicate for that store
 
     - `SET`: takes in store, length of input vector, input of which each should have a key matching store dimension and value of type json.
 

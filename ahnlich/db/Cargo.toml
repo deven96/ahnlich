@@ -26,6 +26,7 @@ clap.workspace = true
 thiserror.workspace = true
 utils = { path = "../utils", version = "*" }
 ahnlich_types = { path = "../types", version = "*" }
+ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
 tokio.workspace = true
 tokio-graceful.workspace = true
 cap = "0.1.2"
@@ -34,6 +35,7 @@ tracing.workspace = true
 tracer = { path = "../tracer", version = "*" }
 serde_json.workspace = true
 async-trait.workspace = true
+rayon.workspace = true
 
 
 [dev-dependencies]
@@ -41,7 +43,7 @@ futures.workspace = true
 once_cell.workspace = true
 pretty_assertions.workspace = true
 criterion = "0.4"
-rand = "0.8"
+rand.workspace = true
 
 [[bench]]
 name = "database"

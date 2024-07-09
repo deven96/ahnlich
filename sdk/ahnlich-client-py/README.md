@@ -26,8 +26,8 @@ The following topics are covered:
     * [Drop Store](#drop-store)
     * [Get Key](#get-key)
     * [Get By Predicate](#get-by-predicate)
-    * [Create Index](#create-index)
-    * [Drop Index](#drop-index)
+    * [Create Predicate Index](#create-predicate-index)
+    * [Drop Predicate Index](#drop-predicate-index)
     * [Delete Key](#delete-key)
     * [Delete Predicate](#delete-predicate)
 * [Bulk Requests](#bulk-requests)
@@ -252,23 +252,23 @@ response = client.get_by_predicate(
 )
 ```
 
-### Create Index
+### Create Predicate Index
 ```py
 from ahnlich_client_py import AhnlichDBClient
 client = AhnlichDBClient(address="127.0.0.1", port=port)
 
-response = client.create_index(
+response = client.create_pred_index(
     store_name = "test store",
     predicates=["job", "rank"]
 )
 ```
 
-### Drop Index
+### Drop Predicate Index
 ```py
 from ahnlich_client_py import AhnlichDBClient
 client = AhnlichDBClient(address="127.0.0.1", port=port)
 
-response = client.drop_index(
+response = client.drop_pred_index(
     store_name = "test store",
     predicates=["job"],
     error_if_not_exists=True

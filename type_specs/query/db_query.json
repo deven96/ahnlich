@@ -9,6 +9,9 @@
       },
       "2": {
         "CosineSimilarity": "UNIT"
+      },
+      "3": {
+        "KDTree": "UNIT"
       }
     }
   },
@@ -44,6 +47,13 @@
             "SEQ": "U8"
           }
         }
+      }
+    }
+  },
+  "NonLinearAlgorithm": {
+    "ENUM": {
+      "0": {
+        "KDTree": "UNIT"
       }
     }
   },
@@ -163,6 +173,13 @@
               }
             },
             {
+              "non_linear_indices": {
+                "SEQ": {
+                  "TYPENAME": "NonLinearAlgorithm"
+                }
+              }
+            },
+            {
               "error_if_exists": "BOOL"
             }
           ]
@@ -228,7 +245,7 @@
         }
       },
       "4": {
-        "CreateIndex": {
+        "CreatePredIndex": {
           "STRUCT": [
             {
               "store": "STR"
@@ -242,7 +259,7 @@
         }
       },
       "5": {
-        "DropIndex": {
+        "DropPredIndex": {
           "STRUCT": [
             {
               "store": "STR"
