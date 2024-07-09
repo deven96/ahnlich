@@ -38,10 +38,17 @@ class Algorithm__CosineSimilarity(Algorithm):
     pass
 
 
+@dataclass(frozen=True)
+class Algorithm__KDTree(Algorithm):
+    INDEX = 3  # type: int
+    pass
+
+
 Algorithm.VARIANTS = [
     Algorithm__EuclideanDistance,
     Algorithm__DotProductSimilarity,
     Algorithm__CosineSimilarity,
+    Algorithm__KDTree,
 ]
 
 
@@ -91,6 +98,31 @@ class MetadataValue__Binary(MetadataValue):
 MetadataValue.VARIANTS = [
     MetadataValue__RawString,
     MetadataValue__Binary,
+]
+
+
+class NonLinearAlgorithm:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[NonLinearAlgorithm]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, NonLinearAlgorithm)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> "NonLinearAlgorithm":
+        v, buffer = bincode.deserialize(input, NonLinearAlgorithm)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read")
+        return v
+
+
+@dataclass(frozen=True)
+class NonLinearAlgorithm__KDTree(NonLinearAlgorithm):
+    INDEX = 0  # type: int
+    pass
+
+
+NonLinearAlgorithm.VARIANTS = [
+    NonLinearAlgorithm__KDTree,
 ]
 
 
@@ -203,6 +235,7 @@ class Query__CreateStore(Query):
     store: str
     dimension: st.uint64
     create_predicates: typing.Sequence[str]
+    non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
     error_if_exists: bool
 
 
@@ -231,14 +264,14 @@ class Query__GetSimN(Query):
 
 
 @dataclass(frozen=True)
-class Query__CreateIndex(Query):
+class Query__CreatePredIndex(Query):
     INDEX = 4  # type: int
     store: str
     predicates: typing.Sequence[str]
 
 
 @dataclass(frozen=True)
-class Query__DropIndex(Query):
+class Query__DropPredIndex(Query):
     INDEX = 5  # type: int
     store: str
     predicates: typing.Sequence[str]
@@ -302,8 +335,8 @@ Query.VARIANTS = [
     Query__GetKey,
     Query__GetPred,
     Query__GetSimN,
-    Query__CreateIndex,
-    Query__DropIndex,
+    Query__CreatePredIndex,
+    Query__DropPredIndex,
     Query__Set,
     Query__DelKey,
     Query__DelPred,

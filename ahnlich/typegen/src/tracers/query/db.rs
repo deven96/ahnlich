@@ -1,6 +1,7 @@
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
 use ahnlich_types::similarity::Algorithm;
+use ahnlich_types::similarity::NonLinearAlgorithm;
 use ahnlich_types::{
     db::{DBQuery, ServerDBQuery},
     keyval::{StoreKey, StoreName},
@@ -28,11 +29,13 @@ pub fn trace_db_query_enum() -> Registry {
     });
 
     let test_create_predicates = HashSet::from_iter([MetadataKey::new(String::from("username"))]);
+    let test_non_linear_indices = HashSet::from_iter([NonLinearAlgorithm::KDTree]);
 
     let create_store = DBQuery::CreateStore {
         store: sample_store_name.clone(),
         dimension: NonZeroUsize::new(1).unwrap(),
         create_predicates: test_create_predicates.clone(),
+        non_linear_indices: test_non_linear_indices,
         error_if_exists: true,
     };
 
@@ -118,6 +121,9 @@ pub fn trace_db_query_enum() -> Registry {
         .trace_simple_type::<Algorithm>()
         .expect("Error tracing Algorithm");
 
+    tracer
+        .trace_simple_type::<NonLinearAlgorithm>()
+        .expect("Error tracing Algorithm");
     tracer
         .trace_simple_type::<Predicate>()
         .expect("Error tracing Predicate");

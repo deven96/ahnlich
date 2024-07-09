@@ -1,7 +1,7 @@
 #![allow(dead_code)]
+use super::LinearAlgorithm;
 use super::SimilarityVector;
 use ahnlich_types::keyval::StoreKey;
-use ahnlich_types::similarity::Algorithm;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::num::NonZeroUsize;
@@ -28,14 +28,14 @@ impl<'a> MinHeap<'a> {
         self.heap.pop().map(|popped_item| popped_item.0)
     }
 
-    pub(crate) fn output(&mut self) -> Vec<(&'a StoreKey, f32)> {
+    pub(crate) fn output(&mut self) -> Vec<(StoreKey, f32)> {
         let mut result: Vec<_> = Vec::with_capacity(self.max_capacity.get());
 
         loop {
             match self.pop() {
                 Some(value) if result.len() < self.max_capacity.get() => {
                     let vector_sim = value.0;
-                    result.push((vector_sim.0, vector_sim.1));
+                    result.push((vector_sim.0.clone(), vector_sim.1));
                 }
                 _ => break,
             }
@@ -66,14 +66,14 @@ impl<'a> MaxHeap<'a> {
         self.heap.len()
     }
 
-    fn output(&mut self) -> Vec<(&'a StoreKey, f32)> {
+    fn output(&mut self) -> Vec<(StoreKey, f32)> {
         let mut result: Vec<_> = Vec::with_capacity(self.max_capacity.get());
 
         loop {
             match self.heap.pop() {
                 Some(value) if result.len() < self.max_capacity.get() => {
                     let vector_sim = value.0;
-                    result.push((vector_sim.0, vector_sim.1));
+                    result.push((vector_sim.0.clone(), vector_sim.1));
                 }
                 _ => break,
             }
@@ -101,7 +101,7 @@ impl<'a> AlgorithmHeapType<'a> {
         }
     }
 
-    pub(crate) fn output(&mut self) -> Vec<(&'a StoreKey, f32)> {
+    pub(crate) fn output(&mut self) -> Vec<(StoreKey, f32)> {
         match self {
             Self::Min(h) => h.output(),
             Self::Max(h) => h.output(),
@@ -109,11 +109,11 @@ impl<'a> AlgorithmHeapType<'a> {
     }
 }
 
-impl From<(&Algorithm, NonZeroUsize)> for AlgorithmHeapType<'_> {
-    fn from((value, capacity): (&Algorithm, NonZeroUsize)) -> Self {
+impl From<(&LinearAlgorithm, NonZeroUsize)> for AlgorithmHeapType<'_> {
+    fn from((value, capacity): (&LinearAlgorithm, NonZeroUsize)) -> Self {
         match value {
-            Algorithm::EuclideanDistance => AlgorithmHeapType::Min(MinHeap::new(capacity)),
-            Algorithm::CosineSimilarity | Algorithm::DotProductSimilarity => {
+            LinearAlgorithm::EuclideanDistance => AlgorithmHeapType::Min(MinHeap::new(capacity)),
+            LinearAlgorithm::CosineSimilarity | LinearAlgorithm::DotProductSimilarity => {
                 AlgorithmHeapType::Max(MaxHeap::new(capacity))
             }
         }

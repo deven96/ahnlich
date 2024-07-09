@@ -16,6 +16,7 @@ use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
 use ahnlich_types::similarity::Algorithm;
+use ahnlich_types::similarity::NonLinearAlgorithm;
 use ahnlich_types::similarity::Similarity;
 use futures::future::join_all;
 use ndarray::array;
@@ -159,6 +160,7 @@ async fn test_create_stores() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // difference in dimensions don't matter as name is the same so this should error
@@ -166,6 +168,7 @@ async fn test_create_stores() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // Should not error despite existing
@@ -173,6 +176,7 @@ async fn test_create_stores() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
             error_if_exists: false,
         },
         DBQuery::ListStores,
@@ -215,6 +219,7 @@ async fn test_del_pred() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error as it is correct query
@@ -323,6 +328,7 @@ async fn test_del_key() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(4).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error as it is correct dimensions
@@ -402,6 +408,7 @@ async fn test_server_with_persistence() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(4).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error as it is correct dimensions
@@ -478,6 +485,7 @@ async fn test_server_with_persistence() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error as store exists
@@ -525,6 +533,7 @@ async fn test_set_in_store() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("role".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error as it is correct dimensions
@@ -580,7 +589,7 @@ async fn test_set_in_store() {
 }
 
 #[tokio::test]
-async fn test_get_sim_n() {
+async fn test_get_sim_n_non_linear() {
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
@@ -589,18 +598,11 @@ async fn test_get_sim_n() {
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
     let message = ServerDBQuery::from_queries(&[
-        // should error as store does not yet exist
-        DBQuery::GetSimN {
-            store: StoreName("Main".to_string()),
-            search_input: StoreKey(array![]),
-            closest_n: NonZeroUsize::new(2).unwrap(),
-            algorithm: Algorithm::CosineSimilarity,
-            condition: None,
-        },
         DBQuery::CreateStore {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
+            non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
             error_if_exists: true,
         },
         DBQuery::Set {
@@ -628,6 +630,123 @@ async fn test_get_sim_n() {
                     )]),
                 ),
             ],
+        },
+        // should return result restricted to 2
+        DBQuery::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::KDTree,
+            search_input: StoreKey(array![1.1, 2.0, 3.0]),
+            condition: None,
+        },
+        // return just 1 entry regardless of closest_n
+        // due to precondition satisfying just one
+        DBQuery::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::KDTree,
+            search_input: StoreKey(array![5.0, 2.1, 2.2]),
+            condition: Some(PredicateCondition::Value(Predicate::Equals {
+                key: MetadataKey::new("medal".into()),
+                value: MetadataValue::RawString("gold".into()),
+            })),
+        },
+    ]);
+    let mut expected = ServerResult::with_capacity(5);
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 3,
+        updated: 0,
+    })));
+    expected.push(Ok(ServerResponse::GetSimN(vec![
+        (
+            StoreKey(array![2.0, 2.1, 2.2]),
+            HashMap::from_iter([(
+                MetadataKey::new("medal".into()),
+                MetadataValue::RawString("gold".into()),
+            )]),
+            Similarity(1.4599998),
+        ),
+        (
+            StoreKey(array![1.2, 1.3, 1.4]),
+            HashMap::from_iter([(
+                MetadataKey::new("medal".into()),
+                MetadataValue::RawString("silver".into()),
+            )]),
+            Similarity(3.0600002),
+        ),
+    ])));
+    expected.push(Ok(ServerResponse::GetSimN(vec![(
+        StoreKey(array![2.0, 2.1, 2.2]),
+        HashMap::from_iter([(
+            MetadataKey::new("medal".into()),
+            MetadataValue::RawString("gold".into()),
+        )]),
+        Similarity(9.0),
+    )])));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
+async fn test_get_sim_n() {
+    let server = Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerDBQuery::from_queries(&[
+        // should error as store does not yet exist
+        DBQuery::GetSimN {
+            store: StoreName("Main".to_string()),
+            search_input: StoreKey(array![]),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::CosineSimilarity,
+            condition: None,
+        },
+        DBQuery::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(3).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
+            non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+        },
+        DBQuery::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![
+                (
+                    StoreKey(array![1.2, 1.3, 1.4]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("silver".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(array![2.0, 2.1, 2.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("gold".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(array![5.0, 5.1, 5.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("bronze".into()),
+                    )]),
+                ),
+            ],
+        },
+        // error due to non linear algorithm not existing
+        DBQuery::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::KDTree,
+            search_input: StoreKey(array![1.1, 2.0, 3.0]),
+            condition: None,
         },
         // error due to dimension mismatch
         DBQuery::GetSimN {
@@ -684,6 +803,9 @@ async fn test_get_sim_n() {
         inserted: 3,
         updated: 0,
     })));
+    expected.push(Err(
+        "Non linear algorithm KDTree not found in store, create store with support".into(),
+    ));
     expected.push(Err(
         "Store dimension is [3], input dimension of [2] was specified".into(),
     ));
@@ -766,6 +888,7 @@ async fn test_get_pred() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         DBQuery::Set {
@@ -856,6 +979,7 @@ async fn test_get_key() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         DBQuery::Set {
@@ -942,7 +1066,7 @@ async fn test_get_key() {
 }
 
 #[tokio::test]
-async fn test_create_index() {
+async fn test_create_pred_index() {
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
@@ -952,7 +1076,7 @@ async fn test_create_index() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     let message = ServerDBQuery::from_queries(&[
         // should error as store does not yet exist
-        DBQuery::CreateIndex {
+        DBQuery::CreatePredIndex {
             store: StoreName("Main".to_string()),
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
@@ -960,6 +1084,7 @@ async fn test_create_index() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(2).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         DBQuery::Set {
@@ -994,7 +1119,7 @@ async fn test_create_index() {
             ],
         },
         // should return CreateIndex(0) as nothing new was indexed
-        DBQuery::CreateIndex {
+        DBQuery::CreatePredIndex {
             store: StoreName("Main".to_string()),
             predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
         },
@@ -1031,7 +1156,7 @@ async fn test_create_index() {
             }),
         },
         // should create 2 new indexes
-        DBQuery::CreateIndex {
+        DBQuery::CreatePredIndex {
             store: StoreName("Main".to_string()),
             predicates: HashSet::from_iter([
                 MetadataKey::new("technology".into()),
@@ -1128,7 +1253,7 @@ async fn test_create_index() {
 }
 
 #[tokio::test]
-async fn test_drop_index() {
+async fn test_drop_pred_index() {
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
@@ -1138,7 +1263,7 @@ async fn test_drop_index() {
     tokio::time::sleep(Duration::from_millis(100)).await;
     let message = ServerDBQuery::from_queries(&[
         // should error as store does not yet exist
-        DBQuery::DropIndex {
+        DBQuery::DropPredIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
@@ -1147,22 +1272,23 @@ async fn test_drop_index() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         // should not error even though predicate does not exist
-        DBQuery::DropIndex {
+        DBQuery::DropPredIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: false,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
         // should error as predicate does not exist
-        DBQuery::DropIndex {
+        DBQuery::DropPredIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("planet".into())]),
         },
         // should not error
-        DBQuery::DropIndex {
+        DBQuery::DropPredIndex {
             store: StoreName("Main".to_string()),
             error_if_not_exists: true,
             predicates: HashSet::from_iter([MetadataKey::new("galaxy".into())]),
@@ -1173,7 +1299,7 @@ async fn test_drop_index() {
     expected.push(Ok(ServerResponse::Unit));
     expected.push(Ok(ServerResponse::Del(0)));
     expected.push(Err(
-        "Predicate planet not found in store, attempt CREATEINDEX with predicate".into(),
+        "Predicate planet not found in store, attempt CREATEPREDINDEX with predicate".into(),
     ));
     expected.push(Ok(ServerResponse::Del(1)));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -1200,6 +1326,7 @@ async fn test_drop_stores() {
             store: StoreName("Main".to_string()),
             dimension: NonZeroUsize::new(3).unwrap(),
             create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
             error_if_exists: true,
         },
         DBQuery::ListStores,
