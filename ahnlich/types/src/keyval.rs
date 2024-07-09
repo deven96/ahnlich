@@ -64,3 +64,12 @@ impl From<StoreInput> for MetadataValue {
         }
     }
 }
+
+impl From<MetadataValue> for StoreInput {
+    fn from(value: MetadataValue) -> Self {
+        match value {
+            MetadataValue::Binary(binary) => StoreInput::Binary(binary),
+            MetadataValue::RawString(s) => StoreInput::RawString(s),
+        }
+    }
+}

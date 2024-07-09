@@ -74,7 +74,7 @@ impl AIStoreHandler {
 
     /// Returns a store using the store name, else returns an error
     #[tracing::instrument(skip(self))]
-    fn get(&self, store_name: &StoreName) -> Result<Arc<AIStore>, AIProxyError> {
+    pub(crate) fn get(&self, store_name: &StoreName) -> Result<Arc<AIStore>, AIProxyError> {
         let store = self
             .stores
             .get(store_name, &self.stores.guard())
@@ -110,6 +110,60 @@ impl AIStoreHandler {
             store_key,
             StdHashMap::from_iter([(metadata_key, metadata_value)]),
         ));
+    }
+
+    /// Converts (storekey, storevalue) into (storeinput, storevalue)
+    /// by removing the reserved_key from storevalue
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn store_key_val_to_store_input_val(
+        &self,
+        output: Vec<(StoreKey, StoreValue)>,
+    ) -> Vec<(StoreInput, StoreValue)> {
+        let metadata_key = MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string());
+
+        output
+            .into_iter()
+            .filter_map(|(_, mut store_value)| {
+                store_value
+                    .remove(&metadata_key)
+                    .map(|val| (val, store_value))
+            })
+            .map(|(metadata_value, store_value)| {
+                let store_input: StoreInput = metadata_value.into();
+                (store_input, store_value)
+            })
+            .collect()
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn get_ndarray_repr_for_store(
+        &self,
+        store_name: &StoreName,
+        store_input: &StoreInput,
+    ) -> Result<StoreKey, AIProxyError> {
+        let store = self.get(store_name)?;
+        Ok(store.model.model_ndarray(store_input))
+    }
+
+    /// Matches DROPSTORE - Drops a store if exist, else returns an error
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn drop_store(
+        &self,
+        store_name: StoreName,
+        error_if_not_exists: bool,
+    ) -> Result<usize, AIProxyError> {
+        let pinned = self.stores.pin();
+        let removed = pinned.remove(&store_name).is_some();
+        if !removed && error_if_not_exists {
+            return Err(AIProxyError::StoreNotFound(store_name));
+        }
+        let removed = if !removed {
+            0
+        } else {
+            //self.set_write_flag();
+            1
+        };
+        Ok(removed)
     }
 }
 

@@ -13,7 +13,8 @@ pub enum AIProxyError {
     DatabaseClientError(String),
     #[error("Reserved key {0} used")]
     ReservedError(String),
-
+    #[error("Unexpected DB Response {0} ")]
+    UnexpectedDBResponse(String),
     #[error("Store dimension is [{store_type}], input dimension of [{input_type}] was specified")]
     StoreTypeMismatch {
         store_type: AIStoreType,
