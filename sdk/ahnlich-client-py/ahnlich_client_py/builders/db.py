@@ -49,7 +49,9 @@ class AhnlichDBRequestBuilder:
         self.queries.append(db_query.Query__GetKey(store=store_name, keys=keys))
 
     def get_by_predicate(self, store_name: str, condition: db_query.PredicateCondition):
-        self.queries.append(db_query.Query__GetPred(store=store_name, condition=condition))
+        self.queries.append(
+            db_query.Query__GetPred(store=store_name, condition=condition)
+        )
 
     def get_sim_n(
         self,
@@ -102,7 +104,9 @@ class AhnlichDBRequestBuilder:
         self.queries.append(db_query.Query__DelKey(store=store_name, keys=keys))
 
     def delete_predicate(self, store_name: str, condition: db_query.PredicateCondition):
-        self.queries.append(db_query.Query__DelPred(store=store_name, condition=condition))
+        self.queries.append(
+            db_query.Query__DelPred(store=store_name, condition=condition)
+        )
 
     def drop_store(self, store_name: str, error_if_not_exists: bool):
         self.queries.append(

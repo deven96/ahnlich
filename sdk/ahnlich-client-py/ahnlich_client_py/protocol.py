@@ -104,6 +104,4 @@ class AhnlichProtocol:
                 raise AhnlichClientException("Unable to Parse Protocol Version")
             str_version: str = match.group(1)
             # split and convert from str to int
-            return db_response.Version(
-                *map(lambda x: int(x), str_version.split("."))
-            )
+            return db_response.Version(*map(lambda x: int(x), str_version.split(".")))

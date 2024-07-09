@@ -1,7 +1,8 @@
+import typing
+
 from ahnlich_client_py.client import AhnlichDBClient
 from ahnlich_client_py.internals import db_query, db_response
 from ahnlich_client_py.libs import create_store_key
-import typing
 
 store_payload_no_predicates = {
     "store_name": "Diretnan Station",
@@ -107,9 +108,7 @@ def test_client_set_in_store_succeeds(
     assert isinstance(response.results[0], db_response.Result__Ok)
 
     assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Set(
-            db_response.StoreUpsert(inserted=2, updated=0)
-        )
+        db_response.ServerResponse__Set(db_response.StoreUpsert(inserted=2, updated=0))
     )
 
 
@@ -137,9 +136,7 @@ def test_client_set_in_store_succeeds_with_binary(module_scopped_ahnlich_db):
     assert isinstance(response.results[0], db_response.Result__Ok)
 
     assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Set(
-            db_response.StoreUpsert(inserted=1, updated=0)
-        )
+        db_response.ServerResponse__Set(db_response.StoreUpsert(inserted=1, updated=0))
     )
 
 
@@ -289,7 +286,9 @@ def test_client_drop_pred_index_succeeds(module_scopped_ahnlich_db):
         "store_name": store_payload_no_predicates["store_name"],
         "predicates": ["to_drop"],
     }
-    response: db_response.ServerResult = db_client.create_pred_index(**create_pred_index_data)
+    response: db_response.ServerResult = db_client.create_pred_index(
+        **create_pred_index_data
+    )
     assert response.results[0] == db_response.Result__Ok(
         db_response.ServerResponse__CreateIndex(1)
     )
@@ -301,7 +300,9 @@ def test_client_drop_pred_index_succeeds(module_scopped_ahnlich_db):
     }
 
     try:
-        response: db_response.ServerResult = db_client.drop_pred_index(**drop_pred_index_data)
+        response: db_response.ServerResult = db_client.drop_pred_index(
+            **drop_pred_index_data
+        )
     finally:
         db_client.cleanup()
     assert response.results[0] == db_response.Result__Ok(

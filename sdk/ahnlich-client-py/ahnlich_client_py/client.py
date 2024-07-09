@@ -1,9 +1,8 @@
 import typing
 
 from ahnlich_client_py import builders, protocol
-from ahnlich_client_py.internals import db_query
+from ahnlich_client_py.internals import db_query, db_response
 from ahnlich_client_py.internals import serde_types as st
-from ahnlich_client_py.internals import db_response
 
 
 class AhnlichDBClient:
