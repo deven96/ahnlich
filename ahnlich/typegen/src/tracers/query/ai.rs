@@ -3,7 +3,7 @@ use ahnlich_types::ai::AIStoreType;
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
-use ahnlich_types::similarity::Algorithm;
+use ahnlich_types::similarity::{Algorithm, NonLinearAlgorithm};
 use ahnlich_types::{
     ai::{AIQuery, AIServerQuery},
     keyval::StoreName,
@@ -34,21 +34,24 @@ pub fn trace_ai_query_enum() -> Registry {
         MetadataKey::new("job".into()),
     ]);
     //StoreValue = StdHashMap<MetadataKey, MetadataValue>
-    let mut store_value = StdHashMap::new();
-    store_value.insert(
-        MetadataKey::new(String::from("username")),
-        MetadataValue::RawString(String::from("buster_matthews")),
-    );
-    store_value.insert(
-        MetadataKey::new(String::from("bin_data")),
-        MetadataValue::Binary(vec![6, 4, 2]),
-    );
+    let store_value = StdHashMap::from_iter([
+        (
+            MetadataKey::new(String::from("username")),
+            MetadataValue::RawString(String::from("buster_matthews")),
+        ),
+        (
+            MetadataKey::new(String::from("bin_data")),
+            MetadataValue::Binary(vec![6, 4, 2]),
+        ),
+    ]);
+    let test_non_linear_indices = HashSet::from_iter([NonLinearAlgorithm::KDTree]);
 
     let create_store = AIQuery::CreateStore {
         r#type: AIStoreType::RawString,
         store: sample_store_name.clone(),
         model: AIModel::Llama3,
         predicates: test_create_predicates.clone(),
+        non_linear_indices: test_non_linear_indices,
     };
 
     let get_pred = AIQuery::GetPred {
@@ -64,12 +67,12 @@ pub fn trace_ai_query_enum() -> Registry {
         algorithm: Algorithm::CosineSimilarity,
     };
 
-    let create_index = AIQuery::CreateIndex {
+    let create_index = AIQuery::CreatePredIndex {
         store: sample_store_name.clone(),
         predicates: test_predicates.clone(),
     };
 
-    let drop_index_pred = AIQuery::DropIndexPred {
+    let drop_index_pred = AIQuery::DropPredIndex {
         store: sample_store_name.clone(),
         predicates: test_predicates.clone(),
         error_if_not_exists: true,
@@ -128,7 +131,13 @@ pub fn trace_ai_query_enum() -> Registry {
     tracer
         .trace_simple_type::<Predicate>()
         .expect("Error tracing Predicate");
-    //
+    tracer
+        .trace_simple_type::<Algorithm>()
+        .expect("Error tracing Algorithm");
+
+    tracer
+        .trace_simple_type::<NonLinearAlgorithm>()
+        .expect("Error tracing NonLinearAlgorithm");
     // predicate conditions
     let _ = tracer
         .trace_type::<PredicateCondition>(&samples)

@@ -26,4 +26,5 @@ once_cell.workspace = true
 tracing.workspace = true
 tracer = { path = "../tracer", version = "*" }
 ahnlich_client_rs = { path = "../client", version = "*" }
-deadpool = { version = "0.10", features = ["rt_tokio_1"]}
+ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
+deadpool.workspace = true

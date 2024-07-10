@@ -59,6 +59,7 @@ impl AhnlichProtocol for AIProxyTask {
                     store,
                     model,
                     mut predicates,
+                    non_linear_indices,
                 } => {
                     // TODO: Make sure you edit predicates to include _ahnlich_hash_id which is the
                     // key mapping to the original input in the store, also validate predicates not
@@ -73,7 +74,13 @@ impl AhnlichProtocol for AIProxyTask {
                     predicates.insert(MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string()));
                     match self
                         .db_client
-                        .create_store(store.clone(), model.embedding_size(), predicates, false)
+                        .create_store(
+                            store.clone(),
+                            model.embedding_size(),
+                            predicates,
+                            non_linear_indices,
+                            false,
+                        )
                         .await
                     {
                         Err(err) => Err(err.to_string()),
@@ -164,7 +171,7 @@ impl AhnlichProtocol for AIProxyTask {
                     Err(err) => Err(format!("{err}")),
                 },
 
-                AIQuery::CreateIndex { store, predicates } => {
+                AIQuery::CreatePredIndex { store, predicates } => {
                     if predicates.contains(&MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string()))
                     {
                         return AIServerResult::from_error(format!(
@@ -173,7 +180,7 @@ impl AhnlichProtocol for AIProxyTask {
                         ));
                     }
 
-                    match self.db_client.create_index(store, predicates).await {
+                    match self.db_client.create_pred_index(store, predicates).await {
                         Ok(res) => {
                             if let ServerResponse::CreateIndex(num) = res {
                                 Ok(AIServerResponse::CreateIndex(num))
@@ -185,7 +192,7 @@ impl AhnlichProtocol for AIProxyTask {
                         Err(err) => Err(format!("{err}")),
                     }
                 }
-                AIQuery::DropIndexPred {
+                AIQuery::DropPredIndex {
                     store,
                     mut predicates,
                     error_if_not_exists,
@@ -196,7 +203,7 @@ impl AhnlichProtocol for AIProxyTask {
                     }
                     match self
                         .db_client
-                        .drop_index(store, predicates, error_if_not_exists)
+                        .drop_pred_index(store, predicates, error_if_not_exists)
                         .await
                     {
                         Ok(res) => {

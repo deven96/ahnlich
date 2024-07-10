@@ -28,6 +28,13 @@
               "predicates": {
                 "SEQ": "STR"
               }
+            },
+            {
+              "non_linear_indices": {
+                "SEQ": {
+                  "TYPENAME": "NonLinearAlgorithm"
+                }
+              }
             }
           ]
         }
@@ -76,7 +83,7 @@
         }
       },
       "3": {
-        "CreateIndex": {
+        "CreatePredIndex": {
           "STRUCT": [
             {
               "store": "STR"
@@ -90,7 +97,7 @@
         }
       },
       "4": {
-        "DropIndexPred": {
+        "DropPredIndex": {
           "STRUCT": [
             {
               "store": "STR"
@@ -191,8 +198,17 @@
   },
   "Algorithm": {
     "ENUM": {
+      "0": {
+        "EuclideanDistance": "UNIT"
+      },
+      "1": {
+        "DotProductSimilarity": "UNIT"
+      },
       "2": {
         "CosineSimilarity": "UNIT"
+      },
+      "3": {
+        "KDTree": "UNIT"
       }
     }
   },
@@ -209,6 +225,13 @@
             "SEQ": "U8"
           }
         }
+      }
+    }
+  },
+  "NonLinearAlgorithm": {
+    "ENUM": {
+      "0": {
+        "KDTree": "UNIT"
       }
     }
   },

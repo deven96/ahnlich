@@ -2,7 +2,7 @@ use super::{AIModel, AIStoreType};
 use crate::keyval::{StoreInput, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
-use crate::similarity::Algorithm;
+use crate::similarity::{Algorithm, NonLinearAlgorithm};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
@@ -16,6 +16,7 @@ pub enum AIQuery {
         store: StoreName,
         model: AIModel,
         predicates: HashSet<MetadataKey>,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
     },
     GetPred {
         store: StoreName,
@@ -28,11 +29,11 @@ pub enum AIQuery {
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
     },
-    CreateIndex {
+    CreatePredIndex {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
     },
-    DropIndexPred {
+    DropPredIndex {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
