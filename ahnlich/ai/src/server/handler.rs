@@ -2,6 +2,8 @@ use crate::cli::AIProxyConfig;
 use crate::engine::store::AIStoreHandler;
 use crate::server::task::AIProxyTask;
 use ahnlich_types::db::ConnectedClient;
+use cap::Cap;
+use std::alloc;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
@@ -15,6 +17,9 @@ use utils::{client::ClientHandler, protocol::AhnlichProtocol};
 
 use ahnlich_client_rs::db::{DbClient, DbConnManager};
 use deadpool::managed::Pool;
+
+#[global_allocator]
+pub(super) static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
 
 pub struct AIProxyServer<'a> {
     listener: TcpListener,
@@ -32,6 +37,10 @@ impl<'a> AIProxyServer<'a> {
     }
 
     pub async fn build(config: &'a AIProxyConfig, shutdown_token: Shutdown) -> IoResult<Self> {
+        ALLOCATOR
+            .set_limit(config.allocator_size)
+            .expect("Could not set up ai-proxy with allocator_size");
+
         let listener =
             tokio::net::TcpListener::bind(format!("{}:{}", &config.host, &config.port)).await?;
         // Enable tracing
@@ -101,7 +110,7 @@ impl<'a> AIProxyServer<'a> {
             .await
             .is_err()
         {
-            tracing::error!("SERVER: shutdown took longer than timeout");
+            tracing::error!("AI-PROXY: shutdown took longer than timeout");
         }
     }
 

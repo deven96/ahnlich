@@ -37,4 +37,5 @@ tokio = { version = "1.37.0", features = [
 tokio-graceful = "0.1.6"
 rand = "0.8"
 rayon = "1.10"
+cap = "0.1.2"
 deadpool = { version = "0.10", features = ["rt_tokio_1"]}

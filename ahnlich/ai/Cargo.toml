@@ -27,4 +27,5 @@ tracing.workspace = true
 tracer = { path = "../tracer", version = "*" }
 ahnlich_client_rs = { path = "../client", version = "*" }
 ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
+cap.workspace = true
 deadpool.workspace = true

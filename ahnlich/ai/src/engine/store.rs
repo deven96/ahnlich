@@ -1,5 +1,5 @@
 use crate::error::AIProxyError;
-use crate::AHNLICH_RESERVED_AI_META;
+use crate::AHNLICH_AI_RESERVED_META_KEY;
 use ahnlich_types::ai::AIModel;
 use ahnlich_types::ai::AIStoreInfo;
 use ahnlich_types::ai::AIStoreType;
@@ -7,7 +7,6 @@ use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
-use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::metadata::MetadataValue;
 use flurry::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
@@ -92,8 +91,8 @@ impl AIStoreHandler {
         store_input: StoreInput,
         store_value: &StoreValue,
     ) -> Result<(StoreKey, StoreValue), AIProxyError> {
-        let metadata_key = MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string());
-        if store_value.contains_key(&metadata_key) {
+        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
+        if store_value.contains_key(metadata_key) {
             return Err(AIProxyError::ReservedError(metadata_key.to_string()));
         }
         let store = self.get(store_name)?;
@@ -108,7 +107,7 @@ impl AIStoreHandler {
         let metadata_value: MetadataValue = store_input.into();
         return Ok((
             store_key,
-            StdHashMap::from_iter([(metadata_key, metadata_value)]),
+            StdHashMap::from_iter([(metadata_key.clone(), metadata_value)]),
         ));
     }
 
@@ -119,13 +118,13 @@ impl AIStoreHandler {
         &self,
         output: Vec<(StoreKey, StoreValue)>,
     ) -> Vec<(StoreInput, StoreValue)> {
-        let metadata_key = MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string());
+        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
 
         output
             .into_iter()
             .filter_map(|(_, mut store_value)| {
                 store_value
-                    .remove(&metadata_key)
+                    .remove(metadata_key)
                     .map(|val| (val, store_value))
             })
             .map(|(metadata_value, store_value)| {

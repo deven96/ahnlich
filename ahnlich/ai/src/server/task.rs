@@ -1,9 +1,10 @@
+use crate::server::handler::ALLOCATOR;
 use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
 use ahnlich_types::bincode::BinCodeSerAndDeserResponse;
 use ahnlich_types::db::{ConnectedClient, ServerInfo, ServerResponse};
 use ahnlich_types::keyval::{StoreInput, StoreValue};
-use ahnlich_types::metadata::{MetadataKey, MetadataValue};
+use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::{Predicate, PredicateCondition};
 use ahnlich_types::version::VERSION;
 use std::collections::HashSet;
@@ -17,7 +18,7 @@ use utils::protocol::AhnlichProtocol;
 
 use crate::engine::store::AIStoreHandler;
 use crate::error::AIProxyError;
-use crate::AHNLICH_RESERVED_AI_META;
+use crate::AHNLICH_AI_RESERVED_META_KEY;
 
 #[derive(Debug)]
 pub(super) struct AIProxyTask {
@@ -61,17 +62,18 @@ impl AhnlichProtocol for AIProxyTask {
                     mut predicates,
                     non_linear_indices,
                 } => {
+                    let default_metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
                     // TODO: Make sure you edit predicates to include _ahnlich_hash_id which is the
                     // key mapping to the original input in the store, also validate predicates not
                     // to have the _ahnlich_hash_id reserve key
-                    if predicates.contains(&MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string()))
-                    {
+                    if predicates.contains(&AHNLICH_AI_RESERVED_META_KEY) {
                         return AIServerResult::from_error(format!(
                             "Cannot use {} keyword",
-                            AHNLICH_RESERVED_AI_META
+                            default_metadata_key
                         ));
                     }
-                    predicates.insert(MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string()));
+
+                    predicates.insert(default_metadata_key.clone());
                     match self
                         .db_client
                         .create_store(
@@ -95,7 +97,7 @@ impl AhnlichProtocol for AIProxyTask {
                 AIQuery::Set { store, inputs } => {
                     let mut db_inputs = Vec::new();
                     let mut delete_hashset = HashSet::new();
-                    let default_key = MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string());
+                    let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
                     for (store_input, store_value) in inputs.into_iter() {
                         let store_value = self.store_handler.store_input_to_store_key_val(
                             &store,
@@ -104,7 +106,7 @@ impl AhnlichProtocol for AIProxyTask {
                         );
                         match store_value {
                             Ok(val) => {
-                                delete_hashset.insert(val.1[&default_key].clone());
+                                delete_hashset.insert(val.1[default_metadatakey].clone());
                                 db_inputs.push(val)
                             }
                             Err(err) => return AIServerResult::from_error(err.to_string()),
@@ -112,7 +114,7 @@ impl AhnlichProtocol for AIProxyTask {
                     }
 
                     let delete_condition = PredicateCondition::Value(Predicate::In {
-                        key: MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string()),
+                        key: default_metadatakey.clone(),
                         value: delete_hashset,
                     });
                     if let Err(err) = self
@@ -137,9 +139,10 @@ impl AhnlichProtocol for AIProxyTask {
                 }
 
                 AIQuery::DelKey { store, key } => {
+                    let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
                     let metadata_value: MetadataValue = key.into();
                     let delete_condition = PredicateCondition::Value(Predicate::In {
-                        key: MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string()),
+                        key: default_metadatakey.clone(),
                         value: HashSet::from_iter([metadata_value]),
                     });
 
@@ -172,11 +175,10 @@ impl AhnlichProtocol for AIProxyTask {
                 },
 
                 AIQuery::CreatePredIndex { store, predicates } => {
-                    if predicates.contains(&MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string()))
-                    {
+                    if predicates.contains(&*AHNLICH_AI_RESERVED_META_KEY) {
                         return AIServerResult::from_error(format!(
                             "Cannot use {} keyword",
-                            AHNLICH_RESERVED_AI_META
+                            *AHNLICH_AI_RESERVED_META_KEY
                         ));
                     }
 
@@ -197,9 +199,9 @@ impl AhnlichProtocol for AIProxyTask {
                     mut predicates,
                     error_if_not_exists,
                 } => {
-                    let default_metadata = MetadataKey::new(AHNLICH_RESERVED_AI_META.to_string());
-                    if predicates.contains(&default_metadata) {
-                        let _ = predicates.remove(&default_metadata);
+                    let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
+                    if predicates.contains(default_metadatakey) {
+                        let _ = predicates.remove(default_metadatakey);
                     }
                     match self
                         .db_client
@@ -295,8 +297,8 @@ impl AIProxyTask {
             address: format!("{}", self.server_addr),
             version: *VERSION,
             r#type: ahnlich_types::ServerType::AI,
-            limit: 20,
-            remaining: 29,
+            limit: ALLOCATOR.limit(),
+            remaining: ALLOCATOR.remaining(),
         }
     }
 }
