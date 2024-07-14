@@ -49,7 +49,6 @@ func (cm *ConnectionManager) GetConnection() (net.Conn, error) {
     return conn.(net.Conn), nil
 }
 
-
 // Return returns a connection back to the pool after use
 func (cm *ConnectionManager) Return(conn net.Conn) {
     cm.ConnectionPool.Put(conn)

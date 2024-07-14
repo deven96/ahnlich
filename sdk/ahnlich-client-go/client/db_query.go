@@ -1,4 +1,4 @@
-package service
+package client
 
 import (
 	"errors"
@@ -32,20 +32,20 @@ func NewAhnlichDBQueryBuilder() *AhnlichDBQueryBuilder {
 	}
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildCreateStoreQuery(storeName string, dimension uint64, predicates []string,nonLinearAlgorithm []dbQuery.NonLinearAlgorithm,errorIfExist bool)  error{
-	nonZeroDimension, err := NewNonZeroUint(dimension)
-	if err != nil {
-		return err
-	}
-    qb.Queries = append(qb.Queries, dbQuery.Query__CreateStore{
-		Store: storeName,
-		Dimension: nonZeroDimension.Value,
-		CreatePredicates: predicates,
-		NonLinearIndices: nonLinearAlgorithm,
-		ErrorIfExists: errorIfExist,
-	})
-	return nil
-}
+// func (qb *AhnlichDBQueryBuilder) BuildCreateStoreQuery(storeName string, dimension uint64, predicates []string,nonLinearAlgorithm []dbQuery.NonLinearAlgorithm,errorIfExist bool)  error{
+// 	nonZeroDimension, err := NewNonZeroUint(dimension)
+// 	if err != nil {
+// 		return err
+// 	}
+//     qb.Queries = append(qb.Queries, dbQuery.Query__CreateStore{
+// 		Store: storeName,
+// 		Dimension: nonZeroDimension.Value,
+// 		CreatePredicates: predicates,
+// 		NonLinearIndices: nonLinearAlgorithm,
+// 		ErrorIfExists: errorIfExist,
+// 	})
+// 	return nil
+// }
 
 func (qb *AhnlichDBQueryBuilder) BuildGetByKeysQuery(storeName string,keys []dbQuery.Array) error {
 	qb.Queries = append(qb.Queries, &dbQuery.Query__GetKey{
@@ -147,7 +147,8 @@ func (qb *AhnlichDBQueryBuilder) BuildPingQuery() error {
 	return nil
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildDropQuery() error {
+// DropQueries drops all the queries in the query builder
+func (qb *AhnlichDBQueryBuilder) DropQueries() error {
 	qb.Queries = make([]dbQuery.Query, 0)
 	return nil
 }
@@ -155,11 +156,11 @@ func (qb *AhnlichDBQueryBuilder) BuildDropQuery() error {
 // ParseBuildQueryToServer parses the Queries and builds a server query
 func (qb *AhnlichDBQueryBuilder) ParseBuildQueryToServer() (*dbQuery.ServerQuery, error) {
 	if len(qb.Queries) == 0 {
-		return nil, errors.New("Must have atleast one request to be processed")
+		return nil, errors.New("must have atleast one request to be processed")
 	}
 	Queries := make([]dbQuery.Query, len(qb.Queries))
 	copy(Queries, qb.Queries)
-	qb.Queries = make([]dbQuery.Query, 0)
+	qb.DropQueries()
 	return &dbQuery.ServerQuery{Queries: Queries}, nil
 }
 
