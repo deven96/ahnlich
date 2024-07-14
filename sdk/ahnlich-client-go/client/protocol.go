@@ -204,5 +204,10 @@ func (ap *AhnlichProtocol) Receive() (*dbResponse.ServerResult, error) {
 	return response,nil
 }
 
+// Close closes the connection to the server
+func (ap *AhnlichProtocol) Close() {
+	ap.ConnManager.Release()
+}
+
 
 

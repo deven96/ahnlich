@@ -103,7 +103,7 @@ func (qb *AhnlichDBQueryBuilder) BuildSetQuery(storeName string,inputs []struct{
 	return nil
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildDeleteKeyQuery(storeName string,keys []dbQuery.Array) error {
+func (qb *AhnlichDBQueryBuilder) BuildDeleteKeysQuery(storeName string,keys []dbQuery.Array) error {
 	qb.Queries = append(qb.Queries, &dbQuery.Query__DelKey{
 		Store: storeName,
 		Keys: keys,
