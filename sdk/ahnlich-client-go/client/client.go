@@ -45,9 +45,14 @@ func (ac *AhnlichClient) Close() {
 	ac.protocol.Close()
 }
 
-// GetVersion returns the version of the server
-func (ac *AhnlichClient) GetVersion() (dbResponse.Version, error) {
+// GetProtocolVersion returns the version of the server protocol
+func (ac *AhnlichClient) GetProtocolVersion() (dbResponse.Version, error) {
 	return ac.protocol.Version, nil
+}
+
+// GetVersion returns the version of the client
+func (ac *AhnlichClient) GetVersion() (dbResponse.Version, error) {
+	return ac.protocol.ClientVersion, nil
 }
 
 func (ac *AhnlichClient) Ping() (*dbResponse.ServerResult, error) {
@@ -55,8 +60,8 @@ func (ac *AhnlichClient) Ping() (*dbResponse.ServerResult, error) {
 	return ac.Request()
 }
 
-// Pipeline returns the pipeline for the client
-func (ac *AhnlichClient) Pipeline() (*AhnlichDBQueryBuilder) {
+// GetPipeline returns the pipeline for the client
+func (ac *AhnlichClient) GetPipeline() (*AhnlichDBQueryBuilder) {
 	return ac.pipeline
 }
 
