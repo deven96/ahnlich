@@ -9,8 +9,8 @@ import (
 
 // ConnectionManager manages the TCP connection pool
 type ConnectionManager struct {
-    ConnectionPool pool.Pool
-	Cfg ahnlichclientgo.Config
+    connectionPool pool.Pool
+	cfg ahnlichclientgo.Config
 }
 
 func NewConnectionManager( cfg ahnlichclientgo.Config) (*ConnectionManager,error) {
@@ -35,14 +35,14 @@ func NewConnectionManager( cfg ahnlichclientgo.Config) (*ConnectionManager,error
     }
 
 	return &ConnectionManager{
-		ConnectionPool: p,
-		Cfg: cfg,
+		connectionPool: p,
+		cfg: cfg,
 }, nil
 }
 
 // GetConnection retrieves a connection from the pool
 func (cm *ConnectionManager) GetConnection() (net.Conn, error) {
-    conn, err := cm.ConnectionPool.Get()
+    conn, err := cm.connectionPool.Get()
     if err != nil {
         return nil, err
     }
@@ -51,15 +51,15 @@ func (cm *ConnectionManager) GetConnection() (net.Conn, error) {
 
 // Return returns a connection back to the pool after use
 func (cm *ConnectionManager) Return(conn net.Conn) {
-    cm.ConnectionPool.Put(conn)
+    cm.connectionPool.Put(conn)
 }
 
 // Release closes all connections in the pool
 func (cm *ConnectionManager) Release() {
-    cm.ConnectionPool.Release()
+    cm.connectionPool.Release()
 }
 
 // ActiveConnections returns the number of active connections in the pool
 func (cm *ConnectionManager) ActiveConnections() int {
-    return cm.ConnectionPool.Len()
+    return cm.connectionPool.Len()
 }
