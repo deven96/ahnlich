@@ -131,9 +131,6 @@
       },
       {
         "embedding_size": "U64"
-      },
-      {
-        "size_in_bytes": "U64"
       }
     ]
   },

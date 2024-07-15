@@ -121,6 +121,7 @@ impl AIStoreHandler {
     ) -> Vec<(StoreInput, StoreValue)> {
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
 
+        // TODO: Will parallelized
         output
             .into_iter()
             .filter_map(|(_, mut store_value)| {

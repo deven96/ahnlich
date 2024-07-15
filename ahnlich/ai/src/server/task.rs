@@ -63,9 +63,6 @@ impl AhnlichProtocol for AIProxyTask {
                     non_linear_indices,
                 } => {
                     let default_metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-                    // TODO: Make sure you edit predicates to include _ahnlich_hash_id which is the
-                    // key mapping to the original input in the store, also validate predicates not
-                    // to have the _ahnlich_hash_id reserve key
                     if predicates.contains(&AHNLICH_AI_RESERVED_META_KEY) {
                         return AIServerResult::from_error(format!(
                             "Cannot use {} keyword",
@@ -98,6 +95,8 @@ impl AhnlichProtocol for AIProxyTask {
                     let mut db_inputs = Vec::new();
                     let mut delete_hashset = HashSet::new();
                     let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
+                    // TODO: Will parallelized
+
                     for (store_input, store_value) in inputs.into_iter() {
                         let store_value = self.store_handler.store_input_to_store_key_val(
                             &store,

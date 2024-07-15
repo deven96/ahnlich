@@ -1,4 +1,3 @@
-use ahnlich_client_rs::error::AhnlichError;
 use ahnlich_db::cli::ServerConfig;
 use ahnlich_db::server::handler::Server;
 use ahnlich_types::{
@@ -16,8 +15,8 @@ use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use std::{collections::HashSet, num::NonZeroUsize};
 
+use crate::cli::AIProxyConfig;
 use crate::server::handler::AIProxyServer;
-use crate::{cli::AIProxyConfig, error::AIProxyError};
 use ahnlich_types::bincode::BinCodeSerAndDeser;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
