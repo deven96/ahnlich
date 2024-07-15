@@ -58,7 +58,7 @@ func GetVersions() (AhnlichVersion, error) {
 	var err error
 	// Read the VERSION file if versionContent is empty
 	if versionContent == "" {
-		baseDir, err := GetProjectRoot()
+		baseDir, err := utils.GetProjectRoot()
 		if err != nil {
 			return AhnlichVersion{}, &utils.AhnlichClientException{Message: "Unable to get project root"}
 		}

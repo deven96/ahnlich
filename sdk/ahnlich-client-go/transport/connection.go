@@ -13,10 +13,10 @@ import (
 // ConnectionManager manages the TCP connection pool
 type ConnectionManager struct {
 	connectionPool pool.Pool
-	cfg            ahnlichclientgo.Config
+	Cfg            ahnlichclientgo.ConnectionConfig
 }
 
-func NewConnectionManager(cfg ahnlichclientgo.Config) (*ConnectionManager, error) {
+func NewConnectionManager(cfg ahnlichclientgo.ConnectionConfig) (*ConnectionManager, error) {
 	factory := func() (interface{}, error) {
 		return net.Dial("tcp", cfg.ServerAddress)
 	}
@@ -40,7 +40,7 @@ func NewConnectionManager(cfg ahnlichclientgo.Config) (*ConnectionManager, error
 
 	return &ConnectionManager{
 		connectionPool: p,
-		cfg:            cfg,
+		Cfg:            cfg,
 	}, nil
 }
 

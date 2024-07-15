@@ -62,7 +62,7 @@ func (qb *AhnlichDBQueryBuilder) BuildGetByPredicateQuery(storeName string, cond
 	return nil
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildGetSimNQuery(storeName string, searchInput dbQuery.Array, closest_n uint64, algorithm dbQuery.Algorithm, condition *dbQuery.PredicateCondition) error {
+func (qb *AhnlichDBQueryBuilder) BuildGetBySimNQuery(storeName string, searchInput dbQuery.Array, closest_n uint64, algorithm dbQuery.Algorithm, condition *dbQuery.PredicateCondition) error {
 	nonZeroClosestN, err := NewNonZeroUint(closest_n)
 	if err != nil {
 		return err

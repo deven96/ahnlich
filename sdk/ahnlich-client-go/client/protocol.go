@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"net"
+	"time"
 
 	ahnlichclientgo "github.com/deven96/ahnlich/sdk/ahnlich-client-go"
 	dbQuery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/internal/query"
@@ -15,13 +16,13 @@ import (
 // AhnlichProtocol handles the custom communication protocol
 type AhnlichProtocol struct {
 	connManager   *transport.ConnectionManager
-	Version       dbResponse.Version
-	cfg           ahnlichclientgo.Config
-	ClientVersion dbResponse.Version
+	version       dbResponse.Version
+	cfg           ahnlichclientgo.ProtocolConfig
+	clientVersion dbResponse.Version
 }
 
 // NewAhnlichProtocol creates a new AhnlichProtocol
-func NewAhnlichProtocol(cm *transport.ConnectionManager, cfg ahnlichclientgo.Config) (*AhnlichProtocol, error) {
+func NewAhnlichProtocol(cm *transport.ConnectionManager, cfg ahnlichclientgo.ProtocolConfig) (*AhnlichProtocol, error) {
 	versions, err := ahnlichclientgo.GetVersions()
 	if err != nil {
 		return nil, err
@@ -29,13 +30,13 @@ func NewAhnlichProtocol(cm *transport.ConnectionManager, cfg ahnlichclientgo.Con
 
 	return &AhnlichProtocol{
 		connManager: cm,
-		Version: dbResponse.Version{
+		version: dbResponse.Version{
 			Major: versions.Protocol.Major,
 			Minor: versions.Protocol.Minor,
 			Patch: versions.Protocol.Patch,
 		},
 		cfg: cfg,
-		ClientVersion: dbResponse.Version{
+		clientVersion: dbResponse.Version{
 			Major: versions.Client.Major,
 			Minor: versions.Client.Minor,
 			Patch: versions.Client.Patch,
@@ -49,7 +50,7 @@ func (ap *AhnlichProtocol) serializeQuery(serverQuery *dbQuery.ServerQuery) ([]b
 	if err != nil {
 		return nil, err
 	}
-	versionBinCode, err := ap.Version.BincodeSerialize()
+	versionBinCode, err := ap.version.BincodeSerialize()
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +60,7 @@ func (ap *AhnlichProtocol) serializeQuery(serverQuery *dbQuery.ServerQuery) ([]b
 	serverQueryLengthBytes := make([]byte, ap.cfg.DefaultLength)
 	binary.LittleEndian.PutUint64(serverQueryLengthBytes, uint64(serverQueryLength))
 
-	// Concatenate Header bytes, Version bincode, serverQueryLengthBytes, and serverQuery bincode
+	// Concatenate Header bytes, version bincode, serverQueryLengthBytes, and serverQuery bincode
 	var buffer bytes.Buffer
 	buffer.Write(ap.cfg.Header)
 	buffer.Write(versionBinCode)
@@ -82,7 +83,10 @@ func (ap *AhnlichProtocol) deserializeResponse(data []byte) (*dbResponse.ServerR
 
 // send sends data to the ahnlich server using the protocol
 func (ap *AhnlichProtocol) send(conn net.Conn, serverQuery *dbQuery.ServerQuery) error {
-	// conn.SetWriteDeadline(time.Now().Add(ap.cfg.WriteTimeout))
+	err := conn.SetWriteDeadline(time.Now().Add(ap.connManager.Cfg.WriteTimeout))
+	if err != nil {
+		return err
+	}
 	data, err := ap.serializeQuery(serverQuery)
 	if err != nil {
 		return err
@@ -98,10 +102,8 @@ func (ap *AhnlichProtocol) send(conn net.Conn, serverQuery *dbQuery.ServerQuery)
 }
 
 // Request sends data to the ahnlich server and receives a response using the protocol (Unary)
-func (ap *AhnlichProtocol) Request(serverQuery *dbQuery.ServerQuery) (*dbResponse.ServerResult, error) {
+func (ap *AhnlichProtocol) request(serverQuery *dbQuery.ServerQuery) (*dbResponse.ServerResult, error) {
 	conn, err := ap.connManager.GetConnection()
-	// Set timeout for data to the server
-	// conn.SetDeadline(time.Now().Add(ap.cfg.WriteTimeout))
 	if err != nil {
 		// TODO: Ask: Should we close the connection here or just return the error?
 		// TODO: Implement a retry mechanism here or Refresh the connection pool
@@ -122,7 +124,10 @@ func (ap *AhnlichProtocol) Request(serverQuery *dbQuery.ServerQuery) (*dbRespons
 // receive receives data from the ahnlich server using the protocol
 func (ap *AhnlichProtocol) receive(conn net.Conn) (*dbResponse.ServerResult, error) {
 	// Set timeout for reading data from the server
-	// conn.SetReadDeadline(time.Now().Add(ap.cfg.ReadTimeout))
+	err := conn.SetReadDeadline(time.Now().Add(ap.connManager.Cfg.ReadTimeout))
+	if err != nil {
+		return nil, err
+	}
 	// Read the header
 	headerBuffer := make([]byte, ap.cfg.HeaderLength)
 	n, err := conn.Read(headerBuffer)
@@ -168,6 +173,6 @@ func (ap *AhnlichProtocol) receive(conn net.Conn) (*dbResponse.ServerResult, err
 }
 
 // Close closes the connection to the server
-func (ap *AhnlichProtocol) Close() {
+func (ap *AhnlichProtocol) close() {
 	ap.connManager.Release()
 }

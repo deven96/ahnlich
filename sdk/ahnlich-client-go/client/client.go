@@ -10,19 +10,17 @@ import (
 type AhnlichClient struct {
 	protocol *AhnlichProtocol
 	pipeline *AhnlichDBQueryBuilder
-	cfg      ahnlichclientgo.Config
 }
 
 // NewAhnlichClient creates a new instance of AhnlichClient
-func NewAhnlichClient(cm *transport.ConnectionManager, cfg ahnlichclientgo.Config) (*AhnlichClient, error) {
-	protocol, err := NewAhnlichProtocol(cm, cfg)
+func NewAhnlichClient(cm *transport.ConnectionManager, cfg ahnlichclientgo.ClientConfig) (*AhnlichClient, error) {
+	protocol, err := NewAhnlichProtocol(cm, cfg.ProtocolConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &AhnlichClient{
 		protocol: protocol,
 		pipeline: NewAhnlichDBQueryBuilder(),
-		cfg:      cfg,
 	}, nil
 }
 
@@ -32,7 +30,7 @@ func (ac *AhnlichClient) Request() (*dbResponse.ServerResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := ac.protocol.Request(serverQuery)
+	response, err := ac.protocol.request(serverQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -41,17 +39,17 @@ func (ac *AhnlichClient) Request() (*dbResponse.ServerResult, error) {
 
 // Close closes the connection to the server
 func (ac *AhnlichClient) Close() {
-	ac.protocol.Close()
+	ac.protocol.close()
 }
 
-// GetProtocolVersion returns the version of the server protocol
-func (ac *AhnlichClient) GetProtocolVersion() (dbResponse.Version, error) {
-	return ac.protocol.Version, nil
+// ProtocolVersion returns the version of the server protocol
+func (ac *AhnlichClient) ProtocolVersion() (dbResponse.Version, error) {
+	return ac.protocol.version, nil
 }
 
-// GetVersion returns the version of the client
-func (ac *AhnlichClient) GetVersion() (dbResponse.Version, error) {
-	return ac.protocol.ClientVersion, nil
+// Version returns the version of the client
+func (ac *AhnlichClient) Version() (dbResponse.Version, error) {
+	return ac.protocol.clientVersion, nil
 }
 
 func (ac *AhnlichClient) Ping() (*dbResponse.ServerResult, error) {
@@ -59,8 +57,8 @@ func (ac *AhnlichClient) Ping() (*dbResponse.ServerResult, error) {
 	return ac.Request()
 }
 
-// GetPipeline returns the pipeline for the client
-func (ac *AhnlichClient) GetPipeline() *AhnlichDBQueryBuilder {
+// Pipeline returns the pipeline for the client
+func (ac *AhnlichClient) Pipeline() *AhnlichDBQueryBuilder {
 	return ac.pipeline
 }
 
@@ -112,8 +110,8 @@ func (ac *AhnlichClient) GetByPredicate(storeName string, condition dbQuery.Pred
 	return ac.Request()
 }
 
-func (ac *AhnlichClient) GetSimN(storeName string, searchInput dbQuery.Array, closest_n uint64, algorithm dbQuery.Algorithm, condition *dbQuery.PredicateCondition) (*dbResponse.ServerResult, error) {
-	ac.pipeline.BuildGetSimNQuery(storeName, searchInput, closest_n, algorithm, condition)
+func (ac *AhnlichClient) GetBySimN(storeName string, searchInput dbQuery.Array, closest_n uint64, algorithm dbQuery.Algorithm, condition *dbQuery.PredicateCondition) (*dbResponse.ServerResult, error) {
+	ac.pipeline.BuildGetBySimNQuery(storeName, searchInput, closest_n, algorithm, condition)
 	return ac.Request()
 }
 

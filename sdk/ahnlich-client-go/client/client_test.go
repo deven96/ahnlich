@@ -14,6 +14,7 @@ import (
 
 	ahnlichclientgo "github.com/deven96/ahnlich/sdk/ahnlich-client-go"
 	transport "github.com/deven96/ahnlich/sdk/ahnlich-client-go/transport"
+	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/utils"
 )
 
 // store_payload_no_predicates = {
@@ -34,10 +35,10 @@ type AhnlichClientTestSuite struct {
 }
 
 // setupDatabase returns a new instance of the AhnlichClientTestSuite
-func setupDatabase(host, port string) (*AhnlichClientTestSuite, error) {
+func setupDatabase(host string, port int) (*AhnlichClientTestSuite, error) {
 	// Start the ahnlich database server
 	// ahnlichclientgo.SetLogLevel(ahnlichclientgo.LogLevelDebug)
-	rootDir, err := ahnlichclientgo.GetProjectRoot()
+	rootDir, err := utils.GetProjectRoot()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project root: %w", err)
 	}
@@ -48,7 +49,7 @@ func setupDatabase(host, port string) (*AhnlichClientTestSuite, error) {
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	cmd := exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", port)
+	cmd := exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port))
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -84,33 +85,27 @@ func setupDatabase(host, port string) (*AhnlichClientTestSuite, error) {
 		cmd.Process.Kill()
 		return nil, fmt.Errorf("failed to start ahnlich database: %s", errBuf.String())
 	}
-
+	config := ahnlichclientgo.LoadConfig(
+		ahnlichclientgo.ConnectionConfig{
+			Host:                  host,
+			Port:                  port,
+			InitialConnections:    1,
+			MaxIdleConnections:    1,
+			MaxTotalConnections:   1,
+			ConnectionIdleTimeout: 5,
+			ReadTimeout:           5 * time.Second,
+			WriteTimeout:          5 * time.Second,
+		})
 	// Initialize the ahnlich database client
-	cm, err := transport.NewConnectionManager(ahnlichclientgo.Config{
-		ServerAddress:         host + ":" + port,
-		InitialConnections:    1,
-		MaxIdleConnections:    1,
-		MaxTotalConnections:   1,
-		ConnectionIdleTimeout: 10,
-	})
+	cm, err := transport.NewConnectionManager(config.ConnectionConfig)
 	if err != nil {
 		cmd.Process.Kill()
-		return nil, fmt.Errorf("failed to connect to the ahnlich database: %w", err)
+		return nil, err
 	}
-
-	dbClient, err := NewAhnlichClient(cm, ahnlichclientgo.Config{
-		// Protocol specific configuration
-		BufferSize:    ahnlichclientgo.DefaultBufferSize,
-		Header:        ahnlichclientgo.Header,
-		HeaderLength:  ahnlichclientgo.HeaderLength,
-		VersionLength: ahnlichclientgo.VersionLength,
-		DefaultLength: ahnlichclientgo.DefaultLength, // fix the typo in the variable name
-		ReadTimeout:   10 * time.Second,
-		WriteTimeout:  10 * time.Second,
-	})
+	dbClient, err := NewAhnlichClient(cm, config.ClientConfig)
 	if err != nil {
 		cmd.Process.Kill()
-		return nil, fmt.Errorf("failed to connect to the ahnlich database: %w", err)
+		return nil, err
 	}
 
 	return &AhnlichClientTestSuite{
@@ -130,7 +125,7 @@ func (ts *AhnlichClientTestSuite) teardownDatabase() {
 }
 
 func TestNewAhnlichClient(t *testing.T) {
-	testSuite, err := setupDatabase("localhost", "1265")
+	testSuite, err := setupDatabase("localhost", 1100)
 	require.NoError(t, err)
 	defer testSuite.teardownDatabase()
 
@@ -138,9 +133,9 @@ func TestNewAhnlichClient(t *testing.T) {
 
 	fmt.Println(info)
 
-	fmt.Println(testSuite.client.GetVersion())
+	fmt.Println(testSuite.client.Version())
 
-	fmt.Println(testSuite.client.GetProtocolVersion())
+	fmt.Println(testSuite.client.ProtocolVersion())
 
 	fmt.Println(testSuite.client.Ping())
 
