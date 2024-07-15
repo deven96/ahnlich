@@ -37,7 +37,6 @@ pub struct AIStoreInfo {
     pub r#type: AIStoreType,
     pub model: AIModel,
     pub embedding_size: usize,
-    //pub size_in_bytes: usize,
 }
 pub type AIServerResultInner = Vec<Result<AIServerResponse, String>>;
 // ServerResult: Given that an array of queries are sent in, we expect that an array of responses
@@ -65,6 +64,10 @@ impl AIServerResult {
     }
     pub fn len(&self) -> usize {
         self.results.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.results.is_empty()
     }
 }
 

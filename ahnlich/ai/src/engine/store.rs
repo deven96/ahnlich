@@ -183,8 +183,4 @@ impl AIStore {
             model,
         }
     }
-
-    pub(super) fn size(&self) -> usize {
-        todo!()
-    }
 }

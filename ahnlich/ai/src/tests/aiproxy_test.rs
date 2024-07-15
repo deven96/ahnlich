@@ -1,26 +1,23 @@
+use ahnlich_client_rs::error::AhnlichError;
 use ahnlich_db::cli::ServerConfig;
 use ahnlich_db::server::handler::Server;
 use ahnlich_types::{
     ai::{
         AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo, AIStoreType,
     },
+    db::StoreUpsert,
     keyval::{StoreInput, StoreName, StoreValue},
     metadata::{MetadataKey, MetadataValue},
     predicate::{Predicate, PredicateCondition},
     similarity::Algorithm,
 };
 
-use ndarray::array;
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
-use std::time::SystemTime;
-use std::{
-    collections::{HashMap, HashSet},
-    num::NonZeroUsize,
-};
+use std::{collections::HashSet, num::NonZeroUsize};
 
-use crate::cli::AIProxyConfig;
 use crate::server::handler::AIProxyServer;
+use crate::{cli::AIProxyConfig, error::AIProxyError};
 use ahnlich_types::bincode::BinCodeSerAndDeser;
 use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
@@ -66,7 +63,6 @@ async fn get_server_response(
     let response = AIServerResult::deserialize(&response).unwrap();
 
     response
-    //assert_eq!(response, expected_result);
 }
 
 async fn query_server_assert_result(
@@ -106,9 +102,6 @@ async fn test_simple_ai_proxy_ping() {
     let mut reader = BufReader::new(first_stream);
     query_server_assert_result(&mut reader, message, expected.clone()).await;
 }
-
-#[tokio::test]
-async fn test_ai_proxy_fails_db_server_unavailable() {}
 
 #[tokio::test]
 async fn test_ai_proxy_create_store_success() {
@@ -289,4 +282,169 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
     let response = get_server_response(&mut reader, message).await;
 
     assert!(response.len() == expected.len())
+}
+
+#[tokio::test]
+async fn test_ai_proxy_create_drop_pred_index() {
+    let address = provision_test_servers().await;
+    let second_stream = TcpStream::connect(address).await.unwrap();
+    let store_name = StoreName(String::from("Deven Kicks"));
+    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
+    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+    let predicate_cond = PredicateCondition::Value(Predicate::Equals {
+        key: matching_metadatakey.clone(),
+        value: matching_metadatavalue.clone(),
+    });
+
+    let nike_store_value =
+        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
+    let store_data = vec![(
+        StoreInput::RawString(String::from("Jordan 3")),
+        nike_store_value.clone(),
+    )];
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::CreateStore {
+            r#type: AIStoreType::RawString,
+            store: store_name.clone(),
+            model: AIModel::Llama3,
+            predicates: HashSet::from_iter([]),
+            non_linear_indices: HashSet::new(),
+        },
+        // returns nothing
+        AIQuery::GetPred {
+            store: store_name.clone(),
+            condition: predicate_cond.clone(),
+        },
+        AIQuery::CreatePredIndex {
+            store: store_name.clone(),
+            predicates: HashSet::from_iter([matching_metadatakey.clone()]),
+        },
+        AIQuery::Set {
+            store: store_name.clone(),
+            inputs: store_data.clone(),
+        },
+        AIQuery::GetPred {
+            store: store_name.clone(),
+            condition: predicate_cond,
+        },
+        AIQuery::DropPredIndex {
+            store: store_name.clone(),
+            predicates: HashSet::from_iter([matching_metadatakey.clone()]),
+            error_if_not_exists: true,
+        },
+    ]);
+    let mut expected = AIServerResult::with_capacity(6);
+
+    expected.push(Ok(AIServerResponse::Unit));
+    expected.push(Ok(AIServerResponse::Get(vec![])));
+    expected.push(Ok(AIServerResponse::CreateIndex(1)));
+    expected.push(Ok(AIServerResponse::Set(StoreUpsert {
+        inserted: 1,
+        updated: 0,
+    })));
+    expected.push(Ok(AIServerResponse::Get(vec![(
+        StoreInput::RawString(String::from("Jordan 3")),
+        nike_store_value.clone(),
+    )])));
+    expected.push(Ok(AIServerResponse::Del(1)));
+
+    let mut reader = BufReader::new(second_stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
+async fn test_ai_proxy_del_key_drop_store() {
+    let address = provision_test_servers().await;
+    let second_stream = TcpStream::connect(address).await.unwrap();
+    let store_name = StoreName(String::from("Deven Kicks"));
+    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
+    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+    let predicate_cond = PredicateCondition::Value(Predicate::Equals {
+        key: matching_metadatakey.clone(),
+        value: matching_metadatavalue.clone(),
+    });
+
+    let nike_store_value =
+        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
+    let store_data = vec![(
+        StoreInput::RawString(String::from("Jordan 3")),
+        nike_store_value.clone(),
+    )];
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::CreateStore {
+            r#type: AIStoreType::RawString,
+            store: store_name.clone(),
+            model: AIModel::Llama3,
+            predicates: HashSet::from_iter([]),
+            non_linear_indices: HashSet::new(),
+        },
+        AIQuery::Set {
+            store: store_name.clone(),
+            inputs: store_data.clone(),
+        },
+        AIQuery::DelKey {
+            store: store_name.clone(),
+            key: StoreInput::RawString(String::from("Jordan 3")),
+        },
+        AIQuery::GetPred {
+            store: store_name.clone(),
+            condition: predicate_cond,
+        },
+        AIQuery::DropStore {
+            store: store_name.clone(),
+            error_if_not_exists: true,
+        },
+    ]);
+    let mut expected = AIServerResult::with_capacity(6);
+
+    expected.push(Ok(AIServerResponse::Unit));
+    expected.push(Ok(AIServerResponse::Set(StoreUpsert {
+        inserted: 1,
+        updated: 0,
+    })));
+    expected.push(Ok(AIServerResponse::Del(1)));
+    expected.push(Ok(AIServerResponse::Get(vec![])));
+    expected.push(Ok(AIServerResponse::Del(1)));
+
+    let mut reader = BufReader::new(second_stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
+async fn test_ai_proxy_fails_db_server_unavailable() {
+    let ai_server = AIProxyServer::new(&AI_CONFIG)
+        .await
+        .expect("Could not initialize ai proxy");
+
+    let address = ai_server.local_addr().expect("Could not get local addr");
+    // start up ai proxy
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    // Allow some time for the servers to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let second_stream = TcpStream::connect(address).await.unwrap();
+
+    // Err("deadpool error Backend(Standard(Os { code: 61, kind: ConnectionRefused, message: \"Connection refused\" }))")] }
+    let err = AhnlichError::PoolError(
+        "Backend(Standard(Os { code: 61, kind: ConnectionRefused, message: \"Connection refused\" }))".to_string()
+    );
+
+    let store_name = StoreName(String::from("Main"));
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::Ping,
+        AIQuery::CreateStore {
+            r#type: AIStoreType::RawString,
+            store: store_name.clone(),
+            model: AIModel::Llama3,
+            predicates: HashSet::from_iter([]),
+            non_linear_indices: HashSet::new(),
+        },
+    ]);
+    let mut expected = AIServerResult::with_capacity(2);
+    expected.push(Ok(AIServerResponse::Pong));
+    expected.push(Err(err.to_string()));
+
+    let mut reader = BufReader::new(second_stream);
+
+    query_server_assert_result(&mut reader, message, expected).await
 }

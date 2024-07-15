@@ -48,7 +48,6 @@ impl AhnlichProtocol for AIProxyTask {
 
     async fn handle(&self, queries: Vec<AIQuery>) -> AIServerResult {
         let mut result = AIServerResult::with_capacity(queries.len());
-        println!("AI queries: {:?}", queries);
         for query in queries {
             result.push(match query {
                 AIQuery::Ping => Ok(AIServerResponse::Pong),
