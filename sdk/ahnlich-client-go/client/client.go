@@ -10,7 +10,7 @@ import (
 type AhnlichClient struct {
 	protocol *AhnlichProtocol
 	pipeline *AhnlichDBQueryBuilder
-	cfg ahnlichclientgo.Config
+	cfg      ahnlichclientgo.Config
 }
 
 // NewAhnlichClient creates a new instance of AhnlichClient
@@ -22,10 +22,9 @@ func NewAhnlichClient(cm *transport.ConnectionManager, cfg ahnlichclientgo.Confi
 	return &AhnlichClient{
 		protocol: protocol,
 		pipeline: NewAhnlichDBQueryBuilder(),
-		cfg: cfg,
+		cfg:      cfg,
 	}, nil
 }
-
 
 // Request sends the queries in the pipeline to the ahnlich db server and returns the response
 func (ac *AhnlichClient) Request() (*dbResponse.ServerResult, error) {
@@ -33,7 +32,7 @@ func (ac *AhnlichClient) Request() (*dbResponse.ServerResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	response, err := ac.protocol.SendReceive(serverQuery)
+	response, err := ac.protocol.Request(serverQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +60,7 @@ func (ac *AhnlichClient) Ping() (*dbResponse.ServerResult, error) {
 }
 
 // GetPipeline returns the pipeline for the client
-func (ac *AhnlichClient) GetPipeline() (*AhnlichDBQueryBuilder) {
+func (ac *AhnlichClient) GetPipeline() *AhnlichDBQueryBuilder {
 	return ac.pipeline
 }
 
@@ -95,7 +94,10 @@ func (ac *AhnlichClient) CreatePredicateIndex(storeName string, predicates []str
 // 	return ac.Request()
 // }
 
-func (ac *AhnlichClient) Set(storeName string,inputs []struct{Field0 dbQuery.Array; Field1 map[string]dbQuery.MetadataValue}) (*dbResponse.ServerResult, error){
+func (ac *AhnlichClient) Set(storeName string, inputs []struct {
+	Field0 dbQuery.Array
+	Field1 map[string]dbQuery.MetadataValue
+}) (*dbResponse.ServerResult, error) {
 	ac.pipeline.BuildSetQuery(storeName, inputs)
 	return ac.Request()
 }
@@ -120,7 +122,6 @@ func (ac *AhnlichClient) DropPredicateIndex(storeName string, predicates []strin
 	return ac.Request()
 }
 
-
 func (ac *AhnlichClient) DeleteKeys(storeName string, keys []dbQuery.Array) (*dbResponse.ServerResult, error) {
 	ac.pipeline.BuildDeleteKeysQuery(storeName, keys)
 	return ac.Request()
@@ -135,10 +136,3 @@ func (ac *AhnlichClient) DropStore(storeName string, errorIfNotExist bool) (*dbR
 	ac.pipeline.BuildDropStoreQuery(storeName, errorIfNotExist)
 	return ac.Request()
 }
-
-
-
-
-
-
-
