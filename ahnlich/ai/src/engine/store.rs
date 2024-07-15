@@ -7,6 +7,7 @@ use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
+use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::metadata::MetadataValue;
 use flurry::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
@@ -66,7 +67,6 @@ impl AIStoreHandler {
                 model: store.model.clone(),
                 r#type: store.r#type.clone(),
                 embedding_size: store.model.embedding_size().into(),
-                size_in_bytes: store.size(),
             })
             .collect()
     }
@@ -97,7 +97,8 @@ impl AIStoreHandler {
         }
         let store = self.get(store_name)?;
         let input_type = store_input.clone().into();
-        if store.r#type.clone() != input_type {
+
+        if store.r#type != input_type {
             return Err(AIProxyError::StoreTypeMismatch {
                 store_type: store.r#type.clone(),
                 input_type,
@@ -105,10 +106,10 @@ impl AIStoreHandler {
         }
         let store_key = store.model.model_ndarray(&store_input);
         let metadata_value: MetadataValue = store_input.into();
-        return Ok((
-            store_key,
-            StdHashMap::from_iter([(metadata_key.clone(), metadata_value)]),
-        ));
+        let mut final_store_value: StdHashMap<MetadataKey, MetadataValue> =
+            store_value.clone().into_iter().collect();
+        final_store_value.insert(metadata_key.clone(), metadata_value);
+        return Ok((store_key, final_store_value));
     }
 
     /// Converts (storekey, storevalue) into (storeinput, storevalue)

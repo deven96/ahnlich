@@ -33,7 +33,6 @@ pub fn trace_ai_server_response_enum() -> Registry {
         model: AIModel::Llama3,
         embedding_size: 20,
         r#type: AIStoreType::Binary,
-        size_in_bytes: 30,
     }]));
 
     let info_server = AIServerResponse::InfoServer(ServerInfo {

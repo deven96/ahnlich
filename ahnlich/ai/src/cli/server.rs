@@ -79,13 +79,13 @@ impl Default for AIProxyConfig {
     fn default() -> Self {
         Self {
             host: String::from("127.0.0.1"),
-            port: 1369,
+            port: 8000,
             enable_persistence: false,
             persist_location: None,
             persistence_interval: 1000 * 60 * 5,
 
             db_host: String::from("127.0.0.1"),
-            db_port: 8000,
+            db_port: 1369,
             db_client_pool_size: 10,
 
             allocator_size: 1_073_741_824,

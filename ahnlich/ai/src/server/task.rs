@@ -1,4 +1,4 @@
-use crate::server::handler::ALLOCATOR;
+use crate::server::handler::AI_ALLOCATOR;
 use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
 use ahnlich_types::bincode::BinCodeSerAndDeserResponse;
@@ -48,6 +48,7 @@ impl AhnlichProtocol for AIProxyTask {
 
     async fn handle(&self, queries: Vec<AIQuery>) -> AIServerResult {
         let mut result = AIServerResult::with_capacity(queries.len());
+        println!("AI queries: {:?}", queries);
         for query in queries {
             result.push(match query {
                 AIQuery::Ping => Ok(AIServerResponse::Pong),
@@ -297,8 +298,8 @@ impl AIProxyTask {
             address: format!("{}", self.server_addr),
             version: *VERSION,
             r#type: ahnlich_types::ServerType::AI,
-            limit: ALLOCATOR.limit(),
-            remaining: ALLOCATOR.remaining(),
+            limit: AI_ALLOCATOR.limit(),
+            remaining: AI_ALLOCATOR.remaining(),
         }
     }
 }

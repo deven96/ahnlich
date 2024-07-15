@@ -6,7 +6,7 @@ pub enum AhnlichError {
     Standard(#[from] std::io::Error),
     #[error("bincode serialize error {0}")]
     BinCode(#[from] bincode::Error),
-    #[error("db error")]
+    #[error("db error {0}")]
     DbError(String),
     #[error("empty response")]
     EmptyResponse,

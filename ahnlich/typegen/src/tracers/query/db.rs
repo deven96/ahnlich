@@ -123,7 +123,7 @@ pub fn trace_db_query_enum() -> Registry {
 
     tracer
         .trace_simple_type::<NonLinearAlgorithm>()
-        .expect("Error tracing Algorithm");
+        .expect("Error tracing NonLinearAlgorithm");
     tracer
         .trace_simple_type::<Predicate>()
         .expect("Error tracing Predicate");
