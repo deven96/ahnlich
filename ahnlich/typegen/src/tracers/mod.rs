@@ -148,11 +148,11 @@ impl<'a> OutputFile<'a> {
                 let (output_dir, config) = if self.output_file.contains("response") {
                     let config = serde_generate::CodeGeneratorConfig::new("response".to_string())
                         .with_encodings(vec![serde_generate::Encoding::Bincode]);
-                    (output_dir.join("response".to_string()), config)
+                    (output_dir.join("response"), config)
                 } else {
                     let config = serde_generate::CodeGeneratorConfig::new("query".to_string())
                         .with_encodings(vec![serde_generate::Encoding::Bincode]);
-                    (output_dir.join("query".to_string()), config)
+                    (output_dir.join("query"), config)
                 };
                 // create all and ignore the errors if they exists
                 let _ = std::fs::create_dir_all(&output_dir);
