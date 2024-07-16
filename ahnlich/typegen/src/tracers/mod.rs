@@ -145,14 +145,38 @@ impl<'a> OutputFile<'a> {
             Language::Golang => {
                 // All packages are already published
 
-                let (output_dir, config) = if self.output_file.contains("response") {
-                    let config = serde_generate::CodeGeneratorConfig::new("response".to_string())
+                let output_dir = output_dir.join("internal");
+
+                let (output_dir, config) = match self.output_file {
+                    "db_response" => {
+                        let config = serde_generate::CodeGeneratorConfig::new(
+                            "internal_db_response".to_string(),
+                        )
                         .with_encodings(vec![serde_generate::Encoding::Bincode]);
-                    (output_dir.join("response"), config)
-                } else {
-                    let config = serde_generate::CodeGeneratorConfig::new("query".to_string())
+                        (output_dir.join("db_response"), config)
+                    }
+                    "db_query" => {
+                        let config = serde_generate::CodeGeneratorConfig::new(
+                            "internal_db_query".to_string(),
+                        )
                         .with_encodings(vec![serde_generate::Encoding::Bincode]);
-                    (output_dir.join("query"), config)
+                        (output_dir.join("db_query"), config)
+                    }
+                    "ai_response" => {
+                        let config = serde_generate::CodeGeneratorConfig::new(
+                            "internal_ai_response".to_string(),
+                        )
+                        .with_encodings(vec![serde_generate::Encoding::Bincode]);
+                        (output_dir.join("ai_response"), config)
+                    }
+                    "ai_query" => {
+                        let config = serde_generate::CodeGeneratorConfig::new(
+                            "internal_ai_query".to_string(),
+                        )
+                        .with_encodings(vec![serde_generate::Encoding::Bincode]);
+                        (output_dir.join("ai_query"), config)
+                    }
+                    _ => panic!("Incorrect query type"),
                 };
                 // create all and ignore the errors if they exists
                 let _ = std::fs::create_dir_all(&output_dir);
