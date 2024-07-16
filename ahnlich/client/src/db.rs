@@ -18,7 +18,7 @@ pub struct DbConnManager {
 }
 
 impl DbConnManager {
-    fn new(host: String, port: u16) -> Self {
+    pub fn new(host: String, port: u16) -> Self {
         Self { host, port }
     }
 }

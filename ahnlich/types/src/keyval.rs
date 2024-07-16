@@ -49,3 +49,27 @@ impl PartialEq for StoreKey {
             .all(|(x, y)| (x - y).abs() < std::f32::EPSILON)
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum StoreInput {
+    RawString(String),
+    Binary(Vec<u8>),
+}
+
+impl From<StoreInput> for MetadataValue {
+    fn from(value: StoreInput) -> Self {
+        match value {
+            StoreInput::Binary(binary) => MetadataValue::Binary(binary),
+            StoreInput::RawString(s) => MetadataValue::RawString(s),
+        }
+    }
+}
+
+impl From<MetadataValue> for StoreInput {
+    fn from(value: MetadataValue) -> Self {
+        match value {
+            MetadataValue::Binary(binary) => StoreInput::Binary(binary),
+            MetadataValue::RawString(s) => StoreInput::RawString(s),
+        }
+    }
+}

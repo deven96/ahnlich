@@ -1,42 +1,47 @@
-use super::task::ServerTask;
-use crate::cli::ServerConfig;
-use crate::engine::store::StoreHandler;
+use crate::cli::AIProxyConfig;
+use crate::engine::store::AIStoreHandler;
+use crate::server::task::AIProxyTask;
 use ahnlich_types::db::ConnectedClient;
 use cap::Cap;
 use std::alloc;
-use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
 use std::time::Duration;
+use std::{io::Result as IoResult, sync::Arc};
 use tokio::io::BufReader;
-use tokio::net::TcpListener;
-use tokio::net::TcpStream;
+use tokio::net::{TcpListener, TcpStream};
 use tokio::select;
 use tokio_graceful::Shutdown;
 use tracing::Instrument;
-use utils::{client::ClientHandler, persistence::Persistence, protocol::AhnlichProtocol};
+use utils::{client::ClientHandler, protocol::AhnlichProtocol};
 
-#[global_allocator]
-pub(super) static ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
+use ahnlich_client_rs::db::{DbClient, DbConnManager};
+use deadpool::managed::Pool;
 
-pub struct Server<'a> {
+// Creates an issue since there's already a global allocator in db
+//#[global_allocator]
+pub(super) static AI_ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
+
+pub struct AIProxyServer<'a> {
     listener: TcpListener,
-    shutdown_token: Shutdown,
-    store_handler: Arc<StoreHandler>,
+    config: &'a AIProxyConfig,
     client_handler: Arc<ClientHandler>,
-    config: &'a ServerConfig,
+    store_handler: Arc<AIStoreHandler>,
+    shutdown_token: Shutdown,
+    db_client: Arc<DbClient>,
 }
 
-impl<'a> Server<'a> {
-    /// creates a server while injecting a shutdown_token
-    pub async fn new_with_shutdown(
-        config: &'a ServerConfig,
-        shutdown_token: Shutdown,
-    ) -> IoResult<Self> {
-        ALLOCATOR
+impl<'a> AIProxyServer<'a> {
+    pub async fn new(config: &'a AIProxyConfig) -> IoResult<Self> {
+        let shutdown_token = Shutdown::default();
+        Self::build(config, shutdown_token).await
+    }
+
+    pub async fn build(config: &'a AIProxyConfig, shutdown_token: Shutdown) -> IoResult<Self> {
+        AI_ALLOCATOR
             .set_limit(config.allocator_size)
-            .expect("Could not set up server with allocator_size");
+            .expect("Could not set up ai-proxy with allocator_size");
+
         let listener =
             tokio::net::TcpListener::bind(format!("{}:{}", &config.host, &config.port)).await?;
         // Enable tracing
@@ -48,46 +53,18 @@ impl<'a> Server<'a> {
             tracer::init_tracing("ahnlich-db", Some(&config.log_level), &otel_url)
         }
         let write_flag = Arc::new(AtomicBool::new(false));
+        let db_client = Self::build_db_client(config).await;
+        let store_handler = AIStoreHandler::new(write_flag.clone());
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
-        let mut store_handler = StoreHandler::new(write_flag.clone());
-        if let Some(persist_location) = &config.persist_location {
-            match Persistence::load_snapshot(persist_location) {
-                Err(e) => {
-                    tracing::error!("Failed to load snapshot from persist location {e}");
-                }
-                Ok(snapshot) => {
-                    store_handler.use_snapshot(snapshot);
-                }
-            }
-            // spawn the persistence task
-            let mut persistence_task = Persistence::task(
-                write_flag,
-                config.persistence_interval,
-                persist_location,
-                store_handler.get_stores(),
-            );
-            shutdown_token
-                .spawn_task_fn(|guard| async move { persistence_task.monitor(guard).await });
-        };
         Ok(Self {
             listener,
             shutdown_token,
-            store_handler: Arc::new(store_handler),
             client_handler,
+            store_handler: Arc::new(store_handler),
             config,
+            db_client: Arc::new(db_client),
         })
     }
-    /// initializes a server using server configuration
-    pub async fn new(config: &'a ServerConfig) -> IoResult<Self> {
-        let shutdown_token = Shutdown::default();
-        Self::new_with_shutdown(config, shutdown_token).await
-    }
-
-    #[cfg(test)]
-    pub fn write_flag(&self) -> Arc<AtomicBool> {
-        self.store_handler.write_flag()
-    }
-
     /// starts accepting connections using the listener and processing the incoming streams
     ///
     /// listens for a ctrl_c signals to cancel spawned tasks
@@ -105,7 +82,7 @@ impl<'a> Server<'a> {
                 Ok((stream, connect_addr)) = self.listener.accept() => {
                     tracing::info!("Connecting to {}", connect_addr);
                     //  - Spawn a tokio task to handle the command while holding on to a reference to self
-                    //  - Convert the incoming bincode in a chunked manner to a Vec<DBQuery>
+                    //  - Convert the incoming bincode in a chunked manner to a Vec<AIQuery>
                     //  - Use store_handler to process the queries
                     //  - Block new incoming connections on shutdown by no longer accepting and then
                     //  cancelling existing ServerTask or forcing them to run to completion
@@ -134,7 +111,7 @@ impl<'a> Server<'a> {
             .await
             .is_err()
         {
-            tracing::error!("SERVER: shutdown took longer than timeout");
+            tracing::error!("AI-PROXY: shutdown took longer than timeout");
         }
     }
 
@@ -147,10 +124,10 @@ impl<'a> Server<'a> {
         stream: TcpStream,
         server_addr: SocketAddr,
         connected_client: ConnectedClient,
-    ) -> IoResult<ServerTask> {
+    ) -> IoResult<AIProxyTask> {
         let reader = BufReader::new(stream);
         // add client to client_handler
-        Ok(ServerTask {
+        Ok(AIProxyTask {
             reader,
             server_addr,
             connected_client,
@@ -158,6 +135,17 @@ impl<'a> Server<'a> {
             // "inexpensive" to clone handlers they can be passed around in an Arc
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),
+            db_client: self.db_client.clone(),
         })
+    }
+
+    async fn build_db_client(config: &'a AIProxyConfig) -> DbClient {
+        let manager = DbConnManager::new(config.db_host.clone(), config.db_port);
+        let pool = Pool::builder(manager)
+            .max_size(config.db_client_pool_size)
+            .build()
+            .expect("Cannot establish connection to the Database");
+
+        DbClient::new_with_pool(pool)
     }
 }
