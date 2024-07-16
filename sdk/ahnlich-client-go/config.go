@@ -14,14 +14,8 @@ const (
 	DefaultConnectionIdleTimeout = 5 * time.Minute
 	DefaultReadTimeout           = 10 * time.Second
 	DefaultWriteTimeout          = 10 * time.Second
-	DefaultBufferSize            = 1024
-	DefaultVersionLength         = 5
-	DefaultHeaderLength          = 8
-	DefaultLength                = 8
 	VersionFile                  = "/VERSION"
 )
-
-var DefaultHeader = []byte("AHNLICH;")
 
 type Config struct {
 	ConnectionConfig
@@ -29,7 +23,6 @@ type Config struct {
 }
 
 type ClientConfig struct {
-	ProtocolConfig
 	// Add any client specific configuration here
 }
 
@@ -41,17 +34,9 @@ type ConnectionConfig struct {
 	ConnectionIdleTimeout time.Duration // Time after which the connection is closed if it is idle
 	ReadTimeout           time.Duration // Read timeout for the connection
 	WriteTimeout          time.Duration // Write timeout for the connection
-	ServerAddress         string
-	Host                  string
-	Port                  int
-}
-
-type ProtocolConfig struct { // Protocol specific configuration for the client
-	BufferSize    int
-	Header        []byte
-	HeaderLength  int
-	VersionLength int
-	DefaultLength int
+	ServerAddress         string        // Server address in the format "host:port"
+	Host                  string        // Hostname of the server
+	Port                  int           // Port of the server
 }
 
 func LoadConfig(connCfg ConnectionConfig) Config {
@@ -80,16 +65,8 @@ func LoadConfig(connCfg ConnectionConfig) Config {
 		connCfg.ServerAddress = fmt.Sprintf("%s:%d", connCfg.Host, connCfg.Port)
 	}
 
-	// Insert the default protocol configuration into the config
-	clientCfg := ClientConfig{
-		ProtocolConfig: ProtocolConfig{
-			BufferSize:    DefaultBufferSize,
-			Header:        DefaultHeader,
-			HeaderLength:  DefaultHeaderLength,
-			VersionLength: DefaultVersionLength,
-			DefaultLength: DefaultLength,
-		},
-	}
+	// Insert the default client configuration into the config
+	clientCfg := ClientConfig{}
 	return Config{
 		ConnectionConfig: connCfg,
 		ClientConfig:     clientCfg,

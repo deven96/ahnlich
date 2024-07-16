@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,4 +21,17 @@ func GetProjectRoot() (string, error) {
 		return "", fmt.Errorf("unable to resolve absolute path: %w", err)
 	}
 	return projectRoot, nil
+}
+
+// NonZeroUintStruct holds a uint that must be non-zero
+type NonZeroUint struct {
+	Value uint64
+}
+
+// NewNonZeroUint creates a new NonZeroUint ensuring the value is non-zero
+func NewNonZeroUint(value uint64) (*NonZeroUint, error) {
+	if value == 0 {
+		return nil, errors.New("value cannot be zero")
+	}
+	return &NonZeroUint{Value: value}, nil
 }
