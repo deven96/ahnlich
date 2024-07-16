@@ -257,6 +257,7 @@ impl AhnlichProtocol for AIProxyTask {
                                     // conversion to store input here
                                     let mut output = Vec::new();
 
+                                    // TODO: Can Parallelize
                                     for (store_key, store_value, sim) in response.into_iter() {
                                         let temp =
                                             self.store_handler.store_key_val_to_store_input_val(

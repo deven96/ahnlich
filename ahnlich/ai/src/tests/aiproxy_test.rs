@@ -408,3 +408,41 @@ async fn test_ai_proxy_del_key_drop_store() {
     let mut reader = BufReader::new(second_stream);
     query_server_assert_result(&mut reader, message, expected).await
 }
+
+#[tokio::test]
+async fn test_ai_proxy_fails_db_server_unavailable() {
+    let ai_server = AIProxyServer::new(&AI_CONFIG)
+        .await
+        .expect("Could not initialize ai proxy");
+
+    let address = ai_server.local_addr().expect("Could not get local addr");
+    // start up ai proxy
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    // Allow some time for the servers to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let second_stream = TcpStream::connect(address).await.unwrap();
+
+    let store_name = StoreName(String::from("Main"));
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::Ping,
+        AIQuery::CreateStore {
+            r#type: AIStoreType::RawString,
+            store: store_name.clone(),
+            model: AIModel::Llama3,
+            predicates: HashSet::from_iter([]),
+            non_linear_indices: HashSet::new(),
+        },
+    ]);
+
+    let mut reader = BufReader::new(second_stream);
+
+    let response = get_server_response(&mut reader, message).await;
+
+    let res = response.pop().unwrap();
+
+    assert!(res.is_err());
+    // Err("deadpool error Backend(Standard(Os { code: 61, kind: ConnectionRefused, message: \"Connection refused\" }))")] }
+    let err = res.err().unwrap();
+    assert!(err.contains(" kind: ConnectionRefused,"))
+}
