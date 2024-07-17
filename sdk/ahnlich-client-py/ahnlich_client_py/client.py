@@ -1,6 +1,7 @@
 import typing
 
 from ahnlich_client_py import builders, protocol
+from ahnlich_client_py.exceptions import AhnlichClientException
 from ahnlich_client_py.internals import db_query, db_response
 from ahnlich_client_py.internals import serde_types as st
 
@@ -8,12 +9,24 @@ from ahnlich_client_py.internals import serde_types as st
 class AhnlichDBClient:
     """Wrapper for interacting with Ahnlich database or ai"""
 
-    def __init__(self, address: str, port: int, timeout_sec: float = 5.0) -> None:
-        self.protocol = protocol.AhnlichProtocol(
+    def __init__(
+        self,
+        address: str = None,
+        port: int = None,
+        timeout_sec: float = 5.0,
+        connection_protocol: protocol.AhnlichProtocol = None,
+    ) -> None:
+        if not connection_protocol and (address is None or port is None):
+            raise AhnlichClientException(
+                "Either connection protocol or address and port must be provided"
+            )
+        self.protocol = connection_protocol or protocol.AhnlichProtocol(
             address=address, port=port, timeout_sec=timeout_sec
         )
-        # would abstract this away eventually, but for now easy does it
         self.builder = builders.AhnlichDBRequestBuilder()
+
+    def __del__(self):
+        self.cleanup()
 
     def get_key(
         self, store_name: str, keys: typing.Sequence[db_query.Array]
@@ -142,11 +155,6 @@ class AhnlichDBClient:
         """Executes a pipelined request"""
         return self.protocol.process_request(message=self.builder.to_server_query())
 
-    def close(self):
-        """closes the socket connection"""
-        self.protocol.close()
-
     def cleanup(self):
         """closes the socket connection as well as connection pool"""
-        self.close()
         self.protocol.cleanup()

@@ -31,6 +31,7 @@ The following topics are covered:
     * [Delete Key](#delete-key)
     * [Delete Predicate](#delete-predicate)
 * [Bulk Requests](#bulk-requests)
+* [Protocol As Context Manager](#protocol-as-context-manager)
 * [How to Deploy to Artifactory](#deploy-to-artifactory)
 * [Type Meanings](#type-meanings)
 * [Change Log](#change-log)
@@ -331,6 +332,26 @@ request_builder.list_stores()
 
 response: server_response.ServerResult = client.exec()
 ```
+
+
+
+## Protocol As Context Manager
+
+The protocol class can be used as a context manager hereby closing the connection pool automatically upon context end.
+
+
+```py
+from ahnlich_client_py import AhnlichDBClient
+from ahnlich_client_py import AhnlichProtocol
+
+connection_protocol = AhnlichProtocol(address="127.0.0.1", port=1369)
+
+ with pro as protocol:
+    client = AhnlichDBClient(connection_protocol=connection_protocol)
+    response: server_response.ServerResult = client.ping()
+
+```
+However, closing the connection pool can be done by calling `cleanup()` on the client.
 
 
 

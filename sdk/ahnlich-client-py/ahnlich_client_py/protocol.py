@@ -1,8 +1,10 @@
 import re
 import socket
+from contextlib import _GeneratorContextManager
 from ipaddress import IPv4Address
 
 from generic_connection_pool.contrib.socket import TcpSocketConnectionManager
+from generic_connection_pool.exceptions import ConnectionPoolClosedError
 from generic_connection_pool.threading import ConnectionPool
 
 from ahnlich_client_py import config
@@ -27,7 +29,6 @@ class AhnlichProtocol:
         self.connection_pool = self.create_connection_pool(pool_settings)
         self.version = self.get_version()
         self.timeout_sec = timeout_sec
-        self.conn = self.connect()
 
     def serialize_query(self, server_query: db_query.ServerQuery) -> bytes:
         version = self.version.bincode_serialize()
@@ -38,34 +39,36 @@ class AhnlichProtocol:
     def deserialize_server_response(self, b: bytes) -> db_response.ServerResult:
         return db_response.ServerResult([]).bincode_deserialize(b)
 
-    def connect(self) -> socket.socket:
-        with self.connection_pool.connection(
+    @property
+    def connect_generator(self) -> _GeneratorContextManager[socket.socket]:
+        return self.connection_pool.connection(
             endpoint=(self.address, self.port), timeout=self.timeout_sec
-        ) as conn:
-            return conn
+        )
 
     def send(self, message: db_query.ServerQuery):
         serialized_bin = self.serialize_query(message)
-        self.conn.sendall(serialized_bin)
+        with self.connect_generator as conn:
+            conn.sendall(serialized_bin)
 
     def receive(self) -> db_response.ServerResult:
-        header = self.conn.recv(8)
-        if header == b"":
-            self.connection_pool.close()
-            raise AhnlichProtocolException("socket connection broken")
+        with self.connect_generator as conn:
+            header = conn.recv(8)
+            if header == b"":
+                self.connection_pool.close()
+                raise AhnlichProtocolException("socket connection broken")
 
-        if header != config.HEADER:
-            raise AhnlichProtocolException("Fake server")
-        # ignore version of 5 bytes
-        _version = self.conn.recv(5)
-        length = self.conn.recv(8)
-        # header length u64, little endian
-        length_to_read = int.from_bytes(length, byteorder="little")
-        # information data
-        self.conn.settimeout(self.timeout_sec)
-        data = self.conn.recv(length_to_read)
-        response = self.deserialize_server_response(data)
-        return response
+            if header != config.HEADER:
+                raise AhnlichProtocolException("Fake server")
+            # ignore version of 5 bytes
+            _version = conn.recv(5)
+            length = conn.recv(8)
+            # header length u64, little endian
+            length_to_read = int.from_bytes(length, byteorder="little")
+            # information data
+            conn.settimeout(self.timeout_sec)
+            data = conn.recv(length_to_read)
+            response = self.deserialize_server_response(data)
+            return response
 
     def process_request(
         self, message: db_query.ServerQuery
@@ -86,13 +89,11 @@ class AhnlichProtocol:
             dispose_batch_size=settings.dispose_batch_size,
         )
 
-    def close(self):
-        """closes a socket connection"""
-        self.conn.close()
-
     def cleanup(self):
-        self.conn.close()
-        self.connection_pool.close()
+        try:
+            self.connection_pool.close()
+        except ConnectionPoolClosedError:
+            pass
 
     @staticmethod
     def get_version() -> db_response.Version:
@@ -105,3 +106,9 @@ class AhnlichProtocol:
             str_version: str = match.group(1)
             # split and convert from str to int
             return db_response.Version(*map(lambda x: int(x), str_version.split(".")))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.cleanup()
