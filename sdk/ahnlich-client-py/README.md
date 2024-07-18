@@ -31,6 +31,7 @@ The following topics are covered:
     * [Delete Key](#delete-key)
     * [Delete Predicate](#delete-predicate)
 * [Bulk Requests](#bulk-requests)
+* [Client As Context Manager](#client-as-context-manager)
 * [How to Deploy to Artifactory](#deploy-to-artifactory)
 * [Type Meanings](#type-meanings)
 * [Change Log](#change-log)
@@ -331,6 +332,23 @@ request_builder.list_stores()
 
 response: server_response.ServerResult = client.exec()
 ```
+
+
+
+## Client As Context Manager
+
+The DB client class can be used as a context manager hereby closing the connection pool automatically upon context end.
+
+
+```py
+from ahnlich_client_py import AhnlichDBClient
+
+
+ with client.AhnlichDBClient(address="127.0.0.1", port=port) as db_client:
+    response: server_response.ServerResult = db_client.ping()
+
+```
+However, closing the connection pool can be done by calling `cleanup()` on the client.
 
 
 

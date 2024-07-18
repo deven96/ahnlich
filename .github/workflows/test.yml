@@ -77,6 +77,12 @@ jobs:
     - name: Installing poetry dependencies
       working-directory: ./sdk/ahnlich-client-py
       run: poetry install
+
+    - name: Check Python Linting
+      working-directory: ./sdk/ahnlich-client-py
+      run: |
+        poetry run isort . -c --profile black; echo $?
+        poetry run black . --check; echo $?
       
     - name: Set up Rust cache
       uses: Swatinem/rust-cache@v2
