@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"fmt"
 	"log/slog"
 	"net"
 	"time"
@@ -18,6 +19,11 @@ type ConnectionManager struct {
 }
 
 func createConnectionPool(cfg ahnlichclientgo.ConnectionConfig) (pool.Pool, error) {
+	if cfg.ServerAddress == "" && (cfg.Host == "" || cfg.Port == 0) {
+		return nil, &utils.AhnlichClientException{Message: "Server address is empty"}
+	} else if cfg.ServerAddress == "" {
+		cfg.ServerAddress = cfg.Host + ":" + fmt.Sprint(cfg.Port)
+	}
 	factory := func() (interface{}, error) {
 		return net.Dial("tcp", cfg.ServerAddress)
 	}
