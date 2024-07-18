@@ -22,7 +22,7 @@ def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
     )
     # assert info servers
     info_server: db_response.ServerInfo = response.results[1].value
-    assert info_server.value.version == db_client.protocol.version
+    assert info_server.value.version == db_client.message_protocol.version
     assert info_server.value.type == db_response.ServerType__Database()
 
     # assert list_stores

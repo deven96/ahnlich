@@ -5,7 +5,6 @@ import numpy as np
 from ahnlich_client_py import exceptions as ah_exceptions
 from ahnlich_client_py.internals import db_query
 from ahnlich_client_py.internals import serde_types as st
-from ahnlich_client_py.protocol import AhnlichProtocol
 
 
 class NonZeroSizeInteger:
@@ -142,7 +141,3 @@ class AhnlichDBRequestBuilder:
         server_query = db_query.ServerQuery(queries=queries)
         self.drop()
         return server_query
-
-    def execute_requests(self, protocol: AhnlichProtocol):
-        response = protocol.process_request(message=self.to_server_query())
-        return response
