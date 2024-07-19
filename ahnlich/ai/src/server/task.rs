@@ -285,6 +285,10 @@ impl AhnlichProtocol for AIProxyTask {
                         );
                     }
                 }
+                AIQuery::DestoryDatabase => {
+                    let destoryed = self.store_handler.destory_database();
+                    Ok(AIServerResponse::Del(destoryed))
+                }
             })
         }
         result

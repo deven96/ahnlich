@@ -13,7 +13,7 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::select;
 use tokio_graceful::Shutdown;
 use tracing::Instrument;
-use utils::{client::ClientHandler, protocol::AhnlichProtocol};
+use utils::{client::ClientHandler, persistence::Persistence, protocol::AhnlichProtocol};
 
 use ahnlich_client_rs::db::{DbClient, DbConnManager};
 use deadpool::managed::Pool;
@@ -54,8 +54,30 @@ impl<'a> AIProxyServer<'a> {
         }
         let write_flag = Arc::new(AtomicBool::new(false));
         let db_client = Self::build_db_client(config).await;
-        let store_handler = AIStoreHandler::new(write_flag.clone());
+        let mut store_handler = AIStoreHandler::new(write_flag.clone());
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
+
+        // persistence
+        if let Some(persist_location) = &config.persist_location {
+            match Persistence::load_snapshot(persist_location) {
+                Err(e) => {
+                    tracing::error!("Failed to load snapshot from persist location {e}");
+                }
+                Ok(snapshot) => {
+                    store_handler.use_snapshot(snapshot);
+                }
+            }
+            // spawn the persistence task
+            let mut persistence_task = Persistence::task(
+                write_flag,
+                config.persistence_interval,
+                persist_location,
+                store_handler.get_stores(),
+            );
+            shutdown_token
+                .spawn_task_fn(|guard| async move { persistence_task.monitor(guard).await });
+        };
+
         Ok(Self {
             listener,
             shutdown_token,
@@ -147,5 +169,10 @@ impl<'a> AIProxyServer<'a> {
             .expect("Cannot establish connection to the Database");
 
         DbClient::new_with_pool(pool)
+    }
+
+    #[cfg(test)]
+    pub fn write_flag(&self) -> Arc<AtomicBool> {
+        self.store_handler.write_flag()
     }
 }

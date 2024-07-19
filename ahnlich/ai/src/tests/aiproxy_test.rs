@@ -13,12 +13,13 @@ use ahnlich_types::{
 
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
-use std::{collections::HashSet, num::NonZeroUsize};
+use std::{collections::HashSet, num::NonZeroUsize, sync::atomic::Ordering};
 
 use crate::cli::AIProxyConfig;
 use crate::server::handler::AIProxyServer;
 use ahnlich_types::bincode::BinCodeSerAndDeser;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
@@ -29,6 +30,16 @@ static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
     ai_proxy.db_port = CONFIG.port.clone();
     ai_proxy.db_host = CONFIG.host.clone();
     ai_proxy
+});
+
+static PERSISTENCE_FILE: Lazy<PathBuf> =
+    Lazy::new(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ahnlich_ai_proxy.dat"));
+
+static AI_CONFIG_WITH_PERSISTENCE: Lazy<AIProxyConfig> = Lazy::new(|| {
+    AIProxyConfig::default()
+        .os_select_port()
+        .set_persistence_interval(200)
+        .set_persist_location((*PERSISTENCE_FILE).clone())
 });
 
 async fn get_server_response(
@@ -445,4 +456,130 @@ async fn test_ai_proxy_fails_db_server_unavailable() {
     // Err("deadpool error Backend(Standard(Os { code: 61, kind: ConnectionRefused, message: \"Connection refused\" }))")] }
     let err = res.err().unwrap();
     assert!(err.contains(" kind: ConnectionRefused,"))
+}
+
+#[tokio::test]
+async fn test_ai_proxy_test_with_persistence() {
+    let server = Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let ai_server = AIProxyServer::new(&AI_CONFIG_WITH_PERSISTENCE)
+        .await
+        .expect("Could not initialize ai proxy");
+
+    let address = ai_server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    let write_flag = ai_server.write_flag();
+    // start up ai proxy
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    // Allow some time for the servers to start
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    let store_name = StoreName(String::from("Main"));
+    let store_name_2 = StoreName(String::from("Main2"));
+    let first_stream = TcpStream::connect(address).await.unwrap();
+
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::CreateStore {
+            r#type: AIStoreType::RawString,
+            store: store_name.clone(),
+            model: AIModel::Llama3,
+            predicates: HashSet::from_iter([]),
+            non_linear_indices: HashSet::new(),
+        },
+        AIQuery::CreateStore {
+            r#type: AIStoreType::Binary,
+            store: store_name_2.clone(),
+            model: AIModel::Llama3,
+            predicates: HashSet::from_iter([]),
+            non_linear_indices: HashSet::new(),
+        },
+        AIQuery::DropStore {
+            store: store_name,
+            error_if_not_exists: true,
+        },
+    ]);
+
+    let mut expected = AIServerResult::with_capacity(3);
+
+    expected.push(Ok(AIServerResponse::Unit));
+    expected.push(Ok(AIServerResponse::Unit));
+    expected.push(Ok(AIServerResponse::Del(1)));
+
+    let mut reader = BufReader::new(first_stream);
+    query_server_assert_result(&mut reader, message, expected).await;
+
+    // write flag should show that a write has occured
+    assert!(write_flag.load(Ordering::SeqCst));
+    // Allow some time for persistence to kick in
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    // start another server with existing persistence
+
+    let persisted_server = AIProxyServer::new(&AI_CONFIG_WITH_PERSISTENCE)
+        .await
+        .unwrap();
+
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let address = persisted_server
+        .local_addr()
+        .expect("Could not get local addr");
+    let write_flag = persisted_server.write_flag();
+    let _ = tokio::spawn(async move { persisted_server.start().await });
+    let second_stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(second_stream);
+
+    let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
+
+    let mut expected = AIServerResult::with_capacity(1);
+
+    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
+        AIStoreInfo {
+            name: store_name_2.clone(),
+            r#type: AIStoreType::Binary,
+            model: AIModel::Llama3,
+            embedding_size: AIModel::Llama3.embedding_size().into(),
+        },
+    ]))));
+
+    query_server_assert_result(&mut reader, message, expected).await;
+    assert!(!write_flag.load(Ordering::SeqCst));
+    // delete persistence
+    let _ = std::fs::remove_file(&*PERSISTENCE_FILE);
+}
+
+#[tokio::test]
+async fn test_ai_proxy_destroy_database() {
+    let address = provision_test_servers().await;
+    let second_stream = TcpStream::connect(address).await.unwrap();
+    let store_name = StoreName(String::from("Deven Kicks"));
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::CreateStore {
+            r#type: AIStoreType::RawString,
+            store: store_name.clone(),
+            model: AIModel::Llama3,
+            predicates: HashSet::from_iter([]),
+            non_linear_indices: HashSet::new(),
+        },
+        AIQuery::ListStores,
+        AIQuery::DestoryDatabase,
+        AIQuery::ListStores,
+    ]);
+    let mut expected = AIServerResult::with_capacity(4);
+
+    expected.push(Ok(AIServerResponse::Unit));
+    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
+        AIStoreInfo {
+            name: store_name,
+            r#type: AIStoreType::RawString,
+            model: AIModel::Llama3,
+            embedding_size: AIModel::Llama3.embedding_size().into(),
+        },
+    ]))));
+    expected.push(Ok(AIServerResponse::Del(1)));
+    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([]))));
+
+    let mut reader = BufReader::new(second_stream);
+    query_server_assert_result(&mut reader, message, expected).await
 }
