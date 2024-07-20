@@ -1,6 +1,6 @@
 import typing
 
-from ahnlich_client_py.client import AhnlichDBClient
+from ahnlich_client_py.clients import AhnlichDBClient
 from ahnlich_client_py.internals import db_query, db_response
 from ahnlich_client_py.libs import create_store_key
 

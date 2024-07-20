@@ -1,4 +1,4 @@
-from ahnlich_client_py import client
+from ahnlich_client_py import clients
 from ahnlich_client_py.internals import db_response
 
 
@@ -27,7 +27,7 @@ def test_client_sends_info_server_to_db_success(db_client):
 
 def test_client_sends_list_stores_to_fresh_database_succeeds(spin_up_ahnlich_db):
     port = spin_up_ahnlich_db
-    db_client = client.AhnlichDBClient(address="127.0.0.1", port=port)
+    db_client = clients.AhnlichDBClient(address="127.0.0.1", port=port)
     try:
         response: db_response.ServerResult = db_client.list_stores()
     finally:
@@ -39,7 +39,7 @@ def test_client_sends_list_stores_to_fresh_database_succeeds(spin_up_ahnlich_db)
 
 def test_client_works_using_protocol_in_context(spin_up_ahnlich_db):
     port = spin_up_ahnlich_db
-    with client.AhnlichDBClient(address="127.0.0.1", port=port) as db_client:
+    with clients.AhnlichDBClient(address="127.0.0.1", port=port) as db_client:
         response: db_response.ServerResult = db_client.list_stores()
     assert response.results[0] == db_response.Result__Ok(
         db_response.ServerResponse__StoreList([])

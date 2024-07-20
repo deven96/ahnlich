@@ -7,7 +7,7 @@ import time
 
 import pytest
 
-from ahnlich_client_py import client, config, db_query
+from ahnlich_client_py import clients, config, db_query
 from ahnlich_client_py.libs import create_store_key
 
 
@@ -23,7 +23,7 @@ def db_client():
     host = os.environ.get("AHNLICH_DB_HOST", "127.0.0.1")
     port = int(os.environ.get("AHNLICH_DB_PORT", 1369))
     timeout_sec = float(os.environ.get("AHNLICH_DB_CLIENT_TIMEOUT", 5.0))
-    conn = client.AhnlichDBClient(
+    conn = clients.AhnlichDBClient(
         address=host, port=port, connect_timeout_sec=timeout_sec
     )
     yield conn
