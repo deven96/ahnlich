@@ -1,7 +1,5 @@
 import typing
 
-import numpy as np
-
 from ahnlich_client_py import exceptions as ah_exceptions
 from ahnlich_client_py.internals import db_query
 from ahnlich_client_py.internals import serde_types as st
@@ -16,12 +14,15 @@ class AhnlichDBRequestBuilder:
         self,
         store_name: str,
         dimension: st.uint64,
-        create_predicates: typing.Sequence[str] = [],
-        non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = [],
+        create_predicates: typing.Sequence[str] = None,
+        non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = None,
         error_if_exists: bool = True,
     ):
+
         if not create_predicates:
             create_predicates = []
+        if not non_linear_indices:
+            non_linear_indices = []
 
         non_zero = NonZeroSizeInteger(num=dimension)
         self.queries.append(

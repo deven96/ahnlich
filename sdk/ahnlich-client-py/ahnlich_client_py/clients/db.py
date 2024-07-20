@@ -113,12 +113,11 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         dimension: st.uint64,
-        create_predicates: typing.Sequence[str] = [],
-        non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = [],
+        create_predicates: typing.Sequence[str] = None,
+        non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = None,
         error_if_exists: bool = True,
     ) -> db_response.ServerResult:
-        if not create_predicates:
-            create_predicates = []
+
         self.builder.create_store(
             store_name=store_name,
             dimension=dimension,
