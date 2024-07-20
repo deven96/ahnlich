@@ -295,12 +295,19 @@ class ServerType:
 
 
 @dataclass(frozen=True)
+class ServerType__Database(ServerType):
+    INDEX = 0  # type: int
+    pass
+
+
+@dataclass(frozen=True)
 class ServerType__AI(ServerType):
     INDEX = 1  # type: int
     pass
 
 
 ServerType.VARIANTS = [
+    ServerType__Database,
     ServerType__AI,
 ]
 
