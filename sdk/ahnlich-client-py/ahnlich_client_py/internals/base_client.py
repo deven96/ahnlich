@@ -7,7 +7,7 @@ from generic_connection_pool.contrib.socket import TcpSocketConnectionManager
 from generic_connection_pool.exceptions import ConnectionPoolClosedError
 from generic_connection_pool.threading import ConnectionPool
 
-from ahnlich_client_py.config import AhnlichDBPoolSettings
+from ahnlich_client_py.config import AhnlichPoolSettings
 from ahnlich_client_py.exceptions import AhnlichClientException
 from ahnlich_client_py.internals import (
     ai_query,
@@ -25,7 +25,7 @@ class BaseClient:
         address: str,
         port: int,
         connect_timeout_sec: float = 5.0,
-        pool_settings: AhnlichDBPoolSettings = AhnlichDBPoolSettings(),
+        pool_settings: AhnlichPoolSettings = AhnlichPoolSettings(),
     ) -> None:
         if address is None or port is None:
             raise AhnlichClientException("Address and port must be provided")
@@ -43,7 +43,7 @@ class BaseClient:
     def __exit__(self, *exc):
         self.cleanup()
 
-    def create_connection_pool(self, settings: AhnlichDBPoolSettings) -> ConnectionPool:
+    def create_connection_pool(self, settings: AhnlichPoolSettings) -> ConnectionPool:
         return ConnectionPool(
             connection_manager=TcpSocketConnectionManager(),
             idle_timeout=settings.idle_timeout,
