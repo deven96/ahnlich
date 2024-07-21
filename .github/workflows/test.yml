@@ -88,26 +88,6 @@ jobs:
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: ahnlich
-
-    - name: Run Ahnlich DB Server 
-      working-directory: ./ahnlich
-      run: |
-        cargo run --bin ahnlich-db run --port 1349 &
-        echo $! > server_pid.txt
-
-    - name: Run Ahnlich AI Proxy Server 
-      working-directory: ./ahnlich
-      run: |
-        cargo run --bin ai start --port 8000 &
-        echo $! > aiserver_pid.txt
-    
-
-    - name: Wait for Ahnlich DB to be ready
-      working-directory: ./ahnlich
-      run: |
-        chmod +x wait-for-it.sh  
-        ./wait-for-it.sh localhost 1349 -t 30
-        ./wait-for-it.sh localhost 8000 -t 30
     
     - name: Run Python Client Tests
       working-directory: ./sdk/ahnlich-client-py
@@ -126,11 +106,6 @@ jobs:
         name: python
         path: sdk/ahnlich-client-py/python.xml
 
-    - name: Stop Ahnlich DB and AI Server
-      working-directory: ./ahnlich
-      run: |
-        kill $(cat server_pid.txt)
-        kill $(cat aiserver_pid.txt)
 
 
   upload-test-results:

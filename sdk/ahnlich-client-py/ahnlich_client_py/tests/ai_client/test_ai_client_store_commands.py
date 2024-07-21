@@ -1,5 +1,3 @@
-import typing
-
 from ahnlich_client_py.clients import AhnlichAIClient
 from ahnlich_client_py.internals import ai_query, ai_response
 
@@ -201,5 +199,32 @@ def test_ai_client_del_key(spin_up_ahnlich_ai):
         )
         assert str(expected) == str(response)
 
+    finally:
+        ai_client.cleanup()
+
+
+def test_ai_client_drop_store_succeeds(spin_up_ahnlich_ai):
+    port = spin_up_ahnlich_ai
+
+    ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+    try:
+        builder = ai_client.pipeline()
+        builder.create_store(**ai_store_payload_no_predicates)
+        builder.create_store(**ai_store_payload_with_predicates)
+        builder.list_stores()
+        _ = ai_client.exec()
+
+        response = ai_client.drop_store(
+            store_name=ai_store_payload_with_predicates["store_name"],
+            error_if_not_exists=True,
+        )
+
+        expected = ai_response.AIServerResult(
+            results=[
+                ai_response.Result__Ok(ai_response.AIServerResponse__Del(1)),
+            ]
+        )
+        assert str(response) == str(expected)
     finally:
         ai_client.cleanup()
