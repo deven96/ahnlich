@@ -136,6 +136,9 @@
   },
   "AIStoreType": {
     "ENUM": {
+      "0": {
+        "RawString": "UNIT"
+      },
       "1": {
         "Binary": "UNIT"
       }
