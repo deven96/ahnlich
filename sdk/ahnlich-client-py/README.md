@@ -549,7 +549,7 @@ Replace the contents of `MSG_TAG` file with your new tag message
 
 From Feature branch, either use the makefile :
 ```bash
-make bump-python-version [major, minor, patch] 
+make bump-py-client BUMP_RULE=[major, minor, patch] 
 ```
 or
 ```bash
@@ -612,6 +612,6 @@ condition = query.PredicateCondition__AND(
 | -------|:-------------:|
 | 0.1.0 | Base Python client to connect to ahnlich db. Bincode serialization and deserialization implemented |
 | 0.2.0 |  Add Connection pooling  mechanism for `AhnlichDBClient` |
-| |       |
+| 0.3.0|     Add AIProxy client: `AhnlichDBClient`  |
 
 
