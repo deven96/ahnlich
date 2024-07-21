@@ -104,7 +104,6 @@ def test_ai_client_create_pred_index(spin_up_ahnlich_ai):
         builder.create_store(**ai_store_payload_no_predicates)
         builder.list_stores()
         response = ai_client.exec()
-        print(response)
         response = ai_client.create_pred_index(
             ai_store_payload_no_predicates["store_name"],
             predicates=["super_sales"],
@@ -130,7 +129,6 @@ def test_ai_client_drop_pred_index(spin_up_ahnlich_ai):
         builder.create_store(**ai_store_payload_no_predicates)
         builder.list_stores()
         response = ai_client.exec()
-        print(response)
         response = ai_client.create_pred_index(
             ai_store_payload_no_predicates["store_name"],
             predicates=["super_sales", "testing", "no mass"],
