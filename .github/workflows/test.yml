@@ -83,11 +83,6 @@ jobs:
       run: |
         poetry run isort . -c --profile black; echo $?
         poetry run black . --check; echo $?
-      
-    - name: Set up Rust cache
-      uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: ahnlich
     
     - name: Run Python Client Tests
       working-directory: ./sdk/ahnlich-client-py
