@@ -37,6 +37,9 @@ class BaseClient:
             sock_timeout_sec=connect_timeout_sec
         )
 
+    def __del__(self):
+        self.cleanup()
+
     def __enter__(self):
         return self
 
