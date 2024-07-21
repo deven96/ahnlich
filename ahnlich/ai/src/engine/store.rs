@@ -192,7 +192,7 @@ impl AIStoreHandler {
 
     /// Matches DestroyDatabase - Drops all the stores in the database
     #[tracing::instrument(skip(self))]
-    pub(crate) fn destory_database(&self) -> usize {
+    pub(crate) fn purge_stores(&self) -> usize {
         let store_length = self.stores.pin().len();
         let guard = self.stores.guard();
         self.stores.clear(&guard);

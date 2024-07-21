@@ -174,7 +174,7 @@
         "ListStores": "UNIT"
       },
       "10": {
-        "DestoryDatabase": "UNIT"
+        "PurgeStores": "UNIT"
       },
       "11": {
         "Ping": "UNIT"

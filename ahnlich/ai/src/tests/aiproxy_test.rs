@@ -563,7 +563,7 @@ async fn test_ai_proxy_destroy_database() {
             non_linear_indices: HashSet::new(),
         },
         AIQuery::ListStores,
-        AIQuery::DestoryDatabase,
+        AIQuery::PurgeStores,
         AIQuery::ListStores,
     ]);
     let mut expected = AIServerResult::with_capacity(4);

@@ -52,7 +52,7 @@ pub enum AIQuery {
     },
     InfoServer,
     ListStores,
-    DestoryDatabase,
+    PurgeStores,
     Ping,
 }
 
