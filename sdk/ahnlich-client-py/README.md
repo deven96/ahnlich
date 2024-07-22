@@ -16,7 +16,7 @@ The following topics are covered:
     * [Client](#client)
 
 * [Connection Pooling](#connection-pooling)
-* [Requests](#requests)
+* [Requests - DB](#requests---db)
     * [Ping](#ping)
     * [Info Server](#info-server)
     * [List Connected Clients](#list-connected-clients)
@@ -24,12 +24,27 @@ The following topics are covered:
     * [Create Store](#create-store)
     * [Set](#set)
     * [Drop Store](#drop-store)
+    * [Get Sim N](#get-sim-n)
     * [Get Key](#get-key)
     * [Get By Predicate](#get-by-predicate)
     * [Create Predicate Index](#create-predicate-index)
     * [Drop Predicate Index](#drop-predicate-index)
     * [Delete Key](#delete-key)
     * [Delete Predicate](#delete-predicate)
+
+* [Requests - AI](#requests---ai)
+    * [Ping](#ping-1)
+    * [Info Server](#info-server-1)
+    * [List Stores](#list-stores-1)
+    * [Create Store](#create-store-1)
+    * [Set](#set-1)
+    * [Drop Store](#drop-store-1)
+    * [Get Sim N](#get-sim-n-1)
+    * [Get By Predicate](#get-by-predicate-1)
+    * [Create Predicate Index](#create-predicate-index-1)
+    * [Drop Predicate Index](#drop-predicate-index-1)
+    * [Delete Key](#delete-key-1)
+
 * [Bulk Requests](#bulk-requests)
 * [Client As Context Manager](#client-as-context-manager)
 * [How to Deploy to Artifactory](#deploy-to-artifactory)
@@ -109,7 +124,7 @@ Where:
 
 - **dispose_batch_size**: maximum number of expired and idle connections to be disposed on connection release (if background collector is started the parameter is ignored).
 
-## Requests
+## Requests - DB
 
 ### Ping
 
@@ -315,9 +330,185 @@ response = client.delete_predicate(
 ```
 
 
+## Requests - AI
+
+
+### Ping
+
+```py
+from ahnlich_client_py import AhnlichAIClient
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+response = client.ping()
+```
+
+###  Info Server
+
+```py
+from ahnlich_client_py import AhnlichAIClient
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+response = client.info_server()
+```
+
+###  List Stores
+
+```py
+from ahnlich_client_py import AhnlichAIClient
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+response = client.list_stores()
+```
+
+###  Create Store
+
+```py
+from ahnlich_client_py import AhnlichAIClient
+from ahnlich_client_py.internals import ai_query
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+response = client.create_store(
+    store_name = "test store",
+    model = ai_query.AIModel__Llama3(),
+    store_type = ai_query.AIStoreType__RawString(),
+    predicates = [
+        "job"
+    ],
+    non_linear_indices= []
+)
+
+```
+
+
+### Set
+```py
+
+from ahnlich_client_py import AhnlichAIClient
+from ahnlich_client_py.internals import ai_query
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+store_inputs = [
+        (
+            ai_query.StoreInput__RawString("Jordan One"),
+            {"brand": ai_query.MetadataValue__RawString("Nike")},
+        ),
+        (
+            ai_query.StoreInput__RawString("Yeezey"),
+            {"brand": ai_query.MetadataValue__RawString("Adidas")},
+        ),
+    ]
+
+
+response = client.set(
+    store_name = "test store",
+    inputs=store_inputs
+)
+```
+
+
+### Drop store
+```py
+from ahnlich_client_py import AhnlichAIClient
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+response = client.drop_store(
+    store_name = "test store",
+    error_if_not_exists=True
+)
+
+
+```
+
+
+### Get Sim N
+Returns an array of tuple of (store_key, store_value) of Maximum specified N
+
+```py
+from ahnlich_client_py import AhnlichAIClient
+from ahnlich_client_py.internals import ai_query
+
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+
+search_input = ai_query.StoreInput__RawString("Jordan")
+
+response = client.get_sim_n(
+    store_name = "test store",
+    search_input = search_input,
+    closest_n = 3,
+    algorithm = query.Algorithm__CosineSimilarity(),
+    condition = None
+)
+```
+<u>*Closest_n is a Nonzero integer value*</u>
+
+
+### Get By Predicate
+Same as Get_key but returns results based defined conditions
+
+```py
+from ahnlich_client_py import AhnlichAIClient
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+condition = query.PredicateCondition__Value(
+                query.Predicate__Equals(
+                    key="brand",
+                    value=query.MetadataValue__RawString(value="Nike")
+                )
+            )
+response = client.get_by_predicate(
+    store_name = "test store",
+    condition=conditon
+)
+```
+
+### Create Predicate Index
+```py
+from ahnlich_client_py import AhnlichAIClient
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+response = client.create_pred_index(
+    store_name = "test store",
+    predicates=["job", "rank"]
+)
+```
+
+### Drop Predicate Index
+```py
+from ahnlich_client_py import AhnlichAIClient
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+response = client.drop_pred_index(
+    store_name = "test store",
+    predicates=["job"],
+    error_if_not_exists=True
+)
+```
+
+
+
+### Delete Key
+```py
+
+from ahnlich_client_py import AhnlichAIClient
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+
+
+key = ai_query.StoreInput__RawString("Custom Made Jordan 4")
+
+
+response = client.delete_key(
+    store_name = "test store",
+    keys=[key]
+)
+```
+
+
+
 
 ## Bulk Requests
-The client has the ability to send multiple requests at once, and these requests will be handled sequentially. The builder class takes care of this. The response is a list of all individual request responses.
+The clients has the ability to send multiple requests at once, and these requests will be handled sequentially. The builder class takes care of this. The response is a list of all individual request responses.
 
 
 ```py
@@ -332,12 +523,12 @@ request_builder.list_stores()
 
 response: server_response.ServerResult = client.exec()
 ```
-
+*Sample applies to the AIclient*
 
 
 ## Client As Context Manager
 
-The DB client class can be used as a context manager hereby closing the connection pool automatically upon context end.
+The DB and AI client class can be used as a context manager hereby closing the connection pool automatically upon context end.
 
 
 ```py
@@ -358,7 +549,7 @@ Replace the contents of `MSG_TAG` file with your new tag message
 
 From Feature branch, either use the makefile :
 ```bash
-make bump-python-version [major, minor, patch] 
+make bump-py-client BUMP_RULE=[major, minor, patch] 
 ```
 or
 ```bash
@@ -410,7 +601,10 @@ condition = query.PredicateCondition__AND(
 
 ```
 
+- Search Input: A string or binary file that can be stored by the aiproxy. Note, the binary file depends on the supported models used in a store or supported by Ahnlich AI
 
+- AIModels: Supported AI models used by ahnlich ai
+- AIStoreType: A type of store to be created. Either a Binary or String
 
 ## Change Log
 
@@ -418,6 +612,6 @@ condition = query.PredicateCondition__AND(
 | -------|:-------------:|
 | 0.1.0 | Base Python client to connect to ahnlich db. Bincode serialization and deserialization implemented |
 | 0.2.0 |  Add Connection pooling  mechanism for `AhnlichDBClient` |
-| |       |
+| 0.3.0|     Add AIProxy client: `AhnlichDBClient`  |
 
 

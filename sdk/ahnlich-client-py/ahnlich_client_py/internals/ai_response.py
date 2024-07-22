@@ -171,12 +171,19 @@ class AIStoreType:
 
 
 @dataclass(frozen=True)
+class AIStoreType__RawString(AIStoreType):
+    INDEX = 0  # type: int
+    pass
+
+
+@dataclass(frozen=True)
 class AIStoreType__Binary(AIStoreType):
     INDEX = 1  # type: int
     pass
 
 
 AIStoreType.VARIANTS = [
+    AIStoreType__RawString,
     AIStoreType__Binary,
 ]
 
@@ -295,12 +302,19 @@ class ServerType:
 
 
 @dataclass(frozen=True)
+class ServerType__Database(ServerType):
+    INDEX = 0  # type: int
+    pass
+
+
+@dataclass(frozen=True)
 class ServerType__AI(ServerType):
     INDEX = 1  # type: int
     pass
 
 
 ServerType.VARIANTS = [
+    ServerType__Database,
     ServerType__AI,
 ]
 

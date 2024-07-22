@@ -134,6 +134,9 @@ pub fn trace_ai_query_enum() -> Registry {
     tracer
         .trace_simple_type::<Algorithm>()
         .expect("Error tracing Algorithm");
+    tracer
+        .trace_simple_type::<AIStoreType>()
+        .expect("Error tracing AIStoretype");
 
     tracer
         .trace_simple_type::<NonLinearAlgorithm>()

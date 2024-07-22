@@ -197,6 +197,9 @@
     "ENUM": {
       "0": {
         "Database": "UNIT"
+      },
+      "1": {
+        "AI": "UNIT"
       }
     }
   },

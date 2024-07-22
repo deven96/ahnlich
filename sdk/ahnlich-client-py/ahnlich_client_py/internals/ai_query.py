@@ -178,8 +178,15 @@ class AIStoreType__RawString(AIStoreType):
     pass
 
 
+@dataclass(frozen=True)
+class AIStoreType__Binary(AIStoreType):
+    INDEX = 1  # type: int
+    pass
+
+
 AIStoreType.VARIANTS = [
     AIStoreType__RawString,
+    AIStoreType__Binary,
 ]
 
 

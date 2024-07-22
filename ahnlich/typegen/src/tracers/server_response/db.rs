@@ -119,6 +119,10 @@ pub fn trace_db_server_response_enum() -> Registry {
         .trace_type::<MetadataValue>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
+    let _ = tracer
+        .trace_type::<ServerType>(&samples)
+        .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
+        .unwrap();
 
     tracer
         .registry()
