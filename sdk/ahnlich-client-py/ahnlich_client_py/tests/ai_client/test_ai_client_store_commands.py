@@ -228,3 +228,26 @@ def test_ai_client_drop_store_succeeds(spin_up_ahnlich_ai):
         assert str(response) == str(expected)
     finally:
         ai_client.cleanup()
+
+
+def test_ai_client_purge_stores_succeeds(spin_up_ahnlich_ai):
+    port = spin_up_ahnlich_ai
+
+    ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+    try:
+        builder = ai_client.pipeline()
+        builder.create_store(**ai_store_payload_no_predicates)
+        builder.create_store(**ai_store_payload_with_predicates)
+        builder.list_stores()
+        _ = ai_client.exec()
+
+        response = ai_client.purge_stores()
+        expected = ai_response.AIServerResult(
+            results=[
+                ai_response.Result__Ok(ai_response.AIServerResponse__Del(2)),
+            ]
+        )
+        assert str(response) == str(expected)
+    finally:
+        ai_client.cleanup()

@@ -98,6 +98,9 @@ class AhnlichAIRequestBuilder:
             )
         )
 
+    def purge_stores(self):
+        self.queries.append(ai_query.AIQuery__PurgeStores())
+
     def info_server(self):
         self.queries.append(ai_query.AIQuery__InfoServer())
 

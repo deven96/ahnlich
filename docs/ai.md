@@ -21,3 +21,4 @@ Here is a rudimentary list of commands for the AI proxy to accept
 - `LISTSTORES`: List all the stores on the server. It also returns information like store length/size, embedding size, AI model, e.t.c.
 - `PING`: Test server if the server is reachable
 - `DROPSTORE`: takes in a store and deletes it. Destroys everything pertaining the store
+- `PURGESTORES`: Destroys all created stores.
