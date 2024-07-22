@@ -285,6 +285,10 @@ impl AhnlichProtocol for AIProxyTask {
                         );
                     }
                 }
+                AIQuery::PurgeStores => {
+                    let destoryed = self.store_handler.purge_stores();
+                    Ok(AIServerResponse::Del(destoryed))
+                }
             })
         }
         result

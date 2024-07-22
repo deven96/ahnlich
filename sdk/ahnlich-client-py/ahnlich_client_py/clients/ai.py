@@ -106,6 +106,10 @@ class AhnlichAIClient(BaseClient):
         )
         return self.process_request(self.builder.to_server_query())
 
+    def purge_stores(self):
+        self.builder.purge_stores()
+        return self.process_request(self.builder.to_server_query())
+
     def info_server(self):
         self.builder.info_server()
         return self.process_request(self.builder.to_server_query())

@@ -508,7 +508,7 @@ response = client.delete_key(
 
 
 ## Bulk Requests
-The clients has the ability to send multiple requests at once, and these requests will be handled sequentially. The builder class takes care of this. The response is a list of all individual request responses.
+Clients have the ability to send multiple requests at once, and these requests will be handled sequentially. The builder class takes care of this. The response is a list of all individual request responses.
 
 
 ```py

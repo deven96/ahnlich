@@ -123,8 +123,14 @@ class AIQuery__ListStores(AIQuery):
 
 
 @dataclass(frozen=True)
-class AIQuery__Ping(AIQuery):
+class AIQuery__PurgeStores(AIQuery):
     INDEX = 10  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIQuery__Ping(AIQuery):
+    INDEX = 11  # type: int
     pass
 
 
@@ -139,6 +145,7 @@ AIQuery.VARIANTS = [
     AIQuery__DropStore,
     AIQuery__InfoServer,
     AIQuery__ListStores,
+    AIQuery__PurgeStores,
     AIQuery__Ping,
 ]
 

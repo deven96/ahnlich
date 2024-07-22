@@ -15,6 +15,7 @@ use serde::Serialize;
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
 /// Contains all the stores that have been created in memory
@@ -34,6 +35,24 @@ impl AIStoreHandler {
             write_flag,
         }
     }
+    pub(crate) fn get_stores(&self) -> AIStores {
+        self.stores.clone()
+    }
+
+    #[cfg(test)]
+    pub fn write_flag(&self) -> Arc<AtomicBool> {
+        self.write_flag.clone()
+    }
+
+    fn set_write_flag(&self) {
+        let _ = self
+            .write_flag
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst);
+    }
+
+    pub(crate) fn use_snapshot(&mut self, stores_snapshot: AIStores) {
+        self.stores = stores_snapshot;
+    }
 
     #[tracing::instrument(skip(self))]
     pub(crate) fn create_store(
@@ -42,7 +61,8 @@ impl AIStoreHandler {
         store_type: AIStoreType,
         model: AIModel,
     ) -> Result<(), AIProxyError> {
-        self.stores
+        if self
+            .stores
             .try_insert(
                 store_name.clone(),
                 Arc::new(AIStore::create(
@@ -52,8 +72,11 @@ impl AIStoreHandler {
                 )),
                 &self.stores.guard(),
             )
-            .map_err(|_| AIProxyError::StoreAlreadyExists(store_name.clone()))?;
-
+            .is_err()
+        {
+            return Err(AIProxyError::StoreAlreadyExists(store_name.clone()));
+        }
+        self.set_write_flag();
         Ok(())
     }
 
@@ -161,10 +184,19 @@ impl AIStoreHandler {
         let removed = if !removed {
             0
         } else {
-            //self.set_write_flag();
+            self.set_write_flag();
             1
         };
         Ok(removed)
+    }
+
+    /// Matches DestroyDatabase - Drops all the stores in the database
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn purge_stores(&self) -> usize {
+        let store_length = self.stores.pin().len();
+        let guard = self.stores.guard();
+        self.stores.clear(&guard);
+        store_length
     }
 }
 
