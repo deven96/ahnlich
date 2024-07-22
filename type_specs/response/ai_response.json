@@ -136,6 +136,9 @@
   },
   "AIStoreType": {
     "ENUM": {
+      "0": {
+        "RawString": "UNIT"
+      },
       "1": {
         "Binary": "UNIT"
       }
@@ -210,6 +213,9 @@
   },
   "ServerType": {
     "ENUM": {
+      "0": {
+        "Database": "UNIT"
+      },
       "1": {
         "AI": "UNIT"
       }

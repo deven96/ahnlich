@@ -1,2 +1,124 @@
+import typing
+
+from ahnlich_client_py import exceptions as ah_exceptions
+from ahnlich_client_py.internals import ai_query
+from ahnlich_client_py.internals import serde_types as st
+from ahnlich_client_py.libs import NonZeroSizeInteger
+
+
 class AhnlichAIRequestBuilder:
-    pass
+    def __init__(self) -> None:
+        self.queries: typing.List[ai_query.AIQuery] = []
+
+    def create_store(
+        self,
+        store_name: str,
+        store_type: ai_query.AIStoreType,
+        model: ai_query.AIModel,
+        predicates: typing.Sequence[str] = None,
+        non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
+    ):
+
+        if not non_linear_indices:
+            non_linear_indices = []
+        if not predicates:
+            predicates = []
+
+        self.queries.append(
+            ai_query.AIQuery__CreateStore(
+                type=store_type,
+                store=store_name,
+                model=model,
+                predicates=predicates,
+                non_linear_indices=non_linear_indices,
+            )
+        )
+
+    def get_pred(self, store_name: str, condition: ai_query.PredicateCondition):
+        self.queries.append(
+            ai_query.AIQuery__GetPred(store=store_name, condition=condition)
+        )
+
+    def get_sim_n(
+        self,
+        store_name: str,
+        search_input: ai_query.StoreInput,
+        closest_n: st.uint64,
+        algorithm: ai_query.Algorithm,
+        condition: typing.Optional[ai_query.PredicateCondition] = None,
+    ):
+        nonzero_n = NonZeroSizeInteger(closest_n)
+        self.queries.append(
+            ai_query.AIQuery__GetSimN(
+                store=store_name,
+                search_input=search_input,
+                closest_n=nonzero_n.value,
+                algorithm=algorithm,
+                condition=condition,
+            )
+        )
+
+    def create_pred_index(self, store_name: str, predicates: typing.Sequence[str]):
+
+        self.queries.append(
+            ai_query.AIQuery__CreatePredIndex(store=store_name, predicates=predicates)
+        )
+
+    def drop_pred_index(
+        self,
+        store_name: str,
+        predicates: typing.Sequence[str],
+        error_if_not_exists: bool,
+    ):
+
+        self.queries.append(
+            ai_query.AIQuery__DropPredIndex(
+                store=store_name,
+                predicates=predicates,
+                error_if_not_exists=error_if_not_exists,
+            )
+        )
+
+    def set(
+        self,
+        store_name: str,
+        inputs: typing.Sequence[
+            typing.Tuple[ai_query.StoreInput, typing.Dict[str, ai_query.MetadataValue]]
+        ],
+    ):
+        self.queries.append(ai_query.AIQuery__Set(store=store_name, inputs=inputs))
+
+    def del_key(self, store_name: str, key: ai_query.StoreInput):
+        self.queries.append(ai_query.AIQuery__DelKey(store=store_name, key=key))
+
+    def drop_store(self, store_name: str, error_if_not_exists: bool):
+        self.queries.append(
+            ai_query.AIQuery__DropStore(
+                store=store_name, error_if_not_exists=error_if_not_exists
+            )
+        )
+
+    def info_server(self):
+        self.queries.append(ai_query.AIQuery__InfoServer())
+
+    def list_stores(self):
+        self.queries.append(ai_query.AIQuery__ListStores())
+
+    def ping(self):
+
+        self.queries.append(ai_query.AIQuery__Ping())
+
+    def drop(self):
+        self.queries.clear()
+
+    def to_server_query(self) -> ai_query.AIServerQuery:
+        if not self.queries:
+            raise ah_exceptions.AhnlichClientException(
+                "Must have atleast one ai request to be processed"
+            )
+        # not optimal, but so far, recreating the list and dropping the internal store.
+        # seems straight forward
+        queries = self.queries[:]
+        server_query = ai_query.AIServerQuery(queries=queries)
+        self.drop()
+        return server_query

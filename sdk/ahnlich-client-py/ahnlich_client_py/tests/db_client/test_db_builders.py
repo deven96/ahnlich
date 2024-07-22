@@ -1,10 +1,10 @@
-from ahnlich_client_py import client
+from ahnlich_client_py import clients
 from ahnlich_client_py.internals import db_response
 
 
 def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
     port = spin_up_ahnlich_db
-    db_client = client.AhnlichDBClient(address="127.0.0.1", port=port)
+    db_client = clients.AhnlichDBClient(address="127.0.0.1", port=port)
     request_builder = db_client.pipeline()
     request_builder.ping()
     request_builder.info_server()

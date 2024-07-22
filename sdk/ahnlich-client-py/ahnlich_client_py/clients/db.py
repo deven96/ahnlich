@@ -1,7 +1,7 @@
 import typing
 
 from ahnlich_client_py import builders
-from ahnlich_client_py.config import AhnlichDBPoolSettings
+from ahnlich_client_py.config import AhnlichPoolSettings
 from ahnlich_client_py.internals import db_query, db_response
 from ahnlich_client_py.internals import serde_types as st
 from ahnlich_client_py.internals.base_client import BaseClient
@@ -15,7 +15,7 @@ class AhnlichDBClient(BaseClient):
         address: str,
         port: int,
         connect_timeout_sec: float = 5.0,
-        pool_settings: AhnlichDBPoolSettings = AhnlichDBPoolSettings(),
+        pool_settings: AhnlichPoolSettings = AhnlichPoolSettings(),
     ) -> None:
 
         super().__init__(
@@ -113,12 +113,11 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         dimension: st.uint64,
-        create_predicates: typing.Sequence[str] = [],
-        non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = [],
+        create_predicates: typing.Sequence[str] = None,
+        non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = None,
         error_if_exists: bool = True,
     ) -> db_response.ServerResult:
-        if not create_predicates:
-            create_predicates = []
+
         self.builder.create_store(
             store_name=store_name,
             dimension=dimension,

@@ -120,6 +120,13 @@ pub fn trace_ai_server_response_enum() -> Registry {
         .trace_type::<MetadataValue>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
+    let _ = tracer
+        .trace_type::<ServerType>(&samples)
+        .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
+        .unwrap();
+    tracer
+        .trace_simple_type::<AIStoreType>()
+        .expect("Error tracing AIStoretype");
 
     tracer
         .registry()
