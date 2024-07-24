@@ -102,7 +102,7 @@ impl<'a> Server<'a> {
                     self.shutdown().await;
                     break Ok(());
                 }
-                Ok((stream, connect_addr)) = self.listener.accept() => {
+                Ok((stream, connect_addr)) = self.accept_connection() => {
                     tracing::info!("Connecting to {}", connect_addr);
                     //  - Spawn a tokio task to handle the command while holding on to a reference to self
                     //  - Convert the incoming bincode in a chunked manner to a Vec<DBQuery>
@@ -140,6 +140,16 @@ impl<'a> Server<'a> {
 
     pub fn local_addr(&self) -> IoResult<SocketAddr> {
         self.listener.local_addr()
+    }
+
+    pub async fn accept_connection(&self) -> IoResult<(TcpStream, SocketAddr)> {
+        if !self.client_handler.is_maxed_out() {
+            return self.listener.accept().await;
+        }
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "maximum clients exhausted",
+        ))
     }
 
     fn create_task(
