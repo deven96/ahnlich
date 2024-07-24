@@ -46,3 +46,26 @@ func ParseDBResponse(serverResult *dbResponse.ServerResult) ([]AhnlichDBResponse
 	}
 	return serverResponse, nil
 }
+
+// Create a DB response array type from a slice of float32
+func MakeDBResponseArrayType(data []float32, v uint8) dbResponse.Array {
+	data32 := make([]float32, len(data))
+	for i, d := range data {
+		data32[i] = float32(d)
+	}
+	dimensions := struct{ Field0 uint64 }{Field0: uint64(len(data))}
+	return dbResponse.Array{
+		V:    v,
+		Dim:  dimensions,
+		Data: data32,
+	}
+}
+
+func MakeDBResponseMetaDataType(data map[string]string) map[string]dbResponse.MetadataValue {
+	metadata := make(map[string]dbResponse.MetadataValue)
+	for k, v := range data {
+		val := dbResponse.MetadataValue__RawString(v)
+		metadata[k] = &val
+	}
+	return metadata
+}

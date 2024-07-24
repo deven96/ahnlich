@@ -29,7 +29,6 @@ func newTestConnectionManager(t *testing.T, config ahnlichclientgo.ConnectionCon
 }
 
 func TestSingleConnection(t *testing.T) {
-	// Run the Ahnlich database
 	db := utils.RunAhnlichDatabase(t)
 	config := ahnlichclientgo.ConnectionConfig{
 		Host:                  db.Host,
@@ -62,7 +61,6 @@ func TestSingleConnection(t *testing.T) {
 }
 
 func TestMultipleConnections(t *testing.T) {
-	// Run the Ahnlich database
 	db := utils.RunAhnlichDatabase(t)
 	config := ahnlichclientgo.ConnectionConfig{
 		Host:                  db.Host,
@@ -105,4 +103,74 @@ func TestMultipleConnections(t *testing.T) {
 
 	cm.Refresh()
 	assert.Equal(t, cm.ActiveConnections(), config.InitialConnections)
+}
+
+func Test_IdleConnectionTimeout(t *testing.T) {
+	db := utils.RunAhnlichDatabase(t)
+	config := ahnlichclientgo.ConnectionConfig{
+		Host:                  db.Host,
+		Port:                  db.Port,
+		InitialConnections:    1,
+		MaxIdleConnections:    1,
+		MaxTotalConnections:   1,
+		ConnectionIdleTimeout: 5,
+		ReadTimeout:           5 * time.Second,
+		WriteTimeout:          5 * time.Second,
+	}
+	// Sequence of operations:
+	cm := newTestConnectionManager(t, config)
+	assert.Equal(t, cm.ActiveConnections(), config.InitialConnections)
+
+	conn, err := cm.GetConnection()
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+	assert.Equal(t, conn.RemoteAddr().String(), fmt.Sprintf("%s:%d", db.Host, db.Port))
+
+	// Sleep for duration seconds to trigger the timeout
+	time.Sleep((config.ConnectionIdleTimeout * time.Second) + (1 * time.Second))
+	_, err = conn.Write([]byte("Hello"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "timeout")
+}
+
+func Test_MaxTotalConnections(t *testing.T) {
+	db := utils.RunAhnlichDatabase(t)
+	config := ahnlichclientgo.ConnectionConfig{
+		Host:                  db.Host,
+		Port:                  db.Port,
+		InitialConnections:    1,
+		MaxIdleConnections:    1,
+		MaxTotalConnections:   1,
+		ConnectionIdleTimeout: 5,
+		ReadTimeout:           5 * time.Second,
+		WriteTimeout:          5 * time.Second,
+	}
+	// Sequence of operations:
+	cm := newTestConnectionManager(t, config)
+	assert.Equal(t, cm.ActiveConnections(), config.InitialConnections)
+
+	t.Log("Getting conn1 from the pool ...")
+	conn1, err := cm.GetConnection()
+	require.NoError(t, err)
+	require.NotNil(t, conn1)
+	assert.Equal(t, conn1.RemoteAddr().String(), fmt.Sprintf("%s:%d", db.Host, db.Port))
+	t.Log("Got conn1 from the pool")
+	countdownDuration := 3
+	// conn1 should be returned to the pool
+	go func() {
+		// Start the countdown
+		for i := countdownDuration; i >= 0; i-- {
+			t.Logf("Time remaining before conn1 is returned: %d seconds\n", i)
+			time.Sleep(1 * time.Second)
+		}
+		cm.Return(conn1)
+	}()
+
+	// conn2 should wait for countdownDuration for conn1 to be returned to the pool //
+	t.Log("Getting conn2 from the pool ...")
+	conn2, err := cm.GetConnection() // This should block for countdownDuration
+	require.NoError(t, err)
+	require.NotNil(t, conn2)
+	assert.Equal(t, conn2.RemoteAddr().String(), fmt.Sprintf("%s:%d", db.Host, db.Port))
+	t.Log("Got conn2 from the pool")
 }

@@ -73,6 +73,10 @@ func (ac *AhnlichDBClient) ExecutePipeline(pipeline *AhnlichDBQueryBuilder) ([]A
 	return ac.Execute()
 }
 
+func (ac *AhnlichDBClient) ConnectionInfo() *connectionInfo {
+	return ac.connectionInfo
+}
+
 func (ac *AhnlichDBClient) ServerInfo() ([]AhnlichDBResponse, error) {
 	ac.pipeline.BuildInfoServerQuery()
 	return ac.Execute()

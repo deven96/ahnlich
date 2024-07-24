@@ -24,21 +24,22 @@ func createConnectionPool(cfg ahnlichclientgo.ConnectionConfig) (pool.Pool, erro
 	} else if cfg.ServerAddress == "" {
 		cfg.ServerAddress = cfg.Host + ":" + fmt.Sprint(cfg.Port)
 	}
-	factory := func() (interface{}, error) {
-		return net.Dial("tcp", cfg.ServerAddress)
-	}
-
-	close := func(v interface{}) error {
-		return v.(net.Conn).Close()
-	}
 
 	p, err := pool.NewChannelPool(&pool.Config{
-		InitialCap:  cfg.InitialConnections,
-		MaxIdle:     cfg.MaxIdleConnections,
-		MaxCap:      cfg.MaxTotalConnections,
-		Factory:     factory,
-		Close:       close,
+		InitialCap: cfg.InitialConnections,
+		MaxIdle:    cfg.MaxIdleConnections,
+		MaxCap:     cfg.MaxTotalConnections,
+		Factory: func() (interface{}, error) {
+			return net.Dial("tcp", cfg.ServerAddress)
+		},
+		Close: func(v interface{}) error {
+			return v.(net.Conn).Close()
+		},
 		IdleTimeout: cfg.ConnectionIdleTimeout,
+		Ping: func(v interface{}) error {
+			_, err := v.(net.Conn).Write([]byte("PING\n"))
+			return err
+		},
 	})
 	if err != nil {
 		slog.Error("Unable to create connection pool", "error", err)

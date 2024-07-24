@@ -21,10 +21,25 @@ const (
 
 var header = []byte("AHNLICH;")
 
+type connectionInfo struct {
+	remoteAddr    string
+	localAddr     string
+	remoteNetwork string
+	localNetwork  string
+}
+
+func (ah *connectionInfo) update(conn net.Conn) {
+	ah.remoteAddr = conn.RemoteAddr().String()
+	ah.localAddr = conn.LocalAddr().String()
+	ah.remoteNetwork = conn.RemoteAddr().Network()
+	ah.localNetwork = conn.LocalAddr().Network()
+}
+
 type ahnlichProtocol struct {
 	connManager   *transport.ConnectionManager
 	version       dbResponse.Version
 	clientVersion dbResponse.Version
+	*connectionInfo
 }
 
 // NewAhnlichProtocol creates a new ahnlichProtocol
@@ -41,6 +56,7 @@ func newAhnlichProtocol(cm *transport.ConnectionManager) (*ahnlichProtocol, erro
 			Minor: versions.Protocol.Minor,
 			Patch: versions.Protocol.Patch,
 		},
+		connectionInfo: &connectionInfo{},
 		clientVersion: dbResponse.Version{
 			Major: versions.Client.Major,
 			Minor: versions.Client.Minor,
@@ -105,6 +121,7 @@ func (ap *ahnlichProtocol) send(conn net.Conn, serverQuery *dbQuery.ServerQuery)
 // Request sends data to the ahnlich server and receives a response using the protocol (Unary)
 func (ap *ahnlichProtocol) request(serverQuery *dbQuery.ServerQuery) (*dbResponse.ServerResult, error) {
 	conn, err := ap.connManager.GetConnection()
+	ap.connectionInfo.update(conn)
 	if err != nil {
 		// TODO: Ask: Should we close the connection here or just return the error?
 		// TODO: Implement a retry mechanism here or Refresh the connection pool
