@@ -2,131 +2,148 @@ package client
 
 import (
 	"errors"
+	"fmt"
+	"sync"
 
 	dbQuery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/internal/db_query"
 )
 
+// TODO: Add Validation to the queries to avoid nil pointers
+
 // AhnlichDBQueryBuilder builds queries based on input parameters
 type AhnlichDBQueryBuilder struct {
-	queries []dbQuery.Query //TODO: Make this a concurrent safe data structure
+	queries []dbQuery.Query
+	mu      *sync.Mutex // To Ensure FIFO order of queries in the pipeline
 }
 
 // NewAhnlichAhnlichQueryBuilder creates a new instance of AhnlichDBQueryBuilder
 func NewAhnlichDBQueryBuilder() *AhnlichDBQueryBuilder {
 	return &AhnlichDBQueryBuilder{
 		queries: make([]dbQuery.Query, 0),
+		mu:      &sync.Mutex{},
 	}
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildCreateStoreQuery(storeName string, dimension uint64, predicates []string, nonLinearAlgorithm []dbQuery.NonLinearAlgorithm, errorIfExist bool) *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__CreateStore{
+func (qb *AhnlichDBQueryBuilder) AddQuery(q dbQuery.Query) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic occurred when adding Query to query builder: %v", r) // Convert to AhnlichQueryBuilderException
+		}
+	}()
+	qb.mu.Lock()
+	defer qb.mu.Unlock()
+	qb.queries = append(qb.queries, q)
+	return nil
+}
+
+func (qb *AhnlichDBQueryBuilder) BuildCreateStoreQuery(storeName string, dimension uint64, predicates []string, nonLinearAlgorithm []dbQuery.NonLinearAlgorithm, errorIfExist bool) (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__CreateStore{
 		Store:            storeName,
 		Dimension:        dimension,
 		CreatePredicates: predicates,
 		NonLinearIndices: nonLinearAlgorithm,
 		ErrorIfExists:    errorIfExist,
 	})
-	return qb
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildGetByKeysQuery(storeName string, keys []dbQuery.Array) *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__GetKey{
+func (qb *AhnlichDBQueryBuilder) BuildGetByKeysQuery(storeName string, keys []dbQuery.Array) (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__GetKey{
 		Store: storeName,
 		Keys:  keys,
 	})
-	return qb
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildGetByPredicateQuery(storeName string, condition dbQuery.PredicateCondition) *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__GetPred{
+func (qb *AhnlichDBQueryBuilder) BuildGetByPredicateQuery(storeName string, condition dbQuery.PredicateCondition) (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__GetPred{
 		Store:     storeName,
 		Condition: condition,
 	})
-	return qb
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildGetBySimNQuery(storeName string, searchInput dbQuery.Array, closest_n uint64, algorithm dbQuery.Algorithm, condition *dbQuery.PredicateCondition) *AhnlichDBQueryBuilder {
-
-	qb.queries = append(qb.queries, &dbQuery.Query__GetSimN{
+func (qb *AhnlichDBQueryBuilder) BuildGetBySimNQuery(storeName string, searchInput dbQuery.Array, closest_n uint64, algorithm dbQuery.Algorithm, condition *dbQuery.PredicateCondition) (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__GetSimN{
 		Store:       storeName,
 		SearchInput: searchInput,
 		ClosestN:    closest_n,
 		Algorithm:   algorithm,
 		Condition:   condition,
 	})
-	return qb
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildDropPredicateIndexQuery(storeName string, predicates []string, errorIfNotExist bool) *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__DropPredIndex{
+func (qb *AhnlichDBQueryBuilder) BuildDropPredicateIndexQuery(storeName string, predicates []string, errorIfNotExist bool) (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__DropPredIndex{
 		Store:            storeName,
 		Predicates:       predicates,
 		ErrorIfNotExists: errorIfNotExist,
 	})
-	return qb
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildCreatePredicateIndexQuery(storeName string, predicates []string) *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__CreatePredIndex{
+func (qb *AhnlichDBQueryBuilder) BuildCreatePredicateIndexQuery(storeName string, predicates []string) (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__CreatePredIndex{
 		Store:      storeName,
 		Predicates: predicates,
 	})
-	return qb
+	return qb, err
 }
 
 func (qb *AhnlichDBQueryBuilder) BuildSetQuery(storeName string, inputs []struct {
 	Field0 dbQuery.Array
 	Field1 map[string]dbQuery.MetadataValue
-}) *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__Set{
+}) (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__Set{
 		Store:  storeName,
 		Inputs: inputs,
 	})
-	return qb
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildDeleteKeysQuery(storeName string, keys []dbQuery.Array) *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__DelKey{
+func (qb *AhnlichDBQueryBuilder) BuildDeleteKeysQuery(storeName string, keys []dbQuery.Array) (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__DelKey{
 		Store: storeName,
 		Keys:  keys,
 	})
-	return qb
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildDeletePredicateQuery(storeName string, condition dbQuery.PredicateCondition) *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__DelPred{
+func (qb *AhnlichDBQueryBuilder) BuildDeletePredicateQuery(storeName string, condition dbQuery.PredicateCondition) (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__DelPred{
 		Store:     storeName,
 		Condition: condition,
 	})
-	return qb
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildDropStoreQuery(storeName string, errorIfNotExist bool) *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__DropStore{
+func (qb *AhnlichDBQueryBuilder) BuildDropStoreQuery(storeName string, errorIfNotExist bool) (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__DropStore{
 		Store:            storeName,
 		ErrorIfNotExists: errorIfNotExist,
 	})
-	return qb
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildListStoresQuery() *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__ListStores{})
-	return qb
+func (qb *AhnlichDBQueryBuilder) BuildListStoresQuery() (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__ListStores{})
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildInfoServerQuery() *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__InfoServer{})
-	return qb
+func (qb *AhnlichDBQueryBuilder) BuildInfoServerQuery() (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__InfoServer{})
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildListClientsQuery() *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__ListClients{})
-	return qb
+func (qb *AhnlichDBQueryBuilder) BuildListClientsQuery() (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__ListClients{})
+	return qb, err
 }
 
-func (qb *AhnlichDBQueryBuilder) BuildPingQuery() *AhnlichDBQueryBuilder {
-	qb.queries = append(qb.queries, &dbQuery.Query__Ping{})
-	return qb
+func (qb *AhnlichDBQueryBuilder) BuildPingQuery() (*AhnlichDBQueryBuilder, error) {
+	err := qb.AddQuery(&dbQuery.Query__Ping{})
+	return qb, err
 }
 
 // Reset drops all the queries in the query builder

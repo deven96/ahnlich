@@ -39,6 +39,7 @@ type clientTestFixture struct {
 type ClientTestSuite struct {
 	client  *AhnlichDBClient
 	fixture clientTestFixture
+	db      *utils.AhnlichDBTestSuite
 }
 
 type testArgs struct {
@@ -58,20 +59,23 @@ func loadAndTestFixture(t *testing.T, client *AhnlichDBClient) clientTestFixture
 	stringValueJobPredicate := "job"
 	binaryValueImagePredicate := "image"
 	dropPredicate := "to_drop"
-	stringKeyRank := MakeDBQueryArrayType([]float32{1.0, 2.0, 3.0, 4.0, 5.0}, 1)
-	stringValueRank := MakeDBQueryMetaDataType(map[string]string{stringValueRankPredicate: "chunin"}) // String
-	stringKeyJob := MakeDBQueryArrayType([]float32{5.0, 3.0, 4.0, 3.9, 4.9}, 1)
-	stringValueJob := MakeDBQueryMetaDataType(map[string]string{stringValueJobPredicate: "scarvenger"}) // String
-	binaryKeyImage := MakeDBQueryArrayType([]float32{1.0, 4.0, 3.0, 3.9, 4.9}, 1)
-	binaryValueImage := MakeDBQueryMetaDataTypeBinary(map[string][]uint8{binaryValueImagePredicate: {2, 2, 3, 4, 5, 6, 7}}) // Binary
-	similaritySearchKey := MakeDBQueryArrayType([]float32{1.0, 2.0, 3.0, 3.9, 4.9}, 1)
+	stringRank := "chunin"
+	stringJob := "scarvenger"
 	storeName := "Golang Test Store"
 	storeNamePredicate := "GoLang Test Store with Predicate"
+	binaryImage := []uint8{2, 2, 3, 4, 5, 6, 7}
 	storeDimension := uint64(5)
 	storePredicates := []string{stringValueRankPredicate, stringValueJobPredicate, binaryValueImagePredicate, dropPredicate}
-	storeNonLinearAlgorithm := []dbQuery.NonLinearAlgorithm{}
 	storeErrorIfExists := true
 	storeErrorIfNotExists := true
+	stringKeyRank := MakeDBQueryArrayType([]float32{1.0, 2.0, 3.0, 4.0, 5.0}, 1)
+	stringValueRank := MakeDBQueryMetaDataType(map[string]string{stringValueRankPredicate: stringRank}) // String
+	stringKeyJob := MakeDBQueryArrayType([]float32{5.0, 3.0, 4.0, 3.9, 4.9}, 1)
+	stringValueJob := MakeDBQueryMetaDataType(map[string]string{stringValueJobPredicate: stringJob}) // String
+	binaryKeyImage := MakeDBQueryArrayType([]float32{1.0, 4.0, 3.0, 3.9, 4.9}, 1)
+	binaryValueImage := MakeDBQueryMetaDataTypeBinary(map[string][]uint8{binaryValueImagePredicate: binaryImage}) // Binary
+	similaritySearchKey := MakeDBQueryArrayType([]float32{1.0, 2.0, 3.0, 3.9, 4.9}, 1)
+	storeNonLinearAlgorithm := []dbQuery.NonLinearAlgorithm{}
 
 	// Load and Test Fixtures
 	create := []testArgs{
@@ -123,7 +127,7 @@ func loadAndTestFixture(t *testing.T, client *AhnlichDBClient) clientTestFixture
 				}{
 					{
 						Field0: stringKeyJob.Data,
-						Field1: MakeDBResponseMetaDataType(map[string]string{stringValueJobPredicate: "scarvenger"})[stringValueRankPredicate],
+						Field1: MakeDBResponseMetaDataType(map[string]string{stringValueJobPredicate: stringJob})[stringValueRankPredicate],
 					},
 				},
 			}),
@@ -132,11 +136,9 @@ func loadAndTestFixture(t *testing.T, client *AhnlichDBClient) clientTestFixture
 
 				predicateResponse, err := client.GetByPredicate(args[0].(string), args[1].(dbQuery.PredicateCondition))
 				require.NoError(t, err)
-				require.NotNil(t, predicateResponse)
 				require.NotEmpty(t, predicateResponse)
 
 				predicate := predicateResponse[0].(dbResponse.ServerResponse__Get)
-				require.NotNil(t, predicate)
 				require.NotEmpty(t, predicate)
 				result := []AhnlichDBResponse{}
 				return append(result, []struct {
@@ -241,7 +243,6 @@ func loadAndTestFixture(t *testing.T, client *AhnlichDBClient) clientTestFixture
 			caller: func(args ...interface{}) ([]AhnlichDBResponse, error) {
 				stores, err := client.ListStores()
 				require.NoError(t, err)
-				require.NotNil(t, stores)
 				require.NotEmpty(t, stores)
 				storeList := stores[0].(dbResponse.ServerResponse__StoreList) // This is the expected response
 				storeListNames := []AhnlichDBResponse{}
@@ -271,7 +272,7 @@ func loadAndTestFixture(t *testing.T, client *AhnlichDBClient) clientTestFixture
 				}
 				response, err := arg.caller(arg.args...)
 				require.NoError(t, err)
-				require.NotNil(t, response)
+				require.NotEmpty(t, response)
 				if arg.wantMatch {
 					require.ElementsMatchf(t, response, arg.want, "Expected %v, got %v", arg.want, response)
 				} else {
@@ -303,24 +304,27 @@ func loadAndTestFixture(t *testing.T, client *AhnlichDBClient) clientTestFixture
 	}
 }
 
-func newClientTestSuite(t *testing.T) *ClientTestSuite {
+func newClientTestSuite(t *testing.T, persistDb bool, persistLocation string) *ClientTestSuite {
 	var dbClient *AhnlichDBClient
 	t.Cleanup(func() {
 		if dbClient != nil {
 			dbClient.Close()
 		}
 	})
-	db := utils.RunAhnlichDatabase(t)
+	db := utils.RunAhnlichDatabase(t, persistDb, persistLocation)
 	config := ahnlichclientgo.LoadConfig(
 		ahnlichclientgo.ConnectionConfig{
-			Host:                  db.Host,
-			Port:                  db.Port,
-			InitialConnections:    5,
-			MaxIdleConnections:    10,
-			MaxTotalConnections:   10,
-			ConnectionIdleTimeout: 5,
-			ReadTimeout:           5 * time.Second,
-			WriteTimeout:          5 * time.Second,
+			Host:                   db.Host,
+			Port:                   db.Port,
+			InitialConnections:     5,
+			MaxIdleConnections:     5,
+			MaxTotalConnections:    5,
+			ConnectionIdleTimeout:  5,
+			ReadTimeout:            5 * time.Second,
+			WriteTimeout:           5 * time.Second,
+			BackoffMaxElapsedTime:  5 * time.Second,
+			BackoffInitialInterval: 1 * time.Second,
+			BackoffMaxInterval:     2 * time.Second,
 		})
 
 	// Initialize the ahnlich database client
@@ -335,12 +339,12 @@ func newClientTestSuite(t *testing.T) *ClientTestSuite {
 	return &ClientTestSuite{
 		client:  dbClient,
 		fixture: fixture,
+		db:      db,
 	}
 }
 
 func TestClient_GetKeys(t *testing.T) {
-	ts := newClientTestSuite(t)
-
+	ts := newClientTestSuite(t, false, "")
 	// Get keys from the store
 	getKeys := dbQuery.Query__GetKey{
 		Store: ts.fixture.storeName,
@@ -348,7 +352,6 @@ func TestClient_GetKeys(t *testing.T) {
 	}
 	getKeysResponse, err := ts.client.GetByKeys(getKeys.Store, getKeys.Keys)
 	require.NoError(t, err)
-	require.NotNil(t, getKeysResponse)
 	require.NotEmpty(t, getKeysResponse[0].(dbResponse.ServerResponse__Get))
 	key := getKeysResponse[0].(dbResponse.ServerResponse__Get)[0]
 	assert.Equal(t, key.Field0.Data, ts.fixture.stringKeyRank.Data)
@@ -356,21 +359,15 @@ func TestClient_GetKeys(t *testing.T) {
 }
 
 func TestClient_GetByPredicates(t *testing.T) {
-	ts := newClientTestSuite(t)
-
+	ts := newClientTestSuite(t, false, "")
 	// Get by predicate with index
-	getByPredicate := dbQuery.Query__GetPred{
-		Store: ts.fixture.storeName,
-		Condition: &dbQuery.PredicateCondition__Value{
-			Value: &dbQuery.Predicate__Equals{
-				Key:   ts.fixture.stringValueJobPredicate,
-				Value: ts.fixture.stringValueJob[ts.fixture.stringValueJobPredicate],
-			},
+	getByPredicateResponse, err := ts.client.GetByPredicate(ts.fixture.storeName, &dbQuery.PredicateCondition__Value{
+		Value: &dbQuery.Predicate__Equals{
+			Key:   ts.fixture.stringValueJobPredicate,
+			Value: ts.fixture.stringValueJob[ts.fixture.stringValueJobPredicate],
 		},
-	}
-	getByPredicateResponse, err := ts.client.GetByPredicate(getByPredicate.Store, getByPredicate.Condition)
+	})
 	require.NoError(t, err)
-	require.NotNil(t, getByPredicateResponse)
 	require.NotEmpty(t, getByPredicateResponse[0].(dbResponse.ServerResponse__Get))
 	predicate := getByPredicateResponse[0].(dbResponse.ServerResponse__Get)[0]
 	assert.Equal(t, predicate.Field0.Data, ts.fixture.stringKeyJob.Data)
@@ -378,36 +375,32 @@ func TestClient_GetByPredicates(t *testing.T) {
 }
 
 func TestClient_DropPredicate(t *testing.T) {
-	ts := newClientTestSuite(t)
+	ts := newClientTestSuite(t, false, "")
 	// Drop predicate index
 	dropPredicateIndex, err := ts.client.DropPredicateIndex(ts.fixture.storeName, []string{ts.fixture.dropPredicate}, false)
 	require.NoError(t, err)
-	require.NotNil(t, dropPredicateIndex)
+	require.NotEmpty(t, dropPredicateIndex)
 	dropPredicateIndexResponse := dropPredicateIndex[0].(dbResponse.ServerResponse__Del)
 	assert.Equal(t, dropPredicateIndexResponse, dbResponse.ServerResponse__Del(1))
 }
 
 func TestClient_DeletePredicate(t *testing.T) {
-	ts := newClientTestSuite(t)
+	ts := newClientTestSuite(t, false, "")
 	// Delete predicate
-	predictateToDelete := &dbQuery.Query__DelPred{
-		Store: ts.fixture.storeName,
-		Condition: &dbQuery.PredicateCondition__Value{
-			Value: &dbQuery.Predicate__Equals{
-				Key:   ts.fixture.stringValueRankPredicate,
-				Value: ts.fixture.stringValueRank[ts.fixture.stringValueRankPredicate], // Segmentation fault here if Value is nil
-			},
+	deletePredicate, err := ts.client.DeletePredicate(ts.fixture.storeName, &dbQuery.PredicateCondition__Value{
+		Value: &dbQuery.Predicate__Equals{
+			Key:   ts.fixture.stringValueRankPredicate,
+			Value: ts.fixture.stringValueRank[ts.fixture.stringValueRankPredicate],
 		},
-	}
-	deletePredicate, err := ts.client.DeletePredicate(predictateToDelete.Store, predictateToDelete.Condition)
+	})
 	require.NoError(t, err)
-	require.NotNil(t, deletePredicate)
+	require.NotEmpty(t, deletePredicate)
 	deletePredicateResponse := deletePredicate[0].(dbResponse.ServerResponse__Del)
 	assert.Equal(t, deletePredicateResponse, dbResponse.ServerResponse__Del(1))
 }
 
 func TestClient_SimilarKey(t *testing.T) {
-	ts := newClientTestSuite(t)
+	ts := newClientTestSuite(t, false, "")
 	// Get_sim_n
 	// ts.fixture.similaritySearchKey should be close to ts.fixture.stringKeyRank; the test should return ts.fixture.stringKeyRank
 	getSimN := dbQuery.Query__GetSimN{
@@ -419,7 +412,6 @@ func TestClient_SimilarKey(t *testing.T) {
 	}
 	getSimNResponse, err := ts.client.GetBySimN(getSimN.Store, getSimN.SearchInput, getSimN.ClosestN, getSimN.Algorithm, getSimN.Condition)
 	require.NoError(t, err)
-	require.NotNil(t, getSimNResponse)
 	require.NotEmpty(t, getSimNResponse[0].(dbResponse.ServerResponse__GetSimN))
 	simN := getSimNResponse[0].(dbResponse.ServerResponse__GetSimN)[0]
 	assert.Equal(t, simN.Field0.Data, ts.fixture.stringKeyRank.Data)
@@ -430,7 +422,7 @@ func TestClient_SimilarKey(t *testing.T) {
 }
 
 func TestClient_DeleteKeys(t *testing.T) {
-	ts := newClientTestSuite(t)
+	ts := newClientTestSuite(t, false, "")
 	// Delete keys
 	deleteKeys := dbQuery.Query__DelKey{
 		Store: ts.fixture.storeName,
@@ -438,24 +430,23 @@ func TestClient_DeleteKeys(t *testing.T) {
 	}
 	deleteKeysResponse, err := ts.client.DeleteKeys(deleteKeys.Store, deleteKeys.Keys)
 	require.NoError(t, err)
-	require.NotNil(t, deleteKeysResponse)
+	require.NotEmpty(t, deleteKeysResponse)
 	deleteKeysResponseResult := deleteKeysResponse[0].(dbResponse.ServerResponse__Del)
 	assert.Equal(t, deleteKeysResponseResult, dbResponse.ServerResponse__Del(1))
 }
 
 func TestClient_DeleteStore(t *testing.T) {
-	ts := newClientTestSuite(t)
+	ts := newClientTestSuite(t, false, "")
 	// Delete the store without predicates
 	deleteStoreResponse, err := ts.client.DropStore(ts.fixture.storeName, ts.fixture.storeErrorIfNotExists)
 	require.NoError(t, err)
-	require.NotNil(t, deleteStoreResponse)
+	require.NotEmpty(t, deleteStoreResponse)
 	deleteStoreResult := deleteStoreResponse[0].(dbResponse.ServerResponse__Del)
 	require.Equal(t, deleteStoreResult, dbResponse.ServerResponse__Del(1))
 
 	// Check if the store exists and list the stores.
 	stores, err := ts.client.ListStores()
 	require.NoError(t, err)
-	require.NotNil(t, stores)
 	require.NotEmpty(t, stores)
 
 	store := stores[0].(dbResponse.ServerResponse__StoreList)
@@ -465,25 +456,22 @@ func TestClient_DeleteStore(t *testing.T) {
 }
 
 func TestClient_Ping(t *testing.T) {
-	ts := newClientTestSuite(t)
+	ts := newClientTestSuite(t, false, "")
 	// Ping the server
 	pingResponse, err := ts.client.Ping()
 	require.NoError(t, err)
-	require.NotNil(t, pingResponse)
 	require.NotEmpty(t, pingResponse)
 	assert.Equal(t, pingResponse[0], dbResponse.ServerResponse__Pong{})
 }
 
 func TestClient_ServerInfo(t *testing.T) {
-	ts := newClientTestSuite(t)
+	ts := newClientTestSuite(t, false, "")
 	// Get the server info
 	serverInfoResponse, err := ts.client.ServerInfo()
 	require.NoError(t, err)
-	require.NotNil(t, serverInfoResponse)
 	require.NotEmpty(t, serverInfoResponse)
 	infoResult := serverInfoResponse[0].(dbResponse.ServerInfo)
-	protocolVersion, err := ts.client.ProtocolVersion()
-	assert.NoError(t, err)
+	protocolVersion := ts.client.ProtocolVersion()
 	assert.Equal(t, infoResult.Version, protocolVersion)
 	connectionInfo := ts.client.ConnectionInfo()
 	assert.Equal(t, infoResult.Address, connectionInfo.remoteAddr)
@@ -491,15 +479,13 @@ func TestClient_ServerInfo(t *testing.T) {
 
 func TestClient_ListClients(t *testing.T) {
 	timeBefore := time.Now()
-	ts := newClientTestSuite(t)
+	ts := newClientTestSuite(t, false, "")
 	timeAfter := time.Now()
 	// List the clients
 	clientsResponse, err := ts.client.ListClients()
 	require.NoError(t, err)
-	require.NotNil(t, clientsResponse)
 	require.NotEmpty(t, clientsResponse)
 	clientsResult := clientsResponse[0].(dbResponse.ServerResponse__ClientList)
-	assert.NotNil(t, clientsResult)
 	assert.NotEmpty(t, clientsResult)
 	client := clientsResult[0]
 	connectionInfo := ts.client.ConnectionInfo()
@@ -509,13 +495,19 @@ func TestClient_ListClients(t *testing.T) {
 }
 
 func TestClient_Pipeline(t *testing.T) {
-	ts := newClientTestSuite(t)
+	ts := newClientTestSuite(t, false, "")
 	// Pipeline
 	pipeline := ts.client.Pipeline()
-	pipeline.BuildPingQuery().BuildInfoServerQuery().BuildListClientsQuery().BuildListStoresQuery() // Ping, ServerInfo, ListClients, ListStores
+	pipeline, err := pipeline.BuildPingQuery()
+	require.NoError(t, err)
+	pipeline, err = pipeline.BuildInfoServerQuery()
+	require.NoError(t, err)
+	pipeline, err = pipeline.BuildListClientsQuery()
+	require.NoError(t, err)
+	pipeline, err = pipeline.BuildListStoresQuery() // Ping, ServerInfo, ListClients, ListStores
+	require.NoError(t, err)
 	pipelineResponse, err := ts.client.ExecutePipeline(pipeline)
 	require.NoError(t, err)
-	require.NotNil(t, pipelineResponse)
 	require.NotEmpty(t, pipelineResponse)
 	require.Equal(t, len(pipelineResponse), 4)
 	// The pong should be the first response
@@ -525,26 +517,90 @@ func TestClient_Pipeline(t *testing.T) {
 	// The server info should contain the server info
 	result1, ok := pipelineResponse[1].(dbResponse.ServerInfo)
 	assert.True(t, ok)
-	assert.NotNil(t, result1)
 	assert.NotEmpty(t, result1)
-	protocolVersion, err := ts.client.ProtocolVersion()
-	assert.NoError(t, err)
+	protocolVersion := ts.client.ProtocolVersion()
 	assert.Equal(t, result1.Version, protocolVersion)
 	connectionInfo := ts.client.ConnectionInfo()
 	assert.Equal(t, result1.Address, connectionInfo.remoteAddr)
 	// The client list should contain the client that is executing the pipeline
 	result2, ok := pipelineResponse[2].(dbResponse.ServerResponse__ClientList)
 	assert.True(t, ok)
-	assert.NotNil(t, result2)
 	assert.NotEmpty(t, result2)
 	assert.Equal(t, result2[0].Address, connectionInfo.localAddr)
 	// The store list should contain the store that was created in the test
 	result3, ok := pipelineResponse[3].(dbResponse.ServerResponse__StoreList)
 	assert.True(t, ok)
-	assert.NotNil(t, result3)
 	assert.NotEmpty(t, result3)
-	assert.Equal(t, len(result3), 2)
+	require.Equal(t, len(result3), 2)
 	storeNames := []string{result3[0].Name, result3[1].Name}
 	assert.Contains(t, storeNames, ts.fixture.storeName)
 	assert.Contains(t, storeNames, ts.fixture.storeNamePredicate)
+}
+
+func TestDbPersistence(t *testing.T) {
+	// t.Skip("skipping test")
+	waitTimeInterval := 3 * time.Second // same as the db persistence interval
+	// test Db persistence
+	// start the database with persistence and Load fixtures data into the database
+	ts := newClientTestSuite(t, true, t.TempDir())
+	require.True(t, ts.db.IsRunning())
+	// wait for some time
+	time.Sleep(waitTimeInterval)
+	// Stop/kill the database
+	t.Log(ts.db.StdOut.String())
+	t.Log(ts.db.StdErr.String())
+	ts.db.Kill()
+	require.False(t, ts.db.IsRunning())
+
+	// list all files in the persistencelocation
+	fileList, err := utils.ListFilesInDir(ts.db.PersistenceLocation)
+	require.NoError(t, err)
+	require.NotEmpty(t, fileList)
+	// Check if file is created in the persistencelocation
+	t.Log(fileList)
+	assert.Contains(t, fileList, "ahnlichdb.json")
+	// Start the database again on same port and host
+	ts.db = utils.RunAhnlichDatabase(t, true, ts.db.PersistenceLocation, ts.db.Host, ts.db.Port)
+	require.True(t, ts.db.IsRunning())
+
+	// Check if the store data is still present in the database
+	// List the stores
+	stores, err := ts.client.ListStores()
+	require.NoError(t, err)
+	require.NotEmpty(t, stores)
+	storeList, ok := stores[0].(dbResponse.ServerResponse__StoreList)
+	assert.True(t, ok)
+	assert.NotEmpty(t, storeList)
+	require.Equal(t, len(storeList), 2)
+	storeNames := []string{storeList[0].Name, storeList[1].Name}
+	assert.Contains(t, storeNames, ts.fixture.storeName)
+	assert.Contains(t, storeNames, ts.fixture.storeNamePredicate)
+	// Get Keys in Store
+	getKeys := dbQuery.Query__GetKey{
+		Store: ts.fixture.storeName,
+		Keys:  []dbQuery.Array{ts.fixture.stringKeyRank},
+	}
+	getKeysResponse, err := ts.client.GetByKeys(getKeys.Store, getKeys.Keys)
+	require.NoError(t, err)
+	require.NotEmpty(t, getKeysResponse[0].(dbResponse.ServerResponse__Get))
+	key := getKeysResponse[0].(dbResponse.ServerResponse__Get)[0]
+	assert.Equal(t, key.Field0.Data, ts.fixture.stringKeyRank.Data)
+	assert.EqualValues(t, key.Field1[ts.fixture.stringValueRankPredicate], ts.fixture.stringValueRank[ts.fixture.stringValueRankPredicate])
+	// Get Sim N
+	getSimN := dbQuery.Query__GetSimN{
+		Store:       ts.fixture.storeName,
+		SearchInput: ts.fixture.similaritySearchKey,
+		ClosestN:    1,
+		Algorithm:   &dbQuery.Algorithm__CosineSimilarity{},
+		Condition:   nil,
+	}
+	getSimNResponse, err := ts.client.GetBySimN(getSimN.Store, getSimN.SearchInput, getSimN.ClosestN, getSimN.Algorithm, getSimN.Condition)
+	require.NoError(t, err)
+	require.NotEmpty(t, getSimNResponse[0].(dbResponse.ServerResponse__GetSimN))
+	simN := getSimNResponse[0].(dbResponse.ServerResponse__GetSimN)[0]
+	assert.Equal(t, simN.Field0.Data, ts.fixture.stringKeyRank.Data)
+	assert.EqualValues(t, simN.Field1[ts.fixture.stringValueRankPredicate], ts.fixture.stringValueRank[ts.fixture.stringValueRankPredicate])
+	expectedSimilarity := float32(0.9999504)
+	// assert that the similarity is close to 1 (cosine similarity)
+	assert.InDelta(t, float32(simN.Field2), expectedSimilarity, 0.0001)
 }

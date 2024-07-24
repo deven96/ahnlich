@@ -48,23 +48,31 @@ func (ac *AhnlichDBClient) Close() {
 }
 
 // ProtocolVersion returns the version of the server protocol
-func (ac *AhnlichDBClient) ProtocolVersion() (dbResponse.Version, error) {
-	return ac.version, nil
+func (ac *AhnlichDBClient) ProtocolVersion() dbResponse.Version {
+	return ac.version
 }
 
 // Version returns the version of the client
-func (ac *AhnlichDBClient) Version() (dbResponse.Version, error) {
-	return ac.clientVersion, nil
+func (ac *AhnlichDBClient) Version() dbResponse.Version {
+	return ac.clientVersion
 }
 
-func (ac *AhnlichDBClient) Ping() ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildPingQuery()
-	return ac.Execute()
+// ConnectionInfo returns the connection information
+func (ac *AhnlichDBClient) ConnectionInfo() *connectionInfo {
+	return ac.connectionInfo
 }
 
 // Pipeline returns the pipeline for the client
 func (ac *AhnlichDBClient) Pipeline() *AhnlichDBQueryBuilder {
 	return ac.pipeline
+}
+
+func (ac *AhnlichDBClient) Ping() ([]AhnlichDBResponse, error) {
+	_, err := ac.pipeline.BuildPingQuery()
+	if err != nil {
+		return nil, err
+	}
+	return ac.Execute()
 }
 
 // ExecutePipeline sets the pipeline for the client and sends the request to the server
@@ -73,27 +81,35 @@ func (ac *AhnlichDBClient) ExecutePipeline(pipeline *AhnlichDBQueryBuilder) ([]A
 	return ac.Execute()
 }
 
-func (ac *AhnlichDBClient) ConnectionInfo() *connectionInfo {
-	return ac.connectionInfo
-}
-
 func (ac *AhnlichDBClient) ServerInfo() ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildInfoServerQuery()
+	_, err := ac.pipeline.BuildInfoServerQuery()
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
 func (ac *AhnlichDBClient) ListClients() ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildListClientsQuery()
+	_, err := ac.pipeline.BuildListClientsQuery()
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
 func (ac *AhnlichDBClient) ListStores() ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildListStoresQuery()
+	_, err := ac.pipeline.BuildListStoresQuery()
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
 func (ac *AhnlichDBClient) CreatePredicateIndex(storeName string, predicates []string) ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildCreatePredicateIndexQuery(storeName, predicates)
+	_, err := ac.pipeline.BuildCreatePredicateIndexQuery(storeName, predicates)
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
@@ -102,7 +118,10 @@ func (ac *AhnlichDBClient) CreateStore(storeName string, dimension uint64, predi
 	if err != nil {
 		return nil, err
 	}
-	ac.pipeline.BuildCreateStoreQuery(storeName, nonZeroDimension.Value, predicates, nonLinearAlgorithms, errorIfExist)
+	_, err = ac.pipeline.BuildCreateStoreQuery(storeName, nonZeroDimension.Value, predicates, nonLinearAlgorithms, errorIfExist)
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
@@ -110,17 +129,26 @@ func (ac *AhnlichDBClient) Set(storeName string, inputs []struct {
 	Field0 dbQuery.Array
 	Field1 map[string]dbQuery.MetadataValue
 }) ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildSetQuery(storeName, inputs)
+	_, err := ac.pipeline.BuildSetQuery(storeName, inputs)
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
 func (ac *AhnlichDBClient) GetByKeys(storeName string, keys []dbQuery.Array) ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildGetByKeysQuery(storeName, keys)
+	_, err := ac.pipeline.BuildGetByKeysQuery(storeName, keys)
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
 func (ac *AhnlichDBClient) GetByPredicate(storeName string, condition dbQuery.PredicateCondition) ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildGetByPredicateQuery(storeName, condition)
+	_, err := ac.pipeline.BuildGetByPredicateQuery(storeName, condition)
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
@@ -129,26 +157,41 @@ func (ac *AhnlichDBClient) GetBySimN(storeName string, searchInput dbQuery.Array
 	if err != nil {
 		return nil, err
 	}
-	ac.pipeline.BuildGetBySimNQuery(storeName, searchInput, nonZeroClosestN.Value, algorithm, condition)
+	_, err = ac.pipeline.BuildGetBySimNQuery(storeName, searchInput, nonZeroClosestN.Value, algorithm, condition)
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
 func (ac *AhnlichDBClient) DropPredicateIndex(storeName string, predicates []string, errorIfNotExist bool) ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildDropPredicateIndexQuery(storeName, predicates, errorIfNotExist)
+	_, err := ac.pipeline.BuildDropPredicateIndexQuery(storeName, predicates, errorIfNotExist)
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
 func (ac *AhnlichDBClient) DeleteKeys(storeName string, keys []dbQuery.Array) ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildDeleteKeysQuery(storeName, keys)
+	_, err := ac.pipeline.BuildDeleteKeysQuery(storeName, keys)
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
 func (ac *AhnlichDBClient) DeletePredicate(storeName string, condition dbQuery.PredicateCondition) ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildDeletePredicateQuery(storeName, condition)
+	_, err := ac.pipeline.BuildDeletePredicateQuery(storeName, condition)
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }
 
 func (ac *AhnlichDBClient) DropStore(storeName string, errorIfNotExist bool) ([]AhnlichDBResponse, error) {
-	ac.pipeline.BuildDropStoreQuery(storeName, errorIfNotExist)
+	_, err := ac.pipeline.BuildDropStoreQuery(storeName, errorIfNotExist)
+	if err != nil {
+		return nil, err
+	}
 	return ac.Execute()
 }

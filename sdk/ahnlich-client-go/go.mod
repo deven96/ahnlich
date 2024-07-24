@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.1 // indirect
 	github.com/novifinancial/serde-reflection v0.0.0-20220519162058-e5cd3c3b3f3a // indirect

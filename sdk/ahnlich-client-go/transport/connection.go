@@ -2,11 +2,12 @@ package transport
 
 import (
 	"fmt"
-	"log/slog"
 	"net"
 	"time"
 
+	backoff "github.com/cenkalti/backoff/v4"
 	"github.com/silenceper/pool"
+	"github.com/sirupsen/logrus"
 
 	ahnlichclientgo "github.com/deven96/ahnlich/sdk/ahnlich-client-go"
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/utils"
@@ -25,25 +26,46 @@ func createConnectionPool(cfg ahnlichclientgo.ConnectionConfig) (pool.Pool, erro
 		cfg.ServerAddress = cfg.Host + ":" + fmt.Sprint(cfg.Port)
 	}
 
-	p, err := pool.NewChannelPool(&pool.Config{
-		InitialCap: cfg.InitialConnections,
-		MaxIdle:    cfg.MaxIdleConnections,
-		MaxCap:     cfg.MaxTotalConnections,
-		Factory: func() (interface{}, error) {
-			return net.Dial("tcp", cfg.ServerAddress)
-		},
-		Close: func(v interface{}) error {
-			return v.(net.Conn).Close()
-		},
-		IdleTimeout: cfg.ConnectionIdleTimeout,
-		Ping: func(v interface{}) error {
-			_, err := v.(net.Conn).Write([]byte("PING\n"))
-			return err
-		},
-	})
+	var p pool.Pool
+	var err error
+
+	// Retry mechanism with backoff
+	operation := func() error {
+		p, err = pool.NewChannelPool(&pool.Config{
+			InitialCap: cfg.InitialConnections,
+			MaxIdle:    cfg.MaxIdleConnections,
+			MaxCap:     cfg.MaxTotalConnections,
+			Factory: func() (interface{}, error) {
+				return net.Dial("tcp", cfg.ServerAddress)
+			},
+			Close: func(v interface{}) error {
+				return v.(net.Conn).Close()
+			},
+			IdleTimeout: cfg.ConnectionIdleTimeout,
+			Ping: func(v interface{}) error {
+				_, err := v.(net.Conn).Write([]byte("PING\n"))
+				return err
+			},
+		})
+		if err != nil {
+			logrus.Error("Unable to create connection pool", "error", err)
+		}
+		return err
+	}
+
+	// Use exponential backoff with a max elapsed time
+	backoffConfig := backoff.NewExponentialBackOff(
+		backoff.WithInitialInterval(cfg.BackoffInitialInterval),
+		backoff.WithMaxInterval(cfg.BackoffMaxInterval),
+		// backoff.WithMultiplier(cfg.BackoffMultiplier),
+		// backoff.WithRandomizationFactor(cfg.BackoffRandomizationFactor),
+		backoff.WithMaxElapsedTime(cfg.BackoffMaxElapsedTime),
+	)
+
+	err = backoff.Retry(operation, backoffConfig)
 	if err != nil {
-		slog.Error("Unable to create connection pool", "error", err)
-		return nil, &utils.AhnlichClientException{Message: "Unable to create connection pool"} // Convert to AhnlichClientConnectionException
+		err = fmt.Errorf("failed to create connection pool after retries error %v", err)
+		return nil, &utils.AhnlichClientException{Message: err.Error()} // Convert to AhnlichClientConnectionException
 	}
 
 	return p, nil

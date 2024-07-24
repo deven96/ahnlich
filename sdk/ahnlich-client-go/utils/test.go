@@ -15,17 +15,52 @@ import (
 )
 
 // AhnlichDBTestSuite is a test suite for the AhnlichDB
+// Remember the persistent interval when writing or running persistent tests
 type AhnlichDBTestSuite struct {
-	Host string
-	Port int
+	Host                string
+	Port                int
+	Persistence         bool
+	PersistenceLocation string
+	StdOut 			*bytes.Buffer
+	StdErr 			*bytes.Buffer
 	*exec.Cmd
 }
 
-func RunAhnlichDatabase(t *testing.T) *AhnlichDBTestSuite {
+func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serverAddr ...any) *AhnlichDBTestSuite {
 	var cmd *exec.Cmd
-	host := "127.0.0.1" // localhost
-	port, err := GetAvailablePort(host)
-	require.NoError(t, err)
+	var host string
+	var port int
+	var portStr string
+	var err error
+
+
+	if len(serverAddr) == 2 || len(serverAddr) == 1 {
+		for _, addr := range serverAddr {
+			switch value := addr.(type) {
+			case string:
+				// check string format "host:port"
+				host, portStr, err = net.SplitHostPort(value)
+				if err != nil {
+					host = value
+				} else {
+					port, err = net.LookupPort("tcp", portStr)
+					require.NoError(t, err)
+				}
+			case int:
+				port = value
+			default:
+				require.Fail(t, "invalid serverAddr format")
+			}
+
+		}
+	} else {
+		host = "127.0.0.1" // localhost
+		port, err = GetAvailablePort(host)
+		require.NoError(t, err)
+	}
+
+	require.NotEmpty(t, host)
+	require.NotEmpty(t, port)
 
 	t.Cleanup(func() {
 		if cmd != nil {
@@ -41,8 +76,11 @@ func RunAhnlichDatabase(t *testing.T) *AhnlichDBTestSuite {
 	tomlDir := filepath.Join(rootDir, "..", "..", "ahnlich", "Cargo.toml")
 	tomlDir, err = filepath.Abs(tomlDir)
 	require.NoError(t, err)
-
-	cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port))
+	if persist {
+		cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port),"--enable-persistence", "--persist-location", filepath.Join(persistLocation,"ahnlichdb.json"), "--persistence-interval", "10","--enable-tracing","--log-level","debug")
+	} else {
+		cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port))
+	}
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -57,25 +95,51 @@ func RunAhnlichDatabase(t *testing.T) *AhnlichDBTestSuite {
 	for i := 0; i < maxRetries; i++ {
 		// check if the database is running
 		if cmd.ProcessState != nil {
-			require.True(t, !cmd.ProcessState.Exited(), "database process exited")
-			require.True(t, !cmd.ProcessState.Success(), "database process exited with success status")
+			require.Truef(t, !cmd.ProcessState.Exited(), "database process exited",outBuf.String(),errBuf.String())
+			require.Truef(t, !cmd.ProcessState.Success(), "database process exited with success status",outBuf.String(),errBuf.String())
 		}
 		// Checking stderr for the Running message as well because the database writes warnings to stderr also
-		if strings.Contains(outBuf.String(), "Running") || (strings.Contains(errBuf.String(), "Running") && strings.Contains(errBuf.String(), "Finished")) {
+		if strings.Contains(outBuf.String(), "Running") || (strings.Contains(errBuf.String(), "Running") && strings.Contains(errBuf.String(), "Finished")) && (!strings.Contains(errBuf.String(),"panicked") || !strings.Contains(outBuf.String(),"panicked")) {
 			break
 		}
-		require.True(t, i < maxRetries-1, "database did not start within the expected time %v", retryInterval*time.Duration(maxRetries))
+		require.Truef(t, i < maxRetries-1, "database did not start within the expected time %v", retryInterval*time.Duration(maxRetries),outBuf,errBuf)
 		time.Sleep(retryInterval)
 	}
 
 	// Check for any errors in stderr
-	require.True(t, !strings.Contains(errBuf.String(), "error:"), "failed to start ahnlich database: %s", errBuf.String())
+	require.Truef(t, !strings.Contains(errBuf.String(), "error:"), "failed to start ahnlich database: %s", errBuf.String())
+	// Check for any panicked in stderr or stdout
+	require.Truef(t, !strings.Contains(errBuf.String(), "panicked"), "ahnlich database panicked: %s", errBuf.String())
+	require.Truef(t, !strings.Contains(outBuf.String(), "panicked"), "ahnlich database panicked: %s", outBuf.String())
 
 	return &AhnlichDBTestSuite{
-		Host: host,
-		Port: port,
-		Cmd:  cmd,
+		Host:                host,
+		Port:                port,
+		Persistence:         persist,
+		PersistenceLocation: persistLocation,
+		Cmd:                 cmd,
+		StdOut: &outBuf,
+		StdErr: &errBuf,
 	}
+}
+
+// Kill stops the AhnlichDB process
+func (db *AhnlichDBTestSuite) Kill() {
+	if db.Cmd != nil {
+		// Send an interrupt signal to the process
+		db.Cmd.Process.Signal(os.Interrupt)
+		db.Cmd.Wait()
+		db.Cmd.Process.Kill()
+	}
+
+}
+
+// Check if db is running
+func (db *AhnlichDBTestSuite) IsRunning() bool {
+	if db.Cmd != nil {
+		return (db.Cmd.ProcessState != nil && !db.Cmd.ProcessState.Exited()) || db.Cmd.ProcessState == nil
+	}
+	return false
 }
 
 // GetAvailablePort finds an available port and returns it.

@@ -35,3 +35,15 @@ func NewNonZeroUint(value uint64) (*NonZeroUint, error) {
 	}
 	return &NonZeroUint{Value: value}, nil
 }
+
+func ListFilesInDir(dir string) ([]string, error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read directory: %w", err)
+	}
+	var fileNames []string
+	for _, file := range files {
+		fileNames = append(fileNames, file.Name())
+	}
+	return fileNames, nil
+}
