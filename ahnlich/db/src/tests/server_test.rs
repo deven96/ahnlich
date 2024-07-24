@@ -421,7 +421,13 @@ async fn test_server_with_persistence() {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (StoreKey(array![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
-                (StoreKey(array![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
+                (
+                    StoreKey(array![1.1, 1.2, 1.3, 1.4]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::Binary(vec![1, 2, 3]),
+                    )]),
+                ),
             ],
         },
         DBQuery::ListStores,
@@ -449,7 +455,7 @@ async fn test_server_with_persistence() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 1880,
+            size_in_bytes: 1936,
         },
     ]))));
     expected.push(Err(
@@ -460,7 +466,7 @@ async fn test_server_with_persistence() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 1,
-            size_in_bytes: 1808,
+            size_in_bytes: 1864,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -478,7 +484,11 @@ async fn test_server_with_persistence() {
     let address = server.local_addr().expect("Could not get local addr");
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
+    let file_metadata =
+        std::fs::metadata(&CONFIG_WITH_PERSISTENCE.persist_location.clone().unwrap()).unwrap();
+    assert!(file_metadata.len() > 0, "The persistence file is empty");
     tokio::time::sleep(Duration::from_millis(100)).await;
+    // check peristence was not overriden
     let message = ServerDBQuery::from_queries(&[
         // should error as store was loaded from previous persistence and main still exists
         DBQuery::CreateStore {
@@ -504,7 +514,10 @@ async fn test_server_with_persistence() {
     expected.push(Ok(ServerResponse::Del(0)));
     expected.push(Ok(ServerResponse::Get(vec![(
         StoreKey(array![1.1, 1.2, 1.3, 1.4]),
-        HashMap::new(),
+        HashMap::from_iter([(
+            MetadataKey::new("medal".into()),
+            MetadataValue::Binary(vec![1, 2, 3]),
+        )]),
     )])));
     let stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(stream);

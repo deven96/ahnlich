@@ -1,6 +1,7 @@
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::BufReader;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
@@ -42,7 +43,10 @@ impl<T: Serialize + DeserializeOwned> Persistence<T> {
         persist_location: &std::path::PathBuf,
         persist_object: T,
     ) -> Self {
-        let _ = File::create(persist_location)
+        let _ = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(persist_location)
             .expect("Persistence enabled but could not open peristence file");
         Self {
             write_flag,

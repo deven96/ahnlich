@@ -14,7 +14,8 @@ use serde::Serialize;
 use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 
-type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, ConcurrentHashSet<StoreKeyId>>;
+type InnerPredicateIndexVal = ConcurrentHashSet<StoreKeyId>;
+type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, InnerPredicateIndexVal>;
 type InnerPredicateIndices = ConcurrentHashMap<MetadataKey, PredicateIndex>;
 
 /// Predicate indices are all the indexes referenced by their names
@@ -200,7 +201,35 @@ impl PredicateIndices {
 /// ids. This is essential in helping us filter down the entire dataset using a predicate before
 /// performing similarity algorithmic search
 #[derive(Debug, Serialize, Deserialize)]
-struct PredicateIndex(InnerPredicateIndex);
+struct PredicateIndex(#[serde(with = "custom_metadata_map")] InnerPredicateIndex);
+
+mod custom_metadata_map {
+    use super::*;
+    use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(map: &InnerPredicateIndex, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let vec: Vec<(MetadataValue, InnerPredicateIndexVal)> = map
+            .iter(&map.guard())
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        vec.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<InnerPredicateIndex, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let vec: Vec<(MetadataValue, InnerPredicateIndexVal)> = Vec::deserialize(deserializer)?;
+        let map = ConcurrentHashMap::new();
+        for (k, v) in vec {
+            map.insert(k, v, &map.guard());
+        }
+        Ok(map)
+    }
+}
 
 impl PredicateIndex {
     fn size(&self) -> usize {
