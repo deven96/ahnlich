@@ -1,4 +1,4 @@
-use crate::conn::Conn;
+use crate::conn::{Conn, Connection};
 use crate::error::AhnlichError;
 use crate::prelude::*;
 use deadpool::managed::Manager;
@@ -33,7 +33,7 @@ impl Manager for DbConnManager {
     }
 
     async fn recycle(&self, conn: &mut Conn, _metrics: &Metrics) -> RecycleResult<AhnlichError> {
-        conn.is_db_conn_valid().await.map_err(RecycleError::Backend)
+        conn.is_conn_valid().await.map_err(RecycleError::Backend)
     }
 }
 
@@ -156,7 +156,7 @@ impl DbPipeline {
     /// execute queries all at once and return ordered list of results matching the order in which
     /// queries were pushed
     pub async fn exec(mut self) -> Result<ServerResult, AhnlichError> {
-        self.conn.send_db_query(self.queries).await
+        self.conn.send_query(self.queries).await
     }
 }
 
@@ -322,7 +322,7 @@ impl DbClient {
         let mut queries = ServerDBQuery::with_capacity(1);
         queries.push(query);
         let res = conn
-            .send_db_query(queries)
+            .send_query(queries)
             .await?
             .pop()
             .transpose()
