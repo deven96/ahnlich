@@ -1,4 +1,6 @@
+mod ai;
 mod db;
+pub use ai::AIConnect;
 pub use db::Conn;
 
 use crate::error::AhnlichError;
