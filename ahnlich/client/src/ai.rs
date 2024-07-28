@@ -308,3 +308,252 @@ impl AIClient {
         res.ok_or(AhnlichError::EmptyResponse)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ahnlich_ai_proxy::cli::AIProxyConfig;
+    use ahnlich_ai_proxy::server::handler::AIProxyServer;
+    use ahnlich_db::cli::ServerConfig;
+    use ahnlich_db::server::handler::Server;
+    use once_cell::sync::Lazy;
+    use pretty_assertions::assert_eq;
+    use std::collections::HashMap;
+    use std::net::SocketAddr;
+    use tokio::time::Duration;
+
+    static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
+    static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
+        let mut ai_proxy = AIProxyConfig::default().os_select_port();
+        ai_proxy.db_port = CONFIG.port.clone();
+        ai_proxy.db_host = CONFIG.host.clone();
+        ai_proxy
+    });
+    async fn provision_test_servers() -> SocketAddr {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let ai_server = AIProxyServer::new(&AI_CONFIG)
+            .await
+            .expect("Could not initialize ai proxy");
+
+        let ai_address = ai_server.local_addr().expect("Could not get local addr");
+        let _ = tokio::spawn(async move { server.start().await });
+        // start up ai proxy
+        let _ = tokio::spawn(async move { ai_server.start().await });
+        // Allow some time for the servers to start
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        ai_address
+    }
+
+    #[tokio::test]
+    async fn test_ai_client_ping() {
+        let address = provision_test_servers().await;
+        let host = address.ip();
+        let port = address.port();
+        let ai_client = AIClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        assert!(ai_client.ping().await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_ai_client_simple_pipeline() {
+        let address = provision_test_servers().await;
+        let host = address.ip();
+        let port = address.port();
+        let ai_client = AIClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        let mut pipeline = ai_client
+            .pipeline(3)
+            .await
+            .expect("Could not create pipeline");
+        pipeline.list_stores();
+        pipeline.ping();
+        let mut expected = AIServerResult::with_capacity(2);
+        expected.push(Ok(AIServerResponse::StoreList(HashSet::new())));
+        expected.push(Ok(AIServerResponse::Pong));
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res, expected);
+    }
+
+    #[tokio::test]
+    async fn test_pool_commands_fail_if_server_not_exist() {
+        let host = "127.0.0.1";
+        let port = 1234;
+        let ai_client = AIClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        assert!(ai_client.ping().await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_stores_with_pipeline() {
+        let address = provision_test_servers().await;
+        let host = address.ip();
+        let port = address.port();
+        let ai_client = AIClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+
+        let mut pipeline = ai_client
+            .pipeline(4)
+            .await
+            .expect("Could not create pipeline");
+        pipeline.create_store(
+            StoreName("Main".to_string()),
+            AIStoreType::RawString,
+            AIModel::Llama3,
+            HashSet::new(),
+            HashSet::new(),
+        );
+        pipeline.create_store(
+            StoreName("Main".to_string()),
+            AIStoreType::RawString,
+            AIModel::Llama3,
+            HashSet::new(),
+            HashSet::new(),
+        );
+        pipeline.create_store(
+            StoreName("Less".to_string()),
+            AIStoreType::Binary,
+            AIModel::Llama3,
+            HashSet::new(),
+            HashSet::new(),
+        );
+        pipeline.list_stores();
+        let mut expected = AIServerResult::with_capacity(4);
+        expected.push(Ok(AIServerResponse::Unit));
+        expected.push(Err("Store Main already exists".to_string()));
+        expected.push(Ok(AIServerResponse::Unit));
+        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
+            AIStoreInfo {
+                name: StoreName("Main".to_string()),
+                embedding_size: AIModel::Llama3.embedding_size().into(),
+                r#type: AIStoreType::RawString,
+                model: AIModel::Llama3,
+            },
+            AIStoreInfo {
+                name: StoreName("Less".to_string()),
+                embedding_size: AIModel::Llama3.embedding_size().into(),
+                r#type: AIStoreType::Binary,
+                model: AIModel::Llama3,
+            },
+        ]))));
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res, expected);
+    }
+
+    #[tokio::test]
+    async fn test_del_key() {
+        let address = provision_test_servers().await;
+        let host = address.ip();
+        let port = address.port();
+        let ai_client = AIClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        let store_name = StoreName("Main".to_string());
+
+        assert!(ai_client
+            .create_store(
+                store_name.clone(),
+                AIStoreType::RawString,
+                AIModel::Llama3,
+                HashSet::new(),
+                HashSet::new(),
+            )
+            .await
+            .is_ok());
+
+        assert!(ai_client
+            .set(
+                store_name.clone(),
+                vec![
+                    (StoreInput::RawString("Adidas Yeezy".into()), HashMap::new()),
+                    (
+                        StoreInput::RawString("Nike Air Jordans".into()),
+                        HashMap::new()
+                    ),
+                ]
+            )
+            .await
+            .is_ok());
+
+        assert_eq!(
+            ai_client
+                .del_key(store_name, StoreInput::RawString("Adidas Yeezy".into()))
+                .await
+                .unwrap(),
+            AIServerResponse::Del(1)
+        )
+    }
+
+    #[tokio::test]
+    async fn test_destroy_purge_stores_with_pipeline() {
+        let address = provision_test_servers().await;
+        let host = address.ip();
+        let port = address.port();
+        let ai_client = AIClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+
+        let mut pipeline = ai_client
+            .pipeline(4)
+            .await
+            .expect("Could not create pipeline");
+        pipeline.create_store(
+            StoreName("Main".to_string()),
+            AIStoreType::RawString,
+            AIModel::Llama3,
+            HashSet::new(),
+            HashSet::new(),
+        );
+        pipeline.create_store(
+            StoreName("Main2".to_string()),
+            AIStoreType::RawString,
+            AIModel::Llama3,
+            HashSet::new(),
+            HashSet::new(),
+        );
+        pipeline.create_store(
+            StoreName("Less".to_string()),
+            AIStoreType::Binary,
+            AIModel::Llama3,
+            HashSet::new(),
+            HashSet::new(),
+        );
+        pipeline.list_stores();
+        pipeline.drop_store(StoreName("Less".to_string()), true);
+        pipeline.purge_stores();
+        let mut expected = AIServerResult::with_capacity(6);
+        expected.push(Ok(AIServerResponse::Unit));
+        expected.push(Ok(AIServerResponse::Unit));
+        expected.push(Ok(AIServerResponse::Unit));
+        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
+            AIStoreInfo {
+                name: StoreName("Main".to_string()),
+                embedding_size: AIModel::Llama3.embedding_size().into(),
+                r#type: AIStoreType::RawString,
+                model: AIModel::Llama3,
+            },
+            AIStoreInfo {
+                name: StoreName("Main2".to_string()),
+                embedding_size: AIModel::Llama3.embedding_size().into(),
+                r#type: AIStoreType::RawString,
+                model: AIModel::Llama3,
+            },
+            AIStoreInfo {
+                name: StoreName("Less".to_string()),
+                embedding_size: AIModel::Llama3.embedding_size().into(),
+                r#type: AIStoreType::Binary,
+                model: AIModel::Llama3,
+            },
+        ]))));
+        expected.push(Ok(AIServerResponse::Del(1)));
+        expected.push(Ok(AIServerResponse::Del(2)));
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res, expected);
+    }
+}
