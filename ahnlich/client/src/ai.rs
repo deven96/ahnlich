@@ -1,4 +1,4 @@
-use crate::conn::{AIConnect, Connection};
+use crate::conn::{AIConn, Connection};
 use crate::error::AhnlichError;
 use crate::prelude::*;
 use deadpool::managed::Manager;
@@ -25,18 +25,14 @@ impl AIConnManager {
 
 #[async_trait::async_trait]
 impl Manager for AIConnManager {
-    type Type = AIConnect;
+    type Type = AIConn;
     type Error = AhnlichError;
 
-    async fn create(&self) -> Result<AIConnect, AhnlichError> {
-        AIConnect::new(&self.host, self.port).await
+    async fn create(&self) -> Result<AIConn, AhnlichError> {
+        AIConn::new(&self.host, self.port).await
     }
 
-    async fn recycle(
-        &self,
-        conn: &mut AIConnect,
-        _metrics: &Metrics,
-    ) -> RecycleResult<AhnlichError> {
+    async fn recycle(&self, conn: &mut AIConn, _metrics: &Metrics) -> RecycleResult<AhnlichError> {
         conn.is_conn_valid().await.map_err(RecycleError::Backend)
     }
 }

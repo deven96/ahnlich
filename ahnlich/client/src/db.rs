@@ -1,4 +1,4 @@
-use crate::conn::{Conn, Connection};
+use crate::conn::{Connection, DBConn};
 use crate::error::AhnlichError;
 use crate::prelude::*;
 use deadpool::managed::Manager;
@@ -25,14 +25,14 @@ impl DbConnManager {
 
 #[async_trait::async_trait]
 impl Manager for DbConnManager {
-    type Type = Conn;
+    type Type = DBConn;
     type Error = AhnlichError;
 
-    async fn create(&self) -> Result<Conn, AhnlichError> {
-        Conn::new(&self.host, self.port).await
+    async fn create(&self) -> Result<DBConn, AhnlichError> {
+        DBConn::new(&self.host, self.port).await
     }
 
-    async fn recycle(&self, conn: &mut Conn, _metrics: &Metrics) -> RecycleResult<AhnlichError> {
+    async fn recycle(&self, conn: &mut DBConn, _metrics: &Metrics) -> RecycleResult<AhnlichError> {
         conn.is_conn_valid().await.map_err(RecycleError::Backend)
     }
 }

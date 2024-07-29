@@ -5,11 +5,11 @@ use tokio::net::TcpStream;
 
 /// Simple TCP Connection to a host and port
 #[derive(Debug)]
-pub struct AIConnect {
+pub struct AIConn {
     stream: TcpStream,
 }
 
-impl AIConnect {
+impl AIConn {
     pub(crate) async fn new(host: &str, port: u16) -> Result<Self, AhnlichError> {
         println!("Creating pool with {host}:{port}");
         let stream = TcpStream::connect(format!("{host}:{port}")).await?;
@@ -18,7 +18,7 @@ impl AIConnect {
 }
 
 #[async_trait::async_trait]
-impl Connection for AIConnect {
+impl Connection for AIConn {
     type ServerQuery = AIServerQuery;
     type ServerResult = AIServerResult;
 

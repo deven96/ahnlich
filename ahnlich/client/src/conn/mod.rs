@@ -1,7 +1,7 @@
 mod ai;
 mod db;
-pub use ai::AIConnect;
-pub use db::Conn;
+pub use ai::AIConn;
+pub use db::DBConn;
 
 use crate::error::AhnlichError;
 use ahnlich_types::bincode::BinCodeSerAndDeser;

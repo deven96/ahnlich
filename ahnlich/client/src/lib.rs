@@ -41,7 +41,7 @@
 //! ```rust
 //! use ahnlich_client_rs::db::DbClient;
 //!
-//! let db_client = DbClient::new("127.0.0.1".into(), 1369).await;
+//! let db_client = DbClient::new("127.0.0.1".into(), 1369).await.unwrap();
 //! let mut pipeline = db_client.pipeline(3).unwrap();
 //! pipeline.info_server();
 //! pipeline.list_clients();
@@ -60,7 +60,7 @@
 //! use std::num::NonZeroUsize;
 //! use std::collections::HashSet;
 //!
-//! let db_client = DbClient::new("127.0.0.1".into(), 1369).await;
+//! let db_client = DbClient::new("127.0.0.1".into(), 1369).await.unwrap();
 //! let mut pipeline = db_client.pipeline(1).unwrap();
 //! pipeline.create_store(
 //!     // StoreName found in prelude
@@ -78,7 +78,7 @@
 //! use ahnlich_client_rs::prelude::*;
 //! use std::collections::HashSet;
 //!
-//! let ai_client = AIClient::new("127.0.0.1".into(), 1369).await;
+//! let ai_client = AIClient::new("127.0.0.1".into(), 1369).await.unwrap();
 //! let store_name = StoreName("Less".to_string()),
 //! let mut pipeline = ai_client.pipeline(2).unwrap();
 //!   pipeline.create_store(

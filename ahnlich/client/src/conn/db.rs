@@ -5,11 +5,11 @@ use tokio::net::TcpStream;
 
 /// Simple TCP Connection to a host and port
 #[derive(Debug)]
-pub struct Conn {
+pub struct DBConn {
     stream: TcpStream,
 }
 
-impl Conn {
+impl DBConn {
     pub(crate) async fn new(host: &str, port: u16) -> Result<Self, AhnlichError> {
         println!("Creating pool with {host}:{port}");
         let stream = TcpStream::connect(format!("{host}:{port}")).await?;
@@ -18,7 +18,7 @@ impl Conn {
 }
 
 #[async_trait::async_trait]
-impl Connection for Conn {
+impl Connection for DBConn {
     type ServerQuery = ServerDBQuery;
     type ServerResult = ServerResult;
 
