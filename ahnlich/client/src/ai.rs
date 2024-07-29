@@ -556,4 +556,110 @@ mod tests {
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
     }
+
+    #[tokio::test]
+    async fn test_ai_proxy_get_pred() {
+        let address = provision_test_servers().await;
+
+        let host = address.ip();
+        let port = address.port();
+        let ai_client = AIClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+
+        let store_name = StoreName(String::from("Deven Kicks"));
+        let matching_metadatakey = MetadataKey::new("Brand".to_owned());
+        let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+
+        let nike_store_value =
+            StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
+        let adidas_store_value = StoreValue::from_iter([(
+            matching_metadatakey.clone(),
+            MetadataValue::RawString("Adidas".to_owned()),
+        )]);
+        let store_data = vec![
+            (
+                StoreInput::RawString(String::from("Jordan 3")),
+                nike_store_value.clone(),
+            ),
+            (
+                StoreInput::RawString(String::from("Air Force 1")),
+                nike_store_value.clone(),
+            ),
+            (
+                StoreInput::RawString(String::from("Yeezy")),
+                adidas_store_value.clone(),
+            ),
+        ];
+
+        let mut pipeline = ai_client
+            .pipeline(7)
+            .await
+            .expect("Could not create pipeline");
+
+        pipeline.create_store(
+            store_name.clone(),
+            AIStoreType::RawString,
+            AIModel::Llama3,
+            HashSet::new(),
+            HashSet::new(),
+        );
+        pipeline.list_stores();
+        pipeline.create_pred_index(
+            store_name.clone(),
+            HashSet::from_iter([
+                MetadataKey::new("Brand".to_string()),
+                MetadataKey::new("Vintage".to_string()),
+            ]),
+        );
+        pipeline.set(store_name.clone(), store_data);
+
+        pipeline.drop_pred_index(
+            store_name.clone(),
+            HashSet::from_iter([MetadataKey::new("Vintage".to_string())]),
+            true,
+        );
+
+        pipeline.get_pred(
+            store_name.clone(),
+            PredicateCondition::Value(Predicate::Equals {
+                key: matching_metadatakey,
+                value: matching_metadatavalue,
+            }),
+        );
+
+        pipeline.purge_stores();
+
+        let mut expected = AIServerResult::with_capacity(7);
+
+        expected.push(Ok(AIServerResponse::Unit));
+        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
+            AIStoreInfo {
+                name: store_name,
+                r#type: AIStoreType::RawString,
+                model: AIModel::Llama3,
+                embedding_size: AIModel::Llama3.embedding_size().into(),
+            },
+        ]))));
+        expected.push(Ok(AIServerResponse::CreateIndex(2)));
+        expected.push(Ok(AIServerResponse::Set(StoreUpsert {
+            inserted: 3,
+            updated: 0,
+        })));
+        expected.push(Ok(AIServerResponse::Del(1)));
+        expected.push(Ok(AIServerResponse::Get(vec![
+            (
+                StoreInput::RawString(String::from("Air Force 1")),
+                nike_store_value.clone(),
+            ),
+            (
+                StoreInput::RawString(String::from("Jordan 3")),
+                nike_store_value.clone(),
+            ),
+        ])));
+        expected.push(Ok(AIServerResponse::Del(1)));
+
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res, expected);
+    }
 }
