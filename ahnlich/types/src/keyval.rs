@@ -55,6 +55,15 @@ pub enum StoreInput {
     RawString(String),
     Binary(Vec<u8>),
 }
+#[allow(clippy::len_without_is_empty)]
+impl StoreInput {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Binary(value) => value.len(),
+            Self::RawString(s) => s.len(),
+        }
+    }
+}
 
 impl From<StoreInput> for MetadataValue {
     fn from(value: StoreInput) -> Self {

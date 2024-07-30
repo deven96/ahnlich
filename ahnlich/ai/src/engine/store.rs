@@ -119,14 +119,7 @@ impl AIStoreHandler {
             return Err(AIProxyError::ReservedError(metadata_key.to_string()));
         }
         let store = self.get(store_name)?;
-        let input_type = store_input.clone().into();
 
-        if store.r#type != input_type {
-            return Err(AIProxyError::StoreTypeMismatch {
-                store_type: store.r#type.clone(),
-                input_type,
-            });
-        }
         let store_key = store.model.model_ndarray(&store_input);
         let metadata_value: MetadataValue = store_input.into();
         let mut final_store_value: StdHashMap<MetadataKey, MetadataValue> =

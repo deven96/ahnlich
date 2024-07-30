@@ -5,7 +5,6 @@ use std::{fmt, num::NonZeroUsize};
 
 use ndarray::array;
 pub use query::{AIQuery, AIServerQuery};
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 pub use server::{AIServerResponse, AIServerResult, AIStoreInfo};
 
@@ -21,10 +20,11 @@ impl AIModel {
     pub fn embedding_size(&self) -> NonZeroUsize {
         NonZeroUsize::new(3).expect("Failed to get embedding size")
     }
-
-    pub fn model_ndarray(&self, _storeinput: &StoreInput) -> StoreKey {
-        let mut rng = rand::thread_rng();
-        StoreKey(array![1.4, 1.5, 0.5].mapv(|v| v * rng.gen_range(0.2..2.1)))
+    // TODO: model ndarray is based on length of string or vec, so for now make sure strings
+    // or vecs have different lengths
+    pub fn model_ndarray(&self, storeinput: &StoreInput) -> StoreKey {
+        let length = storeinput.len() as f32;
+        StoreKey(array![1.4, 2.5, 4.5].mapv(|v| v * length))
     }
 }
 
