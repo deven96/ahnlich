@@ -542,7 +542,8 @@ func TestDbPersistence(t *testing.T) {
 	waitTimeInterval := 3 * time.Second // same as the db persistence interval
 	// test Db persistence
 	// start the database with persistence and Load fixtures data into the database
-	ts := newClientTestSuite(t, true, t.TempDir())
+	dir := t.TempDir()
+	ts := newClientTestSuite(t, true, dir)
 	require.True(t, ts.db.IsRunning())
 	// wait for some time
 	time.Sleep(waitTimeInterval)
@@ -553,14 +554,16 @@ func TestDbPersistence(t *testing.T) {
 	require.False(t, ts.db.IsRunning())
 
 	// list all files in the persistencelocation
-	fileList, err := utils.ListFilesInDir(ts.db.PersistenceLocation)
+	fileList, err := utils.ListFilesInDir(dir)
 	require.NoError(t, err)
 	require.NotEmpty(t, fileList)
 	// Check if file is created in the persistencelocation
 	t.Log(fileList)
 	assert.Contains(t, fileList, "ahnlichdb.json")
+	utils.ValidateJsonFile(t, ts.db.PersistenceLocation)
+
 	// Start the database again on same port and host
-	ts.db = utils.RunAhnlichDatabase(t, true, ts.db.PersistenceLocation, ts.db.Host, ts.db.Port)
+	ts.db = utils.RunAhnlichDatabase(t, true, dir, ts.db.Host, ts.db.Port)
 	require.True(t, ts.db.IsRunning())
 
 	// Check if the store data is still present in the database

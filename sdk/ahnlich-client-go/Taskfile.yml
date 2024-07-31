@@ -1,0 +1,280 @@
+version: "3"
+
+vars:
+  OS:
+    sh: uname -s
+  ARCH:
+    sh: uname -m
+  GO_VERSION: 1.22.4
+  GOFMT_VERSION: latest-0.3
+  GOIMPORTS_VERSION: v0.22.0
+  PRE_COMMIT_VERSION: 3.7.0
+  PRETTIER_VERSION: 3.2.5
+  REVIVE_VERSION: v1.3.7
+  SHFMT_VERSION: v3.8.0
+  STATICCHECK_VERSION: 2023.1.7
+
+tasks:
+  install-go-junit report:
+    desc: Install go-junit-report
+    cmds:
+      - |
+        if [[ "$CI" == 1 ]];then
+          export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
+        fi
+        go get -u github.com/jstemmer/go-junit-report
+
+  install-gofmt:
+    desc: Install gofmt
+    cmds:
+      - |
+        docker pull cytopia/gofmt:{{.GOFMT_VERSION}}
+
+  install-goimports:
+    desc: Install goimports
+    cmds:
+      - |
+        if [[ "$CI" == 1 ]];then
+          export PATH=$PATH:/usr/local/go/bin
+          GOBIN=/usr/local/bin go install golang.org/x/tools/cmd/goimports@{{.GOIMPORTS_VERSION}}
+        else
+          GOBIN=~/.local/bin go install golang.org/x/tools/cmd/goimports@{{.GOIMPORTS_VERSION}}
+        fi
+
+  install-pre-commit:
+    desc: Install pre-commit
+    cmds:
+      - |
+        python3 -m pip install pre-commit=={{.PRE_COMMIT_VERSION}}
+        pre-commit install --hook-type commit-msg
+
+  install-prettier:
+    desc: Install prettier
+    cmds:
+      - |
+        docker pull tmknom/prettier:{{.PRETTIER_VERSION}}
+
+  install-revive:
+    desc: Install revive (golint replacement)
+    dir: /tmp/temp
+    cmds:
+      - |
+        rm -rf /tmp/temp/*
+        if [[ "$CI" == 1 ]];then
+          export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
+          wget -nv https://github.com/mgechev/revive/releases/download/{{.REVIVE_VERSION}}/revive_linux_amd64.tar.gz
+          tar -xzvf revive_linux_amd64.tar.gz
+          mv -v revive $(go env GOPATH)/bin
+        else
+          if wget https://github.com/mgechev/revive/releases/download/{{.REVIVE_VERSION}}/revive_{{.OS}}_amd64.tar.gz; then
+            tar -xzvf revive_{{.OS}}_amd64.tar.gz
+            mkdir -p $(go env GOPATH)/bin
+            mv -v revive $(go env GOPATH)/bin
+          else
+            echo "mgechev/revive does not provide pre-built binaries for {{.OS}}/amd64. Installing from source."
+            go install github.com/mgechev/revive@{{.REVIVE_VERSION}}
+          fi
+        fi
+
+  update-shell-config:
+    desc: Update shell config
+    cmds:
+      - |
+        if test -f ~/.zshrc; then
+          cat ~/.zshrc | grep "^PATH=\$PATH:~/.local/bin" || echo "PATH=\$PATH:~/.local/bin" >>~/.zshrc
+          echo -e "\nReload shell: source ~/.zshrc"
+        fi
+        if test -f ~/.bashrc; then
+          cat ~/.bashrc | grep "^PATH=\$PATH:~/.local/bin" || echo "PATH=\$PATH:~/.local/bin" >>~/.bashrc
+          echo -e "\nReload shell: source ~/.bashrc"
+        fi
+
+  install-shfmt:
+    desc: Install shfmt
+    dir: /tmp/temp
+    cmds:
+      - |
+        rm -rf /tmp/temp/*
+        if [[ "$CI" == 1 ]];then
+          wget -nv -O shfmt https://github.com/mvdan/sh/releases/download/{{.SHFMT_VERSION}}/shfmt_{{.SHFMT_VERSION}}_linux_amd64
+          chmod +x shfmt
+          mv -v shfmt /usr/local/bin
+        else
+          if wget -O shfmt https://github.com/mvdan/sh/releases/download/{{.SHFMT_VERSION}}/shfmt_{{.SHFMT_VERSION}}_{{.OS}}_amd64; then
+            chmod +x shfmt
+            mkdir -p ~/.local/bin
+            mv -v shfmt ~/.local/bin
+          else
+            echo "mvdan.cc/sh does not provide pre-built binaries for {{.OS}}/amd64. Installing from source."
+            GOBIN=~/.local/bin go install mvdan.cc/sh/v3/cmd/gosh@{{.SHFMT_VERSION}}
+          fi
+        fi
+      - task: update-shell-config
+
+  install-staticcheck:
+    desc: Install staticcheck
+    dir: /tmp/temp
+    cmds:
+      - |
+        rm -rf /tmp/temp/*
+        if [[ "$CI" == 1 ]];then
+          wget -nv https://github.com/dominikh/go-tools/releases/download/{{.STATICCHECK_VERSION}}/staticcheck_linux_amd64.tar.gz
+          tar -xzvf staticcheck_linux_amd64.tar.gz
+          mv -v staticcheck/staticcheck /usr/local/go/bin
+          rm -rf staticcheck
+        else
+          if wget https://github.com/dominikh/go-tools/releases/download/{{.STATICCHECK_VERSION}}/staticcheck_{{.OS}}_amd64.tar.gz; then
+            tar -xzvf staticcheck_{{.OS}}_amd64.tar.gz
+            mkdir -p ~/.local/go/bin
+            mv -v staticcheck/staticcheck ~/.local/go/bin
+            rm -rf staticcheck
+          else
+            echo "go-tools does not provide pre-built binaries for {{.OS}}/amd64. Installing from source."
+            GOBIN=~/.local/go/bin go install honnef.co/go/tools/cmd/staticcheck@{{.STATICCHECK_VERSION}}
+          fi
+        fi
+
+  install-dependencies:
+    desc: Install dependencies
+    cmds:
+      - task: install-go-junit
+      - task: install-gofmt
+      - task: install-goimports
+      - task: install-pre-commit
+      - task: install-prettier
+      - task: install-revive
+      - task: install-shfmt
+      - task: install-staticcheck
+
+  format-check:
+    desc: Check file formatting
+    vars:
+      LOCAL_PACKAGE_PREFIX: github.com/deven96/ahnlich/sdk/ahnlich-client-go
+    cmds:
+      - |
+        # docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.json"
+        docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.md"
+        # docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.yaml"
+        docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.yml"
+        shfmt -f . | grep -v tmp/ | xargs shfmt -i 4 -ci -d
+        goimports -local {{.LOCAL_PACKAGE_PREFIX}} -d .
+        test -z $(goimports -local {{.LOCAL_PACKAGE_PREFIX}} -l .)
+        gofmt -d .
+        test -z $(gofmt -l .)
+
+  format:
+    desc: Format files
+    vars:
+      LOCAL_PACKAGE_PREFIX: github.com/deven96/ahnlich/sdk/ahnlich-client-go
+    cmds:
+      - |
+        # docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.json"
+        docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.md"
+        # docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.yaml"
+        docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.yml"
+        shfmt -f . | grep -v tmp/ | xargs shfmt -i 4 -ci -w
+        goimports -local {{.LOCAL_PACKAGE_PREFIX}} -w .
+        gofmt -w .
+
+  lint-check:
+    desc: Check file linting
+    cmds:
+      - |
+        if [[ "$CI" == 1 ]];then
+          export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
+        fi
+        go vet ./...
+        revive ./...
+        staticcheck ./...
+
+  pre-commit-check:
+    desc: Pre commit check
+    cmds:
+      - task: format-check
+      - task: lint-check
+
+  test-sequential:
+    desc: Test sequentially and fail fast
+    dir: .
+    vars:
+      CACHE: "{{.CACHE | default 0}}"
+      REPORT: "{{.REPORT | default 0}}"
+    cmds:
+      - |
+        if [[ "$CI" == 1 ]];then
+          export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
+        fi
+        if [[ {{.CACHE}} == 0 ]];then
+          if [[ {{.REPORT}} == 1 ]];then
+            CGO_ENABLED=0 go test -count=1 -p 1 -failfast -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
+          else
+            CGO_ENABLED=0 go test -count=1 -p 1 -failfast -v $(go list ./...)
+          fi
+        else
+          if [[ {{.REPORT}} == 1 ]];then
+            CGO_ENABLED=0 go test -p 1 -failfast -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
+          else
+            CGO_ENABLED=0 go test -p 1 -failfast -v $(go list ./...)
+          fi
+        fi
+
+  test-race:
+    desc: Test race condition
+    dir: .
+    vars:
+      CACHE: "{{.CACHE | default 0}}"
+      REPORT: "{{.REPORT | default 0}}"
+    cmds:
+      - |
+        if [[ "$CI" == 1 ]];then
+          export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
+        fi
+        if [[ {{.CACHE}} == 0 ]];then
+          if [[ {{.REPORT}} == 1 ]];then
+            CGO_ENABLED=1 go test -race -count=1 -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
+          else
+            CGO_ENABLED=1 go test -race -count=1 -v $(go list ./...)
+          fi
+        else
+          if [[ {{.REPORT}} == 1 ]];then
+            CGO_ENABLED=1 go test -race -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
+          else
+            CGO_ENABLED=1 go test -race -v $(go list ./...)
+          fi
+        fi
+
+  test-coverage:
+    desc: Test coverage
+    dir: .
+    cmds:
+      - |
+        if [[ "$CI" == 1 ]];then
+          export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
+        fi
+        go test ./... -coverpkg=./... -coverprofile=coverage.out
+        go tool cover -html=coverage.out -o coverage.html
+
+  test:
+    desc: Test
+    dir: .
+    vars:
+      CACHE: "{{.CACHE | default 0}}"
+      REPORT: "{{.REPORT | default 0}}"
+    cmds:
+      - |
+        if [[ "$CI" == 1 ]];then
+          export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
+        fi
+        if [[ {{.CACHE}} == 0 ]];then
+            if [[ {{.REPORT}} == 1 ]];then
+                CGO_ENABLED=0 go test -count=1 -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
+            else
+                CGO_ENABLED=0 go test -v $(go list ./...)
+            fi
+        else
+            if [[ {{.REPORT}} == 1 ]];then
+               CGO_ENABLED=0 go test -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
+            else
+              CGO_ENABLED=0 go test -v $(go list ./...)
+            fi
+        fi

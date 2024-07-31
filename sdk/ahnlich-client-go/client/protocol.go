@@ -121,12 +121,10 @@ func (ap *ahnlichProtocol) send(conn net.Conn, serverQuery *dbQuery.ServerQuery)
 // Request sends data to the ahnlich server and receives a response using the protocol (Unary)
 func (ap *ahnlichProtocol) request(serverQuery *dbQuery.ServerQuery) (*dbResponse.ServerResult, error) {
 	conn, err := ap.connManager.GetConnection()
-	ap.connectionInfo.update(conn)
 	if err != nil {
-		// TODO: Ask: Should we close the connection here or just return the error?
-		// TODO: Implement a retry mechanism here or Refresh the connection pool
 		return nil, err
 	}
+	ap.connectionInfo.update(conn)
 	defer ap.connManager.Return(conn)
 	err = ap.send(conn, serverQuery)
 	if err != nil {

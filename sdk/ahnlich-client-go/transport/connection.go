@@ -36,14 +36,32 @@ func createConnectionPool(cfg ahnlichclientgo.ConnectionConfig) (pool.Pool, erro
 			MaxIdle:    cfg.MaxIdleConnections,
 			MaxCap:     cfg.MaxTotalConnections,
 			Factory: func() (interface{}, error) {
-				return net.Dial("tcp", cfg.ServerAddress)
+				conn, err := net.Dial("tcp", cfg.ServerAddress)
+				if err != nil {
+					return nil, err
+				}
+				// Set TCP keep-alive
+				if tcpConn, ok := conn.(*net.TCPConn); ok {
+					tcpConn.SetKeepAlive(cfg.SetKeepAlive)
+					tcpConn.SetKeepAlivePeriod(cfg.KeepAlivePeriod)
+					// tcpConn.SetWriteBuffer(1024)
+					// tcpConn.SetReadBuffer(1024)
+				}
+				return conn, nil
 			},
 			Close: func(v interface{}) error {
 				return v.(net.Conn).Close()
 			},
 			IdleTimeout: cfg.ConnectionIdleTimeout,
+			//TODO: Better way to check if the connection is still alive
 			Ping: func(v interface{}) error {
-				_, err := v.(net.Conn).Write([]byte("PING\n"))
+				conn := v.(net.Conn)
+				_, err := conn.Write([]byte("PING\n"))
+				// if err != nil {
+				// 	return err
+				// }
+				// readBuf := make([]byte, 0)
+				// _,err = conn.Read(readBuf)
 				return err
 			},
 		})

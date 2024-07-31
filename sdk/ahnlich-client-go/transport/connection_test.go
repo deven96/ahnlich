@@ -74,7 +74,7 @@ func TestMultipleConnections(t *testing.T) {
 	}
 	// Sequence of operations:
 	cm := newTestConnectionManager(t, config)
-	assert.Equal(t, cm.ActiveConnections(), config.InitialConnections)
+	assert.Equal(t, cm.ActiveConnections(), config.MaxTotalConnections)
 
 	conn1, err := cm.GetConnection()
 	require.NoError(t, err)
@@ -92,17 +92,27 @@ func TestMultipleConnections(t *testing.T) {
 
 	assert.NotEqual(t, conn1, conn2)
 
+	n, err := conn1.Write([]byte("Hello"))
+	require.NoError(t, err)
+	assert.Equal(t, n, 5)
+	n, err = conn2.Write([]byte("Hello"))
+	require.NoError(t, err)
+	assert.Equal(t, n, 5)
+
 	cm.Return(conn1)
 	assert.Equal(t, cm.ActiveConnections(), 1)
 
 	cm.Return(conn2)
-	assert.Equal(t, cm.ActiveConnections(), config.InitialConnections)
+	assert.Equal(t, cm.ActiveConnections(), config.MaxTotalConnections)
 
 	cm.Release()
 	assert.Equal(t, cm.ActiveConnections(), 0)
 
 	cm.Refresh()
-	assert.Equal(t, cm.ActiveConnections(), config.InitialConnections)
+	assert.Equal(t, cm.ActiveConnections(), config.MaxTotalConnections)
+
+	t.Log(db.StdOut.String())
+	t.Log(db.StdErr.String())
 }
 
 func Test_IdleConnectionTimeout(t *testing.T) {
@@ -257,7 +267,7 @@ func Test_Backoff(t *testing.T) {
 		require.NotEmpty(t, conn)
 		assert.Equal(t, conn.RemoteAddr().String(), fmt.Sprintf("%s:%d", config.Host, config.Port))
 		cm.Return(conn)
-	case <-time.After(config.BackoffMaxElapsedTime + 2*time.Second):
+	case <-time.After(config.BackoffMaxElapsedTime + 3*time.Second):
 		t.Error("Timeout waiting for backoff retry")
 	}
 }

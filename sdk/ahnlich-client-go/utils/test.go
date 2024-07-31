@@ -2,7 +2,9 @@ package utils
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -21,8 +23,8 @@ type AhnlichDBTestSuite struct {
 	Port                int
 	Persistence         bool
 	PersistenceLocation string
-	StdOut 			*bytes.Buffer
-	StdErr 			*bytes.Buffer
+	StdOut              *bytes.Buffer
+	StdErr              *bytes.Buffer
 	*exec.Cmd
 }
 
@@ -32,7 +34,12 @@ func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serv
 	var port int
 	var portStr string
 	var err error
+	// var trace bool
+	// var logLevel string
+	// var clientLimit int
+	// var persistenceInterval int
 
+	var persistFile string = filepath.Join(persistLocation, "ahnlichdb.json")
 
 	if len(serverAddr) == 2 || len(serverAddr) == 1 {
 		for _, addr := range serverAddr {
@@ -76,8 +83,11 @@ func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serv
 	tomlDir := filepath.Join(rootDir, "..", "..", "ahnlich", "Cargo.toml")
 	tomlDir, err = filepath.Abs(tomlDir)
 	require.NoError(t, err)
+	// ,"--maximum-clients","1",
+	//  "--enable-tracing", "--log-level", "debug"
+	// "--enable-tracing", "--log-level", "debug"
 	if persist {
-		cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port),"--enable-persistence", "--persist-location", filepath.Join(persistLocation,"ahnlichdb.json"), "--persistence-interval", "10","--enable-tracing","--log-level","debug")
+		cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port), "--enable-persistence", "--persist-location", persistFile, "--persistence-interval", "100")
 	} else {
 		cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port))
 	}
@@ -95,14 +105,14 @@ func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serv
 	for i := 0; i < maxRetries; i++ {
 		// check if the database is running
 		if cmd.ProcessState != nil {
-			require.Truef(t, !cmd.ProcessState.Exited(), "database process exited",outBuf.String(),errBuf.String())
-			require.Truef(t, !cmd.ProcessState.Success(), "database process exited with success status",outBuf.String(),errBuf.String())
+			require.Truef(t, !cmd.ProcessState.Exited(), "database process exited", outBuf.String(), errBuf.String())
+			require.Truef(t, !cmd.ProcessState.Success(), "database process exited with success status", outBuf.String(), errBuf.String())
 		}
 		// Checking stderr for the Running message as well because the database writes warnings to stderr also
-		if strings.Contains(outBuf.String(), "Running") || (strings.Contains(errBuf.String(), "Running") && strings.Contains(errBuf.String(), "Finished")) && (!strings.Contains(errBuf.String(),"panicked") || !strings.Contains(outBuf.String(),"panicked")) {
+		if strings.Contains(outBuf.String(), "Running") || (strings.Contains(errBuf.String(), "Running") && strings.Contains(errBuf.String(), "Finished")) && (!strings.Contains(errBuf.String(), "panicked") || !strings.Contains(outBuf.String(), "panicked")) {
 			break
 		}
-		require.Truef(t, i < maxRetries-1, "database did not start within the expected time %v", retryInterval*time.Duration(maxRetries),outBuf,errBuf)
+		require.Truef(t, i < maxRetries-1, "database did not start within the expected time %v", retryInterval*time.Duration(maxRetries), outBuf, errBuf)
 		time.Sleep(retryInterval)
 	}
 
@@ -116,10 +126,10 @@ func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serv
 		Host:                host,
 		Port:                port,
 		Persistence:         persist,
-		PersistenceLocation: persistLocation,
+		PersistenceLocation: persistFile,
 		Cmd:                 cmd,
-		StdOut: &outBuf,
-		StdErr: &errBuf,
+		StdOut:              &outBuf,
+		StdErr:              &errBuf,
 	}
 }
 
@@ -158,4 +168,29 @@ func GetAvailablePort(host string) (int, error) {
 		time.Sleep(delay) // Small delay before retrying
 	}
 	return 0, fmt.Errorf("unable to find a free port after %d attempts", maxRetries)
+}
+
+// func buildFlags(flags map[string]string) []string {
+// 	var flagList []string
+// 	for k, v := range flags {
+// 		flagList = append(flagList, fmt.Sprintf("--%s=%s", k, v))
+// 	}
+// 	return flagList
+// }
+
+func ValidateJsonFile(t *testing.T, jsonFilePath string) {
+	// Open the JSON file
+	file, err := os.Open(jsonFilePath)
+	require.NoError(t, err)
+	defer file.Close()
+
+	// Read the file content
+	content, err := ioutil.ReadAll(file)
+	require.NoError(t, err)
+	require.NotEmpty(t, content)
+
+	// Optional: Unmarshal the JSON to validate its structure
+	var data interface{}
+	err = json.Unmarshal(content, &data)
+	require.NoError(t, err)
 }

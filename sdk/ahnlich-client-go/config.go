@@ -17,6 +17,7 @@ const (
 	DefaultBackoffMaxElapsedTime  = 2 * time.Minute
 	DefaultBackoffInitialInterval = 1 * time.Second
 	DefaultBackoffMaxInterval     = DefaultBackoffInitialInterval * 2
+	DefaultKeepAlivePeriod        = 30 * time.Second
 	VersionFile                   = "/VERSION"
 )
 
@@ -43,6 +44,8 @@ type ConnectionConfig struct {
 	BackoffMaxElapsedTime  time.Duration // Maximum time to wait for the backoff in connection retry mechanism
 	BackoffInitialInterval time.Duration // Initial interval for the backoff in connection retry mechanism
 	BackoffMaxInterval     time.Duration // Maximum interval for the backoff in connection retry mechanism
+	SetKeepAlive           bool          // Set TCP keep-alive
+	KeepAlivePeriod        time.Duration // Keep-alive period for the TCP connection
 }
 
 func LoadConfig(connCfg ConnectionConfig) Config {
@@ -80,6 +83,10 @@ func LoadConfig(connCfg ConnectionConfig) Config {
 
 	if connCfg.BackoffMaxInterval <= 0 {
 		connCfg.BackoffMaxInterval = DefaultBackoffMaxInterval
+	}
+
+	if connCfg.SetKeepAlive && connCfg.KeepAlivePeriod <= 0 {
+		connCfg.KeepAlivePeriod = DefaultKeepAlivePeriod
 	}
 
 	// Insert the default client configuration into the config
