@@ -423,7 +423,7 @@ async fn test_server_with_persistence() {
                     StoreKey(array![1.1, 1.2, 1.3, 1.4]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
-                        MetadataValue::Binary(vec![1, 2, 3]),
+                        MetadataValue::Image(vec![1, 2, 3]),
                     )]),
                 ),
             ],
@@ -514,7 +514,7 @@ async fn test_server_with_persistence() {
         StoreKey(array![1.1, 1.2, 1.3, 1.4]),
         HashMap::from_iter([(
             MetadataKey::new("medal".into()),
-            MetadataValue::Binary(vec![1, 2, 3]),
+            MetadataValue::Image(vec![1, 2, 3]),
         )]),
     )])));
     let stream = TcpStream::connect(address).await.unwrap();

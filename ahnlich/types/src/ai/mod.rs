@@ -1,7 +1,7 @@
 mod query;
 mod server;
 
-use std::{fmt, num::NonZeroUsize};
+use std::num::NonZeroUsize;
 
 use ndarray::array;
 pub use query::{AIQuery, AIServerQuery};
@@ -25,29 +25,5 @@ impl AIModel {
     pub fn model_ndarray(&self, storeinput: &StoreInput) -> StoreKey {
         let length = storeinput.len() as f32;
         StoreKey(array![1.4, 2.5, 4.5].mapv(|v| v * length))
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum AIStoreType {
-    RawString,
-    Binary,
-}
-
-impl From<StoreInput> for AIStoreType {
-    fn from(value: StoreInput) -> Self {
-        match value {
-            StoreInput::RawString(_) => AIStoreType::RawString,
-            StoreInput::Binary(_) => AIStoreType::Binary,
-        }
-    }
-}
-
-impl fmt::Display for AIStoreType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::RawString => write!(f, "{}", AIStoreType::RawString),
-            Self::Binary => write!(f, "{}", AIStoreType::Binary),
-        }
     }
 }

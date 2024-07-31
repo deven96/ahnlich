@@ -49,14 +49,12 @@ impl AIPipeline {
     pub fn create_store(
         &mut self,
         store: StoreName,
-        store_type: AIStoreType,
         model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
     ) {
         self.queries.push(AIQuery::CreateStore {
             store,
-            r#type: store_type,
             predicates,
             non_linear_indices,
             model,
@@ -181,13 +179,11 @@ impl AIClient {
     pub async fn create_store(
         &self,
         store: StoreName,
-        store_type: AIStoreType,
         model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(AIQuery::CreateStore {
-            r#type: store_type,
             store,
             model,
             predicates,
@@ -405,21 +401,18 @@ mod tests {
             .expect("Could not create pipeline");
         pipeline.create_store(
             StoreName("Main".to_string()),
-            AIStoreType::RawString,
             AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Main".to_string()),
-            AIStoreType::RawString,
             AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
-            AIStoreType::Binary,
             AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
@@ -433,13 +426,11 @@ mod tests {
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                r#type: AIStoreType::RawString,
                 model: AIModel::Llama3,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                r#type: AIStoreType::Binary,
                 model: AIModel::Llama3,
             },
         ]))));
@@ -460,7 +451,6 @@ mod tests {
         assert!(ai_client
             .create_store(
                 store_name.clone(),
-                AIStoreType::RawString,
                 AIModel::Llama3,
                 HashSet::new(),
                 HashSet::new(),
@@ -506,21 +496,18 @@ mod tests {
             .expect("Could not create pipeline");
         pipeline.create_store(
             StoreName("Main".to_string()),
-            AIStoreType::RawString,
             AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Main2".to_string()),
-            AIStoreType::RawString,
             AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
-            AIStoreType::Binary,
             AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
@@ -536,19 +523,16 @@ mod tests {
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                r#type: AIStoreType::RawString,
                 model: AIModel::Llama3,
             },
             AIStoreInfo {
                 name: StoreName("Main2".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                r#type: AIStoreType::RawString,
                 model: AIModel::Llama3,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                r#type: AIStoreType::Binary,
                 model: AIModel::Llama3,
             },
         ]))));
@@ -600,7 +584,6 @@ mod tests {
 
         pipeline.create_store(
             store_name.clone(),
-            AIStoreType::RawString,
             AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
@@ -628,7 +611,6 @@ mod tests {
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name.clone(),
-                r#type: AIStoreType::RawString,
                 model: AIModel::Llama3,
                 embedding_size: AIModel::Llama3.embedding_size().into(),
             },
@@ -692,15 +674,15 @@ mod tests {
         )]);
         let store_data = vec![
             (
-                StoreInput::Binary(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+                StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
                 store_value_1.clone(),
             ),
             (
-                StoreInput::Binary(vec![102, 3, 4, 6, 7, 8, 4, 190]),
+                StoreInput::Image(vec![102, 3, 4, 6, 7, 8, 4, 190]),
                 store_value_2.clone(),
             ),
             (
-                StoreInput::Binary(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
+                StoreInput::Image(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
                 StoreValue::from_iter([(
                     matching_metadatakey.clone(),
                     MetadataValue::RawString("Daniel".to_owned()),
@@ -715,7 +697,6 @@ mod tests {
 
         pipeline.create_store(
             store_name.clone(),
-            AIStoreType::Binary,
             AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
@@ -751,7 +732,6 @@ mod tests {
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name,
-                r#type: AIStoreType::Binary,
                 model: AIModel::Llama3,
                 embedding_size: AIModel::Llama3.embedding_size().into(),
             },
@@ -763,7 +743,7 @@ mod tests {
         })));
         expected.push(Ok(AIServerResponse::Del(1)));
         expected.push(Ok(AIServerResponse::Get(vec![(
-            StoreInput::Binary(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+            StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
             store_value_1.clone(),
         )])));
         expected.push(Ok(AIServerResponse::Del(1)));

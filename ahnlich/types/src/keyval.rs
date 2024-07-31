@@ -53,13 +53,13 @@ impl PartialEq for StoreKey {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StoreInput {
     RawString(String),
-    Binary(Vec<u8>),
+    Image(Vec<u8>),
 }
 #[allow(clippy::len_without_is_empty)]
 impl StoreInput {
     pub fn len(&self) -> usize {
         match self {
-            Self::Binary(value) => value.len(),
+            Self::Image(value) => value.len(),
             Self::RawString(s) => s.len(),
         }
     }
@@ -68,7 +68,7 @@ impl StoreInput {
 impl From<StoreInput> for MetadataValue {
     fn from(value: StoreInput) -> Self {
         match value {
-            StoreInput::Binary(binary) => MetadataValue::Binary(binary),
+            StoreInput::Image(binary) => MetadataValue::Image(binary),
             StoreInput::RawString(s) => MetadataValue::RawString(s),
         }
     }
@@ -77,7 +77,7 @@ impl From<StoreInput> for MetadataValue {
 impl From<MetadataValue> for StoreInput {
     fn from(value: MetadataValue) -> Self {
         match value {
-            MetadataValue::Binary(binary) => StoreInput::Binary(binary),
+            MetadataValue::Image(binary) => StoreInput::Image(binary),
             MetadataValue::RawString(s) => StoreInput::RawString(s),
         }
     }

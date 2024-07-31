@@ -141,7 +141,6 @@ class AIServerResult:
 @dataclass(frozen=True)
 class AIStoreInfo:
     name: str
-    type: "AIStoreType"
     model: "AIModel"
     embedding_size: st.uint64
 
@@ -154,38 +153,6 @@ class AIStoreInfo:
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
         return v
-
-
-class AIStoreType:
-    VARIANTS = []  # type: typing.Sequence[typing.Type[AIStoreType]]
-
-    def bincode_serialize(self) -> bytes:
-        return bincode.serialize(self, AIStoreType)
-
-    @staticmethod
-    def bincode_deserialize(input: bytes) -> "AIStoreType":
-        v, buffer = bincode.deserialize(input, AIStoreType)
-        if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
-        return v
-
-
-@dataclass(frozen=True)
-class AIStoreType__RawString(AIStoreType):
-    INDEX = 0  # type: int
-    pass
-
-
-@dataclass(frozen=True)
-class AIStoreType__Binary(AIStoreType):
-    INDEX = 1  # type: int
-    pass
-
-
-AIStoreType.VARIANTS = [
-    AIStoreType__RawString,
-    AIStoreType__Binary,
-]
 
 
 @dataclass(frozen=True)
@@ -225,14 +192,14 @@ class MetadataValue__RawString(MetadataValue):
 
 
 @dataclass(frozen=True)
-class MetadataValue__Binary(MetadataValue):
+class MetadataValue__Image(MetadataValue):
     INDEX = 1  # type: int
     value: typing.Sequence[st.uint8]
 
 
 MetadataValue.VARIANTS = [
     MetadataValue__RawString,
-    MetadataValue__Binary,
+    MetadataValue__Image,
 ]
 
 

@@ -42,7 +42,7 @@
         }
       },
       "1": {
-        "Binary": {
+        "Image": {
           "NEWTYPE": {
             "SEQ": "U8"
           }

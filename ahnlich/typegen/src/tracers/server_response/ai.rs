@@ -1,7 +1,7 @@
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::similarity::Similarity;
 use ahnlich_types::{
-    ai::{AIModel, AIServerResponse, AIServerResult, AIStoreInfo, AIStoreType},
+    ai::{AIModel, AIServerResponse, AIServerResult, AIStoreInfo},
     db::{ConnectedClient, ServerInfo, StoreUpsert},
     keyval::StoreName,
     metadata::{MetadataKey, MetadataValue},
@@ -32,7 +32,6 @@ pub fn trace_ai_server_response_enum() -> Registry {
         name: StoreName("testing".to_owned()),
         model: AIModel::Llama3,
         embedding_size: 20,
-        r#type: AIStoreType::Binary,
     }]));
 
     let info_server = AIServerResponse::InfoServer(ServerInfo {
@@ -62,7 +61,7 @@ pub fn trace_ai_server_response_enum() -> Registry {
     );
     store_value.insert(
         MetadataKey::new(String::from("bin_data")),
-        MetadataValue::Binary(vec![6, 4, 2]),
+        MetadataValue::Image(vec![6, 4, 2]),
     );
 
     let get_variant = AIServerResponse::Get(vec![(store_input.clone(), store_value.clone())]);
@@ -124,9 +123,6 @@ pub fn trace_ai_server_response_enum() -> Registry {
         .trace_type::<ServerType>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
-    tracer
-        .trace_simple_type::<AIStoreType>()
-        .expect("Error tracing AIStoretype");
 
     tracer
         .registry()

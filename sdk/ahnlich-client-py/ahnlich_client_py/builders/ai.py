@@ -13,7 +13,6 @@ class AhnlichAIRequestBuilder:
     def create_store(
         self,
         store_name: str,
-        store_type: ai_query.AIStoreType,
         model: ai_query.AIModel,
         predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
@@ -26,7 +25,6 @@ class AhnlichAIRequestBuilder:
 
         self.queries.append(
             ai_query.AIQuery__CreateStore(
-                type=store_type,
                 store=store_name,
                 model=model,
                 predicates=predicates,

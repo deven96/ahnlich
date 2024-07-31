@@ -120,11 +120,6 @@
         "name": "STR"
       },
       {
-        "type": {
-          "TYPENAME": "AIStoreType"
-        }
-      },
-      {
         "model": {
           "TYPENAME": "AIModel"
         }
@@ -133,16 +128,6 @@
         "embedding_size": "U64"
       }
     ]
-  },
-  "AIStoreType": {
-    "ENUM": {
-      "0": {
-        "RawString": "UNIT"
-      },
-      "1": {
-        "Binary": "UNIT"
-      }
-    }
   },
   "ConnectedClient": {
     "STRUCT": [
@@ -164,7 +149,7 @@
         }
       },
       "1": {
-        "Binary": {
+        "Image": {
           "NEWTYPE": {
             "SEQ": "U8"
           }
