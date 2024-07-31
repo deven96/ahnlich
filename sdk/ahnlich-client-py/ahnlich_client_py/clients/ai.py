@@ -32,7 +32,6 @@ class AhnlichAIClient(BaseClient):
     def create_store(
         self,
         store_name: str,
-        store_type: ai_query.AIStoreType,
         model: ai_query.AIModel,
         predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
@@ -40,7 +39,6 @@ class AhnlichAIClient(BaseClient):
 
         self.builder.create_store(
             store_name=store_name,
-            store_type=store_type,
             model=model,
             predicates=predicates,
             non_linear_indices=non_linear_indices,

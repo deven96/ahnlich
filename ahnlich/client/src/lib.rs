@@ -83,8 +83,6 @@
 //! let mut pipeline = ai_client.pipeline(2).unwrap();
 //!   pipeline.create_store(
 //!       store_name.clone()
-//!       // AIStoreType Found in prelude
-//!       AIStoreType::Binary,
 //!       // AIModel Found in prelude
 //!       AIModel::Llama3,
 //!       HashSet::new(),

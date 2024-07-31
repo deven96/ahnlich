@@ -120,7 +120,7 @@ def test_client_set_in_store_succeeds_with_binary(spin_up_ahnlich_db):
         "inputs": [
             (
                 store_key,
-                {"image": db_query.MetadataValue__Binary(value=[2, 2, 3, 4, 5, 6, 7])},
+                {"image": db_query.MetadataValue__Image(value=[2, 2, 3, 4, 5, 6, 7])},
             ),
         ],
     }

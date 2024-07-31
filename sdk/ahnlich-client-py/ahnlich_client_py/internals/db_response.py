@@ -60,14 +60,14 @@ class MetadataValue__RawString(MetadataValue):
 
 
 @dataclass(frozen=True)
-class MetadataValue__Binary(MetadataValue):
+class MetadataValue__Image(MetadataValue):
     INDEX = 1  # type: int
     value: typing.Sequence[st.uint8]
 
 
 MetadataValue.VARIANTS = [
     MetadataValue__RawString,
-    MetadataValue__Binary,
+    MetadataValue__Image,
 ]
 
 

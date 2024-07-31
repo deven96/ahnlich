@@ -48,7 +48,6 @@ class AIQuery:
 @dataclass(frozen=True)
 class AIQuery__CreateStore(AIQuery):
     INDEX = 0  # type: int
-    type: "AIStoreType"
     store: str
     model: "AIModel"
     predicates: typing.Sequence[str]
@@ -165,38 +164,6 @@ class AIServerQuery:
         return v
 
 
-class AIStoreType:
-    VARIANTS = []  # type: typing.Sequence[typing.Type[AIStoreType]]
-
-    def bincode_serialize(self) -> bytes:
-        return bincode.serialize(self, AIStoreType)
-
-    @staticmethod
-    def bincode_deserialize(input: bytes) -> "AIStoreType":
-        v, buffer = bincode.deserialize(input, AIStoreType)
-        if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
-        return v
-
-
-@dataclass(frozen=True)
-class AIStoreType__RawString(AIStoreType):
-    INDEX = 0  # type: int
-    pass
-
-
-@dataclass(frozen=True)
-class AIStoreType__Binary(AIStoreType):
-    INDEX = 1  # type: int
-    pass
-
-
-AIStoreType.VARIANTS = [
-    AIStoreType__RawString,
-    AIStoreType__Binary,
-]
-
-
 class Algorithm:
     VARIANTS = []  # type: typing.Sequence[typing.Type[Algorithm]]
 
@@ -264,14 +231,14 @@ class MetadataValue__RawString(MetadataValue):
 
 
 @dataclass(frozen=True)
-class MetadataValue__Binary(MetadataValue):
+class MetadataValue__Image(MetadataValue):
     INDEX = 1  # type: int
     value: typing.Sequence[st.uint8]
 
 
 MetadataValue.VARIANTS = [
     MetadataValue__RawString,
-    MetadataValue__Binary,
+    MetadataValue__Image,
 ]
 
 
@@ -410,12 +377,12 @@ class StoreInput__RawString(StoreInput):
 
 
 @dataclass(frozen=True)
-class StoreInput__Binary(StoreInput):
+class StoreInput__Image(StoreInput):
     INDEX = 1  # type: int
     value: typing.Sequence[st.uint8]
 
 
 StoreInput.VARIANTS = [
     StoreInput__RawString,
-    StoreInput__Binary,
+    StoreInput__Image,
 ]
