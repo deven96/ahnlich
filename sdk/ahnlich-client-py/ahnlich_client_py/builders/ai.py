@@ -83,8 +83,15 @@ class AhnlichAIRequestBuilder:
         inputs: typing.Sequence[
             typing.Tuple[ai_query.StoreInput, typing.Dict[str, ai_query.MetadataValue]]
         ],
+        preprocess_action: ai_query.PreprocessAction,
     ):
-        self.queries.append(ai_query.AIQuery__Set(store=store_name, inputs=inputs))
+        self.queries.append(
+            ai_query.AIQuery__Set(
+                store=store_name,
+                inputs=inputs,
+                preprocess_action=preprocess_action,
+            )
+        )
 
     def del_key(self, store_name: str, key: ai_query.StoreInput):
         self.queries.append(ai_query.AIQuery__DelKey(store=store_name, key=key))

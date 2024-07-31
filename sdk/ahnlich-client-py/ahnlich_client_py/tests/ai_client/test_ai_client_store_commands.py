@@ -45,7 +45,11 @@ def test_ai_client_get_pred(spin_up_ahnlich_ai):
     builder = ai_client.pipeline()
     builder.create_store(**ai_store_payload_with_predicates)
     builder.set(
-        store_name=ai_store_payload_with_predicates["store_name"], inputs=store_inputs
+        store_name=ai_store_payload_with_predicates["store_name"],
+        inputs=store_inputs,
+        preprocess_action=ai_query.PreprocessAction__RawString(
+            ai_query.StringAction__ErrorIfTokensExceed()
+        ),
     )
 
     try:
@@ -180,7 +184,11 @@ def test_ai_client_del_key(spin_up_ahnlich_ai):
     builder = ai_client.pipeline()
     builder.create_store(**ai_store_payload_with_predicates)
     builder.set(
-        store_name=ai_store_payload_with_predicates["store_name"], inputs=store_inputs
+        store_name=ai_store_payload_with_predicates["store_name"],
+        inputs=store_inputs,
+        preprocess_action=ai_query.PreprocessAction__RawString(
+            ai_query.StringAction__ErrorIfTokensExceed()
+        ),
     )
 
     try:

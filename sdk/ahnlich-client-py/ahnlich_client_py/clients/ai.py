@@ -90,8 +90,11 @@ class AhnlichAIClient(BaseClient):
         inputs: typing.Sequence[
             typing.Tuple[ai_query.StoreInput, typing.Dict[str, ai_query.MetadataValue]]
         ],
+        preprocess_action=ai_query.PreprocessAction,
     ):
-        self.builder.set(store_name=store_name, inputs=inputs)
+        self.builder.set(
+            store_name=store_name, inputs=inputs, preprocess_action=preprocess_action
+        )
         return self.process_request(self.builder.to_server_query())
 
     def del_key(self, store_name: str, key: ai_query.StoreInput):
