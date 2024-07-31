@@ -22,22 +22,22 @@ use deadpool::managed::Pool;
 //#[global_allocator]
 pub(super) static AI_ALLOCATOR: Cap<alloc::System> = Cap::new(alloc::System, usize::max_value());
 
-pub struct AIProxyServer<'a> {
+pub struct AIProxyServer {
     listener: TcpListener,
-    config: &'a AIProxyConfig,
+    config: AIProxyConfig,
     client_handler: Arc<ClientHandler>,
     store_handler: Arc<AIStoreHandler>,
     shutdown_token: Shutdown,
     db_client: Arc<DbClient>,
 }
 
-impl<'a> AIProxyServer<'a> {
-    pub async fn new(config: &'a AIProxyConfig) -> IoResult<Self> {
+impl AIProxyServer {
+    pub async fn new(config: AIProxyConfig) -> IoResult<Self> {
         let shutdown_token = Shutdown::default();
         Self::build(config, shutdown_token).await
     }
 
-    pub async fn build(config: &'a AIProxyConfig, shutdown_token: Shutdown) -> IoResult<Self> {
+    pub async fn build(config: AIProxyConfig, shutdown_token: Shutdown) -> IoResult<Self> {
         AI_ALLOCATOR
             .set_limit(config.allocator_size)
             .expect("Could not set up ai-proxy with allocator_size");
@@ -53,7 +53,7 @@ impl<'a> AIProxyServer<'a> {
             tracer::init_tracing("ahnlich-db", Some(&config.log_level), &otel_url)
         }
         let write_flag = Arc::new(AtomicBool::new(false));
-        let db_client = Self::build_db_client(config).await;
+        let db_client = Self::build_db_client(&config).await;
         let mut store_handler = AIStoreHandler::new(write_flag.clone());
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
 
@@ -161,7 +161,7 @@ impl<'a> AIProxyServer<'a> {
         })
     }
 
-    async fn build_db_client(config: &'a AIProxyConfig) -> DbClient {
+    async fn build_db_client(config: &AIProxyConfig) -> DbClient {
         let manager = DbConnManager::new(config.db_host.clone(), config.db_port);
         let pool = Pool::builder(manager)
             .max_size(config.db_client_pool_size)

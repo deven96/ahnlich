@@ -25,12 +25,7 @@ use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
 
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
-static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
-    let mut ai_proxy = AIProxyConfig::default().os_select_port();
-    ai_proxy.db_port = CONFIG.port.clone();
-    ai_proxy.db_host = CONFIG.host.clone();
-    ai_proxy
-});
+static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| AIProxyConfig::default().os_select_port());
 
 static PERSISTENCE_FILE: Lazy<PathBuf> =
     Lazy::new(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ahnlich_ai_proxy.dat"));
@@ -89,7 +84,11 @@ async fn provision_test_servers() -> SocketAddr {
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
-    let ai_server = AIProxyServer::new(&AI_CONFIG)
+    let db_port = server.local_addr().unwrap().port();
+    let mut config = AI_CONFIG.clone();
+    config.db_port = db_port;
+
+    let ai_server = AIProxyServer::new(config)
         .await
         .expect("Could not initialize ai proxy");
 
@@ -422,7 +421,7 @@ async fn test_ai_proxy_del_key_drop_store() {
 
 #[tokio::test]
 async fn test_ai_proxy_fails_db_server_unavailable() {
-    let ai_server = AIProxyServer::new(&AI_CONFIG)
+    let ai_server = AIProxyServer::new(AI_CONFIG.clone())
         .await
         .expect("Could not initialize ai proxy");
 
@@ -463,7 +462,7 @@ async fn test_ai_proxy_test_with_persistence() {
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
-    let ai_server = AIProxyServer::new(&AI_CONFIG_WITH_PERSISTENCE)
+    let ai_server = AIProxyServer::new(AI_CONFIG_WITH_PERSISTENCE.clone())
         .await
         .expect("Could not initialize ai proxy");
 
@@ -515,7 +514,7 @@ async fn test_ai_proxy_test_with_persistence() {
     tokio::time::sleep(Duration::from_millis(200)).await;
     // start another server with existing persistence
 
-    let persisted_server = AIProxyServer::new(&AI_CONFIG_WITH_PERSISTENCE)
+    let persisted_server = AIProxyServer::new(AI_CONFIG_WITH_PERSISTENCE.clone())
         .await
         .unwrap();
 
@@ -582,4 +581,212 @@ async fn test_ai_proxy_destroy_database() {
 
     let mut reader = BufReader::new(second_stream);
     query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
+async fn test_ai_proxy_binary_store_actions() {
+    let address = provision_test_servers().await;
+
+    let store_name = StoreName(String::from("Deven Image Store"));
+    let matching_metadatakey = MetadataKey::new("Name".to_owned());
+    let matching_metadatavalue = MetadataValue::RawString("Greatness".to_owned());
+
+    let store_value_1 =
+        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
+    let store_value_2 = StoreValue::from_iter([(
+        matching_metadatakey.clone(),
+        MetadataValue::RawString("Deven".to_owned()),
+    )]);
+    let store_data = vec![
+        (
+            StoreInput::Binary(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+            store_value_1.clone(),
+        ),
+        (
+            StoreInput::Binary(vec![102, 3, 4, 6, 7, 8, 4, 190]),
+            store_value_2.clone(),
+        ),
+        (
+            StoreInput::Binary(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
+            StoreValue::from_iter([(
+                matching_metadatakey.clone(),
+                MetadataValue::RawString("Daniel".to_owned()),
+            )]),
+        ),
+    ];
+
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::CreateStore {
+            r#type: AIStoreType::Binary,
+            store: store_name.clone(),
+            model: AIModel::Llama3,
+            predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
+        },
+        AIQuery::ListStores,
+        AIQuery::CreatePredIndex {
+            store: store_name.clone(),
+            predicates: HashSet::from_iter([
+                MetadataKey::new("Name".to_string()),
+                MetadataKey::new("Age".to_string()),
+            ]),
+        },
+        AIQuery::Set {
+            store: store_name.clone(),
+            inputs: store_data,
+        },
+        AIQuery::DropPredIndex {
+            store: store_name.clone(),
+            predicates: HashSet::from_iter([MetadataKey::new("Age".to_string())]),
+            error_if_not_exists: true,
+        },
+        AIQuery::GetPred {
+            store: store_name.clone(),
+            condition: PredicateCondition::Value(Predicate::Equals {
+                key: matching_metadatakey.clone(),
+                value: matching_metadatavalue,
+            }),
+        },
+        AIQuery::PurgeStores,
+    ]);
+
+    let mut expected = AIServerResult::with_capacity(7);
+
+    expected.push(Ok(AIServerResponse::Unit));
+    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
+        AIStoreInfo {
+            name: store_name,
+            r#type: AIStoreType::Binary,
+            model: AIModel::Llama3,
+            embedding_size: AIModel::Llama3.embedding_size().into(),
+        },
+    ]))));
+    expected.push(Ok(AIServerResponse::CreateIndex(2)));
+    expected.push(Ok(AIServerResponse::Set(StoreUpsert {
+        inserted: 3,
+        updated: 0,
+    })));
+    expected.push(Ok(AIServerResponse::Del(1)));
+    expected.push(Ok(AIServerResponse::Get(vec![(
+        StoreInput::Binary(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+        store_value_1.clone(),
+    )])));
+    expected.push(Ok(AIServerResponse::Del(1)));
+
+    let connected_stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(connected_stream);
+
+    query_server_assert_result(&mut reader, message, expected).await;
+}
+
+#[tokio::test]
+async fn test_ai_proxy_binary_store_with_text_and_binary() {
+    let address = provision_test_servers().await;
+
+    let store_name = StoreName(String::from("Deven Mixed Store"));
+    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
+    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+
+    let store_value_1 =
+        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
+    let store_value_2 = StoreValue::from_iter([(
+        matching_metadatakey.clone(),
+        MetadataValue::RawString("Deven".to_owned()),
+    )]);
+    let store_data = vec![
+        (
+            StoreInput::Binary(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+            store_value_1.clone(),
+        ),
+        (
+            StoreInput::Binary(vec![102, 3, 4, 6, 7, 8, 4, 190]),
+            store_value_2.clone(),
+        ),
+        (
+            StoreInput::Binary(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
+            StoreValue::from_iter([(
+                matching_metadatakey.clone(),
+                MetadataValue::RawString("Daniel".to_owned()),
+            )]),
+        ),
+        (
+            StoreInput::RawString(String::from("Buster Matthews is the name")),
+            StoreValue::from_iter([(
+                MetadataKey::new("Description".to_string()),
+                MetadataValue::RawString("20 year old line backer".to_owned()),
+            )]),
+        ),
+    ];
+
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::CreateStore {
+            r#type: AIStoreType::Binary,
+            store: store_name.clone(),
+            model: AIModel::Llama3,
+            predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
+        },
+        AIQuery::ListStores,
+        AIQuery::CreatePredIndex {
+            store: store_name.clone(),
+            predicates: HashSet::from_iter([
+                MetadataKey::new("Name".to_string()),
+                MetadataKey::new("Description".to_string()),
+            ]),
+        },
+        AIQuery::Set {
+            store: store_name.clone(),
+            inputs: store_data,
+        },
+        AIQuery::DropPredIndex {
+            store: store_name.clone(),
+            predicates: HashSet::from_iter([MetadataKey::new("Age".to_string())]),
+            error_if_not_exists: true,
+        },
+        AIQuery::GetPred {
+            store: store_name.clone(),
+            condition: PredicateCondition::Value(Predicate::In {
+                key: MetadataKey::new("Description".to_owned()),
+                value: HashSet::from_iter([MetadataValue::RawString(
+                    "20 year old line backer".to_owned(),
+                )]),
+            }),
+        },
+        AIQuery::PurgeStores,
+    ]);
+
+    let mut expected = AIServerResult::with_capacity(7);
+
+    expected.push(Ok(AIServerResponse::Unit));
+    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
+        AIStoreInfo {
+            name: store_name,
+            r#type: AIStoreType::Binary,
+            model: AIModel::Llama3,
+            embedding_size: AIModel::Llama3.embedding_size().into(),
+        },
+    ]))));
+    expected.push(Ok(AIServerResponse::CreateIndex(2)));
+    expected.push(Ok(AIServerResponse::Set(StoreUpsert {
+        inserted: 4,
+        updated: 0,
+    })));
+    expected.push(Err(
+        "db error Predicate Age not found in store, attempt CREATEPREDINDEX with predicate"
+            .to_string(),
+    ));
+
+    expected.push(Ok(AIServerResponse::Get(vec![(
+        StoreInput::RawString(String::from("Buster Matthews is the name")),
+        StoreValue::from_iter([(
+            MetadataKey::new("Description".to_owned()),
+            MetadataValue::RawString("20 year old line backer".to_owned()),
+        )]),
+    )])));
+    expected.push(Ok(AIServerResponse::Del(1)));
+
+    let connected_stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(connected_stream);
+
+    query_server_assert_result(&mut reader, message, expected).await;
 }

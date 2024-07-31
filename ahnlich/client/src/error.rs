@@ -12,6 +12,8 @@ pub enum AhnlichError {
     EmptyResponse,
     #[error("deadpool error {0}")]
     PoolError(String),
+    #[error("ai proxy error {0}")]
+    AIProxyError(String),
 }
 
 impl<E: std::fmt::Debug> From<deadpool::managed::PoolError<E>> for AhnlichError {

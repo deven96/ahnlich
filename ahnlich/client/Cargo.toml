@@ -24,5 +24,6 @@ tokio.workspace = true
 deadpool.workspace = true
 [dev-dependencies]
 db = { path = "../db", version = "*" }
+ai = { path = "../ai", version = "*" }
 pretty_assertions.workspace = true
 ndarray.workspace = true

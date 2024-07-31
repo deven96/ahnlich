@@ -5,7 +5,7 @@ use std::error::Error;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let cli = ahnlich_ai_proxy::cli::Cli::parse();
-    match &cli.command {
+    match cli.command {
         ahnlich_ai_proxy::cli::Commands::Start(config) => {
             let server = ahnlich_ai_proxy::server::handler::AIProxyServer::new(config).await?;
             server.start().await?;
