@@ -56,7 +56,6 @@ impl AhnlichProtocol for AIProxyTask {
                 )),
                 AIQuery::InfoServer => Ok(AIServerResponse::InfoServer(self.server_info())),
                 AIQuery::CreateStore {
-                    r#type,
                     store,
                     model,
                     mut predicates,
@@ -85,7 +84,7 @@ impl AhnlichProtocol for AIProxyTask {
                         Err(err) => Err(err.to_string()),
                         Ok(_) => self
                             .store_handler
-                            .create_store(store, r#type, model)
+                            .create_store(store, model)
                             .map(|_| AIServerResponse::Unit)
                             .map_err(|e| e.to_string()),
                     }

@@ -1,5 +1,4 @@
 use super::AIModel;
-use super::AIStoreType;
 use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserResponse};
 use crate::db::{ConnectedClient, ServerInfo, StoreUpsert};
 use crate::keyval::StoreInput;
@@ -34,7 +33,6 @@ pub enum AIServerResponse {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AIStoreInfo {
     pub name: StoreName,
-    pub r#type: AIStoreType,
     pub model: AIModel,
     pub embedding_size: usize,
 }

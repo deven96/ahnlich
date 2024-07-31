@@ -2,7 +2,6 @@ use crate::error::AIProxyError;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
 use ahnlich_types::ai::AIModel;
 use ahnlich_types::ai::AIStoreInfo;
-use ahnlich_types::ai::AIStoreType;
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
@@ -58,18 +57,14 @@ impl AIStoreHandler {
     pub(crate) fn create_store(
         &self,
         store_name: StoreName,
-        store_type: AIStoreType,
+
         model: AIModel,
     ) -> Result<(), AIProxyError> {
         if self
             .stores
             .try_insert(
                 store_name.clone(),
-                Arc::new(AIStore::create(
-                    store_type,
-                    store_name.clone(),
-                    model.clone(),
-                )),
+                Arc::new(AIStore::create(store_name.clone(), model.clone())),
                 &self.stores.guard(),
             )
             .is_err()
@@ -88,7 +83,6 @@ impl AIStoreHandler {
             .map(|(store_name, store)| AIStoreInfo {
                 name: store_name.clone(),
                 model: store.model.clone(),
-                r#type: store.r#type.clone(),
                 embedding_size: store.model.embedding_size().into(),
             })
             .collect()
@@ -197,14 +191,12 @@ impl AIStoreHandler {
 pub struct AIStore {
     name: StoreName,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
-    r#type: AIStoreType,
     model: AIModel,
 }
 
 impl AIStore {
-    pub(super) fn create(r#type: AIStoreType, store_name: StoreName, model: AIModel) -> Self {
+    pub(super) fn create(store_name: StoreName, model: AIModel) -> Self {
         Self {
-            r#type,
             name: store_name,
             model,
         }

@@ -1,9 +1,7 @@
 use ahnlich_db::cli::ServerConfig;
 use ahnlich_db::server::handler::Server;
 use ahnlich_types::{
-    ai::{
-        AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo, AIStoreType,
-    },
+    ai::{AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo},
     db::StoreUpsert,
     keyval::{StoreInput, StoreName, StoreValue},
     metadata::{MetadataKey, MetadataValue},
@@ -119,7 +117,6 @@ async fn test_ai_proxy_create_store_success() {
     let second_stream = TcpStream::connect(address).await.unwrap();
     let store_name = StoreName(String::from("Sample Store"));
     let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
-        r#type: AIStoreType::RawString,
         store: store_name.clone(),
         model: AIModel::Llama3,
         predicates: HashSet::new(),
@@ -138,7 +135,7 @@ async fn test_ai_proxy_create_store_success() {
         AIStoreInfo {
             name: store_name.clone(),
             model: AIModel::Llama3,
-            r#type: AIStoreType::RawString,
+
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
     ]))));
@@ -178,7 +175,6 @@ async fn test_ai_proxy_get_pred_succeeds() {
     ];
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
             model: AIModel::Llama3,
             predicates: HashSet::from_iter([
@@ -255,7 +251,6 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
     ];
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
             model: AIModel::Llama3,
             predicates: HashSet::from_iter([
@@ -313,7 +308,6 @@ async fn test_ai_proxy_create_drop_pred_index() {
     )];
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
             model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
@@ -381,7 +375,6 @@ async fn test_ai_proxy_del_key_drop_store() {
     )];
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
             model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
@@ -437,7 +430,6 @@ async fn test_ai_proxy_fails_db_server_unavailable() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::Ping,
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
             model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
@@ -480,14 +472,12 @@ async fn test_ai_proxy_test_with_persistence() {
 
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
             model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
         AIQuery::CreateStore {
-            r#type: AIStoreType::Binary,
             store: store_name_2.clone(),
             model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
@@ -536,7 +526,6 @@ async fn test_ai_proxy_test_with_persistence() {
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name_2.clone(),
-            r#type: AIStoreType::Binary,
             model: AIModel::Llama3,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
@@ -555,7 +544,6 @@ async fn test_ai_proxy_destroy_database() {
     let store_name = StoreName(String::from("Deven Kicks"));
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
             model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
@@ -571,7 +559,7 @@ async fn test_ai_proxy_destroy_database() {
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name,
-            r#type: AIStoreType::RawString,
+
             model: AIModel::Llama3,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
@@ -599,15 +587,15 @@ async fn test_ai_proxy_binary_store_actions() {
     )]);
     let store_data = vec![
         (
-            StoreInput::Binary(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+            StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
             store_value_1.clone(),
         ),
         (
-            StoreInput::Binary(vec![102, 3, 4, 6, 7, 8, 4, 190]),
+            StoreInput::Image(vec![102, 3, 4, 6, 7, 8, 4, 190]),
             store_value_2.clone(),
         ),
         (
-            StoreInput::Binary(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
+            StoreInput::Image(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
             StoreValue::from_iter([(
                 matching_metadatakey.clone(),
                 MetadataValue::RawString("Daniel".to_owned()),
@@ -617,7 +605,6 @@ async fn test_ai_proxy_binary_store_actions() {
 
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::Binary,
             store: store_name.clone(),
             model: AIModel::Llama3,
             predicates: HashSet::new(),
@@ -656,7 +643,6 @@ async fn test_ai_proxy_binary_store_actions() {
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name,
-            r#type: AIStoreType::Binary,
             model: AIModel::Llama3,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
@@ -668,7 +654,7 @@ async fn test_ai_proxy_binary_store_actions() {
     })));
     expected.push(Ok(AIServerResponse::Del(1)));
     expected.push(Ok(AIServerResponse::Get(vec![(
-        StoreInput::Binary(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+        StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
         store_value_1.clone(),
     )])));
     expected.push(Ok(AIServerResponse::Del(1)));
@@ -695,15 +681,15 @@ async fn test_ai_proxy_binary_store_with_text_and_binary() {
     )]);
     let store_data = vec![
         (
-            StoreInput::Binary(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+            StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
             store_value_1.clone(),
         ),
         (
-            StoreInput::Binary(vec![102, 3, 4, 6, 7, 8, 4, 190]),
+            StoreInput::Image(vec![102, 3, 4, 6, 7, 8, 4, 190]),
             store_value_2.clone(),
         ),
         (
-            StoreInput::Binary(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
+            StoreInput::Image(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
             StoreValue::from_iter([(
                 matching_metadatakey.clone(),
                 MetadataValue::RawString("Daniel".to_owned()),
@@ -720,7 +706,6 @@ async fn test_ai_proxy_binary_store_with_text_and_binary() {
 
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::Binary,
             store: store_name.clone(),
             model: AIModel::Llama3,
             predicates: HashSet::new(),
@@ -761,7 +746,6 @@ async fn test_ai_proxy_binary_store_with_text_and_binary() {
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name,
-            r#type: AIStoreType::Binary,
             model: AIModel::Llama3,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },

@@ -12,11 +12,6 @@
         "CreateStore": {
           "STRUCT": [
             {
-              "type": {
-                "TYPENAME": "AIStoreType"
-              }
-            },
-            {
               "store": "STR"
             },
             {
@@ -192,16 +187,6 @@
       }
     ]
   },
-  "AIStoreType": {
-    "ENUM": {
-      "0": {
-        "RawString": "UNIT"
-      },
-      "1": {
-        "Binary": "UNIT"
-      }
-    }
-  },
   "Algorithm": {
     "ENUM": {
       "0": {
@@ -226,7 +211,7 @@
         }
       },
       "1": {
-        "Binary": {
+        "Image": {
           "NEWTYPE": {
             "SEQ": "U8"
           }
@@ -348,7 +333,7 @@
         }
       },
       "1": {
-        "Binary": {
+        "Image": {
           "NEWTYPE": {
             "SEQ": "U8"
           }
