@@ -1,4 +1,4 @@
-use ahnlich_types::ai::AIModel;
+use ahnlich_types::ai::{AIModel, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
@@ -78,6 +78,7 @@ pub fn trace_ai_query_enum() -> Registry {
 
     let set = AIQuery::Set {
         store: sample_store_name.clone(),
+        preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
         inputs: vec![(test_search_input_bin.clone(), store_value)],
     };
 
@@ -153,6 +154,16 @@ pub fn trace_ai_query_enum() -> Registry {
 
     let _ = tracer
         .trace_type::<MetadataValue>(&samples)
+        .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
+        .unwrap();
+    let _ = tracer
+        .trace_type::<StringAction>(&samples)
+        .expect("Error tracing String action");
+    let _ = tracer
+        .trace_type::<ImageAction>(&samples)
+        .expect("Error tracing image action");
+    let _ = tracer
+        .trace_type::<PreprocessAction>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 

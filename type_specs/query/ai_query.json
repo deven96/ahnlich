@@ -132,6 +132,11 @@
                   ]
                 }
               }
+            },
+            {
+              "preprocess_action": {
+                "TYPENAME": "PreprocessAction"
+              }
             }
           ]
         }
@@ -200,6 +205,16 @@
       },
       "3": {
         "KDTree": "UNIT"
+      }
+    }
+  },
+  "ImageAction": {
+    "ENUM": {
+      "0": {
+        "ResizeImage": "UNIT"
+      },
+      "1": {
+        "ErrorIfDimensionsMismatch": "UNIT"
       }
     }
   },
@@ -325,6 +340,24 @@
       }
     }
   },
+  "PreprocessAction": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": {
+            "TYPENAME": "StringAction"
+          }
+        }
+      },
+      "1": {
+        "Image": {
+          "NEWTYPE": {
+            "TYPENAME": "ImageAction"
+          }
+        }
+      }
+    }
+  },
   "StoreInput": {
     "ENUM": {
       "0": {
@@ -338,6 +371,16 @@
             "SEQ": "U8"
           }
         }
+      }
+    }
+  },
+  "StringAction": {
+    "ENUM": {
+      "0": {
+        "TruncateIfTokensExceed": "UNIT"
+      },
+      "1": {
+        "ErrorIfTokensExceed": "UNIT"
       }
     }
   }

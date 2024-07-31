@@ -105,8 +105,17 @@ impl AIPipeline {
     }
 
     /// push set command to pipeline
-    pub fn set(&mut self, store: StoreName, inputs: Vec<(StoreInput, StoreValue)>) {
-        self.queries.push(AIQuery::Set { store, inputs })
+    pub fn set(
+        &mut self,
+        store: StoreName,
+        inputs: Vec<(StoreInput, StoreValue)>,
+        preprocess_action: PreprocessAction,
+    ) {
+        self.queries.push(AIQuery::Set {
+            store,
+            inputs,
+            preprocess_action,
+        })
     }
 
     /// push del key command to pipeline
@@ -245,8 +254,14 @@ impl AIClient {
         &self,
         store: StoreName,
         inputs: Vec<(StoreInput, StoreValue)>,
+        preprocess_action: PreprocessAction,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::Set { store, inputs }).await
+        self.exec(AIQuery::Set {
+            store,
+            inputs,
+            preprocess_action,
+        })
+        .await
     }
 
     pub async fn del_key(
@@ -467,7 +482,8 @@ mod tests {
                         StoreInput::RawString("Nike Air Jordans".into()),
                         HashMap::new()
                     ),
-                ]
+                ],
+                PreprocessAction::RawString(StringAction::ErrorIfTokensExceed)
             )
             .await
             .is_ok());
@@ -596,7 +612,11 @@ mod tests {
                 MetadataKey::new("Vintage".to_string()),
             ]),
         );
-        pipeline.set(store_name.clone(), store_data);
+        pipeline.set(
+            store_name.clone(),
+            store_data,
+            PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+        );
 
         pipeline.drop_pred_index(
             store_name.clone(),
@@ -709,7 +729,11 @@ mod tests {
                 MetadataKey::new("Age".to_string()),
             ]),
         );
-        pipeline.set(store_name.clone(), store_data);
+        pipeline.set(
+            store_name.clone(),
+            store_data,
+            PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
+        );
 
         pipeline.drop_pred_index(
             store_name.clone(),

@@ -90,11 +90,18 @@ impl AhnlichProtocol for AIProxyTask {
                     }
                 }
 
-                AIQuery::Set { store, inputs } => {
+                AIQuery::Set {
+                    store,
+                    inputs,
+                    preprocess_action,
+                } => {
                     let mut db_inputs = Vec::new();
                     let mut delete_hashset = HashSet::new();
                     let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
                     // TODO: Will parallelized
+
+                    // For now print
+                    println!("{:?}", preprocess_action);
 
                     for (store_input, store_value) in inputs.into_iter() {
                         let store_value = self.store_handler.store_input_to_store_key_val(

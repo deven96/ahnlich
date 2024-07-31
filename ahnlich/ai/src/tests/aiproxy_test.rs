@@ -1,7 +1,10 @@
 use ahnlich_db::cli::ServerConfig;
 use ahnlich_db::server::handler::Server;
 use ahnlich_types::{
-    ai::{AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo},
+    ai::{
+        AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo,
+        ImageAction, PreprocessAction, StringAction,
+    },
     db::StoreUpsert,
     keyval::{StoreInput, StoreName, StoreValue},
     metadata::{MetadataKey, MetadataValue},
@@ -186,6 +189,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -262,6 +266,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -325,6 +330,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
         },
         AIQuery::GetPred {
             store: store_name.clone(),
@@ -383,6 +389,7 @@ async fn test_ai_proxy_del_key_drop_store() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
         },
         AIQuery::DelKey {
             store: store_name.clone(),
@@ -621,6 +628,7 @@ async fn test_ai_proxy_binary_store_actions() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data,
+            preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
         },
         AIQuery::DropPredIndex {
             store: store_name.clone(),
@@ -719,9 +727,11 @@ async fn test_ai_proxy_binary_store_with_text_and_binary() {
                 MetadataKey::new("Description".to_string()),
             ]),
         },
+        // TODO: Would fail now
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data,
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
         },
         AIQuery::DropPredIndex {
             store: store_name.clone(),
