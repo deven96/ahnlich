@@ -49,7 +49,10 @@ class AIQuery:
 class AIQuery__CreateStore(AIQuery):
     INDEX = 0  # type: int
     store: str
-    model: "AIModel"
+    query_model: "AIModel"
+    index_model: "AIModel"
+    query_type: "AIStoreInputTypes"
+    index_type: "AIStoreInputTypes"
     predicates: typing.Sequence[str]
     non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
 
@@ -163,6 +166,38 @@ class AIServerQuery:
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
         return v
+
+
+class AIStoreInputTypes:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[AIStoreInputTypes]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, AIStoreInputTypes)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> "AIStoreInputTypes":
+        v, buffer = bincode.deserialize(input, AIStoreInputTypes)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read")
+        return v
+
+
+@dataclass(frozen=True)
+class AIStoreInputTypes__RawString(AIStoreInputTypes):
+    INDEX = 0  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIStoreInputTypes__Image(AIStoreInputTypes):
+    INDEX = 1  # type: int
+    pass
+
+
+AIStoreInputTypes.VARIANTS = [
+    AIStoreInputTypes__RawString,
+    AIStoreInputTypes__Image,
+]
 
 
 class Algorithm:

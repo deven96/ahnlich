@@ -141,7 +141,10 @@ class AIServerResult:
 @dataclass(frozen=True)
 class AIStoreInfo:
     name: str
-    model: "AIModel"
+    query_model: "AIModel"
+    index_model: "AIModel"
+    query_type: "AIStoreInputTypes"
+    index_type: "AIStoreInputTypes"
     embedding_size: st.uint64
 
     def bincode_serialize(self) -> bytes:
@@ -153,6 +156,38 @@ class AIStoreInfo:
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
         return v
+
+
+class AIStoreInputTypes:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[AIStoreInputTypes]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, AIStoreInputTypes)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> "AIStoreInputTypes":
+        v, buffer = bincode.deserialize(input, AIStoreInputTypes)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read")
+        return v
+
+
+@dataclass(frozen=True)
+class AIStoreInputTypes__RawString(AIStoreInputTypes):
+    INDEX = 0  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIStoreInputTypes__Image(AIStoreInputTypes):
+    INDEX = 1  # type: int
+    pass
+
+
+AIStoreInputTypes.VARIANTS = [
+    AIStoreInputTypes__RawString,
+    AIStoreInputTypes__Image,
+]
 
 
 @dataclass(frozen=True)

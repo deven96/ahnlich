@@ -3,12 +3,18 @@ from ahnlich_client_py.internals import ai_query, ai_response
 
 ai_store_payload_no_predicates = {
     "store_name": "Diretnan Stores",
-    "model": ai_query.AIModel__Llama3(),
+    "query_model": ai_query.AIModel__Llama3(),
+    "index_model": ai_query.AIModel__Llama3(),
+    "query_type": ai_query.AIStoreInputTypes__RawString(),
+    "index_type": ai_query.AIStoreInputTypes__RawString(),
 }
 
 ai_store_payload_with_predicates = {
     "store_name": "Diretnan Predication Stores",
-    "model": ai_query.AIModel__Llama3(),
+    "query_model": ai_query.AIModel__Llama3(),
+    "index_model": ai_query.AIModel__Llama3(),
+    "query_type": ai_query.AIStoreInputTypes__RawString(),
+    "index_type": ai_query.AIStoreInputTypes__RawString(),
     "predicates": ["special", "brand"],
 }
 
