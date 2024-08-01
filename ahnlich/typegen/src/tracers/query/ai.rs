@@ -1,4 +1,4 @@
-use ahnlich_types::ai::{AIModel, ImageAction, PreprocessAction, StringAction};
+use ahnlich_types::ai::{AIModel, AIStoreInputTypes, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
@@ -47,7 +47,10 @@ pub fn trace_ai_query_enum() -> Registry {
 
     let create_store = AIQuery::CreateStore {
         store: sample_store_name.clone(),
-        model: AIModel::Llama3,
+        index_model: AIModel::Llama3,
+        query_model: AIModel::Llama3,
+        index_type: AIStoreInputTypes::Image,
+        query_type: AIStoreInputTypes::Image,
         predicates: test_create_predicates.clone(),
         non_linear_indices: test_non_linear_indices,
     };
@@ -156,6 +159,10 @@ pub fn trace_ai_query_enum() -> Registry {
         .trace_type::<MetadataValue>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
+    let _ = tracer
+        .trace_type::<AIStoreInputTypes>(&samples)
+        .expect("Error tracing AIStoreInputTypes");
+
     let _ = tracer
         .trace_type::<StringAction>(&samples)
         .expect("Error tracing String action");

@@ -120,14 +120,39 @@
         "name": "STR"
       },
       {
-        "model": {
+        "query_model": {
           "TYPENAME": "AIModel"
+        }
+      },
+      {
+        "index_model": {
+          "TYPENAME": "AIModel"
+        }
+      },
+      {
+        "query_type": {
+          "TYPENAME": "AIStoreInputTypes"
+        }
+      },
+      {
+        "index_type": {
+          "TYPENAME": "AIStoreInputTypes"
         }
       },
       {
         "embedding_size": "U64"
       }
     ]
+  },
+  "AIStoreInputTypes": {
+    "ENUM": {
+      "0": {
+        "RawString": "UNIT"
+      },
+      "1": {
+        "Image": "UNIT"
+      }
+    }
   },
   "ConnectedClient": {
     "STRUCT": [

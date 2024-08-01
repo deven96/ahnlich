@@ -49,15 +49,21 @@ impl AIPipeline {
     pub fn create_store(
         &mut self,
         store: StoreName,
-        model: AIModel,
+        query_model: AIModel,
+        index_model: AIModel,
+        query_type: AIStoreInputTypes,
+        index_type: AIStoreInputTypes,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
     ) {
         self.queries.push(AIQuery::CreateStore {
             store,
+            query_model,
+            index_model,
+            query_type,
+            index_type,
             predicates,
             non_linear_indices,
-            model,
         })
     }
 
@@ -188,13 +194,19 @@ impl AIClient {
     pub async fn create_store(
         &self,
         store: StoreName,
-        model: AIModel,
+        query_model: AIModel,
+        index_model: AIModel,
+        query_type: AIStoreInputTypes,
+        index_type: AIStoreInputTypes,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(AIQuery::CreateStore {
             store,
-            model,
+            query_model,
+            index_model,
+            query_type,
+            index_type,
             predicates,
             non_linear_indices,
         })
@@ -417,18 +429,27 @@ mod tests {
         pipeline.create_store(
             StoreName("Main".to_string()),
             AIModel::Llama3,
+            AIModel::Llama3,
+            AIStoreInputTypes::RawString,
+            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Main".to_string()),
             AIModel::Llama3,
+            AIModel::Llama3,
+            AIStoreInputTypes::RawString,
+            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
             AIModel::Llama3,
+            AIModel::Llama3,
+            AIStoreInputTypes::RawString,
+            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
@@ -441,12 +462,18 @@ mod tests {
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
+                query_type: AIStoreInputTypes::RawString,
+                index_type: AIStoreInputTypes::RawString,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
+                query_type: AIStoreInputTypes::RawString,
+                index_type: AIStoreInputTypes::RawString,
             },
         ]))));
         let res = pipeline.exec().await.expect("Could not execute pipeline");
@@ -467,6 +494,9 @@ mod tests {
             .create_store(
                 store_name.clone(),
                 AIModel::Llama3,
+                AIModel::Llama3,
+                AIStoreInputTypes::RawString,
+                AIStoreInputTypes::RawString,
                 HashSet::new(),
                 HashSet::new(),
             )
@@ -513,18 +543,27 @@ mod tests {
         pipeline.create_store(
             StoreName("Main".to_string()),
             AIModel::Llama3,
+            AIModel::Llama3,
+            AIStoreInputTypes::RawString,
+            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Main2".to_string()),
             AIModel::Llama3,
+            AIModel::Llama3,
+            AIStoreInputTypes::RawString,
+            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
             AIModel::Llama3,
+            AIModel::Llama3,
+            AIStoreInputTypes::RawString,
+            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
@@ -539,17 +578,26 @@ mod tests {
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
+                query_type: AIStoreInputTypes::RawString,
+                index_type: AIStoreInputTypes::RawString,
             },
             AIStoreInfo {
                 name: StoreName("Main2".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
+                query_type: AIStoreInputTypes::RawString,
+                index_type: AIStoreInputTypes::RawString,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
+                query_type: AIStoreInputTypes::RawString,
+                index_type: AIStoreInputTypes::RawString,
             },
         ]))));
         expected.push(Ok(AIServerResponse::Del(1)));
@@ -601,6 +649,9 @@ mod tests {
         pipeline.create_store(
             store_name.clone(),
             AIModel::Llama3,
+            AIModel::Llama3,
+            AIStoreInputTypes::RawString,
+            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
@@ -631,7 +682,10 @@ mod tests {
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name.clone(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
+                query_type: AIStoreInputTypes::RawString,
+                index_type: AIStoreInputTypes::RawString,
                 embedding_size: AIModel::Llama3.embedding_size().into(),
             },
         ]))));
@@ -718,6 +772,9 @@ mod tests {
         pipeline.create_store(
             store_name.clone(),
             AIModel::Llama3,
+            AIModel::Llama3,
+            AIStoreInputTypes::Image,
+            AIStoreInputTypes::Image,
             HashSet::new(),
             HashSet::new(),
         );
@@ -756,7 +813,10 @@ mod tests {
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name,
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
+                query_type: AIStoreInputTypes::Image,
+                index_type: AIStoreInputTypes::Image,
                 embedding_size: AIModel::Llama3.embedding_size().into(),
             },
         ]))));

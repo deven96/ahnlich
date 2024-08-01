@@ -1,7 +1,6 @@
 use crate::error::AIProxyError;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use ahnlich_types::ai::AIModel;
-use ahnlich_types::ai::AIStoreInfo;
+use ahnlich_types::ai::{AIModel, AIStoreInfo, AIStoreInputTypes};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
@@ -57,14 +56,22 @@ impl AIStoreHandler {
     pub(crate) fn create_store(
         &self,
         store_name: StoreName,
-
-        model: AIModel,
+        query_model: AIModel,
+        index_model: AIModel,
+        query_type: AIStoreInputTypes,
+        index_type: AIStoreInputTypes,
     ) -> Result<(), AIProxyError> {
         if self
             .stores
             .try_insert(
                 store_name.clone(),
-                Arc::new(AIStore::create(store_name.clone(), model.clone())),
+                Arc::new(AIStore::create(
+                    store_name.clone(),
+                    query_model.clone(),
+                    index_model.clone(),
+                    query_type.clone(),
+                    index_type.clone(),
+                )),
                 &self.stores.guard(),
             )
             .is_err()
@@ -82,8 +89,11 @@ impl AIStoreHandler {
             .iter(&self.stores.guard())
             .map(|(store_name, store)| AIStoreInfo {
                 name: store_name.clone(),
-                model: store.model.clone(),
-                embedding_size: store.model.embedding_size().into(),
+                query_model: store.query_model.clone(),
+                index_model: store.index_model.clone(),
+                query_type: store.query_type.clone(),
+                index_type: store.index_type.clone(),
+                embedding_size: store.query_model.embedding_size().into(),
             })
             .collect()
     }
@@ -114,7 +124,7 @@ impl AIStoreHandler {
         }
         let store = self.get(store_name)?;
 
-        let store_key = store.model.model_ndarray(&store_input);
+        let store_key = store.index_model.model_ndarray(&store_input);
         let metadata_value: MetadataValue = store_input.into();
         let mut final_store_value: StdHashMap<MetadataKey, MetadataValue> =
             store_value.clone().into_iter().collect();
@@ -153,7 +163,7 @@ impl AIStoreHandler {
         store_input: &StoreInput,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
-        Ok(store.model.model_ndarray(store_input))
+        Ok(store.index_model.model_ndarray(store_input))
     }
 
     /// Matches DROPSTORE - Drops a store if exist, else returns an error
@@ -191,14 +201,26 @@ impl AIStoreHandler {
 pub struct AIStore {
     name: StoreName,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
-    model: AIModel,
+    query_model: AIModel,
+    index_model: AIModel,
+    query_type: AIStoreInputTypes,
+    index_type: AIStoreInputTypes,
 }
 
 impl AIStore {
-    pub(super) fn create(store_name: StoreName, model: AIModel) -> Self {
+    pub(super) fn create(
+        store_name: StoreName,
+        query_model: AIModel,
+        index_model: AIModel,
+        query_type: AIStoreInputTypes,
+        index_type: AIStoreInputTypes,
+    ) -> Self {
         Self {
             name: store_name,
-            model,
+            query_model,
+            query_type,
+            index_model,
+            index_type,
         }
     }
 }

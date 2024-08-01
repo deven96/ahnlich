@@ -79,12 +79,20 @@
 //! use std::collections::HashSet;
 //!
 //! let ai_client = AIClient::new("127.0.0.1".into(), 1369).await.unwrap();
-//! let store_name = StoreName("Less".to_string()),
+//! let store_name = StoreName("Less".to_string());
+//! // Model used to set to create embeddings for all forms of get command
+//! let query_model = AIModel::Llama3;
+//! // Model used to set to create embeddings for set command
+//! let index_model = AIModel::Llama3;
+//! let query_type = AIStoreInputTypes::RawString;
+//! let index_type = AIStoreInputTypes::RawString;
 //! let mut pipeline = ai_client.pipeline(2).unwrap();
 //!   pipeline.create_store(
-//!       store_name.clone()
-//!       // AIModel Found in prelude
-//!       AIModel::Llama3,
+//!       store_name.clone(),
+//!       query_model,
+//!       index_model,
+//!       query_type,
+//!       index_type,
 //!       HashSet::new(),
 //!       HashSet::new(),
 //!   );
@@ -95,7 +103,8 @@
 //!
 //!         (StoreInput::RawString("Adidas Yeezy".into()), HashMap::new()),
 //!         (StoreInput::RawString("Nike Air Jordans".into()),HashMap::new()),
-//!     ]
+//!     ],
+//!     PreprocessAction::RawString(StringAction::ErrorIfTokensExceed)
 //! )
 //! let results = pipeline.exec().await.unwrap();
 //! ```

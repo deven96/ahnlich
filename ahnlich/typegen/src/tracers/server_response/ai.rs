@@ -1,3 +1,4 @@
+use ahnlich_types::ai::AIStoreInputTypes;
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::similarity::Similarity;
 use ahnlich_types::{
@@ -30,7 +31,10 @@ pub fn trace_ai_server_response_enum() -> Registry {
 
     let store_list = AIServerResponse::StoreList(HashSet::from_iter([AIStoreInfo {
         name: StoreName("testing".to_owned()),
-        model: AIModel::Llama3,
+        query_model: AIModel::Llama3,
+        index_model: AIModel::Llama3,
+        query_type: AIStoreInputTypes::RawString,
+        index_type: AIStoreInputTypes::RawString,
         embedding_size: 20,
     }]));
 
@@ -123,6 +127,10 @@ pub fn trace_ai_server_response_enum() -> Registry {
         .trace_type::<ServerType>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
+
+    let _ = tracer
+        .trace_type::<AIStoreInputTypes>(&samples)
+        .expect("Error tracing AIStoreInputTypes");
 
     tracer
         .registry()

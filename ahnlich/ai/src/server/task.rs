@@ -57,7 +57,10 @@ impl AhnlichProtocol for AIProxyTask {
                 AIQuery::InfoServer => Ok(AIServerResponse::InfoServer(self.server_info())),
                 AIQuery::CreateStore {
                     store,
-                    model,
+                    query_model,
+                    index_model,
+                    query_type,
+                    index_type,
                     mut predicates,
                     non_linear_indices,
                 } => {
@@ -74,7 +77,7 @@ impl AhnlichProtocol for AIProxyTask {
                         .db_client
                         .create_store(
                             store.clone(),
-                            model.embedding_size(),
+                            index_model.embedding_size(),
                             predicates,
                             non_linear_indices,
                             false,
@@ -84,7 +87,7 @@ impl AhnlichProtocol for AIProxyTask {
                         Err(err) => Err(err.to_string()),
                         Ok(_) => self
                             .store_handler
-                            .create_store(store, model)
+                            .create_store(store, query_model, index_model, query_type, index_type)
                             .map(|_| AIServerResponse::Unit)
                             .map_err(|e| e.to_string()),
                     }

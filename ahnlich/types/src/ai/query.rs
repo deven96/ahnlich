@@ -1,4 +1,4 @@
-use super::{AIModel, PreprocessAction};
+use super::{AIModel, AIStoreInputTypes, PreprocessAction};
 use crate::keyval::{StoreInput, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
@@ -13,7 +13,10 @@ use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserQuery};
 pub enum AIQuery {
     CreateStore {
         store: StoreName,
-        model: AIModel,
+        query_model: AIModel,
+        index_model: AIModel,
+        query_type: AIStoreInputTypes,
+        index_type: AIStoreInputTypes,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
     },

@@ -1,7 +1,7 @@
 mod query;
 mod server;
 
-use std::num::NonZeroUsize;
+use std::{fmt, num::NonZeroUsize};
 
 use ndarray::array;
 pub use query::{AIQuery, AIServerQuery};
@@ -49,4 +49,28 @@ pub enum ImageAction {
 pub enum PreprocessAction {
     RawString(StringAction),
     Image(ImageAction),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum AIStoreInputTypes {
+    RawString,
+    Image,
+}
+
+impl From<StoreInput> for AIStoreInputTypes {
+    fn from(value: StoreInput) -> Self {
+        match value {
+            StoreInput::RawString(_) => AIStoreInputTypes::RawString,
+            StoreInput::Image(_) => AIStoreInputTypes::Image,
+        }
+    }
+}
+
+impl fmt::Display for AIStoreInputTypes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RawString => write!(f, "{}", AIStoreInputTypes::RawString),
+            Self::Image => write!(f, "{}", AIStoreInputTypes::Image),
+        }
+    }
 }
