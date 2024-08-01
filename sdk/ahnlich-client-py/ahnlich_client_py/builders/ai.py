@@ -15,8 +15,6 @@ class AhnlichAIRequestBuilder:
         store_name: str,
         query_model: ai_query.AIModel,
         index_model: ai_query.AIModel,
-        query_type: ai_query.AIStoreInputTypes,
-        index_type: ai_query.AIStoreInputTypes,
         predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
     ):
@@ -31,8 +29,6 @@ class AhnlichAIRequestBuilder:
                 store=store_name,
                 query_model=query_model,
                 index_model=index_model,
-                query_type=query_type,
-                index_type=index_type,
                 predicates=predicates,
                 non_linear_indices=non_linear_indices,
             )

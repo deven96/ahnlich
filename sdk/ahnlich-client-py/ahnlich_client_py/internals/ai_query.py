@@ -51,8 +51,6 @@ class AIQuery__CreateStore(AIQuery):
     store: str
     query_model: "AIModel"
     index_model: "AIModel"
-    query_type: "AIStoreInputTypes"
-    index_type: "AIStoreInputTypes"
     predicates: typing.Sequence[str]
     non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
 

@@ -143,8 +143,6 @@ class AIStoreInfo:
     name: str
     query_model: "AIModel"
     index_model: "AIModel"
-    query_type: "AIStoreInputTypes"
-    index_type: "AIStoreInputTypes"
     embedding_size: st.uint64
 
     def bincode_serialize(self) -> bytes:
