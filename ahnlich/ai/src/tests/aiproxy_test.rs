@@ -3,7 +3,7 @@ use ahnlich_db::server::handler::Server;
 use ahnlich_types::{
     ai::{
         AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo,
-        AIStoreInputTypes, ImageAction, PreprocessAction, StringAction,
+        ImageAction, PreprocessAction, StringAction,
     },
     db::StoreUpsert,
     keyval::{StoreInput, StoreName, StoreValue},
@@ -25,7 +25,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
 
-static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
+static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| AIProxyConfig::default().os_select_port());
 
 static PERSISTENCE_FILE: Lazy<PathBuf> =
@@ -123,8 +123,6 @@ async fn test_ai_proxy_create_store_success() {
         store: store_name.clone(),
         query_model: AIModel::Llama3,
         index_model: AIModel::Llama3,
-        query_type: AIStoreInputTypes::RawString,
-        index_type: AIStoreInputTypes::RawString,
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
     }]);
@@ -142,8 +140,6 @@ async fn test_ai_proxy_create_store_success() {
             name: store_name.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
     ]))));
@@ -186,8 +182,6 @@ async fn test_ai_proxy_get_pred_succeeds() {
             store: store_name.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             predicates: HashSet::from_iter([
                 matching_metadatakey.clone(),
                 MetadataKey::new("Original".to_owned()),
@@ -266,8 +260,6 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
             store: store_name.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             predicates: HashSet::from_iter([
                 matching_metadatakey.clone(),
                 MetadataKey::new("Original".to_owned()),
@@ -327,8 +319,6 @@ async fn test_ai_proxy_create_drop_pred_index() {
             store: store_name.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -398,8 +388,6 @@ async fn test_ai_proxy_del_key_drop_store() {
             store: store_name.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -457,8 +445,6 @@ async fn test_ai_proxy_fails_db_server_unavailable() {
             store: store_name.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -481,7 +467,12 @@ async fn test_ai_proxy_test_with_persistence() {
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
-    let ai_server = AIProxyServer::new(AI_CONFIG_WITH_PERSISTENCE.clone())
+
+    let mut ai_proxy_config = AI_CONFIG_WITH_PERSISTENCE.clone();
+    let db_port = server.local_addr().unwrap().port();
+    ai_proxy_config.db_port = db_port;
+
+    let ai_server = AIProxyServer::new(ai_proxy_config)
         .await
         .expect("Could not initialize ai proxy");
 
@@ -502,8 +493,6 @@ async fn test_ai_proxy_test_with_persistence() {
             store: store_name.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -511,8 +500,6 @@ async fn test_ai_proxy_test_with_persistence() {
             store: store_name_2.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -561,8 +548,6 @@ async fn test_ai_proxy_test_with_persistence() {
             name: store_name_2.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
     ]))));
@@ -583,8 +568,6 @@ async fn test_ai_proxy_destroy_database() {
             store: store_name.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -600,8 +583,6 @@ async fn test_ai_proxy_destroy_database() {
             name: store_name,
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::RawString,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
     ]))));
@@ -649,8 +630,6 @@ async fn test_ai_proxy_binary_store_actions() {
             store: store_name.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::Image,
-            index_type: AIStoreInputTypes::Image,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
         },
@@ -690,8 +669,6 @@ async fn test_ai_proxy_binary_store_actions() {
             name: store_name,
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::Image,
-            index_type: AIStoreInputTypes::Image,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
     ]))));
@@ -757,8 +734,6 @@ async fn test_ai_proxy_binary_store_with_text_and_binary() {
             store: store_name.clone(),
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::Image,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
         },
@@ -801,8 +776,6 @@ async fn test_ai_proxy_binary_store_with_text_and_binary() {
             name: store_name,
             query_model: AIModel::Llama3,
             index_model: AIModel::Llama3,
-            query_type: AIStoreInputTypes::RawString,
-            index_type: AIStoreInputTypes::Image,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
     ]))));

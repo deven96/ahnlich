@@ -1,6 +1,6 @@
 use crate::error::AIProxyError;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use ahnlich_types::ai::{AIModel, AIStoreInfo, AIStoreInputTypes};
+use ahnlich_types::ai::{AIModel, AIStoreInfo};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
@@ -58,8 +58,6 @@ impl AIStoreHandler {
         store_name: StoreName,
         query_model: AIModel,
         index_model: AIModel,
-        query_type: AIStoreInputTypes,
-        index_type: AIStoreInputTypes,
     ) -> Result<(), AIProxyError> {
         if self
             .stores
@@ -69,8 +67,6 @@ impl AIStoreHandler {
                     store_name.clone(),
                     query_model.clone(),
                     index_model.clone(),
-                    query_type.clone(),
-                    index_type.clone(),
                 )),
                 &self.stores.guard(),
             )
@@ -91,8 +87,6 @@ impl AIStoreHandler {
                 name: store_name.clone(),
                 query_model: store.query_model.clone(),
                 index_model: store.index_model.clone(),
-                query_type: store.query_type.clone(),
-                index_type: store.index_type.clone(),
                 embedding_size: store.query_model.embedding_size().into(),
             })
             .collect()
@@ -203,8 +197,6 @@ pub struct AIStore {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     query_model: AIModel,
     index_model: AIModel,
-    query_type: AIStoreInputTypes,
-    index_type: AIStoreInputTypes,
 }
 
 impl AIStore {
@@ -212,15 +204,11 @@ impl AIStore {
         store_name: StoreName,
         query_model: AIModel,
         index_model: AIModel,
-        query_type: AIStoreInputTypes,
-        index_type: AIStoreInputTypes,
     ) -> Self {
         Self {
             name: store_name,
             query_model,
-            query_type,
             index_model,
-            index_type,
         }
     }
 }

@@ -33,8 +33,6 @@ pub fn trace_ai_server_response_enum() -> Registry {
         name: StoreName("testing".to_owned()),
         query_model: AIModel::Llama3,
         index_model: AIModel::Llama3,
-        query_type: AIStoreInputTypes::RawString,
-        index_type: AIStoreInputTypes::RawString,
         embedding_size: 20,
     }]));
 

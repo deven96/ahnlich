@@ -51,8 +51,6 @@ impl AIPipeline {
         store: StoreName,
         query_model: AIModel,
         index_model: AIModel,
-        query_type: AIStoreInputTypes,
-        index_type: AIStoreInputTypes,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
     ) {
@@ -60,8 +58,6 @@ impl AIPipeline {
             store,
             query_model,
             index_model,
-            query_type,
-            index_type,
             predicates,
             non_linear_indices,
         })
@@ -196,8 +192,6 @@ impl AIClient {
         store: StoreName,
         query_model: AIModel,
         index_model: AIModel,
-        query_type: AIStoreInputTypes,
-        index_type: AIStoreInputTypes,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
     ) -> Result<AIServerResponse, AhnlichError> {
@@ -205,8 +199,6 @@ impl AIClient {
             store,
             query_model,
             index_model,
-            query_type,
-            index_type,
             predicates,
             non_linear_indices,
         })
@@ -430,8 +422,6 @@ mod tests {
             StoreName("Main".to_string()),
             AIModel::Llama3,
             AIModel::Llama3,
-            AIStoreInputTypes::RawString,
-            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
@@ -439,8 +429,6 @@ mod tests {
             StoreName("Main".to_string()),
             AIModel::Llama3,
             AIModel::Llama3,
-            AIStoreInputTypes::RawString,
-            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
@@ -448,8 +436,6 @@ mod tests {
             StoreName("Less".to_string()),
             AIModel::Llama3,
             AIModel::Llama3,
-            AIStoreInputTypes::RawString,
-            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
@@ -464,16 +450,12 @@ mod tests {
                 embedding_size: AIModel::Llama3.embedding_size().into(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
-                query_type: AIStoreInputTypes::RawString,
-                index_type: AIStoreInputTypes::RawString,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
-                query_type: AIStoreInputTypes::RawString,
-                index_type: AIStoreInputTypes::RawString,
             },
         ]))));
         let res = pipeline.exec().await.expect("Could not execute pipeline");
@@ -495,8 +477,6 @@ mod tests {
                 store_name.clone(),
                 AIModel::Llama3,
                 AIModel::Llama3,
-                AIStoreInputTypes::RawString,
-                AIStoreInputTypes::RawString,
                 HashSet::new(),
                 HashSet::new(),
             )
@@ -544,8 +524,6 @@ mod tests {
             StoreName("Main".to_string()),
             AIModel::Llama3,
             AIModel::Llama3,
-            AIStoreInputTypes::RawString,
-            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
@@ -553,8 +531,6 @@ mod tests {
             StoreName("Main2".to_string()),
             AIModel::Llama3,
             AIModel::Llama3,
-            AIStoreInputTypes::RawString,
-            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
@@ -562,8 +538,6 @@ mod tests {
             StoreName("Less".to_string()),
             AIModel::Llama3,
             AIModel::Llama3,
-            AIStoreInputTypes::RawString,
-            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
@@ -580,24 +554,18 @@ mod tests {
                 embedding_size: AIModel::Llama3.embedding_size().into(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
-                query_type: AIStoreInputTypes::RawString,
-                index_type: AIStoreInputTypes::RawString,
             },
             AIStoreInfo {
                 name: StoreName("Main2".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
-                query_type: AIStoreInputTypes::RawString,
-                index_type: AIStoreInputTypes::RawString,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
-                query_type: AIStoreInputTypes::RawString,
-                index_type: AIStoreInputTypes::RawString,
             },
         ]))));
         expected.push(Ok(AIServerResponse::Del(1)));
@@ -650,8 +618,6 @@ mod tests {
             store_name.clone(),
             AIModel::Llama3,
             AIModel::Llama3,
-            AIStoreInputTypes::RawString,
-            AIStoreInputTypes::RawString,
             HashSet::new(),
             HashSet::new(),
         );
@@ -684,8 +650,7 @@ mod tests {
                 name: store_name.clone(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
-                query_type: AIStoreInputTypes::RawString,
-                index_type: AIStoreInputTypes::RawString,
+
                 embedding_size: AIModel::Llama3.embedding_size().into(),
             },
         ]))));
@@ -773,8 +738,6 @@ mod tests {
             store_name.clone(),
             AIModel::Llama3,
             AIModel::Llama3,
-            AIStoreInputTypes::Image,
-            AIStoreInputTypes::Image,
             HashSet::new(),
             HashSet::new(),
         );
@@ -815,8 +778,6 @@ mod tests {
                 name: store_name,
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
-                query_type: AIStoreInputTypes::Image,
-                index_type: AIStoreInputTypes::Image,
                 embedding_size: AIModel::Llama3.embedding_size().into(),
             },
         ]))));

@@ -130,16 +130,6 @@
         }
       },
       {
-        "query_type": {
-          "TYPENAME": "AIStoreInputTypes"
-        }
-      },
-      {
-        "index_type": {
-          "TYPENAME": "AIStoreInputTypes"
-        }
-      },
-      {
         "embedding_size": "U64"
       }
     ]

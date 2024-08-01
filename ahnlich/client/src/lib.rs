@@ -84,15 +84,11 @@
 //! let query_model = AIModel::Llama3;
 //! // Model used to set to create embeddings for set command
 //! let index_model = AIModel::Llama3;
-//! let query_type = AIStoreInputTypes::RawString;
-//! let index_type = AIStoreInputTypes::RawString;
 //! let mut pipeline = ai_client.pipeline(2).unwrap();
 //!   pipeline.create_store(
 //!       store_name.clone(),
 //!       query_model,
 //!       index_model,
-//!       query_type,
-//!       index_type,
 //!       HashSet::new(),
 //!       HashSet::new(),
 //!   );

@@ -25,16 +25,6 @@
               }
             },
             {
-              "query_type": {
-                "TYPENAME": "AIStoreInputTypes"
-              }
-            },
-            {
-              "index_type": {
-                "TYPENAME": "AIStoreInputTypes"
-              }
-            },
-            {
               "predicates": {
                 "SEQ": "STR"
               }

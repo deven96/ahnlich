@@ -49,8 +49,6 @@ pub fn trace_ai_query_enum() -> Registry {
         store: sample_store_name.clone(),
         index_model: AIModel::Llama3,
         query_model: AIModel::Llama3,
-        index_type: AIStoreInputTypes::Image,
-        query_type: AIStoreInputTypes::Image,
         predicates: test_create_predicates.clone(),
         non_linear_indices: test_non_linear_indices,
     };
