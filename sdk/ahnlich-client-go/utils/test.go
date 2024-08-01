@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -185,7 +185,7 @@ func ValidateJsonFile(t *testing.T, jsonFilePath string) {
 	defer file.Close()
 
 	// Read the file content
-	content, err := ioutil.ReadAll(file)
+	content, err := io.ReadAll(file)
 	require.NoError(t, err)
 	require.NotEmpty(t, content)
 

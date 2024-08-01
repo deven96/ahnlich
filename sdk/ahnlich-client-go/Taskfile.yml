@@ -152,40 +152,37 @@ tasks:
       LOCAL_PACKAGE_PREFIX: github.com/deven96/ahnlich/sdk/ahnlich-client-go
     cmds:
       - |
-        # docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.json"
         docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.md"
-        # docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.yaml"
         docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.yml"
-        shfmt -f . | grep -v tmp/ | xargs shfmt -i 4 -ci -d
-        goimports -local {{.LOCAL_PACKAGE_PREFIX}} -d .
-        test -z $(goimports -local {{.LOCAL_PACKAGE_PREFIX}} -l .)
-        gofmt -d .
-        test -z $(gofmt -l .)
+        shfmt -f . | grep -v 'internal/' | grep -v 'tmp/' | xargs shfmt -i 4 -ci -d
+        test -z $(find . -type f -name '*.go' ! -path './internal/*' | xargs goimports -local {{.LOCAL_PACKAGE_PREFIX}} -l)
+        test -z $(find . -type f -name '*.go' ! -path './internal/*' | xargs gofmt -l)
 
   format:
     desc: Format files
+    dir: .
     vars:
       LOCAL_PACKAGE_PREFIX: github.com/deven96/ahnlich/sdk/ahnlich-client-go
     cmds:
       - |
-        # docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.json"
         docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.md"
-        # docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.yaml"
         docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.yml"
-        shfmt -f . | grep -v tmp/ | xargs shfmt -i 4 -ci -w
-        goimports -local {{.LOCAL_PACKAGE_PREFIX}} -w .
-        gofmt -w .
+        shfmt -f . | grep -v 'internal/' | grep -v 'tmp/' | xargs shfmt -i 4 -ci -w
+        find . -type f -name '*.go' ! -path './internal/*' | xargs goimports -local {{.LOCAL_PACKAGE_PREFIX}} -w
+        find . -type f -name '*.go' ! -path './internal/*' | xargs gofmt -w
 
   lint-check:
     desc: Check file linting
+    dir: .
     cmds:
       - |
-        if [[ "$CI" == 1 ]];then
-          export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
+        if [[ "$CI" == 1 ]]; then
+          export PATH=$PATH:/usr/local/go/bin
+          export PATH=$PATH:$(go env GOPATH)/bin
         fi
-        go vet ./...
-        revive ./...
-        staticcheck ./...
+        go list ./... | grep -v 'internal/' | xargs go vet
+        go list ./... | grep -v 'internal/' | xargs staticcheck
+        revive $(find . -type f -name '*.go' -not -path './internal/*')
 
   pre-commit-check:
     desc: Pre commit check

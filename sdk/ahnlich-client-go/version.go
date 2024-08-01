@@ -20,6 +20,7 @@ type version struct {
 	Patch uint16
 }
 
+// AhnlichVersion contains the protocol and client versions
 type AhnlichVersion struct {
 	Protocol version
 	Client   version
@@ -53,6 +54,7 @@ func getVersion(content []byte, regexFormat string) (version, error) {
 	return version{Major: uint8(major), Minor: uint16(minor), Patch: uint16(patch)}, nil
 }
 
+// GetVersions returns the protocol and client versions
 func GetVersions() (AhnlichVersion, error) {
 	var content []byte
 	var err error
