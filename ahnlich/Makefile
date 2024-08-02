@@ -34,6 +34,9 @@ check: ## cargo check
 test: ## cargo test
 	cargo nextest run --no-capture
 
+generate-specs: ## cargo run --bin typegen generate
+	cargo run --bin typegen generate
+
 
 bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, minor, major.
 	@echo "Bumping Rust project version to $${RULE:-$(BUMP_RULE)}"

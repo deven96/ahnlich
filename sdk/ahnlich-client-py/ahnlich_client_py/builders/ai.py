@@ -13,7 +13,8 @@ class AhnlichAIRequestBuilder:
     def create_store(
         self,
         store_name: str,
-        model: ai_query.AIModel,
+        query_model: ai_query.AIModel,
+        index_model: ai_query.AIModel,
         predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
     ):
@@ -26,7 +27,8 @@ class AhnlichAIRequestBuilder:
         self.queries.append(
             ai_query.AIQuery__CreateStore(
                 store=store_name,
-                model=model,
+                query_model=query_model,
+                index_model=index_model,
                 predicates=predicates,
                 non_linear_indices=non_linear_indices,
             )
@@ -83,8 +85,15 @@ class AhnlichAIRequestBuilder:
         inputs: typing.Sequence[
             typing.Tuple[ai_query.StoreInput, typing.Dict[str, ai_query.MetadataValue]]
         ],
+        preprocess_action: ai_query.PreprocessAction,
     ):
-        self.queries.append(ai_query.AIQuery__Set(store=store_name, inputs=inputs))
+        self.queries.append(
+            ai_query.AIQuery__Set(
+                store=store_name,
+                inputs=inputs,
+                preprocess_action=preprocess_action,
+            )
+        )
 
     def del_key(self, store_name: str, key: ai_query.StoreInput):
         self.queries.append(ai_query.AIQuery__DelKey(store=store_name, key=key))

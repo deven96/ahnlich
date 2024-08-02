@@ -21,12 +21,19 @@ class AIModel:
 
 
 @dataclass(frozen=True)
-class AIModel__Llama3(AIModel):
+class AIModel__DALLE3(AIModel):
     INDEX = 0  # type: int
     pass
 
 
+@dataclass(frozen=True)
+class AIModel__Llama3(AIModel):
+    INDEX = 1  # type: int
+    pass
+
+
 AIModel.VARIANTS = [
+    AIModel__DALLE3,
     AIModel__Llama3,
 ]
 
@@ -49,7 +56,8 @@ class AIQuery:
 class AIQuery__CreateStore(AIQuery):
     INDEX = 0  # type: int
     store: str
-    model: "AIModel"
+    query_model: "AIModel"
+    index_model: "AIModel"
     predicates: typing.Sequence[str]
     non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
 
@@ -93,6 +101,7 @@ class AIQuery__Set(AIQuery):
     inputs: typing.Sequence[
         typing.Tuple["StoreInput", typing.Dict[str, "MetadataValue"]]
     ]
+    preprocess_action: "PreprocessAction"
 
 
 @dataclass(frozen=True)
@@ -164,6 +173,38 @@ class AIServerQuery:
         return v
 
 
+class AIStoreInputType:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[AIStoreInputType]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, AIStoreInputType)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> "AIStoreInputType":
+        v, buffer = bincode.deserialize(input, AIStoreInputType)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read")
+        return v
+
+
+@dataclass(frozen=True)
+class AIStoreInputType__RawString(AIStoreInputType):
+    INDEX = 0  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIStoreInputType__Image(AIStoreInputType):
+    INDEX = 1  # type: int
+    pass
+
+
+AIStoreInputType.VARIANTS = [
+    AIStoreInputType__RawString,
+    AIStoreInputType__Image,
+]
+
+
 class Algorithm:
     VARIANTS = []  # type: typing.Sequence[typing.Type[Algorithm]]
 
@@ -207,6 +248,38 @@ Algorithm.VARIANTS = [
     Algorithm__DotProductSimilarity,
     Algorithm__CosineSimilarity,
     Algorithm__KDTree,
+]
+
+
+class ImageAction:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[ImageAction]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, ImageAction)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> "ImageAction":
+        v, buffer = bincode.deserialize(input, ImageAction)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read")
+        return v
+
+
+@dataclass(frozen=True)
+class ImageAction__ResizeImage(ImageAction):
+    INDEX = 0  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class ImageAction__ErrorIfDimensionsMismatch(ImageAction):
+    INDEX = 1  # type: int
+    pass
+
+
+ImageAction.VARIANTS = [
+    ImageAction__ResizeImage,
+    ImageAction__ErrorIfDimensionsMismatch,
 ]
 
 
@@ -356,6 +429,38 @@ PredicateCondition.VARIANTS = [
 ]
 
 
+class PreprocessAction:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[PreprocessAction]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, PreprocessAction)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> "PreprocessAction":
+        v, buffer = bincode.deserialize(input, PreprocessAction)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read")
+        return v
+
+
+@dataclass(frozen=True)
+class PreprocessAction__RawString(PreprocessAction):
+    INDEX = 0  # type: int
+    value: "StringAction"
+
+
+@dataclass(frozen=True)
+class PreprocessAction__Image(PreprocessAction):
+    INDEX = 1  # type: int
+    value: "ImageAction"
+
+
+PreprocessAction.VARIANTS = [
+    PreprocessAction__RawString,
+    PreprocessAction__Image,
+]
+
+
 class StoreInput:
     VARIANTS = []  # type: typing.Sequence[typing.Type[StoreInput]]
 
@@ -385,4 +490,36 @@ class StoreInput__Image(StoreInput):
 StoreInput.VARIANTS = [
     StoreInput__RawString,
     StoreInput__Image,
+]
+
+
+class StringAction:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[StringAction]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, StringAction)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> "StringAction":
+        v, buffer = bincode.deserialize(input, StringAction)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read")
+        return v
+
+
+@dataclass(frozen=True)
+class StringAction__TruncateIfTokensExceed(StringAction):
+    INDEX = 0  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class StringAction__ErrorIfTokensExceed(StringAction):
+    INDEX = 1  # type: int
+    pass
+
+
+StringAction.VARIANTS = [
+    StringAction__TruncateIfTokensExceed,
+    StringAction__ErrorIfTokensExceed,
 ]
