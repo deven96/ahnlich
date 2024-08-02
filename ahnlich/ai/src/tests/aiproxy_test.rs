@@ -629,7 +629,7 @@ async fn test_ai_proxy_binary_store_actions() {
         AIQuery::CreateStore {
             store: store_name.clone(),
             query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            index_model: AIModel::DALLE3,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
         },
@@ -668,8 +668,8 @@ async fn test_ai_proxy_binary_store_actions() {
         AIStoreInfo {
             name: store_name,
             query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
-            embedding_size: AIModel::Llama3.embedding_size().into(),
+            index_model: AIModel::DALLE3,
+            embedding_size: AIModel::DALLE3.embedding_size().into(),
         },
     ]))));
     expected.push(Ok(AIServerResponse::CreateIndex(2)));
@@ -691,34 +691,20 @@ async fn test_ai_proxy_binary_store_actions() {
 }
 
 #[tokio::test]
-async fn test_ai_proxy_binary_store_with_text_and_binary() {
+async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
     let address = provision_test_servers().await;
 
-    let store_name = StoreName(String::from("Deven Mixed Store"));
+    let store_name = StoreName(String::from("Deven Mixed Store210u01"));
     let matching_metadatakey = MetadataKey::new("Brand".to_owned());
     let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
 
     let store_value_1 =
         StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-    let store_value_2 = StoreValue::from_iter([(
-        matching_metadatakey.clone(),
-        MetadataValue::RawString("Deven".to_owned()),
-    )]);
+
     let store_data = vec![
         (
             StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
             store_value_1.clone(),
-        ),
-        (
-            StoreInput::Image(vec![102, 3, 4, 6, 7, 8, 4, 190]),
-            store_value_2.clone(),
-        ),
-        (
-            StoreInput::Image(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
-            StoreValue::from_iter([(
-                matching_metadatakey.clone(),
-                MetadataValue::RawString("Daniel".to_owned()),
-            )]),
         ),
         (
             StoreInput::RawString(String::from("Buster Matthews is the name")),
@@ -737,65 +723,20 @@ async fn test_ai_proxy_binary_store_with_text_and_binary() {
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
         },
-        AIQuery::ListStores,
-        AIQuery::CreatePredIndex {
-            store: store_name.clone(),
-            predicates: HashSet::from_iter([
-                MetadataKey::new("Name".to_string()),
-                MetadataKey::new("Description".to_string()),
-            ]),
-        },
-        // TODO: Would fail now
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data,
             preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
         },
-        AIQuery::DropPredIndex {
-            store: store_name.clone(),
-            predicates: HashSet::from_iter([MetadataKey::new("Age".to_string())]),
-            error_if_not_exists: true,
-        },
-        AIQuery::GetPred {
-            store: store_name.clone(),
-            condition: PredicateCondition::Value(Predicate::In {
-                key: MetadataKey::new("Description".to_owned()),
-                value: HashSet::from_iter([MetadataValue::RawString(
-                    "20 year old line backer".to_owned(),
-                )]),
-            }),
-        },
         AIQuery::PurgeStores,
     ]);
 
-    let mut expected = AIServerResult::with_capacity(7);
+    let mut expected = AIServerResult::with_capacity(3);
 
     expected.push(Ok(AIServerResponse::Unit));
-    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-        AIStoreInfo {
-            name: store_name,
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
-            embedding_size: AIModel::Llama3.embedding_size().into(),
-        },
-    ]))));
-    expected.push(Ok(AIServerResponse::CreateIndex(2)));
-    expected.push(Ok(AIServerResponse::Set(StoreUpsert {
-        inserted: 4,
-        updated: 0,
-    })));
     expected.push(Err(
-        "db error Predicate Age not found in store, attempt CREATEPREDINDEX with predicate"
-            .to_string(),
+        "Cannot Set Input. Store expects [RawString], input type [Image] was provided".to_string(),
     ));
-
-    expected.push(Ok(AIServerResponse::Get(vec![(
-        StoreInput::RawString(String::from("Buster Matthews is the name")),
-        StoreValue::from_iter([(
-            MetadataKey::new("Description".to_owned()),
-            MetadataValue::RawString("20 year old line backer".to_owned()),
-        )]),
-    )])));
     expected.push(Ok(AIServerResponse::Del(1)));
 
     let connected_stream = TcpStream::connect(address).await.unwrap();

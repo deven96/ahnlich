@@ -125,6 +125,9 @@ pub fn trace_ai_server_response_enum() -> Registry {
         .trace_type::<ServerType>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
+    let _ = tracer
+        .trace_type::<AIModel>(&samples)
+        .expect("Error tracing AIModel");
 
     let _ = tracer
         .trace_type::<AIStoreInputTypes>(&samples)

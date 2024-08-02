@@ -736,8 +736,8 @@ mod tests {
 
         pipeline.create_store(
             store_name.clone(),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::DALLE3,
+            AIModel::DALLE3,
             HashSet::new(),
             HashSet::new(),
         );
@@ -776,9 +776,9 @@ mod tests {
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name,
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
-                embedding_size: AIModel::Llama3.embedding_size().into(),
+                query_model: AIModel::DALLE3,
+                index_model: AIModel::DALLE3,
+                embedding_size: AIModel::DALLE3.embedding_size().into(),
             },
         ]))));
         expected.push(Ok(AIServerResponse::CreateIndex(2)));

@@ -2,6 +2,9 @@
   "AIModel": {
     "ENUM": {
       "0": {
+        "DALLE3": "UNIT"
+      },
+      "1": {
         "Llama3": "UNIT"
       }
     }

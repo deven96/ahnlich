@@ -162,6 +162,10 @@ pub fn trace_ai_query_enum() -> Registry {
         .expect("Error tracing AIStoreInputTypes");
 
     let _ = tracer
+        .trace_type::<AIModel>(&samples)
+        .expect("Error tracing AIModel");
+
+    let _ = tracer
         .trace_type::<StringAction>(&samples)
         .expect("Error tracing String action");
     let _ = tracer
