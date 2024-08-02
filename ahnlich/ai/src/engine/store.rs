@@ -1,7 +1,7 @@
 use crate::AHNLICH_AI_RESERVED_META_KEY;
 use crate::{engine::ai::AIModelManager, error::AIProxyError};
 use ahnlich_types::ai::{
-    AIModel, AIStoreInfo, AIStoreInputTypes, ImageAction, PreprocessAction, StringAction,
+    AIModel, AIStoreInfo, AIStoreInputType, ImageAction, PreprocessAction, StringAction,
 };
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
@@ -67,8 +67,8 @@ impl AIStoreHandler {
                 store_name.clone(),
                 Arc::new(AIStore::create(
                     store_name.clone(),
-                    query_model.clone(),
-                    index_model.clone(),
+                    query_model,
+                    index_model,
                 )),
                 &self.stores.guard(),
             )
@@ -112,7 +112,7 @@ impl AIStoreHandler {
         &self,
         store_name: &StoreName,
         store_input: StoreInput,
-        store_value: &StoreValue,
+        store_value: StoreValue,
         preprocess_action: &PreprocessAction,
     ) -> Result<(StoreKey, StoreValue), AIProxyError> {
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
@@ -121,7 +121,7 @@ impl AIStoreHandler {
         }
         let store = self.get(store_name)?;
 
-        let store_input_type: AIStoreInputTypes = store_input.clone().into();
+        let store_input_type: AIStoreInputType = (&store_input).into();
         let store_index_model_info = store.index_model.model_info();
 
         if store_input_type != store_index_model_info.input_type {
@@ -150,8 +150,9 @@ impl AIStoreHandler {
         index_store_model: &AIModel,
         preprocess_action: &PreprocessAction,
     ) -> Result<StoreKey, AIProxyError> {
+        // Process the inner value of a store input and convert it into a ndarray by passing
+        // it into  index model. Create a storekey from ndarray
         let mut store_input = store_input;
-
         self.process_store_input(preprocess_action, &mut store_input, index_store_model)?;
         let store_key = index_store_model.model_ndarray(&store_input);
         Ok(store_key)
@@ -250,16 +251,16 @@ impl AIStoreHandler {
         if let StoreInput::RawString(value) = input {
             //let tokenized_input;
             let model_embedding_dim = index_model.model_info().embedding_size;
-            if value.len() > model_embedding_dim {
+            if value.len() > model_embedding_dim.into() {
                 if let StringAction::ErrorIfTokensExceed = string_action {
                     return Err(AIProxyError::TokenExceededError {
                         input_token_size: input.len(),
-                        model_embedding_size: model_embedding_dim,
+                        model_embedding_size: model_embedding_dim.into(),
                     });
                 } else {
                     // truncate raw string
                     // let tokenized_input;
-                    value.as_str()[..model_embedding_dim].to_string();
+                    value.as_str()[..model_embedding_dim.into()].to_string();
                 }
             }
         }

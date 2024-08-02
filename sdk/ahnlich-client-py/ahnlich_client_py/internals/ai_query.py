@@ -173,35 +173,35 @@ class AIServerQuery:
         return v
 
 
-class AIStoreInputTypes:
-    VARIANTS = []  # type: typing.Sequence[typing.Type[AIStoreInputTypes]]
+class AIStoreInputType:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[AIStoreInputType]]
 
     def bincode_serialize(self) -> bytes:
-        return bincode.serialize(self, AIStoreInputTypes)
+        return bincode.serialize(self, AIStoreInputType)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> "AIStoreInputTypes":
-        v, buffer = bincode.deserialize(input, AIStoreInputTypes)
+    def bincode_deserialize(input: bytes) -> "AIStoreInputType":
+        v, buffer = bincode.deserialize(input, AIStoreInputType)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
         return v
 
 
 @dataclass(frozen=True)
-class AIStoreInputTypes__RawString(AIStoreInputTypes):
+class AIStoreInputType__RawString(AIStoreInputType):
     INDEX = 0  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIStoreInputTypes__Image(AIStoreInputTypes):
+class AIStoreInputType__Image(AIStoreInputType):
     INDEX = 1  # type: int
     pass
 
 
-AIStoreInputTypes.VARIANTS = [
-    AIStoreInputTypes__RawString,
-    AIStoreInputTypes__Image,
+AIStoreInputType.VARIANTS = [
+    AIStoreInputType__RawString,
+    AIStoreInputType__Image,
 ]
 
 

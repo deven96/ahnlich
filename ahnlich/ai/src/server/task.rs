@@ -106,7 +106,7 @@ impl AhnlichProtocol for AIProxyTask {
                                     self.store_handler.store_input_to_store_key_val(
                                         &store,
                                         store_input,
-                                        &store_value,
+                                        store_value,
                                         &preprocess_action,
                                     );
                                 match processed_store_value {

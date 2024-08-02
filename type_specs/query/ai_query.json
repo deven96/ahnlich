@@ -200,7 +200,7 @@
       }
     ]
   },
-  "AIStoreInputTypes": {
+  "AIStoreInputType": {
     "ENUM": {
       "0": {
         "RawString": "UNIT"

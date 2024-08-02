@@ -1,4 +1,4 @@
-use ahnlich_types::ai::AIStoreInputTypes;
+use ahnlich_types::ai::AIStoreInputType;
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::similarity::Similarity;
 use ahnlich_types::{
@@ -130,8 +130,8 @@ pub fn trace_ai_server_response_enum() -> Registry {
         .expect("Error tracing AIModel");
 
     let _ = tracer
-        .trace_type::<AIStoreInputTypes>(&samples)
-        .expect("Error tracing AIStoreInputTypes");
+        .trace_type::<AIStoreInputType>(&samples)
+        .expect("Error tracing AIStoreInputType");
 
     tracer
         .registry()

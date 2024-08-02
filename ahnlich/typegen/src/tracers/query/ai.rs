@@ -1,4 +1,4 @@
-use ahnlich_types::ai::{AIModel, AIStoreInputTypes, ImageAction, PreprocessAction, StringAction};
+use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
@@ -158,8 +158,8 @@ pub fn trace_ai_query_enum() -> Registry {
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
     let _ = tracer
-        .trace_type::<AIStoreInputTypes>(&samples)
-        .expect("Error tracing AIStoreInputTypes");
+        .trace_type::<AIStoreInputType>(&samples)
+        .expect("Error tracing AIStoreInputType");
 
     let _ = tracer
         .trace_type::<AIModel>(&samples)

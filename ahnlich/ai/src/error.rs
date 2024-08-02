@@ -1,4 +1,4 @@
-use ahnlich_types::{ai::AIStoreInputTypes, keyval::StoreName};
+use ahnlich_types::{ai::AIStoreInputType, keyval::StoreName};
 use thiserror::Error;
 
 #[derive(Error, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -19,13 +19,13 @@ pub enum AIProxyError {
     UnexpectedDBResponse(String),
     #[error("Cannot Query Using Input. Store expects [{store_query_model_type}], but input type [{storeinput_type}] was provided")]
     StoreQueryTypeMismatchError {
-        store_query_model_type: AIStoreInputTypes,
-        storeinput_type: AIStoreInputTypes,
+        store_query_model_type: AIStoreInputType,
+        storeinput_type: AIStoreInputType,
     },
     #[error("Cannot Set Input. Store expects [{store_index_model_type}], input type [{storeinput_type}] was provided")]
     StoreSetTypeMismatchError {
-        store_index_model_type: AIStoreInputTypes,
-        storeinput_type: AIStoreInputTypes,
+        store_index_model_type: AIStoreInputType,
+        storeinput_type: AIStoreInputType,
     },
 
     #[error("Max Token Exceeded. Model Expects [{model_embedding_size}], input type was [{input_token_size}] ")]

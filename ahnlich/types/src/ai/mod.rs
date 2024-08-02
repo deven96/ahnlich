@@ -17,21 +17,21 @@ pub enum AIModel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum AIStoreInputTypes {
+pub enum AIStoreInputType {
     RawString,
     Image,
 }
 
-impl From<StoreInput> for AIStoreInputTypes {
-    fn from(value: StoreInput) -> Self {
+impl From<&StoreInput> for AIStoreInputType {
+    fn from(value: &StoreInput) -> Self {
         match value {
-            StoreInput::RawString(_) => AIStoreInputTypes::RawString,
-            StoreInput::Image(_) => AIStoreInputTypes::Image,
+            StoreInput::RawString(_) => AIStoreInputType::RawString,
+            StoreInput::Image(_) => AIStoreInputType::Image,
         }
     }
 }
 
-impl fmt::Display for AIStoreInputTypes {
+impl fmt::Display for AIStoreInputType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::RawString => write!(f, "RawString"),
