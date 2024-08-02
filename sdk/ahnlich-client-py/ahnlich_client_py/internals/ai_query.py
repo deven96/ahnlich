@@ -21,12 +21,19 @@ class AIModel:
 
 
 @dataclass(frozen=True)
-class AIModel__Llama3(AIModel):
+class AIModel__DALLE3(AIModel):
     INDEX = 0  # type: int
     pass
 
 
+@dataclass(frozen=True)
+class AIModel__Llama3(AIModel):
+    INDEX = 1  # type: int
+    pass
+
+
 AIModel.VARIANTS = [
+    AIModel__DALLE3,
     AIModel__Llama3,
 ]
 
