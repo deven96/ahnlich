@@ -16,8 +16,7 @@ use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use std::{collections::HashSet, num::NonZeroUsize, sync::atomic::Ordering};
 
-use crate::cli::AIProxyConfig;
-use crate::server::handler::AIProxyServer;
+use crate::{cli::AIProxyConfig, engine::ai::AIModelManager, server::handler::AIProxyServer};
 use ahnlich_types::bincode::BinCodeSerAndDeser;
 use std::net::SocketAddr;
 use std::path::PathBuf;

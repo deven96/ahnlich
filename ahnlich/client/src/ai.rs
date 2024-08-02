@@ -324,7 +324,7 @@ impl AIClient {
 mod tests {
     use super::*;
     use ahnlich_ai_proxy::cli::AIProxyConfig;
-    use ahnlich_ai_proxy::server::handler::AIProxyServer;
+    use ahnlich_ai_proxy::{engine::ai::AIModelManager, server::handler::AIProxyServer};
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
     use once_cell::sync::Lazy;

@@ -15,7 +15,7 @@ use tokio::net::TcpStream;
 use utils::client::ClientHandler;
 use utils::protocol::AhnlichProtocol;
 
-use crate::engine::store::AIStoreHandler;
+use crate::engine::{ai::AIModelManager, store::AIStoreHandler};
 use crate::error::AIProxyError;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
 
