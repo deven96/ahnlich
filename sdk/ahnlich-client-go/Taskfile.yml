@@ -283,6 +283,10 @@ tasks:
       REPORT: "{{.REPORT | default 0}}"
     cmds:
       - |
+        cwdir=$(pwd)
+        cd ../../ahnlich
+        cargo run --bin ahnlich-db --help
+        cd $cwdir
         if [[ "$CI" == 1 ]];then
           export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
         fi
