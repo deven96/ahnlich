@@ -23,8 +23,12 @@ type AhnlichDBTestSuite struct {
 	Port                int
 	Persistence         bool
 	PersistenceLocation string
+	PersistenceInterval int
 	StdOut              *bytes.Buffer
 	StdErr              *bytes.Buffer
+	LogLevel 		  string
+	NumberOfConnections int
+	TracingEnabled      bool
 	*exec.Cmd
 }
 
@@ -87,7 +91,9 @@ func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serv
 	//  "--enable-tracing", "--log-level", "debug"
 	// "--enable-tracing", "--log-level", "debug"
 	if persist {
-		cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port), "--enable-persistence", "--persist-location", persistFile, "--persistence-interval", "100")
+		cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port), "--enable-persistence", "--persist-location", persistFile, "--persistence-interval", "100") // Timeout on running the database using cargo run command build before running with dependencies being downloaded
+	// TODO: suggest passing these configs as yaml files or env variables to db from client
+	// TODO: suggest creating a test container for the database
 	} else {
 		cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port))
 	}
@@ -127,9 +133,9 @@ func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serv
 		Port:                port,
 		Persistence:         persist,
 		PersistenceLocation: persistFile,
-		Cmd:                 cmd,
 		StdOut:              &outBuf,
 		StdErr:              &errBuf,
+		Cmd: 			   cmd,
 	}
 }
 

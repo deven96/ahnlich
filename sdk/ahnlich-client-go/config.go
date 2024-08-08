@@ -1,3 +1,4 @@
+// Description: This file contains the configuration for the client. The configuration is loaded from the environment variables. The default values are used if the environment variables are not set.
 package ahnlichclientgo
 
 import (
@@ -5,7 +6,7 @@ import (
 	"time"
 )
 
-// TODO: Support for reading the configuration from environment variables
+// TODO: Support for reading the configuration from environment variables and yaml files
 
 const (
 	DefaultInitialConnections     = 10

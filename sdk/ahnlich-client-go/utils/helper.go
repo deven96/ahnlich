@@ -47,3 +47,8 @@ func ListFilesInDir(dir string) ([]string, error) {
 	}
 	return fileNames, nil
 }
+
+func GetFileFromPath(path string) (string) {
+	file := filepath.Base(path)
+	return file
+}

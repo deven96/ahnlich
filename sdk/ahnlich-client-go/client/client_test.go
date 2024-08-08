@@ -558,8 +558,7 @@ func TestDbPersistence(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, fileList)
 	// Check if file is created in the persistencelocation
-	t.Log(fileList)
-	assert.Contains(t, fileList, "ahnlichdb.json")
+	assert.Contains(t, fileList, utils.GetFileFromPath(ts.db.PersistenceLocation))
 	utils.ValidateJsonFile(t, ts.db.PersistenceLocation)
 
 	// Start the database again on same port and host
