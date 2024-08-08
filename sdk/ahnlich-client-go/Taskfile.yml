@@ -17,12 +17,17 @@ vars:
 tasks:
   install-go-junit:
     desc: Install go-junit-report
+    dir: /tmp/temp
     cmds:
       - |
+        rm -rf /tmp/temp/*
         if [[ "$CI" == 1 ]];then
           export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
         fi
-        go get -u github.com/jstemmer/go-junit-report
+        wget -nv https://github.com/jstemmer/go-junit-report/releases/download/v2.1.0/go-junit-report-v2.1.0-linux-amd64.tar.gz
+        tar -xzvf go-junit-report-v2.1.0-linux-amd64.tar.gz
+        mv -v go-junit-report $(go env GOPATH)/bin
+        # go get -u github.com/jstemmer/go-junit-report
 
   install-gofmt:
     desc: Install gofmt
