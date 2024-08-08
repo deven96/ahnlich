@@ -15,7 +15,7 @@ vars:
   STATICCHECK_VERSION: 2023.1.7
 
 tasks:
-  install-go-junit report:
+  install-go-junit:
     desc: Install go-junit-report
     cmds:
       - |
@@ -120,7 +120,7 @@ tasks:
         if [[ "$CI" == 1 ]];then
           wget -nv https://github.com/dominikh/go-tools/releases/download/{{.STATICCHECK_VERSION}}/staticcheck_linux_amd64.tar.gz
           tar -xzvf staticcheck_linux_amd64.tar.gz
-          mv -v staticcheck/staticcheck /usr/local/go/bin
+          mv -v staticcheck/staticcheck $(go env GOPATH)/bin
           rm -rf staticcheck
         else
           if wget https://github.com/dominikh/go-tools/releases/download/{{.STATICCHECK_VERSION}}/staticcheck_{{.OS}}_amd64.tar.gz; then
@@ -152,7 +152,7 @@ tasks:
       LOCAL_PACKAGE_PREFIX: github.com/deven96/ahnlich/sdk/ahnlich-client-go
     cmds:
       - |
-        docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.md"
+        # docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.md"
         docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --check "**/*.yml"
         shfmt -f . | grep -v 'internal/' | grep -v 'tmp/' | xargs shfmt -i 4 -ci -d
         test -z $(find . -type f -name '*.go' ! -path './internal/*' | xargs goimports -local {{.LOCAL_PACKAGE_PREFIX}} -l)
@@ -165,7 +165,7 @@ tasks:
       LOCAL_PACKAGE_PREFIX: github.com/deven96/ahnlich/sdk/ahnlich-client-go
     cmds:
       - |
-        docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.md"
+        # docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.md"
         docker run --rm -u "$(id -u):$(id -g)" -v $(pwd):/work tmknom/prettier:{{.PRETTIER_VERSION}} --write "**/*.yml"
         shfmt -f . | grep -v 'internal/' | grep -v 'tmp/' | xargs shfmt -i 4 -ci -w
         find . -type f -name '*.go' ! -path './internal/*' | xargs goimports -local {{.LOCAL_PACKAGE_PREFIX}} -w

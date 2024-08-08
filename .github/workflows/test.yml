@@ -119,7 +119,7 @@ jobs:
       - name: Install Task
         uses: arduino/setup-task@v2
         with:
-          version: 2.x
+          version: 3.x
 
       - name: Install Dependencies
         run: CI=1 task install-dependencies
