@@ -2,7 +2,7 @@ version: "3"
 
 vars:
   OS:
-    sh: uname -s
+    sh: uname -s | awk '{print tolower($0)}'
   ARCH:
     sh: uname -m
   GO_VERSION: 1.22.4
@@ -12,6 +12,7 @@ vars:
   PRETTIER_VERSION: 3.2.5
   REVIVE_VERSION: v1.3.7
   SHFMT_VERSION: v3.8.0
+  JUNIT_VERSION: 2.1.0
   STATICCHECK_VERSION: 2023.1.7
 
 tasks:
@@ -23,11 +24,18 @@ tasks:
         rm -rf /tmp/temp/*
         if [[ "$CI" == 1 ]];then
           export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
+          go install github.com/jstemmer/go-junit-report@v1
+        else
+        ARC={{.ARCH}}
+        if [ "${ARC}" == "x86_64" ]; then
+          ARC="amd64"
+        elif [ ${ARC} == "aarch64" ]; then
+          ARC="arm64"
         fi
-        wget -nv https://github.com/jstemmer/go-junit-report/releases/download/v2.1.0/go-junit-report-v2.1.0-linux-amd64.tar.gz
-        tar -xzvf go-junit-report-v2.1.0-linux-amd64.tar.gz
+        wget -nv https://github.com/jstemmer/go-junit-report/releases/download/v{{.JUNIT_VERSION}}/go-junit-report-v{{.JUNIT_VERSION}}-{{.OS}}-${ARC}.tar.gz
+        tar -xzvf go-junit-report-v{{.JUNIT_VERSION}}-{{.OS}}-${ARC}.tar.gz
         mv -v go-junit-report $(go env GOPATH)/bin
-        # go get -u github.com/jstemmer/go-junit-report
+        fi
 
   install-gofmt:
     desc: Install gofmt
@@ -269,6 +277,7 @@ tasks:
         fi
         if [[ {{.CACHE}} == 0 ]];then
             if [[ {{.REPORT}} == 1 ]];then
+                echo "Running tests with cache disabled and report enabled"
                 CGO_ENABLED=0 go test -count=1 -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
             else
                 CGO_ENABLED=0 go test -v $(go list ./...)
