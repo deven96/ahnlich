@@ -118,7 +118,7 @@ func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serv
 		if strings.Contains(outBuf.String(), "Running") || (strings.Contains(errBuf.String(), "Running") && strings.Contains(errBuf.String(), "Finished")) && (!strings.Contains(errBuf.String(), "panicked") || !strings.Contains(outBuf.String(), "panicked")) {
 			break
 		}
-		require.Truef(t, i < maxRetries-1, "database did not start within the expected time %v", retryInterval*time.Duration(maxRetries), outBuf, errBuf)
+		require.Truef(t, i < maxRetries-1, "database did not start within the expected time %v", retryInterval*time.Duration(maxRetries), outBuf.String(), errBuf.String())
 		time.Sleep(retryInterval)
 	}
 
