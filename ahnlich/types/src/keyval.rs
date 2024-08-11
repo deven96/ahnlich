@@ -50,17 +50,26 @@ impl PartialEq for StoreKey {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum StoreInput {
     RawString(String),
     Image(Vec<u8>),
 }
+
 #[allow(clippy::len_without_is_empty)]
 impl StoreInput {
     pub fn len(&self) -> usize {
         match self {
             Self::Image(value) => value.len(),
             Self::RawString(s) => s.len(),
+        }
+    }
+}
+impl fmt::Display for StoreInput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RawString(_) => write!(f, "RawString"),
+            Self::Image(_) => write!(f, "Image"),
         }
     }
 }

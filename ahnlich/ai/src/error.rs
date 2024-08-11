@@ -1,4 +1,7 @@
-use ahnlich_types::{ai::AIStoreInputType, keyval::StoreName};
+use ahnlich_types::{
+    ai::{AIStoreInputType, PreprocessAction},
+    keyval::StoreName,
+};
 use thiserror::Error;
 
 #[derive(Error, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -40,5 +43,11 @@ pub enum AIProxyError {
     ImageDimensionsMismatchError {
         image_dimensions: usize,
         max_dimensions: usize,
+    },
+
+    #[error("Used [{preprocess_action}] for [{input_type}] type")]
+    PreprocessingMismatchError {
+        input_type: AIStoreInputType,
+        preprocess_action: PreprocessAction,
     },
 }

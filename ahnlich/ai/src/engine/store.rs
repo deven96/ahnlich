@@ -152,9 +152,9 @@ impl AIStoreHandler {
     ) -> Result<StoreKey, AIProxyError> {
         // Process the inner value of a store input and convert it into a ndarray by passing
         // it into  index model. Create a storekey from ndarray
-        let mut store_input = store_input;
-        self.process_store_input(preprocess_action, &mut store_input, index_store_model)?;
-        let store_key = index_store_model.model_ndarray(&store_input);
+        let processed_input =
+            self.preprocess_store_input(preprocess_action, store_input, index_store_model)?;
+        let store_key = index_store_model.model_ndarray(&processed_input);
         Ok(store_key)
     }
 
@@ -223,72 +223,82 @@ impl AIStoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn process_store_input(
+    pub(crate) fn preprocess_store_input(
         &self,
         process_action: &PreprocessAction,
-        input: &mut StoreInput,
+        input: StoreInput,
         index_model: &AIModel,
-    ) -> Result<(), AIProxyError> {
-        match process_action {
-            PreprocessAction::Image(image_action) => {
+    ) -> Result<StoreInput, AIProxyError> {
+        match (process_action, input) {
+            (PreprocessAction::Image(image_action), StoreInput::Image(image_input)) => {
                 // resize image and edit
-                self.process_image(input, index_model, image_action)?;
-                Ok(())
+                let output = self.process_image(image_input, index_model, image_action)?;
+                Ok(output)
             }
-            PreprocessAction::RawString(string_action) => {
-                self.preprocess_raw_string(input, index_model, string_action)?;
-                Ok(())
+            (PreprocessAction::RawString(string_action), StoreInput::RawString(string_input)) => {
+                let output =
+                    self.preprocess_raw_string(string_input, index_model, string_action)?;
+                Ok(output)
+            }
+            (PreprocessAction::RawString(_), StoreInput::Image(_)) => {
+                Err(AIProxyError::PreprocessingMismatchError {
+                    input_type: AIStoreInputType::Image,
+                    preprocess_action: process_action.clone(),
+                })
+            }
+
+            (PreprocessAction::Image(_), StoreInput::RawString(_)) => {
+                Err(AIProxyError::PreprocessingMismatchError {
+                    input_type: AIStoreInputType::RawString,
+                    preprocess_action: process_action.clone(),
+                })
             }
         }
     }
     fn preprocess_raw_string(
         &self,
-        input: &mut StoreInput,
+        input: String,
         index_model: &AIModel,
         string_action: &StringAction,
-    ) -> Result<(), AIProxyError> {
+    ) -> Result<StoreInput, AIProxyError> {
         // tokenize string, return error if max token
-        if let StoreInput::RawString(value) = input {
-            //let tokenized_input;
-            let model_embedding_dim = index_model.model_info().embedding_size;
-            if value.len() > model_embedding_dim.into() {
-                if let StringAction::ErrorIfTokensExceed = string_action {
-                    return Err(AIProxyError::TokenExceededError {
-                        input_token_size: input.len(),
-                        model_embedding_size: model_embedding_dim.into(),
-                    });
-                } else {
-                    // truncate raw string
-                    // let tokenized_input;
-                    value.as_str()[..model_embedding_dim.into()].to_string();
-                }
+        //let tokenized_input;
+        let model_embedding_dim = index_model.model_info().embedding_size;
+        if input.len() > model_embedding_dim.into() {
+            if let StringAction::ErrorIfTokensExceed = string_action {
+                return Err(AIProxyError::TokenExceededError {
+                    input_token_size: input.len(),
+                    model_embedding_size: model_embedding_dim.into(),
+                });
+            } else {
+                // truncate raw string
+                // let tokenized_input;
+                let _input = input.as_str()[..model_embedding_dim.into()].to_string();
             }
         }
-        Ok(())
+        Ok(StoreInput::RawString(input))
     }
 
     fn process_image(
         &self,
-        input: &mut StoreInput,
+        input: Vec<u8>,
         index_model: &AIModel,
         image_action: &ImageAction,
-    ) -> Result<(), AIProxyError> {
+    ) -> Result<StoreInput, AIProxyError> {
         // process image, return error if max dimensions exceeded
-        if let StoreInput::Image(value) = input {
-            // let image_data;
-            let model_embedding_dim = index_model.embedding_size().into();
-            if value.len() > model_embedding_dim {
-                if let ImageAction::ErrorIfDimensionsMismatch = image_action {
-                    return Err(AIProxyError::ImageDimensionsMismatchError {
-                        image_dimensions: value.len(),
-                        max_dimensions: model_embedding_dim,
-                    });
-                } else {
-                    // resize image
-                }
+        // let image_data;
+        let model_embedding_dim = index_model.embedding_size().into();
+        if input.len() > model_embedding_dim {
+            if let ImageAction::ErrorIfDimensionsMismatch = image_action {
+                return Err(AIProxyError::ImageDimensionsMismatchError {
+                    image_dimensions: input.len(),
+                    max_dimensions: model_embedding_dim,
+                });
+            } else {
+                // resize image
             }
         }
-        Ok(())
+        Ok(StoreInput::Image(input))
     }
 }
 
