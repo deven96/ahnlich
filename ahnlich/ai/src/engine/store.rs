@@ -1,7 +1,8 @@
-use crate::error::AIProxyError;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use ahnlich_types::ai::AIModel;
-use ahnlich_types::ai::AIStoreInfo;
+use crate::{engine::ai::AIModelManager, error::AIProxyError};
+use ahnlich_types::ai::{
+    AIModel, AIStoreInfo, AIStoreInputType, ImageAction, PreprocessAction, StringAction,
+};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
@@ -57,14 +58,18 @@ impl AIStoreHandler {
     pub(crate) fn create_store(
         &self,
         store_name: StoreName,
-
-        model: AIModel,
+        query_model: AIModel,
+        index_model: AIModel,
     ) -> Result<(), AIProxyError> {
         if self
             .stores
             .try_insert(
                 store_name.clone(),
-                Arc::new(AIStore::create(store_name.clone(), model.clone())),
+                Arc::new(AIStore::create(
+                    store_name.clone(),
+                    query_model,
+                    index_model,
+                )),
                 &self.stores.guard(),
             )
             .is_err()
@@ -82,8 +87,9 @@ impl AIStoreHandler {
             .iter(&self.stores.guard())
             .map(|(store_name, store)| AIStoreInfo {
                 name: store_name.clone(),
-                model: store.model.clone(),
-                embedding_size: store.model.embedding_size().into(),
+                query_model: store.query_model.clone(),
+                index_model: store.index_model.clone(),
+                embedding_size: store.index_model.embedding_size().into(),
             })
             .collect()
     }
@@ -100,13 +106,14 @@ impl AIStoreHandler {
     }
 
     /// Converts storeinput into a tuple of storekey and storevalue.
-    /// Fails if the type of storeinput does not match the store type
+    /// Fails if the store input type does not match the store index_type
     #[tracing::instrument(skip(self))]
     pub(crate) fn store_input_to_store_key_val(
         &self,
         store_name: &StoreName,
         store_input: StoreInput,
-        store_value: &StoreValue,
+        store_value: StoreValue,
+        preprocess_action: &PreprocessAction,
     ) -> Result<(StoreKey, StoreValue), AIProxyError> {
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
         if store_value.contains_key(metadata_key) {
@@ -114,12 +121,41 @@ impl AIStoreHandler {
         }
         let store = self.get(store_name)?;
 
-        let store_key = store.model.model_ndarray(&store_input);
-        let metadata_value: MetadataValue = store_input.into();
+        let store_input_type: AIStoreInputType = (&store_input).into();
+        let store_index_model_info = store.index_model.model_info();
+
+        if store_input_type != store_index_model_info.input_type {
+            return Err(AIProxyError::StoreSetTypeMismatchError {
+                store_index_model_type: store_index_model_info.input_type,
+                storeinput_type: store_input_type,
+            });
+        }
+
+        let metadata_value: MetadataValue = store_input.clone().into();
         let mut final_store_value: StdHashMap<MetadataKey, MetadataValue> =
             store_value.clone().into_iter().collect();
         final_store_value.insert(metadata_key.clone(), metadata_value);
+
+        let store_key =
+            self.create_store_key(store_input, &store.index_model, preprocess_action)?;
         return Ok((store_key, final_store_value));
+    }
+
+    /// Converts storeinput into a tuple of storekey and storevalue.
+    /// Fails if the store input type does not match the store index_type
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn create_store_key(
+        &self,
+        store_input: StoreInput,
+        index_store_model: &AIModel,
+        preprocess_action: &PreprocessAction,
+    ) -> Result<StoreKey, AIProxyError> {
+        // Process the inner value of a store input and convert it into a ndarray by passing
+        // it into  index model. Create a storekey from ndarray
+        let processed_input =
+            self.preprocess_store_input(preprocess_action, store_input, index_store_model)?;
+        let store_key = index_store_model.model_ndarray(&processed_input);
+        Ok(store_key)
     }
 
     /// Converts (storekey, storevalue) into (storeinput, storevalue)
@@ -153,7 +189,7 @@ impl AIStoreHandler {
         store_input: &StoreInput,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
-        Ok(store.model.model_ndarray(store_input))
+        Ok(store.index_model.model_ndarray(store_input))
     }
 
     /// Matches DROPSTORE - Drops a store if exist, else returns an error
@@ -185,20 +221,105 @@ impl AIStoreHandler {
         self.stores.clear(&guard);
         store_length
     }
+
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn preprocess_store_input(
+        &self,
+        process_action: &PreprocessAction,
+        input: StoreInput,
+        index_model: &AIModel,
+    ) -> Result<StoreInput, AIProxyError> {
+        match (process_action, input) {
+            (PreprocessAction::Image(image_action), StoreInput::Image(image_input)) => {
+                // resize image and edit
+                let output = self.process_image(image_input, index_model, image_action)?;
+                Ok(output)
+            }
+            (PreprocessAction::RawString(string_action), StoreInput::RawString(string_input)) => {
+                let output =
+                    self.preprocess_raw_string(string_input, index_model, string_action)?;
+                Ok(output)
+            }
+            (PreprocessAction::RawString(_), StoreInput::Image(_)) => {
+                Err(AIProxyError::PreprocessingMismatchError {
+                    input_type: AIStoreInputType::Image,
+                    preprocess_action: process_action.clone(),
+                })
+            }
+
+            (PreprocessAction::Image(_), StoreInput::RawString(_)) => {
+                Err(AIProxyError::PreprocessingMismatchError {
+                    input_type: AIStoreInputType::RawString,
+                    preprocess_action: process_action.clone(),
+                })
+            }
+        }
+    }
+    fn preprocess_raw_string(
+        &self,
+        input: String,
+        index_model: &AIModel,
+        string_action: &StringAction,
+    ) -> Result<StoreInput, AIProxyError> {
+        // tokenize string, return error if max token
+        //let tokenized_input;
+        let model_embedding_dim = index_model.model_info().embedding_size;
+        if input.len() > model_embedding_dim.into() {
+            if let StringAction::ErrorIfTokensExceed = string_action {
+                return Err(AIProxyError::TokenExceededError {
+                    input_token_size: input.len(),
+                    model_embedding_size: model_embedding_dim.into(),
+                });
+            } else {
+                // truncate raw string
+                // let tokenized_input;
+                let _input = input.as_str()[..model_embedding_dim.into()].to_string();
+            }
+        }
+        Ok(StoreInput::RawString(input))
+    }
+
+    fn process_image(
+        &self,
+        input: Vec<u8>,
+        index_model: &AIModel,
+        image_action: &ImageAction,
+    ) -> Result<StoreInput, AIProxyError> {
+        // process image, return error if max dimensions exceeded
+        // let image_data;
+        let model_embedding_dim = index_model.embedding_size().into();
+        if input.len() > model_embedding_dim {
+            if let ImageAction::ErrorIfDimensionsMismatch = image_action {
+                return Err(AIProxyError::ImageDimensionsMismatchError {
+                    image_dimensions: input.len(),
+                    max_dimensions: model_embedding_dim,
+                });
+            } else {
+                // resize image
+            }
+        }
+        Ok(StoreInput::Image(input))
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AIStore {
     name: StoreName,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
-    model: AIModel,
+    query_model: AIModel,
+    index_model: AIModel,
 }
 
 impl AIStore {
-    pub(super) fn create(store_name: StoreName, model: AIModel) -> Self {
+    pub(super) fn create(
+        store_name: StoreName,
+        query_model: AIModel,
+        index_model: AIModel,
+    ) -> Self {
         Self {
             name: store_name,
-            model,
+            query_model,
+            index_model,
         }
     }
 }

@@ -32,14 +32,16 @@ class AhnlichAIClient(BaseClient):
     def create_store(
         self,
         store_name: str,
-        model: ai_query.AIModel,
+        query_model: ai_query.AIModel,
+        index_model: ai_query.AIModel,
         predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
     ):
 
         self.builder.create_store(
             store_name=store_name,
-            model=model,
+            query_model=query_model,
+            index_model=index_model,
             predicates=predicates,
             non_linear_indices=non_linear_indices,
         )
@@ -90,8 +92,11 @@ class AhnlichAIClient(BaseClient):
         inputs: typing.Sequence[
             typing.Tuple[ai_query.StoreInput, typing.Dict[str, ai_query.MetadataValue]]
         ],
+        preprocess_action=ai_query.PreprocessAction,
     ):
-        self.builder.set(store_name=store_name, inputs=inputs)
+        self.builder.set(
+            store_name=store_name, inputs=inputs, preprocess_action=preprocess_action
+        )
         return self.process_request(self.builder.to_server_query())
 
     def del_key(self, store_name: str, key: ai_query.StoreInput):

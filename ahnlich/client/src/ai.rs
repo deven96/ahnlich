@@ -49,15 +49,17 @@ impl AIPipeline {
     pub fn create_store(
         &mut self,
         store: StoreName,
-        model: AIModel,
+        query_model: AIModel,
+        index_model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
     ) {
         self.queries.push(AIQuery::CreateStore {
             store,
+            query_model,
+            index_model,
             predicates,
             non_linear_indices,
-            model,
         })
     }
 
@@ -105,8 +107,17 @@ impl AIPipeline {
     }
 
     /// push set command to pipeline
-    pub fn set(&mut self, store: StoreName, inputs: Vec<(StoreInput, StoreValue)>) {
-        self.queries.push(AIQuery::Set { store, inputs })
+    pub fn set(
+        &mut self,
+        store: StoreName,
+        inputs: Vec<(StoreInput, StoreValue)>,
+        preprocess_action: PreprocessAction,
+    ) {
+        self.queries.push(AIQuery::Set {
+            store,
+            inputs,
+            preprocess_action,
+        })
     }
 
     /// push del key command to pipeline
@@ -179,13 +190,15 @@ impl AIClient {
     pub async fn create_store(
         &self,
         store: StoreName,
-        model: AIModel,
+        query_model: AIModel,
+        index_model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(AIQuery::CreateStore {
             store,
-            model,
+            query_model,
+            index_model,
             predicates,
             non_linear_indices,
         })
@@ -245,8 +258,14 @@ impl AIClient {
         &self,
         store: StoreName,
         inputs: Vec<(StoreInput, StoreValue)>,
+        preprocess_action: PreprocessAction,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::Set { store, inputs }).await
+        self.exec(AIQuery::Set {
+            store,
+            inputs,
+            preprocess_action,
+        })
+        .await
     }
 
     pub async fn del_key(
@@ -305,7 +324,7 @@ impl AIClient {
 mod tests {
     use super::*;
     use ahnlich_ai_proxy::cli::AIProxyConfig;
-    use ahnlich_ai_proxy::server::handler::AIProxyServer;
+    use ahnlich_ai_proxy::{engine::ai::AIModelManager, server::handler::AIProxyServer};
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
     use once_cell::sync::Lazy;
@@ -402,17 +421,20 @@ mod tests {
         pipeline.create_store(
             StoreName("Main".to_string()),
             AIModel::Llama3,
+            AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Main".to_string()),
             AIModel::Llama3,
+            AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
+            AIModel::Llama3,
             AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
@@ -426,12 +448,14 @@ mod tests {
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
             },
         ]))));
         let res = pipeline.exec().await.expect("Could not execute pipeline");
@@ -452,6 +476,7 @@ mod tests {
             .create_store(
                 store_name.clone(),
                 AIModel::Llama3,
+                AIModel::Llama3,
                 HashSet::new(),
                 HashSet::new(),
             )
@@ -467,7 +492,8 @@ mod tests {
                         StoreInput::RawString("Nike Air Jordans".into()),
                         HashMap::new()
                     ),
-                ]
+                ],
+                PreprocessAction::RawString(StringAction::ErrorIfTokensExceed)
             )
             .await
             .is_ok());
@@ -497,17 +523,20 @@ mod tests {
         pipeline.create_store(
             StoreName("Main".to_string()),
             AIModel::Llama3,
+            AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Main2".to_string()),
             AIModel::Llama3,
+            AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
+            AIModel::Llama3,
             AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
@@ -523,17 +552,20 @@ mod tests {
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
             },
             AIStoreInfo {
                 name: StoreName("Main2".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
                 embedding_size: AIModel::Llama3.embedding_size().into(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
             },
         ]))));
         expected.push(Ok(AIServerResponse::Del(1)));
@@ -585,6 +617,7 @@ mod tests {
         pipeline.create_store(
             store_name.clone(),
             AIModel::Llama3,
+            AIModel::Llama3,
             HashSet::new(),
             HashSet::new(),
         );
@@ -596,7 +629,11 @@ mod tests {
                 MetadataKey::new("Vintage".to_string()),
             ]),
         );
-        pipeline.set(store_name.clone(), store_data);
+        pipeline.set(
+            store_name.clone(),
+            store_data,
+            PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+        );
 
         pipeline.drop_pred_index(
             store_name.clone(),
@@ -611,7 +648,9 @@ mod tests {
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name.clone(),
-                model: AIModel::Llama3,
+                query_model: AIModel::Llama3,
+                index_model: AIModel::Llama3,
+
                 embedding_size: AIModel::Llama3.embedding_size().into(),
             },
         ]))));
@@ -697,7 +736,8 @@ mod tests {
 
         pipeline.create_store(
             store_name.clone(),
-            AIModel::Llama3,
+            AIModel::DALLE3,
+            AIModel::DALLE3,
             HashSet::new(),
             HashSet::new(),
         );
@@ -709,7 +749,11 @@ mod tests {
                 MetadataKey::new("Age".to_string()),
             ]),
         );
-        pipeline.set(store_name.clone(), store_data);
+        pipeline.set(
+            store_name.clone(),
+            store_data,
+            PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
+        );
 
         pipeline.drop_pred_index(
             store_name.clone(),
@@ -732,8 +776,9 @@ mod tests {
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name,
-                model: AIModel::Llama3,
-                embedding_size: AIModel::Llama3.embedding_size().into(),
+                query_model: AIModel::DALLE3,
+                index_model: AIModel::DALLE3,
+                embedding_size: AIModel::DALLE3.embedding_size().into(),
             },
         ]))));
         expected.push(Ok(AIServerResponse::CreateIndex(2)));
