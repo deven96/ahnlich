@@ -12,6 +12,8 @@ on:
       - ahnlich/**
       - sdk/**
 
+permissions: {}
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -139,9 +141,16 @@ jobs:
           path: sdk/ahnlich-client-go/go.xml
 
   upload-test-results:
-    if: always()
     runs-on: ubuntu-latest
     needs: [run-rust-tests, run-python-tests, run-go-tests]
+    if: always()
+    permissions:
+      checks: write
+      pull-requests: write
+      contents: read
+      issues: read
+      actions: read
+
 
     steps:
     - name: Download Rust Test Output
