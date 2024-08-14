@@ -4,7 +4,7 @@ use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum SupportedModels {
     Llama3,
-    Dalla3,
+    Dalle3,
 }
 
 #[derive(Parser)]
@@ -106,7 +106,7 @@ impl Default for AIProxyConfig {
             otel_endpoint: None,
             log_level: String::from("info"),
             maximum_clients: 1000,
-            supported_models: vec![SupportedModels::Llama3, SupportedModels::Dalla3],
+            supported_models: vec![SupportedModels::Llama3, SupportedModels::Dalle3],
         }
     }
 }
@@ -145,7 +145,7 @@ impl From<&AIModel> for SupportedModels {
     fn from(value: &AIModel) -> Self {
         match value {
             AIModel::Llama3 => SupportedModels::Llama3,
-            AIModel::DALLE3 => SupportedModels::Dalla3,
+            AIModel::DALLE3 => SupportedModels::Dalle3,
         }
     }
 }

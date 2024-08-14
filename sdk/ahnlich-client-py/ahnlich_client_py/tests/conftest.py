@@ -110,7 +110,9 @@ def aiproxy_default_ahnlich_db():
 @pytest.fixture
 def spin_up_ahnlich_ai(ai_random_port, aiproxy_default_ahnlich_db):
     port = ai_random_port
-    command = f"cargo run --bin ai start --port {port}".split(" ")
+    command = f"cargo run --bin ai start --supported-models dalle3 --supported-models llama3 --port {port}".split(
+        " "
+    )
     process = subprocess.Popen(args=command, cwd=config.AHNLICH_BIN_DIR)
     while not is_port_occupied(port):
         time.sleep(0.2)
@@ -124,7 +126,9 @@ def spin_up_ahnlich_ai(ai_random_port, aiproxy_default_ahnlich_db):
 @pytest.fixture(scope="module")
 def module_scopped_ahnlich_ai():
     port = 9001
-    command = f"cargo run --bin ai start --port {port}".split(" ")
+    command = f"cargo run --bin ai start --supported-models dalle3 --supported-models llama3 --port {port}".split(
+        " "
+    )
     process = subprocess.Popen(args=command, cwd=config.AHNLICH_BIN_DIR)
     while not is_port_occupied(port):
         time.sleep(0.2)
