@@ -222,18 +222,26 @@ tasks:
       REPORT: "{{.REPORT | default 0}}"
     cmds:
       - |
+        cwdir=$(pwd)
+        cd ../../ahnlich
+        cargo build
+        cd $cwdir
+        tomlDir=$(realpath ../../ahnlich/Cargo.toml)
+        cargo run --manifest-path $tomlDir --bin ahnlich-db --help
         if [[ "$CI" == 1 ]];then
           export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
         fi
         if [[ {{.CACHE}} == 0 ]];then
           if [[ {{.REPORT}} == 1 ]];then
-            CGO_ENABLED=0 go test -count=1 -p 1 -failfast -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
+            CGO_ENABLED=0 go test -count=1 -p 1 -failfast -v $(go list ./...)
+            gotestsum --junitfile go.xml
           else
             CGO_ENABLED=0 go test -count=1 -p 1 -failfast -v $(go list ./...)
           fi
         else
           if [[ {{.REPORT}} == 1 ]];then
-            CGO_ENABLED=0 go test -p 1 -failfast -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
+            CGO_ENABLED=0 go test -p 1 -failfast -v $(go list ./...)
+            gotestsum --junitfile go.xml
           else
             CGO_ENABLED=0 go test -p 1 -failfast -v $(go list ./...)
           fi
@@ -252,13 +260,15 @@ tasks:
         fi
         if [[ {{.CACHE}} == 0 ]];then
           if [[ {{.REPORT}} == 1 ]];then
-            CGO_ENABLED=1 go test -race -count=1 -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
+            CGO_ENABLED=1 go test -race -count=1 -v $(go list ./...)
+            gotestsum --junitfile go.xml
           else
             CGO_ENABLED=1 go test -race -count=1 -v $(go list ./...)
           fi
         else
           if [[ {{.REPORT}} == 1 ]];then
-            CGO_ENABLED=1 go test -race -v $(go list ./...) | go-junit-report -set-exit-code > go.xml
+            CGO_ENABLED=1 go test -race -v $(go list ./...)
+            gotestsum --junitfile go.xml
           else
             CGO_ENABLED=1 go test -race -v $(go list ./...)
           fi
@@ -285,8 +295,10 @@ tasks:
       - |
         cwdir=$(pwd)
         cd ../../ahnlich
-        cargo build && cargo run --bin ahnlich-db --help
+        cargo build
         cd $cwdir
+        tomlDir=$(realpath ../../ahnlich/Cargo.toml)
+        cargo run --manifest-path $tomlDir --bin ahnlich-db --help
         if [[ "$CI" == 1 ]];then
           export PATH=$PATH:/usr/local/go/bin && export PATH=$PATH:$(go env GOPATH)/bin
         fi

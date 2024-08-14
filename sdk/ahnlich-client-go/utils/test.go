@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,61 +19,236 @@ import (
 )
 
 // AhnlichDBTestSuite is a test suite for the AhnlichDB
-// Remember the persistent interval when writing or running persistent tests
+
 type AhnlichDBTestSuite struct {
-	Host                string
-	Port                int
-	Persistence         bool
-	PersistenceLocation string
-	PersistenceInterval int
-	StdOut              *bytes.Buffer
-	StdErr              *bytes.Buffer
-	LogLevel            string
-	NumberOfConnections int
-	TracingEnabled      bool
+	ServerAddr string
+	Host       string
+	Port       int
+	StdOut     *bytes.Buffer
+	StdErr     *bytes.Buffer
 	*exec.Cmd
 }
 
-func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serverAddr ...any) *AhnlichDBTestSuite {
-	var cmd *exec.Cmd
-	var host string
+type OptionalArgs interface {
+	// parseArgs takes in a struct with the args and returns a slice of strings
+	parseArgs() ([]string, error)
+	getName(i interface{}) string
+}
+
+type baseOption struct {
+	Args []string
+}
+
+func (args baseOption) getName(i interface{}) string {
+	// Use reflection to get the type of the input
+	t := reflect.TypeOf(i)
+
+	// Ensure we're working with a pointer, and get the element type if so
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	// Return the name of the struct
+	return t.Name()
+}
+
+type AddrsOption struct {
+	ServerAddr any
+	host       string
+	port       int
+	baseOption
+}
+
+func (args *AddrsOption) parseArgs() ([]string, error) {
+	args.Args = make([]string, 0)
+	var host string = "127.0.0.1"
 	var port int
 	var portStr string
 	var err error
-	// var trace bool
-	// var logLevel string
-	// var clientLimit int
-	// var persistenceInterval int
 
-	var persistFile string = filepath.Join(persistLocation, "ahnlichdb.json")
-
-	if len(serverAddr) == 2 || len(serverAddr) == 1 {
-		for _, addr := range serverAddr {
-			switch value := addr.(type) {
-			case string:
-				// check string format "host:port"
-				host, portStr, err = net.SplitHostPort(value)
+	if args.ServerAddr != nil || args.ServerAddr != "" {
+		switch value := args.ServerAddr.(type) {
+		case string:
+			// check string format "host:port"
+			host, portStr, err = net.SplitHostPort(value)
+			if err != nil {
+				host = value
+			} else {
+				port, err = strconv.Atoi(portStr)
 				if err != nil {
-					host = value
-				} else {
-					port, err = net.LookupPort("tcp", portStr)
-					require.NoError(t, err)
+					return nil, err
 				}
-			case int:
-				port = value
-			default:
-				require.Fail(t, "invalid serverAddr format")
 			}
-
+		case int:
+			port = value
+		default:
+			port, err = GetAvailablePort(host)
+			if err != nil {
+				return nil, err
+			}
 		}
 	} else {
-		host = "127.0.0.1" // localhost
 		port, err = GetAvailablePort(host)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args.host = host
+	args.port = port
+	args.Args = append(args.Args, "--port", fmt.Sprint(port))
+	return args.Args, nil
+}
+
+type PersistOption struct {
+	Persistence             bool
+	PersistenceFileLocation string
+	PersistenceInterval     int
+	baseOption
+}
+
+func (args *PersistOption) parseArgs() ([]string, error) {
+	args.Args = make([]string, 0)
+	if args.Persistence {
+		args.Args = append(args.Args, "--enable-persistence")
+		if args.PersistenceFileLocation != "" {
+			args.Args = append(args.Args, "--persist-location", args.PersistenceFileLocation)
+		} else {
+			args.Args = append(args.Args, "--persist-location", filepath.Join(".", "ahnlichdb.json"))
+		}
+		if args.PersistenceInterval != 0 {
+			args.Args = append(args.Args, "--persistence-interval", fmt.Sprint(args.PersistenceInterval))
+		} else {
+			args.Args = append(args.Args, "--persistence-interval", "100")
+		}
+	}
+	return args.Args, nil
+}
+
+type LogOption struct {
+	LogLevel       string // trace, debug, info, warn, error
+	TracingEnabled bool
+	baseOption
+}
+
+func (args *LogOption) parseArgs() ([]string, error) {
+	args.Args = make([]string, 0)
+	if args.LogLevel != "" {
+		logLevel := strings.ToLower(args.LogLevel)
+		acceptedLogLevels := []string{"trace", "debug", "info", "warn", "error"}
+		if !contains(acceptedLogLevels, logLevel) {
+			logLevel = "info"
+		}
+		args.Args = append(args.Args, "--log-level", logLevel)
+	} else {
+		args.Args = append(args.Args, "--log-level", "info")
+	}
+	if args.TracingEnabled {
+		args.Args = append(args.Args, "--enable-tracing")
+	}
+	return args.Args, nil
+}
+
+type ClientsOption struct {
+	MaximumClients int
+	baseOption
+}
+
+func (args *ClientsOption) parseArgs() ([]string, error) {
+	args.Args = make([]string, 0)
+	if args.MaximumClients != 0 {
+		args.Args = append(args.Args, "--maximum-clients", fmt.Sprint(args.MaximumClients))
+	} else {
+		args.Args = append(args.Args, "--maximum-clients", "10")
+	}
+	return args.Args, nil
+}
+
+type ExecOption struct {
+	ExecType string
+	baseOption
+}
+
+func (args *ExecOption) parseArgs() ([]string, error) {
+	args.Args = make([]string, 0)
+	if args.ExecType != "" {
+		validTypes := []string{"run", "build"}
+		if !contains(validTypes, args.ExecType) {
+			args.Args = append(args.Args, "run")
+		} else {
+			args.Args = append(args.Args, args.ExecType)
+		}
+	} else {
+		args.Args = append(args.Args, "run")
+	}
+	args.ExecType = args.Args[0]
+	return args.Args, nil
+}
+
+func execDb(execType string, args ...string) (*exec.Cmd, error) {
+	lookPath := "cargo"
+	rootDir, err := GetProjectRoot()
+	if err != nil {
+		return nil, err
+	}
+	tomlDir := filepath.Join(rootDir, "..", "..", "ahnlich", "Cargo.toml")
+	tomlDir, err = filepath.Abs(tomlDir)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := os.Stat(tomlDir); os.IsNotExist(err) {
+		return nil, err
+	}
+	if _, err := exec.LookPath(lookPath); err != nil {
+		return nil, err
+	}
+	commands := []string{execType, "--manifest-path", tomlDir}
+	if execType == "run" {
+		commands = append(commands, "--bin", "ahnlich-db", "run")
+	}
+	commands = append(commands, args...)
+	return exec.Command(lookPath, commands...), nil
+}
+
+// RunAhnlichDatabase starts the AhnlichDB process
+func RunAhnlichDatabase(t *testing.T, args ...OptionalArgs) *AhnlichDBTestSuite {
+	var cmd *exec.Cmd
+	var host string
+	var port int
+	var err error
+	var argsList []string
+	var execType string
+
+	args = append(args, &ExecOption{}, &AddrsOption{})
+	uniqueArgs := make(map[string]struct{})
+
+	for _, opt := range args {
+
+		if _, exists := uniqueArgs[opt.getName(opt)]; !exists {
+			uniqueArgs[opt.getName(opt)] = struct{}{}
+			switch arg := opt.(type) {
+			case *ExecOption:
+				_, err := opt.parseArgs()
+				require.NoError(t, err)
+				execType = arg.ExecType
+				continue
+			case *AddrsOption:
+				parsedArgs, err := opt.parseArgs()
+				require.NoError(t, err)
+				host = arg.host
+				port = arg.port
+				argsList = append(argsList[:0], append(parsedArgs, argsList[0:]...)...) // Add the args to the beginning of the list
+			default:
+				parsedArgs, err := opt.parseArgs()
+				require.NoError(t, err)
+				argsList = append(argsList, parsedArgs...)
+			}
+		}
+
 	}
 
 	require.NotEmpty(t, host)
 	require.NotEmpty(t, port)
+	require.NotEmpty(t, execType)
 
 	t.Cleanup(func() {
 		if cmd != nil {
@@ -81,22 +258,11 @@ func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serv
 			cmd.Process.Kill() // Ensure the process is killed
 		}
 	})
-	rootDir, err := GetProjectRoot()
-	require.NoError(t, err)
 
-	tomlDir := filepath.Join(rootDir, "..", "..", "ahnlich", "Cargo.toml")
-	tomlDir, err = filepath.Abs(tomlDir)
+	cmd, err = execDb(execType, argsList...)
 	require.NoError(t, err)
-	// ,"--maximum-clients","1",
-	//  "--enable-tracing", "--log-level", "debug"
-	// "--enable-tracing", "--log-level", "debug"
-	if persist {
-		cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port), "--enable-persistence", "--persist-location", persistFile, "--persistence-interval", "100") // Timeout on running the database using cargo run command build before running with dependencies being downloaded
-		// TODO: suggest passing these configs as yaml files or env variables to db from client
-		// TODO: suggest creating a test container for the database
-	} else {
-		cmd = exec.Command("cargo", "run", "--manifest-path", tomlDir, "--bin", "ahnlich-db", "run", "--port", fmt.Sprint(port))
-	}
+	require.NotEmpty(t, cmd)
+
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -129,13 +295,12 @@ func RunAhnlichDatabase(t *testing.T, persist bool, persistLocation string, serv
 	require.Truef(t, !strings.Contains(outBuf.String(), "panicked"), "ahnlich database panicked: %s", outBuf.String())
 
 	return &AhnlichDBTestSuite{
-		Host:                host,
-		Port:                port,
-		Persistence:         persist,
-		PersistenceLocation: persistFile,
-		StdOut:              &outBuf,
-		StdErr:              &errBuf,
-		Cmd:                 cmd,
+		ServerAddr: fmt.Sprintf("%s:%d", host, port),
+		Host:       host,
+		Port:       port,
+		StdOut:     &outBuf,
+		StdErr:     &errBuf,
+		Cmd:        cmd,
 	}
 }
 
@@ -175,14 +340,6 @@ func GetAvailablePort(host string) (int, error) {
 	}
 	return 0, fmt.Errorf("unable to find a free port after %d attempts", maxRetries)
 }
-
-// func buildFlags(flags map[string]string) []string {
-// 	var flagList []string
-// 	for k, v := range flags {
-// 		flagList = append(flagList, fmt.Sprintf("--%s=%s", k, v))
-// 	}
-// 	return flagList
-// }
 
 func ValidateJsonFile(t *testing.T, jsonFilePath string) {
 	// Open the JSON file

@@ -29,7 +29,7 @@ func newTestConnectionManager(t *testing.T, config ahnlichclientgo.ConnectionCon
 }
 
 func TestSingleConnection(t *testing.T) {
-	db := utils.RunAhnlichDatabase(t, false, "")
+	db := utils.RunAhnlichDatabase(t)
 	config := ahnlichclientgo.ConnectionConfig{
 		Host:                  db.Host,
 		Port:                  db.Port,
@@ -61,7 +61,7 @@ func TestSingleConnection(t *testing.T) {
 }
 
 func TestMultipleConnections(t *testing.T) {
-	db := utils.RunAhnlichDatabase(t, false, "")
+	db := utils.RunAhnlichDatabase(t)
 	config := ahnlichclientgo.ConnectionConfig{
 		Host:                  db.Host,
 		Port:                  db.Port,
@@ -116,7 +116,7 @@ func TestMultipleConnections(t *testing.T) {
 }
 
 func Test_IdleConnectionTimeout(t *testing.T) {
-	db := utils.RunAhnlichDatabase(t, false, "")
+	db := utils.RunAhnlichDatabase(t)
 	config := ahnlichclientgo.ConnectionConfig{
 		Host:                  db.Host,
 		Port:                  db.Port,
@@ -144,7 +144,7 @@ func Test_IdleConnectionTimeout(t *testing.T) {
 }
 
 func Test_MaxTotalConnections(t *testing.T) {
-	db := utils.RunAhnlichDatabase(t, false, "")
+	db := utils.RunAhnlichDatabase(t)
 	config := ahnlichclientgo.ConnectionConfig{
 		Host:                  db.Host,
 		Port:                  db.Port,
@@ -186,7 +186,7 @@ func Test_MaxTotalConnections(t *testing.T) {
 }
 
 func Test_RetryConnection(t *testing.T) {
-	db := utils.RunAhnlichDatabase(t, false, "")
+	db := utils.RunAhnlichDatabase(t)
 	config := ahnlichclientgo.ConnectionConfig{
 		Host:                   db.Host,
 		Port:                   db.Port,
@@ -218,8 +218,12 @@ func Test_RetryConnection(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "connect: connection refused")
 
+	addrsOption := &utils.AddrsOption{
+		ServerAddr: db.ServerAddr,
+	}
+
 	// Start the database again
-	db = utils.RunAhnlichDatabase(t, false, "", db.Host, db.Port)
+	db = utils.RunAhnlichDatabase(t, addrsOption)
 	// check if the database is running
 	require.True(t, db.IsRunning())
 	// Retry the connection
@@ -255,7 +259,10 @@ func Test_Backoff(t *testing.T) {
 		ch <- cm
 	}()
 	// Kill the database to trigger the backoff retry
-	db := utils.RunAhnlichDatabase(t, false, "", config.Host, config.Port)
+	addrsOption := &utils.AddrsOption{
+		ServerAddr: fmt.Sprintf("%s:%d", config.Host, config.Port),
+	}
+	db := utils.RunAhnlichDatabase(t, addrsOption)
 	// check if the database is running
 	require.True(t, db.IsRunning())
 	time.Sleep(config.BackoffMaxElapsedTime - 1*time.Second)

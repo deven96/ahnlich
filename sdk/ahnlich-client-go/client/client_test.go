@@ -1,6 +1,7 @@
 package client
 
 import (
+	"path/filepath"
 	testing "testing"
 	"time"
 
@@ -304,14 +305,14 @@ func loadAndTestFixture(t *testing.T, client *AhnlichDBClient) clientTestFixture
 	}
 }
 
-func newClientTestSuite(t *testing.T, persistDb bool, persistLocation string) *ClientTestSuite {
+func newClientTestSuite(t *testing.T, args ...utils.OptionalArgs) *ClientTestSuite {
 	var dbClient *AhnlichDBClient
 	t.Cleanup(func() {
 		if dbClient != nil {
 			dbClient.Close()
 		}
 	})
-	db := utils.RunAhnlichDatabase(t, persistDb, persistLocation)
+	db := utils.RunAhnlichDatabase(t, args...)
 	config := ahnlichclientgo.LoadConfig(
 		ahnlichclientgo.ConnectionConfig{
 			Host:                   db.Host,
@@ -344,7 +345,7 @@ func newClientTestSuite(t *testing.T, persistDb bool, persistLocation string) *C
 }
 
 func TestClient_GetKeys(t *testing.T) {
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	// Get keys from the store
 	getKeys := dbQuery.Query__GetKey{
 		Store: ts.fixture.storeName,
@@ -359,7 +360,7 @@ func TestClient_GetKeys(t *testing.T) {
 }
 
 func TestClient_GetByPredicates(t *testing.T) {
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	// Get by predicate with index
 	getByPredicateResponse, err := ts.client.GetByPredicate(ts.fixture.storeName, &dbQuery.PredicateCondition__Value{
 		Value: &dbQuery.Predicate__Equals{
@@ -375,7 +376,7 @@ func TestClient_GetByPredicates(t *testing.T) {
 }
 
 func TestClient_DropPredicate(t *testing.T) {
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	// Drop predicate index
 	dropPredicateIndex, err := ts.client.DropPredicateIndex(ts.fixture.storeName, []string{ts.fixture.dropPredicate}, false)
 	require.NoError(t, err)
@@ -385,7 +386,7 @@ func TestClient_DropPredicate(t *testing.T) {
 }
 
 func TestClient_DeletePredicate(t *testing.T) {
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	// Delete predicate
 	deletePredicate, err := ts.client.DeletePredicate(ts.fixture.storeName, &dbQuery.PredicateCondition__Value{
 		Value: &dbQuery.Predicate__Equals{
@@ -400,7 +401,7 @@ func TestClient_DeletePredicate(t *testing.T) {
 }
 
 func TestClient_SimilarKey(t *testing.T) {
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	// Get_sim_n
 	// ts.fixture.similaritySearchKey should be close to ts.fixture.stringKeyRank; the test should return ts.fixture.stringKeyRank
 	getSimN := dbQuery.Query__GetSimN{
@@ -422,7 +423,7 @@ func TestClient_SimilarKey(t *testing.T) {
 }
 
 func TestClient_DeleteKeys(t *testing.T) {
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	// Delete keys
 	deleteKeys := dbQuery.Query__DelKey{
 		Store: ts.fixture.storeName,
@@ -436,7 +437,7 @@ func TestClient_DeleteKeys(t *testing.T) {
 }
 
 func TestClient_DeleteStore(t *testing.T) {
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	// Delete the store without predicates
 	deleteStoreResponse, err := ts.client.DropStore(ts.fixture.storeName, ts.fixture.storeErrorIfNotExists)
 	require.NoError(t, err)
@@ -456,7 +457,7 @@ func TestClient_DeleteStore(t *testing.T) {
 }
 
 func TestClient_Ping(t *testing.T) {
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	// Ping the server
 	pingResponse, err := ts.client.Ping()
 	require.NoError(t, err)
@@ -465,7 +466,7 @@ func TestClient_Ping(t *testing.T) {
 }
 
 func TestClient_ServerInfo(t *testing.T) {
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	// Get the server info
 	serverInfoResponse, err := ts.client.ServerInfo()
 	require.NoError(t, err)
@@ -479,7 +480,7 @@ func TestClient_ServerInfo(t *testing.T) {
 
 func TestClient_ListClients(t *testing.T) {
 	timeBefore := time.Now()
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	timeAfter := time.Now()
 	// List the clients
 	clientsResponse, err := ts.client.ListClients()
@@ -495,7 +496,7 @@ func TestClient_ListClients(t *testing.T) {
 }
 
 func TestClient_Pipeline(t *testing.T) {
-	ts := newClientTestSuite(t, false, "")
+	ts := newClientTestSuite(t)
 	// Pipeline
 	pipeline := ts.client.Pipeline()
 	pipeline, err := pipeline.BuildPingQuery()
@@ -542,8 +543,14 @@ func TestDbPersistence(t *testing.T) {
 	waitTimeInterval := 3 * time.Second // same as the db persistence interval
 	// test Db persistence
 	// start the database with persistence and Load fixtures data into the database
-	dir := t.TempDir()
-	ts := newClientTestSuite(t, true, dir)
+	tempDir := t.TempDir()
+	tempFile := filepath.Join(tempDir, "db_persistence.json")
+	persistOption := &utils.PersistOption{
+		Persistence:             true,
+		PersistenceFileLocation: tempFile,
+		PersistenceInterval:     100,
+	}
+	ts := newClientTestSuite(t, persistOption)
 	require.True(t, ts.db.IsRunning())
 	// wait for some time
 	time.Sleep(waitTimeInterval)
@@ -554,16 +561,21 @@ func TestDbPersistence(t *testing.T) {
 	require.False(t, ts.db.IsRunning())
 
 	// list all files in the persistencelocation
-	fileList, err := utils.ListFilesInDir(dir)
+	fileList, err := utils.ListFilesInDir(tempDir)
 	require.NoError(t, err)
 	require.NotEmpty(t, fileList)
 	// Check if file is created in the persistencelocation
-	assert.Contains(t, fileList, utils.GetFileFromPath(ts.db.PersistenceLocation))
-	utils.ValidateJsonFile(t, ts.db.PersistenceLocation)
+	assert.Contains(t, fileList, utils.GetFileFromPath(tempFile))
+	utils.ValidateJsonFile(t, tempFile)
 
 	// Start the database again on same port and host
-	ts.db = utils.RunAhnlichDatabase(t, true, dir, ts.db.Host, ts.db.Port)
+	addrsOption := &utils.AddrsOption{
+		ServerAddr: ts.db.ServerAddr,
+	}
+	ts.db = utils.RunAhnlichDatabase(t, persistOption, addrsOption)
 	require.True(t, ts.db.IsRunning())
+
+	require.Equal(t, ts.db.ServerAddr, addrsOption.ServerAddr)
 
 	// Check if the store data is still present in the database
 	// List the stores

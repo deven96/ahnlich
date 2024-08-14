@@ -52,3 +52,12 @@ func GetFileFromPath(path string) string {
 	file := filepath.Base(path)
 	return file
 }
+
+func contains(slice []string, item string) bool {
+	for _, element := range slice {
+		if element == item {
+			return true
+		}
+	}
+	return false
+}

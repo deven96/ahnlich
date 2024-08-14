@@ -104,9 +104,6 @@ jobs:
   run-go-tests:
     if: always()
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./sdk/ahnlich-client-go
     steps:
       - uses: actions/checkout@v4
 
@@ -122,14 +119,17 @@ jobs:
           version: 3.x
 
       - name: Install Dependencies
+        working-directory: ./sdk/ahnlich-client-go
         run: CI=1 task install-dependencies
 
       - name: Format and Lint Check
+        working-directory: ./sdk/ahnlich-client-go
         run: task pre-commit-check
 
       - name: Run Tests
+        working-directory: ./sdk/ahnlich-client-go
         run: |
-          task test
+          REPORT=1 task test-sequential
           REPORT=1 task test
 
       - name: Upload Test Results
