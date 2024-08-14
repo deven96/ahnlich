@@ -1,7 +1,7 @@
 name: Ahnlich Test PRs for Performance Regression
 
 on:
-  pull_request:
+  pull_request_target:
     branches: ["main"]
     paths:
       - ahnlich/**
@@ -21,8 +21,6 @@ jobs:
     - name: Checkout main branch
       uses: actions/checkout@v4
       with:
-        # Ensure we fetch enough history to compare branches
-        fetch-depth: 2
         ref: main
 
     - name: Set up Rust cache
@@ -41,7 +39,6 @@ jobs:
     - name: Checkout PR branch
       uses: actions/checkout@v4
       with:
-        # This ensures that we get the correct branch from the forked repo
         ref: ${{ github.event.pull_request.head.ref }}
         repository: ${{ github.event.pull_request.head.repo.full_name }}
         clean: false
@@ -65,4 +62,4 @@ jobs:
       with:
         filePath: ahnlich/bench_results.md
         comment_tag: benchmark
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Ensure the token is passed correctly
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
