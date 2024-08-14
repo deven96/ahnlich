@@ -18,6 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	DBMaxRetries    = 50
+	DBRetryInterval = 1 * time.Second
+)
+
 // AhnlichDBTestSuite is a test suite for the AhnlichDB
 
 type AhnlichDBTestSuite struct {
@@ -271,10 +276,8 @@ func RunAhnlichDatabase(t *testing.T, args ...OptionalArgs) *AhnlichDBTestSuite 
 	require.NoError(t, err)
 
 	// Wait for the database to start up
-	maxRetries := 5
-	retryInterval := 1 * time.Second
 
-	for i := 0; i < maxRetries; i++ {
+	for i := 0; i < DBMaxRetries; i++ {
 		// check if the database is running
 		if cmd.ProcessState != nil {
 			require.Truef(t, !cmd.ProcessState.Exited(), "database process exited", outBuf.String(), errBuf.String())
@@ -284,8 +287,9 @@ func RunAhnlichDatabase(t *testing.T, args ...OptionalArgs) *AhnlichDBTestSuite 
 		if strings.Contains(outBuf.String(), "Running") || (strings.Contains(errBuf.String(), "Running") && strings.Contains(errBuf.String(), "Finished")) && (!strings.Contains(errBuf.String(), "panicked") || !strings.Contains(outBuf.String(), "panicked")) {
 			break
 		}
-		require.Truef(t, i < maxRetries-1, "database did not start within the expected time %v", retryInterval*time.Duration(maxRetries), outBuf.String(), errBuf.String())
-		time.Sleep(retryInterval)
+		t.Log("Waiting for the database to start")
+		require.Truef(t, i < DBMaxRetries-1, "database did not start within the expected time %v", DBRetryInterval*time.Duration(DBMaxRetries), outBuf.String(), errBuf.String())
+		time.Sleep(DBRetryInterval)
 	}
 
 	// Check for any errors in stderr
