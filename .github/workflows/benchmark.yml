@@ -9,13 +9,20 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   run-benchmark-test:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout main branch
+      uses: actions/checkout@v4
       with:
+        # Ensure we fetch enough history to compare branches
+        fetch-depth: 2
         ref: main
 
     - name: Set up Rust cache
@@ -23,7 +30,7 @@ jobs:
       with:
         workspaces: ahnlich
 
-    - name: Install Cargo benchcmp
+    - name: Install Cargo critcmp
       working-directory: ./ahnlich
       run: cargo install critcmp
 
@@ -34,7 +41,9 @@ jobs:
     - name: Checkout PR branch
       uses: actions/checkout@v4
       with:
+        # This ensures that we get the correct branch from the forked repo
         ref: ${{ github.event.pull_request.head.ref }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
         clean: false
 
     - name: Run benchmarks on PR branch
@@ -51,8 +60,9 @@ jobs:
         echo "$benchmark_output" >> bench_results.md
         echo "\`\`\`" >> bench_results.md
 
-    - name: Comment PR with execution number
+    - name: Comment PR with benchmark results
       uses: thollander/actions-comment-pull-request@v2
       with:
         filePath: ahnlich/bench_results.md
         comment_tag: benchmark
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Ensure the token is passed correctly
