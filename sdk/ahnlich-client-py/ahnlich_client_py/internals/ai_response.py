@@ -21,12 +21,19 @@ class AIModel:
 
 
 @dataclass(frozen=True)
-class AIModel__Llama3(AIModel):
+class AIModel__DALLE3(AIModel):
     INDEX = 0  # type: int
     pass
 
 
+@dataclass(frozen=True)
+class AIModel__Llama3(AIModel):
+    INDEX = 1  # type: int
+    pass
+
+
 AIModel.VARIANTS = [
+    AIModel__DALLE3,
     AIModel__Llama3,
 ]
 
@@ -141,8 +148,8 @@ class AIServerResult:
 @dataclass(frozen=True)
 class AIStoreInfo:
     name: str
-    type: "AIStoreType"
-    model: "AIModel"
+    query_model: "AIModel"
+    index_model: "AIModel"
     embedding_size: st.uint64
 
     def bincode_serialize(self) -> bytes:
@@ -156,35 +163,35 @@ class AIStoreInfo:
         return v
 
 
-class AIStoreType:
-    VARIANTS = []  # type: typing.Sequence[typing.Type[AIStoreType]]
+class AIStoreInputType:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[AIStoreInputType]]
 
     def bincode_serialize(self) -> bytes:
-        return bincode.serialize(self, AIStoreType)
+        return bincode.serialize(self, AIStoreInputType)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> "AIStoreType":
-        v, buffer = bincode.deserialize(input, AIStoreType)
+    def bincode_deserialize(input: bytes) -> "AIStoreInputType":
+        v, buffer = bincode.deserialize(input, AIStoreInputType)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
         return v
 
 
 @dataclass(frozen=True)
-class AIStoreType__RawString(AIStoreType):
+class AIStoreInputType__RawString(AIStoreInputType):
     INDEX = 0  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIStoreType__Binary(AIStoreType):
+class AIStoreInputType__Image(AIStoreInputType):
     INDEX = 1  # type: int
     pass
 
 
-AIStoreType.VARIANTS = [
-    AIStoreType__RawString,
-    AIStoreType__Binary,
+AIStoreInputType.VARIANTS = [
+    AIStoreInputType__RawString,
+    AIStoreInputType__Image,
 ]
 
 
@@ -225,14 +232,14 @@ class MetadataValue__RawString(MetadataValue):
 
 
 @dataclass(frozen=True)
-class MetadataValue__Binary(MetadataValue):
+class MetadataValue__Image(MetadataValue):
     INDEX = 1  # type: int
     value: typing.Sequence[st.uint8]
 
 
 MetadataValue.VARIANTS = [
     MetadataValue__RawString,
-    MetadataValue__Binary,
+    MetadataValue__Image,
 ]
 
 

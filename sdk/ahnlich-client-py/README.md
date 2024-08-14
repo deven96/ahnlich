@@ -569,15 +569,15 @@ When Your PR is made, changes in the client version file would trigger a release
 Example: 
 Value
 ```py
-condition = query.PredicateCondition__Value(
-                query.Predicate__Equals(key="job", value=query.MetadataValue__RawString(value="sorcerer"))
+condition = db_query.PredicateCondition__Value(
+                db_query.Predicate__Equals(key="job", value=db_query.MetadataValue__RawString(value="sorcerer"))
         )
 ```
 Metadatavalue can also be a binary(list of u8s)
 
 ```py
-condition = query.PredicateCondition__Value(
-                query.Predicate__Equals(key="image_data", value=query.MetadataValue__Binary(value=[2,2,3,4,5,6,7]))
+condition = db_query.PredicateCondition__Value(
+                db_query.Predicate__Equals(key="image_data", value=db_query.MetadataValue__Image(value=[2,2,3,4,5,6,7]))
         )
 ```
 
@@ -588,13 +588,13 @@ AND
 
 ```py
 # And[tuples[predicate_conditions]]
-condition = query.PredicateCondition__AND(
+condition = db_query.PredicateCondition__AND(
     (
-        query.PredicateCondition__Value(
-                query.Predicate__Equals(key="job", query.MetadataValue__RawString(value="sorcerer"))
+        db_query.PredicateCondition__Value(
+                db_query.Predicate__Equals(key="job", db_query.MetadataValue__RawString(value="sorcerer"))
         ),
-        query.PredicateCondition__Value(
-                query.Predicate__Equals(key="rank", value=query.MetadataValue__RawString(value="chunin"))
+        db_query.PredicateCondition__Value(
+                db_query.Predicate__Equals(key="rank", value=db_query.MetadataValue__RawString(value="chunin"))
         )
     )
     )

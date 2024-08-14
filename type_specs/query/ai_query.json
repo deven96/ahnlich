@@ -2,6 +2,9 @@
   "AIModel": {
     "ENUM": {
       "0": {
+        "DALLE3": "UNIT"
+      },
+      "1": {
         "Llama3": "UNIT"
       }
     }
@@ -12,15 +15,15 @@
         "CreateStore": {
           "STRUCT": [
             {
-              "type": {
-                "TYPENAME": "AIStoreType"
-              }
-            },
-            {
               "store": "STR"
             },
             {
-              "model": {
+              "query_model": {
+                "TYPENAME": "AIModel"
+              }
+            },
+            {
+              "index_model": {
                 "TYPENAME": "AIModel"
               }
             },
@@ -137,6 +140,11 @@
                   ]
                 }
               }
+            },
+            {
+              "preprocess_action": {
+                "TYPENAME": "PreprocessAction"
+              }
             }
           ]
         }
@@ -192,13 +200,13 @@
       }
     ]
   },
-  "AIStoreType": {
+  "AIStoreInputType": {
     "ENUM": {
       "0": {
         "RawString": "UNIT"
       },
       "1": {
-        "Binary": "UNIT"
+        "Image": "UNIT"
       }
     }
   },
@@ -218,6 +226,16 @@
       }
     }
   },
+  "ImageAction": {
+    "ENUM": {
+      "0": {
+        "ResizeImage": "UNIT"
+      },
+      "1": {
+        "ErrorIfDimensionsMismatch": "UNIT"
+      }
+    }
+  },
   "MetadataValue": {
     "ENUM": {
       "0": {
@@ -226,7 +244,7 @@
         }
       },
       "1": {
-        "Binary": {
+        "Image": {
           "NEWTYPE": {
             "SEQ": "U8"
           }
@@ -340,6 +358,24 @@
       }
     }
   },
+  "PreprocessAction": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": {
+            "TYPENAME": "StringAction"
+          }
+        }
+      },
+      "1": {
+        "Image": {
+          "NEWTYPE": {
+            "TYPENAME": "ImageAction"
+          }
+        }
+      }
+    }
+  },
   "StoreInput": {
     "ENUM": {
       "0": {
@@ -348,11 +384,21 @@
         }
       },
       "1": {
-        "Binary": {
+        "Image": {
           "NEWTYPE": {
             "SEQ": "U8"
           }
         }
+      }
+    }
+  },
+  "StringAction": {
+    "ENUM": {
+      "0": {
+        "TruncateIfTokensExceed": "UNIT"
+      },
+      "1": {
+        "ErrorIfTokensExceed": "UNIT"
       }
     }
   }

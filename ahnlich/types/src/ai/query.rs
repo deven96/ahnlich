@@ -1,4 +1,4 @@
-use super::{AIModel, AIStoreType};
+use super::{AIModel, PreprocessAction};
 use crate::keyval::{StoreInput, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
@@ -12,9 +12,9 @@ use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserQuery};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AIQuery {
     CreateStore {
-        r#type: AIStoreType,
         store: StoreName,
-        model: AIModel,
+        query_model: AIModel,
+        index_model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
     },
@@ -41,6 +41,7 @@ pub enum AIQuery {
     Set {
         store: StoreName,
         inputs: Vec<(StoreInput, StoreValue)>,
+        preprocess_action: PreprocessAction,
     },
     DelKey {
         store: StoreName,

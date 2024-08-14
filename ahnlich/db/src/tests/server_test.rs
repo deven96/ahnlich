@@ -63,9 +63,10 @@ async fn test_maximum_client_restriction_works() {
     let other_stream = TcpStream::connect(address).await.unwrap();
     let mut third_stream_fail = TcpStream::connect(address).await.unwrap();
     // should error on invalid stream
-    assert!(timeout(Duration::from_secs(1), third_stream_fail.read(&mut []))
-        .await
-        .is_err()
+    assert!(
+        timeout(Duration::from_secs(1), third_stream_fail.read(&mut []))
+            .await
+            .is_err()
     );
     let message = ServerDBQuery::from_queries(&[DBQuery::ListClients]);
     let expected_response = HashSet::from_iter([
@@ -422,7 +423,7 @@ async fn test_server_with_persistence() {
                     StoreKey(array![1.1, 1.2, 1.3, 1.4]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
-                        MetadataValue::Binary(vec![1, 2, 3]),
+                        MetadataValue::Image(vec![1, 2, 3]),
                     )]),
                 ),
             ],
@@ -513,7 +514,7 @@ async fn test_server_with_persistence() {
         StoreKey(array![1.1, 1.2, 1.3, 1.4]),
         HashMap::from_iter([(
             MetadataKey::new("medal".into()),
-            MetadataValue::Binary(vec![1, 2, 3]),
+            MetadataValue::Image(vec![1, 2, 3]),
         )]),
     )])));
     let stream = TcpStream::connect(address).await.unwrap();

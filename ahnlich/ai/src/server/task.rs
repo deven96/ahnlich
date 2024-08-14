@@ -1,7 +1,6 @@
 use crate::server::handler::AI_ALLOCATOR;
 use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
-use ahnlich_types::bincode::BinCodeSerAndDeserResponse;
 use ahnlich_types::db::{ConnectedClient, ServerInfo, ServerResponse};
 use ahnlich_types::keyval::{StoreInput, StoreValue};
 use ahnlich_types::metadata::MetadataValue;
@@ -16,7 +15,7 @@ use tokio::net::TcpStream;
 use utils::client::ClientHandler;
 use utils::protocol::AhnlichProtocol;
 
-use crate::engine::store::AIStoreHandler;
+use crate::engine::{ai::AIModelManager, store::AIStoreHandler};
 use crate::error::AIProxyError;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
 
@@ -55,85 +54,100 @@ impl AhnlichProtocol for AIProxyTask {
                     self.store_handler.list_stores(),
                 )),
                 AIQuery::InfoServer => Ok(AIServerResponse::InfoServer(self.server_info())),
+
                 AIQuery::CreateStore {
-                    r#type,
                     store,
-                    model,
+                    query_model,
+                    index_model,
                     mut predicates,
                     non_linear_indices,
                 } => {
                     let default_metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
                     if predicates.contains(&AHNLICH_AI_RESERVED_META_KEY) {
-                        return AIServerResult::from_error(format!(
-                            "Cannot use {} keyword",
-                            default_metadata_key
-                        ));
-                    }
-
-                    predicates.insert(default_metadata_key.clone());
-                    match self
-                        .db_client
-                        .create_store(
-                            store.clone(),
-                            model.embedding_size(),
-                            predicates,
-                            non_linear_indices,
-                            false,
-                        )
-                        .await
-                    {
-                        Err(err) => Err(err.to_string()),
-                        Ok(_) => self
-                            .store_handler
-                            .create_store(store, r#type, model)
-                            .map(|_| AIServerResponse::Unit)
-                            .map_err(|e| e.to_string()),
+                        Err(format!("Cannot use {} keyword", default_metadata_key))
+                    } else {
+                        predicates.insert(default_metadata_key.clone());
+                        match self
+                            .db_client
+                            .create_store(
+                                store.clone(),
+                                index_model.embedding_size(),
+                                predicates,
+                                non_linear_indices,
+                                false,
+                            )
+                            .await
+                        {
+                            Err(err) => Err(err.to_string()),
+                            Ok(_) => self
+                                .store_handler
+                                .create_store(store, query_model, index_model)
+                                .map(|_| AIServerResponse::Unit)
+                                .map_err(|e| e.to_string()),
+                        }
                     }
                 }
 
-                AIQuery::Set { store, inputs } => {
+                AIQuery::Set {
+                    store,
+                    inputs,
+                    preprocess_action,
+                } => {
                     let mut db_inputs = Vec::new();
                     let mut delete_hashset = HashSet::new();
                     let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
-                    // TODO: Will parallelized
+                    // TODO: Might parallelized
+                    if let Err(store_input_processing_err) =
+                        inputs
+                            .into_iter()
+                            .try_for_each(|(store_input, store_value)| {
+                                let processed_store_value =
+                                    self.store_handler.store_input_to_store_key_val(
+                                        &store,
+                                        store_input,
+                                        store_value,
+                                        &preprocess_action,
+                                    );
+                                match processed_store_value {
+                                    Ok(val) => {
+                                        delete_hashset.insert(val.1[default_metadatakey].clone());
+                                        db_inputs.push(val);
 
-                    for (store_input, store_value) in inputs.into_iter() {
-                        let store_value = self.store_handler.store_input_to_store_key_val(
-                            &store,
-                            store_input,
-                            &store_value,
-                        );
-                        match store_value {
-                            Ok(val) => {
-                                delete_hashset.insert(val.1[default_metadatakey].clone());
-                                db_inputs.push(val)
-                            }
-                            Err(err) => return AIServerResult::from_error(err.to_string()),
-                        }
-                    }
-
-                    let delete_condition = PredicateCondition::Value(Predicate::In {
-                        key: default_metadatakey.clone(),
-                        value: delete_hashset,
-                    });
-                    if let Err(err) = self
-                        .db_client
-                        .del_pred(store.clone(), delete_condition)
-                        .await
+                                        Ok(())
+                                    }
+                                    Err(err) => Err(err.to_string()),
+                                }
+                            })
                     {
-                        return AIServerResult::from_error(err.to_string());
-                    };
+                        Err(store_input_processing_err)
+                    } else {
+                        let delete_condition = PredicateCondition::Value(Predicate::In {
+                            key: default_metadatakey.clone(),
+                            value: delete_hashset,
+                        });
 
-                    match self.db_client.set(store, db_inputs).await {
-                        Ok(res) => {
-                            if let ServerResponse::Set(upsert) = res {
-                                Ok(AIServerResponse::Set(upsert))
-                            } else {
-                                Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
-                                    .to_string())
+                        if let Err(err) = self
+                            .db_client
+                            .del_pred(store.clone(), delete_condition)
+                            .await
+                        {
+                            Err(err.to_string())
+                        } else {
+                            match self.db_client.set(store, db_inputs).await {
+                                Ok(res) => {
+                                    if let ServerResponse::Set(upsert) = res {
+                                        Ok(AIServerResponse::Set(upsert))
+                                    } else {
+                                        Err(AIProxyError::UnexpectedDBResponse(format!(
+                                            "{:?}",
+                                            res
+                                        ))
+                                        .to_string())
+                                    }
+                                }
+                                Err(err) => Err(format!("{err}")),
                             }
                         }
-                        Err(err) => Err(format!("{err}")),
                     }
                 }
 
@@ -175,22 +189,22 @@ impl AhnlichProtocol for AIProxyTask {
 
                 AIQuery::CreatePredIndex { store, predicates } => {
                     if predicates.contains(&*AHNLICH_AI_RESERVED_META_KEY) {
-                        return AIServerResult::from_error(format!(
+                        Err(format!(
                             "Cannot use {} keyword",
                             *AHNLICH_AI_RESERVED_META_KEY
-                        ));
-                    }
-
-                    match self.db_client.create_pred_index(store, predicates).await {
-                        Ok(res) => {
-                            if let ServerResponse::CreateIndex(num) = res {
-                                Ok(AIServerResponse::CreateIndex(num))
-                            } else {
-                                Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
-                                    .to_string())
+                        ))
+                    } else {
+                        match self.db_client.create_pred_index(store, predicates).await {
+                            Ok(res) => {
+                                if let ServerResponse::CreateIndex(num) = res {
+                                    Ok(AIServerResponse::CreateIndex(num))
+                                } else {
+                                    Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
+                                        .to_string())
+                                }
                             }
+                            Err(err) => Err(format!("{err}")),
                         }
-                        Err(err) => Err(format!("{err}")),
                     }
                 }
                 AIQuery::DropPredIndex {
@@ -279,10 +293,10 @@ impl AhnlichProtocol for AIProxyTask {
                             Err(err) => Err(format!("{err}")),
                         }
                     } else {
-                        return AIServerResult::from_error(
+                        Err(
                             AIProxyError::StandardError("Failed to get store".to_string())
                                 .to_string(),
-                        );
+                        )
                     }
                 }
                 AIQuery::PurgeStores => {

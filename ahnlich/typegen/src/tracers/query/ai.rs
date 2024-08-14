@@ -1,5 +1,4 @@
-use ahnlich_types::ai::AIModel;
-use ahnlich_types::ai::AIStoreType;
+use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
@@ -21,7 +20,7 @@ pub fn trace_ai_query_enum() -> Registry {
 
     let sample_store_name = StoreName("ijdfsdf".into());
     let test_search_input = StoreInput::RawString(String::from("Hello"));
-    let test_search_input_bin = StoreInput::Binary(vec![2, 1, 1, 4, 5]);
+    let test_search_input_bin = StoreInput::Image(vec![2, 1, 1, 4, 5]);
     let test_predicate_condition = &PredicateCondition::Value(Predicate::Equals {
         key: MetadataKey::new("author".into()),
         value: MetadataValue::RawString("Lex Luthor".into()),
@@ -41,15 +40,15 @@ pub fn trace_ai_query_enum() -> Registry {
         ),
         (
             MetadataKey::new(String::from("bin_data")),
-            MetadataValue::Binary(vec![6, 4, 2]),
+            MetadataValue::Image(vec![6, 4, 2]),
         ),
     ]);
     let test_non_linear_indices = HashSet::from_iter([NonLinearAlgorithm::KDTree]);
 
     let create_store = AIQuery::CreateStore {
-        r#type: AIStoreType::RawString,
         store: sample_store_name.clone(),
-        model: AIModel::Llama3,
+        index_model: AIModel::Llama3,
+        query_model: AIModel::Llama3,
         predicates: test_create_predicates.clone(),
         non_linear_indices: test_non_linear_indices,
     };
@@ -80,6 +79,7 @@ pub fn trace_ai_query_enum() -> Registry {
 
     let set = AIQuery::Set {
         store: sample_store_name.clone(),
+        preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
         inputs: vec![(test_search_input_bin.clone(), store_value)],
     };
 
@@ -134,9 +134,6 @@ pub fn trace_ai_query_enum() -> Registry {
     tracer
         .trace_simple_type::<Algorithm>()
         .expect("Error tracing Algorithm");
-    tracer
-        .trace_simple_type::<AIStoreType>()
-        .expect("Error tracing AIStoretype");
 
     tracer
         .trace_simple_type::<NonLinearAlgorithm>()
@@ -158,6 +155,24 @@ pub fn trace_ai_query_enum() -> Registry {
 
     let _ = tracer
         .trace_type::<MetadataValue>(&samples)
+        .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
+        .unwrap();
+    let _ = tracer
+        .trace_type::<AIStoreInputType>(&samples)
+        .expect("Error tracing AIStoreInputType");
+
+    let _ = tracer
+        .trace_type::<AIModel>(&samples)
+        .expect("Error tracing AIModel");
+
+    let _ = tracer
+        .trace_type::<StringAction>(&samples)
+        .expect("Error tracing String action");
+    let _ = tracer
+        .trace_type::<ImageAction>(&samples)
+        .expect("Error tracing image action");
+    let _ = tracer
+        .trace_type::<PreprocessAction>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 

@@ -2,7 +2,8 @@ use ahnlich_db::cli::ServerConfig;
 use ahnlich_db::server::handler::Server;
 use ahnlich_types::{
     ai::{
-        AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo, AIStoreType,
+        AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo,
+        ImageAction, PreprocessAction, StringAction,
     },
     db::StoreUpsert,
     keyval::{StoreInput, StoreName, StoreValue},
@@ -15,8 +16,7 @@ use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use std::{collections::HashSet, num::NonZeroUsize, sync::atomic::Ordering};
 
-use crate::cli::AIProxyConfig;
-use crate::server::handler::AIProxyServer;
+use crate::{cli::AIProxyConfig, engine::ai::AIModelManager, server::handler::AIProxyServer};
 use ahnlich_types::bincode::BinCodeSerAndDeser;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -24,13 +24,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
 
-static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
-static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
-    let mut ai_proxy = AIProxyConfig::default().os_select_port();
-    ai_proxy.db_port = CONFIG.port.clone();
-    ai_proxy.db_host = CONFIG.host.clone();
-    ai_proxy
-});
+static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
+static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| AIProxyConfig::default().os_select_port());
 
 static PERSISTENCE_FILE: Lazy<PathBuf> =
     Lazy::new(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ahnlich_ai_proxy.dat"));
@@ -89,7 +84,11 @@ async fn provision_test_servers() -> SocketAddr {
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
-    let ai_server = AIProxyServer::new(&AI_CONFIG)
+    let db_port = server.local_addr().unwrap().port();
+    let mut config = AI_CONFIG.clone();
+    config.db_port = db_port;
+
+    let ai_server = AIProxyServer::new(config)
         .await
         .expect("Could not initialize ai proxy");
 
@@ -120,9 +119,9 @@ async fn test_ai_proxy_create_store_success() {
     let second_stream = TcpStream::connect(address).await.unwrap();
     let store_name = StoreName(String::from("Sample Store"));
     let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
-        r#type: AIStoreType::RawString,
         store: store_name.clone(),
-        model: AIModel::Llama3,
+        query_model: AIModel::Llama3,
+        index_model: AIModel::Llama3,
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
     }]);
@@ -138,8 +137,8 @@ async fn test_ai_proxy_create_store_success() {
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name.clone(),
-            model: AIModel::Llama3,
-            r#type: AIStoreType::RawString,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
     ]))));
@@ -179,9 +178,9 @@ async fn test_ai_proxy_get_pred_succeeds() {
     ];
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
-            model: AIModel::Llama3,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             predicates: HashSet::from_iter([
                 matching_metadatakey.clone(),
                 MetadataKey::new("Original".to_owned()),
@@ -191,6 +190,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -256,9 +256,9 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
     ];
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
-            model: AIModel::Llama3,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             predicates: HashSet::from_iter([
                 matching_metadatakey.clone(),
                 MetadataKey::new("Original".to_owned()),
@@ -268,6 +268,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -314,9 +315,9 @@ async fn test_ai_proxy_create_drop_pred_index() {
     )];
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
-            model: AIModel::Llama3,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -332,6 +333,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
         },
         AIQuery::GetPred {
             store: store_name.clone(),
@@ -382,15 +384,16 @@ async fn test_ai_proxy_del_key_drop_store() {
     )];
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
-            model: AIModel::Llama3,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
         },
         AIQuery::DelKey {
             store: store_name.clone(),
@@ -422,7 +425,7 @@ async fn test_ai_proxy_del_key_drop_store() {
 
 #[tokio::test]
 async fn test_ai_proxy_fails_db_server_unavailable() {
-    let ai_server = AIProxyServer::new(&AI_CONFIG)
+    let ai_server = AIProxyServer::new(AI_CONFIG.clone())
         .await
         .expect("Could not initialize ai proxy");
 
@@ -438,9 +441,9 @@ async fn test_ai_proxy_fails_db_server_unavailable() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::Ping,
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
-            model: AIModel::Llama3,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -463,7 +466,12 @@ async fn test_ai_proxy_test_with_persistence() {
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
-    let ai_server = AIProxyServer::new(&AI_CONFIG_WITH_PERSISTENCE)
+
+    let mut ai_proxy_config = AI_CONFIG_WITH_PERSISTENCE.clone();
+    let db_port = server.local_addr().unwrap().port();
+    ai_proxy_config.db_port = db_port;
+
+    let ai_server = AIProxyServer::new(ai_proxy_config)
         .await
         .expect("Could not initialize ai proxy");
 
@@ -481,16 +489,16 @@ async fn test_ai_proxy_test_with_persistence() {
 
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
-            model: AIModel::Llama3,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
         AIQuery::CreateStore {
-            r#type: AIStoreType::Binary,
             store: store_name_2.clone(),
-            model: AIModel::Llama3,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -515,7 +523,7 @@ async fn test_ai_proxy_test_with_persistence() {
     tokio::time::sleep(Duration::from_millis(200)).await;
     // start another server with existing persistence
 
-    let persisted_server = AIProxyServer::new(&AI_CONFIG_WITH_PERSISTENCE)
+    let persisted_server = AIProxyServer::new(AI_CONFIG_WITH_PERSISTENCE.clone())
         .await
         .unwrap();
 
@@ -537,8 +545,8 @@ async fn test_ai_proxy_test_with_persistence() {
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name_2.clone(),
-            r#type: AIStoreType::Binary,
-            model: AIModel::Llama3,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
     ]))));
@@ -556,9 +564,9 @@ async fn test_ai_proxy_destroy_database() {
     let store_name = StoreName(String::from("Deven Kicks"));
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
-            r#type: AIStoreType::RawString,
             store: store_name.clone(),
-            model: AIModel::Llama3,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -572,8 +580,8 @@ async fn test_ai_proxy_destroy_database() {
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name,
-            r#type: AIStoreType::RawString,
-            model: AIModel::Llama3,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
             embedding_size: AIModel::Llama3.embedding_size().into(),
         },
     ]))));
@@ -582,4 +590,156 @@ async fn test_ai_proxy_destroy_database() {
 
     let mut reader = BufReader::new(second_stream);
     query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
+async fn test_ai_proxy_binary_store_actions() {
+    let address = provision_test_servers().await;
+
+    let store_name = StoreName(String::from("Deven Image Store"));
+    let matching_metadatakey = MetadataKey::new("Name".to_owned());
+    let matching_metadatavalue = MetadataValue::RawString("Greatness".to_owned());
+
+    let store_value_1 =
+        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
+    let store_value_2 = StoreValue::from_iter([(
+        matching_metadatakey.clone(),
+        MetadataValue::RawString("Deven".to_owned()),
+    )]);
+    let store_data = vec![
+        (
+            StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+            store_value_1.clone(),
+        ),
+        (
+            StoreInput::Image(vec![102, 3, 4, 6, 7, 8, 4, 190]),
+            store_value_2.clone(),
+        ),
+        (
+            StoreInput::Image(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
+            StoreValue::from_iter([(
+                matching_metadatakey.clone(),
+                MetadataValue::RawString("Daniel".to_owned()),
+            )]),
+        ),
+    ];
+
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::CreateStore {
+            store: store_name.clone(),
+            query_model: AIModel::Llama3,
+            index_model: AIModel::DALLE3,
+            predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
+        },
+        AIQuery::ListStores,
+        AIQuery::CreatePredIndex {
+            store: store_name.clone(),
+            predicates: HashSet::from_iter([
+                MetadataKey::new("Name".to_string()),
+                MetadataKey::new("Age".to_string()),
+            ]),
+        },
+        AIQuery::Set {
+            store: store_name.clone(),
+            inputs: store_data,
+            preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
+        },
+        AIQuery::DropPredIndex {
+            store: store_name.clone(),
+            predicates: HashSet::from_iter([MetadataKey::new("Age".to_string())]),
+            error_if_not_exists: true,
+        },
+        AIQuery::GetPred {
+            store: store_name.clone(),
+            condition: PredicateCondition::Value(Predicate::Equals {
+                key: matching_metadatakey.clone(),
+                value: matching_metadatavalue,
+            }),
+        },
+        AIQuery::PurgeStores,
+    ]);
+
+    let mut expected = AIServerResult::with_capacity(7);
+
+    expected.push(Ok(AIServerResponse::Unit));
+    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
+        AIStoreInfo {
+            name: store_name,
+            query_model: AIModel::Llama3,
+            index_model: AIModel::DALLE3,
+            embedding_size: AIModel::DALLE3.embedding_size().into(),
+        },
+    ]))));
+    expected.push(Ok(AIServerResponse::CreateIndex(2)));
+    expected.push(Ok(AIServerResponse::Set(StoreUpsert {
+        inserted: 3,
+        updated: 0,
+    })));
+    expected.push(Ok(AIServerResponse::Del(1)));
+    expected.push(Ok(AIServerResponse::Get(vec![(
+        StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+        store_value_1.clone(),
+    )])));
+    expected.push(Ok(AIServerResponse::Del(1)));
+
+    let connected_stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(connected_stream);
+
+    query_server_assert_result(&mut reader, message, expected).await;
+}
+
+#[tokio::test]
+async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
+    let address = provision_test_servers().await;
+
+    let store_name = StoreName(String::from("Deven Mixed Store210u01"));
+    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
+    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+
+    let store_value_1 =
+        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
+
+    let store_data = vec![
+        (
+            StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+            store_value_1.clone(),
+        ),
+        (
+            StoreInput::RawString(String::from("Buster Matthews is the name")),
+            StoreValue::from_iter([(
+                MetadataKey::new("Description".to_string()),
+                MetadataValue::RawString("20 year old line backer".to_owned()),
+            )]),
+        ),
+    ];
+
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::CreateStore {
+            store: store_name.clone(),
+            query_model: AIModel::Llama3,
+            index_model: AIModel::Llama3,
+            predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
+        },
+        AIQuery::Set {
+            store: store_name.clone(),
+            inputs: store_data,
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+        },
+        AIQuery::PurgeStores,
+    ]);
+
+    let mut expected = AIServerResult::with_capacity(3);
+
+    expected.push(Ok(AIServerResponse::Unit));
+    expected.push(Err(
+        "Cannot Set Input. Store expects [RawString], input type [Image] was provided".to_string(),
+    ));
+    expected.push(Ok(AIServerResponse::Del(1)));
+
+    let connected_stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(connected_stream);
+
+    query_server_assert_result(&mut reader, message, expected).await;
 }

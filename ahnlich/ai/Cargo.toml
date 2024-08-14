@@ -29,6 +29,7 @@ ahnlich_client_rs = { path = "../client", version = "*" }
 ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
 cap.workspace = true
 deadpool.workspace = true
+nonzero_ext = "0.3.0"
 
 
 [dev-dependencies]

@@ -2,6 +2,9 @@
   "AIModel": {
     "ENUM": {
       "0": {
+        "DALLE3": "UNIT"
+      },
+      "1": {
         "Llama3": "UNIT"
       }
     }
@@ -120,12 +123,12 @@
         "name": "STR"
       },
       {
-        "type": {
-          "TYPENAME": "AIStoreType"
+        "query_model": {
+          "TYPENAME": "AIModel"
         }
       },
       {
-        "model": {
+        "index_model": {
           "TYPENAME": "AIModel"
         }
       },
@@ -134,13 +137,13 @@
       }
     ]
   },
-  "AIStoreType": {
+  "AIStoreInputType": {
     "ENUM": {
       "0": {
         "RawString": "UNIT"
       },
       "1": {
-        "Binary": "UNIT"
+        "Image": "UNIT"
       }
     }
   },
@@ -164,7 +167,7 @@
         }
       },
       "1": {
-        "Binary": {
+        "Image": {
           "NEWTYPE": {
             "SEQ": "U8"
           }

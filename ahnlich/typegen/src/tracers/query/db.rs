@@ -63,7 +63,7 @@ pub fn trace_db_query_enum() -> Registry {
     );
     store_value.insert(
         MetadataKey::new(String::from("bin_data")),
-        MetadataValue::Binary(vec![6, 4, 2]),
+        MetadataValue::Image(vec![6, 4, 2]),
     );
 
     let set_query = DBQuery::Set {
