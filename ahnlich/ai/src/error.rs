@@ -31,9 +31,9 @@ pub enum AIProxyError {
         storeinput_type: AIStoreInputType,
     },
 
-    #[error("Max Token Exceeded. Model Expects [{model_embedding_size}], input type was [{input_token_size}] ")]
+    #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}] ")]
     TokenExceededError {
-        model_embedding_size: usize,
+        max_token_size: usize,
         input_token_size: usize,
     },
 
@@ -50,4 +50,7 @@ pub enum AIProxyError {
         input_type: AIStoreInputType,
         preprocess_action: PreprocessAction,
     },
+
+    #[error("index_model or query_model not selected during aiproxy startup")]
+    AIModelNotInitialized,
 }

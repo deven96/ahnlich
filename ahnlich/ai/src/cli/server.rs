@@ -1,4 +1,11 @@
-use clap::{ArgAction, Args, Parser, Subcommand};
+use ahnlich_types::ai::AIModel;
+use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum SupportedModels {
+    Llama3,
+    Dalla3,
+}
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -73,6 +80,10 @@ pub struct AIProxyConfig {
     ///  Defaults to 1000
     #[arg(long, default_value_t = 1000)]
     pub(crate) maximum_clients: usize,
+
+    /// List of ai models to support in your aiproxy stores
+    #[arg(long, required(true))]
+    pub(crate) supported_models: Vec<SupportedModels>,
 }
 
 impl Default for AIProxyConfig {
@@ -95,6 +106,7 @@ impl Default for AIProxyConfig {
             otel_endpoint: None,
             log_level: String::from("info"),
             maximum_clients: 1000,
+            supported_models: vec![SupportedModels::Llama3, SupportedModels::Dalla3],
         }
     }
 }
@@ -120,5 +132,20 @@ impl AIProxyConfig {
     pub fn set_maximum_clients(mut self, maximum_clients: usize) -> Self {
         self.maximum_clients = maximum_clients;
         self
+    }
+
+    #[cfg(test)]
+    pub fn set_supported_models(mut self, models: Vec<SupportedModels>) -> Self {
+        self.supported_models = models;
+        self
+    }
+}
+
+impl From<&AIModel> for SupportedModels {
+    fn from(value: &AIModel) -> Self {
+        match value {
+            AIModel::Llama3 => SupportedModels::Llama3,
+            AIModel::DALLE3 => SupportedModels::Dalla3,
+        }
     }
 }

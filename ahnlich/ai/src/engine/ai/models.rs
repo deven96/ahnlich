@@ -13,6 +13,7 @@ pub struct ModelInfo {
     pub name: String,
     pub embedding_size: NonZeroUsize,
     pub input_type: AIStoreInputType,
+    pub max_token: NonZeroUsize,
 }
 
 impl AIModelManager for AIModel {
@@ -35,11 +36,13 @@ impl AIModelManager for AIModel {
                 name: String::from("Llama3"),
                 embedding_size: nonzero!(100usize),
                 input_type: AIStoreInputType::RawString,
+                max_token: nonzero!(100usize),
             },
             AIModel::DALLE3 => ModelInfo {
                 name: String::from("DALL.E 3"),
                 embedding_size: nonzero!(300usize),
                 input_type: AIStoreInputType::Image,
+                max_token: nonzero!(300usize),
             },
         }
     }

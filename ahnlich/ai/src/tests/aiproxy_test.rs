@@ -16,7 +16,12 @@ use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use std::{collections::HashSet, num::NonZeroUsize, sync::atomic::Ordering};
 
-use crate::{cli::AIProxyConfig, engine::ai::AIModelManager, server::handler::AIProxyServer};
+use crate::{
+    cli::{server::SupportedModels, AIProxyConfig},
+    engine::ai::AIModelManager,
+    error::AIProxyError,
+    server::handler::AIProxyServer,
+};
 use ahnlich_types::bincode::BinCodeSerAndDeser;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -35,6 +40,12 @@ static AI_CONFIG_WITH_PERSISTENCE: Lazy<AIProxyConfig> = Lazy::new(|| {
         .os_select_port()
         .set_persistence_interval(200)
         .set_persist_location((*PERSISTENCE_FILE).clone())
+});
+
+static AI_CONFIG_LIMITED_MODELS: Lazy<AIProxyConfig> = Lazy::new(|| {
+    AIProxyConfig::default()
+        .os_select_port()
+        .set_supported_models(vec![SupportedModels::Llama3])
 });
 
 async fn get_server_response(
@@ -101,6 +112,7 @@ async fn provision_test_servers() -> SocketAddr {
 
     ai_address
 }
+
 #[tokio::test]
 async fn test_simple_ai_proxy_ping() {
     let address = provision_test_servers().await;
@@ -737,6 +749,45 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
         "Cannot Set Input. Store expects [RawString], input type [Image] was provided".to_string(),
     ));
     expected.push(Ok(AIServerResponse::Del(1)));
+
+    let connected_stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(connected_stream);
+
+    query_server_assert_result(&mut reader, message, expected).await;
+}
+
+#[tokio::test]
+async fn test_ai_proxy_create_store_errors_unsupported_models() {
+    let server = Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let db_port = server.local_addr().unwrap().port();
+    let mut config = AI_CONFIG_LIMITED_MODELS.clone();
+    config.db_port = db_port;
+
+    let ai_server = AIProxyServer::new(config)
+        .await
+        .expect("Could not initialize ai proxy");
+
+    let address = ai_server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // start up ai proxy
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    // Allow some time for the servers to start
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    let store_name = StoreName(String::from("Error Handling Store"));
+    let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
+        store: store_name.clone(),
+        query_model: AIModel::DALLE3,
+        index_model: AIModel::Llama3,
+        predicates: HashSet::new(),
+        non_linear_indices: HashSet::new(),
+    }]);
+
+    let mut expected = AIServerResult::with_capacity(1);
+
+    expected.push(Err(AIProxyError::AIModelNotInitialized.to_string()));
 
     let connected_stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(connected_stream);

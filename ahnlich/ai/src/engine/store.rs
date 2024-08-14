@@ -1,3 +1,4 @@
+use crate::cli::server::SupportedModels;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
 use crate::{engine::ai::AIModelManager, error::AIProxyError};
 use ahnlich_types::ai::{
@@ -24,15 +25,17 @@ pub struct AIStoreHandler {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     stores: AIStores,
     pub write_flag: Arc<AtomicBool>,
+    supported_models: Vec<SupportedModels>,
 }
 
 pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
 
 impl AIStoreHandler {
-    pub fn new(write_flag: Arc<AtomicBool>) -> Self {
+    pub fn new(write_flag: Arc<AtomicBool>, supported_models: Vec<SupportedModels>) -> Self {
         Self {
             stores: Arc::new(ConcurrentHashMap::new()),
             write_flag,
+            supported_models,
         }
     }
     pub(crate) fn get_stores(&self) -> AIStores {
@@ -61,6 +64,11 @@ impl AIStoreHandler {
         query_model: AIModel,
         index_model: AIModel,
     ) -> Result<(), AIProxyError> {
+        if !self.supported_models.contains(&(&query_model).into())
+            || !self.supported_models.contains(&(&index_model).into())
+        {
+            return Err(AIProxyError::AIModelNotInitialized);
+        }
         if self
             .stores
             .try_insert(
@@ -263,17 +271,17 @@ impl AIStoreHandler {
     ) -> Result<StoreInput, AIProxyError> {
         // tokenize string, return error if max token
         //let tokenized_input;
-        let model_embedding_dim = index_model.model_info().embedding_size;
-        if input.len() > model_embedding_dim.into() {
+        let max_token_size = index_model.model_info().max_token;
+        if input.len() > max_token_size.into() {
             if let StringAction::ErrorIfTokensExceed = string_action {
                 return Err(AIProxyError::TokenExceededError {
                     input_token_size: input.len(),
-                    model_embedding_size: model_embedding_dim.into(),
+                    max_token_size: max_token_size.into(),
                 });
             } else {
                 // truncate raw string
                 // let tokenized_input;
-                let _input = input.as_str()[..model_embedding_dim.into()].to_string();
+                let _input = input.as_str()[..max_token_size.into()].to_string();
             }
         }
         Ok(StoreInput::RawString(input))
