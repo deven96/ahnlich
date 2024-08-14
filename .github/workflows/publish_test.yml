@@ -2,7 +2,7 @@ name: Test Results
 
 on:
   workflow_run:
-    workflows: ["Ahnlich TestSuite"]
+    workflows: [Ahnlich TestSuite]
     types:
       - completed
 permissions: {}
