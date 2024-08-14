@@ -222,10 +222,6 @@ tasks:
       REPORT: "{{.REPORT | default 0}}"
     cmds:
       - |
-        cwdir=$(pwd)
-        cd ../../ahnlich
-        cargo build
-        cd $cwdir
         tomlDir=$(realpath ../../ahnlich/Cargo.toml)
         cargo run --manifest-path $tomlDir --bin ahnlich-db --help
         if [[ "$CI" == 1 ]];then
@@ -293,10 +289,6 @@ tasks:
       REPORT: "{{.REPORT | default 0}}"
     cmds:
       - |
-        cwdir=$(pwd)
-        cd ../../ahnlich
-        cargo build
-        cd $cwdir
         tomlDir=$(realpath ../../ahnlich/Cargo.toml)
         cargo run --manifest-path $tomlDir --bin ahnlich-db --help
         if [[ "$CI" == 1 ]];then

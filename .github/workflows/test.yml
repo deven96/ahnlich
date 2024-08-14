@@ -61,6 +61,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Set up Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ahnlich
     - uses: actions/setup-python@v5
       with:
         python-version: 3.11
@@ -106,11 +110,13 @@ jobs:
   run-go-tests:
     if: always()
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./sdk/ahnlich-client-go
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ahnlich
 
       - name: Setup Go Environment
         uses: actions/setup-go@v5
@@ -124,12 +130,15 @@ jobs:
           version: 3.x
 
       - name: Install Dependencies
+        working-directory: ./sdk/ahnlich-client-go
         run: CI=1 task install-dependencies
 
       - name: Format and Lint Check
+        working-directory: ./sdk/ahnlich-client-go
         run: task pre-commit-check
 
       - name: Run Tests
+        working-directory: ./sdk/ahnlich-client-go
         run: |
           REPORT=1 task test
 
@@ -140,42 +149,42 @@ jobs:
           name: go
           path: sdk/ahnlich-client-go/go.xml
 
-  upload-test-results:
-    runs-on: ubuntu-latest
-    needs: [run-rust-tests, run-python-tests, run-go-tests]
-    if: always()
-    permissions:
-      checks: write
-      pull-requests: write
-      contents: read
-      issues: read
-      actions: read
+  # upload-test-results:
+  #   runs-on: ubuntu-latest
+  #   needs: [run-rust-tests, run-python-tests, run-go-tests]
+  #   if: always()
+  #   permissions:
+  #     checks: write
+  #     pull-requests: write
+  #     contents: read
+  #     issues: read
+  #     actions: read
 
 
-    steps:
-    - name: Download Rust Test Output
-      uses: actions/download-artifact@v4
-      with:
-        name: rust
-        path: ./rust
+  #   steps:
+  #   - name: Download Rust Test Output
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: rust
+  #       path: ./rust
 
-    - name: Download Python Test Output
-      uses: actions/download-artifact@v4
-      with:
-        name: python
-        path: ./python
+  #   - name: Download Python Test Output
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: python
+  #       path: ./python
 
-    - name: Download Go Test Output
-      uses: actions/download-artifact@v4
-      with:
-        name: go
-        path: ./go
+  #   - name: Download Go Test Output
+  #     uses: actions/download-artifact@v4
+  #     with:
+  #       name: go
+  #       path: ./go
 
-    - name: Publish Test Results
-      uses: EnricoMi/publish-unit-test-result-action/macos@v2
-      if: always()
-      with:
-        files: |
-          rust/*.xml
-          python/*.xml
-          go/*.xml
+  #   - name: Publish Test Results
+  #     uses: EnricoMi/publish-unit-test-result-action/macos@v2
+  #     if: always()
+  #     with:
+  #       files: |
+  #         rust/*.xml
+  #         python/*.xml
+  #         go/*.xml
