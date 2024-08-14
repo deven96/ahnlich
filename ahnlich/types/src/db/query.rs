@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
-use crate::bincode::BinCodeSerAndDeser;
+use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserQuery};
 use crate::keyval::{StoreKey, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
@@ -92,10 +92,14 @@ impl ServerQuery {
             queries: queries.to_vec(),
         }
     }
-
-    pub fn into_inner(self) -> Vec<Query> {
-        self.queries
-    }
 }
 
 impl BinCodeSerAndDeser for ServerQuery {}
+
+impl BinCodeSerAndDeserQuery for ServerQuery {
+    type Inner = Vec<Query>;
+
+    fn into_inner(self) -> Vec<Query> {
+        self.queries
+    }
+}

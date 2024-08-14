@@ -1,0 +1,405 @@
+{
+  "AIModel": {
+    "ENUM": {
+      "0": {
+        "DALLE3": "UNIT"
+      },
+      "1": {
+        "Llama3": "UNIT"
+      }
+    }
+  },
+  "AIQuery": {
+    "ENUM": {
+      "0": {
+        "CreateStore": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "query_model": {
+                "TYPENAME": "AIModel"
+              }
+            },
+            {
+              "index_model": {
+                "TYPENAME": "AIModel"
+              }
+            },
+            {
+              "predicates": {
+                "SEQ": "STR"
+              }
+            },
+            {
+              "non_linear_indices": {
+                "SEQ": {
+                  "TYPENAME": "NonLinearAlgorithm"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "1": {
+        "GetPred": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "condition": {
+                "TYPENAME": "PredicateCondition"
+              }
+            }
+          ]
+        }
+      },
+      "2": {
+        "GetSimN": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "search_input": {
+                "TYPENAME": "StoreInput"
+              }
+            },
+            {
+              "condition": {
+                "OPTION": {
+                  "TYPENAME": "PredicateCondition"
+                }
+              }
+            },
+            {
+              "closest_n": "U64"
+            },
+            {
+              "algorithm": {
+                "TYPENAME": "Algorithm"
+              }
+            }
+          ]
+        }
+      },
+      "3": {
+        "CreatePredIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "predicates": {
+                "SEQ": "STR"
+              }
+            }
+          ]
+        }
+      },
+      "4": {
+        "DropPredIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "predicates": {
+                "SEQ": "STR"
+              }
+            },
+            {
+              "error_if_not_exists": "BOOL"
+            }
+          ]
+        }
+      },
+      "5": {
+        "Set": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "inputs": {
+                "SEQ": {
+                  "TUPLE": [
+                    {
+                      "TYPENAME": "StoreInput"
+                    },
+                    {
+                      "MAP": {
+                        "KEY": "STR",
+                        "VALUE": {
+                          "TYPENAME": "MetadataValue"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "preprocess_action": {
+                "TYPENAME": "PreprocessAction"
+              }
+            }
+          ]
+        }
+      },
+      "6": {
+        "DelKey": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "key": {
+                "TYPENAME": "StoreInput"
+              }
+            }
+          ]
+        }
+      },
+      "7": {
+        "DropStore": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "error_if_not_exists": "BOOL"
+            }
+          ]
+        }
+      },
+      "8": {
+        "InfoServer": "UNIT"
+      },
+      "9": {
+        "ListStores": "UNIT"
+      },
+      "10": {
+        "PurgeStores": "UNIT"
+      },
+      "11": {
+        "Ping": "UNIT"
+      }
+    }
+  },
+  "AIServerQuery": {
+    "STRUCT": [
+      {
+        "queries": {
+          "SEQ": {
+            "TYPENAME": "AIQuery"
+          }
+        }
+      }
+    ]
+  },
+  "AIStoreInputType": {
+    "ENUM": {
+      "0": {
+        "RawString": "UNIT"
+      },
+      "1": {
+        "Image": "UNIT"
+      }
+    }
+  },
+  "Algorithm": {
+    "ENUM": {
+      "0": {
+        "EuclideanDistance": "UNIT"
+      },
+      "1": {
+        "DotProductSimilarity": "UNIT"
+      },
+      "2": {
+        "CosineSimilarity": "UNIT"
+      },
+      "3": {
+        "KDTree": "UNIT"
+      }
+    }
+  },
+  "ImageAction": {
+    "ENUM": {
+      "0": {
+        "ResizeImage": "UNIT"
+      },
+      "1": {
+        "ErrorIfDimensionsMismatch": "UNIT"
+      }
+    }
+  },
+  "MetadataValue": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": "STR"
+        }
+      },
+      "1": {
+        "Image": {
+          "NEWTYPE": {
+            "SEQ": "U8"
+          }
+        }
+      }
+    }
+  },
+  "NonLinearAlgorithm": {
+    "ENUM": {
+      "0": {
+        "KDTree": "UNIT"
+      }
+    }
+  },
+  "Predicate": {
+    "ENUM": {
+      "0": {
+        "Equals": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": {
+                "TYPENAME": "MetadataValue"
+              }
+            }
+          ]
+        }
+      },
+      "1": {
+        "NotEquals": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": {
+                "TYPENAME": "MetadataValue"
+              }
+            }
+          ]
+        }
+      },
+      "2": {
+        "In": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": {
+                "SEQ": {
+                  "TYPENAME": "MetadataValue"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "3": {
+        "NotIn": {
+          "STRUCT": [
+            {
+              "key": "STR"
+            },
+            {
+              "value": {
+                "SEQ": {
+                  "TYPENAME": "MetadataValue"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "PredicateCondition": {
+    "ENUM": {
+      "0": {
+        "Value": {
+          "NEWTYPE": {
+            "TYPENAME": "Predicate"
+          }
+        }
+      },
+      "1": {
+        "And": {
+          "TUPLE": [
+            {
+              "TYPENAME": "PredicateCondition"
+            },
+            {
+              "TYPENAME": "PredicateCondition"
+            }
+          ]
+        }
+      },
+      "2": {
+        "Or": {
+          "TUPLE": [
+            {
+              "TYPENAME": "PredicateCondition"
+            },
+            {
+              "TYPENAME": "PredicateCondition"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "PreprocessAction": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": {
+            "TYPENAME": "StringAction"
+          }
+        }
+      },
+      "1": {
+        "Image": {
+          "NEWTYPE": {
+            "TYPENAME": "ImageAction"
+          }
+        }
+      }
+    }
+  },
+  "StoreInput": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": "STR"
+        }
+      },
+      "1": {
+        "Image": {
+          "NEWTYPE": {
+            "SEQ": "U8"
+          }
+        }
+      }
+    }
+  },
+  "StringAction": {
+    "ENUM": {
+      "0": {
+        "TruncateIfTokensExceed": "UNIT"
+      },
+      "1": {
+        "ErrorIfTokensExceed": "UNIT"
+      }
+    }
+  }
+}

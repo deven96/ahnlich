@@ -49,3 +49,45 @@ impl PartialEq for StoreKey {
             .all(|(x, y)| (x - y).abs() < std::f32::EPSILON)
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum StoreInput {
+    RawString(String),
+    Image(Vec<u8>),
+}
+
+#[allow(clippy::len_without_is_empty)]
+impl StoreInput {
+    pub fn len(&self) -> usize {
+        match self {
+            Self::Image(value) => value.len(),
+            Self::RawString(s) => s.len(),
+        }
+    }
+}
+impl fmt::Display for StoreInput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RawString(_) => write!(f, "RawString"),
+            Self::Image(_) => write!(f, "Image"),
+        }
+    }
+}
+
+impl From<StoreInput> for MetadataValue {
+    fn from(value: StoreInput) -> Self {
+        match value {
+            StoreInput::Image(binary) => MetadataValue::Image(binary),
+            StoreInput::RawString(s) => MetadataValue::RawString(s),
+        }
+    }
+}
+
+impl From<MetadataValue> for StoreInput {
+    fn from(value: MetadataValue) -> Self {
+        match value {
+            MetadataValue::Image(binary) => StoreInput::Image(binary),
+            MetadataValue::RawString(s) => StoreInput::RawString(s),
+        }
+    }
+}

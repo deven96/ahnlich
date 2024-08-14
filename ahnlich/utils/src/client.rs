@@ -23,7 +23,7 @@ impl ClientHandler {
     #[tracing::instrument(skip(self))]
     pub fn connect(&self, addr: SocketAddr) -> Option<ConnectedClient> {
         let pinned = self.clients.pin();
-        if pinned.len() >= self.maximum_clients {
+        if self.is_maxed_out() {
             tracing::error!(
                 "Maximum clients count {} reached or exceeded with {}",
                 pinned.len(),
@@ -43,6 +43,15 @@ impl ClientHandler {
     pub fn disconnect(&self, client: &ConnectedClient) {
         let pinned = self.clients.pin();
         pinned.remove(client);
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub fn is_maxed_out(&self) -> bool {
+        let pinned = self.clients.pin();
+        if pinned.len() >= self.maximum_clients {
+            return true;
+        }
+        false
     }
 
     #[tracing::instrument(skip(self))]

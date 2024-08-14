@@ -1,4 +1,3 @@
-import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -10,7 +9,7 @@ AHNLICH_BIN_DIR = BASE_DIR.parent.parent / "ahnlich"
 
 
 @dataclass
-class AhnlichDBPoolSettings:
+class AhnlichPoolSettings:
     idle_timeout: float = 30.0
     max_lifetime: float = 600.0
     min_idle_connections: int = 3

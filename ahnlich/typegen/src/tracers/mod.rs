@@ -134,19 +134,31 @@ impl<'a> OutputFile<'a> {
                 let _ = std::fs::create_dir_all(&output_dir);
                 let output_file = output_dir.join(format!("{}.{extension}", self.output_file));
                 let mut buffer = self.get_output_buffer(output_file);
-                let installer = serde_generate::python3::Installer::new(
-                    output_dir,
-                    Some(format!("ahnlich_client_{extension}.internals")),
-                );
+                let import_path = Some(format!("ahnlich_client_{extension}.internals"));
+
+                let installer =
+                    serde_generate::python3::Installer::new(output_dir, import_path.clone());
                 installer.install_bincode_runtime().unwrap();
                 installer.install_serde_runtime().unwrap();
-                serde_generate::python3::CodeGenerator::new(config).output(&mut buffer, registry)
+                serde_generate::python3::CodeGenerator::new(config)
+                    .with_serde_package_name(import_path)
+                    .output(&mut buffer, registry)
             }
             Language::Golang => {
                 // All packages are already published
+                let output_dir = output_dir.join("internal").join(self.output_file);
+                let config = serde_generate::CodeGeneratorConfig::new(format!(
+                    "internal_{}",
+                    self.output_file
+                ))
+                .with_encodings(vec![serde_generate::Encoding::Bincode]);
+                // create all and ignore the errors if they exists
+                let _ = std::fs::create_dir_all(&output_dir);
 
+                // shadow default output_file
+                let output_file = output_dir.join(format!("{}.{extension}", self.output_file));
                 let mut buffer = self.get_output_buffer(output_file);
-                serde_generate::golang::CodeGenerator::new(config).output(&mut buffer, registry)
+                serde_generate::golang::CodeGenerator::new(&config).output(&mut buffer, registry)
             }
             Language::Typescript => {
                 let mut buffer = self.get_output_buffer(output_file);

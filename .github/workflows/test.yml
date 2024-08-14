@@ -77,30 +77,20 @@ jobs:
     - name: Installing poetry dependencies
       working-directory: ./sdk/ahnlich-client-py
       run: poetry install
-      
-    - name: Set up Rust cache
-      uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: ahnlich
 
-    - name: Run Ahnlich DB Server 
-      working-directory: ./ahnlich
+    - name: Check Python Linting
+      working-directory: ./sdk/ahnlich-client-py
       run: |
-        cargo run --bin ahnlich-db run --port 1349 &
-        echo $! > server_pid.txt
-    
-
-    - name: Wait for Ahnlich DB to be ready
-      working-directory: ./ahnlich
-      run: |
-        chmod +x wait-for-it.sh  
-        ./wait-for-it.sh localhost 1349 -t 30
+        poetry run isort . -c --profile black; echo $?
+        poetry run black . --check; echo $?
     
     - name: Run Python Client Tests
       working-directory: ./sdk/ahnlich-client-py
       env:
           AHNLICH_DB_HOST: "127.0.0.1"
           AHNLICH_DB_PORT: 1349
+          AHNLICH_AI_HOST: "127.0.0.1"
+          AHNLICH_AI_PORT: 8000
       run: |
         poetry run pytest --junitxml=./python.xml
 
@@ -111,10 +101,6 @@ jobs:
         name: python
         path: sdk/ahnlich-client-py/python.xml
 
-    - name: Stop Ahnlich DB Server
-      working-directory: ./ahnlich
-      run: |
-        kill $(cat server_pid.txt)
 
 
   upload-test-results:

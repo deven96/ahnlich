@@ -61,7 +61,7 @@ pub fn trace_db_server_response_enum() -> Registry {
     );
     store_value.insert(
         MetadataKey::new(String::from("bin_data")),
-        MetadataValue::Binary(vec![6, 4, 2]),
+        MetadataValue::Image(vec![6, 4, 2]),
     );
 
     let get_variant = ServerResponse::Get(vec![(store_key.clone(), store_value.clone())]);
@@ -117,6 +117,10 @@ pub fn trace_db_server_response_enum() -> Registry {
 
     let _ = tracer
         .trace_type::<MetadataValue>(&samples)
+        .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
+        .unwrap();
+    let _ = tracer
+        .trace_type::<ServerType>(&samples)
         .inspect_err(|err| println!("Failed to parse type {}", err.explanation()))
         .unwrap();
 

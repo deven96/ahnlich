@@ -1,0 +1,272 @@
+{
+  "AIModel": {
+    "ENUM": {
+      "0": {
+        "DALLE3": "UNIT"
+      },
+      "1": {
+        "Llama3": "UNIT"
+      }
+    }
+  },
+  "AIServerResponse": {
+    "ENUM": {
+      "0": {
+        "Unit": "UNIT"
+      },
+      "1": {
+        "Pong": "UNIT"
+      },
+      "2": {
+        "ClientList": {
+          "NEWTYPE": {
+            "SEQ": {
+              "TYPENAME": "ConnectedClient"
+            }
+          }
+        }
+      },
+      "3": {
+        "StoreList": {
+          "NEWTYPE": {
+            "SEQ": {
+              "TYPENAME": "AIStoreInfo"
+            }
+          }
+        }
+      },
+      "4": {
+        "InfoServer": {
+          "NEWTYPE": {
+            "TYPENAME": "ServerInfo"
+          }
+        }
+      },
+      "5": {
+        "Set": {
+          "NEWTYPE": {
+            "TYPENAME": "StoreUpsert"
+          }
+        }
+      },
+      "6": {
+        "Get": {
+          "NEWTYPE": {
+            "SEQ": {
+              "TUPLE": [
+                {
+                  "TYPENAME": "StoreInput"
+                },
+                {
+                  "MAP": {
+                    "KEY": "STR",
+                    "VALUE": {
+                      "TYPENAME": "MetadataValue"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "7": {
+        "GetSimN": {
+          "NEWTYPE": {
+            "SEQ": {
+              "TUPLE": [
+                {
+                  "TYPENAME": "StoreInput"
+                },
+                {
+                  "MAP": {
+                    "KEY": "STR",
+                    "VALUE": {
+                      "TYPENAME": "MetadataValue"
+                    }
+                  }
+                },
+                {
+                  "TYPENAME": "Similarity"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "8": {
+        "Del": {
+          "NEWTYPE": "U64"
+        }
+      },
+      "9": {
+        "CreateIndex": {
+          "NEWTYPE": "U64"
+        }
+      }
+    }
+  },
+  "AIServerResult": {
+    "STRUCT": [
+      {
+        "results": {
+          "SEQ": {
+            "TYPENAME": "Result"
+          }
+        }
+      }
+    ]
+  },
+  "AIStoreInfo": {
+    "STRUCT": [
+      {
+        "name": "STR"
+      },
+      {
+        "query_model": {
+          "TYPENAME": "AIModel"
+        }
+      },
+      {
+        "index_model": {
+          "TYPENAME": "AIModel"
+        }
+      },
+      {
+        "embedding_size": "U64"
+      }
+    ]
+  },
+  "AIStoreInputType": {
+    "ENUM": {
+      "0": {
+        "RawString": "UNIT"
+      },
+      "1": {
+        "Image": "UNIT"
+      }
+    }
+  },
+  "ConnectedClient": {
+    "STRUCT": [
+      {
+        "address": "STR"
+      },
+      {
+        "time_connected": {
+          "TYPENAME": "SystemTime"
+        }
+      }
+    ]
+  },
+  "MetadataValue": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": "STR"
+        }
+      },
+      "1": {
+        "Image": {
+          "NEWTYPE": {
+            "SEQ": "U8"
+          }
+        }
+      }
+    }
+  },
+  "Result": {
+    "ENUM": {
+      "0": {
+        "Ok": {
+          "NEWTYPE": {
+            "TYPENAME": "AIServerResponse"
+          }
+        }
+      },
+      "1": {
+        "Err": {
+          "NEWTYPE": "STR"
+        }
+      }
+    }
+  },
+  "ServerInfo": {
+    "STRUCT": [
+      {
+        "address": "STR"
+      },
+      {
+        "version": {
+          "TYPENAME": "Version"
+        }
+      },
+      {
+        "type": {
+          "TYPENAME": "ServerType"
+        }
+      },
+      {
+        "limit": "U64"
+      },
+      {
+        "remaining": "U64"
+      }
+    ]
+  },
+  "ServerType": {
+    "ENUM": {
+      "0": {
+        "Database": "UNIT"
+      },
+      "1": {
+        "AI": "UNIT"
+      }
+    }
+  },
+  "Similarity": {
+    "NEWTYPESTRUCT": "F32"
+  },
+  "StoreInput": {
+    "ENUM": {
+      "0": {
+        "RawString": {
+          "NEWTYPE": "STR"
+        }
+      }
+    }
+  },
+  "StoreUpsert": {
+    "STRUCT": [
+      {
+        "inserted": "U64"
+      },
+      {
+        "updated": "U64"
+      }
+    ]
+  },
+  "SystemTime": {
+    "STRUCT": [
+      {
+        "secs_since_epoch": "U64"
+      },
+      {
+        "nanos_since_epoch": "U32"
+      }
+    ]
+  },
+  "Version": {
+    "STRUCT": [
+      {
+        "major": "U8"
+      },
+      {
+        "minor": "U16"
+      },
+      {
+        "patch": "U16"
+      }
+    ]
+  }
+}

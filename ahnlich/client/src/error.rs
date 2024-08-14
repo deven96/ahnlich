@@ -6,12 +6,14 @@ pub enum AhnlichError {
     Standard(#[from] std::io::Error),
     #[error("bincode serialize error {0}")]
     BinCode(#[from] bincode::Error),
-    #[error("db error")]
+    #[error("db error {0}")]
     DbError(String),
     #[error("empty response")]
     EmptyResponse,
     #[error("deadpool error {0}")]
     PoolError(String),
+    #[error("ai proxy error {0}")]
+    AIProxyError(String),
 }
 
 impl<E: std::fmt::Debug> From<deadpool::managed::PoolError<E>> for AhnlichError {

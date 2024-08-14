@@ -21,9 +21,9 @@ once_cell.workspace = true
 bincode.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
-deadpool = { version = "0.10", features = ["rt_tokio_1"]}
-
+deadpool.workspace = true
 [dev-dependencies]
 db = { path = "../db", version = "*" }
+ai = { path = "../ai", version = "*" }
 pretty_assertions.workspace = true
 ndarray.workspace = true

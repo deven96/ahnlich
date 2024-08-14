@@ -20,5 +20,5 @@ impl fmt::Display for MetadataKey {
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum MetadataValue {
     RawString(String),
-    Binary(Vec<u8>),
+    Image(Vec<u8>),
 }
