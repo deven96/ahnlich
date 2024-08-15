@@ -82,7 +82,7 @@ pub struct AIProxyConfig {
     pub(crate) maximum_clients: usize,
 
     /// List of ai models to support in your aiproxy stores
-    #[arg(long, required(true))]
+    #[arg(long, required(true), value_delimiter = ',')]
     pub(crate) supported_models: Vec<SupportedModels>,
 }
 
