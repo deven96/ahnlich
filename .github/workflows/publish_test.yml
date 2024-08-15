@@ -21,7 +21,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_branch }}
+          fetch-depth: 0
 
       - name: Download and Extract Artifacts
         uses: dawidd6/action-download-artifact@e7466d1a7587ed14867642c2ca74b5bcc1e19a2d
