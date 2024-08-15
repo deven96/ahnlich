@@ -1,4 +1,5 @@
 use crate::cli::server::SupportedModels;
+use crate::engine::ai::models::Model;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
 use crate::{engine::ai::AIModelManager, error::AIProxyError};
 use ahnlich_types::ai::{
@@ -130,11 +131,11 @@ impl AIStoreHandler {
         let store = self.get(store_name)?;
 
         let store_input_type: AIStoreInputType = (&store_input).into();
-        let store_index_model_info = store.index_model.model_info();
+        let index_model_repr: Model = (&store.index_model).into();
 
-        if store_input_type != store_index_model_info.input_type {
+        if store_input_type != index_model_repr.input_type() {
             return Err(AIProxyError::StoreSetTypeMismatchError {
-                store_index_model_type: store_index_model_info.input_type,
+                store_index_model_type: index_model_repr.input_type(),
                 storeinput_type: store_input_type,
             });
         }

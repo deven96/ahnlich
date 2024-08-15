@@ -16,6 +16,21 @@ pub struct ModelInfo {
     pub max_token: NonZeroUsize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TextModelInfo {
+    pub name: String,
+    pub embedding_size: NonZeroUsize,
+    pub input_type: AIStoreInputType,
+    pub max_token: NonZeroUsize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MediaModelInfo {
+    pub name: String,
+    pub embedding_size: NonZeroUsize,
+    pub input_type: AIStoreInputType,
+}
+
 impl AIModelManager for AIModel {
     fn embedding_size(&self) -> NonZeroUsize {
         self.model_info().embedding_size
@@ -44,6 +59,55 @@ impl AIModelManager for AIModel {
                 input_type: AIStoreInputType::Image,
                 max_token: nonzero!(300usize),
             },
+        }
+    }
+}
+
+pub(crate) enum Model {
+    Text {
+        name: String,
+        embedding_size: NonZeroUsize,
+        input_type: AIStoreInputType,
+        max_input_tokens: NonZeroUsize,
+    },
+    Image {
+        name: String,
+        max_image_dimensions: NonZeroUsize,
+        input_type: AIStoreInputType,
+        embedding_size: NonZeroUsize,
+    },
+}
+
+impl From<&AIModel> for Model {
+    fn from(value: &AIModel) -> Self {
+        match value {
+            AIModel::Llama3 => Self::Text {
+                name: String::from("Llama3"),
+                input_type: AIStoreInputType::RawString,
+                embedding_size: nonzero!(100usize),
+                max_input_tokens: nonzero!(100usize),
+            },
+            AIModel::DALLE3 => Self::Image {
+                name: String::from("DALL.E 3"),
+                input_type: AIStoreInputType::Image,
+                embedding_size: nonzero!(300usize),
+                max_image_dimensions: nonzero!(300usize),
+            },
+        }
+    }
+}
+
+impl Model {
+    pub(crate) fn embedding_size(&self) -> NonZeroUsize {
+        match self {
+            Model::Text { embedding_size, .. } => *embedding_size,
+            Model::Image { embedding_size, .. } => *embedding_size,
+        }
+    }
+    pub(crate) fn input_type(&self) -> AIStoreInputType {
+        match self {
+            Model::Text { input_type, .. } => input_type.clone(),
+            Model::Image { input_type, .. } => input_type.clone(),
         }
     }
 }

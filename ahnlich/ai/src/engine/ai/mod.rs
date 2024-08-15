@@ -1,5 +1,5 @@
-mod models;
 use ahnlich_types::keyval::{StoreInput, StoreKey};
+pub(crate) mod models;
 use models::ModelInfo;
 use std::num::NonZeroUsize;
 
