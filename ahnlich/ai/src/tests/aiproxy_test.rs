@@ -642,7 +642,7 @@ async fn test_ai_proxy_binary_store_actions() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
+            query_model: AIModel::DALLE3,
             index_model: AIModel::DALLE3,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
@@ -682,7 +682,7 @@ async fn test_ai_proxy_binary_store_actions() {
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name,
-            query_model: AIModel::Llama3,
+            query_model: AIModel::DALLE3,
             index_model: AIModel::DALLE3,
             embedding_size: dalle3_model.embedding_size().into(),
         },
@@ -793,6 +793,35 @@ async fn test_ai_proxy_create_store_errors_unsupported_models() {
 
     expected.push(Err(AIProxyError::AIModelNotInitialized.to_string()));
 
+    let connected_stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(connected_stream);
+
+    query_server_assert_result(&mut reader, message, expected).await;
+}
+
+#[tokio::test]
+async fn test_ai_proxy_embedding_size_mismatch_error() {
+    let address = provision_test_servers().await;
+
+    let store_name = StoreName(String::from("Deven Mixed Store210u01"));
+    let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
+        store: store_name.clone(),
+        query_model: AIModel::Llama3,
+        index_model: AIModel::DALLE3,
+        predicates: HashSet::new(),
+        non_linear_indices: HashSet::new(),
+    }]);
+
+    let mut expected = AIServerResult::with_capacity(1);
+
+    let dalle3_model: Model = (&AIModel::DALLE3).into();
+    let llama3_model: Model = (&AIModel::Llama3).into();
+
+    let error_message = AIProxyError::DimensionsMismatchError {
+        index_model_dim: dalle3_model.embedding_size().into(),
+        query_model_dim: llama3_model.embedding_size().into(),
+    };
+    expected.push(Err(error_message.to_string()));
     let connected_stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(connected_stream);
 

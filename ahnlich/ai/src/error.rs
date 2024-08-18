@@ -53,4 +53,10 @@ pub enum AIProxyError {
 
     #[error("index_model or query_model not selected during aiproxy startup")]
     AIModelNotInitialized,
+
+    #[error("Dimensions Mismatch between index [{index_model_dim}], and Query [{query_model_dim}] Models")]
+    DimensionsMismatchError {
+        index_model_dim: usize,
+        query_model_dim: usize,
+    },
 }

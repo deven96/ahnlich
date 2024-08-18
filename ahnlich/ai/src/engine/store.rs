@@ -70,6 +70,17 @@ impl AIStoreHandler {
         {
             return Err(AIProxyError::AIModelNotInitialized);
         }
+
+        let index_model_repr: Model = (&index_model).into();
+        let query_model_repr: Model = (&query_model).into();
+
+        if index_model_repr.embedding_size() != query_model_repr.embedding_size() {
+            return Err(AIProxyError::DimensionsMismatchError {
+                index_model_dim: index_model_repr.embedding_size().into(),
+                query_model_dim: query_model_repr.embedding_size().into(),
+            });
+        }
+
         if self
             .stores
             .try_insert(
@@ -280,17 +291,18 @@ impl AIStoreHandler {
         // tokenize string, return error if max token
         //let tokenized_input;
         let model: Model = index_model.into();
-        let max_token_size = model.max_accepted_size();
-        if input.len() > max_token_size.into() {
-            if let StringAction::ErrorIfTokensExceed = string_action {
-                return Err(AIProxyError::TokenExceededError {
-                    input_token_size: input.len(),
-                    max_token_size: max_token_size.into(),
-                });
-            } else {
-                // truncate raw string
-                // let tokenized_input;
-                let _input = input.as_str()[..max_token_size.into()].to_string();
+        if let Some(max_token_size) = model.max_input_token() {
+            if input.len() > max_token_size.into() {
+                if let StringAction::ErrorIfTokensExceed = string_action {
+                    return Err(AIProxyError::TokenExceededError {
+                        input_token_size: input.len(),
+                        max_token_size: max_token_size.into(),
+                    });
+                } else {
+                    // truncate raw string
+                    // let tokenized_input;
+                    let _input = input.as_str()[..max_token_size.into()].to_string();
+                }
             }
         }
         Ok(StoreInput::RawString(input))
@@ -306,15 +318,16 @@ impl AIStoreHandler {
         // let image_data;
         let model: Model = index_model.into();
 
-        let model_embedding_dim = model.max_accepted_size().into();
-        if input.len() > model_embedding_dim {
-            if let ImageAction::ErrorIfDimensionsMismatch = image_action {
-                return Err(AIProxyError::ImageDimensionsMismatchError {
-                    image_dimensions: input.len(),
-                    max_dimensions: model_embedding_dim,
-                });
-            } else {
-                // resize image
+        if let Some(max_image_dimensions) = model.max_image_dimensions() {
+            if input.len() > max_image_dimensions.into() {
+                if let ImageAction::ErrorIfDimensionsMismatch = image_action {
+                    return Err(AIProxyError::ImageDimensionsMismatchError {
+                        image_dimensions: input.len(),
+                        max_dimensions: max_image_dimensions.into(),
+                    });
+                } else {
+                    // resize image
+                }
             }
         }
         Ok(StoreInput::Image(input))

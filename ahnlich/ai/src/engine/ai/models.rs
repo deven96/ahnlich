@@ -57,16 +57,21 @@ impl Model {
         StoreKey(Array1::from_iter(0..self.embedding_size().into()).mapv(|v| v as f32 * length))
     }
 
-    /// Returns either the max token size(Text) or max image dimension size(Image) of a model
-    pub fn max_accepted_size(&self) -> NonZeroUsize {
+    pub fn max_input_token(&self) -> Option<NonZeroUsize> {
         match self {
             Model::Text {
                 max_input_tokens, ..
-            } => *max_input_tokens,
+            } => Some(*max_input_tokens),
+            Model::Image { .. } => None,
+        }
+    }
+    pub fn max_image_dimensions(&self) -> Option<NonZeroUsize> {
+        match self {
+            Model::Text { .. } => None,
             Model::Image {
                 max_image_dimensions,
                 ..
-            } => *max_image_dimensions,
+            } => Some(*max_image_dimensions),
         }
     }
 }
