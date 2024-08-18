@@ -25,10 +25,10 @@ pub enum AIProxyError {
         store_query_model_type: AIStoreInputType,
         storeinput_type: AIStoreInputType,
     },
-    #[error("Cannot Set Input. Store expects [{store_index_model_type}], input type [{storeinput_type}] was provided")]
+    #[error("Cannot Set Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
     StoreSetTypeMismatchError {
-        store_index_model_type: AIStoreInputType,
-        storeinput_type: AIStoreInputType,
+        index_model_type: String,
+        storeinput_type: String,
     },
 
     #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}] ")]

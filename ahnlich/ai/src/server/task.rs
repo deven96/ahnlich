@@ -1,3 +1,4 @@
+use crate::engine::ai::models::Model;
 use crate::server::handler::AI_ALLOCATOR;
 use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
@@ -9,13 +10,12 @@ use ahnlich_types::version::VERSION;
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::vec;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
 use utils::client::ClientHandler;
 use utils::protocol::AhnlichProtocol;
 
-use crate::engine::{ai::AIModelManager, store::AIStoreHandler};
+use crate::engine::store::AIStoreHandler;
 use crate::error::AIProxyError;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
 
@@ -68,11 +68,12 @@ impl AhnlichProtocol for AIProxyTask {
                         Err(format!("Cannot use {} keyword", default_metadata_key))
                     } else {
                         predicates.insert(default_metadata_key.clone());
+                        let model: Model = (&index_model).into();
                         match self
                             .db_client
                             .create_store(
                                 store.clone(),
-                                index_model.embedding_size(),
+                                model.max_accepted_size(),
                                 predicates,
                                 non_linear_indices,
                                 false,

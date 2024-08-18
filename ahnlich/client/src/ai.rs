@@ -324,7 +324,7 @@ impl AIClient {
 mod tests {
     use super::*;
     use ahnlich_ai_proxy::cli::AIProxyConfig;
-    use ahnlich_ai_proxy::{engine::ai::AIModelManager, server::handler::AIProxyServer};
+    use ahnlich_ai_proxy::{engine::ai::models::Model, server::handler::AIProxyServer};
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
     use once_cell::sync::Lazy;
@@ -444,16 +444,17 @@ mod tests {
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Err("Store Main already exists".to_string()));
         expected.push(Ok(AIServerResponse::Unit));
+        let llama3_model: Model = (&AIModel::Llama3).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
-                embedding_size: AIModel::Llama3.embedding_size().into(),
+                embedding_size: llama3_model.embedding_size().into(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
-                embedding_size: AIModel::Llama3.embedding_size().into(),
+                embedding_size: llama3_model.embedding_size().into(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
             },
@@ -548,22 +549,24 @@ mod tests {
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Ok(AIServerResponse::Unit));
+
+        let llama3_model: Model = (&AIModel::Llama3).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
-                embedding_size: AIModel::Llama3.embedding_size().into(),
+                embedding_size: llama3_model.embedding_size().into(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
             },
             AIStoreInfo {
                 name: StoreName("Main2".to_string()),
-                embedding_size: AIModel::Llama3.embedding_size().into(),
+                embedding_size: llama3_model.embedding_size().into(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
-                embedding_size: AIModel::Llama3.embedding_size().into(),
+                embedding_size: llama3_model.embedding_size().into(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
             },
@@ -645,13 +648,14 @@ mod tests {
         let mut expected = AIServerResult::with_capacity(6);
 
         expected.push(Ok(AIServerResponse::Unit));
+        let llama3_model: Model = (&AIModel::Llama3).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name.clone(),
                 query_model: AIModel::Llama3,
                 index_model: AIModel::Llama3,
 
-                embedding_size: AIModel::Llama3.embedding_size().into(),
+                embedding_size: llama3_model.embedding_size().into(),
             },
         ]))));
         expected.push(Ok(AIServerResponse::CreateIndex(2)));
@@ -773,12 +777,13 @@ mod tests {
         let mut expected = AIServerResult::with_capacity(7);
 
         expected.push(Ok(AIServerResponse::Unit));
+        let dalle3_model: Model = (&AIModel::DALLE3).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name,
                 query_model: AIModel::DALLE3,
                 index_model: AIModel::DALLE3,
-                embedding_size: AIModel::DALLE3.embedding_size().into(),
+                embedding_size: dalle3_model.embedding_size().into(),
             },
         ]))));
         expected.push(Ok(AIServerResponse::CreateIndex(2)));
