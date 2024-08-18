@@ -25,15 +25,15 @@ pub enum AIProxyError {
         store_query_model_type: AIStoreInputType,
         storeinput_type: AIStoreInputType,
     },
-    #[error("Cannot Set Input. Store expects [{store_index_model_type}], input type [{storeinput_type}] was provided")]
+    #[error("Cannot Set Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
     StoreSetTypeMismatchError {
-        store_index_model_type: AIStoreInputType,
-        storeinput_type: AIStoreInputType,
+        index_model_type: String,
+        storeinput_type: String,
     },
 
-    #[error("Max Token Exceeded. Model Expects [{model_embedding_size}], input type was [{input_token_size}] ")]
+    #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}] ")]
     TokenExceededError {
-        model_embedding_size: usize,
+        max_token_size: usize,
         input_token_size: usize,
     },
 
@@ -49,5 +49,14 @@ pub enum AIProxyError {
     PreprocessingMismatchError {
         input_type: AIStoreInputType,
         preprocess_action: PreprocessAction,
+    },
+
+    #[error("index_model or query_model not selected during aiproxy startup")]
+    AIModelNotInitialized,
+
+    #[error("Dimensions Mismatch between index [{index_model_dim}], and Query [{query_model_dim}] Models")]
+    DimensionsMismatchError {
+        index_model_dim: usize,
+        query_model_dim: usize,
     },
 }

@@ -1,4 +1,16 @@
-use clap::{ArgAction, Args, Parser, Subcommand};
+use ahnlich_types::ai::AIModel;
+use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
+use strum::VariantArray;
+
+use crate::engine::ai::models::{Model, ModelInfo};
+use std::io::Write;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, VariantArray)]
+pub enum SupportedModels {
+    Llama3,
+    Dalle3,
+}
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -11,6 +23,9 @@ pub struct Cli {
 pub enum Commands {
     /// Starts Anhlich AI Proxy
     Start(AIProxyConfig),
+
+    /// Outputs all supported models by aiproxy
+    SupportedModels(SupportedModelArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -73,6 +88,10 @@ pub struct AIProxyConfig {
     ///  Defaults to 1000
     #[arg(long, default_value_t = 1000)]
     pub(crate) maximum_clients: usize,
+
+    /// List of ai models to support in your aiproxy stores
+    #[arg(long, required(true), value_delimiter = ',')]
+    pub(crate) supported_models: Vec<SupportedModels>,
 }
 
 impl Default for AIProxyConfig {
@@ -95,6 +114,7 @@ impl Default for AIProxyConfig {
             otel_endpoint: None,
             log_level: String::from("info"),
             maximum_clients: 1000,
+            supported_models: vec![SupportedModels::Llama3, SupportedModels::Dalle3],
         }
     }
 }
@@ -120,5 +140,76 @@ impl AIProxyConfig {
     pub fn set_maximum_clients(mut self, maximum_clients: usize) -> Self {
         self.maximum_clients = maximum_clients;
         self
+    }
+
+    #[cfg(test)]
+    pub fn set_supported_models(mut self, models: Vec<SupportedModels>) -> Self {
+        self.supported_models = models;
+        self
+    }
+}
+
+impl From<&AIModel> for SupportedModels {
+    fn from(value: &AIModel) -> Self {
+        match value {
+            AIModel::Llama3 => SupportedModels::Llama3,
+            AIModel::DALLE3 => SupportedModels::Dalle3,
+        }
+    }
+}
+
+impl From<&SupportedModels> for AIModel {
+    fn from(value: &SupportedModels) -> Self {
+        match value {
+            SupportedModels::Llama3 => AIModel::Llama3,
+            SupportedModels::Dalle3 => AIModel::DALLE3,
+        }
+    }
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SupportedModelArgs {
+    ///  Models to display information about
+    #[arg(long, value_delimiter = ',')]
+    pub names: Vec<SupportedModels>,
+}
+
+impl SupportedModelArgs {
+    pub fn list_supported_models(&self) -> String {
+        let mut output = String::new();
+
+        for supported_model in SupportedModels::VARIANTS.iter() {
+            let aimodel: AIModel = supported_model.into();
+            let model: Model = (&aimodel).into();
+            output.push_str(format!("{}, ", model.model_name()).as_str())
+        }
+        output
+    }
+    pub fn list_supported_models_verbose(&self) -> String {
+        let mut output = vec![];
+
+        for supported_model in self.names.iter() {
+            let aimodel: AIModel = supported_model.into();
+            let model: Model = (&aimodel).into();
+            output.push(ModelInfo::build(&model))
+        }
+        serde_json::to_string_pretty(&output)
+            .expect("Failed Generate Supported Models Verbose Text")
+    }
+
+    pub fn output(&self) {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout
+            .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
+            .expect("Failed to set output Color");
+
+        let mut text = "\n\nDisplaying Supported Models \n\n".to_string();
+        if !self.names.is_empty() {
+            text.push_str(&self.list_supported_models_verbose());
+        } else {
+            text.push_str(&self.list_supported_models());
+        }
+
+        writeln!(&mut stdout, "{}", text).expect("Failed to write output");
     }
 }

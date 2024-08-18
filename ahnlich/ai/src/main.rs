@@ -10,6 +10,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let server = ahnlich_ai_proxy::server::handler::AIProxyServer::new(config).await?;
             server.start().await?;
         }
+        ahnlich_ai_proxy::cli::Commands::SupportedModels(config) => config.output(),
     }
     Ok(())
 }

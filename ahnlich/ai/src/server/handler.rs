@@ -54,7 +54,8 @@ impl AIProxyServer {
         }
         let write_flag = Arc::new(AtomicBool::new(false));
         let db_client = Self::build_db_client(&config).await;
-        let mut store_handler = AIStoreHandler::new(write_flag.clone());
+        let mut store_handler =
+            AIStoreHandler::new(write_flag.clone(), config.supported_models.clone());
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
 
         // persistence

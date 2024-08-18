@@ -1,5 +1,7 @@
+use crate::cli::server::SupportedModels;
+use crate::engine::ai::models::Model;
+use crate::error::AIProxyError;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use crate::{engine::ai::AIModelManager, error::AIProxyError};
 use ahnlich_types::ai::{
     AIModel, AIStoreInfo, AIStoreInputType, ImageAction, PreprocessAction, StringAction,
 };
@@ -24,15 +26,17 @@ pub struct AIStoreHandler {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     stores: AIStores,
     pub write_flag: Arc<AtomicBool>,
+    supported_models: Vec<SupportedModels>,
 }
 
 pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
 
 impl AIStoreHandler {
-    pub fn new(write_flag: Arc<AtomicBool>) -> Self {
+    pub fn new(write_flag: Arc<AtomicBool>, supported_models: Vec<SupportedModels>) -> Self {
         Self {
             stores: Arc::new(ConcurrentHashMap::new()),
             write_flag,
+            supported_models,
         }
     }
     pub(crate) fn get_stores(&self) -> AIStores {
@@ -61,6 +65,22 @@ impl AIStoreHandler {
         query_model: AIModel,
         index_model: AIModel,
     ) -> Result<(), AIProxyError> {
+        if !self.supported_models.contains(&(&query_model).into())
+            || !self.supported_models.contains(&(&index_model).into())
+        {
+            return Err(AIProxyError::AIModelNotInitialized);
+        }
+
+        let index_model_repr: Model = (&index_model).into();
+        let query_model_repr: Model = (&query_model).into();
+
+        if index_model_repr.embedding_size() != query_model_repr.embedding_size() {
+            return Err(AIProxyError::DimensionsMismatchError {
+                index_model_dim: index_model_repr.embedding_size().into(),
+                query_model_dim: query_model_repr.embedding_size().into(),
+            });
+        }
+
         if self
             .stores
             .try_insert(
@@ -85,11 +105,15 @@ impl AIStoreHandler {
     pub(crate) fn list_stores(&self) -> StdHashSet<AIStoreInfo> {
         self.stores
             .iter(&self.stores.guard())
-            .map(|(store_name, store)| AIStoreInfo {
-                name: store_name.clone(),
-                query_model: store.query_model.clone(),
-                index_model: store.index_model.clone(),
-                embedding_size: store.index_model.embedding_size().into(),
+            .map(|(store_name, store)| {
+                let model: Model = (&store.index_model).into();
+
+                AIStoreInfo {
+                    name: store_name.clone(),
+                    query_model: store.query_model.clone(),
+                    index_model: store.index_model.clone(),
+                    embedding_size: model.embedding_size().into(),
+                }
             })
             .collect()
     }
@@ -122,12 +146,12 @@ impl AIStoreHandler {
         let store = self.get(store_name)?;
 
         let store_input_type: AIStoreInputType = (&store_input).into();
-        let store_index_model_info = store.index_model.model_info();
+        let index_model_repr: Model = (&store.index_model).into();
 
-        if store_input_type != store_index_model_info.input_type {
+        if store_input_type.to_string() != index_model_repr.input_type() {
             return Err(AIProxyError::StoreSetTypeMismatchError {
-                store_index_model_type: store_index_model_info.input_type,
-                storeinput_type: store_input_type,
+                index_model_type: index_model_repr.input_type(),
+                storeinput_type: store_input_type.to_string(),
             });
         }
 
@@ -154,7 +178,9 @@ impl AIStoreHandler {
         // it into  index model. Create a storekey from ndarray
         let processed_input =
             self.preprocess_store_input(preprocess_action, store_input, index_store_model)?;
-        let store_key = index_store_model.model_ndarray(&processed_input);
+
+        let model: Model = index_store_model.into();
+        let store_key = model.model_ndarray(&processed_input);
         Ok(store_key)
     }
 
@@ -189,7 +215,8 @@ impl AIStoreHandler {
         store_input: &StoreInput,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
-        Ok(store.index_model.model_ndarray(store_input))
+        let model: Model = (&store.index_model).into();
+        Ok(model.model_ndarray(store_input))
     }
 
     /// Matches DROPSTORE - Drops a store if exist, else returns an error
@@ -263,17 +290,19 @@ impl AIStoreHandler {
     ) -> Result<StoreInput, AIProxyError> {
         // tokenize string, return error if max token
         //let tokenized_input;
-        let model_embedding_dim = index_model.model_info().embedding_size;
-        if input.len() > model_embedding_dim.into() {
-            if let StringAction::ErrorIfTokensExceed = string_action {
-                return Err(AIProxyError::TokenExceededError {
-                    input_token_size: input.len(),
-                    model_embedding_size: model_embedding_dim.into(),
-                });
-            } else {
-                // truncate raw string
-                // let tokenized_input;
-                let _input = input.as_str()[..model_embedding_dim.into()].to_string();
+        let model: Model = index_model.into();
+        if let Some(max_token_size) = model.max_input_token() {
+            if input.len() > max_token_size.into() {
+                if let StringAction::ErrorIfTokensExceed = string_action {
+                    return Err(AIProxyError::TokenExceededError {
+                        input_token_size: input.len(),
+                        max_token_size: max_token_size.into(),
+                    });
+                } else {
+                    // truncate raw string
+                    // let tokenized_input;
+                    let _input = input.as_str()[..max_token_size.into()].to_string();
+                }
             }
         }
         Ok(StoreInput::RawString(input))
@@ -287,15 +316,18 @@ impl AIStoreHandler {
     ) -> Result<StoreInput, AIProxyError> {
         // process image, return error if max dimensions exceeded
         // let image_data;
-        let model_embedding_dim = index_model.embedding_size().into();
-        if input.len() > model_embedding_dim {
-            if let ImageAction::ErrorIfDimensionsMismatch = image_action {
-                return Err(AIProxyError::ImageDimensionsMismatchError {
-                    image_dimensions: input.len(),
-                    max_dimensions: model_embedding_dim,
-                });
-            } else {
-                // resize image
+        let model: Model = index_model.into();
+
+        if let Some(max_image_dimensions) = model.max_image_dimensions() {
+            if input.len() > max_image_dimensions.into() {
+                if let ImageAction::ErrorIfDimensionsMismatch = image_action {
+                    return Err(AIProxyError::ImageDimensionsMismatchError {
+                        image_dimensions: input.len(),
+                        max_dimensions: max_image_dimensions.into(),
+                    });
+                } else {
+                    // resize image
+                }
             }
         }
         Ok(StoreInput::Image(input))
