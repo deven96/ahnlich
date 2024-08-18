@@ -5,6 +5,8 @@ use crate::engine::ai::{
     models::{Model, ModelInfo},
     AHNLICH_AI_SUPPORTED_MODELS,
 };
+use std::io::Write;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum SupportedModels {
@@ -194,5 +196,21 @@ impl SupportedModelArgs {
         }
         serde_json::to_string_pretty(&output)
             .expect("Failed Generate Supported Models Verbose Text")
+    }
+
+    pub fn output(&self) {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        stdout
+            .set_color(ColorSpec::new().set_fg(Some(Color::Green)))
+            .expect("Failed to set output Color");
+
+        let mut text = "\n\nDisplaying Supported Models \n\n".to_string();
+        if !self.names.is_empty() {
+            text.push_str(&self.list_supported_models_verbose());
+        } else {
+            text.push_str(&self.list_supported_models());
+        }
+
+        writeln!(&mut stdout, "{}", text).expect("Failed to write output");
     }
 }
