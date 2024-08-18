@@ -1,14 +1,12 @@
 use ahnlich_types::ai::AIModel;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
+use strum::VariantArray;
 
-use crate::engine::ai::{
-    models::{Model, ModelInfo},
-    AHNLICH_AI_SUPPORTED_MODELS,
-};
+use crate::engine::ai::models::{Model, ModelInfo};
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, VariantArray)]
 pub enum SupportedModels {
     Llama3,
     Dalle3,
@@ -180,8 +178,9 @@ impl SupportedModelArgs {
     pub fn list_supported_models(&self) -> String {
         let mut output = String::new();
 
-        for aimodel in AHNLICH_AI_SUPPORTED_MODELS.iter() {
-            let model: Model = aimodel.into();
+        for supported_model in SupportedModels::VARIANTS.iter() {
+            let aimodel: AIModel = supported_model.into();
+            let model: Model = (&aimodel).into();
             output.push_str(format!("{}, ", model.model_name()).as_str())
         }
         output
