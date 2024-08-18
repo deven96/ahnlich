@@ -4,16 +4,19 @@ use ahnlich_types::{
 };
 use ndarray::Array1;
 use nonzero_ext::nonzero;
+use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
 
 pub enum Model {
     Text {
         name: String,
+        description: String,
         embedding_size: NonZeroUsize,
         max_input_tokens: NonZeroUsize,
     },
     Image {
         name: String,
+        description: String,
         max_image_dimensions: NonZeroUsize,
         embedding_size: NonZeroUsize,
     },
@@ -24,11 +27,13 @@ impl From<&AIModel> for Model {
         match value {
             AIModel::Llama3 => Self::Text {
                 name: String::from("Llama3"),
+                description: String::from("Llama3, a text model"),
                 embedding_size: nonzero!(100usize),
                 max_input_tokens: nonzero!(100usize),
             },
             AIModel::DALLE3 => Self::Image {
                 name: String::from("DALL.E 3"),
+                description: String::from("Dalle3, an image model"),
                 embedding_size: nonzero!(300usize),
                 max_image_dimensions: nonzero!(300usize),
             },
@@ -72,6 +77,41 @@ impl Model {
                 max_image_dimensions,
                 ..
             } => Some(*max_image_dimensions),
+        }
+    }
+    pub fn model_name(&self) -> String {
+        match self {
+            Model::Text { name, .. } => name.clone(),
+            Model::Image { name, .. } => name.clone(),
+        }
+    }
+    pub fn model_description(&self) -> String {
+        match self {
+            Model::Text { description, .. } => description.clone(),
+            Model::Image { description, .. } => description.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct ModelInfo {
+    name: String,
+    input_type: String,
+    embedding_size: NonZeroUsize,
+    max_input_tokens: Option<NonZeroUsize>,
+    max_image_dimensions: Option<NonZeroUsize>,
+    description: String,
+}
+
+impl ModelInfo {
+    pub(crate) fn build(model: &Model) -> Self {
+        Self {
+            name: model.model_name(),
+            input_type: model.input_type(),
+            embedding_size: model.embedding_size(),
+            max_input_tokens: model.max_input_token(),
+            max_image_dimensions: model.max_image_dimensions(),
+            description: model.model_description(),
         }
     }
 }

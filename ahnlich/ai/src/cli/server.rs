@@ -1,6 +1,11 @@
 use ahnlich_types::ai::AIModel;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 
+use crate::engine::ai::{
+    models::{Model, ModelInfo},
+    AHNLICH_AI_SUPPORTED_MODELS,
+};
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum SupportedModels {
     Llama3,
@@ -18,6 +23,9 @@ pub struct Cli {
 pub enum Commands {
     /// Starts Anhlich AI Proxy
     Start(AIProxyConfig),
+
+    /// Outputs all supported models by aiproxy
+    SupportedModels(SupportedModelArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -147,5 +155,44 @@ impl From<&AIModel> for SupportedModels {
             AIModel::Llama3 => SupportedModels::Llama3,
             AIModel::DALLE3 => SupportedModels::Dalle3,
         }
+    }
+}
+
+impl From<&SupportedModels> for AIModel {
+    fn from(value: &SupportedModels) -> Self {
+        match value {
+            SupportedModels::Llama3 => AIModel::Llama3,
+            SupportedModels::Dalle3 => AIModel::DALLE3,
+        }
+    }
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SupportedModelArgs {
+    ///  Models to display information about
+    #[arg(long, value_delimiter = ',')]
+    pub names: Vec<SupportedModels>,
+}
+
+impl SupportedModelArgs {
+    pub fn list_supported_models(&self) -> String {
+        let mut output = String::new();
+
+        for aimodel in AHNLICH_AI_SUPPORTED_MODELS.iter() {
+            let model: Model = aimodel.into();
+            output.push_str(format!("{}, ", model.model_name()).as_str())
+        }
+        output
+    }
+    pub fn list_supported_models_verbose(&self) -> String {
+        let mut output = vec![];
+
+        for supported_model in self.names.iter() {
+            let aimodel: AIModel = supported_model.into();
+            let model: Model = (&aimodel).into();
+            output.push(ModelInfo::build(&model))
+        }
+        serde_json::to_string_pretty(&output)
+            .expect("Failed Generate Supported Models Verbose Text")
     }
 }

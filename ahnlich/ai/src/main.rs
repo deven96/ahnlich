@@ -10,6 +10,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let server = ahnlich_ai_proxy::server::handler::AIProxyServer::new(config).await?;
             server.start().await?;
         }
+        ahnlich_ai_proxy::cli::Commands::SupportedModels(config) => {
+            println!("\nDisplaying Supported Models \n");
+            if config.names.len() > 0 {
+                println!("{}", config.list_supported_models_verbose())
+            } else {
+                println!("{}", config.list_supported_models())
+            }
+        }
     }
     Ok(())
 }
