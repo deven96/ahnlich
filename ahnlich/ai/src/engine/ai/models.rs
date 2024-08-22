@@ -42,12 +42,14 @@ impl From<&AIModel> for Model {
 }
 
 impl Model {
+    #[tracing::instrument(skip(self))]
     pub fn embedding_size(&self) -> NonZeroUsize {
         match self {
             Model::Text { embedding_size, .. } => *embedding_size,
             Model::Image { embedding_size, .. } => *embedding_size,
         }
     }
+    #[tracing::instrument(skip(self))]
     pub fn input_type(&self) -> String {
         match self {
             Model::Text { .. } => AIStoreInputType::RawString.to_string(),
@@ -57,11 +59,13 @@ impl Model {
 
     // TODO: model ndarray values is based on length of string or vec, so for now make sure strings
     // or vecs have different lengths
+    #[tracing::instrument(skip(self))]
     pub fn model_ndarray(&self, storeinput: &StoreInput) -> StoreKey {
         let length = storeinput.len() as f32;
         StoreKey(Array1::from_iter(0..self.embedding_size().into()).mapv(|v| v as f32 * length))
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn max_input_token(&self) -> Option<NonZeroUsize> {
         match self {
             Model::Text {
@@ -70,6 +74,7 @@ impl Model {
             Model::Image { .. } => None,
         }
     }
+    #[tracing::instrument(skip(self))]
     pub fn max_image_dimensions(&self) -> Option<NonZeroUsize> {
         match self {
             Model::Text { .. } => None,
@@ -79,12 +84,14 @@ impl Model {
             } => Some(*max_image_dimensions),
         }
     }
+    #[tracing::instrument(skip(self))]
     pub fn model_name(&self) -> String {
         match self {
             Model::Text { name, .. } => name.clone(),
             Model::Image { name, .. } => name.clone(),
         }
     }
+    #[tracing::instrument(skip(self))]
     pub fn model_description(&self) -> String {
         match self {
             Model::Text { description, .. } => description.clone(),

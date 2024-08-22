@@ -77,6 +77,7 @@ impl StoreHandler {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_stores(&self) -> Stores {
         self.stores.clone()
     }
@@ -86,12 +87,14 @@ impl StoreHandler {
         self.write_flag.clone()
     }
 
+    #[tracing::instrument(skip(self))]
     fn set_write_flag(&self) {
         let _ = self
             .write_flag
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst);
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn use_snapshot(&mut self, stores_snapshot: Stores) {
         self.stores = stores_snapshot;
     }

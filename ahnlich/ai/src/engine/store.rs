@@ -39,6 +39,7 @@ impl AIStoreHandler {
             supported_models,
         }
     }
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_stores(&self) -> AIStores {
         self.stores.clone()
     }
@@ -48,12 +49,14 @@ impl AIStoreHandler {
         self.write_flag.clone()
     }
 
+    #[tracing::instrument(skip(self))]
     fn set_write_flag(&self) {
         let _ = self
             .write_flag
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst);
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn use_snapshot(&mut self, stores_snapshot: AIStores) {
         self.stores = stores_snapshot;
     }
@@ -282,6 +285,7 @@ impl AIStoreHandler {
             }
         }
     }
+    #[tracing::instrument(skip(self))]
     fn preprocess_raw_string(
         &self,
         input: String,
@@ -308,6 +312,7 @@ impl AIStoreHandler {
         Ok(StoreInput::RawString(input))
     }
 
+    #[tracing::instrument(skip(self))]
     fn process_image(
         &self,
         input: Vec<u8>,

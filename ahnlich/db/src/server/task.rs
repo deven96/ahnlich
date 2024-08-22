@@ -132,6 +132,7 @@ impl AhnlichProtocol for ServerTask {
 }
 
 impl ServerTask {
+    #[tracing::instrument(skip(self))]
     fn server_info(&self) -> ServerInfo {
         ServerInfo {
             address: format!("{}", self.server_addr),
