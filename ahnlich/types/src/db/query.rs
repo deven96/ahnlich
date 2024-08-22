@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU64, NonZeroUsize};
 
 use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserQuery};
 use crate::keyval::{StoreKey, StoreName, StoreValue};
@@ -74,13 +74,20 @@ pub enum Query {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ServerQuery {
     queries: Vec<Query>,
-    //trace_id: Option<u64>,
+    trace_id: Option<NonZeroU64>,
 }
 
 impl ServerQuery {
     pub fn with_capacity(len: usize) -> Self {
         Self {
             queries: Vec::with_capacity(len),
+            trace_id: None,
+        }
+    }
+    pub fn with_capacity_and_tracing_id(len: usize, trace_id: Option<NonZeroU64>) -> Self {
+        Self {
+            queries: Vec::with_capacity(len),
+            trace_id,
         }
     }
 
@@ -91,6 +98,7 @@ impl ServerQuery {
     pub fn from_queries(queries: &[Query]) -> Self {
         Self {
             queries: queries.to_vec(),
+            trace_id: None,
         }
     }
 }
@@ -102,5 +110,10 @@ impl BinCodeSerAndDeserQuery for ServerQuery {
 
     fn into_inner(self) -> Vec<Query> {
         self.queries
+    }
+    // TODO: might change default value
+    fn get_or_gen_trace_id(&self) -> NonZeroU64 {
+        self.trace_id
+            .unwrap_or(NonZeroU64::new(22222).expect("Failed to create db server trace id"))
     }
 }

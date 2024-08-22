@@ -8,7 +8,7 @@ use deadpool::managed::Pool;
 use deadpool::managed::RecycleError;
 use deadpool::managed::RecycleResult;
 use std::collections::HashSet;
-use std::num::NonZeroUsize;
+use std::num::{NonZeroU64, NonZeroUsize};
 
 /// TCP Connection manager to ahnlich db
 #[derive(Debug)]
@@ -180,9 +180,13 @@ impl AIClient {
 
     /// Instantiate a new pipeline with a given capacity. Runs commands sequentially on
     /// `pipeline.exec`
-    pub async fn pipeline(&self, capacity: usize) -> Result<AIPipeline, AhnlichError> {
+    pub async fn pipeline(
+        &self,
+        capacity: usize,
+        tracing_id: Option<NonZeroU64>,
+    ) -> Result<AIPipeline, AhnlichError> {
         Ok(AIPipeline {
-            queries: AIServerQuery::with_capacity(capacity),
+            queries: AIServerQuery::with_capacity_and_tracing_id(capacity, tracing_id),
             conn: self.pool.get().await?,
         })
     }
@@ -194,14 +198,18 @@ impl AIClient {
         index_model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
+        tracing_id: Option<NonZeroU64>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::CreateStore {
-            store,
-            query_model,
-            index_model,
-            predicates,
-            non_linear_indices,
-        })
+        self.exec(
+            AIQuery::CreateStore {
+                store,
+                query_model,
+                index_model,
+                predicates,
+                non_linear_indices,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -209,8 +217,10 @@ impl AIClient {
         &self,
         store: StoreName,
         condition: PredicateCondition,
+        tracing_id: Option<NonZeroU64>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::GetPred { store, condition }).await
+        self.exec(AIQuery::GetPred { store, condition }, tracing_id)
+            .await
     }
 
     pub async fn get_sim_n(
@@ -220,14 +230,18 @@ impl AIClient {
         condition: Option<PredicateCondition>,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
+        tracing_id: Option<NonZeroU64>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::GetSimN {
-            store,
-            search_input,
-            condition,
-            closest_n,
-            algorithm,
-        })
+        self.exec(
+            AIQuery::GetSimN {
+                store,
+                search_input,
+                condition,
+                closest_n,
+                algorithm,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -235,8 +249,9 @@ impl AIClient {
         &self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
+        tracing_id: Option<NonZeroU64>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::CreatePredIndex { store, predicates })
+        self.exec(AIQuery::CreatePredIndex { store, predicates }, tracing_id)
             .await
     }
 
@@ -245,12 +260,16 @@ impl AIClient {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
+        tracing_id: Option<NonZeroU64>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::DropPredIndex {
-            store,
-            predicates,
-            error_if_not_exists,
-        })
+        self.exec(
+            AIQuery::DropPredIndex {
+                store,
+                predicates,
+                error_if_not_exists,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -259,12 +278,16 @@ impl AIClient {
         store: StoreName,
         inputs: Vec<(StoreInput, StoreValue)>,
         preprocess_action: PreprocessAction,
+        tracing_id: Option<NonZeroU64>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::Set {
-            store,
-            inputs,
-            preprocess_action,
-        })
+        self.exec(
+            AIQuery::Set {
+                store,
+                inputs,
+                preprocess_action,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -272,42 +295,63 @@ impl AIClient {
         &self,
         store: StoreName,
         key: StoreInput,
+        tracing_id: Option<NonZeroU64>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::DelKey { store, key }).await
+        self.exec(AIQuery::DelKey { store, key }, tracing_id).await
     }
 
     pub async fn drop_store(
         &self,
         store: StoreName,
         error_if_not_exists: bool,
+        tracing_id: Option<NonZeroU64>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::DropStore {
-            store,
-            error_if_not_exists,
-        })
+        self.exec(
+            AIQuery::DropStore {
+                store,
+                error_if_not_exists,
+            },
+            tracing_id,
+        )
         .await
     }
 
-    pub async fn info_server(&self) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::InfoServer).await
+    pub async fn info_server(
+        &self,
+        tracing_id: Option<NonZeroU64>,
+    ) -> Result<AIServerResponse, AhnlichError> {
+        self.exec(AIQuery::InfoServer, tracing_id).await
     }
 
-    pub async fn list_stores(&self) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::ListStores).await
+    pub async fn list_stores(
+        &self,
+        tracing_id: Option<NonZeroU64>,
+    ) -> Result<AIServerResponse, AhnlichError> {
+        self.exec(AIQuery::ListStores, tracing_id).await
     }
 
-    pub async fn purge_stores(&self) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::PurgeStores).await
+    pub async fn purge_stores(
+        &self,
+        tracing_id: Option<NonZeroU64>,
+    ) -> Result<AIServerResponse, AhnlichError> {
+        self.exec(AIQuery::PurgeStores, tracing_id).await
     }
 
-    pub async fn ping(&self) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::Ping).await
+    pub async fn ping(
+        &self,
+        tracing_id: Option<NonZeroU64>,
+    ) -> Result<AIServerResponse, AhnlichError> {
+        self.exec(AIQuery::Ping, tracing_id).await
     }
 
-    async fn exec(&self, query: AIQuery) -> Result<AIServerResponse, AhnlichError> {
+    async fn exec(
+        &self,
+        query: AIQuery,
+        tracing_id: Option<NonZeroU64>,
+    ) -> Result<AIServerResponse, AhnlichError> {
         let mut conn = self.pool.get().await?;
 
-        let mut queries = AIServerQuery::with_capacity(1);
+        let mut queries = AIServerQuery::with_capacity_and_tracing_id(1, tracing_id);
         queries.push(query);
 
         let res = conn
@@ -371,7 +415,7 @@ mod tests {
         let ai_client = AIClient::new(host.to_string(), port)
             .await
             .expect("Could not initialize client");
-        assert!(ai_client.ping().await.is_ok());
+        assert!(ai_client.ping(None).await.is_ok());
     }
 
     #[tokio::test]
@@ -383,7 +427,7 @@ mod tests {
             .await
             .expect("Could not initialize client");
         let mut pipeline = ai_client
-            .pipeline(3)
+            .pipeline(3, None)
             .await
             .expect("Could not create pipeline");
         pipeline.list_stores();
@@ -402,7 +446,7 @@ mod tests {
         let ai_client = AIClient::new(host.to_string(), port)
             .await
             .expect("Could not initialize client");
-        assert!(ai_client.ping().await.is_err());
+        assert!(ai_client.ping(None).await.is_err());
     }
 
     #[tokio::test]
@@ -415,7 +459,7 @@ mod tests {
             .expect("Could not initialize client");
 
         let mut pipeline = ai_client
-            .pipeline(4)
+            .pipeline(4, None)
             .await
             .expect("Could not create pipeline");
         pipeline.create_store(
@@ -480,6 +524,7 @@ mod tests {
                 AIModel::Llama3,
                 HashSet::new(),
                 HashSet::new(),
+                None
             )
             .await
             .is_ok());
@@ -494,14 +539,19 @@ mod tests {
                         HashMap::new()
                     ),
                 ],
-                PreprocessAction::RawString(StringAction::ErrorIfTokensExceed)
+                PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+                None
             )
             .await
             .is_ok());
 
         assert_eq!(
             ai_client
-                .del_key(store_name, StoreInput::RawString("Adidas Yeezy".into()))
+                .del_key(
+                    store_name,
+                    StoreInput::RawString("Adidas Yeezy".into()),
+                    None
+                )
                 .await
                 .unwrap(),
             AIServerResponse::Del(1)
@@ -518,7 +568,7 @@ mod tests {
             .expect("Could not initialize client");
 
         let mut pipeline = ai_client
-            .pipeline(4)
+            .pipeline(4, None)
             .await
             .expect("Could not create pipeline");
         pipeline.create_store(
@@ -613,7 +663,7 @@ mod tests {
         ];
 
         let mut pipeline = ai_client
-            .pipeline(6)
+            .pipeline(6, None)
             .await
             .expect("Could not create pipeline");
 
@@ -674,6 +724,7 @@ mod tests {
                     key: matching_metadatakey,
                     value: matching_metadatavalue,
                 }),
+                None,
             )
             .await
             .unwrap();
@@ -734,7 +785,7 @@ mod tests {
         ];
 
         let mut pipeline = ai_client
-            .pipeline(7)
+            .pipeline(7, None)
             .await
             .expect("Could not create pipeline");
 

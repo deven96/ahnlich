@@ -16,7 +16,10 @@
 //! let manager = DbConnManager::new("127.0.0.1".into(), 1369);
 //! let pool = Pool::builder(manager).max_size(10).build().unwrap();
 //! let db_client = DbClient::new_with_pool(pool);
-//! db_client.ping().await.unwrap();
+//!
+//! // Library has support for distributed tracing. https://docs.rs/tracing/latest/tracing/span/struct.Id.html
+//! let tracing_id: Option<NonZeroU64> = None,
+//! db_client.ping(tracing_id).await.unwrap();
 //! ```
 //!
 //! ### AI Client
@@ -27,8 +30,10 @@
 //!
 //! let manager = AIConnManager::new("127.0.0.1".into(), 1369);
 //! let pool = Pool::builder(manager).max_size(10).build().unwrap();
+//! // Library has support for distributed tracing - https://docs.rs/tracing/latest/tracing/span/struct.Id.html
+//! let tracing_id: Option<NonZeroU64> = None,
 //! let ai_client = AIClient::new_with_pool(pool);
-//! ai_client.ping().await.unwrap();
+//! ai_client.ping(tracing_id).await.unwrap();
 //! ```
 //!
 //! ## Pipelining
@@ -42,7 +47,8 @@
 //! use ahnlich_client_rs::db::DbClient;
 //!
 //! let db_client = DbClient::new("127.0.0.1".into(), 1369).await.unwrap();
-//! let mut pipeline = db_client.pipeline(3).unwrap();
+//! let tracing_id: Option<NonZeroU64> = None,
+//! let mut pipeline = db_client.pipeline(3, tracing_id).unwrap();
 //! pipeline.info_server();
 //! pipeline.list_clients();
 //! pipeline.list_stores();
@@ -61,7 +67,8 @@
 //! use std::collections::HashSet;
 //!
 //! let db_client = DbClient::new("127.0.0.1".into(), 1369).await.unwrap();
-//! let mut pipeline = db_client.pipeline(1).unwrap();
+//! let tracing_id: Option<NonZeroU64> = None,
+//! let mut pipeline = db_client.pipeline(1, tracing_id).unwrap();
 //! pipeline.create_store(
 //!     // StoreName found in prelude
 //!     StoreName("Main".to_string()),
@@ -84,7 +91,8 @@
 //! let query_model = AIModel::Llama3;
 //! // Model used to set to create embeddings for set command
 //! let index_model = AIModel::Llama3;
-//! let mut pipeline = ai_client.pipeline(2).unwrap();
+//! let tracing_id: Option<NonZeroU64> = None,
+//! let mut pipeline = ai_client.pipeline(2, tracing_id).unwrap();
 //!   pipeline.create_store(
 //!       store_name.clone(),
 //!       query_model,

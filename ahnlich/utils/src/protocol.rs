@@ -81,7 +81,9 @@ where
                             match Self::ServerQuery::deserialize(&data) {
                                 Ok(queries) => {
                                 tracing::debug!("Got Queries {:?}", queries);
-                                let results = self.handle(queries.into_inner()).instrument(tracing::info_span!("handle").or_current()).await;
+
+                                let parent_id = queries.get_or_gen_trace_id();
+                                let results = self.handle(queries.into_inner()).instrument(tracing::info_span!(parent:&tracing::span::Id::from_non_zero_u64(parent_id), "handle").or_current()).await;
 
                                 if let Ok(binary_results) = results.serialize() {
                                     self.reader().get_mut().write_all(&binary_results).await?;

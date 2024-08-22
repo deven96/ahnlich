@@ -47,6 +47,7 @@ impl AhnlichProtocol for AIProxyTask {
 
     async fn handle(&self, queries: Vec<AIQuery>) -> AIServerResult {
         let mut result = AIServerResult::with_capacity(queries.len());
+        let parent_id = tracing::Span::current().id().map(|v| v.into_non_zero_u64());
 
         for query in queries {
             result.push(match query {
@@ -77,6 +78,7 @@ impl AhnlichProtocol for AIProxyTask {
                                 predicates,
                                 non_linear_indices,
                                 false,
+                                parent_id,
                             )
                             .await
                         {
@@ -130,12 +132,12 @@ impl AhnlichProtocol for AIProxyTask {
 
                         if let Err(err) = self
                             .db_client
-                            .del_pred(store.clone(), delete_condition)
+                            .del_pred(store.clone(), delete_condition, parent_id)
                             .await
                         {
                             Err(err.to_string())
                         } else {
-                            match self.db_client.set(store, db_inputs).await {
+                            match self.db_client.set(store, db_inputs, parent_id).await {
                                 Ok(res) => {
                                     if let ServerResponse::Set(upsert) = res {
                                         Ok(AIServerResponse::Set(upsert))
@@ -161,7 +163,11 @@ impl AhnlichProtocol for AIProxyTask {
                         value: HashSet::from_iter([metadata_value]),
                     });
 
-                    match self.db_client.del_pred(store, delete_condition).await {
+                    match self
+                        .db_client
+                        .del_pred(store, delete_condition, parent_id)
+                        .await
+                    {
                         Ok(res) => {
                             if let ServerResponse::Del(num) = res {
                                 Ok(AIServerResponse::Del(num))
@@ -178,7 +184,7 @@ impl AhnlichProtocol for AIProxyTask {
                     error_if_not_exists,
                 } => match self
                     .db_client
-                    .drop_store(store.clone(), error_if_not_exists)
+                    .drop_store(store.clone(), error_if_not_exists, parent_id)
                     .await
                 {
                     Ok(_) => self
@@ -196,7 +202,11 @@ impl AhnlichProtocol for AIProxyTask {
                             *AHNLICH_AI_RESERVED_META_KEY
                         ))
                     } else {
-                        match self.db_client.create_pred_index(store, predicates).await {
+                        match self
+                            .db_client
+                            .create_pred_index(store, predicates, parent_id)
+                            .await
+                        {
                             Ok(res) => {
                                 if let ServerResponse::CreateIndex(num) = res {
                                     Ok(AIServerResponse::CreateIndex(num))
@@ -220,7 +230,7 @@ impl AhnlichProtocol for AIProxyTask {
                     }
                     match self
                         .db_client
-                        .drop_pred_index(store, predicates, error_if_not_exists)
+                        .drop_pred_index(store, predicates, error_if_not_exists, parent_id)
                         .await
                     {
                         Ok(res) => {
@@ -236,7 +246,7 @@ impl AhnlichProtocol for AIProxyTask {
                 }
 
                 AIQuery::GetPred { store, condition } => {
-                    match self.db_client.get_pred(store, condition).await {
+                    match self.db_client.get_pred(store, condition, parent_id).await {
                         Ok(res) => {
                             if let ServerResponse::Get(response) = res {
                                 // conversion to store input here
@@ -265,7 +275,7 @@ impl AhnlichProtocol for AIProxyTask {
                     {
                         match self
                             .db_client
-                            .get_sim_n(store, store_key, closest_n, algorithm, condition)
+                            .get_sim_n(store, store_key, closest_n, algorithm, condition, parent_id)
                             .await
                         {
                             Ok(res) => {
