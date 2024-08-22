@@ -367,6 +367,11 @@
             "TYPENAME": "Query"
           }
         }
+      },
+      {
+        "trace_id": {
+          "OPTION": "U64"
+        }
       }
     ]
   }

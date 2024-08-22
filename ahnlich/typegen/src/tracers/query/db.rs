@@ -11,6 +11,7 @@ use serde_reflection::Registry;
 use serde_reflection::{Samples, Tracer, TracerConfig};
 use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet;
+use std::num::NonZeroU64;
 use std::num::NonZeroUsize;
 
 pub fn trace_db_query_enum() -> Registry {
@@ -87,6 +88,8 @@ pub fn trace_db_query_enum() -> Registry {
 
     let server_query =
         ServerDBQuery::from_queries(&[deletepred_variant.clone(), set_query.clone()]);
+    let trace_id = NonZeroU64::new(2322).expect("Failed to create typegen traceid");
+    let server_query_with_trace_id = ServerDBQuery::with_capacity_and_tracing_id(2, Some(trace_id));
 
     let _ = tracer
         .trace_value(&mut samples, &create_store)
@@ -113,6 +116,10 @@ pub fn trace_db_query_enum() -> Registry {
     let _ = tracer
         .trace_value(&mut samples, &server_query)
         .expect("Error tracing the server_query");
+
+    let _ = tracer
+        .trace_value(&mut samples, &server_query_with_trace_id)
+        .expect("Error tracing the server_query_with_trace_id");
 
     // trace enums to fix missing variants error
     //
