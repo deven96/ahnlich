@@ -74,6 +74,7 @@ pub enum Query {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ServerQuery {
     queries: Vec<Query>,
+    //trace_id: Option<u64>,
 }
 
 impl ServerQuery {

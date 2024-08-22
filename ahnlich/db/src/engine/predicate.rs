@@ -27,6 +27,7 @@ pub(super) struct PredicateIndices {
 }
 
 impl PredicateIndices {
+    #[tracing::instrument(skip(self))]
     pub(super) fn size(&self) -> usize {
         size_of_val(&self)
             + self
@@ -41,6 +42,7 @@ impl PredicateIndices {
                 .sum::<usize>()
     }
 
+    #[tracing::instrument]
     pub(super) fn init(allowed_predicates: Vec<MetadataKey>) -> Self {
         let created = ConcurrentHashSet::new();
         for key in allowed_predicates {
@@ -53,12 +55,14 @@ impl PredicateIndices {
     }
 
     /// returns the current predicates within predicate index
+    #[tracing::instrument(skip(self))]
     pub(super) fn current_predicates(&self) -> StdHashSet<MetadataKey> {
         let allowed_predicates = self.allowed_predicates.pin();
         allowed_predicates.into_iter().cloned().collect()
     }
 
     /// Removes a store key id when it's corresponding entry in the store is removed
+    #[tracing::instrument(skip(self))]
     pub(super) fn remove_store_keys(&self, remove_keys: &[StoreKeyId]) {
         let pinned = self.inner.pin();
         for (_, values) in pinned.iter() {
@@ -67,6 +71,7 @@ impl PredicateIndices {
     }
 
     /// Removes predicates from being tracked
+    #[tracing::instrument(skip(self))]
     pub(super) fn remove_predicates(
         &self,
         predicates: Vec<MetadataKey>,
@@ -100,6 +105,7 @@ impl PredicateIndices {
     /// This adds predicates to the allowed predicates and allows newer entries to be indexed
     /// It first checks for the predicates that do not currently exist and then attempts to add
     /// those to the underlying predicates
+    #[tracing::instrument(skip(self))]
     pub(super) fn add_predicates(
         &self,
         predicates: Vec<MetadataKey>,
@@ -138,6 +144,7 @@ impl PredicateIndices {
     }
 
     /// Adds predicates if the key is within allowed_predicates
+    #[tracing::instrument(skip(self))]
     pub(super) fn add(&self, new: Vec<(StoreKeyId, StoreValue)>) {
         let predicate_values = self.inner.pin();
         let iter = new
@@ -165,6 +172,7 @@ impl PredicateIndices {
     }
 
     /// returns the store key id that fulfill the predicate condition
+    #[tracing::instrument(skip(self))]
     pub(super) fn matches(
         &self,
         condition: &PredicateCondition,
@@ -232,6 +240,7 @@ mod custom_metadata_map {
 }
 
 impl PredicateIndex {
+    #[tracing::instrument(skip(self))]
     fn size(&self) -> usize {
         size_of_val(&self)
             + self
@@ -241,6 +250,7 @@ impl PredicateIndex {
                 .sum::<usize>()
     }
 
+    #[tracing::instrument]
     fn init(init: Vec<(MetadataValue, StoreKeyId)>) -> Self {
         let new = Self(InnerPredicateIndex::new());
         new.add(init);
@@ -248,6 +258,7 @@ impl PredicateIndex {
     }
 
     /// Removes a store key id when it's corresponding entry in the store is removed
+    #[tracing::instrument(skip(self))]
     fn remove_store_keys(&self, remove_keys: &[StoreKeyId]) {
         let inner = self.0.pin();
         for (_, values) in inner.iter() {
@@ -261,6 +272,7 @@ impl PredicateIndex {
     /// adds a store key id to the index using the predicate value
     /// TODO: Optimize stack consumption of this particular call as it seems to consume more than
     /// the default number when ran using Loom, this may cause an issue down the line
+    #[tracing::instrument(skip(self))]
     fn add(&self, update: Vec<(MetadataValue, StoreKeyId)>) {
         if update.is_empty() {
             return;
@@ -284,6 +296,7 @@ impl PredicateIndex {
     }
     /// checks the predicate index for a predicate op and value. The return type is a StdHashSet<_>
     /// because we do not modify it at any point so we do not need concurrency protection
+    #[tracing::instrument(skip(self))]
     fn matches(&self, predicate: &Predicate) -> StdHashSet<StoreKeyId> {
         let pinned = self.0.pin();
 

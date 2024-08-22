@@ -312,6 +312,7 @@ impl AhnlichProtocol for AIProxyTask {
 }
 
 impl AIProxyTask {
+    #[tracing::instrument(skip(self))]
     fn server_info(&self) -> ServerInfo {
         ServerInfo {
             address: format!("{}", self.server_addr),
