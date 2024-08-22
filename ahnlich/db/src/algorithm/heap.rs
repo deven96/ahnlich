@@ -18,16 +18,20 @@ impl<'a> MinHeap<'a> {
             max_capacity: capacity,
         }
     }
+    #[tracing::instrument(skip_all)]
     pub(crate) fn len(&self) -> usize {
         self.heap.len()
     }
+    #[tracing::instrument(skip_all)]
     pub(crate) fn push(&mut self, item: SimilarityVector<'a>) {
         self.heap.push(Reverse(item));
     }
+    #[tracing::instrument(skip_all)]
     pub(crate) fn pop(&mut self) -> Option<SimilarityVector<'a>> {
         self.heap.pop().map(|popped_item| popped_item.0)
     }
 
+    #[tracing::instrument(skip_all)]
     pub(crate) fn output(&mut self) -> Vec<(StoreKey, f32)> {
         let mut result: Vec<_> = Vec::with_capacity(self.max_capacity.get());
 
@@ -56,16 +60,20 @@ impl<'a> MaxHeap<'a> {
             max_capacity: capacity,
         }
     }
+    #[tracing::instrument(skip_all)]
     fn push(&mut self, item: SimilarityVector<'a>) {
         self.heap.push(item);
     }
+    #[tracing::instrument(skip_all)]
     pub(crate) fn pop(&mut self) -> Option<SimilarityVector<'a>> {
         self.heap.pop()
     }
+    #[tracing::instrument(skip_all)]
     pub(crate) fn len(&self) -> usize {
         self.heap.len()
     }
 
+    #[tracing::instrument(skip_all)]
     fn output(&mut self) -> Vec<(StoreKey, f32)> {
         let mut result: Vec<_> = Vec::with_capacity(self.max_capacity.get());
 
@@ -88,12 +96,14 @@ pub(crate) enum AlgorithmHeapType<'a> {
 }
 
 impl<'a> AlgorithmHeapType<'a> {
+    #[tracing::instrument(skip_all)]
     pub(crate) fn push(&mut self, item: SimilarityVector<'a>) {
         match self {
             Self::Max(h) => h.push(item),
             Self::Min(h) => h.push(item),
         }
     }
+    #[tracing::instrument(skip_all)]
     pub(crate) fn pop(&mut self) -> Option<SimilarityVector<'a>> {
         match self {
             Self::Max(h) => h.pop(),
@@ -101,6 +111,7 @@ impl<'a> AlgorithmHeapType<'a> {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub(crate) fn output(&mut self) -> Vec<(StoreKey, f32)> {
         match self {
             Self::Min(h) => h.output(),
