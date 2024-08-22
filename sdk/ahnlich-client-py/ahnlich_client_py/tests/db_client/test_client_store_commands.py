@@ -159,7 +159,7 @@ def test_client_get_key_succeeds(module_scopped_ahnlich_db, store_key, store_val
                 (store_key_2, {"job": db_query.MetadataValue__RawString("Assassin")}),
             ],
         )
-        _ = db_client.exec()
+        _ = builder.exec()
         response: db_response.ServerResult = db_client.get_key(**get_key_data)
     finally:
         db_client.cleanup()
@@ -237,7 +237,7 @@ def test_client_get_by_predicate_succeeds(spin_up_ahnlich_db, store_key, store_v
                 (store_key, store_value),
             ],
         )
-        _ = db_client.exec()
+        _ = builder.exec()
 
         response: db_response.ServerResult = db_client.get_by_predicate(
             **get_predicate_data
@@ -290,7 +290,7 @@ def test_client_get_sim_n_succeeds(spin_up_ahnlich_db, store_key, store_value):
         builder = db_client.pipeline()
         builder.create_store(**store_payload_no_predicates)
         builder.set(**store_data)
-        _ = db_client.exec()
+        _ = builder.exec()
         response: db_response.ServerResult = db_client.get_sim_n(**get_sim_n_data)
 
     finally:
@@ -372,7 +372,7 @@ def test_client_delete_predicate_succeeds(spin_up_ahnlich_db, store_key, store_v
             store_payload_no_predicates["store_name"], predicates=["rank"]
         )
         builder.set(**store_data)
-        _ = db_client.exec()
+        _ = builder.exec()
 
         response: db_response.ServerResult = db_client.delete_predicate(
             **delete_predicate_data
@@ -402,7 +402,7 @@ def test_client_delete_key_succeeds(spin_up_ahnlich_db, store_key, store_value):
         builder = db_client.pipeline()
         builder.create_store(**store_payload_no_predicates)
         builder.set(**store_data)
-        _ = db_client.exec()
+        _ = builder.exec()
         response: db_response.ServerResult = db_client.delete_key(**delete_key_data)
     finally:
         db_client.cleanup()
@@ -423,7 +423,7 @@ def test_client_drop_store_succeeds(spin_up_ahnlich_db):
     try:
         builder = db_client.pipeline()
         builder.create_store(**store_payload_no_predicates)
-        db_client.exec()
+        builder.exec()
         response: db_response.ServerResult = db_client.drop_store(**drop_store_data)
     finally:
         db_client.cleanup()
@@ -463,7 +463,7 @@ def test_client_list_stores_reflects_dropped_store(
             store_name=store_payload_no_predicates["store_name"],
             error_if_not_exists=True,
         )
-        db_client.exec()
+        builder.exec()
         response: db_response.ServerResult = db_client.list_stores()
     finally:
         db_client.cleanup()

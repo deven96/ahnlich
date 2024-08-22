@@ -1,14 +1,17 @@
 import typing
 
 from ahnlich_client_py import exceptions as ah_exceptions
-from ahnlich_client_py.internals import db_query
+from ahnlich_client_py.internals import db_query, db_response
 from ahnlich_client_py.internals import serde_types as st
+from ahnlich_client_py.internals.base_client import BaseClient
 from ahnlich_client_py.libs import NonZeroSizeInteger
 
 
 class AhnlichDBRequestBuilder:
-    def __init__(self) -> None:
+    def __init__(self, tracing_id=None, client: BaseClient = None) -> None:
         self.queries: typing.List[db_query.Query] = []
+        self.tracing_id = tracing_id
+        self.client: BaseClient = client
 
     def create_store(
         self,
@@ -130,6 +133,10 @@ class AhnlichDBRequestBuilder:
         # seems straight forward
         queries = self.queries[:]
 
-        server_query = db_query.ServerQuery(queries=queries)
+        server_query = db_query.ServerQuery(queries=queries, trace_id=self.tracing_id)
         self.drop()
         return server_query
+
+    def exec(self) -> db_response.ServerResult:
+        """Executes a pipelined request"""
+        return self.client.process_request(message=self.to_server_query())
