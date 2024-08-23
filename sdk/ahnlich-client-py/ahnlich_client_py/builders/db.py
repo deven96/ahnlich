@@ -21,7 +21,6 @@ class AhnlichDBRequestBuilder:
         non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = None,
         error_if_exists: bool = True,
     ):
-
         if not create_predicates:
             create_predicates = []
         if not non_linear_indices:
@@ -39,7 +38,6 @@ class AhnlichDBRequestBuilder:
         )
 
     def get_key(self, store_name: str, keys: typing.Sequence[db_query.Array]):
-
         self.queries.append(db_query.Query__GetKey(store=store_name, keys=keys))
 
     def get_by_predicate(self, store_name: str, condition: db_query.PredicateCondition):
@@ -81,6 +79,20 @@ class AhnlichDBRequestBuilder:
             db_query.Query__DropPredIndex(
                 store=store_name,
                 predicates=predicates,
+                error_if_not_exists=error_if_not_exists,
+            )
+        )
+
+    def drop_non_linear_algorithm_index(
+        self,
+        store_name: str,
+        non_linear_indices: typing.Sequence["NonLinearAlgorithm"],
+        error_if_not_exists: bool,
+    ):
+        self.queries.append(
+            db_query.Query__DropNonLinearAlgorithmIndex(
+                store=store_name,
+                non_linear_indices=non_linear_indices,
                 error_if_not_exists=error_if_not_exists,
             )
         )

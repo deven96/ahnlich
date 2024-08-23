@@ -1,3 +1,4 @@
+use super::super::errors::ServerError;
 use super::FindSimilarN;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_similarity::utils::Array1F32Ordered;
@@ -94,6 +95,28 @@ impl NonLinearAlgorithmIndices {
             algorithm_to_index.insert(algo, with_index, &algorithm_to_index.guard());
         }
         Self { algorithm_to_index }
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub fn remove_indices(
+        &self,
+        indices: HashSet<NonLinearAlgorithm>,
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
+        let pinned = self.algorithm_to_index.pin();
+        if let (true, Some(non_existing_index)) = (
+            error_if_not_exists,
+            indices.iter().find(|a| !pinned.contains_key(a)),
+        ) {
+            return Err(ServerError::NonLinearIndexNotFound(*non_existing_index));
+        }
+        let mut deleted = 0;
+        for index in indices {
+            if pinned.remove_entry(&index).is_some() {
+                deleted += 1;
+            }
+        }
+        Ok(deleted)
     }
 
     /// insert new entries into the non linear algorithm indices

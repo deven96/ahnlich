@@ -55,7 +55,6 @@ def test_ai_client_get_pred(spin_up_ahnlich_ai):
     )
 
     try:
-
         builder.exec()
         response = ai_client.get_pred(
             ai_store_payload_with_predicates["store_name"],
@@ -101,7 +100,6 @@ def test_ai_client_create_pred_index(spin_up_ahnlich_ai):
     ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
 
     try:
-
         builder = ai_client.pipeline()
         builder.create_store(**ai_store_payload_no_predicates)
         builder.list_stores()
@@ -126,7 +124,6 @@ def test_ai_client_drop_pred_index(spin_up_ahnlich_ai):
     ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
 
     try:
-
         builder = ai_client.pipeline()
         builder.create_store(**ai_store_payload_no_predicates)
         builder.list_stores()

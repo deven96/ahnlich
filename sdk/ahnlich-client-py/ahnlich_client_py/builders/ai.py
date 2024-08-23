@@ -8,7 +8,6 @@ from ahnlich_client_py.libs import NonZeroSizeInteger
 
 
 class AhnlichAIRequestBuilder:
-
     def __init__(self, tracing_id: str = None, client: BaseClient = None) -> None:
         self.queries: typing.List[ai_query.AIQuery] = []
         self.tracing_id = tracing_id
@@ -22,7 +21,6 @@ class AhnlichAIRequestBuilder:
         predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
     ):
-
         if not non_linear_indices:
             non_linear_indices = []
         if not predicates:
@@ -63,7 +61,6 @@ class AhnlichAIRequestBuilder:
         )
 
     def create_pred_index(self, store_name: str, predicates: typing.Sequence[str]):
-
         self.queries.append(
             ai_query.AIQuery__CreatePredIndex(store=store_name, predicates=predicates)
         )
@@ -74,11 +71,24 @@ class AhnlichAIRequestBuilder:
         predicates: typing.Sequence[str],
         error_if_not_exists: bool,
     ):
-
         self.queries.append(
             ai_query.AIQuery__DropPredIndex(
                 store=store_name,
                 predicates=predicates,
+                error_if_not_exists=error_if_not_exists,
+            )
+        )
+
+    def drop_non_linear_algorithm_index(
+        self,
+        store_name: str,
+        non_linear_indices: typing.Sequence["NonLinearAlgorithm"],
+        error_if_not_exists: bool,
+    ):
+        self.queries.append(
+            ai_query.AIQuery__DropNonLinearAlgorithmIndex(
+                store=store_name,
+                non_linear_indices=non_linear_indices,
                 error_if_not_exists=error_if_not_exists,
             )
         )
@@ -119,7 +129,6 @@ class AhnlichAIRequestBuilder:
         self.queries.append(ai_query.AIQuery__ListStores())
 
     def ping(self):
-
         self.queries.append(ai_query.AIQuery__Ping())
 
     def drop(self):

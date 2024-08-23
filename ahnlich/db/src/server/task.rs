@@ -89,6 +89,19 @@ impl AhnlichProtocol for ServerTask {
                     )
                     .map(ServerResponse::Del)
                     .map_err(|e| format!("{e}")),
+                DBQuery::DropNonLinearAlgorithmIndex {
+                    store,
+                    error_if_not_exists,
+                    non_linear_indices,
+                } => self
+                    .store_handler
+                    .drop_non_linear_algorithm_index(
+                        &store,
+                        non_linear_indices,
+                        error_if_not_exists,
+                    )
+                    .map(ServerResponse::Del)
+                    .map_err(|e| format!("{e}")),
                 DBQuery::Set { store, inputs } => self
                     .store_handler
                     .set_in_store(&store, inputs)

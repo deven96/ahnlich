@@ -19,7 +19,6 @@ from ahnlich_client_py.internals import (
 
 
 class BaseClient:
-
     def __init__(
         self,
         address: str,

@@ -316,6 +316,25 @@ impl StoreHandler {
         Ok(deleted)
     }
 
+    /// Matches DROPNONLINEARALGORITHMINDEX - Drops non linear algorithm if it exists, else returns
+    /// an error
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn drop_non_linear_algorithm_index(
+        &self,
+        store_name: &StoreName,
+        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
+        let store = self.get(store_name)?;
+        let deleted = store
+            .non_linear_indices
+            .remove_indices(non_linear_indices, error_if_not_exists)?;
+        if deleted > 0 {
+            self.set_write_flag();
+        };
+        Ok(deleted)
+    }
+
     /// Matches DROPSTORE - Drops a store if exist, else returns an error
     #[tracing::instrument(skip(self))]
     pub(crate) fn drop_store(

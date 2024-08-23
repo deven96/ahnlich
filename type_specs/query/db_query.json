@@ -276,6 +276,25 @@
         }
       },
       "6": {
+        "DropNonLinearAlgorithmIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "non_linear_indices": {
+                "SEQ": {
+                  "TYPENAME": "NonLinearAlgorithm"
+                }
+              }
+            },
+            {
+              "error_if_not_exists": "BOOL"
+            }
+          ]
+        }
+      },
+      "7": {
         "Set": {
           "STRUCT": [
             {
@@ -303,7 +322,7 @@
           ]
         }
       },
-      "7": {
+      "8": {
         "DelKey": {
           "STRUCT": [
             {
@@ -319,7 +338,7 @@
           ]
         }
       },
-      "8": {
+      "9": {
         "DelPred": {
           "STRUCT": [
             {
@@ -333,7 +352,7 @@
           ]
         }
       },
-      "9": {
+      "10": {
         "DropStore": {
           "STRUCT": [
             {
@@ -345,16 +364,16 @@
           ]
         }
       },
-      "10": {
+      "11": {
         "InfoServer": "UNIT"
       },
-      "11": {
+      "12": {
         "ListStores": "UNIT"
       },
-      "12": {
+      "13": {
         "ListClients": "UNIT"
       },
-      "13": {
+      "14": {
         "Ping": "UNIT"
       }
     }

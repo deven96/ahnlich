@@ -95,8 +95,16 @@ class AIQuery__DropPredIndex(AIQuery):
 
 
 @dataclass(frozen=True)
-class AIQuery__Set(AIQuery):
+class AIQuery__DropNonLinearAlgorithmIndex(AIQuery):
     INDEX = 5  # type: int
+    store: str
+    non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
+    error_if_not_exists: bool
+
+
+@dataclass(frozen=True)
+class AIQuery__Set(AIQuery):
+    INDEX = 6  # type: int
     store: str
     inputs: typing.Sequence[
         typing.Tuple["StoreInput", typing.Dict[str, "MetadataValue"]]
@@ -106,39 +114,39 @@ class AIQuery__Set(AIQuery):
 
 @dataclass(frozen=True)
 class AIQuery__DelKey(AIQuery):
-    INDEX = 6  # type: int
+    INDEX = 7  # type: int
     store: str
     key: "StoreInput"
 
 
 @dataclass(frozen=True)
 class AIQuery__DropStore(AIQuery):
-    INDEX = 7  # type: int
+    INDEX = 8  # type: int
     store: str
     error_if_not_exists: bool
 
 
 @dataclass(frozen=True)
 class AIQuery__InfoServer(AIQuery):
-    INDEX = 8  # type: int
-    pass
-
-
-@dataclass(frozen=True)
-class AIQuery__ListStores(AIQuery):
     INDEX = 9  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIQuery__PurgeStores(AIQuery):
+class AIQuery__ListStores(AIQuery):
     INDEX = 10  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIQuery__Ping(AIQuery):
+class AIQuery__PurgeStores(AIQuery):
     INDEX = 11  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIQuery__Ping(AIQuery):
+    INDEX = 12  # type: int
     pass
 
 
@@ -148,6 +156,7 @@ AIQuery.VARIANTS = [
     AIQuery__GetSimN,
     AIQuery__CreatePredIndex,
     AIQuery__DropPredIndex,
+    AIQuery__DropNonLinearAlgorithmIndex,
     AIQuery__Set,
     AIQuery__DelKey,
     AIQuery__DropStore,
