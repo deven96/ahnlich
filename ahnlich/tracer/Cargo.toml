@@ -7,6 +7,6 @@ edition = "2021"
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
 tracing-opentelemetry = "0.24.0"
-opentelemetry = "0.23.0"
+opentelemetry =  { version = "0.23.0", features = ["trace"] }
 opentelemetry-otlp = "0.16.0"
 opentelemetry_sdk = { version = "0.23.0", features = [ "rt-tokio", "rt-tokio-current-thread"]}

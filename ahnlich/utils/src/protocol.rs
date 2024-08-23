@@ -9,6 +9,7 @@ use ahnlich_types::version::Version;
 use ahnlich_types::version::VERSION;
 use std::fmt::Debug;
 use std::io::Error;
+use std::io::ErrorKind;
 use std::io::Result as IoResult;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
@@ -81,9 +82,11 @@ where
                             match Self::ServerQuery::deserialize(&data) {
                                 Ok(queries) => {
                                 tracing::debug!("Got Queries {:?}", queries);
-
-                                let parent_id = queries.get_or_gen_trace_id();
-                                let results = self.handle(queries.into_inner()).instrument(tracing::info_span!(parent:&tracing::span::Id::from_non_zero_u64(parent_id), "handle").or_current()).await;
+                                let span = tracing::info_span!("query-processor");
+                                if let Some(trace_parent) = queries.get_traceparent() {
+                                    tracer::trace_parent_to_span(trace_parent).map_err(|err|Error::new(ErrorKind::Other, err))?
+                                }
+                                let results = self.handle(queries.into_inner()).instrument(tracing::info_span!(parent:&span, "handle").or_current()).await;
 
                                 if let Ok(binary_results) = results.serialize() {
                                     self.reader().get_mut().write_all(&binary_results).await?;

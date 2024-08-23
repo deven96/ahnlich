@@ -200,7 +200,7 @@
       },
       {
         "trace_id": {
-          "OPTION": "U64"
+          "OPTION": "STR"
         }
       }
     ]

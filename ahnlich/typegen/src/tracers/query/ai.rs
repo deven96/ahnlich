@@ -11,7 +11,7 @@ use ahnlich_types::{
 use serde_reflection::Registry;
 use serde_reflection::{Samples, Tracer, TracerConfig};
 use std::collections::{HashMap as StdHashMap, HashSet};
-use std::num::{NonZeroU64, NonZeroUsize};
+use std::num::NonZeroUsize;
 
 pub fn trace_ai_query_enum() -> Registry {
     let mut tracer = Tracer::new(TracerConfig::default());
@@ -91,7 +91,7 @@ pub fn trace_ai_query_enum() -> Registry {
         store: sample_store_name.clone(),
         error_if_not_exists: true,
     };
-    let trace_id = NonZeroU64::new(2322).expect("Failed to create typegen traceid");
+    let trace_id = "00-djf9039023r3-1er".to_string();
     let server_query_with_trace_id = AIServerQuery::with_capacity_and_tracing_id(2, Some(trace_id));
     let server_query = AIServerQuery::from_queries(&[del_key.clone(), set.clone()]);
 

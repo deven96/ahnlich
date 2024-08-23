@@ -5,7 +5,7 @@ use crate::predicate::PredicateCondition;
 use crate::similarity::{Algorithm, NonLinearAlgorithm};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::num::{NonZeroU64, NonZeroUsize};
+use std::num::NonZeroUsize;
 
 use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserQuery};
 
@@ -60,7 +60,7 @@ pub enum AIQuery {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AIServerQuery {
     queries: Vec<AIQuery>,
-    trace_id: Option<NonZeroU64>,
+    trace_id: Option<String>,
 }
 
 impl AIServerQuery {
@@ -70,7 +70,7 @@ impl AIServerQuery {
             trace_id: None,
         }
     }
-    pub fn with_capacity_and_tracing_id(len: usize, trace_id: Option<NonZeroU64>) -> Self {
+    pub fn with_capacity_and_tracing_id(len: usize, trace_id: Option<String>) -> Self {
         Self {
             queries: Vec::with_capacity(len),
             trace_id,
@@ -98,8 +98,7 @@ impl BinCodeSerAndDeserQuery for AIServerQuery {
         self.queries
     }
     // TODO: might change default value
-    fn get_or_gen_trace_id(&self) -> NonZeroU64 {
-        self.trace_id
-            .unwrap_or(NonZeroU64::new(1111).expect("Failed to create aiserver trace id"))
+    fn get_traceparent(&self) -> Option<String> {
+        self.trace_id.clone()
     }
 }

@@ -1,5 +1,3 @@
-use std::num::NonZeroU64;
-
 use crate::version::VERSION;
 use bincode::config::DefaultOptions;
 use bincode::config::Options;
@@ -59,7 +57,7 @@ where
 {
     type Inner;
     fn into_inner(self) -> Self::Inner;
-    fn get_or_gen_trace_id(&self) -> NonZeroU64;
+    fn get_traceparent(&self) -> Option<String>;
 }
 
 pub trait BinCodeSerAndDeserResponse: BinCodeSerAndDeser {

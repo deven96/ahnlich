@@ -50,7 +50,7 @@ impl AIProxyServer {
                 .otel_endpoint
                 .to_owned()
                 .unwrap_or("http://127.0.0.1:4317".to_string());
-            tracer::init_tracing("ahnlich-db", Some(&config.log_level), &otel_url)
+            tracer::init_tracing("ahnlich-ai", Some(&config.log_level), &otel_url)
         }
         let write_flag = Arc::new(AtomicBool::new(false));
         let db_client = Self::build_db_client(&config).await;

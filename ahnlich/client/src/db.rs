@@ -8,7 +8,7 @@ use deadpool::managed::Pool;
 use deadpool::managed::RecycleError;
 use deadpool::managed::RecycleResult;
 use std::collections::HashSet;
-use std::num::{NonZeroU64, NonZeroUsize};
+use std::num::NonZeroUsize;
 
 /// TCP Connection manager to ahnlich db
 #[derive(Debug)]
@@ -186,7 +186,7 @@ impl DbClient {
     pub async fn pipeline(
         &self,
         capacity: usize,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<DbPipeline, AhnlichError> {
         Ok(DbPipeline {
             queries: ServerDBQuery::with_capacity_and_tracing_id(capacity, tracing_id),
@@ -201,7 +201,7 @@ impl DbClient {
         create_predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(
             DBQuery::CreateStore {
@@ -220,7 +220,7 @@ impl DbClient {
         &self,
         store: StoreName,
         keys: Vec<StoreKey>,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::GetKey { store, keys }, tracing_id).await
     }
@@ -229,7 +229,7 @@ impl DbClient {
         &self,
         store: StoreName,
         condition: PredicateCondition,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::GetPred { store, condition }, tracing_id)
             .await
@@ -242,7 +242,7 @@ impl DbClient {
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(
             DBQuery::GetSimN {
@@ -261,7 +261,7 @@ impl DbClient {
         &self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::CreatePredIndex { store, predicates }, tracing_id)
             .await
@@ -272,7 +272,7 @@ impl DbClient {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(
             DBQuery::DropPredIndex {
@@ -289,7 +289,7 @@ impl DbClient {
         &self,
         store: StoreName,
         inputs: Vec<(StoreKey, StoreValue)>,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::Set { store, inputs }, tracing_id).await
     }
@@ -298,7 +298,7 @@ impl DbClient {
         &self,
         store: StoreName,
         keys: Vec<StoreKey>,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::DelKey { store, keys }, tracing_id).await
     }
@@ -307,7 +307,7 @@ impl DbClient {
         &self,
         store: StoreName,
         condition: PredicateCondition,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::DelPred { store, condition }, tracing_id)
             .await
@@ -317,7 +317,7 @@ impl DbClient {
         &self,
         store: StoreName,
         error_if_not_exists: bool,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(
             DBQuery::DropStore {
@@ -329,30 +329,27 @@ impl DbClient {
         .await
     }
 
-    pub async fn ping(
-        &self,
-        tracing_id: Option<NonZeroU64>,
-    ) -> Result<ServerResponse, AhnlichError> {
+    pub async fn ping(&self, tracing_id: Option<String>) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::Ping, tracing_id).await
     }
 
     pub async fn info_server(
         &self,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::InfoServer, tracing_id).await
     }
 
     pub async fn list_stores(
         &self,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::ListStores, tracing_id).await
     }
 
     pub async fn list_clients(
         &self,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::ListClients, tracing_id).await
     }
@@ -360,7 +357,7 @@ impl DbClient {
     async fn exec(
         &self,
         query: DBQuery,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         let mut conn = self.pool.get().await?;
         let mut queries = ServerDBQuery::with_capacity_and_tracing_id(1, tracing_id);

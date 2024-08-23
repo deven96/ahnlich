@@ -8,7 +8,7 @@ use deadpool::managed::Pool;
 use deadpool::managed::RecycleError;
 use deadpool::managed::RecycleResult;
 use std::collections::HashSet;
-use std::num::{NonZeroU64, NonZeroUsize};
+use std::num::NonZeroUsize;
 
 /// TCP Connection manager to ahnlich db
 #[derive(Debug)]
@@ -183,7 +183,7 @@ impl AIClient {
     pub async fn pipeline(
         &self,
         capacity: usize,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIPipeline, AhnlichError> {
         Ok(AIPipeline {
             queries: AIServerQuery::with_capacity_and_tracing_id(capacity, tracing_id),
@@ -198,7 +198,7 @@ impl AIClient {
         index_model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::CreateStore {
@@ -217,7 +217,7 @@ impl AIClient {
         &self,
         store: StoreName,
         condition: PredicateCondition,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(AIQuery::GetPred { store, condition }, tracing_id)
             .await
@@ -230,7 +230,7 @@ impl AIClient {
         condition: Option<PredicateCondition>,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::GetSimN {
@@ -249,7 +249,7 @@ impl AIClient {
         &self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(AIQuery::CreatePredIndex { store, predicates }, tracing_id)
             .await
@@ -260,7 +260,7 @@ impl AIClient {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::DropPredIndex {
@@ -278,7 +278,7 @@ impl AIClient {
         store: StoreName,
         inputs: Vec<(StoreInput, StoreValue)>,
         preprocess_action: PreprocessAction,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::Set {
@@ -295,7 +295,7 @@ impl AIClient {
         &self,
         store: StoreName,
         key: StoreInput,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(AIQuery::DelKey { store, key }, tracing_id).await
     }
@@ -304,7 +304,7 @@ impl AIClient {
         &self,
         store: StoreName,
         error_if_not_exists: bool,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::DropStore {
@@ -318,36 +318,33 @@ impl AIClient {
 
     pub async fn info_server(
         &self,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(AIQuery::InfoServer, tracing_id).await
     }
 
     pub async fn list_stores(
         &self,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(AIQuery::ListStores, tracing_id).await
     }
 
     pub async fn purge_stores(
         &self,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(AIQuery::PurgeStores, tracing_id).await
     }
 
-    pub async fn ping(
-        &self,
-        tracing_id: Option<NonZeroU64>,
-    ) -> Result<AIServerResponse, AhnlichError> {
+    pub async fn ping(&self, tracing_id: Option<String>) -> Result<AIServerResponse, AhnlichError> {
         self.exec(AIQuery::Ping, tracing_id).await
     }
 
     async fn exec(
         &self,
         query: AIQuery,
-        tracing_id: Option<NonZeroU64>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         let mut conn = self.pool.get().await?;
 
