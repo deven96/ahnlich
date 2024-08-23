@@ -52,6 +52,7 @@ pub fn shutdown_tracing() {
     global::shutdown_tracer_provider();
 }
 
+const TRACING_VERSION: u8 = 00;
 pub fn span_to_trace_parent(span: tracing::Span) -> Option<String> {
     let otel_context = span.context();
     let span_ref = otel_context.span();
@@ -60,7 +61,7 @@ pub fn span_to_trace_parent(span: tracing::Span) -> Option<String> {
     if span_context.is_valid() {
         let trace_parent = format!(
             "{:02x}-{:032x}-{:016x}-{:02x}",
-            00,
+            TRACING_VERSION,
             span_context.trace_id(),
             span_context.span_id(),
             span_context.trace_flags()
@@ -71,11 +72,12 @@ pub fn span_to_trace_parent(span: tracing::Span) -> Option<String> {
     }
 }
 
-pub struct Traceparent {
-    pub version: u8,
-    pub trace_id: u128, // 16 bytes
-    pub parent_id: u64, // 8 bytes
-    pub flags: u8,
+#[allow(dead_code)]
+struct Traceparent {
+    version: u8,
+    trace_id: u128, // 16 bytes
+    parent_id: u64, // 8 bytes
+    flags: u8,
 }
 
 impl Traceparent {
