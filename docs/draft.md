@@ -106,6 +106,7 @@
 
     - `CREATEPREDINDEX`: Creates indexes in a store using some predicates. Adds the predicates that did not exist previously so it is idempotent, and does not remove existing predicates
     - `DROPPREDINDEX`: takes in predicate, store and drops the predicate for that store
+    - `DROPNONLINEARALGORITHMINDEX`: takes in store and non linear indices to drop if they exist
 
     - `SET`: takes in store, length of input vector, input of which each should have a key matching store dimension and value of type json.
 

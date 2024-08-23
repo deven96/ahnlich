@@ -228,7 +228,6 @@ def test_client_get_by_predicate_succeeds(spin_up_ahnlich_db, store_key, store_v
     }
     # process data
     try:
-
         builder = db_client.pipeline()
         builder.create_store(**store_payload_no_predicates)
         builder.set(
@@ -255,7 +254,6 @@ def assert_store_value(
     store_value_1: typing.Dict[str, db_query.MetadataValue],
     store_value_2: typing.Dict[str, db_query.MetadataValue],
 ):
-
     for key_1, key_2 in zip(store_value_1.keys(), store_value_2.keys()):
         assert key_1 == key_2
         assert store_value_1[key_1].value == store_value_2[key_2].value
@@ -398,7 +396,6 @@ def test_client_delete_key_succeeds(spin_up_ahnlich_db, store_key, store_value):
     }
 
     try:
-
         builder = db_client.pipeline()
         builder.create_store(**store_payload_no_predicates)
         builder.set(**store_data)

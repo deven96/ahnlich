@@ -49,6 +49,11 @@ pub enum Query {
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
     },
+    DropNonLinearAlgorithmIndex {
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+        error_if_not_exists: bool,
+    },
     Set {
         store: StoreName,
         inputs: Vec<(StoreKey, StoreValue)>,

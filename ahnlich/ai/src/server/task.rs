@@ -247,7 +247,32 @@ impl AhnlichProtocol for AIProxyTask {
                         Err(err) => Err(format!("{err}")),
                     }
                 }
-
+                AIQuery::DropNonLinearAlgorithmIndex {
+                    store,
+                    non_linear_indices,
+                    error_if_not_exists,
+                } => {
+                    match self
+                        .db_client
+                        .drop_non_linear_algorithm_index(
+                            store,
+                            non_linear_indices,
+                            error_if_not_exists,
+                            parent_id.clone(),
+                        )
+                        .await
+                    {
+                        Ok(res) => {
+                            if let ServerResponse::Del(num) = res {
+                                Ok(AIServerResponse::Del(num))
+                            } else {
+                                Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
+                                    .to_string())
+                            }
+                        }
+                        Err(err) => Err(format!("{err}")),
+                    }
+                }
                 AIQuery::GetPred { store, condition } => {
                     match self
                         .db_client

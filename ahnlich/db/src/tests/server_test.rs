@@ -600,6 +600,114 @@ async fn test_set_in_store() {
 }
 
 #[tokio::test]
+async fn test_remove_non_linear_indices() {
+    let server = Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let address = server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // Allow some time for the server to start
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let message = ServerDBQuery::from_queries(&[
+        DBQuery::CreateStore {
+            store: StoreName("Main".to_string()),
+            dimension: NonZeroUsize::new(3).unwrap(),
+            create_predicates: HashSet::from_iter([MetadataKey::new("medal".into())]),
+            non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+            error_if_exists: true,
+        },
+        DBQuery::Set {
+            store: StoreName("Main".to_string()),
+            inputs: vec![
+                (
+                    StoreKey(array![1.2, 1.3, 1.4]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("silver".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(array![2.0, 2.1, 2.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("gold".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(array![5.0, 5.1, 5.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("bronze".into()),
+                    )]),
+                ),
+            ],
+        },
+        // should return result restricted to 2
+        DBQuery::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::KDTree,
+            search_input: StoreKey(array![1.1, 2.0, 3.0]),
+            condition: None,
+        },
+        // should remove index
+        DBQuery::DropNonLinearAlgorithmIndex {
+            store: StoreName("Main".to_string()),
+            non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+            error_if_not_exists: false,
+        },
+        // should error as non linear index no longer exists
+        DBQuery::DropNonLinearAlgorithmIndex {
+            store: StoreName("Main".to_string()),
+            non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+            error_if_not_exists: true,
+        },
+        // should return error as KDTree no longer exists
+        DBQuery::GetSimN {
+            store: StoreName("Main".to_string()),
+            closest_n: NonZeroUsize::new(2).unwrap(),
+            algorithm: Algorithm::KDTree,
+            search_input: StoreKey(array![1.1, 2.0, 3.0]),
+            condition: None,
+        },
+    ]);
+    let mut expected = ServerResult::with_capacity(7);
+    expected.push(Ok(ServerResponse::Unit));
+    expected.push(Ok(ServerResponse::Set(StoreUpsert {
+        inserted: 3,
+        updated: 0,
+    })));
+    expected.push(Ok(ServerResponse::GetSimN(vec![
+        (
+            StoreKey(array![2.0, 2.1, 2.2]),
+            HashMap::from_iter([(
+                MetadataKey::new("medal".into()),
+                MetadataValue::RawString("gold".into()),
+            )]),
+            Similarity(1.4599998),
+        ),
+        (
+            StoreKey(array![1.2, 1.3, 1.4]),
+            HashMap::from_iter([(
+                MetadataKey::new("medal".into()),
+                MetadataValue::RawString("silver".into()),
+            )]),
+            Similarity(3.0600002),
+        ),
+    ])));
+    expected.push(Ok(ServerResponse::Del(1)));
+    expected.push(Err(
+        "Non linear algorithm KDTree not found in store, create store with support".into(),
+    ));
+    expected.push(Err(
+        "Non linear algorithm KDTree not found in store, create store with support".into(),
+    ));
+    let stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(stream);
+    query_server_assert_result(&mut reader, message, expected).await
+}
+
+#[tokio::test]
 async fn test_get_sim_n_non_linear() {
     let server = Server::new(&CONFIG)
         .await

@@ -18,7 +18,6 @@ class AhnlichDBClient(BaseClient):
         connect_timeout_sec: float = 5.0,
         pool_settings: AhnlichPoolSettings = AhnlichPoolSettings(),
     ) -> None:
-
         super().__init__(
             address=address,
             port=port,
@@ -35,7 +34,6 @@ class AhnlichDBClient(BaseClient):
         keys: typing.Sequence[db_query.Array],
         tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
-
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.get_key(store_name=store_name, keys=keys)
         return self.process_request(builder.to_server_query())
@@ -94,6 +92,21 @@ class AhnlichDBClient(BaseClient):
         )
         return self.process_request(builder.to_server_query())
 
+    def drop_non_linear_algorithm_index(
+        self,
+        store_name: str,
+        non_linear_indices: typing.Sequence["NonLinearAlgorithm"],
+        error_if_not_exists: bool,
+        tracing_id: typing.Optional[str] = None,
+    ):
+        builder = builders.AhnlichDBRequestBuilder(tracing_id)
+        builder.drop_non_linear_algorithm_index()(
+            store_name=store_name,
+            non_linear_indices=non_linear_indices,
+            error_if_not_exists=error_if_not_exists,
+        )
+        return self.process_request(builder.to_server_query())
+
     def set(
         self,
         store_name: str,
@@ -147,7 +160,6 @@ class AhnlichDBClient(BaseClient):
         error_if_exists: bool = True,
         tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
-
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.create_store(
             store_name=store_name,

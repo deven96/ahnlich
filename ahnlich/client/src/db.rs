@@ -111,6 +111,20 @@ impl DbPipeline {
         })
     }
 
+    /// push drop non linear index command to pipeline
+    pub fn drop_non_linear_algorithm_index(
+        &mut self,
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+        error_if_not_exists: bool,
+    ) {
+        self.queries.push(DBQuery::DropNonLinearAlgorithmIndex {
+            store,
+            non_linear_indices,
+            error_if_not_exists,
+        })
+    }
+
     /// push set command to pipeline
     pub fn set(&mut self, store: StoreName, inputs: Vec<(StoreKey, StoreValue)>) {
         self.queries.push(DBQuery::Set { store, inputs })
@@ -278,6 +292,24 @@ impl DbClient {
             DBQuery::DropPredIndex {
                 store,
                 predicates,
+                error_if_not_exists,
+            },
+            tracing_id,
+        )
+        .await
+    }
+
+    pub async fn drop_non_linear_algorithm_index(
+        &self,
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+        error_if_not_exists: bool,
+        tracing_id: Option<String>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(
+            DBQuery::DropNonLinearAlgorithmIndex {
+                store,
+                non_linear_indices,
                 error_if_not_exists,
             },
             tracing_id,
