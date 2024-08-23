@@ -1,9 +1,8 @@
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-
 
 from ahnlich_client_py.clients import AhnlichAIClient
 from ahnlich_client_py.internals import ai_query
