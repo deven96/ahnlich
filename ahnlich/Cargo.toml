@@ -39,3 +39,5 @@ rand = "0.8"
 rayon = "1.10"
 cap = "0.1.2"
 deadpool = { version = "0.10", features = ["rt_tokio_1"]}
+opentelemetry =  { version = "0.23.0", features = ["trace"] }
+tracing-opentelemetry = "0.24.0"

@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use opentelemetry::{global, trace::TraceContextExt, KeyValue};
+use opentelemetry::{global, trace::TraceContextExt, Context, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
     propagation::TraceContextPropagator,
     trace::{self, Sampler},
     Resource,
 };
-use tracing::{subscriber::set_global_default, Span};
+use tracing::subscriber::set_global_default;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
@@ -96,13 +96,12 @@ impl Traceparent {
     }
 }
 
-pub fn trace_parent_to_span(trace_parent: String) -> Result<(), String> {
+pub fn trace_parent_to_span(trace_parent: String) -> Result<Context, String> {
     let _ = Traceparent::parse(&trace_parent)?;
     let mut carrier = HashMap::new();
     carrier.insert("traceparent".to_string(), trace_parent);
     let parent_context = global::get_text_map_propagator(|propagator| propagator.extract(&carrier));
-    Span::current().set_parent(parent_context);
-    Ok(())
+    Ok(parent_context)
 }
 
 #[cfg(test)]
