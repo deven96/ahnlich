@@ -351,6 +351,7 @@ Query.VARIANTS = [
 @dataclass(frozen=True)
 class ServerQuery:
     queries: typing.Sequence["Query"]
+    trace_id: typing.Optional[str]
 
     def bincode_serialize(self) -> bytes:
         return bincode.serialize(self, ServerQuery)

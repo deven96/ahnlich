@@ -9,12 +9,14 @@ use ahnlich_types::version::Version;
 use ahnlich_types::version::VERSION;
 use std::fmt::Debug;
 use std::io::Error;
+use std::io::ErrorKind;
 use std::io::Result as IoResult;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::select;
 use tokio_graceful::ShutdownGuard;
 use tracing::Instrument;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 #[async_trait::async_trait]
 pub trait AhnlichProtocol
@@ -81,8 +83,12 @@ where
                             match Self::ServerQuery::deserialize(&data) {
                                 Ok(queries) => {
                                 tracing::debug!("Got Queries {:?}", queries);
-                                let results = self.handle(queries.into_inner()).instrument(tracing::info_span!("handle").or_current()).await;
-
+                                let span = tracing::info_span!("query-processor");
+                                if let Some(trace_parent) = queries.get_traceparent() {
+                                    let parent_context = tracer::trace_parent_to_span(trace_parent).map_err(|err|Error::new(ErrorKind::Other, err))?;
+                                    span.set_parent(parent_context);
+                                }
+                                let results = self.handle(queries.into_inner()).instrument(span).await;
                                 if let Ok(binary_results) = results.serialize() {
                                     self.reader().get_mut().write_all(&binary_results).await?;
                                     tracing::debug!("Sent Response of length {}, {:?}", binary_results.len(), binary_results);

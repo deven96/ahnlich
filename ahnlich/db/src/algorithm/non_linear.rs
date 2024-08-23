@@ -15,6 +15,7 @@ pub(crate) enum NonLinearAlgorithmWithIndex {
     KDTree(KDTree),
 }
 impl NonLinearAlgorithmWithIndex {
+    #[tracing::instrument]
     pub(crate) fn create(algorithm: NonLinearAlgorithm, dimension: NonZeroUsize) -> Self {
         match algorithm {
             NonLinearAlgorithm::KDTree => NonLinearAlgorithmWithIndex::KDTree(
@@ -24,6 +25,7 @@ impl NonLinearAlgorithmWithIndex {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn insert(&self, new: &[Array1<f32>]) {
         match self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
@@ -34,6 +36,7 @@ impl NonLinearAlgorithmWithIndex {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn delete(&self, new: &[Array1<f32>]) {
         match self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
@@ -46,6 +49,7 @@ impl NonLinearAlgorithmWithIndex {
 }
 
 impl FindSimilarN for NonLinearAlgorithmWithIndex {
+    #[tracing::instrument(skip_all)]
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &StoreKey,
@@ -82,6 +86,7 @@ pub struct NonLinearAlgorithmIndices {
 }
 
 impl NonLinearAlgorithmIndices {
+    #[tracing::instrument]
     pub fn create(input: HashSet<NonLinearAlgorithm>, dimension: NonZeroUsize) -> Self {
         let algorithm_to_index = ConcurrentHashMap::new();
         for algo in input {
@@ -92,6 +97,7 @@ impl NonLinearAlgorithmIndices {
     }
 
     /// insert new entries into the non linear algorithm indices
+    #[tracing::instrument(skip_all)]
     pub(crate) fn insert(&self, new: Vec<Array1<f32>>) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {
@@ -100,6 +106,7 @@ impl NonLinearAlgorithmIndices {
     }
 
     /// delete old entries from the non linear algorithm indices
+    #[tracing::instrument(skip_all)]
     pub(crate) fn delete(&self, old: &[Array1<f32>]) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {

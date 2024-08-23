@@ -197,6 +197,11 @@
             "TYPENAME": "AIQuery"
           }
         }
+      },
+      {
+        "trace_id": {
+          "OPTION": "STR"
+        }
       }
     ]
   },

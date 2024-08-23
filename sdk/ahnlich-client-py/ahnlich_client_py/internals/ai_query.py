@@ -161,6 +161,7 @@ AIQuery.VARIANTS = [
 @dataclass(frozen=True)
 class AIServerQuery:
     queries: typing.Sequence["AIQuery"]
+    trace_id: typing.Optional[str]
 
     def bincode_serialize(self) -> bytes:
         return bincode.serialize(self, AIServerQuery)

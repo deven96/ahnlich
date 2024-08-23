@@ -35,7 +35,7 @@ pub struct AIProxyConfig {
     pub host: String,
 
     /// Ahnlich AI proxy port
-    #[arg(long, default_value_t = 8000)]
+    #[arg(long, default_value_t = 1370)]
     pub port: u16,
 
     /// Allows server to persist data to disk on occassion
@@ -98,7 +98,7 @@ impl Default for AIProxyConfig {
     fn default() -> Self {
         Self {
             host: String::from("127.0.0.1"),
-            port: 8000,
+            port: 1370,
             enable_persistence: false,
             persist_location: None,
             persistence_interval: 1000 * 60 * 5,

@@ -57,6 +57,7 @@ where
 {
     type Inner;
     fn into_inner(self) -> Self::Inner;
+    fn get_traceparent(&self) -> Option<String>;
 }
 
 pub trait BinCodeSerAndDeserResponse: BinCodeSerAndDeser {

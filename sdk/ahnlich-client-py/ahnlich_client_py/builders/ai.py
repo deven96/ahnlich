@@ -1,14 +1,18 @@
 import typing
 
 from ahnlich_client_py import exceptions as ah_exceptions
-from ahnlich_client_py.internals import ai_query
+from ahnlich_client_py.internals import ai_query, ai_response
 from ahnlich_client_py.internals import serde_types as st
+from ahnlich_client_py.internals.base_client import BaseClient
 from ahnlich_client_py.libs import NonZeroSizeInteger
 
 
 class AhnlichAIRequestBuilder:
-    def __init__(self) -> None:
+
+    def __init__(self, tracing_id: str = None, client: BaseClient = None) -> None:
         self.queries: typing.List[ai_query.AIQuery] = []
+        self.tracing_id = tracing_id
+        self.client: BaseClient = client
 
     def create_store(
         self,
@@ -129,6 +133,10 @@ class AhnlichAIRequestBuilder:
         # not optimal, but so far, recreating the list and dropping the internal store.
         # seems straight forward
         queries = self.queries[:]
-        server_query = ai_query.AIServerQuery(queries=queries)
+        server_query = ai_query.AIServerQuery(queries=queries, trace_id=self.tracing_id)
         self.drop()
         return server_query
+
+    def exec(self) -> ai_response.AIServerResult:
+        """Executes a pipelined request"""
+        return self.client.process_request(message=self.to_server_query())
