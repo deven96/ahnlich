@@ -109,4 +109,18 @@ pub fn trace_parent_to_span(trace_parent: String) -> Result<Context, String> {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_trace_parent_parsing() {
+        assert!(Traceparent::parse("adsfhasdfs").is_err());
+        // right length wrong segments
+        assert!(
+            Traceparent::parse("00-80e1afed08e019fc1110464cfa66635c-7a085853722dc6d2001").is_err()
+        );
+        assert!(
+            Traceparent::parse("00-80e1afed08e019fc1110464cfa66635c-7a085853722dc6d2-01").is_ok()
+        );
+    }
+}
