@@ -87,6 +87,10 @@ impl Traceparent {
         }
         let segs: Vec<&str> = value.split('-').collect();
 
+        if segs.len() != 4 {
+            return Err("traceparent does not have valid number of segments".to_string());
+        }
+
         Ok(Traceparent {
             version: u8::from_str_radix(segs[0], 16).map_err(|err| err.to_string())?,
             trace_id: u128::from_str_radix(segs[1], 16).map_err(|err| err.to_string())?,
