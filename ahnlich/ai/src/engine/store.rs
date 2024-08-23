@@ -9,12 +9,10 @@ use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
-use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::metadata::MetadataValue;
 use flurry::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -139,7 +137,7 @@ impl AIStoreHandler {
         &self,
         store_name: &StoreName,
         store_input: StoreInput,
-        store_value: StoreValue,
+        mut store_value: StoreValue,
         preprocess_action: &PreprocessAction,
     ) -> Result<(StoreKey, StoreValue), AIProxyError> {
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
@@ -159,13 +157,10 @@ impl AIStoreHandler {
         }
 
         let metadata_value: MetadataValue = store_input.clone().into();
-        let mut final_store_value: StdHashMap<MetadataKey, MetadataValue> =
-            store_value.clone().into_iter().collect();
-        final_store_value.insert(metadata_key.clone(), metadata_value);
-
+        store_value.insert(metadata_key.clone(), metadata_value);
         let store_key =
             self.create_store_key(store_input, &store.index_model, preprocess_action)?;
-        return Ok((store_key, final_store_value));
+        return Ok((store_key, store_value));
     }
 
     /// Converts storeinput into a tuple of storekey and storevalue.
