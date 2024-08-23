@@ -6,7 +6,6 @@ from ahnlich_client_py.config import AhnlichPoolSettings
 from ahnlich_client_py.internals import db_query, db_response
 from ahnlich_client_py.internals import serde_types as st
 from ahnlich_client_py.internals.base_client import BaseClient
-from ahnlich_client_py.libs import NonZeroSizeInteger
 
 
 class AhnlichDBClient(BaseClient):
@@ -34,7 +33,7 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         keys: typing.Sequence[db_query.Array],
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
 
         builder = AhnlichDBRequestBuilder(tracing_id)
@@ -45,7 +44,7 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         condition: db_query.PredicateCondition,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.get_by_predicate(store_name=store_name, condition=condition)
@@ -58,7 +57,7 @@ class AhnlichDBClient(BaseClient):
         closest_n: st.uint64,
         algorithm: db_query.Algorithm,
         condition: db_query.PredicateCondition = None,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.get_sim_n(
@@ -74,7 +73,7 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         predicates: typing.Sequence[str],
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.create_pred_index(store_name=store_name, predicates=predicates)
@@ -85,7 +84,7 @@ class AhnlichDBClient(BaseClient):
         store_name: str,
         predicates: typing.Sequence[str],
         error_if_not_exists: bool,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.drop_pred_index(
@@ -101,7 +100,7 @@ class AhnlichDBClient(BaseClient):
         inputs: typing.Sequence[
             typing.Tuple[db_query.Array, typing.Dict[str, db_query.MetadataValue]]
         ],
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.set(store_name=store_name, inputs=inputs)
@@ -111,7 +110,7 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         keys: typing.Sequence[db_query.Array],
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.delete_key(store_name=store_name, keys=keys)
@@ -121,7 +120,7 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         condition: db_query.PredicateCondition,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.delete_predicate(store_name=store_name, condition=condition)
@@ -131,7 +130,7 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         error_if_not_exists: bool,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.drop_store(
@@ -146,7 +145,7 @@ class AhnlichDBClient(BaseClient):
         create_predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = None,
         error_if_exists: bool = True,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
 
         builder = AhnlichDBRequestBuilder(tracing_id)
@@ -162,7 +161,7 @@ class AhnlichDBClient(BaseClient):
 
     def list_stores(
         self,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.list_stores()
@@ -170,7 +169,7 @@ class AhnlichDBClient(BaseClient):
 
     def info_server(
         self,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.info_server()
@@ -180,7 +179,7 @@ class AhnlichDBClient(BaseClient):
 
     def list_clients(
         self,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.list_clients()
@@ -190,7 +189,7 @@ class AhnlichDBClient(BaseClient):
 
     def ping(
         self,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
         builder.ping()

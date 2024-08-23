@@ -8,7 +8,7 @@ from ahnlich_client_py.libs import NonZeroSizeInteger
 
 
 class AhnlichDBRequestBuilder:
-    def __init__(self, tracing_id=None, client: BaseClient = None) -> None:
+    def __init__(self, tracing_id: str = None, client: BaseClient = None) -> None:
         self.queries: typing.List[db_query.Query] = []
         self.tracing_id = tracing_id
         self.client: BaseClient = client

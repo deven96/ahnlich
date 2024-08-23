@@ -5,7 +5,6 @@ from ahnlich_client_py.config import AhnlichPoolSettings
 from ahnlich_client_py.internals import ai_query, ai_response
 from ahnlich_client_py.internals import serde_types as st
 from ahnlich_client_py.internals.base_client import BaseClient
-from ahnlich_client_py.libs import NonZeroSizeInteger
 
 
 class AhnlichAIClient(BaseClient):
@@ -36,7 +35,7 @@ class AhnlichAIClient(BaseClient):
         index_model: ai_query.AIModel,
         predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
 
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
@@ -53,7 +52,7 @@ class AhnlichAIClient(BaseClient):
         self,
         store_name: str,
         condition: ai_query.PredicateCondition,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.get_pred(store_name=store_name, condition=condition)
@@ -66,7 +65,7 @@ class AhnlichAIClient(BaseClient):
         closest_n: st.uint64,
         algorithm: ai_query.Algorithm,
         condition: typing.Optional[ai_query.PredicateCondition] = None,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
 
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
@@ -83,7 +82,7 @@ class AhnlichAIClient(BaseClient):
         self,
         store_name: str,
         predicates: typing.Sequence[str],
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.create_pred_index(store_name=store_name, predicates=predicates)
@@ -94,7 +93,7 @@ class AhnlichAIClient(BaseClient):
         store_name: str,
         predicates: typing.Sequence[str],
         error_if_not_exists: bool,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.drop_pred_index(
@@ -111,7 +110,7 @@ class AhnlichAIClient(BaseClient):
             typing.Tuple[ai_query.StoreInput, typing.Dict[str, ai_query.MetadataValue]]
         ],
         preprocess_action=ai_query.PreprocessAction,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.set(
@@ -123,7 +122,7 @@ class AhnlichAIClient(BaseClient):
         self,
         store_name: str,
         key: ai_query.StoreInput,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.del_key(store_name=store_name, key=key)
@@ -133,7 +132,7 @@ class AhnlichAIClient(BaseClient):
         self,
         store_name: str,
         error_if_not_exists: bool,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.drop_store(
@@ -143,7 +142,7 @@ class AhnlichAIClient(BaseClient):
 
     def purge_stores(
         self,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.purge_stores()
@@ -151,7 +150,7 @@ class AhnlichAIClient(BaseClient):
 
     def info_server(
         self,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.info_server()
@@ -159,7 +158,7 @@ class AhnlichAIClient(BaseClient):
 
     def list_stores(
         self,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.list_stores()
@@ -167,7 +166,7 @@ class AhnlichAIClient(BaseClient):
 
     def ping(
         self,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.ping()
@@ -175,7 +174,7 @@ class AhnlichAIClient(BaseClient):
 
     def pipeline(
         self,
-        tracing_id: typing.Optional[NonZeroSizeInteger] = None,
+        tracing_id: typing.Optional[str] = None,
     ) -> builders.AhnlichAIRequestBuilder:
         """Gives you a request builder to create multple requests"""
         return builders.AhnlichAIRequestBuilder(tracing_id, client=self)
