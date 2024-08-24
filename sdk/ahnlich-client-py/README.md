@@ -29,6 +29,8 @@ The following topics are covered:
     * [Get By Predicate](#get-by-predicate)
     * [Create Predicate Index](#create-predicate-index)
     * [Drop Predicate Index](#drop-predicate-index)
+    * [Create Non Linear Algorithm Index](#create-non-linear-algorithm-index)
+    * [Drop Non Linear Algorithm Index](#drop-non-linear-algorithm-index)
     * [Delete Key](#delete-key)
     * [Delete Predicate](#delete-predicate)
 
@@ -43,6 +45,8 @@ The following topics are covered:
     * [Get By Predicate](#get-by-predicate-1)
     * [Create Predicate Index](#create-predicate-index-1)
     * [Drop Predicate Index](#drop-predicate-index-1)
+    * [Create Non Linear Algorithm Index](#create-non-linear-algorithm-index-1)
+    * [Drop Non Linear Algorithm Index](#drop-non-linear-algorithm-index-1)
     * [Delete Key](#delete-key-1)
 
 * [Bulk Requests](#bulk-requests)
@@ -132,7 +136,8 @@ Where:
 from ahnlich_client_py import AhnlichDBClient
 client = AhnlichDBClient(address="127.0.0.1", port=port)
 
-response = client.ping()
+tracing_id = "00-80e1afed08e019fc1110464cfa66635c-7a085853722dc6d2-01"
+response = client.ping(tracing_id)
 ```
 
 ###  Info Server
@@ -159,7 +164,8 @@ response = client.list_clients()
 from ahnlich_client_py import AhnlichDBClient
 client = AhnlichDBClient(address="127.0.0.1", port=port)
 
-response = client.list_stores()
+tracing_id = "00-80e1afed08e019fc1110464cfa66635c-7a085853722dc6d2-01"
+response = client.list_stores(tracing_id)
 ```
 
 ###  Create Store
@@ -227,7 +233,8 @@ response = client.get_sim_n(
     search_input = key,
     closest_n = 3,
     algorithm = query.Algorithm__CosineSimilarity(),
-    condition = None
+    condition = None,
+    tracing_id=None,
 )
 ```
 <u>*Closest_n is a Nonzero integer value*</u>
@@ -291,6 +298,30 @@ response = client.drop_pred_index(
 )
 ```
 
+### Create Non Linear Algorithm Index
+```py
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
+
+response = client.create_non_linear_algorithm_index(
+    store_name = "test store",
+    non_linear_indices=[NonLinearAlgorithm__KDTree],
+    tracing_id = None
+)
+```
+
+### Drop Non Linear Algorithm Index
+```py
+from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
+
+response = client.drop_non_linear_algorithm_index(
+    store_name = "test store",
+    non_linear_indices=[NonLinearAlgorithm__KDTree],
+    error_if_not_exists=True,
+    tracing_id = None
+)
+```
 
 
 ### Delete Key
@@ -339,7 +370,7 @@ response = client.delete_predicate(
 from ahnlich_client_py import AhnlichAIClient
 client = AhnlichAIClient(address="127.0.0.1", port=port)
 
-response = client.ping()
+response = client.ping(tracing_id)
 ```
 
 ###  Info Server
@@ -348,7 +379,7 @@ response = client.ping()
 from ahnlich_client_py import AhnlichAIClient
 client = AhnlichAIClient(address="127.0.0.1", port=port)
 
-response = client.info_server()
+response = client.info_server(tracing_id)
 ```
 
 ###  List Stores
@@ -357,7 +388,7 @@ response = client.info_server()
 from ahnlich_client_py import AhnlichAIClient
 client = AhnlichAIClient(address="127.0.0.1", port=port)
 
-response = client.list_stores()
+response = client.list_stores(tracing_id)
 ```
 
 ###  Create Store
@@ -374,7 +405,8 @@ response = client.create_store(
     predicates = [
         "job"
     ],
-    non_linear_indices= []
+    non_linear_indices= [],
+    tracing_id=None,
 )
 
 ```
@@ -401,7 +433,8 @@ store_inputs = [
 
 response = client.set(
     store_name = "test store",
-    inputs=store_inputs
+    inputs=store_inputs,
+    tracing_id=None
 )
 ```
 
@@ -413,7 +446,8 @@ client = AhnlichAIClient(address="127.0.0.1", port=port)
 
 response = client.drop_store(
     store_name = "test store",
-    error_if_not_exists=True
+    error_if_not_exists=True,
+    tracing_id=None
 )
 
 
@@ -437,7 +471,8 @@ response = client.get_sim_n(
     search_input = search_input,
     closest_n = 3,
     algorithm = query.Algorithm__CosineSimilarity(),
-    condition = None
+    condition = None,
+    tracing_id=None
 )
 ```
 <u>*Closest_n is a Nonzero integer value*</u>
@@ -458,7 +493,8 @@ condition = query.PredicateCondition__Value(
             )
 response = client.get_by_predicate(
     store_name = "test store",
-    condition=conditon
+    condition=conditon,
+    tracing_id=None,
 )
 ```
 
@@ -469,7 +505,8 @@ client = AhnlichAIClient(address="127.0.0.1", port=port)
 
 response = client.create_pred_index(
     store_name = "test store",
-    predicates=["job", "rank"]
+    predicates=["job", "rank"],
+    tracing_id=None,
 )
 ```
 
@@ -481,7 +518,33 @@ client = AhnlichAIClient(address="127.0.0.1", port=port)
 response = client.drop_pred_index(
     store_name = "test store",
     predicates=["job"],
-    error_if_not_exists=True
+    error_if_not_exists=True,
+    tracing_id=None,
+)
+```
+
+### Create Non Linear Algorithm Index
+```py
+from ahnlich_client_py import AhnlichAIClient
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+response = client.create_non_linear_algorithm_index(
+    store_name = "test store",
+    non_linear_indices=[NonLinearAlgorithm__KDTree],
+    tracing_id = None
+)
+```
+
+### Drop Non Linear Algorithm Index
+```py
+from ahnlich_client_py import AhnlichAIClient
+client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+response = client.drop_non_linear_algorithm_index(
+    store_name = "test store",
+    non_linear_indices=[NonLinearAlgorithm__KDTree],
+    error_if_not_exists=True,
+    tracing_id = None
 )
 ```
 
@@ -500,10 +563,10 @@ key = ai_query.StoreInput__RawString("Custom Made Jordan 4")
 
 response = client.delete_key(
     store_name = "test store",
-    keys=[key]
+    keys=[key],
+    tracing_id=None
 )
 ```
-
 
 
 
