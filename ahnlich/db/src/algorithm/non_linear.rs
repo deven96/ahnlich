@@ -98,6 +98,27 @@ impl NonLinearAlgorithmIndices {
     }
 
     #[tracing::instrument(skip(self))]
+    pub fn current_keys(&self) -> HashSet<NonLinearAlgorithm> {
+        let pinned = self.algorithm_to_index.pin();
+        pinned.keys().copied().collect()
+    }
+
+    #[tracing::instrument(skip(self, values))]
+    pub fn insert_indices(
+        &self,
+        indices: HashSet<NonLinearAlgorithm>,
+        values: &[Array1<f32>],
+        dimension: NonZeroUsize,
+    ) {
+        let pinned = self.algorithm_to_index.pin();
+        for algo in indices {
+            let with_index = NonLinearAlgorithmWithIndex::create(algo, dimension);
+            with_index.insert(values);
+            pinned.insert(algo, with_index);
+        }
+    }
+
+    #[tracing::instrument(skip(self))]
     pub fn remove_indices(
         &self,
         indices: HashSet<NonLinearAlgorithm>,

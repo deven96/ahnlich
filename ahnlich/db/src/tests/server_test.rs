@@ -670,8 +670,18 @@ async fn test_remove_non_linear_indices() {
             search_input: StoreKey(array![1.1, 2.0, 3.0]),
             condition: None,
         },
+        DBQuery::CreateNonLinearAlgorithmIndex {
+            store: StoreName("Main".to_string()),
+            non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+        },
+        // should not error as non linear index exists
+        DBQuery::DropNonLinearAlgorithmIndex {
+            store: StoreName("Main".to_string()),
+            non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+            error_if_not_exists: true,
+        },
     ]);
-    let mut expected = ServerResult::with_capacity(7);
+    let mut expected = ServerResult::with_capacity(9);
     expected.push(Ok(ServerResponse::Unit));
     expected.push(Ok(ServerResponse::Set(StoreUpsert {
         inserted: 3,
@@ -702,6 +712,8 @@ async fn test_remove_non_linear_indices() {
     expected.push(Err(
         "Non linear algorithm KDTree not found in store, create store with support".into(),
     ));
+    expected.push(Ok(ServerResponse::CreateIndex(1)));
+    expected.push(Ok(ServerResponse::Del(1)));
     let stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(stream);
     query_server_assert_result(&mut reader, message, expected).await

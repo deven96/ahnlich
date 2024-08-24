@@ -68,6 +68,14 @@ impl AhnlichProtocol for ServerTask {
                     .create_pred_index(&store, predicates.into_iter().collect())
                     .map(ServerResponse::CreateIndex)
                     .map_err(|e| format!("{e}")),
+                DBQuery::CreateNonLinearAlgorithmIndex {
+                    store,
+                    non_linear_indices,
+                } => self
+                    .store_handler
+                    .create_non_linear_algorithm_index(&store, non_linear_indices)
+                    .map(ServerResponse::CreateIndex)
+                    .map_err(|e| format!("{e}")),
                 DBQuery::DropStore {
                     store,
                     error_if_not_exists,

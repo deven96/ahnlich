@@ -197,7 +197,6 @@ impl AhnlichProtocol for AIProxyTask {
                         .map_err(|e| e.to_string()),
                     Err(err) => Err(format!("{err}")),
                 },
-
                 AIQuery::CreatePredIndex { store, predicates } => {
                     if predicates.contains(&*AHNLICH_AI_RESERVED_META_KEY) {
                         Err(format!(
@@ -220,6 +219,30 @@ impl AhnlichProtocol for AIProxyTask {
                             }
                             Err(err) => Err(format!("{err}")),
                         }
+                    }
+                }
+                AIQuery::CreateNonLinearAlgorithmIndex {
+                    store,
+                    non_linear_indices,
+                } => {
+                    match self
+                        .db_client
+                        .create_non_linear_algorithm_index(
+                            store,
+                            non_linear_indices,
+                            parent_id.clone(),
+                        )
+                        .await
+                    {
+                        Ok(res) => {
+                            if let ServerResponse::CreateIndex(num) = res {
+                                Ok(AIServerResponse::CreateIndex(num))
+                            } else {
+                                Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
+                                    .to_string())
+                            }
+                        }
+                        Err(err) => Err(format!("{err}")),
                     }
                 }
                 AIQuery::DropPredIndex {

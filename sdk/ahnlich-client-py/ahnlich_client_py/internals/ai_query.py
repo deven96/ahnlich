@@ -87,8 +87,15 @@ class AIQuery__CreatePredIndex(AIQuery):
 
 
 @dataclass(frozen=True)
-class AIQuery__DropPredIndex(AIQuery):
+class AIQuery__CreateNonLinearAlgorithmIndex(AIQuery):
     INDEX = 4  # type: int
+    store: str
+    non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
+
+
+@dataclass(frozen=True)
+class AIQuery__DropPredIndex(AIQuery):
+    INDEX = 5  # type: int
     store: str
     predicates: typing.Sequence[str]
     error_if_not_exists: bool
@@ -96,7 +103,7 @@ class AIQuery__DropPredIndex(AIQuery):
 
 @dataclass(frozen=True)
 class AIQuery__DropNonLinearAlgorithmIndex(AIQuery):
-    INDEX = 5  # type: int
+    INDEX = 6  # type: int
     store: str
     non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
     error_if_not_exists: bool
@@ -104,7 +111,7 @@ class AIQuery__DropNonLinearAlgorithmIndex(AIQuery):
 
 @dataclass(frozen=True)
 class AIQuery__Set(AIQuery):
-    INDEX = 6  # type: int
+    INDEX = 7  # type: int
     store: str
     inputs: typing.Sequence[
         typing.Tuple["StoreInput", typing.Dict[str, "MetadataValue"]]
@@ -114,39 +121,39 @@ class AIQuery__Set(AIQuery):
 
 @dataclass(frozen=True)
 class AIQuery__DelKey(AIQuery):
-    INDEX = 7  # type: int
+    INDEX = 8  # type: int
     store: str
     key: "StoreInput"
 
 
 @dataclass(frozen=True)
 class AIQuery__DropStore(AIQuery):
-    INDEX = 8  # type: int
+    INDEX = 9  # type: int
     store: str
     error_if_not_exists: bool
 
 
 @dataclass(frozen=True)
 class AIQuery__InfoServer(AIQuery):
-    INDEX = 9  # type: int
-    pass
-
-
-@dataclass(frozen=True)
-class AIQuery__ListStores(AIQuery):
     INDEX = 10  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIQuery__PurgeStores(AIQuery):
+class AIQuery__ListStores(AIQuery):
     INDEX = 11  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIQuery__Ping(AIQuery):
+class AIQuery__PurgeStores(AIQuery):
     INDEX = 12  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIQuery__Ping(AIQuery):
+    INDEX = 13  # type: int
     pass
 
 
@@ -155,6 +162,7 @@ AIQuery.VARIANTS = [
     AIQuery__GetPred,
     AIQuery__GetSimN,
     AIQuery__CreatePredIndex,
+    AIQuery__CreateNonLinearAlgorithmIndex,
     AIQuery__DropPredIndex,
     AIQuery__DropNonLinearAlgorithmIndex,
     AIQuery__Set,

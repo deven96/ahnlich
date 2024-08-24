@@ -77,6 +77,18 @@ class AhnlichDBClient(BaseClient):
         builder.create_pred_index(store_name=store_name, predicates=predicates)
         return self.process_request(builder.to_server_query())
 
+    def create_non_linear_algorithm_index(
+        self,
+        store_name: str,
+        non_linear_indices: typing.Sequence["NonLinearAlgorithm"],
+        tracing_id: typing.Optional[str] = None,
+    ) -> db_response.ServerResult:
+        builder = AhnlichDBRequestBuilder(tracing_id)
+        builder.create_non_linear_algorithm_index(
+            store_name=store_name, non_linear_indices=non_linear_indices
+        )
+        return self.process_request(builder.to_server_query())
+
     def drop_pred_index(
         self,
         store_name: str,
