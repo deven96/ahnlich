@@ -259,6 +259,22 @@
         }
       },
       "5": {
+        "CreateNonLinearAlgorithmIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "non_linear_indices": {
+                "SEQ": {
+                  "TYPENAME": "NonLinearAlgorithm"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "6": {
         "DropPredIndex": {
           "STRUCT": [
             {
@@ -275,7 +291,7 @@
           ]
         }
       },
-      "6": {
+      "7": {
         "DropNonLinearAlgorithmIndex": {
           "STRUCT": [
             {
@@ -294,7 +310,7 @@
           ]
         }
       },
-      "7": {
+      "8": {
         "Set": {
           "STRUCT": [
             {
@@ -322,7 +338,7 @@
           ]
         }
       },
-      "8": {
+      "9": {
         "DelKey": {
           "STRUCT": [
             {
@@ -338,7 +354,7 @@
           ]
         }
       },
-      "9": {
+      "10": {
         "DelPred": {
           "STRUCT": [
             {
@@ -352,7 +368,7 @@
           ]
         }
       },
-      "10": {
+      "11": {
         "DropStore": {
           "STRUCT": [
             {
@@ -364,16 +380,16 @@
           ]
         }
       },
-      "11": {
+      "12": {
         "InfoServer": "UNIT"
       },
-      "12": {
+      "13": {
         "ListStores": "UNIT"
       },
-      "13": {
+      "14": {
         "ListClients": "UNIT"
       },
-      "14": {
+      "15": {
         "Ping": "UNIT"
       }
     }

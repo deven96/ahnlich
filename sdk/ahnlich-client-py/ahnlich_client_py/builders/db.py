@@ -69,6 +69,15 @@ class AhnlichDBRequestBuilder:
             db_query.Query__CreatePredIndex(store=store_name, predicates=predicates)
         )
 
+    def create_non_linear_algorithm_index(
+        self, store_name: str, non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
+    ):
+        self.queries.append(
+            db_query.Query__CreateNonLinearAlgorithmIndex(
+                store=store_name, non_linear_indices=non_linear_indices
+            )
+        )
+
     def drop_pred_index(
         self,
         store_name: str,

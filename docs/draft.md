@@ -105,6 +105,7 @@
     Validation should check if predicate was enabled.
 
     - `CREATEPREDINDEX`: Creates indexes in a store using some predicates. Adds the predicates that did not exist previously so it is idempotent, and does not remove existing predicates
+    - `CREATENONLINEARALGORITHMINDEX`: Creates the indices for non linear algorithms if it does not exiist already and does not remove existing predicates
     - `DROPPREDINDEX`: takes in predicate, store and drops the predicate for that store
     - `DROPNONLINEARALGORITHMINDEX`: takes in store and non linear indices to drop if they exist
 

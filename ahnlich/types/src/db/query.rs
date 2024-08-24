@@ -44,6 +44,10 @@ pub enum Query {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
     },
+    CreateNonLinearAlgorithmIndex {
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+    },
     DropPredIndex {
         store: StoreName,
         predicates: HashSet<MetadataKey>,

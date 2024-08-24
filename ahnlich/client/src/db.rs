@@ -97,6 +97,18 @@ impl DbPipeline {
             .push(DBQuery::CreatePredIndex { store, predicates })
     }
 
+    /// push create non linear index command to pipeline
+    pub fn create_non_linear_algorithm_index(
+        &mut self,
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+    ) {
+        self.queries.push(DBQuery::CreateNonLinearAlgorithmIndex {
+            store,
+            non_linear_indices,
+        })
+    }
+
     /// push drop pred index command to pipeline
     pub fn drop_pred_index(
         &mut self,
@@ -279,6 +291,22 @@ impl DbClient {
     ) -> Result<ServerResponse, AhnlichError> {
         self.exec(DBQuery::CreatePredIndex { store, predicates }, tracing_id)
             .await
+    }
+
+    pub async fn create_non_linear_algorithm_index(
+        &self,
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+        tracing_id: Option<String>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(
+            DBQuery::CreateNonLinearAlgorithmIndex {
+                store,
+                non_linear_indices,
+            },
+            tracing_id,
+        )
+        .await
     }
 
     pub async fn drop_pred_index(

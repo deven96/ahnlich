@@ -125,6 +125,21 @@ impl StoreHandler {
         Ok(created_predicates)
     }
 
+    /// Matches CREATENONLINEARALGORITHMINDEX - reindexes a store with some non linear algorithms
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn create_non_linear_algorithm_index(
+        &self,
+        store_name: &StoreName,
+        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+    ) -> Result<usize, ServerError> {
+        let store = self.get(store_name)?;
+        let created_predicates = store.create_non_linear_algorithm_index(non_linear_indices);
+        if created_predicates > 0 {
+            self.set_write_flag()
+        }
+        Ok(created_predicates)
+    }
+
     /// Matches DELKEY - removes keys from a store
     #[tracing::instrument(skip(self))]
     pub(crate) fn del_key_in_store(
@@ -589,6 +604,26 @@ impl Store {
                 .collect();
             self.predicate_indices
                 .add_predicates(new_predicates, Some(values));
+        };
+        new_predicates_len
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn create_non_linear_algorithm_index(
+        &self,
+        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+    ) -> usize {
+        let current_keys = self.non_linear_indices.current_keys();
+        let new_predicates: StdHashSet<_> = non_linear_indices
+            .difference(&current_keys)
+            .copied()
+            .collect();
+        let new_predicates_len = new_predicates.len();
+        if !new_predicates.is_empty() {
+            // get all the values and reindex
+            let values: Vec<_> = self.get_all().into_iter().map(|(k, _)| k.0).collect();
+            self.non_linear_indices
+                .insert_indices(new_predicates, &values, self.dimension);
         };
         new_predicates_len
     }
