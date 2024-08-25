@@ -22,7 +22,7 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Starts Anhlich AI Proxy
-    Start(AIProxyConfig),
+    Run(AIProxyConfig),
 
     /// Outputs all supported models by aiproxy
     SupportedModels(SupportedModelArgs),
