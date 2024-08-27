@@ -8,6 +8,11 @@ edition = "2021"
 name = "ahnlich_ai_proxy"
 path = "src/lib.rs"
 
+
+[[bin]]
+name = "ahnlich-ai"
+path = "src/main.rs"
+
 [dependencies]
 flurry.workspace = true
 tokio.workspace = true

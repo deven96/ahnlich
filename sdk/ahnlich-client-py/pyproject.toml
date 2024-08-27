@@ -11,7 +11,7 @@ packages = [
 ]
 
 exclude = [
-    "ahnlich_client_py/tests", "ahnlich_client_py/demo_tracing.py"
+    "ahnlich_client_py/tests", "demo_tracing.py"
 ]
 
 [tool.poetry.scripts]

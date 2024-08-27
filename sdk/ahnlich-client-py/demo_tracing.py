@@ -1,3 +1,5 @@
+import os
+
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
@@ -30,8 +32,9 @@ def setup_tracing():
     # # Step 3: Initialize the Tracer Provider
     # trace.set_tracer_provider(TracerProvider())
 
+    url = os.getenv("DEMO_OTEL_URL", "http://localhost:4317")
     # Step 4: Configure the OTLP Exporter
-    otlp_exporter = OTLPSpanExporter(endpoint="http://localhost:4317", insecure=True)
+    otlp_exporter = OTLPSpanExporter(endpoint=url, insecure=True)
 
     # Step 5: Add the Span Processor to the Tracer Provider
     span_processor = BatchSpanProcessor(otlp_exporter)
@@ -94,33 +97,20 @@ def tracer(span_id):
         ai_client.cleanup()
 
 
-with setup_tracing().start_as_current_span("info_span") as span:
-    span.set_attribute("data-application", "ahnlich_client_py")
-    span.add_event(
-        "Testing spanning",
-        {"log.severity": "INFO", "log.message": "This is an info-level log."},
-    )
-    span_context = span.get_span_context()
-    trace_parent_id = (
-        "00-{:032x}-{:016x}-{:02x}".format(
+def run_tracing():
+    print("[INFO] Running tracing")
+    with setup_tracing().start_as_current_span("info_span") as span:
+        span.set_attribute("data-application", "ahnlich_client_py")
+        span.add_event(
+            "Testing spanning",
+            {"log.severity": "INFO", "log.message": "This is an info-level log."},
+        )
+        span_context = span.get_span_context()
+        trace_parent_id = "00-{:032x}-{:016x}-{:02x}".format(
             span_context.trace_id, span_context.span_id, span_context.trace_flags
         )
-        # f"00-{span_context.trace_id}-{span_context.span_id}-{span_context.trace_flags}"
-    )
-    tracer(span_id=trace_parent_id)
+        tracer(span_id=trace_parent_id)
 
 
-# with setup_tracing().start_as_current_span("info_span") as span:
-#     span.set_attribute("data-application", "ahnlich_client_py")
-#     span.add_event(
-#         "No TraceID",
-#         {"log.severity": "INFO", "log.message": "This is an info-level log."},
-#     )
-#     span_context = span.get_span_context()
-#     trace_parent_id = (
-#         "00-{:032x}-{:016x}-{:02x}".format(
-#             span_context.trace_id, span_context.span_id, span_context.trace_flags
-#         )
-#         # f"00-{span_context.trace_id}-{span_context.span_id}-{span_context.trace_flags}"
-#     )
-#     tracer(span_id=None)
+if __name__ == "__main__":
+    run_tracing()

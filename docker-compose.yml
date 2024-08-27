@@ -1,0 +1,53 @@
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:${JAEGER_VERSION:-latest}
+    ports:
+      - "16686:16686"
+      - "1888:1888" # pprof extension
+      - "8888:8888" # Prometheus metrics exposed by the collector
+      - "8889:8889" # Prometheus exporter metrics
+      - "4317:4317" # otlp grpc
+      - "4318:4318" # otlp http
+    environment:
+      - LOG_LEVEL=debug
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - jaeger-example
+
+  ahnlich_db:
+    build:
+      context: ./ahnlich/
+      args:
+        - AHNLICH_BIN=ahnlich-db
+    environment:
+      - DEMO_OTEL_URL=http://jaeger:4317
+    depends_on:
+      jaeger:
+        condition: service_started
+    command: ./ahnlich-db run --host 0.0.0.0 --enable-tracing --otel-endpoint http://jaeger:4317
+    networks:
+      - jaeger-example
+    ports:
+      - 1369:1369
+
+  ahnlich_ai:
+    build:
+      context: ./ahnlich/
+      args:
+        - AHNLICH_BIN=ahnlich-ai
+    environment:
+      - DEMO_OTEL_URL=http://jaeger:4317
+    depends_on:
+      jaeger:
+        condition: service_started
+      ahnlich_db:
+        condition: service_started
+    command: ./ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0  --enable-tracing --otel-endpoint http://jaeger:4317 --supported-models dalle3,llama3
+
+    networks:
+      - jaeger-example
+    ports:
+      - 1370:1370
+
+networks:
+  jaeger-example:

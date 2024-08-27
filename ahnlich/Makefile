@@ -34,8 +34,20 @@ check: ## cargo check
 test: ## cargo test
 	cargo nextest run --no-capture
 
-generate-specs: ## cargo run --bin typegen generate
+generate-specs: ## generate type specs 
 	cargo run --bin typegen generate
+
+run-db: ## Run ahnlich_db bin 
+	cargo run --bin ahnlich-db run
+
+run-db-tracing: ## Run ahnlich_db bin with  tracing enabled
+	cargo run --bin ahnlich-db run --enable-tracing
+
+run-ai: ## Run ahnlich_ai bin with default supported models
+	cargo run --bin ahnlich-ai run --supported-models dalle3,llama3
+
+run-ai-tracing: ## Run ahnlich_ai bin with default supported models and tracing_enabled
+	cargo run --bin ahnlich-ai run --supported-models dalle3,llama3 --enable-tracing
 
 
 bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, minor, major.
@@ -57,7 +69,19 @@ bump-rs-client: ## Bump python client versions. Rules for bump-rs-client: patch,
 	@echo "Rust client version bumped to $(BUMP_RULE)"
 
 
-all: format check test clippy bumpversion bump-py-client bump-rs-client ## format, clip, test code, and bumpversions
+demo-tracing:
+	@echo "Starting Docker services..."
+	docker-compose up -d
+
+	@echo "Setup Python Env Dependencies..."
+	@cd $(PYTHON_PROJECT_DIR) && poetry config --local virtualenvs.in-project true
+	@cd $(PYTHON_PROJECT_DIR) && poetry install
+	@echo "Run demo_tracing..."
+	@cd $(PYTHON_PROJECT_DIR) && python demo_tracing.py 
+
+
+all: format check test clippy generate-specs bumpversion bump-py-client bump-rs-client ## format, clip, generate type specs, and bumpversions 
+
 
 # --------------Configuration-------------
 #
