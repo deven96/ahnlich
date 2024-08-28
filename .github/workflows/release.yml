@@ -8,13 +8,30 @@ on:
 jobs:
 
     build:
-
         name: Build Binaries
         runs-on: ubuntu-latest
         steps:
             - name: "Checkout"
               uses: actions/checkout@v4
-            - name: "Testing releases are done"
+
+            - name: "Get Binary Version"
+              id: get_binary_version
               run: |
                   cd ${{github.workspace}}
                   echo ${{ github.event.release.tag_name }}
+                  value=$(echo "${{ github.event.release.tag_name }}" | cut -d'/' -f2)
+                  echo "$value"
+                  echo "BIN_NAME=${value}" >> $GITHUB_OUTPUT
+
+            - name: Get Cargo toolchain
+              uses: actions-rs/toolchain@v1
+              with:
+                toolchain: 1.78.0
+
+            - name: Build Unix Release
+              working-directory: ./ahnlich
+              run: |
+                cargo build -r ahnlich_${{ steps.get_binary_version.outputs.BIN_NAME }}
+
+
+
