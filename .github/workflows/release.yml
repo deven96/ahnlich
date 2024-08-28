@@ -32,6 +32,9 @@ jobs:
               working-directory: ./ahnlich
               run: |
                 cargo build --release --bin ahnlich_${{ steps.get_binary_version.outputs.BIN_NAME }}
+                pwd
+                ls -la
+
 
 
 
