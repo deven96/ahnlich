@@ -5,6 +5,9 @@ on:
       types: [published]
 
 
+permissions:
+  contents: write
+
 jobs:
 
     build:
@@ -28,12 +31,15 @@ jobs:
               with:
                 toolchain: 1.78.0
 
-            - name: Build Unix Release
+            - name: Build Linux Release
               working-directory: ./ahnlich
               run: |
                 cargo build --release --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-                pwd
-                ls -la
+                tar -cvzf linux-ahnlich-db.tar.gz -C target/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} linux-ahnlich-db.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
 
 
 
