@@ -1,0 +1,20 @@
+name: Ahnlich AI and DB Release
+
+on:
+    release:
+      types: [published]
+
+
+jobs:
+
+    build:
+
+        name: Build Binaries
+        runs-on: ubuntu-latest
+        steps:
+            - name: "Checkout"
+              uses: actions/checkout@v4
+            - name: "Testing releases are done"
+              run: |
+                  cd ${{github.workspace}}
+                  echo ${{ github.event.release.tag_name }}
