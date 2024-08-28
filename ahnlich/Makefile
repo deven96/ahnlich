@@ -6,7 +6,7 @@
 
 # Define paths to the project files
 RUST_PROJECT_DIR := ../ahnlich
-RUST_TYPES_NAME := types
+RUST_TYPES_NAME := ahnlich_types
 RUST_CLIENT_NAME := client
 AHNLICH_DB_NAME := db
 AHNLICH_AI_NAME := ai
@@ -55,9 +55,18 @@ run-ai-tracing: ## Run ahnlich_ai bin with default supported models and tracing_
 
 
 bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, minor, major.
-	@echo "Bumping Rust project version to $${RULE:-$(BUMP_RULE)}"
+	@echo "Bumping Rust Protocol version to $${RULE:-$(BUMP_RULE)}"
 	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(RUST_TYPES_NAME)
-	@echo "Rust project version bumped to $(BUMP_RULE)"
+	@echo "Rust Protocol version bumped to $(BUMP_RULE)"
+
+	@echo "Bumping ahnlich db version because of changed protocol with rule $(BUMP_RULE)"
+	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(AHNLICH_DB_NAME)
+	@echo "Ahnlich DB version bumped to $(BUMP_RULE)"
+
+	@echo "Bumping ahnlich ai version because of changed protocol with rule $(BUMP_RULE)"
+	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(AHNLICH_AI_NAME)
+	@echo "Ahnlich AI version bumped to $(BUMP_RULE)"
+
 	@echo "Bumping Python project version with rule $(BUMP_RULE)"
 	@cd $(PYTHON_PROJECT_DIR) && poetry run bumpversion --component Protocol --bump-type $(BUMP_RULE)
 	@echo "Python project version bumped using rule $(BUMP_RULE)"
