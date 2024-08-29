@@ -18,8 +18,6 @@ flurry.workspace = true
 tokio.workspace = true
 serde.workspace = true
 ndarray.workspace = true
-bincode.workspace = true
-itertools.workspace = true
 clap.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
@@ -30,7 +28,6 @@ once_cell.workspace = true
 tracing.workspace = true
 tracer = { path = "../tracer", version = "*" }
 ahnlich_client_rs = { path = "../client", version = "*" }
-ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
 cap.workspace = true
 deadpool.workspace = true
 nonzero_ext = "0.3.0"
