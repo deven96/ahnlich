@@ -74,18 +74,28 @@ jobs:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
               shell: bash
               
-            # - name: Build Windows 64-bit MSVC(Windows 10+, Windows Server 2016+)
-            #   working-directory: ./ahnlich
-            #   run: |
-            #     rustup target add x86_64-pc-windows-msvc
-            #     cargo build --release --target=x86_64-pc-windows-msvc --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     cd target/release && zip ../../win-x86_64-ahnlich-db.zip ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }} && cd ../../
-            #     gh release upload ${{github.event.release.tag_name}} win-x86_64-ahnlich-db.zip
-            #   env:
-            #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-            #   shell: bash
+            - name: Setup Cross
+              working-directory: ./ahnlich
+              run: |
+                cargo install cross --git https://github.com/cross-rs/cross
 
+            - name: Build Windows x86_64-pc-windows-gnu
+              uses: houseabsolute/actions-rust-cross@v0
+              with:
+                working-directory: ./ahnlich
+                command: build
+                target: x86_64-pc-windows-gnu
+                args: "--locked --release --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}"
+                strip: true
 
+            - name: Package and upload x86_64-pc-windows-gnu
+              working-directory: ./ahnlich
+              run: |
+                cd target/release && zip ../../win-x86_64-gnu-ahnlich-db.zip ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }} && cd ../../
+                gh release upload ${{github.event.release.tag_name}} win-x86_64-gnu-ahnlich-db.zip
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
               
 
 
