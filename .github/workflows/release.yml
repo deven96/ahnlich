@@ -41,17 +41,18 @@ jobs:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
               shell: bash
 
-            - name: Build Aarch64 Darwin Release
-              working-directory: ./ahnlich
-              run: |
-                rustup target add aarch64-apple-darwin
-                cargo build --release --target=aarch64-apple-darwin --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-                ls -la target/release
-                tar -cvzf aarch64-darwin-ahnlich-db.tar.gz -C target/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-                gh release upload ${{github.event.release.tag_name}} aarch64-darwin-ahnlich-db.tar.gz
-              env:
-                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-              shell: bash
+            # - name: Build Aarch64 Darwin Release
+            #   working-directory: ./ahnlich
+            #   run: |
+            #     rustup target add aarch64-apple-darwin
+            #     apt update && 
+            #     cargo build --release --target=aarch64-apple-darwin --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+            #     ls -la target/release
+            #     tar -cvzf aarch64-darwin-ahnlich-db.tar.gz -C target/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+            #     gh release upload ${{github.event.release.tag_name}} aarch64-darwin-ahnlich-db.tar.gz
+            #   env:
+            #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+            #   shell: bash
             
             - name: Build x86_64 Apple Darwin Release
               working-directory: ./ahnlich
