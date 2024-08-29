@@ -30,6 +30,9 @@ jobs:
               uses: actions-rs/toolchain@v1
               with:
                 toolchain: 1.78.0
+            
+            - name: Setup Zig
+              uses: goto-bus-stop/setup-zig@v2
 
             - name: Build Linux Release
               working-directory: ./ahnlich
@@ -41,41 +44,46 @@ jobs:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
               shell: bash
 
-            # - name: Build Aarch64 Darwin Release
-            #   working-directory: ./ahnlich
-            #   run: |
-            #     rustup target add aarch64-apple-darwin
-            #     apt update && 
-            #     cargo build --release --target=aarch64-apple-darwin --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     ls -la target/release
-            #     tar -cvzf aarch64-darwin-ahnlich-db.tar.gz -C target/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     gh release upload ${{github.event.release.tag_name}} aarch64-darwin-ahnlich-db.tar.gz
-            #   env:
-            #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-            #   shell: bash
-            
-            # - name: Build x86_64 Apple Darwin Release
-            #   working-directory: ./ahnlich
-            #   run: |
-            #     rustup target add x86_64-apple-darwin
-            #     cargo build --release --target=x86_64-apple-darwin --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     ls -la target/release
-            #     tar -cvzf x86_64-apple-darwin-ahnlich-db.tar.gz -C target/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     gh release upload ${{github.event.release.tag_name}} x86_64-apple-darwin-ahnlich-db.tar.gz
-            #   env:
-            #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-            #   shell: bash
-              
-            - name: Build Windows 64-bit MSVC(Windows 10+, Windows Server 2016+)
+            - name: Setup Cargo ZigBuild
               working-directory: ./ahnlich
               run: |
-                rustup target add x86_64-pc-windows-msvc
-                cargo build --release --target=x86_64-pc-windows-msvc --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-                cd target/release && zip ../../win-x86_64-ahnlich-db.zip ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }} && cd ../../
-                gh release upload ${{github.event.release.tag_name}} win-x86_64-ahnlich-db.zip
+                cargo install --locked cargo-zigbuild
+
+            - name: Build Aarch64 Darwin Release
+              working-directory: ./ahnlich
+              run: |
+                rustup target add aarch64-apple-darwin
+                apt update && 
+                cargo zigbuild --release --target aarch64-apple-darwin --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                ls -la target/release
+                tar -cvzf aarch64-darwin-ahnlich-db.tar.gz -C target/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} aarch64-darwin-ahnlich-db.tar.gz
               env:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
               shell: bash
+            
+            - name: Build x86_64 Apple Darwin Release
+              working-directory: ./ahnlich
+              run: |
+                rustup target add x86_64-apple-darwin
+                cargo zigbuild --release --target x86_64-apple-darwin --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                ls -la target/release
+                tar -cvzf x86_64-apple-darwin-ahnlich-db.tar.gz -C target/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} x86_64-apple-darwin-ahnlich-db.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
+              
+            # - name: Build Windows 64-bit MSVC(Windows 10+, Windows Server 2016+)
+            #   working-directory: ./ahnlich
+            #   run: |
+            #     rustup target add x86_64-pc-windows-msvc
+            #     cargo build --release --target=x86_64-pc-windows-msvc --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+            #     cd target/release && zip ../../win-x86_64-ahnlich-db.zip ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }} && cd ../../
+            #     gh release upload ${{github.event.release.tag_name}} win-x86_64-ahnlich-db.zip
+            #   env:
+            #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+            #   shell: bash
 
 
               
