@@ -53,10 +53,8 @@ jobs:
               working-directory: ./ahnlich
               run: |
                 rustup target add aarch64-apple-darwin
-                apt update && 
                 cargo zigbuild --release --target aarch64-apple-darwin --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-                ls -la target/release
-                tar -cvzf aarch64-darwin-ahnlich-db.tar.gz -C target/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf aarch64-darwin-ahnlich-db.tar.gz -C target/aarch64-apple-darwin/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
                 gh release upload ${{github.event.release.tag_name}} aarch64-darwin-ahnlich-db.tar.gz
               env:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -67,8 +65,7 @@ jobs:
               run: |
                 rustup target add x86_64-apple-darwin
                 cargo zigbuild --release --target x86_64-apple-darwin --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
-                ls -la target/release
-                tar -cvzf x86_64-apple-darwin-ahnlich-db.tar.gz -C target/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf x86_64-apple-darwin-ahnlich-db.tar.gz -C target/x86_64-apple-darwin/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
                 gh release upload ${{github.event.release.tag_name}} x86_64-apple-darwin-ahnlich-db.tar.gz
               env:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -91,7 +88,7 @@ jobs:
             - name: Package and upload x86_64-pc-windows-gnu
               working-directory: ./ahnlich
               run: |
-                cd target/release && zip ../../win-x86_64-gnu-ahnlich-db.zip ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }} && cd ../../
+                cd target/x86_64-pc-windows-gnu/release/ && zip ../../../win-x86_64-gnu-ahnlich-db.zip ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}.exe && cd ../../../
                 gh release upload ${{github.event.release.tag_name}} win-x86_64-gnu-ahnlich-db.zip
               env:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
