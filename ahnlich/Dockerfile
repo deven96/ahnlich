@@ -23,15 +23,8 @@ RUN cargo build --release --bin ${AHNLICH_BIN}
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
-RUN apt-get update -y \
-    && apt-get install -y --no-install-recommends openssl ca-certificates \
-    # Clean up
-    && apt-get autoremove -y \
-    && apt-get clean -y \
-    && rm -rf /var/lib/apt/lists/*
 
-
-RUN apt-get update && apt-get install -y openssl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
     libsasl2-modules-gssapi-mit libsasl2-dev \
     # Clean up
     && apt-get autoremove -y \

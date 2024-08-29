@@ -17,7 +17,6 @@ path = "src/main.rs"
 flurry.workspace = true
 tokio.workspace = true
 serde.workspace = true
-blake3.workspace = true
 ndarray.workspace = true
 bincode.workspace = true
 itertools.workspace = true
