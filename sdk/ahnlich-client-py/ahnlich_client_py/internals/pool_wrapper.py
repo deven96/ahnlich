@@ -16,7 +16,7 @@ def socket_nonblocking(sock: socket.socket) -> Generator[None, None, None]:
     # This fixes the `[Win 100035]: A non-blocking socket operation could not be completed immediately` error.
     # Essentially this tells windows this is a blocking socket, thereby allowing check_aliveness exec without errors.
     if platform.system().lower() == WINDOWS:
-        sock.settimeout(0.000001)
+        sock.settimeout(1e-9)
     else:
         sock.settimeout(0)
     try:
