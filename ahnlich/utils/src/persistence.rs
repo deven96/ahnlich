@@ -14,6 +14,20 @@ use tokio::time::sleep;
 use tokio::time::Duration;
 use tokio_graceful::ShutdownGuard;
 
+pub trait AhnlichPersistenceUtils {
+    type PersistenceObject: Serialize + DeserializeOwned + Send + Sync + 'static;
+
+    fn write_flag(&self) -> Arc<AtomicBool>;
+
+    // TODO: We can in theory make loading of snapshot possible across threads but it is annoying
+    // and not completely necessary(?) to have to lock and unlock a primitive to be able to modify
+    // simply to load snapshot at the start
+
+    //    fn use_snapshot(&self, object: Self::PersistenceObject);
+
+    fn get_snapshot(&self) -> Self::PersistenceObject;
+}
+
 #[derive(Error, Debug)]
 pub enum PersistenceTaskError {
     #[error("Error with file {0}")]

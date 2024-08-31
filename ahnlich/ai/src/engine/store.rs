@@ -17,7 +17,7 @@ use std::collections::HashSet as StdHashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use utils::server::AhnlichPersistenceUtils;
+use utils::persistence::AhnlichPersistenceUtils;
 
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]

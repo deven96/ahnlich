@@ -17,7 +17,7 @@ use utils::server::ServerUtilsConfig;
 use ahnlich_client_rs::db::{DbClient, DbConnManager};
 use deadpool::managed::Pool;
 
-const SERVICE_NAME: &'static str = "ahnlich-ai";
+const SERVICE_NAME: &str = "ahnlich-ai";
 
 pub struct AIProxyServer {
     listener: TcpListener,

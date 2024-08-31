@@ -15,7 +15,7 @@ use utils::server::AhnlichServerUtils;
 use utils::server::ServerUtilsConfig;
 use utils::{client::ClientHandler, persistence::Persistence};
 
-const SERVICE_NAME: &'static str = "ahnlich-db";
+const SERVICE_NAME: &str = "ahnlich-db";
 
 pub struct Server<'a> {
     listener: TcpListener,

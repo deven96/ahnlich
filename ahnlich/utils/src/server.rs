@@ -1,11 +1,10 @@
 use crate::allocator::GLOBAL_ALLOCATOR;
 use crate::client::ClientHandler;
+use crate::persistence::AhnlichPersistenceUtils;
 use crate::persistence::Persistence;
 use crate::protocol::AhnlichProtocol;
 use ahnlich_types::client::ConnectedClient;
 use async_trait::async_trait;
-use serde::de::DeserializeOwned;
-use serde::Serialize;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
@@ -15,20 +14,6 @@ use tokio::select;
 use tokio_graceful::Shutdown;
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
-
-pub trait AhnlichPersistenceUtils {
-    type PersistenceObject: Serialize + DeserializeOwned + Send + Sync + 'static;
-
-    fn write_flag(&self) -> Arc<AtomicBool>;
-
-    // TODO: We can in theory make loading of snapshot possible across threads but it is annoying
-    // and not completely necessary(?) to have to lock and unlock a primitive to be able to modify
-    // simply to load snapshot at the start
-
-    //    fn use_snapshot(&self, object: Self::PersistenceObject);
-
-    fn get_snapshot(&self) -> Self::PersistenceObject;
-}
 
 #[derive(Debug)]
 pub struct ServerUtilsConfig<'a> {
@@ -98,9 +83,7 @@ pub trait AhnlichServerUtils: Sized {
         let global_allocator_cap = self.config().allocator_size;
         GLOBAL_ALLOCATOR
             .set_limit(global_allocator_cap)
-            .expect(&format!(
-                "Could not set up {service_name} with allocator_size"
-            ));
+            .unwrap_or_else(|_| panic!("Could not set up {service_name} with allocator_size"));
 
         log::debug!("Set max size for global allocator to: {global_allocator_cap}");
         let server_addr = self.local_addr()?;
@@ -119,7 +102,7 @@ pub trait AhnlichServerUtils: Sized {
             select! {
                 // We use biased selection as it would order our futures according to physical
                 // arrangements below
-                // We want shutdown signals to alwyas be checked for first, hence the arrangements
+                // We want shutdown signals to always be checked for first, hence the arrangements
                 biased;
 
                 // shutdown handler from Ctrl+C signals

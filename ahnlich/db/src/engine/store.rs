@@ -24,7 +24,7 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use utils::server::AhnlichPersistenceUtils;
+use utils::persistence::AhnlichPersistenceUtils;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
