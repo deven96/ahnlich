@@ -17,3 +17,6 @@ async-trait.workspace = true
 tempfile = "3.5"
 tokio-graceful.workspace = true
 serde_json.workspace = true
+log.workspace = true
+cap = "0.1.2"
+tokio-util.workspace = true

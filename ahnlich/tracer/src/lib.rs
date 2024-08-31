@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use tracing_subscriber::fmt::format::FmtSpan;
 
 use opentelemetry::{global, trace::TraceContextExt, Context, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
@@ -7,12 +8,42 @@ use opentelemetry_sdk::{
     trace::{self, Sampler},
     Resource,
 };
+use std::sync::Once;
 use tracing::subscriber::set_global_default;
+use tracing_log::LogTracer;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
 
-pub fn init_tracing(service_name: &'static str, log_level: Option<&str>, otel_url: &str) {
-    let env_filter = EnvFilter::new(log_level.unwrap_or("info"));
+static INIT_ONCE: Once = Once::new();
+
+fn init_logger(log_level: &str) {
+    INIT_ONCE.call_once(|| {
+        let mut builder = env_logger::Builder::new();
+        builder.parse_filters(log_level);
+        builder.init();
+    });
+}
+
+pub fn init_log_or_trace(
+    enable_tracing: bool,
+    service_name: &'static str,
+    otel_endpoint: &Option<String>,
+    log_level: &str,
+) {
+    if enable_tracing {
+        LogTracer::init().expect("Failed to set logger");
+        let otel_url = otel_endpoint
+            .to_owned()
+            .unwrap_or("http://127.0.0.1:4317".to_string());
+        init_tracing(service_name, log_level, &otel_url);
+    } else {
+        init_logger(log_level);
+    }
+    log::info!("Starting {}", service_name);
+}
+
+fn init_tracing(service_name: &'static str, log_level: &str, otel_url: &str) {
+    let env_filter = EnvFilter::new(log_level);
 
     let otel_layer = tracing_opentelemetry::layer().with_tracer(
         opentelemetry_otlp::new_pipeline()
@@ -34,17 +65,15 @@ pub fn init_tracing(service_name: &'static str, log_level: Option<&str>, otel_ur
             .expect("could not build otel pipeline"),
     );
 
-    let stdout_layer = tracing_subscriber::fmt::layer().pretty();
     let json_layer = tracing_subscriber::fmt::layer()
-        .json()
         .with_level(true)
-        .with_current_span(true)
+        .with_ansi(true)
+        .with_span_events(FmtSpan::CLOSE)
         .with_thread_names(true);
 
     let subscriber = Registry::default().with(env_filter).with(json_layer);
 
-    set_global_default(subscriber.with(stdout_layer).with(otel_layer))
-        .expect("Failed to set default subscriber");
+    set_global_default(subscriber.with(otel_layer)).expect("Failed to set default subscriber");
     global::set_text_map_propagator(TraceContextPropagator::new());
 }
 

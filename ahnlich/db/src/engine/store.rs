@@ -24,6 +24,7 @@ use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use utils::server::AhnlichPersistenceUtils;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
@@ -65,6 +66,20 @@ pub struct StoreHandler {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     stores: Stores,
     pub write_flag: Arc<AtomicBool>,
+}
+
+impl AhnlichPersistenceUtils for StoreHandler {
+    type PersistenceObject = Stores;
+
+    #[tracing::instrument(skip_all)]
+    fn write_flag(&self) -> Arc<AtomicBool> {
+        self.write_flag.clone()
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn get_snapshot(&self) -> Self::PersistenceObject {
+        self.stores.clone()
+    }
 }
 
 pub type Stores = Arc<ConcurrentHashMap<StoreName, Arc<Store>>>;

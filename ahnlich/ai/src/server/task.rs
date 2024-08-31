@@ -1,8 +1,8 @@
 use crate::engine::ai::models::Model;
-use crate::server::handler::AI_ALLOCATOR;
 use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
-use ahnlich_types::db::{ConnectedClient, ServerInfo, ServerResponse};
+use ahnlich_types::client::ConnectedClient;
+use ahnlich_types::db::{ServerInfo, ServerResponse};
 use ahnlich_types::keyval::{StoreInput, StoreValue};
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::{Predicate, PredicateCondition};
@@ -12,6 +12,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
+use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::client::ClientHandler;
 use utils::protocol::AhnlichProtocol;
 
@@ -20,7 +21,7 @@ use crate::error::AIProxyError;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
 
 #[derive(Debug)]
-pub(super) struct AIProxyTask {
+pub struct AIProxyTask {
     pub(super) server_addr: SocketAddr,
     pub(super) reader: BufReader<TcpStream>,
     pub(super) client_handler: Arc<ClientHandler>,
@@ -390,8 +391,8 @@ impl AIProxyTask {
             address: format!("{}", self.server_addr),
             version: *VERSION,
             r#type: ahnlich_types::ServerType::AI,
-            limit: AI_ALLOCATOR.limit(),
-            remaining: AI_ALLOCATOR.remaining(),
+            limit: GLOBAL_ALLOCATOR.limit(),
+            remaining: GLOBAL_ALLOCATOR.remaining(),
         }
     }
 }

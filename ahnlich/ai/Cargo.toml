@@ -27,17 +27,18 @@ async-trait.workspace = true
 utils = { path = "../utils", version = "*" }
 ahnlich_types = { path = "../types", version = "*" }
 tokio-graceful.workspace = true
+tokio-util.workspace = true
 once_cell.workspace = true
 tracing.workspace = true
 tracer = { path = "../tracer", version = "*" }
 ahnlich_client_rs = { path = "../client", version = "*" }
 ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
-cap.workspace = true
 deadpool.workspace = true
 nonzero_ext = "0.3.0"
 serde_json.workspace = true
 termcolor = "1.4.1"
 strum = { version = "0.26", features = ["derive"] }
+log.workspace = true
 
 [dev-dependencies]
 db = { path = "../db", version = "*" }

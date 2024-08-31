@@ -3,7 +3,8 @@ use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::similarity::Similarity;
 use ahnlich_types::{
     ai::{AIModel, AIServerResponse, AIServerResult, AIStoreInfo},
-    db::{ConnectedClient, ServerInfo, StoreUpsert},
+    client::ConnectedClient,
+    db::{ServerInfo, StoreUpsert},
     keyval::StoreName,
     metadata::{MetadataKey, MetadataValue},
     version::Version,

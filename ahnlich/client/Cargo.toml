@@ -27,3 +27,4 @@ db = { path = "../db", version = "*" }
 ai = { path = "../ai", version = "*" }
 pretty_assertions.workspace = true
 ndarray.workspace = true
+utils = { path = "../utils", version = "*" }

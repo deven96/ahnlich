@@ -401,6 +401,7 @@ mod tests {
     use std::collections::HashMap;
     use std::net::SocketAddr;
     use tokio::time::Duration;
+    use utils::server::AhnlichServerUtils;
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
     static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {

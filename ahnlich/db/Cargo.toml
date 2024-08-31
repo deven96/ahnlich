@@ -29,13 +29,14 @@ ahnlich_types = { path = "../types", version = "*" }
 ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
 tokio.workspace = true
 tokio-graceful.workspace = true
-cap.workspace = true
+tokio-util.workspace = true
 once_cell.workspace = true
 tracing.workspace = true
 tracer = { path = "../tracer", version = "*" }
 serde_json.workspace = true
 async-trait.workspace = true
 rayon.workspace = true
+log.workspace = true
 
 
 [dev-dependencies]

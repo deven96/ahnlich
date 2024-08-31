@@ -17,6 +17,7 @@ use std::collections::HashSet as StdHashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use utils::server::AhnlichPersistenceUtils;
 
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]
@@ -29,6 +30,20 @@ pub struct AIStoreHandler {
 
 pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
 
+impl AhnlichPersistenceUtils for AIStoreHandler {
+    type PersistenceObject = AIStores;
+
+    #[tracing::instrument(skip_all)]
+    fn write_flag(&self) -> Arc<AtomicBool> {
+        self.write_flag.clone()
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn get_snapshot(&self) -> Self::PersistenceObject {
+        self.stores.clone()
+    }
+}
+
 impl AIStoreHandler {
     pub fn new(write_flag: Arc<AtomicBool>, supported_models: Vec<SupportedModels>) -> Self {
         Self {
@@ -36,15 +51,6 @@ impl AIStoreHandler {
             write_flag,
             supported_models,
         }
-    }
-    #[tracing::instrument(skip(self))]
-    pub(crate) fn get_stores(&self) -> AIStores {
-        self.stores.clone()
-    }
-
-    #[cfg(test)]
-    pub fn write_flag(&self) -> Arc<AtomicBool> {
-        self.write_flag.clone()
     }
 
     #[tracing::instrument(skip(self))]

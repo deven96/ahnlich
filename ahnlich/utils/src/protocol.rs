@@ -4,7 +4,7 @@ use ahnlich_types::bincode::BinCodeSerAndDeserResponse;
 use ahnlich_types::bincode::LENGTH_HEADER_SIZE;
 use ahnlich_types::bincode::MAGIC_BYTES;
 use ahnlich_types::bincode::VERSION_LENGTH;
-use ahnlich_types::db::ConnectedClient;
+use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::version::Version;
 use ahnlich_types::version::VERSION;
 use std::fmt::Debug;
@@ -44,18 +44,18 @@ where
         loop {
             select! {
                 _ = shutdown_guard.cancelled() => {
-                    tracing::debug!("{}", self.prefix_log("Cancelling stream as server is shutting down"));
+                    log::debug!("{}", self.prefix_log("Cancelling stream as server is shutting down"));
                     break;
                 }
                 res = self.reader().read_exact(&mut magic_bytes_buf) => {
                     match res {
                         // reader was closed
                         Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                            tracing::debug!("{}", self.prefix_log("Hung up on buffered stream"));
+                            log::debug!("{}", self.prefix_log("Hung up on buffered stream"));
                             break;
                         }
                         Err(e) => {
-                            tracing::error!("{}", self.prefix_log(format!("Error reading from task buffered stream {e}")));
+                            log::error!("{}", self.prefix_log(format!("Error reading from task buffered stream {e}")));
                         }
                         Ok(_) => {
                             if magic_bytes_buf != MAGIC_BYTES {
@@ -70,19 +70,19 @@ where
                             self.reader().read_exact(&mut length_buf).await?;
                             let data_length = u64::from_le_bytes(length_buf);
                             if data_length > self.maximum_message_size() {
-                                tracing::error!("{}", self.prefix_log(format!("Message cannot exceed {} bytes, configure `message_size` for higher", self.maximum_message_size())));
+                                log::error!("{}", self.prefix_log(format!("Message cannot exceed {} bytes, configure `message_size` for higher", self.maximum_message_size())));
                                 break
                             }
                             let mut data = Vec::new();
                             if data.try_reserve(data_length as usize).is_err() {
-                                tracing::error!("{}", self.prefix_log(format!("Failed to reserve buffer of length {data_length}")));
+                                log::error!("{}", self.prefix_log(format!("Failed to reserve buffer of length {data_length}")));
                                 break
                             };
                             data.resize(data_length as usize, 0u8);
                             self.reader().read_exact(&mut data).await?;
                             match Self::ServerQuery::deserialize(&data) {
                                 Ok(queries) => {
-                                tracing::debug!("Got Queries {:?}", queries);
+                                log::debug!("Got Queries {:?}", queries);
                                 let span = tracing::info_span!("query-processor");
                                 if let Some(trace_parent) = queries.get_traceparent() {
                                     let parent_context = tracer::trace_parent_to_span(trace_parent).map_err(|err|Error::new(ErrorKind::Other, err))?;
@@ -91,11 +91,11 @@ where
                                 let results = self.handle(queries.into_inner()).instrument(span).await;
                                 if let Ok(binary_results) = results.serialize() {
                                     self.reader().get_mut().write_all(&binary_results).await?;
-                                    tracing::debug!("Sent Response of length {}, {:?}", binary_results.len(), binary_results);
+                                    log::debug!("Sent Response of length {}, {:?}", binary_results.len(), binary_results);
                                 }
                             },
                             Err(e) =>{
-                                tracing::error!("{} {e}", self.prefix_log("Could not deserialize client message as server query"));
+                                log::error!("{} {e}", self.prefix_log("Could not deserialize client message as server query"));
                                 let deserialize_error = Self::ServerResponse::from_error("Could not deserialize query, error is {e}".to_string()).serialize().expect("Could not serialize deserialize error");
                                 self.reader().get_mut().write_all(&deserialize_error).await?;
                             }
