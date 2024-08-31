@@ -37,6 +37,9 @@ strum = { version = "0.26", features = ["derive"] }
 log.workspace = true
 fallible_collections.workspace = true
 rayon.workspace = true
+fastembed = { version = "4.0.0", features = ["default"] }
+hf-hub = { version = "0.3", default-features = false }
+dirs = "5.0.1"
 
 [dev-dependencies]
 db = { path = "../db", version = "*" }

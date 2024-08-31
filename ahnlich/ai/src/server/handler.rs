@@ -5,6 +5,7 @@ use crate::server::task::AIProxyTask;
 use ahnlich_types::client::ConnectedClient;
 use std::error::Error;
 use std::io::Result as IoResult;
+use crate::engine::ai::providers::ModelProviders;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -22,6 +23,7 @@ use utils::server::ServerUtilsConfig;
 
 use ahnlich_client_rs::db::{DbClient, DbConnManager};
 use deadpool::managed::Pool;
+use ahnlich_types::ai::AIModel;
 
 const SERVICE_NAME: &str = "ahnlich-ai";
 
@@ -121,6 +123,12 @@ impl AIProxyServer {
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
         let task_manager = TaskManager::new();
         let model_manager = ModelManager::new(&config.supported_models, &task_manager).await?;
+
+        for model in &config.supported_models {
+            let ai_model: AIModel = AIModel::from(model);
+            let cache_location = config.model_cache_location.clone();
+            ModelProviders::FastEmbed.download(&ai_model, cache_location);
+        }
 
         Ok(Self {
             listener: Arc::new(listener),

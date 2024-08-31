@@ -31,11 +31,49 @@ impl From<&AIModel> for Model {
                 embedding_size: nonzero!(100usize),
                 max_input_tokens: nonzero!(100usize),
             },
-            AIModel::DALLE3 => Self::Image {
+            AIModel::Dalle3 => Self::Image {
                 name: String::from("DALL.E 3"),
                 description: String::from("Dalle3, an image model"),
                 embedding_size: nonzero!(300usize),
                 max_image_dimensions: nonzero!(300usize),
+            },
+            AIModel::AllMiniLML6V2 => Self::Text {
+                name: String::from("all-MiniLM-L6-v2"),
+                description: String::from("Sentence Transformer model, with 6 layers, version 2"),
+                embedding_size: nonzero!(384usize),
+                max_input_tokens: nonzero!(256usize),
+            },
+            AIModel::AllMiniLML12V2 => Self::Text {
+                name: String::from("all-MiniLM-L12-v2"),
+                description: String::from("Sentence Transformer model, with 12 layers, version 2."),
+                embedding_size: nonzero!(384usize),
+                // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
+                max_input_tokens: nonzero!(256usize),
+            },
+            AIModel::BGEBaseEnV15 => Self::Text {
+                name: String::from("BGEBase-En-v1.5"),
+                description: String::from("BAAI General Embedding model with English support, base scale, version 1.5."),
+                embedding_size: nonzero!(768usize),
+                // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
+                max_input_tokens: nonzero!(512usize),
+            },
+            AIModel::BGELargeEnV15 => Self::Text {
+                name: String::from("BGELarge-En-v1.5"),
+                description: String::from("BAAI General Embedding model with English support, large scale, version 1.5."),
+                embedding_size: nonzero!(1024usize),
+                max_input_tokens: nonzero!(512usize),
+            },
+            AIModel::Resnet50 => Self::Image {
+                name: String::from("Resnet-50"),
+                description: String::from("Residual Networks model, with 50 layers."),
+                embedding_size: nonzero!(2048usize),
+                max_image_dimensions: nonzero!(224usize),
+            },
+            AIModel::ClipVitB32 => Self::Image {
+                name: String::from("ClipVit-B32"),
+                description: String::from("Contrastive Language-Image Pre-Training Vision transformer model, base scale."),
+                embedding_size: nonzero!(512usize),
+                max_image_dimensions: nonzero!(224usize),
             },
         }
     }
