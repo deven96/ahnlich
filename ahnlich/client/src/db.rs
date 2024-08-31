@@ -442,6 +442,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
     use tokio::time::Duration;
+    use utils::server::AhnlichServerUtils;
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 

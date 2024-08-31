@@ -45,6 +45,9 @@ pub struct AIProxyConfig {
     /// persistence location
     #[arg(long, requires_if("true", "enable_persistence"))]
     pub(crate) persist_location: Option<std::path::PathBuf>,
+    /// Controls whether we crash or not on startup if persisting load fails
+    #[arg(long, default_value_t = false, action=ArgAction::SetFalse)]
+    pub(crate) fail_on_startup_if_persist_load_fails: bool,
 
     /// persistence interval in milliseconds
     /// A new persistence round would be scheduled for persistence_interval into the future after
@@ -101,6 +104,7 @@ impl Default for AIProxyConfig {
             port: 1370,
             enable_persistence: false,
             persist_location: None,
+            fail_on_startup_if_persist_load_fails: false,
             persistence_interval: 1000 * 60 * 5,
 
             db_host: String::from("127.0.0.1"),

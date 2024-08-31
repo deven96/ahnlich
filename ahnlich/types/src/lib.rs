@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod bincode;
+pub mod client;
 pub mod db;
 pub mod keyval;
 pub mod metadata;

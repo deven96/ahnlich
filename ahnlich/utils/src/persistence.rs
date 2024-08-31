@@ -14,6 +14,20 @@ use tokio::time::sleep;
 use tokio::time::Duration;
 use tokio_graceful::ShutdownGuard;
 
+pub trait AhnlichPersistenceUtils {
+    type PersistenceObject: Serialize + DeserializeOwned + Send + Sync + 'static;
+
+    fn write_flag(&self) -> Arc<AtomicBool>;
+
+    // TODO: We can in theory make loading of snapshot possible across threads but it is annoying
+    // and not completely necessary(?) to have to lock and unlock a primitive to be able to modify
+    // simply to load snapshot at the start
+
+    //    fn use_snapshot(&self, object: Self::PersistenceObject);
+
+    fn get_snapshot(&self) -> Self::PersistenceObject;
+}
+
 #[derive(Error, Debug)]
 pub enum PersistenceTaskError {
     #[error("Error with file {0}")]
@@ -62,35 +76,37 @@ impl<T: Serialize + DeserializeOwned> Persistence<T> {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn monitor(&mut self, shutdown_guard: ShutdownGuard) {
+    pub async fn monitor(&self, shutdown_guard: ShutdownGuard) {
         loop {
             select! {
                 _  = shutdown_guard.cancelled() => {
+                    log::debug!("Shutting down persistence thread");
                     break;
                 }
                 has_potential_write = self.has_potential_write() => {
+                    log::debug!("In potential write");
                     if has_potential_write {
                         let persist_location: &Path = self.persist_location.as_ref();
                         let writer = if let Ok(file) = NamedTempFile::new_in(persist_location.parent().expect("Could not get parent directory of persist location")) {
                             file
                         } else {
-                            tracing::error!("Could not create persistence file, skipping");
+                            log::error!("Could not create persistence file, skipping");
                             continue;
                         };
                         let temp_path = writer.path();
                         // set write flag to false before writing to it
                         let _ = self.write_flag.compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst);
                         if let Err(e) = serde_json::to_writer(&writer, &self.persist_object) {
-                            tracing::error!("Error writing stores to temp file {e}");
+                            log::error!("Error writing stores to temp file {e}");
 
                         } else {
                             match std::fs::rename(temp_path, persist_location) {
-                                Ok(_) => tracing::debug!("Persisted stores to disk"),
-                                Err(e) => tracing::error!("Error writing temp file to persist location {e}"),
+                                Ok(_) => log::debug!("Persisted stores to disk"),
+                                Err(e) => log::error!("Error writing temp file to persist location {e}"),
                             };
                         }
                     } else {
-                        tracing::debug!("No potential writes happened during persistence interval")
+                        log::debug!("No potential writes happened during persistence interval")
                     }
                 }
             }

@@ -1,4 +1,4 @@
-use ahnlich_types::db::ConnectedClient;
+use ahnlich_types::client::ConnectedClient;
 use flurry::HashSet as ConcurrentHashSet;
 use std::collections::HashSet as StdHashSet;
 use std::net::SocketAddr;
@@ -23,8 +23,9 @@ impl ClientHandler {
     #[tracing::instrument(skip(self))]
     pub fn connect(&self, addr: SocketAddr) -> Option<ConnectedClient> {
         let pinned = self.clients.pin();
+        log::debug!("Current client len {}", pinned.len());
         if self.is_maxed_out() {
-            tracing::error!(
+            log::error!(
                 "Maximum clients count {} reached or exceeded with {}",
                 pinned.len(),
                 self.maximum_clients

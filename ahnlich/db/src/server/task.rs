@@ -1,18 +1,17 @@
 use crate::engine::store::StoreHandler;
-use crate::server::handler::ALLOCATOR;
-use ahnlich_types::db::{
-    ConnectedClient, DBQuery, ServerDBQuery, ServerInfo, ServerResponse, ServerResult,
-};
+use ahnlich_types::client::ConnectedClient;
+use ahnlich_types::db::{DBQuery, ServerDBQuery, ServerInfo, ServerResponse, ServerResult};
 use ahnlich_types::version::VERSION;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
+use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::client::ClientHandler;
 use utils::protocol::AhnlichProtocol;
 
 #[derive(Debug)]
-pub(super) struct ServerTask {
+pub struct ServerTask {
     pub(super) server_addr: SocketAddr,
     pub(super) reader: BufReader<TcpStream>,
     pub(super) store_handler: Arc<StoreHandler>,
@@ -159,8 +158,8 @@ impl ServerTask {
             address: format!("{}", self.server_addr),
             version: *VERSION,
             r#type: ahnlich_types::ServerType::Database,
-            limit: ALLOCATOR.limit(),
-            remaining: ALLOCATOR.remaining(),
+            limit: GLOBAL_ALLOCATOR.limit(),
+            remaining: GLOBAL_ALLOCATOR.remaining(),
         }
     }
 }

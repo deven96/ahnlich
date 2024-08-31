@@ -1,7 +1,7 @@
 use crate::cli::ServerConfig;
 use crate::server::handler::Server;
 use ahnlich_types::bincode::BinCodeSerAndDeser;
-use ahnlich_types::db::ConnectedClient;
+use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::DBQuery;
 use ahnlich_types::db::ServerDBQuery;
 use ahnlich_types::db::ServerInfo;
@@ -31,6 +31,7 @@ use std::time::SystemTime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
+use utils::server::AhnlichServerUtils;
 
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 
@@ -53,6 +54,7 @@ async fn test_maximum_client_restriction_works() {
         .await
         .expect("Could not initialize server");
     let address = server.local_addr().expect("Could not get local addr");
+    let cancellation_token = server.cancellation_token().clone();
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -62,12 +64,7 @@ async fn test_maximum_client_restriction_works() {
     let first_stream_addr = first_stream.local_addr().unwrap();
     let other_stream = TcpStream::connect(address).await.unwrap();
     let mut third_stream_fail = TcpStream::connect(address).await.unwrap();
-    // should error on invalid stream
-    assert!(
-        timeout(Duration::from_secs(1), third_stream_fail.read(&mut []))
-            .await
-            .is_err()
-    );
+    assert_eq!(third_stream_fail.read(&mut []).await.unwrap(), 0);
     let message = ServerDBQuery::from_queries(&[DBQuery::ListClients]);
     let expected_response = HashSet::from_iter([
         ConnectedClient {
@@ -83,6 +80,7 @@ async fn test_maximum_client_restriction_works() {
     expected.push(Ok(ServerResponse::ClientList(expected_response.clone())));
     let mut reader = BufReader::new(first_stream);
     query_server_assert_result(&mut reader, message, expected.clone()).await;
+    cancellation_token.cancel();
 }
 
 #[tokio::test]
