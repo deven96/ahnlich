@@ -25,8 +25,8 @@ clap.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
 utils = { path = "../utils", version = "*" }
+task-manager = { path = "../task-manager", version = "*" }
 ahnlich_types = { path = "../types", version = "*" }
-tokio-graceful.workspace = true
 tokio-util.workspace = true
 once_cell.workspace = true
 tracing.workspace = true

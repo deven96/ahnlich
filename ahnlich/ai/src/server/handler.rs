@@ -5,9 +5,10 @@ use ahnlich_types::client::ConnectedClient;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::{io::Result as IoResult, sync::Arc};
+use task_manager::TaskManager;
 use tokio::io::BufReader;
 use tokio::net::{TcpListener, TcpStream};
-use tokio_graceful::Shutdown;
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use utils::client::ClientHandler;
 use utils::persistence::Persistence;
@@ -19,13 +20,13 @@ use deadpool::managed::Pool;
 
 const SERVICE_NAME: &str = "ahnlich-ai";
 
+#[derive(Debug, Clone)]
 pub struct AIProxyServer {
-    listener: TcpListener,
+    listener: Arc<TcpListener>,
     config: AIProxyConfig,
     client_handler: Arc<ClientHandler>,
     store_handler: Arc<AIStoreHandler>,
-    shutdown_token: Shutdown,
-    cancellation_token: CancellationToken,
+    task_manager: Arc<TaskManager>,
     db_client: Arc<DbClient>,
 }
 
@@ -42,8 +43,8 @@ impl AhnlichServerUtils for AIProxyServer {
         }
     }
 
-    fn cancellation_token(&self) -> &CancellationToken {
-        &self.cancellation_token
+    fn cancellation_token(&self) -> CancellationToken {
+        self.task_manager.cancellation_token()
     }
 
     fn listener(&self) -> &TcpListener {
@@ -58,12 +59,8 @@ impl AhnlichServerUtils for AIProxyServer {
         &self.store_handler
     }
 
-    fn shutdown_token(&self) -> &Shutdown {
-        &self.shutdown_token
-    }
-
-    fn shutdown_token_owned(self) -> Shutdown {
-        self.shutdown_token
+    fn task_manager(&self) -> Arc<TaskManager> {
+        self.task_manager.clone()
     }
 
     fn create_task(
@@ -71,11 +68,11 @@ impl AhnlichServerUtils for AIProxyServer {
         stream: TcpStream,
         server_addr: SocketAddr,
         connected_client: ConnectedClient,
-    ) -> IoResult<Self::Task> {
+    ) -> Self::Task {
         let reader = BufReader::new(stream);
         // add client to client_handler
-        Ok(AIProxyTask {
-            reader,
+        AIProxyTask {
+            reader: Arc::new(Mutex::new(reader)),
             server_addr,
             connected_client,
             maximum_message_size: self.config.message_size as u64,
@@ -83,17 +80,16 @@ impl AhnlichServerUtils for AIProxyServer {
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),
             db_client: self.db_client.clone(),
-        })
+        }
     }
 }
 
 impl AIProxyServer {
     pub async fn new(config: AIProxyConfig) -> IoResult<Self> {
-        let shutdown_token = Shutdown::default();
-        Self::build(config, shutdown_token).await
+        Self::build(config).await
     }
 
-    pub async fn build(config: AIProxyConfig, shutdown_token: Shutdown) -> IoResult<Self> {
+    pub async fn build(config: AIProxyConfig) -> IoResult<Self> {
         // Enable log and tracing
         tracer::init_log_or_trace(
             config.enable_tracing,
@@ -126,13 +122,12 @@ impl AIProxyServer {
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
 
         Ok(Self {
-            listener,
-            shutdown_token,
+            listener: Arc::new(listener),
             client_handler,
             store_handler: Arc::new(store_handler),
-            cancellation_token: CancellationToken::new(),
             config,
             db_client: Arc::new(db_client),
+            task_manager: Arc::new(TaskManager::new()),
         })
     }
 

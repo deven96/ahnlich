@@ -7,11 +7,9 @@ use ahnlich_types::client::ConnectedClient;
 use async_trait::async_trait;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
-use std::time::Duration;
 use std::{io::Result as IoResult, sync::Arc};
+use task_manager::TaskManager;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::select;
-use tokio_graceful::Shutdown;
 use tokio_util::sync::CancellationToken;
 use tracing::Instrument;
 
@@ -26,7 +24,7 @@ pub struct ServerUtilsConfig<'a> {
 }
 
 #[async_trait]
-pub trait AhnlichServerUtils: Sized {
+pub trait AhnlichServerUtils: Sized + Send + Sync + 'static {
     type Task: AhnlichProtocol + Send + Sync + 'static;
     type PersistenceTask: AhnlichPersistenceUtils;
 
@@ -44,33 +42,15 @@ pub trait AhnlichServerUtils: Sized {
         stream: TcpStream,
         server_addr: SocketAddr,
         connected_client: ConnectedClient,
-    ) -> IoResult<Self::Task>;
+    ) -> Self::Task;
 
     fn local_addr(&self) -> IoResult<SocketAddr> {
         self.listener().local_addr()
     }
 
-    fn shutdown_token(&self) -> &Shutdown;
-    fn shutdown_token_owned(self) -> Shutdown;
+    fn cancellation_token(&self) -> CancellationToken;
 
-    fn cancellation_token(&self) -> &CancellationToken;
-
-    /// stops all tasks and performs cleanup
-    async fn shutdown(self) {
-        let service_name = self.config().service_name;
-        // TODO: Add cleanup for instance persistence
-        // just cancelling the token alone does not give enough time for each task to shutdown,
-        // there must be other measures in place to ensure proper cleanup
-        if self
-            .shutdown_token_owned()
-            .shutdown_with_limit(Duration::from_secs(10))
-            .await
-            .is_err()
-        {
-            log::error!("{}: shutdown took longer than timeout", service_name);
-        };
-        tracer::shutdown_tracing();
-    }
+    fn task_manager(&self) -> Arc<TaskManager>;
 
     /// Runs through several processes to start up the server
     /// - Sets global allocator cap
@@ -87,6 +67,10 @@ pub trait AhnlichServerUtils: Sized {
 
         log::debug!("Set max size for global allocator to: {global_allocator_cap}");
         let server_addr = self.local_addr()?;
+        let task_manager = self.task_manager();
+        let inner_task_manager = self.task_manager();
+        let waiting_task_manager = self.task_manager();
+
         if let Some(persist_location) = self.config().persist_location {
             let persistence_task = Persistence::task(
                 self.write_flag(),
@@ -94,50 +78,50 @@ pub trait AhnlichServerUtils: Sized {
                 persist_location,
                 self.store_handler().get_snapshot(),
             );
-            self.shutdown_token()
-                .spawn_task_fn(|guard| async move { persistence_task.monitor(guard).await });
+            task_manager
+                .spawn_task_loop(
+                    |shutdown_guard| async move { persistence_task.monitor(shutdown_guard).await },
+                    "persistence".to_string(),
+                )
+                .await;
         };
-        loop {
-            let shutdown_guard = self.shutdown_token().guard();
-            select! {
-                // We use biased selection as it would order our futures according to physical
-                // arrangements below
-                // We want shutdown signals to always be checked for first, hence the arrangements
-                biased;
+        task_manager
+            .spawn_task_loop(move |shutdown_guard| async move {
+                loop {
+                    tokio::select! {
+                        biased;
 
-                // shutdown handler from Ctrl+C signals
-                _ = shutdown_guard.cancelled() => {
-                    // need to drop the shutdown guard used here else self.shutdown times out
-                    log::info!("Kill signal received for shutdown");
-                    drop(shutdown_guard);
-                    self.shutdown().await;
-                    break Ok(());
-                }
-                // shutdown handler from external cancellation tokens
-                _ = self.cancellation_token().cancelled() => {
-                    log::info!("External thread triggered cancellation token");
-                    drop(shutdown_guard);
-                    self.shutdown().await;
-                    break Ok(());
-                }
-                Ok((stream, connect_addr)) = self.listener().accept() => {
-                    //  - Spawn a tokio task to handle the command while holding on to a reference to self
-                    //  - Convert the incoming bincode in a chunked manner to a Vec<AIQuery>
-                    //  - Use store_handler to process the queries
-                    //  - Block new incoming connections on shutdown by no longer accepting and then
-                    //  cancelling existing ServerTask or forcing them to run to completion
+                        _ = shutdown_guard.is_cancelled() => {
+                            break;
+                        }
+                        Ok((stream, connect_addr)) = self.listener().accept() => {
+                            if let Some(connected_client) = self
+                                .client_handler()
+                                    .connect(stream.peer_addr().expect("Could not get peer addr"))
+                            {
+                                log::info!("Connecting to {}", connect_addr);
+                                let task = self.create_task(stream, server_addr, connected_client);
+                                inner_task_manager.spawn_task_loop(|shutdown_guard| async move {
 
-                    if let Some(connected_client) = self.client_handler().connect(stream.peer_addr()?) {
-                        log::info!("Connecting to {}", connect_addr);
-                        let mut task = self.create_task(stream, server_addr, connected_client)?;
-                        shutdown_guard.spawn_task_fn(|guard| async move {
-                            if let Err(e) = task.process(guard).instrument(tracing::info_span!("server_task").or_current()).await {
-                                log::error!("Error handling connection: {}", e)
-                            };
-                        });
-                    }
+                                    task.process(shutdown_guard)
+                                        .instrument(
+                                            tracing::info_span!("server_task").or_current(),
+                                        )
+                                        .await
+                                },
+                                format!("{}-listener", connect_addr),
+                                ).await;
+                            }
+                        }
+                    };
                 }
-            }
-        }
+            },
+        "listener".to_string()
+            )
+        .await;
+        waiting_task_manager.wait().await;
+        tracer::shutdown_tracing();
+        log::info!("Shutdown complete");
+        Ok(())
     }
 }
