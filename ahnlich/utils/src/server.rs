@@ -8,8 +8,6 @@ use async_trait::async_trait;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::{io::Result as IoResult, sync::Arc};
-use task_manager::CloneableAsyncClosure;
-use task_manager::TaskLoopControl;
 use task_manager::TaskManager;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::sync::CancellationToken;
@@ -72,52 +70,55 @@ pub trait AhnlichServerUtils: Sized + Send + Sync + 'static {
         let task_manager = self.task_manager();
         let inner_task_manager = self.task_manager();
         let waiting_task_manager = self.task_manager();
+
         if let Some(persist_location) = self.config().persist_location {
-            let persistence_task = Arc::new(Persistence::task(
+            let persistence_task = Persistence::task(
                 self.write_flag(),
                 self.config().persistence_interval,
                 persist_location,
                 self.store_handler().get_snapshot(),
-            ));
+            );
             task_manager
                 .spawn_task_loop(
-                    async move { persistence_task.run().await },
+                    |shutdown_guard| async move { persistence_task.monitor(shutdown_guard).await },
                     "persistence".to_string(),
                 )
                 .await;
         };
         task_manager
-            .spawn_task_loop(
-                async move {
-                    if let Ok((stream, connect_addr)) = self.listener().accept().await {
-                        if let Some(connected_client) = self
-                            .client_handler()
-                            .connect(stream.peer_addr().expect("Could not get peer addr"))
-                        {
-                            log::info!("Connecting to {}", connect_addr);
-                            let mut task = self.create_task(stream, server_addr, connected_client);
-                            inner_task_manager
-                                .spawn_task_loop(
-                                    async move {
-                                        task.process()
-                                            .instrument(
-                                                tracing::info_span!("server_task").or_current(),
-                                            )
-                                            .await
-                                    },
-                                    format!("{}-listener", connect_addr),
-                                )
-                                .await;
-                        } else {
-                            return TaskLoopControl::Break;
+            .spawn_task_loop(move |shutdown_guard| async move {
+                loop {
+                    tokio::select! {
+                        biased;
+
+                        _ = shutdown_guard.is_cancelled() => {
+                            break;
                         }
-                    }
-                    TaskLoopControl::Continue
-                },
-                "listener".to_string(),
+                        Ok((stream, connect_addr)) = self.listener().accept() => {
+                            if let Some(connected_client) = self
+                                .client_handler()
+                                    .connect(stream.peer_addr().expect("Could not get peer addr"))
+                            {
+                                log::info!("Connecting to {}", connect_addr);
+                                let task = self.create_task(stream, server_addr, connected_client);
+                                inner_task_manager.spawn_task_loop(|shutdown_guard| async move {
+
+                                    task.process(shutdown_guard)
+                                        .instrument(
+                                            tracing::info_span!("server_task").or_current(),
+                                        )
+                                        .await
+                                },
+                                format!("{}-listener", connect_addr),
+                                ).await;
+                            }
+                        }
+                    };
+                }
+            },
+        "listener".to_string()
             )
-            .await;
-        log::debug!("Spawned all tasks");
+        .await;
         waiting_task_manager.wait().await;
         tracer::shutdown_tracing();
         log::info!("Shutdown complete");

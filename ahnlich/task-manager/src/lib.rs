@@ -1,8 +1,5 @@
-use log::{debug, info};
+use log::info;
 use std::future::Future;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
 use tokio::{select, signal};
 /// TaskManager is a struct to achieve multiple things
 ///
@@ -10,62 +7,47 @@ use tokio::{select, signal};
 /// - Break the task loop when one of the following happens:
 ///     - SIGterm or SIGint is received
 ///     - External cancellation token is triggered
-///     - Task chooses to end via some internal condition
 ///
-/// TaskManager extends the tokio utils TaskTracker to ensure that ever task loop is being tracked
+/// TaskManager extends the tokio_utils::task::TaskTracker to ensure that every task loop is being tracked
 /// and the tasks have the ability to perform any necessary cleanup before ending
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
-
-pub struct CloneableAsyncClosure<F, Fut>
-where
-    F: Fn() -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = TaskLoopControl> + Send + 'static,
-{
-    inner: Arc<F>,
-    future: Pin<Box<Fut>>,
-}
-
-impl<F, Fut> CloneableAsyncClosure<F, Fut>
-where
-    F: Fn() -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = TaskLoopControl> + Send + 'static,
-{
-    pub fn new(f: F) -> Self {
-        let future = (f)();
-        CloneableAsyncClosure {
-            inner: Arc::new(f),
-            future: Box::pin(future),
-        }
-    }
-
-    fn reset(&mut self) {
-        self.future = Box::pin((self.inner)());
-    }
-}
-
-impl<F, Fut> Future for CloneableAsyncClosure<F, Fut>
-where
-    F: Fn() -> Fut + Clone + Send + Sync + 'static,
-    Fut: Future<Output = TaskLoopControl> + Send + 'static,
-{
-    type Output = TaskLoopControl;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.future.as_mut().poll(cx)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum TaskLoopControl {
-    Break,
-    Continue,
-}
 
 #[derive(Debug, Clone)]
 pub struct TaskManager {
     cancellation_token: CancellationToken,
     task_tracker: TaskTracker,
+}
+
+#[derive(Debug, Clone)]
+pub struct TaskManagerGuard {
+    cancellation_token: CancellationToken,
+    task_name: String,
+}
+
+impl TaskManagerGuard {
+    pub async fn is_cancelled(&self) {
+        let task_name = self.task_name.clone();
+        select! {
+            // We use biased selection as it would order our futures according to physical
+            // arrangements below
+            // We want shutdown signals to always be checked for first, hence the arrangements
+            biased;
+
+            _ = signal::ctrl_c() => {
+                info!("Received Ctrl-C signal, cancelling [{task_name}] task");
+            }
+            _ = self.cancellation_token.cancelled() => {
+                info!("Received Cancellation token signal, cancelling [{task_name}] task");
+            }
+        }
+    }
+}
+
+impl Default for TaskManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TaskManager {
@@ -76,47 +58,22 @@ impl TaskManager {
         }
     }
 
-    pub async fn spawn_task_loop<F>(&self, task: F, task_name: String)
+    fn guard(&self, task_name: String) -> TaskManagerGuard {
+        TaskManagerGuard {
+            task_name,
+            cancellation_token: self.cancellation_token.clone(),
+        }
+    }
+
+    pub async fn spawn_task_loop<T, F>(&self, task: F, task_name: String)
     where
-        F: Future<Output = TaskLoopControl> + Send + 'static,
+        T: Future<Output = ()> + Send + 'static,
+        F: FnOnce(TaskManagerGuard) -> T + Send + 'static,
     {
-        let cancellation_token = self.cancellation_token.clone();
         let task_name_copy = task_name.clone();
-        let mut task = Box::pin(task);
+        let guard = self.guard(task_name);
 
-        self.task_tracker.spawn(async move {
-            loop {
-                let loop_control = select! {
-                    // We use biased selection as it would order our futures according to physical
-                    // arrangements below
-                    // We want shutdown signals to always be checked for first, hence the arrangements
-                    biased;
-
-                    _ = signal::ctrl_c() => {
-                        info!("Received Ctrl-C signal, cancelling [{task_name}] task");
-                        TaskLoopControl::Break
-                    }
-                    _ = cancellation_token.cancelled() => {
-                        info!("Received Cancellation token signal, cancelling [{task_name}] task");
-                        TaskLoopControl::Break
-                    }
-                    result = &mut task => {
-                        result
-                    }
-                };
-                match loop_control {
-                    TaskLoopControl::Continue => {
-                        debug!("Continuing [{task_name}] task loop");
-                        continue;
-                    }
-                    TaskLoopControl::Break => {
-                        debug!("[{task_name}] Task cancelled");
-                        break;
-                    }
-                }
-            }
-        });
-
+        self.task_tracker.spawn(task(guard));
         log::debug!("Spawned task {task_name_copy}",);
     }
 
@@ -132,9 +89,8 @@ impl TaskManager {
         self.task_tracker.close();
         self.task_tracker.wait().await
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    pub fn task_count(&self) -> usize {
+        self.task_tracker.len()
+    }
 }
