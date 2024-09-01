@@ -6,10 +6,11 @@ use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use task_manager::TaskManager;
 use tokio::io::BufReader;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
-use tokio_graceful::Shutdown;
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use utils::server::AhnlichServerUtils;
 use utils::server::ServerUtilsConfig;
@@ -17,16 +18,16 @@ use utils::{client::ClientHandler, persistence::Persistence};
 
 const SERVICE_NAME: &str = "ahnlich-db";
 
-pub struct Server<'a> {
-    listener: TcpListener,
-    shutdown_token: Shutdown,
+#[derive(Debug, Clone)]
+pub struct Server {
+    listener: Arc<TcpListener>,
     store_handler: Arc<StoreHandler>,
-    cancellation_token: CancellationToken,
     client_handler: Arc<ClientHandler>,
-    config: &'a ServerConfig,
+    task_manager: Arc<TaskManager>,
+    config: ServerConfig,
 }
 
-impl<'a> AhnlichServerUtils for Server<'a> {
+impl AhnlichServerUtils for Server {
     type Task = ServerTask;
     type PersistenceTask = StoreHandler;
 
@@ -39,8 +40,8 @@ impl<'a> AhnlichServerUtils for Server<'a> {
         }
     }
 
-    fn cancellation_token(&self) -> &CancellationToken {
-        &self.cancellation_token
+    fn cancellation_token(&self) -> CancellationToken {
+        self.task_manager.cancellation_token()
     }
 
     fn listener(&self) -> &TcpListener {
@@ -55,12 +56,8 @@ impl<'a> AhnlichServerUtils for Server<'a> {
         &self.store_handler
     }
 
-    fn shutdown_token(&self) -> &Shutdown {
-        &self.shutdown_token
-    }
-
-    fn shutdown_token_owned(self) -> Shutdown {
-        self.shutdown_token
+    fn task_manager(&self) -> Arc<TaskManager> {
+        self.task_manager.clone()
     }
 
     fn create_task(
@@ -68,27 +65,24 @@ impl<'a> AhnlichServerUtils for Server<'a> {
         stream: TcpStream,
         server_addr: SocketAddr,
         connected_client: ConnectedClient,
-    ) -> IoResult<Self::Task> {
+    ) -> Self::Task {
         let reader = BufReader::new(stream);
         // add client to client_handler
-        Ok(ServerTask {
-            reader,
+        ServerTask {
+            reader: Arc::new(Mutex::new(reader)),
             server_addr,
             connected_client,
             maximum_message_size: self.config.message_size as u64,
             // "inexpensive" to clone handlers they can be passed around in an Arc
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),
-        })
+        }
     }
 }
 
-impl<'a> Server<'a> {
+impl Server {
     /// creates a server while injecting a shutdown_token
-    pub async fn new_with_shutdown(
-        config: &'a ServerConfig,
-        shutdown_token: Shutdown,
-    ) -> IoResult<Self> {
+    pub async fn new_with_config(config: &ServerConfig) -> IoResult<Self> {
         let listener =
             tokio::net::TcpListener::bind(format!("{}:{}", &config.host, &config.port)).await?;
         let write_flag = Arc::new(AtomicBool::new(false));
@@ -111,17 +105,16 @@ impl<'a> Server<'a> {
             }
         };
         Ok(Self {
-            listener,
-            shutdown_token,
+            listener: Arc::new(listener),
             store_handler: Arc::new(store_handler),
             client_handler,
-            cancellation_token: CancellationToken::new(),
-            config,
+            task_manager: Arc::new(TaskManager::new()),
+            config: config.clone(),
         })
     }
+
     /// initializes a server using server configuration
-    pub async fn new(config: &'a ServerConfig) -> IoResult<Self> {
-        let shutdown_token = Shutdown::default();
+    pub async fn new(config: &ServerConfig) -> IoResult<Self> {
         // Enable log and tracing
         tracer::init_log_or_trace(
             config.enable_tracing,
@@ -129,6 +122,6 @@ impl<'a> Server<'a> {
             &config.otel_endpoint,
             &config.log_level,
         );
-        Self::new_with_shutdown(config, shutdown_token).await
+        Self::new_with_config(config).await
     }
 }

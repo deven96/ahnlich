@@ -26,9 +26,9 @@ clap.workspace = true
 thiserror.workspace = true
 utils = { path = "../utils", version = "*" }
 ahnlich_types = { path = "../types", version = "*" }
+task-manager = { path = "../task-manager", version = "*" }
 ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
 tokio.workspace = true
-tokio-graceful.workspace = true
 tokio-util.workspace = true
 once_cell.workspace = true
 tracing.workspace = true

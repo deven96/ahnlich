@@ -7,12 +7,11 @@ use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use task_manager::TaskLoopControl;
 use tempfile::NamedTempFile;
 use thiserror::Error;
-use tokio::select;
 use tokio::time::sleep;
 use tokio::time::Duration;
-use tokio_graceful::ShutdownGuard;
 
 pub trait AhnlichPersistenceUtils {
     type PersistenceObject: Serialize + DeserializeOwned + Send + Sync + 'static;
@@ -36,6 +35,7 @@ pub enum PersistenceTaskError {
     SerdeError(#[from] serde_json::error::Error),
 }
 
+#[derive(Debug, Clone)]
 pub struct Persistence<T> {
     write_flag: Arc<AtomicBool>,
     persistence_interval: u64,
@@ -76,40 +76,34 @@ impl<T: Serialize + DeserializeOwned> Persistence<T> {
     }
 
     #[tracing::instrument(skip(self))]
-    pub async fn monitor(&self, shutdown_guard: ShutdownGuard) {
-        loop {
-            select! {
-                _  = shutdown_guard.cancelled() => {
-                    log::debug!("Shutting down persistence thread");
-                    break;
-                }
-                has_potential_write = self.has_potential_write() => {
-                    log::debug!("In potential write");
-                    if has_potential_write {
-                        let persist_location: &Path = self.persist_location.as_ref();
-                        let writer = if let Ok(file) = NamedTempFile::new_in(persist_location.parent().expect("Could not get parent directory of persist location")) {
-                            file
-                        } else {
-                            log::error!("Could not create persistence file, skipping");
-                            continue;
-                        };
-                        let temp_path = writer.path();
-                        // set write flag to false before writing to it
-                        let _ = self.write_flag.compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst);
-                        if let Err(e) = serde_json::to_writer(&writer, &self.persist_object) {
-                            log::error!("Error writing stores to temp file {e}");
-
-                        } else {
-                            match std::fs::rename(temp_path, persist_location) {
-                                Ok(_) => log::debug!("Persisted stores to disk"),
-                                Err(e) => log::error!("Error writing temp file to persist location {e}"),
-                            };
-                        }
-                    } else {
-                        log::debug!("No potential writes happened during persistence interval")
-                    }
-                }
+    pub async fn run(&self) -> TaskLoopControl {
+        if self.has_potential_write().await {
+            log::debug!("In potential write");
+            let persist_location: &Path = self.persist_location.as_ref();
+            let writer = if let Ok(file) = NamedTempFile::new_in(
+                persist_location
+                    .parent()
+                    .expect("Could not get parent directory of persist location"),
+            ) {
+                file
+            } else {
+                log::error!("Could not create persistence file, skipping");
+                return TaskLoopControl::Continue;
+            };
+            let temp_path = writer.path();
+            // set write flag to false before writing to it
+            let _ =
+                self.write_flag
+                    .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst);
+            if let Err(e) = serde_json::to_writer(&writer, &self.persist_object) {
+                log::error!("Error writing stores to temp file {e}");
+            } else {
+                match std::fs::rename(temp_path, persist_location) {
+                    Ok(_) => log::debug!("Persisted stores to disk"),
+                    Err(e) => log::error!("Error writing temp file to persist location {e}"),
+                };
             }
         }
+        TaskLoopControl::Continue
     }
 }

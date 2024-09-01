@@ -12,6 +12,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::client::ClientHandler;
 use utils::protocol::AhnlichProtocol;
@@ -23,7 +24,7 @@ use crate::AHNLICH_AI_RESERVED_META_KEY;
 #[derive(Debug)]
 pub struct AIProxyTask {
     pub(super) server_addr: SocketAddr,
-    pub(super) reader: BufReader<TcpStream>,
+    pub(super) reader: Arc<Mutex<BufReader<TcpStream>>>,
     pub(super) client_handler: Arc<ClientHandler>,
     pub(super) store_handler: Arc<AIStoreHandler>,
     pub(super) connected_client: ConnectedClient,
@@ -42,8 +43,8 @@ impl AhnlichProtocol for AIProxyTask {
     fn maximum_message_size(&self) -> u64 {
         self.maximum_message_size
     }
-    fn reader(&mut self) -> &mut BufReader<TcpStream> {
-        &mut self.reader
+    fn reader(&self) -> Arc<Mutex<BufReader<TcpStream>>> {
+        self.reader.clone()
     }
 
     async fn handle(&self, queries: Vec<AIQuery>) -> AIServerResult {
