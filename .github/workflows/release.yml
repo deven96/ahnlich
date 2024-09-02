@@ -127,7 +127,7 @@ jobs:
             uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
             with:
               registry: ghcr.io
-              username: ${{ github.actor }}
+              username: ${{ github.repository_owner }}
               password: ${{ secrets.GH_GCR_TOKEN }}
 
           - name: Build and push Docker images
@@ -136,7 +136,7 @@ jobs:
             with:
               context: ./ahnlich
               push: true
-              tags: ghcr.io/${{ github.actor }}/${{needs.build_binaries_and_publish.outputs.bin_name}}:latest
+              tags: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}:latest
               build-args: |
                 AHNLICH_BIN=${{ needs.build_binaries_and_publish.outputs.bin_name}}
                 DEFAULT_PORT=${{env.DEFAULT_PORT}}
@@ -144,6 +144,6 @@ jobs:
           - name: Generate artifact attestation
             uses: actions/attest-build-provenance@v1
             with:
-              subject-name: ghcr.io/${{needs.build_binaries_and_publish.outputs.bin_name}}
+              subject-name: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}
               subject-digest: ${{ steps.push.outputs.digest }}
               push-to-registry: true
