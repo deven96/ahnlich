@@ -44,4 +44,6 @@ The clients follow a similar process when deploying new releases.
 [Example with python client](https://github.com/deven96/ahnlich/blob/main/sdk/ahnlich-client-py/README.md#deploy-to-artifactory).
 
 
+## Docker Images.
 
+`Note`: Arguments and commands must be passed in quotes. E.G: `docker run <image_name> "ahnlich-db run --enable-tracing --port 8000"`
