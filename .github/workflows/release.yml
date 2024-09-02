@@ -108,6 +108,11 @@ jobs:
         steps:
           - name: Check out the repo
             uses: actions/checkout@v4
+          
+          - name: Cache Docker images
+            uses: ScribeMD/docker-cache@0.5.0
+            with:
+              key: ${{ runner.os }}-cargo-${{ hashFiles('ahnlich/Cargo.lock') }}
 
           - name: Set Port Based on Bin Name
             id: set_port
@@ -131,9 +136,10 @@ jobs:
             with:
               context: ./ahnlich
               push: true
-              tags: ghcr.io/${{needs.build_binaries_and_publish.outputs.bin_name}}:latest
+              tags: ghcr.io/${{ github.actor }}/${{needs.build_binaries_and_publish.outputs.bin_name}}:latest
               build-args: |
                 AHNLICH_BIN=${{ needs.build_binaries_and_publish.outputs.bin_name}}
+                DEFAULT_PORT=${{env.DEFAULT_PORT}}
 
           - name: Generate artifact attestation
             uses: actions/attest-build-provenance@v1
