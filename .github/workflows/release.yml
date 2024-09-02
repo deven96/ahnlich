@@ -109,6 +109,15 @@ jobs:
           - name: Check out the repo
             uses: actions/checkout@v4
 
+          - name: Set Port Based on Bin Name
+            id: set_port
+            run: |
+              if [ "${{ needs.build_binaries_and_publish.outputs.bin_name }}" == "ahnlich-db" ]; then
+                echo "DEFAULT_PORT=1369" >> $GITHUB_ENV
+              else
+                echo "DEFAULT_PORT=1370" >> $GITHUB_ENV
+              fi
+
           - name: Log in to the Container registry
             uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
             with:

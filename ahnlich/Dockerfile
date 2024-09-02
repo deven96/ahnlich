@@ -9,6 +9,8 @@ COPY . /app/
 RUN cargo chef prepare  --recipe-path recipe.json
 
 FROM chef AS builder
+ARG AHNLICH_BIN
+ARG DEFAULT_PORT=1369
 COPY --from=planner /app/recipe.json recipe.json
 # Build our project dependencies, not our application!
 RUN cargo chef cook --release --recipe-path recipe.json
@@ -17,11 +19,13 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . /app/
 
 # Build our project
-ARG AHNLICH_BIN
 RUN cargo build --release --bin ${AHNLICH_BIN}
 
 
 FROM debian:bookworm-slim AS runtime
+
+ARG AHNLICH_BIN
+ARG DEFAULT_PORT
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
@@ -32,6 +36,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
     && rm -rf /var/lib/apt/lists/*
 
 
-COPY --from=builder /app/target/release/${AHNLICH_BIN} ${AHNLICH_BIN}
+COPY --from=builder /app/target/release/${AHNLICH_BIN} /usr/local/bin/
+
+ENV AHNLICH_BIN=${AHNLICH_BIN}
 
 
+ENTRYPOINT ["sh", "-c"]
+
+EXPOSE ${DEFAULT_PORT}
+
+CMD ["$AHNLICH_BIN"]
