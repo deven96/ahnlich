@@ -1,0 +1,99 @@
+name: Ahnlich AI and DB Release
+
+on:
+    release:
+      types: [published]
+
+
+permissions:
+  contents: write
+
+jobs:
+
+    build:
+        name: Build Binaries
+        runs-on: ubuntu-latest
+        steps:
+            - name: "Checkout"
+              uses: actions/checkout@v4
+
+            - name: "Get Binary Version"
+              id: get_binary_version
+              run: |
+                  cd ${{github.workspace}}
+                  echo ${{ github.event.release.tag_name }}
+                  value=$(echo "${{ github.event.release.tag_name }}" | cut -d'/' -f2)
+                  echo "$value"
+                  echo "BIN_NAME=${value}" >> $GITHUB_OUTPUT
+
+            - name: Get Cargo toolchain
+              uses: actions-rs/toolchain@v1
+              with:
+                toolchain: 1.78.0
+            
+            - name: Setup Zig
+              uses: goto-bus-stop/setup-zig@v2
+
+            - name: Build Linux Release
+              working-directory: ./ahnlich
+              run: |
+                cargo build --release --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf linux-ahnlich-db.tar.gz -C target/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} linux-ahnlich-db.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
+
+            - name: Setup Cargo ZigBuild
+              working-directory: ./ahnlich
+              run: |
+                cargo install --locked cargo-zigbuild
+
+            - name: Build Aarch64 Darwin Release
+              working-directory: ./ahnlich
+              run: |
+                rustup target add aarch64-apple-darwin
+                cargo zigbuild --release --target aarch64-apple-darwin --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf aarch64-darwin-ahnlich-db.tar.gz -C target/aarch64-apple-darwin/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} aarch64-darwin-ahnlich-db.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
+            
+            - name: Build x86_64 Apple Darwin Release
+              working-directory: ./ahnlich
+              run: |
+                rustup target add x86_64-apple-darwin
+                cargo zigbuild --release --target x86_64-apple-darwin --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf x86_64-apple-darwin-ahnlich-db.tar.gz -C target/x86_64-apple-darwin/release ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} x86_64-apple-darwin-ahnlich-db.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
+              
+            - name: Setup Cross
+              working-directory: ./ahnlich
+              run: |
+                cargo install cross --git https://github.com/cross-rs/cross
+
+            - name: Build Windows x86_64-pc-windows-gnu
+              uses: houseabsolute/actions-rust-cross@v0
+              with:
+                working-directory: ./ahnlich
+                command: build
+                target: x86_64-pc-windows-gnu
+                args: "--locked --release --bin ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}"
+                strip: true
+
+            - name: Package and upload x86_64-pc-windows-gnu
+              working-directory: ./ahnlich
+              run: |
+                cd target/x86_64-pc-windows-gnu/release/ && zip ../../../win-x86_64-gnu-ahnlich-db.zip ahnlich-${{ steps.get_binary_version.outputs.BIN_NAME }}.exe && cd ../../../
+                gh release upload ${{github.event.release.tag_name}} win-x86_64-gnu-ahnlich-db.zip
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
+              
+
+
+
