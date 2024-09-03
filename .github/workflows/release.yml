@@ -130,13 +130,22 @@ jobs:
               username: ${{ github.repository_owner }}
               password: ${{ secrets.GH_GCR_TOKEN }}
 
+          
+          - name: Extract metadata (tags, labels) for Docker
+            id: meta
+            uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+            with:
+              images: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}
+
           - name: Build and push Docker images
             id: push
             uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
             with:
               context: ./ahnlich
               push: true
-              tags: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}:latest
+              # tags: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}:latest
+              tags: ${{ steps.meta.outputs.tags }}
+              labels: ${{ steps.meta.outputs.labels }}
               build-args: |
                 AHNLICH_BIN=${{ needs.build_binaries_and_publish.outputs.bin_name}}
                 DEFAULT_PORT=${{env.DEFAULT_PORT}}
