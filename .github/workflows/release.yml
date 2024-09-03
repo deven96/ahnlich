@@ -134,7 +134,7 @@ jobs:
               # Extract only the numerical version part from the tag
               VERSION=$(make workspace-crate-version CRATE_NAME=${{ needs.build_binaries_and_publish.outputs.bin_suffix }} | tail -n 1)
               echo $VERSION
-              echo "VERSION=$VERSION" >> $GITHUB_ENV
+              echo "BIN_VERSION=$VERSION" >> $GITHUB_ENV
 
           - name: Log in to the Container registry
             uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
@@ -151,8 +151,7 @@ jobs:
               images: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}
               tags: |
                 type=schedule
-                type=ref,event=tag
-                type=semver,pattern={{version}},value=v${{steps.extract_version.outputs.VERSION}}
+                type=semver,pattern={{version}},value=v${{env.BIN_VERSION}}
               labels: |
                 org.opencontainers.image.description=${{ env.DESCRIPTION }}
 
