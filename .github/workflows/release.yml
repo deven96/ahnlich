@@ -38,65 +38,65 @@ jobs:
             - name: Setup Zig
               uses: goto-bus-stop/setup-zig@v2
 
-            # - name: Build Linux Release for ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #   working-directory: ./ahnlich
-            #   run: |
-            #     cargo build --release --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     tar -cvzf linux-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz -C target/release ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     gh release upload ${{github.event.release.tag_name}} linux-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz
-            #   env:
-            #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-            #   shell: bash
+            - name: Build Linux Release for ${{ steps.get_binary_version.outputs.BIN_NAME }}
+              working-directory: ./ahnlich
+              run: |
+                cargo build --release --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf linux-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz -C target/release ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} linux-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
 
-            # - name: Setup Cargo ZigBuild
-            #   working-directory: ./ahnlich
-            #   run: |
-            #     cargo install --locked cargo-zigbuild
+            - name: Setup Cargo ZigBuild
+              working-directory: ./ahnlich
+              run: |
+                cargo install --locked cargo-zigbuild
 
-            # - name: Build Aarch64 Darwin Release for ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #   working-directory: ./ahnlich
-            #   run: |
-            #     rustup target add aarch64-apple-darwin
-            #     cargo zigbuild --release --target aarch64-apple-darwin --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     tar -cvzf aarch64-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz -C target/aarch64-apple-darwin/release ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     gh release upload ${{github.event.release.tag_name}} aarch64-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz
-            #   env:
-            #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-            #   shell: bash
+            - name: Build Aarch64 Darwin Release for ${{ steps.get_binary_version.outputs.BIN_NAME }}
+              working-directory: ./ahnlich
+              run: |
+                rustup target add aarch64-apple-darwin
+                cargo zigbuild --release --target aarch64-apple-darwin --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf aarch64-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz -C target/aarch64-apple-darwin/release ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} aarch64-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
             
-            # - name: Build x86_64 Apple Darwin Release for ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #   working-directory: ./ahnlich
-            #   run: |
-            #     rustup target add x86_64-apple-darwin
-            #     cargo zigbuild --release --target x86_64-apple-darwin --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     tar -cvzf x86_64-apple-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz -C target/x86_64-apple-darwin/release ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #     gh release upload ${{github.event.release.tag_name}} x86_64-apple-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz
-            #   env:
-            #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-            #   shell: bash
+            - name: Build x86_64 Apple Darwin Release for ${{ steps.get_binary_version.outputs.BIN_NAME }}
+              working-directory: ./ahnlich
+              run: |
+                rustup target add x86_64-apple-darwin
+                cargo zigbuild --release --target x86_64-apple-darwin --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf x86_64-apple-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz -C target/x86_64-apple-darwin/release ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} x86_64-apple-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
               
-            # - name: Setup Cross
-            #   working-directory: ./ahnlich
-            #   run: |
-            #     cargo install cross --git https://github.com/cross-rs/cross
+            - name: Setup Cross
+              working-directory: ./ahnlich
+              run: |
+                cargo install cross --git https://github.com/cross-rs/cross
 
-            # - name: Build Windows x86_64-pc-windows-gnu for Ahnlich ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #   uses: houseabsolute/actions-rust-cross@v0
-            #   with:
-            #     working-directory: ./ahnlich
-            #     command: build
-            #     target: x86_64-pc-windows-gnu
-            #     args: "--locked --release --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}"
-            #     strip: true
+            - name: Build Windows x86_64-pc-windows-gnu for Ahnlich ${{ steps.get_binary_version.outputs.BIN_NAME }}
+              uses: houseabsolute/actions-rust-cross@v0
+              with:
+                working-directory: ./ahnlich
+                command: build
+                target: x86_64-pc-windows-gnu
+                args: "--locked --release --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}"
+                strip: true
 
-            # - name: Package and upload x86_64-pc-windows-gnu for Ahnlich ${{ steps.get_binary_version.outputs.BIN_NAME }}
-            #   working-directory: ./ahnlich
-            #   run: |
-            #     cd target/x86_64-pc-windows-gnu/release/ && zip ../../../win-x86_64-gnu-${{ steps.get_binary_version.outputs.BIN_NAME }}.zip ${{ steps.get_binary_version.outputs.BIN_NAME }}.exe && cd ../../../
-            #     gh release upload ${{github.event.release.tag_name}} win-x86_64-gnu-${{ steps.get_binary_version.outputs.BIN_NAME }}.zip
-            #   env:
-            #     GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-            #   shell: bash
+            - name: Package and upload x86_64-pc-windows-gnu for Ahnlich ${{ steps.get_binary_version.outputs.BIN_NAME }}
+              working-directory: ./ahnlich
+              run: |
+                cd target/x86_64-pc-windows-gnu/release/ && zip ../../../win-x86_64-gnu-${{ steps.get_binary_version.outputs.BIN_NAME }}.zip ${{ steps.get_binary_version.outputs.BIN_NAME }}.exe && cd ../../../
+                gh release upload ${{github.event.release.tag_name}} win-x86_64-gnu-${{ steps.get_binary_version.outputs.BIN_NAME }}.zip
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
               
     push_to_registries:
         needs: build_binaries_and_publish
