@@ -141,7 +141,7 @@ jobs:
               tags: |
                 type=schedule
                 type=ref,event=tag
-                type=ref,event=release,pattern={{version}}
+                type=semver,pattern={{version}}
               labels: |
                 org.opencontainers.image.url=https://github.com/deven96/ahnlich
                 org.opencontainers.image.source=https://github.com/deven96/ahnlich
