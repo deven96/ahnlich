@@ -119,8 +119,10 @@ jobs:
             run: |
               if [ "${{ needs.build_binaries_and_publish.outputs.bin_name }}" == "ahnlich-db" ]; then
                 echo "DEFAULT_PORT=1369" >> $GITHUB_ENV
+                echo "DESCRIPTION=Ahnlich DB" >> $GITHUB_ENV
               else
                 echo "DEFAULT_PORT=1370" >> $GITHUB_ENV
+                echo "DESCRIPTION=Ahnlich AI" >> $GITHUB_ENV
               fi
 
           - name: Log in to the Container registry
@@ -136,6 +138,17 @@ jobs:
             uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
             with:
               images: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}
+              tags: |
+                type=ref,event=release,pattern={{version}}
+              labels: |
+                org.opencontainers.image.url=https://github.com/deven96/ahnlich
+                org.opencontainers.image.source=https://github.com/deven96/ahnlich
+                org.opencontainers.image.title=ahnlich
+                org.opencontainers.image.revision=${{ github.sha }}
+                org.opencontainers.image.created=${{ github.event.release.created_at }}
+                org.opencontainers.image.version={{version}}
+                org.opencontainers.image.description=${{ env.DESCRIPTION }}
+                org.opencontainers.image.licenses=MIT
 
           - name: Build and push Docker images
             id: push
@@ -143,7 +156,6 @@ jobs:
             with:
               context: ./ahnlich
               push: true
-              # tags: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}:latest
               tags: ${{ steps.meta.outputs.tags }}
               labels: ${{ steps.meta.outputs.labels }}
               build-args: |
