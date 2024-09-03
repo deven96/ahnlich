@@ -133,6 +133,7 @@ jobs:
             run: |
               # Extract only the numerical version part from the tag
               VERSION=$(make workspace-crate-version CRATE_NAME=${{ needs.build_binaries_and_publish.outputs.bin_suffix }} | tail -n 1)
+              echo $VERSION
               echo "VERSION=$VERSION" >> $GITHUB_ENV
 
           - name: Log in to the Container registry
@@ -148,15 +149,12 @@ jobs:
             uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
             with:
               images: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}
+              tags: |
+                type=schedule
+                type=ref,event=tag
+                type=semver,pattern={{version}},value=v${{steps.extract_version.outputs.VERSION}}
               labels: |
-                org.opencontainers.image.url=https://github.com/deven96/ahnlich
-                org.opencontainers.image.source=https://github.com/deven96/ahnlich
-                org.opencontainers.image.title=ahnlich
-                org.opencontainers.image.revision=${{ github.sha }}
-                org.opencontainers.image.created=${{ github.event.release.created_at }}
-                org.opencontainers.image.version=${{steps.extract_version.outputs.VERSION}}
                 org.opencontainers.image.description=${{ env.DESCRIPTION }}
-                org.opencontainers.image.licenses=MIT
 
           - name: Build and push Docker images
             id: push
