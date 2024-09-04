@@ -2,10 +2,10 @@ use crate::cli::AIProxyConfig;
 use crate::engine::store::AIStoreHandler;
 use crate::manager::ModelManager;
 use crate::server::task::AIProxyTask;
+use crate::engine::ai::providers::ModelProvider;
 use ahnlich_types::client::ConnectedClient;
 use std::error::Error;
 use std::io::Result as IoResult;
-use crate::engine::ai::providers::ModelProviders;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -35,6 +35,7 @@ pub struct AIProxyServer {
     store_handler: Arc<AIStoreHandler>,
     task_manager: Arc<TaskManager>,
     db_client: Arc<DbClient>,
+    model_providers: Vec<ModelProvider>,
     model_manager: Arc<ModelManager>,
 }
 
@@ -124,10 +125,13 @@ impl AIProxyServer {
         let task_manager = TaskManager::new();
         let model_manager = ModelManager::new(&config.supported_models, &task_manager).await?;
 
+        let mut model_providers: Vec<ModelProvider> = Vec::new();
         for model in &config.supported_models {
             let ai_model: AIModel = AIModel::from(model);
             let cache_location = config.model_cache_location.clone();
-            ModelProviders::FastEmbed.download(&ai_model, cache_location);
+            let provider = ModelProvider::new(&ai_model, cache_location);
+            provider.download();
+            model_providers.push(provider);
         }
 
         Ok(Self {
@@ -138,6 +142,7 @@ impl AIProxyServer {
             db_client: Arc::new(db_client),
             task_manager: Arc::new(task_manager),
             model_manager: Arc::new(model_manager),
+            model_providers
         })
     }
 
