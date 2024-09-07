@@ -19,6 +19,7 @@ use utils::protocol::AhnlichProtocol;
 
 use crate::engine::store::AIStoreHandler;
 use crate::error::AIProxyError;
+use crate::manager::ModelManager;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
 
 #[derive(Debug)]
@@ -30,6 +31,7 @@ pub struct AIProxyTask {
     pub(super) connected_client: ConnectedClient,
     pub(super) maximum_message_size: u64,
     pub(super) db_client: Arc<DbClient>,
+    pub(super) model_manager: Arc<ModelManager>,
 }
 
 #[async_trait::async_trait]
@@ -101,28 +103,31 @@ impl AhnlichProtocol for AIProxyTask {
                     let mut db_inputs = Vec::new();
                     let mut delete_hashset = HashSet::new();
                     let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
-                    // TODO: Might parallelized
+                    let _model_manager = self.model_manager.clone();
                     if let Err(store_input_processing_err) =
+                        // TODO: Replace with self.model_manager.handle_request with bulk request
+                        // representing the inputs after preprocessing
                         inputs
-                            .into_iter()
-                            .try_for_each(|(store_input, store_value)| {
-                                let processed_store_value =
-                                    self.store_handler.store_input_to_store_key_val(
-                                        &store,
-                                        store_input,
-                                        store_value,
-                                        &preprocess_action,
-                                    );
-                                match processed_store_value {
-                                    Ok(val) => {
-                                        delete_hashset.insert(val.1[default_metadatakey].clone());
-                                        db_inputs.push(val);
+                                .into_iter()
+                                .try_for_each(|(store_input, store_value)| {
+                                    let processed_store_value =
+                                        self.store_handler.store_input_to_store_key_val(
+                                            &store,
+                                            store_input,
+                                            store_value,
+                                            &preprocess_action,
+                                        );
+                                    match processed_store_value {
+                                        Ok(val) => {
+                                            delete_hashset
+                                                .insert(val.1[default_metadatakey].clone());
+                                            db_inputs.push(val);
 
-                                        Ok(())
+                                            Ok(())
+                                        }
+                                        Err(err) => Err(err.to_string()),
                                     }
-                                    Err(err) => Err(err.to_string()),
-                                }
-                            })
+                                })
                     {
                         Err(store_input_processing_err)
                     } else {
@@ -326,6 +331,7 @@ impl AhnlichProtocol for AIProxyTask {
                     closest_n,
                     algorithm,
                 } => {
+                    // TODO: Replace this with calls to self.model_manager.handle_request
                     if let Ok(store_key) = self
                         .store_handler
                         .get_ndarray_repr_for_store(&store, &search_input)

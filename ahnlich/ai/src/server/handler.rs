@@ -1,10 +1,12 @@
 use crate::cli::AIProxyConfig;
 use crate::engine::store::AIStoreHandler;
+use crate::manager::ModelManager;
 use crate::server::task::AIProxyTask;
 use ahnlich_types::client::ConnectedClient;
+use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
-use std::{io::Result as IoResult, sync::Arc};
+use std::sync::Arc;
 use task_manager::TaskManager;
 use tokio::io::BufReader;
 use tokio::net::{TcpListener, TcpStream};
@@ -28,6 +30,7 @@ pub struct AIProxyServer {
     store_handler: Arc<AIStoreHandler>,
     task_manager: Arc<TaskManager>,
     db_client: Arc<DbClient>,
+    model_manager: Arc<ModelManager>,
 }
 
 impl AhnlichServerUtils for AIProxyServer {
@@ -80,16 +83,17 @@ impl AhnlichServerUtils for AIProxyServer {
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),
             db_client: self.db_client.clone(),
+            model_manager: self.model_manager.clone(),
         }
     }
 }
 
 impl AIProxyServer {
-    pub async fn new(config: AIProxyConfig) -> IoResult<Self> {
+    pub async fn new(config: AIProxyConfig) -> Result<Self, Box<dyn Error>> {
         Self::build(config).await
     }
 
-    pub async fn build(config: AIProxyConfig) -> IoResult<Self> {
+    pub async fn build(config: AIProxyConfig) -> Result<Self, Box<dyn Error>> {
         // Enable log and tracing
         tracer::init_log_or_trace(
             config.enable_tracing,
@@ -108,10 +112,7 @@ impl AIProxyServer {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");
                     if config.fail_on_startup_if_persist_load_fails {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            e.to_string(),
-                        ));
+                        return Err(Box::new(e));
                     }
                 }
                 Ok(snapshot) => {
@@ -120,6 +121,8 @@ impl AIProxyServer {
             }
         };
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
+        let task_manager = TaskManager::new();
+        let model_manager = ModelManager::new(&config.supported_models, &task_manager).await?;
 
         Ok(Self {
             listener: Arc::new(listener),
@@ -127,7 +130,8 @@ impl AIProxyServer {
             store_handler: Arc::new(store_handler),
             config,
             db_client: Arc::new(db_client),
-            task_manager: Arc::new(TaskManager::new()),
+            task_manager: Arc::new(task_manager),
+            model_manager: Arc::new(model_manager),
         })
     }
 
