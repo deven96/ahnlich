@@ -6,8 +6,10 @@
 
 # Define paths to the project files
 RUST_PROJECT_DIR := ../ahnlich
-RUST_TYPES_NAME := types
+RUST_TYPES_NAME := ahnlich_types
 RUST_CLIENT_NAME := client
+AHNLICH_DB_NAME := db
+AHNLICH_AI_NAME := ai
 PYTHON_PROJECT_DIR := ../sdk/ahnlich-client-py
 CARGO_TOML := $(RUST_PROJECT_DIR)/Cargo.toml
 PYPOETRY_TOML := $(PYTHON_PROJECT_DIR)/pyproject.toml
@@ -15,6 +17,8 @@ PYPOETRY_TOML := $(PYTHON_PROJECT_DIR)/pyproject.toml
 # Default version bump rule 
 BUMP_RULE := patch
 
+# Default crate name
+CRATE_NAME := db
 
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | grep -v '^help:.*?## '
@@ -51,9 +55,18 @@ run-ai-tracing: ## Run ahnlich_ai bin with default supported models and tracing_
 
 
 bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, minor, major.
-	@echo "Bumping Rust project version to $${RULE:-$(BUMP_RULE)}"
+	@echo "Bumping Rust Protocol version to $${RULE:-$(BUMP_RULE)}"
 	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(RUST_TYPES_NAME)
-	@echo "Rust project version bumped to $(BUMP_RULE)"
+	@echo "Rust Protocol version bumped to $(BUMP_RULE)"
+
+	@echo "Bumping ahnlich db version because of changed protocol with rule $(BUMP_RULE)"
+	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(AHNLICH_DB_NAME)
+	@echo "Ahnlich DB version bumped to $(BUMP_RULE)"
+
+	@echo "Bumping ahnlich ai version because of changed protocol with rule $(BUMP_RULE)"
+	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(AHNLICH_AI_NAME)
+	@echo "Ahnlich AI version bumped to $(BUMP_RULE)"
+
 	@echo "Bumping Python project version with rule $(BUMP_RULE)"
 	@cd $(PYTHON_PROJECT_DIR) && poetry run bumpversion --component Protocol --bump-type $(BUMP_RULE)
 	@echo "Python project version bumped using rule $(BUMP_RULE)"
@@ -63,10 +76,24 @@ bump-py-client: ## Bump python client versions. Rules for bump-py-client: patch,
 	@cd $(PYTHON_PROJECT_DIR) && poetry run bumpversion --component Client --bump-type $(BUMP_RULE)
 	@echo "Python client version bumped using rule $(BUMP_RULE)"
 
-bump-rs-client: ## Bump python client versions. Rules for bump-rs-client: patch, minor, major.
+bump-rs-client: ## Bump Rust client versions. Rules for bump-rs-client: patch, minor, major.
 	@echo "Bumping Rust client version with rule $(BUMP_RULE)"
 	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(RUST_CLIENT_NAME)
 	@echo "Rust client version bumped to $(BUMP_RULE)"
+
+bump-ahnlich-db: ## Bump ahnlich db version. Rules for bump-ahnlich-db: patch, minor, major.
+	@echo "Bumping ahnlich db version with rule $(BUMP_RULE)"
+	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(AHNLICH_DB_NAME)
+	@echo "Ahnlich DB version bumped to $(BUMP_RULE)"
+
+bump-ahnlich-ai: ## Bump ahnlich ai version. Rules for bump-ahnlich-ai: patch, minor, major.
+	@echo "Bumping ahnlich ai version with rule $(BUMP_RULE)"
+	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(AHNLICH_AI_NAME)
+	@echo "Ahnlich AI version bumped to $(BUMP_RULE)"
+
+workspace-crate-version: ## View current version of crate in workspace. Rules workspace-crate-version: <CRATE_NAME>.
+	@echo "Getting version of crate: $(CRATE_NAME)"
+	@cd $(RUST_PROJECT_DIR) && cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "$(CRATE_NAME)") | "\(.version)"'
 
 
 demo-tracing:

@@ -1,0 +1,175 @@
+name: Ahnlich AI and DB Release
+
+on:
+    release:
+      types: [published]
+
+
+permissions:
+  contents: write
+
+jobs:
+
+    build_binaries_and_publish:
+        name: Build Binaries
+        runs-on: ubuntu-latest
+        outputs:
+          bin_name: ${{ steps.get_binary_version.outputs.BIN_NAME }}
+          bin_suffix: ${{ steps.get_binary_version.outputs.BIN_SUFFIX }}
+        steps:
+            - name: "Checkout"
+              uses: actions/checkout@v4
+
+            - name: "Get Binary Version"
+              id: get_binary_version
+              run: |
+                  cd ${{github.workspace}}
+                  echo ${{ github.event.release.tag_name }}
+                  value=$(echo "${{ github.event.release.tag_name }}" | cut -d'/' -f2)
+                  echo "$value"
+                  echo "BIN_SUFFIX=${value}" >> $GITHUB_OUTPUT
+                  echo "BIN_NAME=ahnlich-${value}" >> $GITHUB_OUTPUT
+
+            - name: Get Cargo toolchain
+              uses: actions-rs/toolchain@v1
+              with:
+                toolchain: 1.78.0
+            
+            - name: Setup Zig
+              uses: goto-bus-stop/setup-zig@v2
+
+            - name: Build Linux Release for ${{ steps.get_binary_version.outputs.BIN_NAME }}
+              working-directory: ./ahnlich
+              run: |
+                cargo build --release --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf linux-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz -C target/release ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} linux-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
+
+            - name: Setup Cargo ZigBuild
+              working-directory: ./ahnlich
+              run: |
+                cargo install --locked cargo-zigbuild
+
+            - name: Build Aarch64 Darwin Release for ${{ steps.get_binary_version.outputs.BIN_NAME }}
+              working-directory: ./ahnlich
+              run: |
+                rustup target add aarch64-apple-darwin
+                cargo zigbuild --release --target aarch64-apple-darwin --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf aarch64-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz -C target/aarch64-apple-darwin/release ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} aarch64-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
+            
+            - name: Build x86_64 Apple Darwin Release for ${{ steps.get_binary_version.outputs.BIN_NAME }}
+              working-directory: ./ahnlich
+              run: |
+                rustup target add x86_64-apple-darwin
+                cargo zigbuild --release --target x86_64-apple-darwin --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                tar -cvzf x86_64-apple-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz -C target/x86_64-apple-darwin/release ${{ steps.get_binary_version.outputs.BIN_NAME }}
+                gh release upload ${{github.event.release.tag_name}} x86_64-apple-darwin-${{ steps.get_binary_version.outputs.BIN_NAME }}.tar.gz
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
+              
+            - name: Setup Cross
+              working-directory: ./ahnlich
+              run: |
+                cargo install cross --git https://github.com/cross-rs/cross
+
+            - name: Build Windows x86_64-pc-windows-gnu for Ahnlich ${{ steps.get_binary_version.outputs.BIN_NAME }}
+              uses: houseabsolute/actions-rust-cross@v0
+              with:
+                working-directory: ./ahnlich
+                command: build
+                target: x86_64-pc-windows-gnu
+                args: "--locked --release --bin ${{ steps.get_binary_version.outputs.BIN_NAME }}"
+                strip: true
+
+            - name: Package and upload x86_64-pc-windows-gnu for Ahnlich ${{ steps.get_binary_version.outputs.BIN_NAME }}
+              working-directory: ./ahnlich
+              run: |
+                cd target/x86_64-pc-windows-gnu/release/ && zip ../../../win-x86_64-gnu-${{ steps.get_binary_version.outputs.BIN_NAME }}.zip ${{ steps.get_binary_version.outputs.BIN_NAME }}.exe && cd ../../../
+                gh release upload ${{github.event.release.tag_name}} win-x86_64-gnu-${{ steps.get_binary_version.outputs.BIN_NAME }}.zip
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
+              
+    push_to_registries:
+        needs: build_binaries_and_publish
+        name: Push Docker image to multiple registries
+        runs-on: ubuntu-latest
+        permissions:
+          packages: write
+          contents: read
+          attestations: write
+          id-token: write
+        steps:
+          - name: Check out the repo
+            uses: actions/checkout@v4
+          
+          - name: Cache Docker images
+            uses: ScribeMD/docker-cache@0.5.0
+            with:
+              key: ${{ runner.os }}-cargo-${{ hashFiles('ahnlich/Cargo.lock') }}
+
+          - name: Set Port Based on Bin Name
+            id: set_port
+            run: |
+              if [ "${{ needs.build_binaries_and_publish.outputs.bin_name }}" == "ahnlich-db" ]; then
+                echo "DEFAULT_PORT=1369" >> $GITHUB_ENV
+                echo "DESCRIPTION=Ahnlich DB" >> $GITHUB_ENV
+              else
+                echo "DEFAULT_PORT=1370" >> $GITHUB_ENV
+                echo "DESCRIPTION=Ahnlich AI" >> $GITHUB_ENV
+              fi
+
+          - name: Extract version number from tag
+            id: extract_version
+            working-directory: ./ahnlich
+            run: |
+              # Extract only the numerical version part from the tag
+              VERSION=$(make workspace-crate-version CRATE_NAME=${{ needs.build_binaries_and_publish.outputs.bin_suffix }} | tail -n 1)
+              echo $VERSION
+              echo "BIN_VERSION=$VERSION" >> $GITHUB_ENV
+
+          - name: Log in to the Container registry
+            uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+            with:
+              registry: ghcr.io
+              username: ${{ github.repository_owner }}
+              password: ${{ secrets.GH_GCR_TOKEN }}
+
+          
+          - name: Extract metadata (tags, labels) for Docker
+            id: meta
+            uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+            with:
+              images: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}
+              tags: |
+                type=schedule
+                type=semver,pattern={{version}},value=v${{env.BIN_VERSION}}
+              labels: |
+                org.opencontainers.image.description=${{ env.DESCRIPTION }}
+
+          - name: Build and push Docker images
+            id: push
+            uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+            with:
+              context: ./ahnlich
+              push: true
+              tags: ${{ steps.meta.outputs.tags }}
+              labels: ${{ steps.meta.outputs.labels }}
+              build-args: |
+                AHNLICH_BIN=${{ needs.build_binaries_and_publish.outputs.bin_name}}
+                DEFAULT_PORT=${{env.DEFAULT_PORT}}
+
+          - name: Generate artifact attestation
+            uses: actions/attest-build-provenance@v1
+            with:
+              subject-name: ghcr.io/${{ github.repository_owner }}/${{needs.build_binaries_and_publish.outputs.bin_name}}
+              subject-digest: ${{ steps.push.outputs.digest }}
+              push-to-registry: true

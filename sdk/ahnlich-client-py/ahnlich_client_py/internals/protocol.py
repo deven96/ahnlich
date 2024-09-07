@@ -47,6 +47,7 @@ class AhnlichMessageProtocol:
             db_response.ServerResult, ai_response.AIServerResult
         ],
     ) -> typing.Union[db_response.ServerResult, ai_response.AIServerResult]:
+        conn.settimeout(self.timeout_sec)
         header = conn.recv(8)
         if header == b"":
             raise AhnlichProtocolException("socket connection broken")
@@ -59,7 +60,6 @@ class AhnlichMessageProtocol:
         # header length u64, little endian
         length_to_read = int.from_bytes(length, byteorder="little")
         # information data
-        conn.settimeout(self.timeout_sec)
         data = conn.recv(length_to_read)
         response = self.deserialize_server_response(data, response_class=response_class)
         return response

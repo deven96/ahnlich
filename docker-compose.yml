@@ -24,7 +24,7 @@ services:
     depends_on:
       jaeger:
         condition: service_started
-    command: ./ahnlich-db run --host 0.0.0.0 --enable-tracing --otel-endpoint http://jaeger:4317
+    command: "'ahnlich-db run --host 0.0.0.0 --enable-tracing --otel-endpoint http://jaeger:4317'"
     networks:
       - jaeger-example
     ports:
@@ -42,7 +42,7 @@ services:
         condition: service_started
       ahnlich_db:
         condition: service_started
-    command: ./ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0  --enable-tracing --otel-endpoint http://jaeger:4317 --supported-models dalle3,llama3
+    command: "'ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 --port 8880 --enable-tracing --otel-endpoint http://jaeger:4317 --supported-models dalle3,llama3'"
 
     networks:
       - jaeger-example
