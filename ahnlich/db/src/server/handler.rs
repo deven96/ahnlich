@@ -6,7 +6,9 @@ use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use task_manager::Task;
 use task_manager::TaskManager;
+use task_manager::TaskState;
 use tokio::io::BufReader;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
@@ -27,8 +29,32 @@ pub struct Server {
     config: ServerConfig,
 }
 
+#[async_trait::async_trait]
+impl Task for Server {
+    fn task_name(&self) -> String {
+        "db-listener".to_string()
+    }
+
+    async fn run(&self) -> TaskState {
+        if let Ok((stream, connect_addr)) = self.listener.accept().await {
+            if let Some(connected_client) = self
+                .client_handler
+                .connect(stream.peer_addr().expect("Could not get peer addr"))
+            {
+                log::info!("Connecting to {}", connect_addr);
+                let task = self.create_task(
+                    stream,
+                    self.local_addr().expect("Could not get server addr"),
+                    connected_client,
+                );
+                self.task_manager.spawn_task_loop(task).await;
+            }
+        }
+        TaskState::Continue
+    }
+}
+
 impl AhnlichServerUtils for Server {
-    type Task = ServerTask;
     type PersistenceTask = StoreHandler;
 
     fn config(&self) -> ServerUtilsConfig {
@@ -44,39 +70,12 @@ impl AhnlichServerUtils for Server {
         self.task_manager.cancellation_token()
     }
 
-    fn listener(&self) -> &TcpListener {
-        &self.listener
-    }
-
-    fn client_handler(&self) -> &Arc<ClientHandler> {
-        &self.client_handler
-    }
-
     fn store_handler(&self) -> &Arc<Self::PersistenceTask> {
         &self.store_handler
     }
 
     fn task_manager(&self) -> Arc<TaskManager> {
         self.task_manager.clone()
-    }
-
-    fn create_task(
-        &self,
-        stream: TcpStream,
-        server_addr: SocketAddr,
-        connected_client: ConnectedClient,
-    ) -> Self::Task {
-        let reader = BufReader::new(stream);
-        // add client to client_handler
-        ServerTask {
-            reader: Arc::new(Mutex::new(reader)),
-            server_addr,
-            connected_client,
-            maximum_message_size: self.config.message_size as u64,
-            // "inexpensive" to clone handlers they can be passed around in an Arc
-            client_handler: self.client_handler.clone(),
-            store_handler: self.store_handler.clone(),
-        }
     }
 }
 
@@ -123,5 +122,28 @@ impl Server {
             &config.log_level,
         );
         Self::new_with_config(config).await
+    }
+
+    fn create_task(
+        &self,
+        stream: TcpStream,
+        server_addr: SocketAddr,
+        connected_client: ConnectedClient,
+    ) -> ServerTask {
+        let reader = BufReader::new(stream);
+        // add client to client_handler
+        ServerTask {
+            reader: Arc::new(Mutex::new(reader)),
+            server_addr,
+            connected_client,
+            maximum_message_size: self.config.message_size as u64,
+            // "inexpensive" to clone handlers they can be passed around in an Arc
+            client_handler: self.client_handler.clone(),
+            store_handler: self.store_handler.clone(),
+        }
+    }
+
+    pub fn local_addr(&self) -> IoResult<SocketAddr> {
+        self.listener.local_addr()
     }
 }

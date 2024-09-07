@@ -10,9 +10,12 @@ use ahnlich_types::version::VERSION;
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use task_manager::Task;
+use task_manager::TaskState;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
+use tracing::Instrument;
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::client::ClientHandler;
 use utils::protocol::AhnlichProtocol;
@@ -401,6 +404,19 @@ impl AIProxyTask {
             limit: GLOBAL_ALLOCATOR.limit(),
             remaining: GLOBAL_ALLOCATOR.remaining(),
         }
+    }
+}
+
+#[async_trait::async_trait]
+impl Task for AIProxyTask {
+    fn task_name(&self) -> String {
+        format!("ai-{}-connection", self.connected_client.address)
+    }
+
+    async fn run(&self) -> TaskState {
+        self.process()
+            .instrument(tracing::info_span!("ai-server-listener"))
+            .await
     }
 }
 
