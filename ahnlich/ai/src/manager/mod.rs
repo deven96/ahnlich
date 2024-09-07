@@ -6,8 +6,10 @@ use crate::error::AIProxyError;
 use ahnlich_types::ai::AIModel;
 use ndarray::Array1;
 use std::collections::HashMap;
+use task_manager::Task;
 use task_manager::TaskManager;
-use task_manager::TaskManagerGuard;
+use task_manager::TaskState;
+use tokio::sync::Mutex;
 use tokio::sync::{mpsc, oneshot};
 
 type ModelThreadResponse = Result<Vec<Array1<f32>>, AIProxyError>;
@@ -21,13 +23,13 @@ struct ModelThreadRequest {
 #[derive(Debug)]
 struct ModelThread {
     model: SupportedModels,
-    request_receiver: mpsc::Receiver<ModelThreadRequest>,
+    request_receiver: Mutex<mpsc::Receiver<ModelThreadRequest>>,
 }
 
 impl ModelThread {
     fn new(model: SupportedModels, request_receiver: mpsc::Receiver<ModelThreadRequest>) -> Self {
         Self {
-            request_receiver,
+            request_receiver: Mutex::new(request_receiver),
             model,
         }
     }
@@ -39,30 +41,24 @@ impl ModelThread {
     fn input_to_response(&self, _inputs: ()) -> ModelThreadResponse {
         Ok(vec![])
     }
+}
+
+#[async_trait::async_trait]
+impl Task for ModelThread {
+    fn task_name(&self) -> String {
+        self.name()
+    }
 
     #[tracing::instrument(skip(self))]
-    async fn run(&mut self, guard: TaskManagerGuard) {
-        loop {
-            tokio::select! {
-                biased;
-
-                _ = guard.is_cancelled() => {
-                    // TODO: Run cleanup for model thread exit
-                    // This should be safe to do as the guard would wait
-                    break;
-                }
-                Some(model_request) = self.request_receiver.recv() => {
-                    // TODO actually service model request in here and return
-                    let ModelThreadRequest {
-                        inputs,
-                        response,
-                    } = model_request;
-                    if let Err(e) = response.send(self.input_to_response(inputs)) {
-                        log::error!("{} could not send response to channel {e:?}", self.name());
-                    }
-                }
+    async fn run(&self) -> TaskState {
+        if let Some(model_request) = self.request_receiver.lock().await.recv().await {
+            // TODO actually service model request in here and return
+            let ModelThreadRequest { inputs, response } = model_request;
+            if let Err(e) = response.send(self.input_to_response(inputs)) {
+                log::error!("{} could not send response to channel {e:?}", self.name());
             }
         }
+        TaskState::Continue
     }
 }
 
@@ -84,14 +80,8 @@ impl ModelManager {
             // QUESTION? Should we hard code the buffer size or add it to config?
             let (request_sender, request_receiver) = mpsc::channel(100);
             // There may be other things needed to load a model thread
-            let mut model_thread = ModelThread::new(*model, request_receiver);
-            let model_thread_name = model_thread.name();
-            task_manager
-                .spawn_task_loop(
-                    |shutdown_guard| async move { model_thread.run(shutdown_guard).await },
-                    model_thread_name,
-                )
-                .await;
+            let model_thread = ModelThread::new(*model, request_receiver);
+            task_manager.spawn_task_loop(model_thread).await;
             models.insert(model, request_sender);
         }
         Ok(Self {
