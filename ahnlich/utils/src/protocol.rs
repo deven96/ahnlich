@@ -137,7 +137,7 @@ where
                         }
                     }
                     Err(error) => {
-                        let error = self.prefix_log(&format!(
+                        let error = self.prefix_log(format!(
                             "Could not deserialize client message as server query {error}"
                         ));
                         log::error!("{error}");
