@@ -1,5 +1,4 @@
 use log::info;
-use std::future::Future;
 use tokio::{select, signal};
 /// TaskManager is a struct to achieve multiple things
 ///
@@ -7,9 +6,12 @@ use tokio::{select, signal};
 /// - Break the task loop when one of the following happens:
 ///     - SIGterm or SIGint is received
 ///     - External cancellation token is triggered
+/// - Define necessary cleanup when a task is called upon for cancellation
 ///
 /// TaskManager extends the tokio_utils::task::TaskTracker to ensure that every task loop is being tracked
 /// and the tasks have the ability to perform any necessary cleanup before ending
+///
+/// Tasks must implement Task trait and be movable across threads i.e Sync + Send + 'static
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
@@ -19,29 +21,18 @@ pub struct TaskManager {
     task_tracker: TaskTracker,
 }
 
-#[derive(Debug, Clone)]
-pub struct TaskManagerGuard {
-    cancellation_token: CancellationToken,
-    task_name: String,
+#[derive(Debug, Clone, Copy)]
+pub enum TaskState {
+    Continue,
+    Break,
 }
 
-impl TaskManagerGuard {
-    pub async fn is_cancelled(&self) {
-        let task_name = self.task_name.clone();
-        select! {
-            // We use biased selection as it would order our futures according to physical
-            // arrangements below
-            // We want shutdown signals to always be checked for first, hence the arrangements
-            biased;
-
-            _ = signal::ctrl_c() => {
-                info!("Received Ctrl-C signal, cancelling [{task_name}] task");
-            }
-            _ = self.cancellation_token.cancelled() => {
-                info!("Received Cancellation token signal, cancelling [{task_name}] task");
-            }
-        }
-    }
+#[async_trait::async_trait]
+pub trait Task {
+    fn task_name(&self) -> String;
+    async fn run(&self) -> TaskState;
+    // optional cleanup upon task exit
+    async fn cleanup(&self) {}
 }
 
 impl Default for TaskManager {
@@ -58,23 +49,38 @@ impl TaskManager {
         }
     }
 
-    fn guard(&self, task_name: String) -> TaskManagerGuard {
-        TaskManagerGuard {
-            task_name,
-            cancellation_token: self.cancellation_token.clone(),
-        }
-    }
-
-    pub async fn spawn_task_loop<T, F>(&self, task: F, task_name: String)
-    where
-        T: Future<Output = ()> + Send + 'static,
-        F: FnOnce(TaskManagerGuard) -> T + Send + 'static,
-    {
+    pub async fn spawn_task_loop(&self, task: impl Task + Send + Sync + 'static) {
+        let task_name = task.task_name();
         let task_name_copy = task_name.clone();
-        let guard = self.guard(task_name);
+        let cancellation_token = self.cancellation_token.clone();
+        self.task_tracker.spawn(async move {
+            loop {
+                select! {
+                    // We use biased selection as it would order our futures according to physical
+                    // arrangements below
+                    // We want shutdown signals to always be checked for first, hence the arrangements
+                    biased;
 
-        self.task_tracker.spawn(task(guard));
-        log::debug!("Spawned task {task_name_copy}",);
+                    _ = signal::ctrl_c() => {
+                        info!("Received Ctrl-C signal, cancelling [{task_name}] task");
+                        task.cleanup().await;
+                        break;
+                    }
+                    _ = cancellation_token.cancelled() => {
+                        info!("Received Cancellation token signal, cancelling [{task_name}] task");
+                        task.cleanup().await;
+                        break;
+                    }
+                    state = task.run() => {
+                        match state {
+                            TaskState::Continue => continue,
+                            TaskState::Break => break,
+                        }
+                    }
+                }
+            }
+        });
+        log::debug!("Spawned task {}", task_name_copy);
     }
 
     pub fn cancel_all(&self) {

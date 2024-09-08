@@ -117,8 +117,8 @@ impl AIStoreHandler {
 
                 AIStoreInfo {
                     name: store_name.clone(),
-                    query_model: store.query_model.clone(),
-                    index_model: store.index_model.clone(),
+                    query_model: store.query_model,
+                    index_model: store.index_model,
                     embedding_size: model.embedding_size().into(),
                 }
             })

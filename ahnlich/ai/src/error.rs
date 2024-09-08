@@ -3,8 +3,9 @@ use ahnlich_types::{
     keyval::StoreName,
 };
 use thiserror::Error;
+use tokio::sync::oneshot::error::RecvError;
 
-#[derive(Error, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub enum AIProxyError {
     #[error("Store {0} not found")]
     StoreNotFound(StoreName),
@@ -53,6 +54,13 @@ pub enum AIProxyError {
 
     #[error("index_model or query_model not selected during aiproxy startup")]
     AIModelNotInitialized,
+
+    // TODO: Add SendError from mpsc::Sender into this variant
+    #[error("Error sending request to model thread")]
+    AIModelThreadSendError,
+
+    #[error("Error receiving response from model thread")]
+    AIModelRecvError(#[from] RecvError),
 
     #[error("Dimensions Mismatch between index [{index_model_dim}], and Query [{query_model_dim}] Models")]
     DimensionsMismatchError {

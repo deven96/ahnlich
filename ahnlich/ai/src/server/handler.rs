@@ -1,11 +1,16 @@
 use crate::cli::AIProxyConfig;
 use crate::engine::store::AIStoreHandler;
+use crate::manager::ModelManager;
 use crate::server::task::AIProxyTask;
 use ahnlich_types::client::ConnectedClient;
+use std::error::Error;
+use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
-use std::{io::Result as IoResult, sync::Arc};
+use std::sync::Arc;
+use task_manager::Task;
 use task_manager::TaskManager;
+use task_manager::TaskState;
 use tokio::io::BufReader;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Mutex;
@@ -28,10 +33,35 @@ pub struct AIProxyServer {
     store_handler: Arc<AIStoreHandler>,
     task_manager: Arc<TaskManager>,
     db_client: Arc<DbClient>,
+    model_manager: Arc<ModelManager>,
+}
+
+#[async_trait::async_trait]
+impl Task for AIProxyServer {
+    fn task_name(&self) -> String {
+        "ai-listener".to_string()
+    }
+
+    async fn run(&self) -> TaskState {
+        if let Ok((stream, connect_addr)) = self.listener.accept().await {
+            if let Some(connected_client) = self
+                .client_handler
+                .connect(stream.peer_addr().expect("Could not get peer addr"))
+            {
+                log::info!("Connecting to {}", connect_addr);
+                let task = self.create_task(
+                    stream,
+                    self.local_addr().expect("Could not get server addr"),
+                    connected_client,
+                );
+                self.task_manager.spawn_task_loop(task).await;
+            }
+        }
+        TaskState::Continue
+    }
 }
 
 impl AhnlichServerUtils for AIProxyServer {
-    type Task = AIProxyTask;
     type PersistenceTask = AIStoreHandler;
 
     fn config(&self) -> ServerUtilsConfig {
@@ -47,14 +77,6 @@ impl AhnlichServerUtils for AIProxyServer {
         self.task_manager.cancellation_token()
     }
 
-    fn listener(&self) -> &TcpListener {
-        &self.listener
-    }
-
-    fn client_handler(&self) -> &Arc<ClientHandler> {
-        &self.client_handler
-    }
-
     fn store_handler(&self) -> &Arc<Self::PersistenceTask> {
         &self.store_handler
     }
@@ -62,34 +84,14 @@ impl AhnlichServerUtils for AIProxyServer {
     fn task_manager(&self) -> Arc<TaskManager> {
         self.task_manager.clone()
     }
-
-    fn create_task(
-        &self,
-        stream: TcpStream,
-        server_addr: SocketAddr,
-        connected_client: ConnectedClient,
-    ) -> Self::Task {
-        let reader = BufReader::new(stream);
-        // add client to client_handler
-        AIProxyTask {
-            reader: Arc::new(Mutex::new(reader)),
-            server_addr,
-            connected_client,
-            maximum_message_size: self.config.message_size as u64,
-            // "inexpensive" to clone handlers they can be passed around in an Arc
-            client_handler: self.client_handler.clone(),
-            store_handler: self.store_handler.clone(),
-            db_client: self.db_client.clone(),
-        }
-    }
 }
 
 impl AIProxyServer {
-    pub async fn new(config: AIProxyConfig) -> IoResult<Self> {
+    pub async fn new(config: AIProxyConfig) -> Result<Self, Box<dyn Error>> {
         Self::build(config).await
     }
 
-    pub async fn build(config: AIProxyConfig) -> IoResult<Self> {
+    pub async fn build(config: AIProxyConfig) -> Result<Self, Box<dyn Error>> {
         // Enable log and tracing
         tracer::init_log_or_trace(
             config.enable_tracing,
@@ -108,10 +110,7 @@ impl AIProxyServer {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");
                     if config.fail_on_startup_if_persist_load_fails {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            e.to_string(),
-                        ));
+                        return Err(Box::new(e));
                     }
                 }
                 Ok(snapshot) => {
@@ -120,6 +119,8 @@ impl AIProxyServer {
             }
         };
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
+        let task_manager = TaskManager::new();
+        let model_manager = ModelManager::new(&config.supported_models, &task_manager).await?;
 
         Ok(Self {
             listener: Arc::new(listener),
@@ -127,7 +128,8 @@ impl AIProxyServer {
             store_handler: Arc::new(store_handler),
             config,
             db_client: Arc::new(db_client),
-            task_manager: Arc::new(TaskManager::new()),
+            task_manager: Arc::new(task_manager),
+            model_manager: Arc::new(model_manager),
         })
     }
 
@@ -139,5 +141,30 @@ impl AIProxyServer {
             .expect("Cannot establish connection to the Database");
 
         DbClient::new_with_pool(pool)
+    }
+
+    fn create_task(
+        &self,
+        stream: TcpStream,
+        server_addr: SocketAddr,
+        connected_client: ConnectedClient,
+    ) -> AIProxyTask {
+        let reader = BufReader::new(stream);
+        // add client to client_handler
+        AIProxyTask {
+            reader: Arc::new(Mutex::new(reader)),
+            server_addr,
+            connected_client,
+            maximum_message_size: self.config.message_size as u64,
+            // "inexpensive" to clone handlers they can be passed around in an Arc
+            client_handler: self.client_handler.clone(),
+            store_handler: self.store_handler.clone(),
+            db_client: self.db_client.clone(),
+            model_manager: self.model_manager.clone(),
+        }
+    }
+
+    pub fn local_addr(&self) -> IoResult<SocketAddr> {
+        self.listener.local_addr()
     }
 }

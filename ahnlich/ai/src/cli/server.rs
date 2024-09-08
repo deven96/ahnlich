@@ -6,7 +6,7 @@ use crate::engine::ai::models::{Model, ModelInfo};
 use std::io::Write;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, VariantArray)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Hash, Ord, ValueEnum, VariantArray)]
 pub enum SupportedModels {
     Llama3,
     Dalle3,
