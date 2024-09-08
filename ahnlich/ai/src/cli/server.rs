@@ -78,7 +78,6 @@ pub struct AIProxyConfig {
     /// Allows enables tracing
     #[arg(long, default_value_t = false, action=ArgAction::SetTrue)]
     pub(crate) enable_tracing: bool,
-
     /// Otel collector url to send traces to
     #[arg(long, requires_if("true", "enable_tracing"))]
     pub(crate) otel_endpoint: Option<String>,
