@@ -57,8 +57,9 @@ impl Task for ModelThread {
             if let Err(e) = response.send(self.input_to_response(inputs)) {
                 log::error!("{} could not send response to channel {e:?}", self.name());
             }
+            return TaskState::Continue;
         }
-        TaskState::Continue
+        TaskState::Break
     }
 }
 
