@@ -1,10 +1,9 @@
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::Model;
 use crate::error::AIProxyError;
+use crate::manager::ModelManager;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use ahnlich_types::ai::{
-    AIModel, AIStoreInfo, AIStoreInputType, ImageAction, PreprocessAction, StringAction,
-};
+use ahnlich_types::ai::{AIModel, AIStoreInfo, AIStoreInputType, PreprocessAction};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
@@ -30,6 +29,8 @@ pub struct AIStoreHandler {
 
 pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
 
+type StoreSetResponse = (Vec<(StoreKey, StoreValue)>, StdHashSet<MetadataValue>);
+type StoreValidateResponse = (Vec<(StoreInput, StoreValue)>, StdHashSet<MetadataValue>);
 impl AhnlichPersistenceUtils for AIStoreHandler {
     type PersistenceObject = AIStores;
 
@@ -141,51 +142,69 @@ impl AIStoreHandler {
     #[tracing::instrument(skip(self))]
     pub(crate) fn store_input_to_store_key_val(
         &self,
-        store_name: &StoreName,
         store_input: StoreInput,
         mut store_value: StoreValue,
         preprocess_action: &PreprocessAction,
-    ) -> Result<(StoreKey, StoreValue), AIProxyError> {
+    ) -> Result<(StoreInput, StoreValue), AIProxyError> {
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-        if store_value.contains_key(metadata_key) {
-            return Err(AIProxyError::ReservedError(metadata_key.to_string()));
-        }
-        let store = self.get(store_name)?;
-
-        let store_input_type: AIStoreInputType = (&store_input).into();
-        let index_model_repr: Model = (&store.index_model).into();
-
-        if store_input_type.to_string() != index_model_repr.input_type() {
-            return Err(AIProxyError::StoreSetTypeMismatchError {
-                index_model_type: index_model_repr.input_type(),
-                storeinput_type: store_input_type.to_string(),
-            });
-        }
 
         let metadata_value: MetadataValue = store_input.clone().into();
         store_value.insert(metadata_key.clone(), metadata_value);
-        let store_key =
-            self.create_store_key(store_input, &store.index_model, preprocess_action)?;
-        return Ok((store_key, store_value));
+        return Ok((store_input, store_value));
     }
 
-    /// Converts storeinput into a tuple of storekey and storevalue.
-    /// Fails if the store input type does not match the store index_type
+    /// Validates storeinputs against a store and checks storevalue for reservedkey.
     #[tracing::instrument(skip(self))]
-    pub(crate) fn create_store_key(
+    pub(crate) fn validate_and_prepare_store_data(
         &self,
-        store_input: StoreInput,
-        index_store_model: &AIModel,
-        preprocess_action: &PreprocessAction,
-    ) -> Result<StoreKey, AIProxyError> {
-        // Process the inner value of a store input and convert it into a ndarray by passing
-        // it into  index model. Create a storekey from ndarray
-        let processed_input =
-            self.preprocess_store_input(preprocess_action, store_input, index_store_model)?;
+        store_name: &StoreName,
+        inputs: Vec<(StoreInput, StoreValue)>,
+    ) -> Result<StoreValidateResponse, AIProxyError> {
+        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
+        let store = self.get(store_name)?;
+        let mut output = Vec::with_capacity(inputs.len());
+        let mut delete_hashset = StdHashSet::new();
 
-        let model: Model = index_store_model.into();
-        let store_key = model.model_ndarray(&processed_input);
-        Ok(store_key)
+        for (store_input, mut store_value) in inputs {
+            if store_value.contains_key(metadata_key) {
+                return Err(AIProxyError::ReservedError(metadata_key.to_string()));
+            }
+            let store_input_type: AIStoreInputType = (&store_input).into();
+            let index_model_repr: Model = (&store.index_model).into();
+            if store_input_type.to_string() != index_model_repr.input_type() {
+                return Err(AIProxyError::StoreSetTypeMismatchError {
+                    index_model_type: index_model_repr.input_type(),
+                    storeinput_type: store_input_type.to_string(),
+                });
+            }
+            let metadata_value: MetadataValue = store_input.clone().into();
+            delete_hashset.insert(metadata_value.clone());
+            store_value.insert(metadata_key.clone(), metadata_value);
+            output.push((store_input, store_value));
+        }
+        Ok((output, delete_hashset))
+    }
+
+    /// Stores storeinput into ahnlich db
+    #[tracing::instrument(skip(self))]
+    pub(crate) async fn set(
+        &self,
+        store_name: &StoreName,
+        inputs: Vec<(StoreInput, StoreValue)>,
+        model_manager: &ModelManager,
+        preprocess_action: PreprocessAction,
+    ) -> Result<StoreSetResponse, AIProxyError> {
+        let store = self.get(store_name)?;
+        let (validated_data, delete_hashset) =
+            self.validate_and_prepare_store_data(store_name, inputs)?;
+
+        let (store_inputs, store_values): (Vec<_>, Vec<_>) = validated_data.into_iter().unzip();
+        let store_keys = model_manager
+            .handle_request(&store.index_model, store_inputs, preprocess_action)
+            .await?;
+
+        let output = std::iter::zip(store_keys.into_iter(), store_values.into_iter()).collect();
+        Ok((output, delete_hashset))
     }
 
     /// Converts (storekey, storevalue) into (storeinput, storevalue)
@@ -251,92 +270,6 @@ impl AIStoreHandler {
         let guard = self.stores.guard();
         self.stores.clear(&guard);
         store_length
-    }
-
-    #[tracing::instrument(skip(self))]
-    pub(crate) fn preprocess_store_input(
-        &self,
-        process_action: &PreprocessAction,
-        input: StoreInput,
-        index_model: &AIModel,
-    ) -> Result<StoreInput, AIProxyError> {
-        match (process_action, input) {
-            (PreprocessAction::Image(image_action), StoreInput::Image(image_input)) => {
-                // resize image and edit
-                let output = self.process_image(image_input, index_model, image_action)?;
-                Ok(output)
-            }
-            (PreprocessAction::RawString(string_action), StoreInput::RawString(string_input)) => {
-                let output =
-                    self.preprocess_raw_string(string_input, index_model, string_action)?;
-                Ok(output)
-            }
-            (PreprocessAction::RawString(_), StoreInput::Image(_)) => {
-                Err(AIProxyError::PreprocessingMismatchError {
-                    input_type: AIStoreInputType::Image,
-                    preprocess_action: process_action.clone(),
-                })
-            }
-
-            (PreprocessAction::Image(_), StoreInput::RawString(_)) => {
-                Err(AIProxyError::PreprocessingMismatchError {
-                    input_type: AIStoreInputType::RawString,
-                    preprocess_action: process_action.clone(),
-                })
-            }
-        }
-    }
-    #[tracing::instrument(skip(self))]
-    fn preprocess_raw_string(
-        &self,
-        input: String,
-        index_model: &AIModel,
-        string_action: &StringAction,
-    ) -> Result<StoreInput, AIProxyError> {
-        // tokenize string, return error if max token
-        //let tokenized_input;
-        let model: Model = index_model.into();
-        if let Some(max_token_size) = model.max_input_token() {
-            if input.len() > max_token_size.into() {
-                if let StringAction::ErrorIfTokensExceed = string_action {
-                    return Err(AIProxyError::TokenExceededError {
-                        input_token_size: input.len(),
-                        max_token_size: max_token_size.into(),
-                    });
-                } else {
-                    // truncate raw string
-                    // let tokenized_input;
-                    let _input = input.as_str()[..max_token_size.into()].to_string();
-                }
-            }
-        }
-        Ok(StoreInput::RawString(input))
-    }
-
-    #[tracing::instrument(skip(self))]
-    fn process_image(
-        &self,
-        input: Vec<u8>,
-        index_model: &AIModel,
-        image_action: &ImageAction,
-    ) -> Result<StoreInput, AIProxyError> {
-        // process image, return error if max dimensions exceeded
-        // let image_data;
-        let model: Model = index_model.into();
-
-        if let Some(max_image_dimensions) = model.max_image_dimensions() {
-            if input.len() > max_image_dimensions.into() {
-                if let ImageAction::ErrorIfDimensionsMismatch = image_action {
-                    return Err(AIProxyError::ImageDimensionsMismatchError {
-                        image_dimensions: input.len(),
-                        max_dimensions: max_image_dimensions.into(),
-                    });
-                } else {
-                    // resize image
-                }
-            }
-        }
-        Ok(StoreInput::Image(input))
     }
 }
 

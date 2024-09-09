@@ -170,6 +170,13 @@ impl From<&SupportedModels> for AIModel {
     }
 }
 
+impl From<&SupportedModels> for Model {
+    fn from(value: &SupportedModels) -> Self {
+        let ai_model: AIModel = value.into();
+        (&ai_model).into()
+    }
+}
+
 #[derive(Args, Debug, Clone)]
 pub struct SupportedModelArgs {
     ///  Models to display information about
