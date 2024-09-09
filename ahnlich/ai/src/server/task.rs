@@ -103,69 +103,58 @@ impl AhnlichProtocol for AIProxyTask {
                     inputs,
                     preprocess_action,
                 } => {
-                    let mut db_inputs = Vec::new();
-                    let mut delete_hashset = HashSet::new();
+                    let model_manager = &self.model_manager;
                     let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
-                    let _model_manager = self.model_manager.clone();
-                    if let Err(store_input_processing_err) =
-                        // TODO: Replace with self.model_manager.handle_request with bulk request
-                        // representing the inputs after preprocessing
-                        inputs
-                                .into_iter()
-                                .try_for_each(|(store_input, store_value)| {
-                                    let processed_store_value =
-                                        self.store_handler.store_input_to_store_key_val(
-                                            &store,
-                                            store_input,
-                                            store_value,
-                                            &preprocess_action,
-                                        );
-                                    match processed_store_value {
-                                        Ok(val) => {
-                                            delete_hashset
-                                                .insert(val.1[default_metadatakey].clone());
-                                            db_inputs.push(val);
 
-                                            Ok(())
-                                        }
-                                        Err(err) => Err(err.to_string()),
-                                    }
-                                })
+                    match self
+                        .store_handler
+                        .set(&store, inputs, model_manager, preprocess_action)
+                        .await
                     {
-                        Err(store_input_processing_err)
-                    } else {
-                        let delete_condition = PredicateCondition::Value(Predicate::In {
-                            key: default_metadatakey.clone(),
-                            value: delete_hashset,
-                        });
+                        Ok((db_inputs, delete_hashset)) => {
+                            let delete_condition = PredicateCondition::Value(Predicate::In {
+                                key: default_metadatakey.clone(),
+                                value: delete_hashset,
+                            });
 
-                        if let Err(err) = self
-                            .db_client
-                            .del_pred(store.clone(), delete_condition, parent_id.clone())
-                            .await
-                        {
-                            Err(err.to_string())
-                        } else {
-                            match self
+                            if let Err(err) = self
                                 .db_client
-                                .set(store, db_inputs, parent_id.clone())
+                                .del_pred(store.clone(), delete_condition, parent_id.clone())
                                 .await
                             {
-                                Ok(res) => {
-                                    if let ServerResponse::Set(upsert) = res {
-                                        Ok(AIServerResponse::Set(upsert))
-                                    } else {
-                                        Err(AIProxyError::UnexpectedDBResponse(format!(
-                                            "{:?}",
-                                            res
-                                        ))
-                                        .to_string())
+                                Err(err.to_string())
+                            } else {
+                                match self
+                                    .db_client
+                                    .set(store, db_inputs, parent_id.clone())
+                                    .await
+                                {
+                                    Ok(res) => {
+                                        if let ServerResponse::Set(upsert) = res {
+                                            Ok(AIServerResponse::Set(upsert))
+                                        } else {
+                                            Err(AIProxyError::UnexpectedDBResponse(format!(
+                                                "{:?}",
+                                                res
+                                            ))
+                                            .to_string())
+                                        }
                                     }
+                                    Err(err) => Err(format!("{err}")),
                                 }
-                                Err(err) => Err(format!("{err}")),
                             }
                         }
+                        Err(err) => Err(err.to_string()),
                     }
+
+                    //         } else {
+                    //         }
+                    //     }
+                    //     Err(err) => Err(err.to_string()),
+                    // }
+
+                    // TODO: Replace with self.model_manager.handle_request with bulk request
+                    // representing the inputs after preprocessing
                 }
 
                 AIQuery::DelKey { store, key } => {
