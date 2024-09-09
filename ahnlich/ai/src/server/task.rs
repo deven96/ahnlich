@@ -146,15 +146,6 @@ impl AhnlichProtocol for AIProxyTask {
                         }
                         Err(err) => Err(err.to_string()),
                     }
-
-                    //         } else {
-                    //         }
-                    //     }
-                    //     Err(err) => Err(err.to_string()),
-                    // }
-
-                    // TODO: Replace with self.model_manager.handle_request with bulk request
-                    // representing the inputs after preprocessing
                 }
 
                 AIQuery::DelKey { store, key } => {
