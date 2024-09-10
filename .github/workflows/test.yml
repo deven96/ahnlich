@@ -6,13 +6,11 @@ on:
     paths:
       - ahnlich/**
       - sdk/**
-      - .github/**
   pull_request:
     branches: ["main"]
     paths:
       - ahnlich/**
       - sdk/**
-      - .github/**
 
 env:
   CARGO_TERM_COLOR: always
