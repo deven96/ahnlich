@@ -27,7 +27,7 @@ impl Connection for DBConn {
     }
 
     async fn is_conn_valid(&mut self) -> Result<(), AhnlichError> {
-        let mut queries = Self::ServerQuery::with_capacity(1);
+        let mut queries = Self::ServerQuery::with_capacity(1)?;
         queries.push(DBQuery::Ping);
         let response = self.send_query(queries).await?;
         let mut expected_response = ServerResult::with_capacity(1);

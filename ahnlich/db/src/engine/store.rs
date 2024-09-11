@@ -14,6 +14,7 @@ use ahnlich_types::predicate::PredicateCondition;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::NonLinearAlgorithm;
 use ahnlich_types::similarity::Similarity;
+use fallible_collections::FallibleVec;
 use flurry::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
 use serde::Serialize;
@@ -588,7 +589,7 @@ impl Store {
             .collect();
         let pinned = self.id_to_value.pin();
         let (mut inserted, mut updated) = (0, 0);
-        let mut inserted_keys = Vec::new();
+        let mut inserted_keys: Vec<_> = FallibleVec::try_with_capacity(res.len())?;
         for (key, val) in res {
             if pinned.insert(key, val.clone()).is_some() {
                 updated += 1;

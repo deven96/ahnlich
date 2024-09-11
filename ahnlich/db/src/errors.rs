@@ -1,10 +1,11 @@
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::similarity::NonLinearAlgorithm;
+use fallible_collections::TryReserveError;
 use thiserror::Error;
 
 /// TODO: Move to shared rust types so library can deserialize it from the TCP response
-#[derive(Error, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub enum ServerError {
     #[error("Predicate {0} not found in store, attempt CREATEPREDINDEX with predicate")]
     PredicateNotFound(MetadataKey),
@@ -21,4 +22,12 @@ pub enum ServerError {
     },
     #[error("Could not deserialize query, error is {0}")]
     QueryDeserializeError(String),
+    #[error("allocation error {0:?}")]
+    Allocation(TryReserveError),
+}
+
+impl From<TryReserveError> for ServerError {
+    fn from(input: TryReserveError) -> Self {
+        Self::Allocation(input)
+    }
 }

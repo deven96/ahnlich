@@ -1,11 +1,17 @@
+use ahnlich_types::bincode::BincodeSerError;
+use fallible_collections::TryReserveError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AhnlichError {
     #[error("std io error {0}")]
     Standard(#[from] std::io::Error),
-    #[error("bincode serialize error {0}")]
-    BinCode(#[from] bincode::Error),
+    #[error("{0}")]
+    BinCodeSerAndDeser(#[from] BincodeSerError),
+    #[error("allocation error {0:?}")]
+    Allocation(TryReserveError),
+    #[error("bincode deserialize error {0}")]
+    Bincode(#[from] bincode::Error),
     #[error("db error {0}")]
     DbError(String),
     #[error("empty response")]
@@ -25,5 +31,11 @@ impl<E: std::fmt::Debug> From<deadpool::managed::PoolError<E>> for AhnlichError 
 impl From<deadpool::managed::BuildError> for AhnlichError {
     fn from(input: deadpool::managed::BuildError) -> Self {
         Self::PoolError(format!("{input}"))
+    }
+}
+
+impl From<TryReserveError> for AhnlichError {
+    fn from(input: TryReserveError) -> Self {
+        Self::Allocation(input)
     }
 }

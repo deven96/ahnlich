@@ -7,6 +7,7 @@ use ahnlich_types::keyval::{StoreInput, StoreValue};
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::{Predicate, PredicateCondition};
 use ahnlich_types::version::VERSION;
+use fallible_collections::vec::TryFromIterator;
 use std::collections::HashSet;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -333,23 +334,22 @@ impl AhnlichProtocol for AIProxyTask {
                         {
                             Ok(res) => {
                                 if let ServerResponse::GetSimN(response) = res {
-                                    // conversion to store input here
-                                    let mut output = Vec::new();
-
-                                    // TODO: Can Parallelize
-                                    for (store_key, store_value, sim) in response.into_iter() {
-                                        let temp =
-                                            self.store_handler.store_key_val_to_store_input_val(
-                                                vec![(store_key, store_value)],
-                                            );
-
-                                        if let Some(valid_result) = temp.first().take() {
-                                            let valid_result = valid_result.to_owned();
-                                            output.push((valid_result.0, valid_result.1, sim))
-                                        }
-                                    }
-
-                                    Ok(AIServerResponse::GetSimN(output))
+                                    TryFromIterator::try_from_iterator(
+                                        response.into_iter().flat_map(
+                                            |(store_key, store_value, sim)| {
+                                                // TODO: Can parallelize
+                                                self.store_handler
+                                                    .store_key_val_to_store_input_val(vec![(
+                                                        store_key,
+                                                        store_value,
+                                                    )])
+                                                    .into_iter()
+                                                    .map(move |v| (v.0, v.1, sim))
+                                            },
+                                        ),
+                                    )
+                                    .map_err(|e| AIProxyError::from(e).to_string())
+                                    .map(AIServerResponse::GetSimN)
                                 } else {
                                     Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
                                         .to_string())

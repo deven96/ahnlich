@@ -2,6 +2,7 @@ use ahnlich_types::{
     ai::{AIStoreInputType, PreprocessAction},
     keyval::StoreName,
 };
+use fallible_collections::TryReserveError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 
@@ -67,4 +68,12 @@ pub enum AIProxyError {
         index_model_dim: usize,
         query_model_dim: usize,
     },
+    #[error("allocation error {0:?}")]
+    Allocation(TryReserveError),
+}
+
+impl From<TryReserveError> for AIProxyError {
+    fn from(input: TryReserveError) -> Self {
+        Self::Allocation(input)
+    }
 }

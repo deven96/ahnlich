@@ -20,3 +20,4 @@ serde_json.workspace = true
 log.workspace = true
 cap = "0.1.2"
 tokio-util.workspace = true
+fallible_collections.workspace = true

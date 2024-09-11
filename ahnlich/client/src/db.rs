@@ -215,7 +215,7 @@ impl DbClient {
         tracing_id: Option<String>,
     ) -> Result<DbPipeline, AhnlichError> {
         Ok(DbPipeline {
-            queries: ServerDBQuery::with_capacity_and_tracing_id(capacity, tracing_id),
+            queries: ServerDBQuery::with_capacity_and_tracing_id(capacity, tracing_id)?,
             conn: self.pool.get().await?,
         })
     }
@@ -420,7 +420,7 @@ impl DbClient {
         tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
         let mut conn = self.pool.get().await?;
-        let mut queries = ServerDBQuery::with_capacity_and_tracing_id(1, tracing_id);
+        let mut queries = ServerDBQuery::with_capacity_and_tracing_id(1, tracing_id)?;
         queries.push(query);
         let res = conn
             .send_query(queries)

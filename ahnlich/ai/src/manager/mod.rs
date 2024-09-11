@@ -6,6 +6,7 @@ use crate::engine::ai::models::Model;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
+use fallible_collections::FallibleVec;
 use std::collections::HashMap;
 use task_manager::Task;
 use task_manager::TaskManager;
@@ -46,7 +47,7 @@ impl ModelThread {
         process_action: PreprocessAction,
     ) -> ModelThreadResponse {
         let model: Model = (&self.model).into();
-        let mut response = Vec::with_capacity(inputs.len());
+        let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         // move this from for loop into vec of inputs
         for input in inputs {
             let processed_input = self.preprocess_store_input(process_action, input)?;
