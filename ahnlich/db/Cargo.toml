@@ -37,6 +37,7 @@ serde_json.workspace = true
 async-trait.workspace = true
 rayon.workspace = true
 log.workspace = true
+fallible_collections.workspace = true
 
 
 [dev-dependencies]

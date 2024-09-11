@@ -9,6 +9,7 @@ use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
+use fallible_collections::FallibleVec;
 use flurry::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
 use serde::Serialize;
@@ -162,7 +163,7 @@ impl AIStoreHandler {
     ) -> Result<StoreValidateResponse, AIProxyError> {
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
         let store = self.get(store_name)?;
-        let mut output = Vec::with_capacity(inputs.len());
+        let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let mut delete_hashset = StdHashSet::new();
 
         for (store_input, mut store_value) in inputs {

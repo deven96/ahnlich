@@ -7,6 +7,7 @@ use ahnlich_types::bincode::VERSION_LENGTH;
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::version::Version;
 use ahnlich_types::version::VERSION;
+use fallible_collections::vec::FallibleVec;
 use std::fmt::Debug;
 use std::io::Error;
 use std::io::ErrorKind;
@@ -44,31 +45,26 @@ where
         let mut reader = reader.lock().await;
         match reader.read_exact(&mut magic_bytes_buf).await {
             Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                let error = self.prefix_log("Hung up on buffered stream");
-                log::error!("{error}");
-                return TaskState::Break;
+                let error = "Hung up on buffered stream";
+                return self.handle_error(error, false).await;
             }
             Err(e) => {
-                let error = self.prefix_log(format!("Error reading from task buffered stream {e}"));
-                log::error!("{error}");
-                return TaskState::Break;
+                let error = format!("Error reading from task buffered stream {e}");
+                return self.handle_error(error, false).await;
             }
             Ok(_) => {
                 if magic_bytes_buf != MAGIC_BYTES {
                     let error = "Invalid request stream".to_string();
-                    log::error!("{error}");
-                    return TaskState::Break;
+                    return self.handle_error(error, false).await;
                 }
-                if let Err(e) = reader.read_exact(&mut version_buf).await {
-                    log::error!("{}", e.to_string());
-                    return TaskState::Break;
+                if let Err(error) = reader.read_exact(&mut version_buf).await {
+                    return self.handle_error(error, false).await;
                 }
                 let version = match Version::deserialize_magic_bytes(&version_buf) {
                     Ok(version) => version,
                     Err(error) => {
                         let error = format!("Unable to parse version chunk {error}");
-                        log::error!("{error}");
-                        return TaskState::Break;
+                        return self.handle_error(error, false).await;
                     }
                 };
                 if !VERSION.is_compatible(&version) {
@@ -76,36 +72,43 @@ where
                         "Incompatible versions, Server: {:?}, Client {version:?}",
                         *VERSION
                     );
-                    log::error!("{error}");
-                    return TaskState::Break;
+                    return self.handle_error(error, false).await;
                 }
                 // cap the message size to be of length 1MiB
-                if let Err(e) = reader.read_exact(&mut length_buf).await {
-                    let error = format!("Could not read length buffer {e}");
-                    log::error!("{error}");
-                    return TaskState::Break;
+                if let Err(error) = reader.read_exact(&mut length_buf).await {
+                    return self.handle_error(error, false).await;
                 };
                 let data_length = u64::from_le_bytes(length_buf);
                 if data_length > self.maximum_message_size() {
-                    let error = self.prefix_log(format!(
+                    let error = format!(
                         "Message cannot exceed {} bytes, configure `message_size` for higher",
                         self.maximum_message_size()
-                    ));
-                    log::error!("{error}");
-                    return TaskState::Break;
-                }
-                let mut data = Vec::new();
-                if data.try_reserve(data_length as usize).is_err() {
-                    let error = self
-                        .prefix_log(format!("failed to reserve buffer of length {data_length}"));
-                    log::error!("{error}");
-                    return TaskState::Break;
+                    );
+                    return self.handle_error(error, false).await;
                 };
-                data.resize(data_length as usize, 0u8);
+
+                let mut data: Vec<_> = match FallibleVec::try_with_capacity(data_length as usize) {
+                    Err(error) => {
+                        return self
+                            .handle_error(
+                                format!("Could not allocate buffer for message body {:?}", error),
+                                true,
+                            )
+                            .await;
+                    }
+                    Ok(data) => data,
+                };
+                if let Err(error) = data.try_resize(data_length as usize, 0u8) {
+                    return self
+                        .handle_error(
+                            format!("Could not resize buffer for message body {:?}", error),
+                            true,
+                        )
+                        .await;
+                };
                 if let Err(e) = reader.read_exact(&mut data).await {
                     let error = format!("Could not read data buffer {e}");
-                    log::error!("{error}");
-                    return TaskState::Break;
+                    return self.handle_error(error.to_string(), false).await;
                 };
                 match Self::ServerQuery::deserialize(&data) {
                     Ok(queries) => {
@@ -116,18 +119,14 @@ where
                                 .map_err(|err| Error::new(ErrorKind::Other, err))
                             {
                                 Ok(parent_context) => parent_context,
-                                Err(error) => {
-                                    log::error!("{error}");
-                                    return TaskState::Break;
-                                }
+                                Err(error) => return self.handle_error(error, false).await,
                             };
                             span.set_parent(parent_context);
                         }
                         let results = self.handle(queries.into_inner()).instrument(span).await;
                         if let Ok(binary_results) = results.serialize() {
                             if let Err(error) = reader.get_mut().write_all(&binary_results).await {
-                                log::error!("{error}");
-                                return TaskState::Break;
+                                return self.handle_error(error, false).await;
                             };
                             log::debug!(
                                 "Sent Response of length {}, {:?}",
@@ -137,24 +136,43 @@ where
                         }
                     }
                     Err(error) => {
-                        let error = self.prefix_log(format!(
-                            "Could not deserialize client message as server query {error}"
-                        ));
-                        log::error!("{error}");
-                        let deserialize_error = Self::ServerResponse::from_error(
-                            "Could not deserialize query, error is {e}".to_string(),
-                        )
-                        .serialize()
-                        .expect("Could not serialize deserialize error");
-                        if let Err(error) = reader.get_mut().write_all(&deserialize_error).await {
-                            log::error!("{error}");
-                            return TaskState::Break;
-                        };
+                        return self.handle_error(error, true).await;
                     }
                 }
             }
         }
         TaskState::Continue
+    }
+
+    async fn handle_error(
+        &self,
+        error: impl ToString + Send,
+        respond_with_error: bool,
+    ) -> TaskState {
+        let error = self.prefix_log(error.to_string());
+        log::error!("{error}");
+        if respond_with_error {
+            let reader = self.reader();
+            let mut reader = reader.lock().await;
+            match Self::ServerResponse::from_error(format!(
+                "Could not deserialize query, error is {error}"
+            ))
+            .serialize()
+            {
+                Err(e) => log::error!(
+                    "{}",
+                    self.prefix_log(format!("Could not deserialize error response, {}", e))
+                ),
+                Ok(deserialize_error) => {
+                    if let Err(error) = reader.get_mut().write_all(&deserialize_error).await {
+                        log::error!("{}", self.prefix_log(format!("{error}")));
+                    } else {
+                        return TaskState::Continue;
+                    }
+                }
+            };
+        }
+        TaskState::Break
     }
 
     async fn handle(

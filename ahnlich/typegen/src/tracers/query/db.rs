@@ -88,7 +88,8 @@ pub fn trace_db_query_enum() -> Registry {
     let server_query =
         ServerDBQuery::from_queries(&[deletepred_variant.clone(), set_query.clone()]);
     let trace_id = "00-djf9039023r3-1er".to_string();
-    let server_query_with_trace_id = ServerDBQuery::with_capacity_and_tracing_id(2, Some(trace_id));
+    let server_query_with_trace_id = ServerDBQuery::with_capacity_and_tracing_id(2, Some(trace_id))
+        .expect("Could not create server query");
 
     let _ = tracer
         .trace_value(&mut samples, &create_store)
