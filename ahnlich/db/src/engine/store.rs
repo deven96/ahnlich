@@ -670,6 +670,7 @@ impl Store {
                 })
                 .sum::<usize>()
             + self.predicate_indices.size()
+            + self.non_linear_indices.size()
     }
 }
 
@@ -1122,12 +1123,12 @@ mod tests {
                 StoreInfo {
                     name: odd_store,
                     len: 2,
-                    size_in_bytes: 2136,
+                    size_in_bytes: 2144,
                 },
                 StoreInfo {
                     name: even_store,
                     len: 0,
-                    size_in_bytes: 1736,
+                    size_in_bytes: 1744,
                 },
             ])
         )

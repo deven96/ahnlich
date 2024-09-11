@@ -9,6 +9,7 @@ use ndarray::Array1;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
+use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,6 +46,13 @@ impl NonLinearAlgorithmWithIndex {
                     .delete_multi(new)
                     .expect("Impossible dimension happened during delete of kdtree");
             }
+        }
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn size(&self) -> usize {
+        match &self {
+            Self::KDTree(kdtree) => kdtree.size(),
         }
     }
 }
@@ -156,5 +164,15 @@ impl NonLinearAlgorithmIndices {
         for (_, algo) in pinned.iter() {
             algo.delete(old);
         }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub(crate) fn size(&self) -> usize {
+        size_of_val(&self)
+            + self
+                .algorithm_to_index
+                .iter(&self.algorithm_to_index.guard())
+                .map(|(k, v)| size_of_val(k) + v.size())
+                .sum::<usize>()
     }
 }
