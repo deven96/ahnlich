@@ -185,7 +185,7 @@ async fn test_create_stores() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 0,
-            size_in_bytes: 1712,
+            size_in_bytes: 1720,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -281,7 +281,7 @@ async fn test_del_pred() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 2136,
+            size_in_bytes: 2144,
         },
     ]))));
     expected.push(Ok(ServerResponse::Del(1)));
@@ -297,7 +297,7 @@ async fn test_del_pred() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 0,
-            size_in_bytes: 1832,
+            size_in_bytes: 1840,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -365,7 +365,7 @@ async fn test_del_key() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 1880,
+            size_in_bytes: 1888,
         },
     ]))));
     expected.push(Err(
@@ -376,7 +376,7 @@ async fn test_del_key() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 1,
-            size_in_bytes: 1808,
+            size_in_bytes: 1816,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -451,7 +451,7 @@ async fn test_server_with_persistence() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 1936,
+            size_in_bytes: 1944,
         },
     ]))));
     expected.push(Err(
@@ -462,7 +462,7 @@ async fn test_server_with_persistence() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 1,
-            size_in_bytes: 1864,
+            size_in_bytes: 1872,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -589,7 +589,7 @@ async fn test_set_in_store() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 2024,
+            size_in_bytes: 2032,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -1477,7 +1477,7 @@ async fn test_drop_stores() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 0,
-            size_in_bytes: 1712,
+            size_in_bytes: 1720,
         },
     ]))));
     expected.push(Ok(ServerResponse::Del(1)));

@@ -10,6 +10,7 @@ use std::cmp::Ordering as CmpOrdering;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
+use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 use std::sync::atomic::Ordering;
 
@@ -18,6 +19,24 @@ pub struct KDNode {
     point: Array1<f32>,
     left: Atomic<KDNode>,
     right: Atomic<KDNode>,
+}
+
+impl KDNode {
+    fn size(&self) -> usize {
+        let mut s = size_of_val(self) + size_of_val(&self.point);
+        let guard = epoch::pin();
+        let left = self.left.load(Ordering::Acquire, &guard);
+        if !left.is_null() {
+            let left = unsafe { left.deref() };
+            s += left.size();
+        };
+        let right = self.right.load(Ordering::Acquire, &guard);
+        if !right.is_null() {
+            let right = unsafe { right.deref() };
+            s += right.size();
+        };
+        s
+    }
 }
 
 #[cfg(feature = "serde")]
@@ -216,6 +235,21 @@ impl KDTree {
             dimension,
             depth,
         })
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub fn size(&self) -> usize {
+        let mut s = size_of_val(self)
+            + size_of_val(&self.root)
+            + size_of_val(&self.dimension)
+            + size_of_val(&self.depth);
+        let guard = epoch::pin();
+        let root = self.root.load(Ordering::Acquire, &guard);
+        if !root.is_null() {
+            let root = unsafe { root.deref() };
+            s += root.size();
+        }
+        s
     }
 
     #[tracing::instrument(skip_all)]
