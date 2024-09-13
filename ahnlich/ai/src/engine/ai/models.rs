@@ -6,42 +6,39 @@ use ndarray::Array1;
 use nonzero_ext::nonzero;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroUsize;
+use std::path::PathBuf;
+use crate::cli::server::SupportedModels;
+use crate::engine::ai::providers::ProviderTrait;
+use crate::engine::ai::providers::ModelProviders;
+use crate::engine::ai::providers::fastembed::FastEmbedProvider;
 
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Model {
     Text {
         name: String,
         description: String,
         embedding_size: NonZeroUsize,
         max_input_tokens: NonZeroUsize,
+        provider: ModelProviders
     },
     Image {
         name: String,
         description: String,
         max_image_dimensions: NonZeroUsize,
         embedding_size: NonZeroUsize,
+        provider: ModelProviders
     },
 }
 
 impl From<&AIModel> for Model {
     fn from(value: &AIModel) -> Self {
         match value {
-            AIModel::Llama3 => Self::Text {
-                name: String::from("Llama3"),
-                description: String::from("Llama3, a text model"),
-                embedding_size: nonzero!(100usize),
-                max_input_tokens: nonzero!(100usize),
-            },
-            AIModel::Dalle3 => Self::Image {
-                name: String::from("DALL.E 3"),
-                description: String::from("Dalle3, an image model"),
-                embedding_size: nonzero!(300usize),
-                max_image_dimensions: nonzero!(300usize),
-            },
             AIModel::AllMiniLML6V2 => Self::Text {
                 name: String::from("all-MiniLM-L6-v2"),
                 description: String::from("Sentence Transformer model, with 6 layers, version 2"),
                 embedding_size: nonzero!(384usize),
                 max_input_tokens: nonzero!(256usize),
+                provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
             AIModel::AllMiniLML12V2 => Self::Text {
                 name: String::from("all-MiniLM-L12-v2"),
@@ -49,6 +46,7 @@ impl From<&AIModel> for Model {
                 embedding_size: nonzero!(384usize),
                 // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
                 max_input_tokens: nonzero!(256usize),
+                provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
             AIModel::BGEBaseEnV15 => Self::Text {
                 name: String::from("BGEBase-En-v1.5"),
@@ -56,24 +54,28 @@ impl From<&AIModel> for Model {
                 embedding_size: nonzero!(768usize),
                 // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
                 max_input_tokens: nonzero!(512usize),
+                provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
             AIModel::BGELargeEnV15 => Self::Text {
                 name: String::from("BGELarge-En-v1.5"),
                 description: String::from("BAAI General Embedding model with English support, large scale, version 1.5."),
                 embedding_size: nonzero!(1024usize),
                 max_input_tokens: nonzero!(512usize),
+                provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
             AIModel::Resnet50 => Self::Image {
                 name: String::from("Resnet-50"),
                 description: String::from("Residual Networks model, with 50 layers."),
                 embedding_size: nonzero!(2048usize),
                 max_image_dimensions: nonzero!(224usize),
+                provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
             AIModel::ClipVitB32 => Self::Image {
                 name: String::from("ClipVit-B32"),
                 description: String::from("Contrastive Language-Image Pre-Training Vision transformer model, base scale."),
                 embedding_size: nonzero!(512usize),
                 max_image_dimensions: nonzero!(224usize),
+                provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
         }
     }
@@ -134,6 +136,66 @@ impl Model {
         match self {
             Model::Text { description, .. } => description.clone(),
             Model::Image { description, .. } => description.clone(),
+        }
+    }
+
+    pub fn setup_provider(&mut self, cache_location: PathBuf) {
+        let supported_model: SupportedModels = SupportedModels::from(&*self);
+        match self {
+            Model::Text { provider, .. } => {
+                match provider {
+                    ModelProviders::FastEmbed(provider) => {
+                        provider.set_model(supported_model);
+                        provider.set_cache_location(cache_location);
+                    }
+                }
+            },
+            Model::Image { provider, .. } => {
+                match provider {
+                    ModelProviders::FastEmbed(provider) => {
+                        provider.set_model(supported_model);
+                        provider.set_cache_location(cache_location);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn load(&mut self) {
+        match self {
+            Model::Text { provider, .. } => {
+                match provider {
+                    ModelProviders::FastEmbed(provider) => {
+                        provider.load_model();
+                    }
+                }
+            },
+            Model::Image { provider, .. } => {
+                match provider {
+                    ModelProviders::FastEmbed(provider) => {
+                        provider.load_model();
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn get(&self) {
+        match self {
+            Model::Text { provider, .. } => {
+                match provider {
+                    ModelProviders::FastEmbed(provider) => {
+                        provider.get_model();
+                    }
+                }
+            },
+            Model::Image { provider, .. } => {
+                match provider {
+                    ModelProviders::FastEmbed(provider) => {
+                        provider.get_model();
+                    }
+                }
+            }
         }
     }
 }

@@ -11,9 +11,6 @@ use crate::keyval::StoreInput;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AIModel {
-    // Image model
-    Dalle3,
-    Llama3,
     AllMiniLML6V2,
     AllMiniLML12V2,
     BGEBaseEnV15,

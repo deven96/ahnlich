@@ -2,7 +2,7 @@ use crate::cli::AIProxyConfig;
 use crate::engine::store::AIStoreHandler;
 use crate::manager::ModelManager;
 use crate::server::task::AIProxyTask;
-use crate::engine::ai::providers::ModelProvider;
+use crate::engine::ai::models::Model;
 use ahnlich_types::client::ConnectedClient;
 use std::error::Error;
 use std::io::Result as IoResult;
@@ -23,7 +23,7 @@ use utils::server::ServerUtilsConfig;
 
 use ahnlich_client_rs::db::{DbClient, DbConnManager};
 use deadpool::managed::Pool;
-use ahnlich_types::ai::AIModel;
+
 
 const SERVICE_NAME: &str = "ahnlich-ai";
 
@@ -35,7 +35,6 @@ pub struct AIProxyServer {
     store_handler: Arc<AIStoreHandler>,
     task_manager: Arc<TaskManager>,
     db_client: Arc<DbClient>,
-    model_providers: Vec<ModelProvider>,
     model_manager: Arc<ModelManager>,
 }
 
@@ -123,16 +122,16 @@ impl AIProxyServer {
         };
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
         let task_manager = TaskManager::new();
-        let model_manager = ModelManager::new(&config.supported_models, &task_manager).await?;
-
-        let mut model_providers: Vec<ModelProvider> = Vec::new();
-        for model in &config.supported_models {
-            let ai_model: AIModel = AIModel::from(model);
-            let cache_location = config.model_cache_location.clone();
-            let provider = ModelProvider::new(&ai_model, cache_location);
-            provider.download();
-            model_providers.push(provider);
+        let mut models: Vec<Model> = Vec::with_capacity(config.supported_models.len());
+        for supported_model in &config.supported_models {
+            let mut model: Model = supported_model.into();
+            model.setup_provider(config.model_cache_location.clone());
+            // TODO (HAKSOAT): Handle if download fails or verification check fails
+            model.get();
+            models.push(model);
         }
+
+        let model_manager = ModelManager::new(models, &task_manager).await?;
 
         Ok(Self {
             listener: Arc::new(listener),
@@ -142,7 +141,6 @@ impl AIProxyServer {
             db_client: Arc::new(db_client),
             task_manager: Arc::new(task_manager),
             model_manager: Arc::new(model_manager),
-            model_providers
         })
     }
 

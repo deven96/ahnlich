@@ -1,7 +1,6 @@
 /// The ModelManager is a wrapper around all the AI models running on various green threads. It
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
-use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::Model;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
@@ -11,8 +10,7 @@ use std::collections::HashMap;
 use task_manager::Task;
 use task_manager::TaskManager;
 use task_manager::TaskState;
-use tokio::sync::Mutex;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::{mpsc, Mutex, oneshot};
 
 type ModelThreadResponse = Result<Vec<StoreKey>, AIProxyError>;
 
@@ -25,12 +23,12 @@ struct ModelThreadRequest {
 
 #[derive(Debug)]
 struct ModelThread {
-    model: SupportedModels,
+    model: Model,
     request_receiver: Mutex<mpsc::Receiver<ModelThreadRequest>>,
 }
 
 impl ModelThread {
-    fn new(model: SupportedModels, request_receiver: mpsc::Receiver<ModelThreadRequest>) -> Self {
+    fn new(model: Model, request_receiver: mpsc::Receiver<ModelThreadRequest>) -> Self {
         Self {
             request_receiver: Mutex::new(request_receiver),
             model,
@@ -46,12 +44,11 @@ impl ModelThread {
         inputs: Vec<StoreInput>,
         process_action: PreprocessAction,
     ) -> ModelThreadResponse {
-        let model: Model = (&self.model).into();
         let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         // move this from for loop into vec of inputs
         for input in inputs {
             let processed_input = self.preprocess_store_input(process_action, input)?;
-            let store_key = model.model_ndarray(&processed_input);
+            let store_key = self.model.model_ndarray(&processed_input);
             response.push(store_key);
         }
         Ok(response)
@@ -96,9 +93,7 @@ impl ModelThread {
     ) -> Result<StoreInput, AIProxyError> {
         // tokenize string, return error if max token
         //let tokenized_input;
-        let model: Model = (&self.model).into();
-
-        if let Some(max_token_size) = model.max_input_token() {
+        if let Some(max_token_size) = self.model.max_input_token() {
             if input.len() > max_token_size.into() {
                 if let StringAction::ErrorIfTokensExceed = string_action {
                     return Err(AIProxyError::TokenExceededError {
@@ -123,9 +118,7 @@ impl ModelThread {
     ) -> Result<StoreInput, AIProxyError> {
         // process image, return error if max dimensions exceeded
         // let image_data;
-        let model: Model = (&self.model).into();
-
-        if let Some(max_image_dimensions) = model.max_image_dimensions() {
+        if let Some(max_image_dimensions) = self.model.max_image_dimensions() {
             if input.len() > max_image_dimensions.into() {
                 if let ImageAction::ErrorIfDimensionsMismatch = image_action {
                     return Err(AIProxyError::ImageDimensionsMismatchError {
@@ -167,27 +160,28 @@ impl Task for ModelThread {
 
 #[derive(Debug)]
 pub struct ModelManager {
-    models: HashMap<SupportedModels, mpsc::Sender<ModelThreadRequest>>,
+    models: HashMap<Model, mpsc::Sender<ModelThreadRequest>>,
 }
 
 impl ModelManager {
     pub async fn new(
-        supported_models: &[SupportedModels],
+        models: Vec<Model>,
         task_manager: &TaskManager,
     ) -> Result<Self, AIProxyError> {
         // TODO: Actually load the model at this point, with supported models and throw up errors,
         // also start up the various models with the task manager passed in
         //
-        let mut models = HashMap::with_capacity(supported_models.len());
-        for model in supported_models {
+        let mut model_to_request = HashMap::with_capacity(models.len());
+        for mut model in models {
             // QUESTION? Should we hard code the buffer size or add it to config?
             let (request_sender, request_receiver) = mpsc::channel(100);
             // There may be other things needed to load a model thread
-            let model_thread = ModelThread::new(*model, request_receiver);
+            model.load();
+            let model_thread = ModelThread::new(model.clone(), request_receiver);
             task_manager.spawn_task_loop(model_thread).await;
-            models.insert(*model, request_sender);
+            model_to_request.insert(model, request_sender);
         }
-        Ok(Self { models })
+        Ok(Self { models: model_to_request })
     }
 
     #[tracing::instrument(skip(self, inputs))]
@@ -197,8 +191,8 @@ impl ModelManager {
         inputs: Vec<StoreInput>,
         preprocess_action: PreprocessAction,
     ) -> Result<Vec<StoreKey>, AIProxyError> {
-        let supported = model.into();
-        if let Some(sender) = self.models.get(&supported) {
+        let model = model.into();
+        if let Some(sender) = self.models.get(&model) {
             let (response_tx, response_rx) = oneshot::channel();
             let request = ModelThreadRequest {
                 inputs,

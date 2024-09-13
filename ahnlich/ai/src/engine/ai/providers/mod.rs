@@ -1,13 +1,20 @@
-pub mod providers;
-mod fastembed;
+pub(crate) mod fastembed;
 
+use std::hash::Hash;
 use std::path::PathBuf;
-use ahnlich_types::ai::AIModel;
-pub use crate::engine::ai::providers::providers::ModelProvider;
+use strum::EnumIter;
 
-pub trait ProviderTrait {
-    fn set_cache_location(&mut self, location: PathBuf) -> &mut dyn ProviderTrait;
-    fn set_model(&mut self, model: AIModel) -> &mut dyn ProviderTrait;
-    fn load_model(&mut self) -> &mut dyn ProviderTrait;
-    fn download_model(&self);
+use crate::cli::server::SupportedModels;
+use crate::engine::ai::providers::fastembed::FastEmbedProvider;
+
+#[derive(Debug, EnumIter, PartialEq, Hash, Eq, Clone)]
+pub enum  ModelProviders{
+    FastEmbed(FastEmbedProvider),
+}
+
+pub trait ProviderTrait: std::fmt::Debug + Send + Sync + Hash + PartialEq {
+    fn set_cache_location(&mut self, location: PathBuf) -> &mut Self;
+    fn set_model(&mut self, model: SupportedModels) -> &mut Self;
+    fn load_model(&mut self) -> &mut Self;
+    fn get_model(&self);
 }

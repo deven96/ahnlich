@@ -10,8 +10,6 @@ use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Hash, Ord, ValueEnum, VariantArray)]
 pub enum SupportedModels {
-    Dalle3,
-    Llama3,
     #[clap(name = "all-minilm-l6-v2")]
     AllMiniLML6V2,
     #[clap(name = "all-minilm-l12-v2")]
@@ -137,7 +135,7 @@ impl Default for AIProxyConfig {
             otel_endpoint: None,
             log_level: String::from("info"),
             maximum_clients: 1000,
-            supported_models: vec![SupportedModels::Llama3, SupportedModels::Dalle3],
+            supported_models: vec![SupportedModels::AllMiniLML6V2, SupportedModels::AllMiniLML12V2],
             model_cache_location: home_dir().map(|mut path| {
                 path.push(".ahnlich");
                 path.push("models");
@@ -185,8 +183,6 @@ impl AIProxyConfig {
 impl From<&AIModel> for SupportedModels {
     fn from(value: &AIModel) -> Self {
         match value {
-            AIModel::Llama3 => SupportedModels::Llama3,
-            AIModel::Dalle3 => SupportedModels::Dalle3,
             AIModel::AllMiniLML6V2 => SupportedModels::AllMiniLML6V2,
             AIModel::AllMiniLML12V2 => SupportedModels::AllMiniLML12V2,
             AIModel::BGEBaseEnV15 => SupportedModels::BGEBaseEnV15,
@@ -200,8 +196,6 @@ impl From<&AIModel> for SupportedModels {
 impl From<&SupportedModels> for AIModel {
     fn from(value: &SupportedModels) -> Self {
         match value {
-            SupportedModels::Llama3 => AIModel::Llama3,
-            SupportedModels::Dalle3 => AIModel::Dalle3,
             SupportedModels::AllMiniLML6V2 => AIModel::AllMiniLML6V2,
             SupportedModels::AllMiniLML12V2 => AIModel::AllMiniLML12V2,
             SupportedModels::BGEBaseEnV15 => AIModel::BGEBaseEnV15,
@@ -216,6 +210,30 @@ impl From<&SupportedModels> for Model {
     fn from(value: &SupportedModels) -> Self {
         let ai_model: AIModel = value.into();
         (&ai_model).into()
+    }
+}
+
+impl From<&Model> for SupportedModels {
+    fn from(value: &Model) -> Self {
+        let supported_model = match value {
+            Model::Text { name, .. } => {
+                match name.as_str() {
+                    "all-MiniLM-L6-v2" => SupportedModels::AllMiniLML6V2,
+                    "all-MiniLM-L12-v2" => SupportedModels::AllMiniLML12V2,
+                    "bge-base-en-v1.5" => SupportedModels::BGEBaseEnV15,
+                    "bge-large-en-v1.5" => SupportedModels::BGELargeEnV15,
+                    _ => panic!("Model not supported"),
+                }
+            },
+            Model::Image { name, .. } => {
+                match name.as_str() {
+                    "resnet-50" => SupportedModels::Resnet50,
+                    "clip-vit-b32" => SupportedModels::ClipVitB32,
+                    _ => panic!("Model not supported"),
+                }
+            }
+        };
+        return supported_model
     }
 }
 
