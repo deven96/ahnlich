@@ -256,6 +256,22 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn test_model_manager_setup_works() {
+        let supported_models = vec![SupportedModels::Llama3, SupportedModels::Dalle3];
+
+        let task_manager = Arc::new(TaskManager::new());
+        let time_to_idle: u64 = 5;
+        let model_manager = ModelManager::new(&supported_models, task_manager, time_to_idle)
+            .await
+            .unwrap();
+
+        for model in supported_models {
+            let recreated_model = model_manager.models.get(&model).await;
+            assert!(recreated_model.is_some());
+        }
+    }
+
+    #[tokio::test]
     async fn test_model_manager_refreshes_evicted_model() {
         let supported_models = vec![SupportedModels::Llama3, SupportedModels::Dalle3];
         let sample_ai_model = AIModel::Llama3;
