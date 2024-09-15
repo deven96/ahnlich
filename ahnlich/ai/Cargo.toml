@@ -37,6 +37,7 @@ strum = { version = "0.26", features = ["derive"] }
 log.workspace = true
 fallible_collections.workspace = true
 rayon.workspace = true
+moka = { version = "0.12.8", features = ["future"] }
 
 [dev-dependencies]
 db = { path = "../db", version = "*" }

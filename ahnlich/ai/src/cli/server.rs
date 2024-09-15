@@ -94,6 +94,13 @@ pub struct AIProxyConfig {
     /// List of ai models to support in your aiproxy stores
     #[arg(long, required(true), value_delimiter = ',')]
     pub(crate) supported_models: Vec<SupportedModels>,
+
+    /// AI Model Idle Time in seconds
+    /// Defaults to 5 mins
+    /// Time in seconds for an unused/idle supported model to be dropped
+    /// Futher calls after a drop reinitializes the model from scratch
+    #[arg(long, default_value_t = 60 * 5)]
+    pub(crate) ai_model_idle_time: u64,
 }
 
 impl Default for AIProxyConfig {
@@ -118,6 +125,8 @@ impl Default for AIProxyConfig {
             log_level: String::from("info"),
             maximum_clients: 1000,
             supported_models: vec![SupportedModels::Llama3, SupportedModels::Dalle3],
+
+            ai_model_idle_time: 60 * 5,
         }
     }
 }

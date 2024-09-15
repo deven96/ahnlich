@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 /// The ModelManager is a wrapper around all the AI models running on various green threads. It
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
@@ -7,12 +9,13 @@ use crate::error::AIProxyError;
 use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
-use std::collections::HashMap;
+use moka::future::Cache;
 use task_manager::Task;
 use task_manager::TaskManager;
 use task_manager::TaskState;
 use tokio::sync::Mutex;
 use tokio::sync::{mpsc, oneshot};
+use tokio::time::Duration;
 
 type ModelThreadResponse = Result<Vec<StoreKey>, AIProxyError>;
 
@@ -167,27 +170,49 @@ impl Task for ModelThread {
 
 #[derive(Debug)]
 pub struct ModelManager {
-    models: HashMap<SupportedModels, mpsc::Sender<ModelThreadRequest>>,
+    models: Cache<SupportedModels, mpsc::Sender<ModelThreadRequest>>,
+    supported_models: Vec<SupportedModels>,
+    task_manager: Arc<TaskManager>,
 }
 
 impl ModelManager {
     pub async fn new(
         supported_models: &[SupportedModels],
-        task_manager: &TaskManager,
+        task_manager: Arc<TaskManager>,
+        time_to_idle: u64,
     ) -> Result<Self, AIProxyError> {
         // TODO: Actually load the model at this point, with supported models and throw up errors,
         // also start up the various models with the task manager passed in
-        //
-        let mut models = HashMap::with_capacity(supported_models.len());
+        let models = Cache::builder()
+            .max_capacity(supported_models.len() as u64)
+            .time_to_idle(Duration::from_secs(time_to_idle))
+            .build();
+        let model_manager = ModelManager {
+            models,
+            task_manager,
+            supported_models: supported_models.to_vec(),
+        };
+
         for model in supported_models {
-            // QUESTION? Should we hard code the buffer size or add it to config?
-            let (request_sender, request_receiver) = mpsc::channel(100);
-            // There may be other things needed to load a model thread
-            let model_thread = ModelThread::new(*model, request_receiver);
-            task_manager.spawn_task_loop(model_thread).await;
-            models.insert(*model, request_sender);
+            let _ = model_manager
+                .models
+                .try_get_with(*model, model_manager.try_initialize_model(model))
+                .await
+                .map_err(|err| AIProxyError::ModelInitializationError(err.to_string()))?;
         }
-        Ok(Self { models })
+        Ok(model_manager)
+    }
+
+    #[tracing::instrument(skip(self))]
+    async fn try_initialize_model(
+        &self,
+        model: &SupportedModels,
+    ) -> Result<mpsc::Sender<ModelThreadRequest>, AIProxyError> {
+        let (request_sender, request_receiver) = mpsc::channel(100);
+        // There may be other things needed to load a model thread
+        let model_thread = ModelThread::new(*model, request_receiver);
+        let _ = &self.task_manager.spawn_task_loop(model_thread).await;
+        Ok(request_sender)
     }
 
     #[tracing::instrument(skip(self, inputs))]
@@ -198,24 +223,78 @@ impl ModelManager {
         preprocess_action: PreprocessAction,
     ) -> Result<Vec<StoreKey>, AIProxyError> {
         let supported = model.into();
-        if let Some(sender) = self.models.get(&supported) {
-            let (response_tx, response_rx) = oneshot::channel();
-            let request = ModelThreadRequest {
-                inputs,
-                response: response_tx,
-                preprocess_action,
-            };
-            // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
-            if sender.send(request).await.is_ok() {
-                response_rx
-                    .await
-                    .map_err(|e| e.into())
-                    .and_then(|inner| inner)
-            } else {
-                return Err(AIProxyError::AIModelThreadSendError);
-            }
-        } else {
+
+        if !self.supported_models.contains(&supported) {
             return Err(AIProxyError::AIModelNotInitialized);
         }
+        let sender = self
+            .models
+            .try_get_with(supported, self.try_initialize_model(&supported))
+            .await
+            .map_err(|err| AIProxyError::ModelInitializationError(err.to_string()))?;
+
+        let (response_tx, response_rx) = oneshot::channel();
+        let request = ModelThreadRequest {
+            inputs,
+            response: response_tx,
+            preprocess_action,
+        };
+        // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
+        if sender.send(request).await.is_ok() {
+            response_rx
+                .await
+                .map_err(|e| e.into())
+                .and_then(|inner| inner)
+        } else {
+            return Err(AIProxyError::AIModelThreadSendError);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_model_manager_setup_works() {
+        let supported_models = vec![SupportedModels::Llama3, SupportedModels::Dalle3];
+
+        let task_manager = Arc::new(TaskManager::new());
+        let time_to_idle: u64 = 5;
+        let model_manager = ModelManager::new(&supported_models, task_manager, time_to_idle)
+            .await
+            .unwrap();
+
+        for model in supported_models {
+            let recreated_model = model_manager.models.get(&model).await;
+            assert!(recreated_model.is_some());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_model_manager_refreshes_evicted_model() {
+        let supported_models = vec![SupportedModels::Llama3, SupportedModels::Dalle3];
+        let sample_ai_model = AIModel::Llama3;
+        let sample_supported_model: SupportedModels = (&sample_ai_model).into();
+
+        let task_manager = Arc::new(TaskManager::new());
+        let time_to_idle: u64 = 1;
+        let model_manager = ModelManager::new(&supported_models, task_manager, time_to_idle)
+            .await
+            .unwrap();
+        let _ = tokio::time::sleep(Duration::from_secs(2)).await;
+
+        let evicted_model = model_manager.models.get(&sample_supported_model).await;
+
+        let inputs = vec![StoreInput::RawString(String::from("Hello"))];
+        let action = PreprocessAction::RawString(StringAction::TruncateIfTokensExceed);
+        let _ = model_manager
+            .handle_request(&sample_ai_model, inputs, action)
+            .await
+            .unwrap();
+        let recreated_model = model_manager.models.get(&sample_supported_model).await;
+
+        assert!(evicted_model.is_none());
+        assert!(recreated_model.is_some());
     }
 }
