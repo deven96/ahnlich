@@ -119,8 +119,9 @@ impl AIProxyServer {
             }
         };
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
-        let task_manager = TaskManager::new();
-        let model_manager = ModelManager::new(&config.supported_models, &task_manager).await?;
+        let task_manager = Arc::new(TaskManager::new());
+        let model_manager =
+            ModelManager::new(&config.supported_models, task_manager.clone()).await?;
 
         Ok(Self {
             listener: Arc::new(listener),
@@ -128,7 +129,7 @@ impl AIProxyServer {
             store_handler: Arc::new(store_handler),
             config,
             db_client: Arc::new(db_client),
-            task_manager: Arc::new(task_manager),
+            task_manager,
             model_manager: Arc::new(model_manager),
         })
     }

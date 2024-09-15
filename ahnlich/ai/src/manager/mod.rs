@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use std::time::Duration;
+
 /// The ModelManager is a wrapper around all the AI models running on various green threads. It
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
@@ -7,7 +10,7 @@ use crate::error::AIProxyError;
 use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
-use std::collections::HashMap;
+use moka::future::Cache;
 use task_manager::Task;
 use task_manager::TaskManager;
 use task_manager::TaskState;
@@ -167,27 +170,54 @@ impl Task for ModelThread {
 
 #[derive(Debug)]
 pub struct ModelManager {
-    models: HashMap<SupportedModels, mpsc::Sender<ModelThreadRequest>>,
+    models: Cache<SupportedModels, mpsc::Sender<ModelThreadRequest>>,
+    supported_models: Vec<SupportedModels>,
+    task_manager: Arc<TaskManager>,
 }
 
 impl ModelManager {
     pub async fn new(
         supported_models: &[SupportedModels],
-        task_manager: &TaskManager,
+        task_manager: Arc<TaskManager>,
     ) -> Result<Self, AIProxyError> {
         // TODO: Actually load the model at this point, with supported models and throw up errors,
         // also start up the various models with the task manager passed in
         //
-        let mut models = HashMap::with_capacity(supported_models.len());
+        let tti = Duration::from_secs(10);
+        let models = Cache::builder()
+            .max_capacity(supported_models.len() as u64)
+            .time_to_idle(tti)
+            .build();
         for model in supported_models {
-            // QUESTION? Should we hard code the buffer size or add it to config?
-            let (request_sender, request_receiver) = mpsc::channel(100);
-            // There may be other things needed to load a model thread
-            let model_thread = ModelThread::new(*model, request_receiver);
-            task_manager.spawn_task_loop(model_thread).await;
-            models.insert(*model, request_sender);
+            let request_sender = Self::create_request_sender(model, &task_manager).await?;
+            models.insert(*model, request_sender).await;
         }
-        Ok(Self { models })
+        Ok(Self {
+            models,
+            supported_models: supported_models.to_vec(),
+            task_manager,
+        })
+    }
+
+    // QUESTION? Should we hard code the buffer size or add it to config?
+    async fn create_request_sender(
+        supported_model: &SupportedModels,
+        task_manager: &TaskManager,
+    ) -> Result<mpsc::Sender<ModelThreadRequest>, AIProxyError> {
+        let (request_sender, request_receiver) = mpsc::channel(100);
+        // There may be other things needed to load a model thread
+        let model_thread = ModelThread::new(*supported_model, request_receiver);
+        task_manager.spawn_task_loop(model_thread).await;
+        Ok(request_sender)
+    }
+
+    async fn get_sender(
+        &self,
+        model: &SupportedModels,
+    ) -> Result<mpsc::Sender<ModelThreadRequest>, AIProxyError> {
+        let request_sender = Self::create_request_sender(model, &self.task_manager).await?;
+        self.models.insert(*model, request_sender.clone()).await;
+        Ok(request_sender)
     }
 
     #[tracing::instrument(skip(self, inputs))]
@@ -198,24 +228,31 @@ impl ModelManager {
         preprocess_action: PreprocessAction,
     ) -> Result<Vec<StoreKey>, AIProxyError> {
         let supported = model.into();
-        if let Some(sender) = self.models.get(&supported) {
-            let (response_tx, response_rx) = oneshot::channel();
-            let request = ModelThreadRequest {
-                inputs,
-                response: response_tx,
-                preprocess_action,
-            };
-            // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
-            if sender.send(request).await.is_ok() {
-                response_rx
-                    .await
-                    .map_err(|e| e.into())
-                    .and_then(|inner| inner)
-            } else {
-                return Err(AIProxyError::AIModelThreadSendError);
-            }
-        } else {
+
+        if !self.supported_models.contains(&supported) {
             return Err(AIProxyError::AIModelNotInitialized);
+        }
+
+        let sender = self
+            .models
+            .try_get_with(supported, self.get_sender(&supported))
+            .await
+            .map_err(|err| AIProxyError::StandardError(err.to_string()))?;
+
+        let (response_tx, response_rx) = oneshot::channel();
+        let request = ModelThreadRequest {
+            inputs,
+            response: response_tx,
+            preprocess_action,
+        };
+        // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
+        if sender.send(request).await.is_ok() {
+            response_rx
+                .await
+                .map_err(|e| e.into())
+                .and_then(|inner| inner)
+        } else {
+            return Err(AIProxyError::AIModelThreadSendError);
         }
     }
 }
