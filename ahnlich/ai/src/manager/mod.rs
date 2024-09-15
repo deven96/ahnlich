@@ -2,11 +2,13 @@
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
 use crate::engine::ai::models::Model;
+use crate::cli::server::{ModelConfig, SupportedModels};
 use crate::error::AIProxyError;
 use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use task_manager::Task;
 use task_manager::TaskManager;
 use task_manager::TaskState;
@@ -21,14 +23,16 @@ struct ModelThreadRequest {
     preprocess_action: PreprocessAction,
 }
 
-#[derive(Debug)]
 struct ModelThread {
     model: Model,
     request_receiver: Mutex<mpsc::Receiver<ModelThreadRequest>>,
 }
 
 impl ModelThread {
-    fn new(model: Model, request_receiver: mpsc::Receiver<ModelThreadRequest>) -> Self {
+    fn new(supported_model: SupportedModels, cache_location: &PathBuf, request_receiver: mpsc::Receiver<ModelThreadRequest>) -> Self {
+        let mut model: Model = (&supported_model).into();
+        model.setup_provider(supported_model, cache_location);
+        model.load();
         Self {
             request_receiver: Mutex::new(request_receiver),
             model,
@@ -36,7 +40,7 @@ impl ModelThread {
     }
 
     fn name(&self) -> String {
-        format!("{:?}-model-thread", self.model)
+        format!("{:?}-model-thread", self.model.model_name())
     }
 
     fn input_to_response(
@@ -48,7 +52,7 @@ impl ModelThread {
         // move this from for loop into vec of inputs
         for input in inputs {
             let processed_input = self.preprocess_store_input(process_action, input)?;
-            let store_key = self.model.model_ndarray(&processed_input);
+            let store_key = self.model.model_ndarray(&processed_input)?;
             response.push(store_key);
         }
         Ok(response)
@@ -160,26 +164,25 @@ impl Task for ModelThread {
 
 #[derive(Debug)]
 pub struct ModelManager {
-    models: HashMap<Model, mpsc::Sender<ModelThreadRequest>>,
+    models: HashMap<SupportedModels, mpsc::Sender<ModelThreadRequest>>,
 }
 
 impl ModelManager {
     pub async fn new(
-        models: Vec<Model>,
+        model_config: ModelConfig,
         task_manager: &TaskManager,
     ) -> Result<Self, AIProxyError> {
         // TODO: Actually load the model at this point, with supported models and throw up errors,
         // also start up the various models with the task manager passed in
         //
-        let mut model_to_request = HashMap::with_capacity(models.len());
-        for mut model in models {
+        let mut model_to_request = HashMap::with_capacity(model_config.supported_models.len());
+        for mut model in &model_config.supported_models {
             // QUESTION? Should we hard code the buffer size or add it to config?
             let (request_sender, request_receiver) = mpsc::channel(100);
             // There may be other things needed to load a model thread
-            model.load();
-            let model_thread = ModelThread::new(model.clone(), request_receiver);
+            let model_thread = ModelThread::new(*model, &model_config.model_cache_location, request_receiver);
             task_manager.spawn_task_loop(model_thread).await;
-            model_to_request.insert(model, request_sender);
+            model_to_request.insert(*model, request_sender);
         }
         Ok(Self { models: model_to_request })
     }

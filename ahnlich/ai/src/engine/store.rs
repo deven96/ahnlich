@@ -233,14 +233,19 @@ impl AIStoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get_ndarray_repr_for_store(
+    pub(crate) async fn get_ndarray_repr_for_store(
         &self,
         store_name: &StoreName,
-        store_input: &StoreInput,
+        store_input: StoreInput,
+        model_manager: &ModelManager,
+        preprocess_action: PreprocessAction
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
-        let model: Model = (&store.index_model).into();
-        Ok(model.model_ndarray(store_input))
+        let mut store_keys = model_manager
+            .handle_request(&store.index_model, vec![store_input], preprocess_action)
+            .await?;
+
+        Ok(store_keys.pop().expect("Expected an embedding value."))
     }
 
     /// Matches DROPSTORE - Drops a store if exist, else returns an error

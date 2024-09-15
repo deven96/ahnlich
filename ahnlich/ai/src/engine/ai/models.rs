@@ -11,18 +11,18 @@ use crate::cli::server::SupportedModels;
 use crate::engine::ai::providers::ProviderTrait;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::fastembed::FastEmbedProvider;
+use crate::error::AIProxyError;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 pub enum Model {
     Text {
-        name: String,
+        supported_model: SupportedModels,
         description: String,
         embedding_size: NonZeroUsize,
         max_input_tokens: NonZeroUsize,
         provider: ModelProviders
     },
     Image {
-        name: String,
+        supported_model: SupportedModels,
         description: String,
         max_image_dimensions: NonZeroUsize,
         embedding_size: NonZeroUsize,
@@ -34,14 +34,14 @@ impl From<&AIModel> for Model {
     fn from(value: &AIModel) -> Self {
         match value {
             AIModel::AllMiniLML6V2 => Self::Text {
-                name: String::from("all-MiniLM-L6-v2"),
+                supported_model: SupportedModels::AllMiniLML6V2,
                 description: String::from("Sentence Transformer model, with 6 layers, version 2"),
                 embedding_size: nonzero!(384usize),
                 max_input_tokens: nonzero!(256usize),
                 provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
             AIModel::AllMiniLML12V2 => Self::Text {
-                name: String::from("all-MiniLM-L12-v2"),
+                supported_model: SupportedModels::AllMiniLML12V2,
                 description: String::from("Sentence Transformer model, with 12 layers, version 2."),
                 embedding_size: nonzero!(384usize),
                 // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
@@ -49,7 +49,7 @@ impl From<&AIModel> for Model {
                 provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
             AIModel::BGEBaseEnV15 => Self::Text {
-                name: String::from("BGEBase-En-v1.5"),
+                supported_model: SupportedModels::BGEBaseEnV15,
                 description: String::from("BAAI General Embedding model with English support, base scale, version 1.5."),
                 embedding_size: nonzero!(768usize),
                 // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
@@ -57,21 +57,21 @@ impl From<&AIModel> for Model {
                 provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
             AIModel::BGELargeEnV15 => Self::Text {
-                name: String::from("BGELarge-En-v1.5"),
+                supported_model: SupportedModels::BGELargeEnV15,
                 description: String::from("BAAI General Embedding model with English support, large scale, version 1.5."),
                 embedding_size: nonzero!(1024usize),
                 max_input_tokens: nonzero!(512usize),
                 provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
             AIModel::Resnet50 => Self::Image {
-                name: String::from("Resnet-50"),
+                supported_model: SupportedModels::Resnet50,
                 description: String::from("Residual Networks model, with 50 layers."),
                 embedding_size: nonzero!(2048usize),
                 max_image_dimensions: nonzero!(224usize),
                 provider: ModelProviders::FastEmbed(FastEmbedProvider::new())
             },
             AIModel::ClipVitB32 => Self::Image {
-                name: String::from("ClipVit-B32"),
+                supported_model: SupportedModels::ClipVitB32,
                 description: String::from("Contrastive Language-Image Pre-Training Vision transformer model, base scale."),
                 embedding_size: nonzero!(512usize),
                 max_image_dimensions: nonzero!(224usize),
@@ -100,9 +100,25 @@ impl Model {
     // TODO: model ndarray values is based on length of string or vec, so for now make sure strings
     // or vecs have different lengths
     #[tracing::instrument(skip(self))]
-    pub fn model_ndarray(&self, storeinput: &StoreInput) -> StoreKey {
+    pub fn model_ndarray(&self, storeinput: &StoreInput) -> Result<StoreKey, AIProxyError> {
         let length = storeinput.len() as f32;
-        StoreKey(Array1::from_iter(0..self.embedding_size().into()).mapv(|v| v as f32 * length))
+        if let (StoreInput::RawString(string), Model::Text { provider, .. }) = (storeinput, self) {
+            return match provider {
+                ModelProviders::FastEmbed(provider) => {
+                    let embedding = provider.run_inference(string.clone().as_str());
+                    Ok(StoreKey(<Array1<f32>>::from(embedding)))
+                }
+            }
+        } else if let (StoreInput::Image(image), Model::Image { provider, .. }) = (storeinput, self) {
+                // let embedding = provider.run_inference(image);
+                // return StoreKey(embedding);
+            Ok(StoreKey(Array1::from_iter(0..self.embedding_size().into()).mapv(|v| v as f32 * length)))
+        } else {
+            return Err(AIProxyError::StoreQueryTypeMismatchError {
+                store_query_model_type: storeinput.into(),
+                storeinput_type: self.into(),
+            })
+        }
     }
 
     #[tracing::instrument(skip(self))]
@@ -127,8 +143,10 @@ impl Model {
     #[tracing::instrument(skip(self))]
     pub fn model_name(&self) -> String {
         match self {
-            Model::Text { name, .. } => name.clone(),
-            Model::Image { name, .. } => name.clone(),
+            Model::Text {supported_model, ..} |
+            Model::Image {supported_model, ..} => {
+                supported_model.to_string()
+            }
         }
     }
     #[tracing::instrument(skip(self))]
@@ -139,18 +157,9 @@ impl Model {
         }
     }
 
-    pub fn setup_provider(&mut self, cache_location: PathBuf) {
-        let supported_model: SupportedModels = SupportedModels::from(&*self);
+    pub fn setup_provider(&mut self, supported_model: SupportedModels, cache_location: &PathBuf) {
         match self {
-            Model::Text { provider, .. } => {
-                match provider {
-                    ModelProviders::FastEmbed(provider) => {
-                        provider.set_model(supported_model);
-                        provider.set_cache_location(cache_location);
-                    }
-                }
-            },
-            Model::Image { provider, .. } => {
+            Model::Text { provider, .. } | Model::Image { provider, .. } => {
                 match provider {
                     ModelProviders::FastEmbed(provider) => {
                         provider.set_model(supported_model);
@@ -196,6 +205,15 @@ impl Model {
                     }
                 }
             }
+        }
+    }
+}
+
+impl From<&Model> for AIStoreInputType {
+    fn from(value: &Model) -> Self {
+        match value {
+            Model::Text { .. } => AIStoreInputType::RawString,
+            Model::Image { .. } => AIStoreInputType::Image,
         }
     }
 }

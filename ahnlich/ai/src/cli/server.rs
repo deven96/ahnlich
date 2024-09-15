@@ -1,3 +1,4 @@
+use std::fmt;
 use ahnlich_types::ai::AIModel;
 use dirs::home_dir;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
@@ -20,6 +21,7 @@ pub enum SupportedModels {
     BGELargeEnV15,
     #[clap(name = "resnet-50")]
     Resnet50,
+    #[clap(name = "clip-vit-b32")]
     ClipVitB32,
 }
 
@@ -89,7 +91,7 @@ pub struct AIProxyConfig {
     #[arg(long, default_value_t = 1_048_576)]
     pub message_size: usize,
     /// Allows enables tracing
-    #[arg(long, default_value_t = false, action=ArgAction::SetTrue)]
+    #[arg(long, default_value_t = true, action=ArgAction::SetTrue)]
     pub(crate) enable_tracing: bool,
     /// Otel collector url to send traces to
     #[arg(long, requires_if("true", "enable_tracing"))]
@@ -105,13 +107,31 @@ pub struct AIProxyConfig {
     pub(crate) maximum_clients: usize,
 
     /// List of ai models to support in your aiproxy stores
-    #[arg(long, required(true), value_delimiter = ',')]
+    #[arg(long, value_enum, value_delimiter = ',',
+        default_values_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default)
+    .supported_models.clone())
+    ]
     pub(crate) supported_models: Vec<SupportedModels>,
 
     /// Directory path for storing the model artifacts
     #[arg(long, default_value_os_t =
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).model_cache_location.clone())]
     pub(crate) model_cache_location: std::path::PathBuf
+}
+
+pub struct ModelConfig {
+    pub(crate) supported_models: Vec<SupportedModels>,
+    pub(crate) model_cache_location: std::path::PathBuf
+}
+
+impl From<&AIProxyConfig> for ModelConfig {
+    fn from(config: &AIProxyConfig) -> Self {
+        Self {
+            supported_models: config.supported_models.clone(),
+            model_cache_location: config.model_cache_location.clone()
+        }
+    }
 }
 
 impl Default for AIProxyConfig {
@@ -135,7 +155,8 @@ impl Default for AIProxyConfig {
             otel_endpoint: None,
             log_level: String::from("info"),
             maximum_clients: 1000,
-            supported_models: vec![SupportedModels::AllMiniLML6V2, SupportedModels::AllMiniLML12V2],
+            // supported_models: vec![SupportedModels::AllMiniLML6V2, SupportedModels::AllMiniLML12V2],
+            supported_models: vec![SupportedModels::AllMiniLML6V2],
             model_cache_location: home_dir().map(|mut path| {
                 path.push(".ahnlich");
                 path.push("models");
@@ -180,6 +201,19 @@ impl AIProxyConfig {
     }
 }
 
+impl fmt::Display for SupportedModels {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SupportedModels::AllMiniLML6V2 => write!(f, "all-MiniLM-L6-v2"),
+            SupportedModels::AllMiniLML12V2 => write!(f, "all-MiniLM-L12-v2"),
+            SupportedModels::BGEBaseEnV15 => write!(f, "BGEBase-En-v1.5"),
+            SupportedModels::BGELargeEnV15 => write!(f, "BGELarge-En-v1.5"),
+            SupportedModels::Resnet50 => write!(f, "Resnet-50"),
+            SupportedModels::ClipVitB32 => write!(f, "ClipVit-B32"),
+        }
+    }
+}
+
 impl From<&AIModel> for SupportedModels {
     fn from(value: &AIModel) -> Self {
         match value {
@@ -210,30 +244,6 @@ impl From<&SupportedModels> for Model {
     fn from(value: &SupportedModels) -> Self {
         let ai_model: AIModel = value.into();
         (&ai_model).into()
-    }
-}
-
-impl From<&Model> for SupportedModels {
-    fn from(value: &Model) -> Self {
-        let supported_model = match value {
-            Model::Text { name, .. } => {
-                match name.as_str() {
-                    "all-MiniLM-L6-v2" => SupportedModels::AllMiniLML6V2,
-                    "all-MiniLM-L12-v2" => SupportedModels::AllMiniLML12V2,
-                    "bge-base-en-v1.5" => SupportedModels::BGEBaseEnV15,
-                    "bge-large-en-v1.5" => SupportedModels::BGELargeEnV15,
-                    _ => panic!("Model not supported"),
-                }
-            },
-            Model::Image { name, .. } => {
-                match name.as_str() {
-                    "resnet-50" => SupportedModels::Resnet50,
-                    "clip-vit-b32" => SupportedModels::ClipVitB32,
-                    _ => panic!("Model not supported"),
-                }
-            }
-        };
-        return supported_model
     }
 }
 

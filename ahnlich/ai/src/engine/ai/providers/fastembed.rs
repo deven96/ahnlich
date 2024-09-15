@@ -34,46 +34,6 @@ impl fmt::Debug for FastEmbedProvider {
     }
 }
 
-impl hash::Hash for FastEmbedProvider {
-    fn hash<H: hash::Hasher>(&self, state: &mut H) {
-        // Find better ways to hash this.
-        self.cache_location.clone().unwrap_or_else(|| {PathBuf::new()}).to_str().hash(state);
-        self.cache_location_extension.clone().to_str().hash(state);
-        self.supported_models.clone().expect("Supported models must be set \
-        before an hash operation.").hash(state);
-    }
-}
-
-impl PartialEq for FastEmbedProvider {
-    fn eq(&self, other: &Self) -> bool {
-        self.cache_location == other.cache_location
-            && self.cache_location_extension == other.cache_location_extension
-            && self.supported_models == other.supported_models
-    }
-}
-
-impl Eq for FastEmbedProvider {}
-
-impl Clone for FastEmbedProvider {
-    fn clone(&self) -> Self {
-        match self.model {
-            Some(_) => {
-                let mut provider = FastEmbedProvider::new();
-                provider.set_cache_location(self.cache_location.clone().unwrap());
-                provider.set_model(self.supported_models.clone().unwrap());
-                provider
-            },
-            None => {
-                FastEmbedProvider {
-                    cache_location: self.cache_location.clone(),
-                    cache_location_extension: self.cache_location_extension.clone(),
-                    supported_models: self.supported_models.clone(),
-                    model: None,
-                }
-            }
-        }
-    }
-}
 
 pub enum FastEmbedModel {
     Text(TextEmbedding),
@@ -87,6 +47,7 @@ pub enum Error {
 }
 
 
+// TODO (HAKSOAT): Remove this tryfrom.
 impl TryFrom<&SupportedModels> for FastEmbedModelType {
     type Error = Error;
 
@@ -128,7 +89,7 @@ impl FastEmbedProvider {
 }
 
 impl ProviderTrait for FastEmbedProvider {
-    fn set_cache_location(&mut self, location: PathBuf) -> &mut Self {
+    fn set_cache_location(&mut self, location: &PathBuf) -> &mut Self {
         let mut cache_location = location.clone();
         cache_location.push(self.cache_location_extension.clone());
         self.cache_location = Some(cache_location);
@@ -169,6 +130,26 @@ impl ProviderTrait for FastEmbedProvider {
             let model_repo = api.model(model_type.to_string());
             let model_info = TextEmbedding::get_model_info(&model_type).unwrap();
             model_repo.get(model_info.model_file.as_str()).unwrap();
+        }
+    }
+
+    fn run_inference(&self, input: &str) -> Vec<f32> {
+        let input = vec![input];
+        if let Some(fastembed_model) = &self.model {
+            match fastembed_model {
+                FastEmbedModel::Text(model) => {
+                    let response = model.embed(input, None).expect("Could not run inference.");
+                    let response: Vec<f32> = response.get(0).expect("Response embedding is empty").to_owned().into();
+                    response
+                },
+                FastEmbedModel::Image(model) => {
+                    let response = model.embed(input, None).expect("Could not run inference.");
+                    let response: Vec<f32> = response.get(0).expect("Response embedding is empty").to_owned().into();
+                    response
+                }
+            }
+        } else {
+            panic!("Model has not been loaded.");
         }
     }
 }

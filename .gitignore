@@ -20,3 +20,5 @@ Cargo.lock
 
 # persistence file for test
 ahnlich.dat
+
+**/.idea/
