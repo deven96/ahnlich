@@ -70,6 +70,9 @@ pub enum AIProxyError {
     },
     #[error("allocation error {0:?}")]
     Allocation(TryReserveError),
+
+    #[error("Error initializing a model thread {0}")]
+    ModelInitializationError(String),
 }
 
 impl From<TryReserveError> for AIProxyError {

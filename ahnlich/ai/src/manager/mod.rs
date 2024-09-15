@@ -211,15 +211,6 @@ impl ModelManager {
         Ok(request_sender)
     }
 
-    async fn get_sender(
-        &self,
-        model: &SupportedModels,
-    ) -> Result<mpsc::Sender<ModelThreadRequest>, AIProxyError> {
-        let request_sender = Self::create_request_sender(model, &self.task_manager).await?;
-        self.models.insert(*model, request_sender.clone()).await;
-        Ok(request_sender)
-    }
-
     #[tracing::instrument(skip(self, inputs))]
     pub async fn handle_request(
         &self,
@@ -235,9 +226,12 @@ impl ModelManager {
 
         let sender = self
             .models
-            .try_get_with(supported, self.get_sender(&supported))
+            .try_get_with(
+                supported,
+                Self::create_request_sender(&supported, &self.task_manager),
+            )
             .await
-            .map_err(|err| AIProxyError::StandardError(err.to_string()))?;
+            .map_err(|err| AIProxyError::ModelInitializationError(err.to_string()))?;
 
         let (response_tx, response_rx) = oneshot::channel();
         let request = ModelThreadRequest {
