@@ -114,7 +114,8 @@ pub struct AIProxyConfig {
     ]
     pub(crate) supported_models: Vec<SupportedModels>,
 
-    /// AI Model Idle Time in seconds Defaults to 5 mins
+    /// AI Model Idle Time in seconds
+    /// Defaults to 5 mins
     /// Time in seconds for an unused/idle supported model to be dropped
     /// Futher calls after a drop reinitializes the model from scratch
     #[arg(long, default_value_t = 60 * 5)]
