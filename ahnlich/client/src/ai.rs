@@ -490,22 +490,22 @@ mod tests {
             .expect("Could not create pipeline");
         pipeline.create_store(
             StoreName("Main".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Main".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
         );
@@ -514,19 +514,19 @@ mod tests {
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Err("Store Main already exists".to_string()));
         expected.push(Ok(AIServerResponse::Unit));
-        let llama3_model: Model = (&AIModel::Llama3).into();
+        let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
                 embedding_size: llama3_model.embedding_size().into(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
                 embedding_size: llama3_model.embedding_size().into(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
             },
         ]))));
         let res = pipeline.exec().await.expect("Could not execute pipeline");
@@ -546,8 +546,8 @@ mod tests {
         assert!(ai_client
             .create_store(
                 store_name.clone(),
-                AIModel::Llama3,
-                AIModel::Llama3,
+                AIModel::AllMiniLML6V2,
+                AIModel::AllMiniLML6V2,
                 HashSet::new(),
                 HashSet::new(),
                 None
@@ -599,22 +599,22 @@ mod tests {
             .expect("Could not create pipeline");
         pipeline.create_store(
             StoreName("Main".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Main2".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
         );
@@ -626,25 +626,25 @@ mod tests {
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Ok(AIServerResponse::Unit));
 
-        let llama3_model: Model = (&AIModel::Llama3).into();
+        let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
                 embedding_size: llama3_model.embedding_size().into(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Main2".to_string()),
                 embedding_size: llama3_model.embedding_size().into(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
                 embedding_size: llama3_model.embedding_size().into(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
             },
         ]))));
         expected.push(Ok(AIServerResponse::Del(1)));
@@ -695,8 +695,8 @@ mod tests {
 
         pipeline.create_store(
             store_name.clone(),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
         );
@@ -724,12 +724,12 @@ mod tests {
         let mut expected = AIServerResult::with_capacity(6);
 
         expected.push(Ok(AIServerResponse::Unit));
-        let llama3_model: Model = (&AIModel::Llama3).into();
+        let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name.clone(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
 
                 embedding_size: llama3_model.embedding_size().into(),
             },
@@ -817,8 +817,8 @@ mod tests {
 
         pipeline.create_store(
             store_name.clone(),
-            AIModel::DALLE3,
-            AIModel::DALLE3,
+            AIModel::Resnet50,
+            AIModel::Resnet50,
             HashSet::new(),
             HashSet::new(),
         );
@@ -854,13 +854,13 @@ mod tests {
         let mut expected = AIServerResult::with_capacity(7);
 
         expected.push(Ok(AIServerResponse::Unit));
-        let dalle3_model: Model = (&AIModel::DALLE3).into();
+        let resnet_model: Model = (&AIModel::Resnet50).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name,
-                query_model: AIModel::DALLE3,
-                index_model: AIModel::DALLE3,
-                embedding_size: dalle3_model.embedding_size().into(),
+                query_model: AIModel::Resnet50,
+                index_model: AIModel::Resnet50,
+                embedding_size: resnet_model.embedding_size().into(),
             },
         ]))));
         expected.push(Ok(AIServerResponse::CreateIndex(2)));

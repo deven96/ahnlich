@@ -1,7 +1,7 @@
-use std::fmt;
 use ahnlich_types::ai::AIModel;
-use dirs::home_dir;
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
+use dirs::home_dir;
+use std::fmt;
 use strum::VariantArray;
 
 use crate::engine::ai::models::{Model, ModelInfo};
@@ -114,22 +114,47 @@ pub struct AIProxyConfig {
     ]
     pub(crate) supported_models: Vec<SupportedModels>,
 
+    /// AI Model Idle Time in seconds Defaults to 5 mins
+    /// Time in seconds for an unused/idle supported model to be dropped
+    /// Futher calls after a drop reinitializes the model from scratch
+    #[arg(long, default_value_t = 60 * 5)]
+    pub(crate) ai_model_idle_time: u64,
+
     /// Directory path for storing the model artifacts
     #[arg(long, default_value_os_t =
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).model_cache_location.clone())]
-    pub(crate) model_cache_location: std::path::PathBuf
+    pub(crate) model_cache_location: std::path::PathBuf,
 }
 
+#[derive(Debug)]
 pub struct ModelConfig {
     pub(crate) supported_models: Vec<SupportedModels>,
-    pub(crate) model_cache_location: std::path::PathBuf
+    pub(crate) model_cache_location: std::path::PathBuf,
+    pub(crate) model_idle_time: u64,
+}
+
+impl Default for ModelConfig {
+    fn default() -> Self {
+        Self {
+            supported_models: vec![SupportedModels::AllMiniLML6V2],
+            model_cache_location: home_dir()
+                .map(|mut path| {
+                    path.push(".ahnlich");
+                    path.push("models");
+                    path
+                })
+                .expect("Default directory could not be resolved."),
+            model_idle_time: 60 * 5,
+        }
+    }
 }
 
 impl From<&AIProxyConfig> for ModelConfig {
     fn from(config: &AIProxyConfig) -> Self {
         Self {
             supported_models: config.supported_models.clone(),
-            model_cache_location: config.model_cache_location.clone()
+            model_cache_location: config.model_cache_location.clone(),
+            model_idle_time: config.ai_model_idle_time,
         }
     }
 }
@@ -155,13 +180,20 @@ impl Default for AIProxyConfig {
             otel_endpoint: None,
             log_level: String::from("info"),
             maximum_clients: 1000,
-            // supported_models: vec![SupportedModels::AllMiniLML6V2, SupportedModels::AllMiniLML12V2],
-            supported_models: vec![SupportedModels::AllMiniLML6V2],
-            model_cache_location: home_dir().map(|mut path| {
-                path.push(".ahnlich");
-                path.push("models");
-                path
-            }).expect("Default directory could not be resolved."),
+            supported_models: vec![
+                SupportedModels::AllMiniLML6V2,
+                SupportedModels::AllMiniLML12V2,
+                SupportedModels::BGEBaseEnV15,
+                SupportedModels::Resnet50,
+            ],
+            model_cache_location: home_dir()
+                .map(|mut path| {
+                    path.push(".ahnlich");
+                    path.push("models");
+                    path
+                })
+                .expect("Default directory could not be resolved."),
+            ai_model_idle_time: 60 * 5,
         }
     }
 }

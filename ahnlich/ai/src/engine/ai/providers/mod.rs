@@ -8,7 +8,7 @@ use crate::cli::server::SupportedModels;
 use crate::engine::ai::providers::fastembed::{FastEmbedModel, FastEmbedProvider};
 
 #[derive(Debug, EnumIter)]
-pub enum  ModelProviders{
+pub enum ModelProviders {
     FastEmbed(FastEmbedProvider),
 }
 

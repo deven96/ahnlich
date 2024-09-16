@@ -238,7 +238,7 @@ impl AIStoreHandler {
         store_name: &StoreName,
         store_input: StoreInput,
         model_manager: &ModelManager,
-        preprocess_action: PreprocessAction
+        preprocess_action: PreprocessAction,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
         let mut store_keys = model_manager

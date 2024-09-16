@@ -1,9 +1,9 @@
-use crate::cli::AIProxyConfig;
 use crate::cli::server::ModelConfig;
+use crate::cli::AIProxyConfig;
+use crate::engine::ai::models::Model;
 use crate::engine::store::AIStoreHandler;
 use crate::manager::ModelManager;
 use crate::server::task::AIProxyTask;
-use crate::engine::ai::models::Model;
 use ahnlich_types::client::ConnectedClient;
 use std::error::Error;
 use std::io::Result as IoResult;
@@ -24,7 +24,6 @@ use utils::server::ServerUtilsConfig;
 
 use ahnlich_client_rs::db::{DbClient, DbConnManager};
 use deadpool::managed::Pool;
-
 
 const SERVICE_NAME: &str = "ahnlich-ai";
 
@@ -122,7 +121,7 @@ impl AIProxyServer {
             }
         };
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
-        let task_manager = TaskManager::new();
+        let task_manager = Arc::new(TaskManager::new());
         let mut models: Vec<Model> = Vec::with_capacity(config.supported_models.len());
         for supported_model in &config.supported_models {
             let mut model: Model = supported_model.into();
@@ -133,7 +132,7 @@ impl AIProxyServer {
         }
 
         let model_config = ModelConfig::from(&config);
-        let model_manager = ModelManager::new(model_config, &task_manager).await?;
+        let model_manager = ModelManager::new(model_config, task_manager.clone()).await?;
 
         Ok(Self {
             listener: Arc::new(listener),
@@ -141,7 +140,7 @@ impl AIProxyServer {
             store_handler: Arc::new(store_handler),
             config,
             db_client: Arc::new(db_client),
-            task_manager: Arc::new(task_manager),
+            task_manager,
             model_manager: Arc::new(model_manager),
         })
     }
