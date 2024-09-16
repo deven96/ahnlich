@@ -16,6 +16,7 @@ use task_manager::TaskState;
 use tokio::sync::Mutex;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 type ModelThreadResponse = Result<Vec<StoreKey>, AIProxyError>;
 
@@ -24,6 +25,7 @@ struct ModelThreadRequest {
     inputs: Vec<StoreInput>,
     response: oneshot::Sender<ModelThreadResponse>,
     preprocess_action: PreprocessAction,
+    trace_span: tracing::Span,
 }
 
 #[derive(Debug)]
@@ -44,6 +46,7 @@ impl ModelThread {
         format!("{:?}-model-thread", self.model)
     }
 
+    #[tracing::instrument(skip(self, inputs))]
     fn input_to_response(
         &self,
         inputs: Vec<StoreInput>,
@@ -60,7 +63,7 @@ impl ModelThread {
         Ok(response)
     }
 
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, input))]
     pub(crate) fn preprocess_store_input(
         &self,
         process_action: PreprocessAction,
@@ -91,7 +94,7 @@ impl ModelThread {
             }
         }
     }
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, input))]
     fn preprocess_raw_string(
         &self,
         input: String,
@@ -118,7 +121,7 @@ impl ModelThread {
         Ok(StoreInput::RawString(input))
     }
 
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, input))]
     fn process_image(
         &self,
         input: Vec<u8>,
@@ -158,7 +161,10 @@ impl Task for ModelThread {
                 inputs,
                 response,
                 preprocess_action,
+                trace_span,
             } = model_request;
+            let current_span = tracing::Span::current();
+            current_span.set_parent(trace_span.context());
             if let Err(e) = response.send(self.input_to_response(inputs, preprocess_action)) {
                 log::error!("{} could not send response to channel {e:?}", self.name());
             }
@@ -238,6 +244,7 @@ impl ModelManager {
             inputs,
             response: response_tx,
             preprocess_action,
+            trace_span: tracing::Span::current(),
         };
         // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
         if sender.send(request).await.is_ok() {
