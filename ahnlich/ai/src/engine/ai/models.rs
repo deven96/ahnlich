@@ -152,14 +152,15 @@ impl Model {
     #[tracing::instrument(skip(self))]
     pub fn model_description(&self) -> String {
         match self {
-            Model::Text { description, .. } => description.clone(),
-            Model::Image { description, .. } => description.clone(),
+            Model::Text { description, .. } |
+            Model::Image { description, .. } => description.clone()
         }
     }
 
     pub fn setup_provider(&mut self, supported_model: SupportedModels, cache_location: &PathBuf) {
         match self {
-            Model::Text { provider, .. } | Model::Image { provider, .. } => {
+            Model::Text { provider, .. } |
+            Model::Image { provider, .. } => {
                 match provider {
                     ModelProviders::FastEmbed(provider) => {
                         provider.set_model(supported_model);
@@ -172,14 +173,8 @@ impl Model {
 
     pub fn load(&mut self) {
         match self {
-            Model::Text { provider, .. } => {
-                match provider {
-                    ModelProviders::FastEmbed(provider) => {
-                        provider.load_model();
-                    }
-                }
-            },
-            Model::Image { provider, .. } => {
+            Model::Text { provider, .. } |
+            Model::Image { provider, .. }=> {
                 match provider {
                     ModelProviders::FastEmbed(provider) => {
                         provider.load_model();
@@ -191,20 +186,14 @@ impl Model {
 
     pub fn get(&self) {
         match self {
-            Model::Text { provider, .. } => {
-                match provider {
-                    ModelProviders::FastEmbed(provider) => {
-                        provider.get_model();
-                    }
-                }
-            },
+            Model::Text { provider, .. } |
             Model::Image { provider, .. } => {
                 match provider {
                     ModelProviders::FastEmbed(provider) => {
                         provider.get_model();
                     }
                 }
-            }
+            },
         }
     }
 }

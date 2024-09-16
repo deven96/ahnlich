@@ -121,7 +121,6 @@ impl ModelThread {
         image_action: ImageAction,
     ) -> Result<StoreInput, AIProxyError> {
         // process image, return error if max dimensions exceeded
-        // let image_data;
         if let Some(max_image_dimensions) = self.model.max_image_dimensions() {
             if input.len() > max_image_dimensions.into() {
                 if let ImageAction::ErrorIfDimensionsMismatch = image_action {

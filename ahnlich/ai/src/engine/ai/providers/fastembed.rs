@@ -1,12 +1,14 @@
-use fastembed::{EmbeddingModel, InitOptions, ImageEmbeddingModel, TextEmbedding, ImageEmbedding};
-use hf_hub::{api::sync::ApiBuilder, Cache};
 use std::convert::TryFrom;
 use std::fmt;
-use std::hash;
 use std::path::PathBuf;
+
+use fastembed::{EmbeddingModel, InitOptions, ImageEmbeddingModel, TextEmbedding, ImageEmbedding};
+use hf_hub::{api::sync::ApiBuilder, Cache};
+
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::Model;
 use crate::engine::ai::providers::ProviderTrait;
+use crate::error::AIProxyError;
 
 #[derive(Default)]
 pub struct FastEmbedProvider {
@@ -24,12 +26,10 @@ pub enum FastEmbedModelType {
 
 impl fmt::Debug for FastEmbedProvider {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // You can customize the output here. For example, if you can't print the `TextEmbedding`,
-        // you might choose to skip it or provide a placeholder message.
         f.debug_struct("FastEmbedProvider")
             .field("cache_location", &self.cache_location)
             .field("cache_location_extension", &self.cache_location_extension)
-            .field("supported_models", &self.supported_models)// Placeholder
+            .field("supported_models", &self.supported_models)
             .finish()
     }
 }
@@ -41,15 +41,8 @@ pub enum FastEmbedModel {
 }
 
 
-#[derive(Debug)]
-pub enum Error {
-    ModelNotFound { reason: String},
-}
-
-
-// TODO (HAKSOAT): Remove this tryfrom.
 impl TryFrom<&SupportedModels> for FastEmbedModelType {
-    type Error = Error;
+    type Error = AIProxyError;
 
     fn try_from(model: &SupportedModels) -> Result<Self, Self::Error> {
         let model_modality: Model = model.into();
@@ -60,7 +53,7 @@ impl TryFrom<&SupportedModels> for FastEmbedModelType {
                     SupportedModels::AllMiniLML12V2 => EmbeddingModel::AllMiniLML12V2,
                     SupportedModels::BGEBaseEnV15 => EmbeddingModel::BGEBaseENV15,
                     SupportedModels::BGELargeEnV15 => EmbeddingModel::BGELargeENV15,
-                    _ => return Err(Error::ModelNotFound {reason: "Model not supported".to_string()})
+                    _ => return Err(AIProxyError::AIModelNotSupported)
                 };
                 FastEmbedModelType::Text(model_type)
             },
@@ -68,7 +61,7 @@ impl TryFrom<&SupportedModels> for FastEmbedModelType {
                 let model_type = match model {
                     SupportedModels::Resnet50 => ImageEmbeddingModel::Resnet50,
                     SupportedModels::ClipVitB32 => ImageEmbeddingModel::ClipVitB32,
-                    _ => return Err(Error::ModelNotFound {reason: "Model not supported".to_string()})
+                    _ => return Err(AIProxyError::AIModelNotSupported)
                 };
                 FastEmbedModelType::Image(model_type)
             }
@@ -102,10 +95,10 @@ impl ProviderTrait for FastEmbedProvider {
     }
 
     fn load_model(&mut self) -> &mut Self {
+        let cache_location = self.cache_location.clone().expect("Cache location not set.");
         let model_type = self.supported_models.clone().expect("Model has not been set.");
         let model_type = FastEmbedModelType::try_from(&model_type)
-            .expect(format!("This provider does not support the model: {:?}.", model_type).as_str());
-        let cache_location = self.cache_location.clone().expect("Cache location not set.");
+            .expect(format!("{}", AIProxyError::AIModelNotSupported).as_str());
 
         if let FastEmbedModelType::Text(model_type) = model_type {
             let model = TextEmbedding::try_new(
@@ -119,10 +112,12 @@ impl ProviderTrait for FastEmbedProvider {
     }
 
     fn get_model(&self) {
-        let model_type = self.supported_models.clone().expect("A model has not been set.");
+        let cache_location = self.cache_location.clone()
+            .expect("Cache location not set.");
+        let model_type = self.supported_models.clone()
+            .expect("A model has not been set.");
         let model_type = FastEmbedModelType::try_from(&model_type)
-            .expect(format!("This provider does not support the model: {:?}.", model_type).as_str());
-        let cache_location = self.cache_location.clone().expect("Cache location not set.");
+            .expect(format!("{}", AIProxyError::AIModelNotSupported).as_str());
 
         if let FastEmbedModelType::Text(model_type) = model_type {
             let cache = Cache::new(cache_location);
@@ -138,18 +133,22 @@ impl ProviderTrait for FastEmbedProvider {
         if let Some(fastembed_model) = &self.model {
             match fastembed_model {
                 FastEmbedModel::Text(model) => {
-                    let response = model.embed(input, None).expect("Could not run inference.");
-                    let response: Vec<f32> = response.get(0).expect("Response embedding is empty").to_owned().into();
+                    let response = model.embed(input, None)
+                        .expect("Could not run inference.");
+                    let response: Vec<f32> = response.get(0)
+                        .expect("Response embedding is empty").to_owned().into();
                     response
                 },
                 FastEmbedModel::Image(model) => {
-                    let response = model.embed(input, None).expect("Could not run inference.");
-                    let response: Vec<f32> = response.get(0).expect("Response embedding is empty").to_owned().into();
+                    let response = model.embed(input, None)
+                        .expect("Could not run inference.");
+                    let response: Vec<f32> = response.get(0)
+                        .expect("Response embedding is empty").to_owned().into();
                     response
                 }
             }
         } else {
-            panic!("Model has not been loaded.");
+            panic!("{}", AIProxyError::AIModelNotInitialized);
         }
     }
 }

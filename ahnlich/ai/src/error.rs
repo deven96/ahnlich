@@ -53,8 +53,11 @@ pub enum AIProxyError {
         preprocess_action: PreprocessAction,
     },
 
-    #[error("index_model or query_model not selected during aiproxy startup")]
+    #[error("index_model or query_model not selected or loaded during aiproxy startup")]
     AIModelNotInitialized,
+
+    #[error("index_model or query_model not supported")]
+    AIModelNotSupported,
 
     // TODO: Add SendError from mpsc::Sender into this variant
     #[error("Error sending request to model thread")]
