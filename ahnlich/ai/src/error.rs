@@ -1,3 +1,4 @@
+use crate::engine::ai::models::InputAction;
 use ahnlich_types::{
     ai::{AIStoreInputType, PreprocessAction},
     keyval::StoreName,
@@ -22,15 +23,11 @@ pub enum AIProxyError {
     ReservedError(String),
     #[error("Unexpected DB Response {0} ")]
     UnexpectedDBResponse(String),
-    #[error("Cannot Query Using Input. Store expects [{store_query_model_type}], but input type [{storeinput_type}] was provided")]
-    StoreQueryTypeMismatchError {
-        store_query_model_type: AIStoreInputType,
-        storeinput_type: AIStoreInputType,
-    },
-    #[error("Cannot Set Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
-    StoreSetTypeMismatchError {
-        index_model_type: String,
-        storeinput_type: String,
+    #[error("Cannot {action_type} input. Store expects [{model_type}], input type [{input_type}] was provided")]
+    TypeMismatchError {
+        model_type: AIStoreInputType,
+        input_type: AIStoreInputType,
+        action_type: InputAction,
     },
 
     #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}] ")]

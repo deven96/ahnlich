@@ -10,6 +10,7 @@ use ahnlich_types::{
 use ndarray::Array1;
 use nonzero_ext::nonzero;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
@@ -96,17 +97,21 @@ impl Model {
         }
     }
     #[tracing::instrument(skip(self))]
-    pub fn input_type(&self) -> String {
+    pub fn input_type(&self) -> AIStoreInputType {
         match self {
-            Model::Text { .. } => AIStoreInputType::RawString.to_string(),
-            Model::Image { .. } => AIStoreInputType::Image.to_string(),
+            Model::Text { .. } => AIStoreInputType::RawString,
+            Model::Image { .. } => AIStoreInputType::Image,
         }
     }
 
     // TODO: model ndarray values is based on length of string or vec, so for now make sure strings
     // or vecs have different lengths
     #[tracing::instrument(skip(self))]
-    pub fn model_ndarray(&self, storeinput: &StoreInput) -> Result<StoreKey, AIProxyError> {
+    pub fn model_ndarray(
+        &self,
+        storeinput: &StoreInput,
+        action_type: InputAction,
+    ) -> Result<StoreKey, AIProxyError> {
         let length = storeinput.len() as f32;
         if let (StoreInput::RawString(string), Model::Text { provider, .. }) = (storeinput, self) {
             return match provider {
@@ -123,9 +128,10 @@ impl Model {
                 Array1::from_iter(0..self.embedding_size().into()).mapv(|v| v as f32 * length),
             ))
         } else {
-            return Err(AIProxyError::StoreQueryTypeMismatchError {
-                store_query_model_type: storeinput.into(),
-                storeinput_type: self.into(),
+            return Err(AIProxyError::TypeMismatchError {
+                model_type: storeinput.into(),
+                input_type: self.into(),
+                action_type,
             });
         }
     }
@@ -163,7 +169,9 @@ impl Model {
     #[tracing::instrument(skip(self))]
     pub fn model_description(&self) -> String {
         match self {
-            Model::Text { description, .. } | Model::Image { description, .. } => description.clone(),
+            Model::Text { description, .. } | Model::Image { description, .. } => {
+                description.clone()
+            }
         }
     }
 
@@ -211,7 +219,7 @@ impl From<&Model> for AIStoreInputType {
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct ModelInfo {
     name: String,
-    input_type: String,
+    input_type: AIStoreInputType,
     embedding_size: NonZeroUsize,
     max_input_tokens: Option<NonZeroUsize>,
     max_image_dimensions: Option<NonZeroUsize>,
@@ -227,6 +235,21 @@ impl ModelInfo {
             max_input_tokens: model.max_input_token(),
             max_image_dimensions: model.max_image_dimensions(),
             description: model.model_description(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum InputAction {
+    Query,
+    Index,
+}
+
+impl fmt::Display for InputAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Query => write!(f, "query"),
+            Self::Index => write!(f, "index"),
         }
     }
 }

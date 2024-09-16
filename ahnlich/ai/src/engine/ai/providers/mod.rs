@@ -1,11 +1,10 @@
 pub(crate) mod fastembed;
 
-use std::hash::Hash;
 use std::path::PathBuf;
 use strum::EnumIter;
 
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::providers::fastembed::{FastEmbedModel, FastEmbedProvider};
+use crate::engine::ai::providers::fastembed::FastEmbedProvider;
 
 #[derive(Debug, EnumIter)]
 pub enum ModelProviders {

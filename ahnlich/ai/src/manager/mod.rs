@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::cli::server::{ModelConfig, SupportedModels};
+use crate::engine::ai::models::InputAction;
 /// The ModelManager is a wrapper around all the AI models running on various green threads. It
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
@@ -25,6 +26,7 @@ struct ModelThreadRequest {
     inputs: Vec<StoreInput>,
     response: oneshot::Sender<ModelThreadResponse>,
     preprocess_action: PreprocessAction,
+    action_type: InputAction,
 }
 
 struct ModelThread {
@@ -55,12 +57,13 @@ impl ModelThread {
         &self,
         inputs: Vec<StoreInput>,
         process_action: PreprocessAction,
+        action_type: InputAction,
     ) -> ModelThreadResponse {
         let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         // move this from for loop into vec of inputs
         for input in inputs {
             let processed_input = self.preprocess_store_input(process_action, input)?;
-            let store_key = self.model.model_ndarray(&processed_input)?;
+            let store_key = self.model.model_ndarray(&processed_input, action_type)?;
             response.push(store_key);
         }
         Ok(response)
@@ -160,8 +163,11 @@ impl Task for ModelThread {
                 inputs,
                 response,
                 preprocess_action,
+                action_type,
             } = model_request;
-            if let Err(e) = response.send(self.input_to_response(inputs, preprocess_action)) {
+            if let Err(e) =
+                response.send(self.input_to_response(inputs, preprocess_action, action_type))
+            {
                 log::error!("{} could not send response to channel {e:?}", self.name());
             }
             return TaskState::Continue;
@@ -225,6 +231,7 @@ impl ModelManager {
         model: &AIModel,
         inputs: Vec<StoreInput>,
         preprocess_action: PreprocessAction,
+        action_type: InputAction,
     ) -> Result<Vec<StoreKey>, AIProxyError> {
         let supported = model.into();
 
@@ -242,6 +249,7 @@ impl ModelManager {
             inputs,
             response: response_tx,
             preprocess_action,
+            action_type,
         };
         // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
         if sender.send(request).await.is_ok() {
@@ -303,7 +311,7 @@ mod tests {
         let inputs = vec![StoreInput::RawString(String::from("Hello"))];
         let action = PreprocessAction::RawString(StringAction::TruncateIfTokensExceed);
         let _ = model_manager
-            .handle_request(&sample_ai_model, inputs, action)
+            .handle_request(&sample_ai_model, inputs, action, InputAction::Query)
             .await
             .unwrap();
         let recreated_model = model_manager.models.get(&sample_supported_model).await;

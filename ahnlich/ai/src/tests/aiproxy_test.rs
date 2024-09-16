@@ -751,7 +751,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
 
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Err(
-        "Cannot Set Input. Store expects [RawString], input type [Image] was provided".to_string(),
+        "Cannot index input. Store expects [RawString], input type [Image] was provided".to_string(),
     ));
     expected.push(Ok(AIServerResponse::Del(1)));
 

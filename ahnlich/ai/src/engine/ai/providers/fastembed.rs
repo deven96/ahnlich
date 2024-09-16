@@ -5,7 +5,6 @@ use fastembed::{EmbeddingModel, ImageEmbedding, ImageEmbeddingModel, InitOptions
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use std::convert::TryFrom;
 use std::fmt;
-use std::hash;
 use std::path::PathBuf;
 
 #[derive(Default)]
