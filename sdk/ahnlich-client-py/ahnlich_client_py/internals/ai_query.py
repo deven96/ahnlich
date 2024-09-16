@@ -25,6 +25,7 @@ class AIModel__AllMiniLML6V2(AIModel):
     INDEX = 0  # type: int
     pass
 
+
 @dataclass(frozen=True)
 class AIModel__AllMiniLML12V2(AIModel):
     INDEX = 1  # type: int

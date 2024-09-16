@@ -46,7 +46,7 @@ static AI_CONFIG_WITH_PERSISTENCE: Lazy<AIProxyConfig> = Lazy::new(|| {
 static AI_CONFIG_LIMITED_MODELS: Lazy<AIProxyConfig> = Lazy::new(|| {
     AIProxyConfig::default()
         .os_select_port()
-        .set_supported_models(vec![SupportedModels::Llama3])
+        .set_supported_models(vec![SupportedModels::AllMiniLML6V2])
 });
 
 async fn get_server_response(
@@ -133,8 +133,8 @@ async fn test_ai_proxy_create_store_success() {
     let store_name = StoreName(String::from("Sample Store"));
     let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
         store: store_name.clone(),
-        query_model: AIModel::Llama3,
-        index_model: AIModel::Llama3,
+        query_model: AIModel::AllMiniLML6V2,
+        index_model: AIModel::AllMiniLML6V2,
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
     }]);
@@ -147,12 +147,12 @@ async fn test_ai_proxy_create_store_success() {
     // list stores to verify it's present.
     let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
     let mut expected = AIServerResult::with_capacity(1);
-    let llama3_model: Model = (&AIModel::Llama3).into();
+    let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             embedding_size: llama3_model.embedding_size().into(),
         },
     ]))));
@@ -193,8 +193,8 @@ async fn test_ai_proxy_get_pred_succeeds() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([
                 matching_metadatakey.clone(),
                 MetadataKey::new("Original".to_owned()),
@@ -271,8 +271,8 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([
                 matching_metadatakey.clone(),
                 MetadataKey::new("Original".to_owned()),
@@ -330,8 +330,8 @@ async fn test_ai_proxy_create_drop_pred_index() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -399,8 +399,8 @@ async fn test_ai_proxy_del_key_drop_store() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -456,8 +456,8 @@ async fn test_ai_proxy_fails_db_server_unavailable() {
         AIQuery::Ping,
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -504,15 +504,15 @@ async fn test_ai_proxy_test_with_persistence() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
         AIQuery::CreateStore {
             store: store_name_2.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -555,13 +555,13 @@ async fn test_ai_proxy_test_with_persistence() {
     let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
 
     let mut expected = AIServerResult::with_capacity(1);
-    let llama3_model: Model = (&AIModel::Llama3).into();
+    let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
 
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name_2.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             embedding_size: llama3_model.embedding_size().into(),
         },
     ]))));
@@ -580,8 +580,8 @@ async fn test_ai_proxy_destroy_database() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
         },
@@ -591,13 +591,13 @@ async fn test_ai_proxy_destroy_database() {
     ]);
     let mut expected = AIServerResult::with_capacity(4);
 
-    let llama3_model: Model = (&AIModel::Llama3).into();
+    let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name,
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             embedding_size: llama3_model.embedding_size().into(),
         },
     ]))));
@@ -643,8 +643,8 @@ async fn test_ai_proxy_binary_store_actions() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::DALLE3,
-            index_model: AIModel::DALLE3,
+            query_model: AIModel::Resnet50,
+            index_model: AIModel::Resnet50,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
         },
@@ -677,15 +677,15 @@ async fn test_ai_proxy_binary_store_actions() {
     ]);
 
     let mut expected = AIServerResult::with_capacity(7);
-    let dalle3_model: Model = (&AIModel::DALLE3).into();
+    let resnet_model: Model = (&AIModel::Resnet50).into();
 
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name,
-            query_model: AIModel::DALLE3,
-            index_model: AIModel::DALLE3,
-            embedding_size: dalle3_model.embedding_size().into(),
+            query_model: AIModel::Resnet50,
+            index_model: AIModel::Resnet50,
+            embedding_size: resnet_model.embedding_size().into(),
         },
     ]))));
     expected.push(Ok(AIServerResponse::CreateIndex(2)));
@@ -734,8 +734,8 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
         },
@@ -751,7 +751,8 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
 
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Err(
-        "Cannot Set Input. Store expects [RawString], input type [Image] was provided".to_string(),
+        "Cannot index input. Store expects [RawString], input type [Image] was provided"
+            .to_string(),
     ));
     expected.push(Ok(AIServerResponse::Del(1)));
 
@@ -784,8 +785,8 @@ async fn test_ai_proxy_create_store_errors_unsupported_models() {
     let store_name = StoreName(String::from("Error Handling Store"));
     let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
         store: store_name.clone(),
-        query_model: AIModel::DALLE3,
-        index_model: AIModel::Llama3,
+        query_model: AIModel::AllMiniLML12V2,
+        index_model: AIModel::AllMiniLML6V2,
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
     }]);
@@ -807,20 +808,20 @@ async fn test_ai_proxy_embedding_size_mismatch_error() {
     let store_name = StoreName(String::from("Deven Mixed Store210u01"));
     let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
         store: store_name.clone(),
-        query_model: AIModel::Llama3,
-        index_model: AIModel::DALLE3,
+        query_model: AIModel::AllMiniLML6V2,
+        index_model: AIModel::BGEBaseEnV15,
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);
 
-    let dalle3_model: Model = (&AIModel::DALLE3).into();
-    let llama3_model: Model = (&AIModel::Llama3).into();
+    let lml12_model: Model = (&AIModel::AllMiniLML12V2).into();
+    let bge_model: Model = (&AIModel::BGEBaseEnV15).into();
 
     let error_message = AIProxyError::DimensionsMismatchError {
-        index_model_dim: dalle3_model.embedding_size().into(),
-        query_model_dim: llama3_model.embedding_size().into(),
+        index_model_dim: bge_model.embedding_size().into(),
+        query_model_dim: lml12_model.embedding_size().into(),
     };
     expected.push(Err(error_message.to_string()));
     let connected_stream = TcpStream::connect(address).await.unwrap();

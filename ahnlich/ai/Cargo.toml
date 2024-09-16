@@ -40,6 +40,7 @@ rayon.workspace = true
 fastembed = { version = "4.0.0", features = ["default"] }
 hf-hub = { version = "0.3", default-features = false }
 dirs = "5.0.1"
+moka = { version = "0.12.8", features = ["future"] }
 
 [dev-dependencies]
 db = { path = "../db", version = "*" }

@@ -1,4 +1,5 @@
 use crate::cli::server::SupportedModels;
+use crate::engine::ai::models::InputAction;
 use crate::engine::ai::models::Model;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
@@ -172,10 +173,11 @@ impl AIStoreHandler {
             }
             let store_input_type: AIStoreInputType = (&store_input).into();
             let index_model_repr: Model = (&store.index_model).into();
-            if store_input_type.to_string() != index_model_repr.input_type() {
-                return Err(AIProxyError::StoreSetTypeMismatchError {
-                    index_model_type: index_model_repr.input_type(),
-                    storeinput_type: store_input_type.to_string(),
+            if store_input_type != index_model_repr.input_type() {
+                return Err(AIProxyError::TypeMismatchError {
+                    model_type: index_model_repr.input_type(),
+                    input_type: store_input_type,
+                    action_type: InputAction::Index,
                 });
             }
             let metadata_value: MetadataValue = store_input.clone().into();
@@ -201,7 +203,12 @@ impl AIStoreHandler {
 
         let (store_inputs, store_values): (Vec<_>, Vec<_>) = validated_data.into_iter().unzip();
         let store_keys = model_manager
-            .handle_request(&store.index_model, store_inputs, preprocess_action)
+            .handle_request(
+                &store.index_model,
+                store_inputs,
+                preprocess_action,
+                InputAction::Index,
+            )
             .await?;
 
         let output = std::iter::zip(store_keys.into_iter(), store_values.into_iter()).collect();
@@ -238,11 +245,16 @@ impl AIStoreHandler {
         store_name: &StoreName,
         store_input: StoreInput,
         model_manager: &ModelManager,
-        preprocess_action: PreprocessAction
+        preprocess_action: PreprocessAction,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
         let mut store_keys = model_manager
-            .handle_request(&store.index_model, vec![store_input], preprocess_action)
+            .handle_request(
+                &store.index_model,
+                vec![store_input],
+                preprocess_action,
+                InputAction::Query,
+            )
             .await?;
 
         Ok(store_keys.pop().expect("Expected an embedding value."))
