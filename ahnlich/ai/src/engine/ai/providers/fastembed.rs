@@ -105,17 +105,13 @@ impl ProviderTrait for FastEmbedProvider {
     }
 
     fn load_model(&mut self) -> &mut Self {
-        let model_type = self
-            .supported_models
-            .clone()
-            .expect("Model has not been set.");
-        let model_type = FastEmbedModelType::try_from(&model_type).expect(
-            format!(
+        let model_type = self.supported_models.expect("Model has not been set.");
+        let model_type = FastEmbedModelType::try_from(&model_type).unwrap_or_else(|_| {
+            panic!(
                 "This provider does not support the model: {:?}.",
                 model_type
             )
-            .as_str(),
-        );
+        });
         let cache_location = self
             .cache_location
             .clone()
@@ -132,17 +128,13 @@ impl ProviderTrait for FastEmbedProvider {
     }
 
     fn get_model(&self) {
-        let model_type = self
-            .supported_models
-            .clone()
-            .expect("A model has not been set.");
-        let model_type = FastEmbedModelType::try_from(&model_type).expect(
-            format!(
+        let model_type = self.supported_models.expect("A model has not been set.");
+        let model_type = FastEmbedModelType::try_from(&model_type).unwrap_or_else(|_| {
+            panic!(
                 "This provider does not support the model: {:?}.",
                 model_type
             )
-            .as_str(),
-        );
+        });
         let cache_location = self
             .cache_location
             .clone()
@@ -163,26 +155,19 @@ impl ProviderTrait for FastEmbedProvider {
     fn run_inference(&self, input: &str) -> Vec<f32> {
         let input = vec![input];
         if let Some(fastembed_model) = &self.model {
-            match fastembed_model {
+            let response = match fastembed_model {
                 FastEmbedModel::Text(model) => {
-                    let response = model.embed(input, None).expect("Could not run inference.");
-                    let response: Vec<f32> = response
-                        .get(0)
-                        .expect("Response embedding is empty")
-                        .to_owned()
-                        .into();
-                    response
+                    model.embed(input, None).expect("Could not run inference.")
                 }
                 FastEmbedModel::Image(model) => {
-                    let response = model.embed(input, None).expect("Could not run inference.");
-                    let response: Vec<f32> = response
-                        .get(0)
-                        .expect("Response embedding is empty")
-                        .to_owned()
-                        .into();
-                    response
+                    model.embed(input, None).expect("Could not run inference.")
                 }
-            }
+            };
+            let response: Vec<f32> = response
+                .first()
+                .expect("Response embedding is empty")
+                .to_owned();
+            response
         } else {
             panic!("Model has not been loaded.");
         }

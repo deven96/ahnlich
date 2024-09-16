@@ -46,7 +46,7 @@ impl PartialEq for StoreKey {
         self.0
             .iter()
             .zip(other.0.iter())
-            .all(|(x, y)| (x - y).abs() < std::f32::EPSILON)
+            .all(|(x, y)| (x - y).abs() < f32::EPSILON)
     }
 }
 

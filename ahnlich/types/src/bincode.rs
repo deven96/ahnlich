@@ -17,7 +17,7 @@ pub const RESPONSE_HEADER_LEN: usize = MAGIC_BYTES.len() + VERSION_LENGTH + LENG
 /// - Endianess must be Little Endian.
 /// - First 8 bytes must be the magic bytes
 /// - Followed by 5 bytes marking the version used. Server should typically agree to service
-/// request where major version matches according to semver
+///   request where major version matches according to semver
 /// - Next 8 bytes must contain length N of the entire vec of response or queries
 /// - Final N bytes contain the vec of response or queries
 ///

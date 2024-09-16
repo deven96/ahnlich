@@ -34,7 +34,6 @@ class AhnlichTcpSocketConnectionManager(TcpSocketConnectionManager):
         conn: socket.socket,
         timeout: float | None = None,
     ) -> bool:
-
         try:
             with socket_nonblocking(conn):
                 if conn.recv(1, socket.MSG_PEEK) == b"":
