@@ -1,5 +1,6 @@
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::providers::fastembed::FastEmbedProvider;
+use crate::engine::ai::providers::ort::ORTProvider;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
@@ -73,7 +74,7 @@ impl From<&AIModel> for Model {
                 description: String::from("Residual Networks model, with 50 layers."),
                 embedding_size: nonzero!(2048usize),
                 max_image_dimensions: nonzero!(224usize),
-                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
+                provider: ModelProviders::ORT(ORTProvider::new()),
             },
             AIModel::ClipVitB32 => Self::Image {
                 supported_model: SupportedModels::ClipVitB32,
@@ -82,7 +83,7 @@ impl From<&AIModel> for Model {
                 ),
                 embedding_size: nonzero!(512usize),
                 max_image_dimensions: nonzero!(224usize),
-                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
+                provider: ModelProviders::ORT(ORTProvider::new()),
             },
         }
     }
@@ -116,7 +117,11 @@ impl Model {
         if let (StoreInput::RawString(string), Model::Text { provider, .. }) = (storeinput, self) {
             return match provider {
                 ModelProviders::FastEmbed(provider) => {
-                    let embedding = provider.run_inference(string.clone().as_str());
+                    let embedding = provider.run_inference(storeinput, action_type);
+                    Ok(StoreKey(<Array1<f32>>::from(embedding)))
+                },
+                ModelProviders::ORT(provider) => {
+                    let embedding = provider.run_inference(storeinput, action_type);
                     Ok(StoreKey(<Array1<f32>>::from(embedding)))
                 }
             };
@@ -179,7 +184,11 @@ impl Model {
                 ModelProviders::FastEmbed(provider) => {
                     provider.set_model(supported_model);
                     provider.set_cache_location(cache_location);
-                }
+                },
+                ModelProviders::ORT(provider) => {
+                    provider.set_model(supported_model);
+                    provider.set_cache_location(cache_location);
+                },
             },
         }
     }
@@ -188,6 +197,9 @@ impl Model {
         match self {
             Model::Text { provider, .. } | Model::Image { provider, .. } => match provider {
                 ModelProviders::FastEmbed(provider) => {
+                    provider.load_model();
+                },
+                ModelProviders::ORT(provider) => {
                     provider.load_model();
                 }
             },
@@ -199,7 +211,10 @@ impl Model {
             Model::Text { provider, .. } | Model::Image { provider, .. } => match provider {
                 ModelProviders::FastEmbed(provider) => {
                     provider.get_model();
-                }
+                },
+                ModelProviders::ORT(provider) => {
+                    provider.get_model();
+                },
             },
         }
     }

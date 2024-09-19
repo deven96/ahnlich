@@ -1,5 +1,7 @@
+use ahnlich_types::keyval::StoreInput;
+use ahnlich_types::ai::AIStoreInputType;
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::models::Model;
+use crate::engine::ai::models::{InputAction, Model};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use fastembed::{EmbeddingModel, ImageEmbedding, ImageEmbeddingModel, InitOptions, TextEmbedding};
@@ -53,14 +55,7 @@ impl TryFrom<&SupportedModels> for FastEmbedModelType {
                 };
                 FastEmbedModelType::Text(model_type)
             }
-            Model::Image { .. } => {
-                let model_type = match model {
-                    SupportedModels::Resnet50 => ImageEmbeddingModel::Resnet50,
-                    SupportedModels::ClipVitB32 => ImageEmbeddingModel::ClipVitB32,
-                    _ => return Err(AIProxyError::AIModelNotSupported)
-                };
-                FastEmbedModelType::Image(model_type)
-            }
+            _ => return Err(AIProxyError::AIModelNotSupported)
         };
         Ok(model_type)
     }
@@ -126,28 +121,36 @@ impl ProviderTrait for FastEmbedProvider {
             )
         });
 
-        if let FastEmbedModelType::Text(model_type) = model_type {
-            let cache = Cache::new(cache_location);
-            let api = ApiBuilder::from_cache(cache)
-                .with_progress(true)
-                .build()
-                .unwrap();
-            let model_repo = api.model(model_type.to_string());
-            let model_info = TextEmbedding::get_model_info(&model_type).unwrap();
-            model_repo.get(model_info.model_file.as_str()).unwrap();
+        match model_type {
+            FastEmbedModelType::Text(model_type) => {
+                let cache = Cache::new(cache_location);
+                let api = ApiBuilder::from_cache(cache)
+                    .with_progress(true)
+                    .build()
+                    .unwrap();
+                let model_repo = api.model(model_type.to_string());
+                let model_info = TextEmbedding::get_model_info(&model_type).unwrap();
+                model_repo.get(model_info.model_file.as_str()).unwrap();
+            }
+            FastEmbedModelType::Image(model_type) => {}
         }
     }
 
-    fn run_inference(&self, input: &str) -> Vec<f32> {
-        let input = vec![input];
+    fn run_inference(&self, input: &StoreInput, action_type: InputAction) -> Vec<f32> {
         if let Some(fastembed_model) = &self.model {
             let response = match fastembed_model {
                 FastEmbedModel::Text(model) => {
-                    model.embed(input, None).expect("Could not run inference.")
+                    if let StoreInput::RawString(value) = input {
+                        model.embed(vec![value], None).expect("Could not run inference.")
+                    } else {
+                        panic!("{}", AIProxyError::TypeMismatchError {
+                            model_type: AIStoreInputType::RawString,
+                            input_type: input.into(),
+                            action_type,
+                        })
+                    }
                 }
-                FastEmbedModel::Image(model) => {
-                    model.embed(input, None).expect("Could not run inference.")
-                }
+                _ => panic!("{}", AIProxyError::AIModelNotSupported),
             };
             let response: Vec<f32> = response
                 .first()

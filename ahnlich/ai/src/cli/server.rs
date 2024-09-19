@@ -182,9 +182,9 @@ impl Default for AIProxyConfig {
             log_level: String::from("info"),
             maximum_clients: 1000,
             supported_models: vec![
-                SupportedModels::AllMiniLML6V2,
-                SupportedModels::AllMiniLML12V2,
-                SupportedModels::BGEBaseEnV15,
+                // SupportedModels::AllMiniLML6V2,
+                // SupportedModels::AllMiniLML12V2,
+                // SupportedModels::BGEBaseEnV15,
                 SupportedModels::Resnet50,
             ],
             model_cache_location: home_dir()
