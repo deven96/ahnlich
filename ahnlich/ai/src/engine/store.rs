@@ -165,12 +165,12 @@ impl AIStoreHandler {
     ) -> Result<StoreValidateResponse, AIProxyError> {
         let store = self.get(store_name)?;
         let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
-        let mut delete_hashset = StdHashSet::new();
+        let mut delete_hashset = StdHashSet::with_capacity(inputs.len());
         let mut handles = inputs
             .into_iter()
             .map(|(store_input, store_value)| {
                 let temp_store = store.clone();
-                tokio::spawn(async {
+                tokio::spawn(async move {
                     Self::process_store_inputs(temp_store, (store_input, store_value)).await
                 })
             })
