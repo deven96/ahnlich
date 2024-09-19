@@ -157,7 +157,7 @@ impl AIStoreHandler {
     }
 
     /// Validates storeinputs against a store and checks storevalue for reservedkey.
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, inputs), fields(input_length=inputs.len()))]
     pub(crate) async fn validate_and_prepare_store_data(
         &self,
         store_name: &StoreName,
@@ -189,6 +189,7 @@ impl AIStoreHandler {
         Ok((output, delete_hashset))
     }
 
+    #[tracing::instrument(skip(store, input))]
     pub(crate) async fn process_store_inputs(
         store: Arc<AIStore>,
         input: (StoreInput, StoreValue),
@@ -212,7 +213,7 @@ impl AIStoreHandler {
     }
 
     /// Stores storeinput into ahnlich db
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self), fields(input_length=inputs.len()))]
     pub(crate) async fn set(
         &self,
         store_name: &StoreName,
