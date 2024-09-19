@@ -39,6 +39,7 @@ fallible_collections.workspace = true
 rayon.workspace = true
 moka = { version = "0.12.8", features = ["future"] }
 tracing-opentelemetry.workspace = true
+futures.workspace = true
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true
