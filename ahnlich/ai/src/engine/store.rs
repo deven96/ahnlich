@@ -155,23 +155,66 @@ impl AIStoreHandler {
     }
 
     /// Validates storeinputs against a store and checks storevalue for reservedkey.
-    #[tracing::instrument(skip(self))]
-    pub(crate) fn validate_and_prepare_store_data(
+    #[tracing::instrument(skip(self, inputs), fields(input_length=inputs.len(), pool_size, chunk_size))]
+    pub(crate) async fn validate_and_prepare_store_data(
         &self,
         store_name: &StoreName,
         inputs: Vec<(StoreInput, StoreValue)>,
     ) -> Result<StoreValidateResponse, AIProxyError> {
-        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
         let store = self.get(store_name)?;
         let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
-        let mut delete_hashset = StdHashSet::new();
+        let mut delete_hashset = StdHashSet::with_capacity(inputs.len());
+        let pool_size: usize = 64;
+        let chunk_size = (inputs.len() + std::cmp::min(inputs.len(), pool_size) - 1)
+            / std::cmp::min(inputs.len(), pool_size);
 
-        for (store_input, mut store_value) in inputs {
+        tracing::Span::current().record("pool_size", pool_size);
+        tracing::Span::current().record("chunk_size", chunk_size);
+
+        let mut handles: Vec<_> = FallibleVec::try_with_capacity(pool_size)?;
+        let chunked_inputs = inputs.chunks(chunk_size);
+
+        for chunk in chunked_inputs.into_iter() {
+            let index_model = store.index_model;
+            let owned_chunk = chunk.to_vec();
+            let task =
+                tokio::spawn(
+                    async move { Self::process_store_inputs(index_model, owned_chunk).await },
+                );
+            handles.try_push(task)?;
+        }
+
+        for task in handles {
+            let response = task
+                .await
+                .map_err(|err| AIProxyError::StandardError(err.to_string()))
+                .and_then(|inner| inner);
+            match response {
+                Ok((sub_output, sub_delete_hashset)) => {
+                    output.extend(sub_output);
+                    delete_hashset.extend(sub_delete_hashset);
+                }
+                Err(err) => return Err(err),
+            }
+        }
+
+        Ok((output, delete_hashset))
+    }
+
+    #[tracing::instrument(skip(inputs))]
+    pub(crate) async fn process_store_inputs(
+        index_model: AIModel,
+        inputs: Vec<(StoreInput, StoreValue)>,
+    ) -> Result<StoreValidateResponse, AIProxyError> {
+        let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
+        let mut delete_hashset = StdHashSet::new();
+        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
+        for (store_input, mut store_value) in inputs.into_iter() {
             if store_value.contains_key(metadata_key) {
                 return Err(AIProxyError::ReservedError(metadata_key.to_string()));
             }
             let store_input_type: AIStoreInputType = (&store_input).into();
-            let index_model_repr: Model = (&store.index_model).into();
+            let index_model_repr: Model = (&index_model).into();
             if store_input_type.to_string() != index_model_repr.input_type() {
                 return Err(AIProxyError::StoreSetTypeMismatchError {
                     index_model_type: index_model_repr.input_type(),
@@ -179,15 +222,16 @@ impl AIStoreHandler {
                 });
             }
             let metadata_value: MetadataValue = store_input.clone().into();
-            delete_hashset.insert(metadata_value.clone());
-            store_value.insert(metadata_key.clone(), metadata_value);
-            output.push((store_input, store_value));
+            store_value.insert(metadata_key.clone(), metadata_value.clone());
+            output.try_push((store_input, store_value))?;
+            delete_hashset.insert(metadata_value);
         }
+
         Ok((output, delete_hashset))
     }
 
     /// Stores storeinput into ahnlich db
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self), fields(input_length=inputs.len()))]
     pub(crate) async fn set(
         &self,
         store_name: &StoreName,
@@ -196,8 +240,9 @@ impl AIStoreHandler {
         preprocess_action: PreprocessAction,
     ) -> Result<StoreSetResponse, AIProxyError> {
         let store = self.get(store_name)?;
-        let (validated_data, delete_hashset) =
-            self.validate_and_prepare_store_data(store_name, inputs)?;
+        let (validated_data, delete_hashset) = self
+            .validate_and_prepare_store_data(store_name, inputs)
+            .await?;
 
         let (store_inputs, store_values): (Vec<_>, Vec<_>) = validated_data.into_iter().unzip();
         let store_keys = model_manager
