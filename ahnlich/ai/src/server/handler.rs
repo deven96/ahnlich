@@ -103,8 +103,20 @@ impl AIProxyServer {
             tokio::net::TcpListener::bind(format!("{}:{}", &config.host, &config.port)).await?;
         let write_flag = Arc::new(AtomicBool::new(false));
         let db_client = Self::build_db_client(&config).await;
-        let mut store_handler =
-            AIStoreHandler::new(write_flag.clone(), config.supported_models.clone());
+
+        let task_manager = Arc::new(TaskManager::new());
+        let model_manager = ModelManager::new(
+            &config.supported_models,
+            task_manager.clone(),
+            config.ai_model_idle_time,
+        )
+        .await?;
+
+        let mut store_handler = AIStoreHandler::new(
+            write_flag.clone(),
+            config.supported_models.clone(),
+            task_manager.clone(),
+        );
         if let Some(ref persist_location) = config.persist_location {
             match Persistence::load_snapshot(persist_location) {
                 Err(e) => {
@@ -119,13 +131,6 @@ impl AIProxyServer {
             }
         };
         let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
-        let task_manager = Arc::new(TaskManager::new());
-        let model_manager = ModelManager::new(
-            &config.supported_models,
-            task_manager.clone(),
-            config.ai_model_idle_time,
-        )
-        .await?;
 
         Ok(Self {
             listener: Arc::new(listener),

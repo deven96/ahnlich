@@ -9,17 +9,18 @@ use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
-use fallible_collections::FallibleVec;
 use flurry::HashMap as ConcurrentHashMap;
-use futures::stream::FuturesOrdered;
-use futures::StreamExt;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet as StdHashSet;
+use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use task_manager::TaskManager;
 use utils::persistence::AhnlichPersistenceUtils;
+
+use super::pool::StoreValidatorThreadPool;
 
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]
@@ -28,6 +29,7 @@ pub struct AIStoreHandler {
     stores: AIStores,
     pub write_flag: Arc<AtomicBool>,
     supported_models: Vec<SupportedModels>,
+    task_manager: Arc<TaskManager>,
 }
 
 pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
@@ -49,11 +51,16 @@ impl AhnlichPersistenceUtils for AIStoreHandler {
 }
 
 impl AIStoreHandler {
-    pub fn new(write_flag: Arc<AtomicBool>, supported_models: Vec<SupportedModels>) -> Self {
+    pub fn new(
+        write_flag: Arc<AtomicBool>,
+        supported_models: Vec<SupportedModels>,
+        task_manager: Arc<TaskManager>,
+    ) -> Self {
         Self {
             stores: Arc::new(ConcurrentHashMap::new()),
             write_flag,
             supported_models,
+            task_manager,
         }
     }
 
@@ -164,28 +171,10 @@ impl AIStoreHandler {
         inputs: Vec<(StoreInput, StoreValue)>,
     ) -> Result<StoreValidateResponse, AIProxyError> {
         let store = self.get(store_name)?;
-        let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
-        let mut delete_hashset = StdHashSet::with_capacity(inputs.len());
-        let mut handles = inputs
-            .into_iter()
-            .map(|(store_input, store_value)| {
-                let temp_store = store.clone();
-                tokio::spawn(async move {
-                    Self::process_store_inputs(temp_store, (store_input, store_value)).await
-                })
-            })
-            .collect::<FuturesOrdered<_>>();
-
-        while let Some(value) = handles.next().await {
-            match value {
-                Ok(Ok((store_input, store_value, del_entry))) => {
-                    output.push((store_input, store_value));
-                    delete_hashset.insert(del_entry);
-                }
-                Ok(Err(err)) => return Err(err),
-                Err(join_error) => return Err(AIProxyError::StandardError(join_error.to_string())),
-            }
-        }
+        let pool_size =
+            NonZeroUsize::new(15).expect("Failed to create storeinputs thread pool size");
+        let pool = StoreValidatorThreadPool::build(pool_size, &self.task_manager).await?;
+        let (output, delete_hashset) = pool.execute(inputs, store.index_model).await?;
         Ok((output, delete_hashset))
     }
 
