@@ -1,16 +1,16 @@
-use ort::{ExecutionProviderDispatch, Session};
 use ahnlich_types::keyval::StoreInput;
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{InputAction, Model};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
+use ort::{ExecutionProviderDispatch, GraphOptimizationLevel, Session};
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use log;
 use std::convert::TryFrom;
 use std::fmt;
 use std::path::PathBuf;
+use std::thread::available_parallelism;
 use tracing::warn;
-use crate::engine::ai::providers::fastembed::FastEmbedProvider;
 
 #[derive(Default)]
 pub struct ORTProvider {
@@ -31,7 +31,9 @@ impl fmt::Debug for ORTProvider {
     }
 }
 
-pub struct ORTModel {}
+pub struct ORTModel {
+    session: Session
+}
 
 pub struct ORTModelType {
     repo_name: String,
@@ -83,7 +85,34 @@ impl ProviderTrait for ORTProvider {
     }
 
     fn load_model(&mut self) -> &mut Self {
-        todo!()
+        let cache_location = self
+            .cache_location
+            .clone()
+            .expect("Cache location not set.");
+        let supported_model = self.supported_models.expect("A model has not been set.");
+        let ort_model = ORTModelType::try_from(&supported_model).unwrap();
+
+        let threads = available_parallelism().expect("Check again").get();
+
+        let cache = Cache::new(cache_location);
+        let api = ApiBuilder::from_cache(cache)
+            .with_progress(true)
+            .build()
+            .unwrap();
+
+        if let ORTModelType{weights_file, repo_name} = ort_model {
+            let model_repo = api.model(repo_name);
+            let model_file_reference = model_repo.get(&weights_file)
+                .unwrap_or_else(|_| panic!("Failed to retrieve {} ", weights_file));
+            let executioners: Vec<ExecutionProviderDispatch> = Default::default();
+            let session = Session::builder().unwrap()
+                .with_execution_providers(executioners).unwrap()
+                .with_optimization_level(GraphOptimizationLevel::Level3).unwrap()
+                .with_intra_threads(threads).unwrap()
+                .commit_from_file(model_file_reference).unwrap();
+            self.model = Some(ORTModel { session });
+        };
+        self
     }
 
     fn get_model(&self) {
