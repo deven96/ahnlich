@@ -11,8 +11,6 @@ use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
 use fallible_collections::FallibleVec;
 use flurry::HashMap as ConcurrentHashMap;
-use futures::stream::FuturesOrdered;
-use futures::StreamExt;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet as StdHashSet;
@@ -157,7 +155,7 @@ impl AIStoreHandler {
     }
 
     /// Validates storeinputs against a store and checks storevalue for reservedkey.
-    #[tracing::instrument(skip(self, inputs), fields(input_length=inputs.len()))]
+    #[tracing::instrument(skip(self, inputs), fields(input_length=inputs.len(), pool_size, chunk_size))]
     pub(crate) async fn validate_and_prepare_store_data(
         &self,
         store_name: &StoreName,
@@ -166,50 +164,70 @@ impl AIStoreHandler {
         let store = self.get(store_name)?;
         let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let mut delete_hashset = StdHashSet::with_capacity(inputs.len());
-        let mut handles = inputs
-            .into_iter()
-            .map(|(store_input, store_value)| {
-                let temp_store = store.clone();
-                tokio::spawn(async move {
-                    Self::process_store_inputs(temp_store, (store_input, store_value)).await
-                })
-            })
-            .collect::<FuturesOrdered<_>>();
+        let pool_size: usize = 32;
+        let chunk_size = (inputs.len() + std::cmp::min(inputs.len(), pool_size) - 1)
+            / std::cmp::min(inputs.len(), pool_size);
 
-        while let Some(value) = handles.next().await {
-            match value {
-                Ok(Ok((store_input, store_value, del_entry))) => {
-                    output.push((store_input, store_value));
-                    delete_hashset.insert(del_entry);
+        tracing::Span::current().record("pool_size", pool_size);
+        tracing::Span::current().record("chunk_size", chunk_size);
+
+        let mut handles: Vec<_> = FallibleVec::try_with_capacity(pool_size)?;
+        let chunked_inputs = inputs.chunks(chunk_size);
+
+        for chunk in chunked_inputs.into_iter() {
+            let index_model = store.index_model;
+            let owned_chunk = chunk.to_vec();
+            let task =
+                tokio::spawn(
+                    async move { Self::process_store_inputs(index_model, owned_chunk).await },
+                );
+            handles.try_push(task)?;
+        }
+
+        for task in handles {
+            let response = task
+                .await
+                .map_err(|err| AIProxyError::StandardError(err.to_string()))
+                .and_then(|inner| inner);
+            match response {
+                Ok((sub_output, sub_delete_hashset)) => {
+                    output.extend(sub_output);
+                    delete_hashset.extend(sub_delete_hashset);
                 }
-                Ok(Err(err)) => return Err(err),
-                Err(join_error) => return Err(AIProxyError::StandardError(join_error.to_string())),
+                Err(err) => return Err(err),
             }
         }
+
         Ok((output, delete_hashset))
     }
 
-    #[tracing::instrument(skip(store, input))]
+    #[tracing::instrument(skip(inputs))]
     pub(crate) async fn process_store_inputs(
-        store: Arc<AIStore>,
-        input: (StoreInput, StoreValue),
-    ) -> Result<(StoreInput, StoreValue, MetadataValue), AIProxyError> {
+        index_model: AIModel,
+        inputs: Vec<(StoreInput, StoreValue)>,
+    ) -> Result<StoreValidateResponse, AIProxyError> {
+        let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
+        let mut delete_hashset = StdHashSet::new();
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-        let (store_input, mut store_value) = input;
-        if store_value.contains_key(metadata_key) {
-            return Err(AIProxyError::ReservedError(metadata_key.to_string()));
+        for (store_input, mut store_value) in inputs.into_iter() {
+            if store_value.contains_key(metadata_key) {
+                return Err(AIProxyError::ReservedError(metadata_key.to_string()));
+            }
+            let store_input_type: AIStoreInputType = (&store_input).into();
+            let index_model_repr: Model = (&index_model).into();
+            if store_input_type.to_string() != index_model_repr.input_type() {
+                return Err(AIProxyError::StoreSetTypeMismatchError {
+                    index_model_type: index_model_repr.input_type(),
+                    storeinput_type: store_input_type.to_string(),
+                });
+            }
+            let metadata_value: MetadataValue = store_input.clone().into();
+            store_value.insert(metadata_key.clone(), metadata_value.clone());
+            output.try_push((store_input, store_value))?;
+            delete_hashset.insert(metadata_value);
         }
-        let store_input_type: AIStoreInputType = (&store_input).into();
-        let index_model_repr: Model = (&store.index_model).into();
-        if store_input_type.to_string() != index_model_repr.input_type() {
-            return Err(AIProxyError::StoreSetTypeMismatchError {
-                index_model_type: index_model_repr.input_type(),
-                storeinput_type: store_input_type.to_string(),
-            });
-        }
-        let metadata_value: MetadataValue = store_input.clone().into();
-        store_value.insert(metadata_key.clone(), metadata_value.clone());
-        Ok((store_input, store_value, metadata_value))
+
+        Ok((output, delete_hashset))
     }
 
     /// Stores storeinput into ahnlich db
