@@ -164,7 +164,7 @@ impl AIStoreHandler {
         let store = self.get(store_name)?;
         let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let mut delete_hashset = StdHashSet::with_capacity(inputs.len());
-        let pool_size: usize = 32;
+        let pool_size: usize = 64;
         let chunk_size = (inputs.len() + std::cmp::min(inputs.len(), pool_size) - 1)
             / std::cmp::min(inputs.len(), pool_size);
 
