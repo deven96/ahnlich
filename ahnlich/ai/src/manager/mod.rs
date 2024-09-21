@@ -153,7 +153,6 @@ impl Task for ModelThread {
         self.name()
     }
 
-    #[tracing::instrument(skip(self))]
     async fn run(&self) -> TaskState {
         if let Some(model_request) = self.request_receiver.lock().await.recv().await {
             // TODO actually service model request in here and return
@@ -163,8 +162,8 @@ impl Task for ModelThread {
                 preprocess_action,
                 trace_span,
             } = model_request;
-            let current_span = tracing::Span::current();
-            current_span.set_parent(trace_span.context());
+            let child_span = tracing::info_span!("model-thread-run", model = self.task_name());
+            child_span.set_parent(trace_span.context());
             if let Err(e) = response.send(self.input_to_response(inputs, preprocess_action)) {
                 log::error!("{} could not send response to channel {e:?}", self.name());
             }
