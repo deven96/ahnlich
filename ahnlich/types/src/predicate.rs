@@ -7,7 +7,7 @@ use std::collections::HashSet;
 /// Representation of how one predicate value and ops looks
 /// to specify a predicate of name != "David", one would use the format
 /// PredicateOp { key: "name", value: "David", op: NotEquals }
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Predicate {
     Equals {
         key: MetadataKey,
@@ -34,6 +34,16 @@ impl Predicate {
             Predicate::NotEquals { key, .. } => key,
             Predicate::In { key, .. } => key,
             Predicate::NotIn { key, .. } => key,
+        }
+    }
+}
+impl std::fmt::Debug for Predicate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Predicate::In { key, .. } => f.write_fmt(format_args!("In {key}")),
+            Predicate::NotIn { key, .. } => f.write_fmt(format_args!("NotIn {key}")),
+            Predicate::Equals { key, .. } => f.write_fmt(format_args!("Equals {key}")),
+            Predicate::NotEquals { key, .. } => f.write_fmt(format_args!("NotEquals {key}")),
         }
     }
 }
