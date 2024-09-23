@@ -47,7 +47,7 @@ pub struct ServerConfig {
     #[arg(long, default_value_t = 1_048_576)]
     pub message_size: usize,
     /// Allows enables tracing
-    #[arg(long, default_value_t = false, action=ArgAction::SetFalse)]
+    #[arg(long, default_value_t = false, action=ArgAction::SetTrue)]
     pub(crate) enable_tracing: bool,
     /// Otel collector url to send traces to
     #[arg(long, requires_if("true", "enable_tracing"))]

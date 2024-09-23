@@ -157,7 +157,7 @@ impl StoreHandler {
     }
 
     /// Matches DELKEY - removes keys from a store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, keys), fields(keys_length=keys.len()))]
     pub(crate) fn del_key_in_store(
         &self,
         store_name: &StoreName,
@@ -267,7 +267,7 @@ impl StoreHandler {
     }
 
     /// Matches GETKEY - gets all keys matching the inputs
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, keys), fields(key_length=keys.len()))]
     pub(crate) fn get_key_in_store(
         &self,
         store_name: &StoreName,
@@ -278,7 +278,7 @@ impl StoreHandler {
     }
 
     /// Matches SET - adds new entries into a particular store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, new), fields(entries_length=new.len()))]
     pub fn set_in_store(
         &self,
         store_name: &StoreName,
@@ -441,7 +441,7 @@ impl Store {
     }
 
     /// filters input dimension to make sure it matches store dimension
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, input), fields(input_length=input.len()))]
     fn filter_dimension(&self, input: Vec<StoreKey>) -> Result<Vec<StoreKey>, ServerError> {
         input
             .into_iter()
@@ -460,7 +460,7 @@ impl Store {
     }
 
     /// Deletes a bunch of store keys from the store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, del), fields(key_length=del.len()))]
     fn delete_keys(&self, del: Vec<StoreKey>) -> Result<usize, ServerError> {
         if del.is_empty() {
             return Ok(0);
@@ -478,7 +478,7 @@ impl Store {
     }
 
     /// Gets a bunch of store keys from the store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, val), fields(key_length=val.len()))]
     fn get_keys(&self, val: Vec<StoreKey>) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
         if val.is_empty() {
             return Ok(vec![]);
@@ -562,7 +562,7 @@ impl Store {
     /// Adds a bunch of entries into the store if they match the dimensions
     /// Returns the len of values added, if a value already existed it is updated but not counted
     /// as a new insert
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, new), fields(entry_length=new.len()))]
     fn add(&self, new: Vec<(StoreKey, StoreValue)>) -> Result<StoreUpsert, ServerError> {
         if new.is_empty() {
             return Ok(StoreUpsert {
