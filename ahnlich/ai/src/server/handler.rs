@@ -67,9 +67,10 @@ impl AhnlichServerUtils for AIProxyServer {
     fn config(&self) -> ServerUtilsConfig {
         ServerUtilsConfig {
             service_name: SERVICE_NAME,
-            persist_location: &self.config.persist_location,
-            persistence_interval: self.config.persistence_interval,
-            allocator_size: self.config.allocator_size,
+            persist_location: &self.config.common.persist_location,
+            persistence_interval: self.config.common.persistence_interval,
+            allocator_size: self.config.common.allocator_size,
+            threadpool_size: self.config.common.threadpool_size,
         }
     }
 
@@ -94,22 +95,23 @@ impl AIProxyServer {
     pub async fn build(config: AIProxyConfig) -> Result<Self, Box<dyn Error>> {
         // Enable log and tracing
         tracer::init_log_or_trace(
-            config.enable_tracing,
+            config.common.enable_tracing,
             SERVICE_NAME,
-            &config.otel_endpoint,
-            &config.log_level,
+            &config.common.otel_endpoint,
+            &config.common.log_level,
         );
         let listener =
-            tokio::net::TcpListener::bind(format!("{}:{}", &config.host, &config.port)).await?;
+            tokio::net::TcpListener::bind(format!("{}:{}", &config.common.host, &config.port))
+                .await?;
         let write_flag = Arc::new(AtomicBool::new(false));
         let db_client = Self::build_db_client(&config).await;
         let mut store_handler =
             AIStoreHandler::new(write_flag.clone(), config.supported_models.clone());
-        if let Some(ref persist_location) = config.persist_location {
+        if let Some(ref persist_location) = config.common.persist_location {
             match Persistence::load_snapshot(persist_location) {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");
-                    if config.fail_on_startup_if_persist_load_fails {
+                    if config.common.fail_on_startup_if_persist_load_fails {
                         return Err(Box::new(e));
                     }
                 }
@@ -118,7 +120,7 @@ impl AIProxyServer {
                 }
             }
         };
-        let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
+        let client_handler = Arc::new(ClientHandler::new(config.common.maximum_clients));
         let task_manager = Arc::new(TaskManager::new());
         let model_manager = ModelManager::new(
             &config.supported_models,
@@ -160,7 +162,7 @@ impl AIProxyServer {
             reader: Arc::new(Mutex::new(reader)),
             server_addr,
             connected_client,
-            maximum_message_size: self.config.message_size as u64,
+            maximum_message_size: self.config.common.message_size as u64,
             // "inexpensive" to clone handlers they can be passed around in an Arc
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),

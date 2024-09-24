@@ -22,3 +22,4 @@ cap = "0.1.2"
 tokio-util.workspace = true
 fallible_collections.workspace = true
 rayon.workspace = true
+clap.workspace = true

@@ -60,9 +60,10 @@ impl AhnlichServerUtils for Server {
     fn config(&self) -> ServerUtilsConfig {
         ServerUtilsConfig {
             service_name: SERVICE_NAME,
-            persist_location: &self.config.persist_location,
-            persistence_interval: self.config.persistence_interval,
-            allocator_size: self.config.allocator_size,
+            persist_location: &self.config.common.persist_location,
+            persistence_interval: self.config.common.persistence_interval,
+            allocator_size: self.config.common.allocator_size,
+            threadpool_size: self.config.common.threadpool_size,
         }
     }
 
@@ -83,15 +84,16 @@ impl Server {
     /// creates a server while injecting a shutdown_token
     pub async fn new_with_config(config: &ServerConfig) -> IoResult<Self> {
         let listener =
-            tokio::net::TcpListener::bind(format!("{}:{}", &config.host, &config.port)).await?;
+            tokio::net::TcpListener::bind(format!("{}:{}", &config.common.host, &config.port))
+                .await?;
         let write_flag = Arc::new(AtomicBool::new(false));
-        let client_handler = Arc::new(ClientHandler::new(config.maximum_clients));
+        let client_handler = Arc::new(ClientHandler::new(config.common.maximum_clients));
         let mut store_handler = StoreHandler::new(write_flag.clone());
-        if let Some(persist_location) = &config.persist_location {
+        if let Some(persist_location) = &config.common.persist_location {
             match Persistence::load_snapshot(persist_location) {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");
-                    if config.fail_on_startup_if_persist_load_fails {
+                    if config.common.fail_on_startup_if_persist_load_fails {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::Other,
                             e.to_string(),
@@ -116,10 +118,10 @@ impl Server {
     pub async fn new(config: &ServerConfig) -> IoResult<Self> {
         // Enable log and tracing
         tracer::init_log_or_trace(
-            config.enable_tracing,
+            config.common.enable_tracing,
             SERVICE_NAME,
-            &config.otel_endpoint,
-            &config.log_level,
+            &config.common.otel_endpoint,
+            &config.common.log_level,
         );
         Self::new_with_config(config).await
     }
@@ -136,7 +138,7 @@ impl Server {
             reader: Arc::new(Mutex::new(reader)),
             server_addr,
             connected_client,
-            maximum_message_size: self.config.message_size as u64,
+            maximum_message_size: self.config.common.message_size as u64,
             // "inexpensive" to clone handlers they can be passed around in an Arc
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),

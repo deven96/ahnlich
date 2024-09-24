@@ -17,6 +17,7 @@ pub struct ServerUtilsConfig<'a> {
     pub persist_location: &'a Option<std::path::PathBuf>,
     // global allocator
     pub allocator_size: usize,
+    pub threadpool_size: usize,
 }
 
 #[async_trait]
@@ -46,12 +47,7 @@ pub trait AhnlichServerUtils: Task + Sized + Send + Sync + 'static {
         GLOBAL_ALLOCATOR
             .set_limit(global_allocator_cap)
             .unwrap_or_else(|_| panic!("Could not set up {service_name} with allocator_size"));
-        // init_threadpool(
-        //     std::thread::available_parallelism()
-        //         .expect("Could not get available parallelism")
-        //         .into(),
-        // );
-        parallel::init_threadpool(16);
+        parallel::init_threadpool(self.config().threadpool_size);
         log::debug!("Set max size for global allocator to: {global_allocator_cap}");
         let task_manager = self.task_manager();
 

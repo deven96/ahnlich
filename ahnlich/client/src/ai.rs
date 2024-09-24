@@ -407,7 +407,7 @@ mod tests {
     static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
         let mut ai_proxy = AIProxyConfig::default().os_select_port();
         ai_proxy.db_port = CONFIG.port.clone();
-        ai_proxy.db_host = CONFIG.host.clone();
+        ai_proxy.db_host = CONFIG.common.host.clone();
         ai_proxy
     });
 
