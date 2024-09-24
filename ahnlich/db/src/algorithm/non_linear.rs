@@ -96,6 +96,12 @@ pub struct NonLinearAlgorithmIndices {
 
 impl NonLinearAlgorithmIndices {
     #[tracing::instrument]
+    pub fn is_empty(&self) -> bool {
+        let pinned = self.algorithm_to_index.pin();
+        pinned.is_empty()
+    }
+
+    #[tracing::instrument]
     pub fn create(input: HashSet<NonLinearAlgorithm>, dimension: NonZeroUsize) -> Self {
         let algorithm_to_index = ConcurrentHashMap::new();
         for algo in input {
