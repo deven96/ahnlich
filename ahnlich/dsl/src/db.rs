@@ -1,6 +1,10 @@
 use ahnlich_types::{
-    db::DBQuery, keyval::StoreName, metadata::MetadataKey, similarity::NonLinearAlgorithm,
+    db::DBQuery,
+    keyval::{StoreKey, StoreName},
+    metadata::MetadataKey,
+    similarity::NonLinearAlgorithm,
 };
+use ndarray::Array1;
 use pest::Parser;
 use pest_derive::Parser;
 
@@ -17,6 +21,19 @@ fn to_non_linear(input: &str) -> Option<NonLinearAlgorithm> {
     }
 }
 
+fn parse_multi_f32_array(f32_arrays_pair: pest::iterators::Pair<Rule>) -> Vec<StoreKey> {
+    f32_arrays_pair.into_inner().map(parse_f32_array).collect()
+}
+
+fn parse_f32_array(pair: pest::iterators::Pair<Rule>) -> StoreKey {
+    StoreKey(Array1::from_iter(pair.into_inner().map(|f32_pair| {
+        f32_pair
+            .as_str()
+            .parse::<f32>()
+            .expect("Cannot parse single f32 num")
+    })))
+}
+
 // Parse raw strings separated by ; into a Vec<DBQuery>. Examples include but are not restricted
 // to
 //
@@ -29,12 +46,12 @@ fn to_non_linear(input: &str) -> Option<NonLinearAlgorithm> {
 // DROPPREDINDEX IF EXISTS (key1, key2) in store_name
 // CREATENONLINEARALGORITHMINDEX (kdtree) in store_name
 // DROPNONLINEARALGORITHMINDEX IF EXISTS (kdtree) in store_name
+// GETKEY ((1.0, 2.0), (3.0, 4.0)) IN my_store
+// DELKEY ((1.2, 3.0), (5.6, 7.8)) IN my_store
 //
 // #TODO
 // SET
-// DELKEY
 // CREATESTORE
-// GETKEY
 // GETPRED
 // GETSIMN
 pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
@@ -49,6 +66,38 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
             Rule::list_clients => DBQuery::ListClients,
             Rule::list_stores => DBQuery::ListStores,
             Rule::info_server => DBQuery::InfoServer,
+            Rule::get_key => {
+                let mut inner_pairs = statement.into_inner();
+                let f32_arrays_pair = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let keys = parse_multi_f32_array(f32_arrays_pair);
+
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str();
+                DBQuery::GetKey {
+                    store: StoreName(store.to_string()),
+                    keys,
+                }
+            }
+            Rule::del_key => {
+                let mut inner_pairs = statement.into_inner();
+                let f32_arrays_pair = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let keys = parse_multi_f32_array(f32_arrays_pair);
+
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str();
+                DBQuery::DelKey {
+                    store: StoreName(store.to_string()),
+                    keys,
+                }
+            }
             Rule::create_non_linear_algorithm_index => {
                 let mut inner_pairs = statement.into_inner();
                 let index_name_pairs = inner_pairs
@@ -90,7 +139,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                 let mut if_exists = false;
                 if let Some(next_pair) = inner_pairs.peek() {
                     if next_pair.as_rule() == Rule::if_exists {
-                        inner_pairs.next(); // Consume it if needed
+                        inner_pairs.next(); // Consume rule
                         if_exists = true;
                     }
                 };
@@ -116,7 +165,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                 let mut if_exists = false;
                 if let Some(next_pair) = inner_pairs.peek() {
                     if next_pair.as_rule() == Rule::if_exists {
-                        inner_pairs.next(); // Consume it if needed
+                        inner_pairs.next();
                         if_exists = true;
                     }
                 };
@@ -321,6 +370,46 @@ mod tests {
                 store: StoreName("1234".to_string()),
                 non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
                 error_if_not_exists: false,
+            }]
+        );
+    }
+
+    #[test]
+    fn test_get_key_parse() {
+        let input = r#"getkey ((a, b, c), (3.0, 4.0)) in 1234"#;
+        let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
+            panic!("Unexpected error pattern found")
+        };
+        assert_eq!((start, end), (0, 38));
+        let input = r#"getkey ((1, 2, 3), (3.0, 4.0)) in 1234"#;
+        assert_eq!(
+            parse_db_query(input).expect("Could not parse query input"),
+            vec![DBQuery::GetKey {
+                store: StoreName("1234".to_string()),
+                keys: vec![
+                    StoreKey(Array1::from_iter([1.0, 2.0, 3.0])),
+                    StoreKey(Array1::from_iter([3.0, 4.0])),
+                ],
+            }]
+        );
+    }
+
+    #[test]
+    fn test_del_key_parse() {
+        let input = r#"DELKEY ((a, b, c), (3.0, 4.0)) in 1234"#;
+        let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
+            panic!("Unexpected error pattern found")
+        };
+        assert_eq!((start, end), (0, 38));
+        let input = r#"DELKEY ((1, 2, 3), (3.0, 4.0)) in 1234"#;
+        assert_eq!(
+            parse_db_query(input).expect("Could not parse query input"),
+            vec![DBQuery::DelKey {
+                store: StoreName("1234".to_string()),
+                keys: vec![
+                    StoreKey(Array1::from_iter([1.0, 2.0, 3.0])),
+                    StoreKey(Array1::from_iter([3.0, 4.0])),
+                ],
             }]
         );
     }

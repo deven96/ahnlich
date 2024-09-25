@@ -3,15 +3,17 @@ whitespace = _{ " " | "\t" }
 query = _{ statement ~ (";" ~ statement) * } // Matches multiple statements separated by ;
 
 statement = _{ 
-    ping | 
-    info_server | 
-    list_stores | 
-    list_clients | 
-    drop_store | 
-    create_pred_index | 
-    drop_pred_index | 
-    create_non_linear_algorithm_index | 
-    drop_non_linear_algorithm_index | 
+    ping |
+    info_server |
+    list_stores |
+    list_clients |
+    drop_store |
+    create_pred_index |
+    drop_pred_index |
+    create_non_linear_algorithm_index |
+    drop_non_linear_algorithm_index |
+    get_key |
+    del_key |
     invalid_statement 
 }
 
@@ -24,6 +26,8 @@ create_pred_index = { whitespace* ~ ^"createpredindex" ~ whitespace* ~ "(" ~ ind
 create_non_linear_algorithm_index = { whitespace* ~ ^"createnonlinearalgorithmindex" ~ whitespace* ~ "(" ~ non_linear_algorithms ~ ")" ~ whitespace* ~ ^"in" ~ whitespace* ~ store_name}
 drop_pred_index = { whitespace* ~ ^"droppredindex" ~ whitespace* ~ (if_exists)? ~ "(" ~ index_names ~ ")" ~ whitespace* ~ ^"in" ~whitespace* ~ store_name }
 drop_non_linear_algorithm_index = { whitespace* ~ ^"dropnonlinearalgorithmindex" ~ whitespace* ~ (if_exists)? ~ "(" ~ non_linear_algorithms ~ ")" ~ whitespace* ~ ^"in" ~whitespace* ~ store_name }
+get_key = { whitespace* ~ ^"getkey" ~ whitespace* ~ "(" ~ f32_arrays ~ ")" ~ whitespace* ~ ^"in" ~ whitespace* ~ store_name }
+del_key = { whitespace* ~ ^"delkey" ~ whitespace* ~ "(" ~ f32_arrays ~ ")" ~ whitespace* ~ ^"in" ~ whitespace* ~ store_name }
 
 if_exists = { whitespace* ~ ^"if" ~ whitespace* ~ ^"exists" ~ whitespace* }
 
@@ -33,6 +37,15 @@ index_name = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
 non_linear_algorithm = { ^"kdtree" }
 non_linear_algorithms = { non_linear_algorithm ~ (whitespace* ~ "," ~ whitespace* ~ non_linear_algorithm)* }
 index_names = { index_name ~ (whitespace* ~ "," ~ whitespace* ~ index_name)* }
+
+// Floating point number
+f32 = { ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+
+// Array of floating-point numbers
+f32_array = { "(" ~ f32 ~ (whitespace* ~ "," ~ whitespace* ~ f32)* ~ ")"}
+
+// List of f32 arrays (comma-separated)
+f32_arrays = { f32_array ~ (whitespace* ~ "," ~ whitespace* ~ f32_array)* }
 
 // Catch-all rule for invalid statements
 invalid_statement = { whitespace* ~ (!";" ~ ANY)+ } // Match anything that isn't a valid statement
