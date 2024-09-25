@@ -1,0 +1,15 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ahnlich_cli"
+path = "src/main.rs"
+
+
+[dependencies]
+crossterm = "0.28.1"
+clap.workspace = true
+thiserror.workspace = true
+ahnlich_client_rs = { path = "../client", version = "*" }
