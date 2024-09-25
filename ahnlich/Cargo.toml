@@ -1,13 +1,15 @@
 [workspace]
 members = [
+  "ai",
   "db",
-  "types",
+  "dsl",
   "client",
+  "similarity",
+  "task-manager",
   "tracer", 
   "typegen",
+  "types",
   "utils",
-  "similarity",
-  "ai", "task-manager",
 ]
 resolver = "2"
 

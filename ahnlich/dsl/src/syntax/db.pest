@@ -1,0 +1,20 @@
+whitespace = _{ " " | "\t" }
+
+query = _{ statement ~ (";" ~ statement) * } // Matches multiple statements separated by ;
+
+statement = _{ ping | info_server | list_stores | list_clients | drop_store | invalid_statement }
+
+ping = { whitespace* ~ ^"ping" ~ whitespace* }
+info_server = { whitespace* ~ ^"infoserver" ~ whitespace* }
+list_stores = { whitespace* ~ ^"liststores" ~ whitespace* }
+list_clients = { whitespace* ~ ^"listclients" ~ whitespace* }
+drop_store = { whitespace* ~ ^"dropstore" ~ whitespace* ~ store_name ~ (if_exists | invalid_statement)? }
+
+if_exists = { whitespace* ~ ^"if" ~ whitespace* ~ "exists" ~ whitespace* }
+
+// stores can be alphanumeric
+store_name = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
+
+// Catch-all rule for invalid statements
+invalid_statement = { whitespace* ~ (!";" ~ ANY)+ } // Match anything that isn't a valid statement
+
