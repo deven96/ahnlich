@@ -47,6 +47,32 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     predicates,
                 }
             }
+            Rule::drop_pred_index => {
+                let mut inner_pairs = statement.into_inner().peekable();
+                let mut if_exists = false;
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::if_exists {
+                        inner_pairs.next(); // Consume it if needed
+                        if_exists = true;
+                    }
+                };
+                let index_names_pair = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str();
+                let predicates = index_names_pair
+                    .into_inner()
+                    .map(|index_pair| MetadataKey::new(index_pair.as_str().to_string()))
+                    .collect();
+                DBQuery::DropPredIndex {
+                    store: StoreName(store.to_string()),
+                    predicates,
+                    error_if_not_exists: !if_exists,
+                }
+            }
             Rule::drop_store => {
                 let mut inner_pairs = statement.into_inner();
                 let store = inner_pairs
@@ -162,6 +188,31 @@ mod tests {
                     MetadataKey::new("two".to_string()),
                     MetadataKey::new("3".to_string()),
                 ])
+            }]
+        );
+    }
+
+    #[test]
+    fn test_drop_pred_index_parse() {
+        let input = r#"DROPPREDINDEX (here, th2) in store2"#;
+        assert_eq!(
+            parse_db_query(input).expect("Could not parse query input"),
+            vec![DBQuery::DropPredIndex {
+                store: StoreName("store2".to_string()),
+                predicates: HashSet::from_iter([
+                    MetadataKey::new("here".to_string()),
+                    MetadataKey::new("th2".to_string()),
+                ]),
+                error_if_not_exists: true,
+            }]
+        );
+        let input = r#"DROPPREDINDEX IF EXISTS (off) in storememe"#;
+        assert_eq!(
+            parse_db_query(input).expect("Could not parse query input"),
+            vec![DBQuery::DropPredIndex {
+                store: StoreName("storememe".to_string()),
+                predicates: HashSet::from_iter([MetadataKey::new("off".to_string()),]),
+                error_if_not_exists: false,
             }]
         );
     }
