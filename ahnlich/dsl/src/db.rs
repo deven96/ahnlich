@@ -1,4 +1,4 @@
-use ahnlich_types::{db::DBQuery, keyval::StoreName};
+use ahnlich_types::{db::DBQuery, keyval::StoreName, metadata::MetadataKey};
 use pest::Parser;
 use pest_derive::Parser;
 
@@ -8,6 +8,15 @@ use crate::error::DslError;
 #[grammar = "syntax/db.pest"]
 struct DBQueryParser;
 
+// Parse raw strings separated by ; into a Vec<DBQuery>. Examples include but are not restricted
+// to
+//
+// PING
+// LISTCLIENTS
+// LISTSTORES
+// INFOSERVER
+// DROPSTORE store_name IF EXISTS
+// CREATEPREDINDEX (key_1, key_2) in store_name
 pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
     let pairs = DBQueryParser::parse(Rule::query, input).map_err(Box::new)?;
     let statements = pairs.into_iter().collect::<Vec<_>>();
@@ -20,6 +29,24 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
             Rule::list_clients => DBQuery::ListClients,
             Rule::list_stores => DBQuery::ListStores,
             Rule::info_server => DBQuery::InfoServer,
+            Rule::create_pred_index => {
+                let mut inner_pairs = statement.into_inner();
+                let index_name_pairs = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let predicates = index_name_pairs
+                    .into_inner()
+                    .map(|index_pair| MetadataKey::new(index_pair.as_str().to_string()))
+                    .collect();
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str();
+                DBQuery::CreatePredIndex {
+                    store: StoreName(store.to_string()),
+                    predicates,
+                }
+            }
             Rule::drop_store => {
                 let mut inner_pairs = statement.into_inner();
                 let store = inner_pairs
@@ -51,6 +78,8 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use super::*;
 
     #[test]
@@ -119,5 +148,21 @@ mod tests {
             panic!("Unexpected error pattern found")
         };
         assert_eq!((start, end), (15, 29));
+    }
+
+    #[test]
+    fn test_create_predicate_index_parse() {
+        let input = r#"CREATEPREDINDEX (one, two, 3) in tapHstore1"#;
+        assert_eq!(
+            parse_db_query(input).expect("Could not parse query input"),
+            vec![DBQuery::CreatePredIndex {
+                store: StoreName("tapHstore1".to_string()),
+                predicates: HashSet::from_iter([
+                    MetadataKey::new("one".to_string()),
+                    MetadataKey::new("two".to_string()),
+                    MetadataKey::new("3".to_string()),
+                ])
+            }]
+        );
     }
 }
