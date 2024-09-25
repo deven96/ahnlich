@@ -1,4 +1,6 @@
-use ahnlich_types::{db::DBQuery, keyval::StoreName, metadata::MetadataKey};
+use ahnlich_types::{
+    db::DBQuery, keyval::StoreName, metadata::MetadataKey, similarity::NonLinearAlgorithm,
+};
 use pest::Parser;
 use pest_derive::Parser;
 
@@ -7,6 +9,13 @@ use crate::error::DslError;
 #[derive(Parser)]
 #[grammar = "syntax/db.pest"]
 struct DBQueryParser;
+
+fn to_non_linear(input: &str) -> Option<NonLinearAlgorithm> {
+    match input.to_lowercase().trim() {
+        "kdtree" => Some(NonLinearAlgorithm::KDTree),
+        _ => None,
+    }
+}
 
 // Parse raw strings separated by ; into a Vec<DBQuery>. Examples include but are not restricted
 // to
@@ -17,6 +26,17 @@ struct DBQueryParser;
 // INFOSERVER
 // DROPSTORE store_name IF EXISTS
 // CREATEPREDINDEX (key_1, key_2) in store_name
+// DROPPREDINDEX IF EXISTS (key1, key2) in store_name
+// CREATENONLINEARALGORITHMINDEX (kdtree) in store_name
+// DROPNONLINEARALGORITHMINDEX IF EXISTS (kdtree) in store_name
+//
+// #TODO
+// SET
+// DELKEY
+// CREATESTORE
+// GETKEY
+// GETPRED
+// GETSIMN
 pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
     let pairs = DBQueryParser::parse(Rule::query, input).map_err(Box::new)?;
     let statements = pairs.into_iter().collect::<Vec<_>>();
@@ -29,6 +49,24 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
             Rule::list_clients => DBQuery::ListClients,
             Rule::list_stores => DBQuery::ListStores,
             Rule::info_server => DBQuery::InfoServer,
+            Rule::create_non_linear_algorithm_index => {
+                let mut inner_pairs = statement.into_inner();
+                let index_name_pairs = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let non_linear_indices = index_name_pairs
+                    .into_inner()
+                    .flat_map(|index_pair| to_non_linear(index_pair.as_str()))
+                    .collect();
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str();
+                DBQuery::CreateNonLinearAlgorithmIndex {
+                    store: StoreName(store.to_string()),
+                    non_linear_indices,
+                }
+            }
             Rule::create_pred_index => {
                 let mut inner_pairs = statement.into_inner();
                 let index_name_pairs = inner_pairs
@@ -45,6 +83,32 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                 DBQuery::CreatePredIndex {
                     store: StoreName(store.to_string()),
                     predicates,
+                }
+            }
+            Rule::drop_non_linear_algorithm_index => {
+                let mut inner_pairs = statement.into_inner().peekable();
+                let mut if_exists = false;
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::if_exists {
+                        inner_pairs.next(); // Consume it if needed
+                        if_exists = true;
+                    }
+                };
+                let index_names_pair = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str();
+                let non_linear_indices = index_names_pair
+                    .into_inner()
+                    .flat_map(|index_pair| to_non_linear(index_pair.as_str()))
+                    .collect();
+                DBQuery::DropNonLinearAlgorithmIndex {
+                    store: StoreName(store.to_string()),
+                    non_linear_indices,
+                    error_if_not_exists: !if_exists,
                 }
             }
             Rule::drop_pred_index => {
@@ -212,6 +276,50 @@ mod tests {
             vec![DBQuery::DropPredIndex {
                 store: StoreName("storememe".to_string()),
                 predicates: HashSet::from_iter([MetadataKey::new("off".to_string()),]),
+                error_if_not_exists: false,
+            }]
+        );
+    }
+
+    #[test]
+    fn test_create_non_linear_algorithm_parse() {
+        let input = r#"createnonlinearalgorithmindex (fake) in store2"#;
+        let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
+            panic!("Unexpected error pattern found")
+        };
+        assert_eq!((start, end), (0, 46));
+        let input = r#"createnonlinearalgorithmindex (kdtree) in store2"#;
+        assert_eq!(
+            parse_db_query(input).expect("Could not parse query input"),
+            vec![DBQuery::CreateNonLinearAlgorithmIndex {
+                store: StoreName("store2".to_string()),
+                non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+            }]
+        );
+    }
+
+    #[test]
+    fn test_drop_non_linear_algorithm_parse() {
+        let input = r#"DROPNONLINEARALGORITHMINDEX (fake) in 1234"#;
+        let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
+            panic!("Unexpected error pattern found")
+        };
+        assert_eq!((start, end), (0, 42));
+        let input = r#"DROPNONLINEARALGORITHMINDEX (kdtree) in 1234"#;
+        assert_eq!(
+            parse_db_query(input).expect("Could not parse query input"),
+            vec![DBQuery::DropNonLinearAlgorithmIndex {
+                store: StoreName("1234".to_string()),
+                non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+                error_if_not_exists: true,
+            }]
+        );
+        let input = r#"DROPNONLINEARALGORITHMINDEX IF EXISTS (kdtree) in 1234"#;
+        assert_eq!(
+            parse_db_query(input).expect("Could not parse query input"),
+            vec![DBQuery::DropNonLinearAlgorithmIndex {
+                store: StoreName("1234".to_string()),
+                non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
                 error_if_not_exists: false,
             }]
         );
