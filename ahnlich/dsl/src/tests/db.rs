@@ -58,6 +58,72 @@ fn test_no_valid_input_in_query() {
 }
 
 #[test]
+fn test_create_store_parse() {
+    // simple syntax
+    let input = r#"CREATEstore storename DIMENSION 23"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::CreateStore {
+            store: StoreName("storename".to_string()),
+            dimension: NonZeroUsize::new(23).unwrap(),
+            create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
+            error_if_exists: true
+        }]
+    );
+    let input = r#"CREATEstore IF NOT EXISTS testing DIMENSION 43"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::CreateStore {
+            store: StoreName("testing".to_string()),
+            dimension: NonZeroUsize::new(43).unwrap(),
+            create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
+            error_if_exists: false
+        }]
+    );
+    let input = r#"CREATEstore IF NOT EXISTS school DIMENSION 39 PREDICATES (department, faculty)"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::CreateStore {
+            store: StoreName("school".to_string()),
+            dimension: NonZeroUsize::new(39).unwrap(),
+            create_predicates: HashSet::from_iter([
+                MetadataKey::new("department".to_string()),
+                MetadataKey::new("faculty".to_string()),
+            ]),
+            non_linear_indices: HashSet::new(),
+            error_if_exists: false
+        }]
+    );
+    let input = r#"CREATEstore school DIMENSION 39 NONLINEARALGORITHMINDEX (kdtree)"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::CreateStore {
+            store: StoreName("school".to_string()),
+            dimension: NonZeroUsize::new(39).unwrap(),
+            create_predicates: HashSet::new(),
+            non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+            error_if_exists: true
+        }]
+    );
+    let input = r#"CREATEstore school DIMENSION 77 PREDICATES(name, surname) NONLINEARALGORITHMINDEX (kdtree)"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::CreateStore {
+            store: StoreName("school".to_string()),
+            dimension: NonZeroUsize::new(77).unwrap(),
+            create_predicates: HashSet::from_iter([
+                MetadataKey::new("name".to_string()),
+                MetadataKey::new("surname".to_string()),
+            ]),
+            non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+            error_if_exists: true
+        }]
+    );
+}
+
+#[test]
 fn test_drop_store_parse() {
     let input = r#"DROPSTORE random"#;
     assert_eq!(

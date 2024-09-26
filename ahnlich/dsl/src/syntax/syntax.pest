@@ -16,6 +16,7 @@ db_statement = _{
     del_key |
     get_pred |
     get_sim_n |
+    create_store |
     invalid_statement 
 }
 
@@ -33,15 +34,19 @@ del_key = { whitespace* ~ ^"delkey" ~ whitespace* ~ "(" ~ f32_arrays ~ ")" ~ in_
 get_pred = { whitespace* ~ ^"getpred" ~ whitespace* ~ predicate_condition ~ in_ignored ~ store_name }
 // GETSIMN 2 WITH store-key USING algorithm IN store (WHERE predicate_condition)
 get_sim_n = { whitespace* ~ ^"getsimn" ~ whitespace* ~ non_zero ~ whitespace* ~ ^"with" ~ whitespace* ~ f32_array ~ whitespace* ~ ^"using" ~ whitespace* ~ algorithm ~ whitespace* ~ in_ignored ~ whitespace* ~ store_name ~ whitespace* ~ (^"where" ~ whitespace* ~ predicate_condition)? }
+// CREATESTORE IF NOT EXISTS store-name DIMENSION non-zero-size PREDICATES (key1, key2) NONLINEARALGORITHMINDEX (kdtree) 
+create_store = { whitespace* ~ ^"createstore" ~ whitespace* ~ (if_not_exists)? ~ whitespace* ~ store_name ~ whitespace* ~ ^"dimension" ~ whitespace* ~ non_zero ~ whitespace* ~ (^"predicates" ~ whitespace* ~ "(" ~ whitespace* ~ metadata_keys ~ whitespace* ~ ")" )? ~ (whitespace* ~ ^"nonlinearalgorithmindex" ~ whitespace* ~ "(" ~ whitespace* ~ non_linear_algorithms ~ whitespace* ~ ")")? }
 
 if_exists = { whitespace* ~ ^"if" ~ whitespace* ~ ^"exists" ~ whitespace* }
+if_not_exists = { whitespace* ~ ^"if" ~ whitespace* ~ ^"not" ~ whitespace* ~ ^"exists" ~ whitespace* }
 
 // stores and predicates can be alphanumeric
 store_name = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
 index_name = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
 metadata_key = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
+metadata_keys = { metadata_key ~ (whitespace* ~ "," ~ whitespace* ~ metadata_key)* }
 non_linear_algorithm = { ^"kdtree" }
-algorithm = {
+algorithm = { 
     ^"kdtree" |
     ^"euclideandistance" |
     ^"cosinesimilarity" |

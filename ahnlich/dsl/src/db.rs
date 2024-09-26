@@ -1,4 +1,4 @@
-use std::num::NonZeroUsize;
+use std::{collections::HashSet, num::NonZeroUsize};
 
 use crate::{
     algorithm::{to_algorithm, to_non_linear},
@@ -44,10 +44,10 @@ fn parse_f32_array(pair: Pair<Rule>) -> StoreKey {
 // DELKEY ((1.2, 3.0), (5.6, 7.8)) IN my_store
 // GETPRED ((author = dickens) OR (country != Nigeria)) IN my_store
 // GETSIMN 4 WITH (0.65, 2.78) USING cosinesimilarity IN my_store WHERE (author = dickens)
+// CREATESTORE IF NOT EXISTS my_store DIMENSION 21 PREDICATES (author, country) NONLINEARALGORITHMINDEX (kdtree)
 //
 // #TODO
 // SET
-// CREATESTORE
 pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
     let pairs = QueryParser::parse(Rule::db_query, input).map_err(Box::new)?;
     let statements = pairs.into_iter().collect::<Vec<_>>();
@@ -60,6 +60,56 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
             Rule::list_clients => DBQuery::ListClients,
             Rule::list_stores => DBQuery::ListStores,
             Rule::info_server => DBQuery::InfoServer,
+            Rule::create_store => {
+                let mut inner_pairs = statement.into_inner().peekable();
+                let mut error_if_exists = true;
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::if_not_exists {
+                        inner_pairs.next(); // Consume rule
+                        error_if_exists = false;
+                    }
+                };
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str();
+                let dimension = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .parse::<NonZeroUsize>()?;
+                let mut create_predicates = HashSet::new();
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::metadata_keys {
+                        let index_name_pairs = inner_pairs
+                            .next()
+                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
+                        create_predicates = index_name_pairs
+                            .into_inner()
+                            .map(|index_pair| MetadataKey::new(index_pair.as_str().to_string()))
+                            .collect();
+                    }
+                };
+                let mut non_linear_indices = HashSet::new();
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::non_linear_algorithms {
+                        let index_name_pairs = inner_pairs
+                            .next()
+                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
+                        non_linear_indices = index_name_pairs
+                            .into_inner()
+                            .flat_map(|index_pair| to_non_linear(index_pair.as_str()))
+                            .collect();
+                    }
+                };
+                DBQuery::CreateStore {
+                    store: StoreName(store.to_string()),
+                    dimension,
+                    create_predicates,
+                    non_linear_indices,
+                    error_if_exists,
+                }
+            }
             Rule::get_sim_n => {
                 let mut inner_pairs = statement.into_inner();
                 let closest_n = inner_pairs
