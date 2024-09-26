@@ -1,0 +1,86 @@
+whitespace = _{ " " | "\t" }
+
+db_query = _{ db_statement ~ (";" ~ db_statement) * }
+
+db_statement = _{ 
+    ping |
+    info_server |
+    list_stores |
+    list_clients |
+    drop_store |
+    create_pred_index |
+    drop_pred_index |
+    create_non_linear_algorithm_index |
+    drop_non_linear_algorithm_index |
+    get_key |
+    del_key |
+    get_pred |
+    invalid_statement 
+}
+
+ping = { whitespace* ~ ^"ping" ~ whitespace* }
+info_server = { whitespace* ~ ^"infoserver" ~ whitespace* }
+list_stores = { whitespace* ~ ^"liststores" ~ whitespace* }
+list_clients = { whitespace* ~ ^"listclients" ~ whitespace* }
+drop_store = { whitespace* ~ ^"dropstore" ~ whitespace* ~ store_name ~ (if_exists | invalid_statement)? }
+create_pred_index = { whitespace* ~ ^"createpredindex" ~ whitespace* ~ "(" ~ index_names ~ ")" ~ in_ignored ~ store_name }
+create_non_linear_algorithm_index = { whitespace* ~ ^"createnonlinearalgorithmindex" ~ whitespace* ~ "(" ~ non_linear_algorithms ~ ")" ~ in_ignored ~ store_name}
+drop_pred_index = { whitespace* ~ ^"droppredindex" ~ whitespace* ~ (if_exists)? ~ "(" ~ index_names ~ ")" ~ in_ignored ~ store_name }
+drop_non_linear_algorithm_index = { whitespace* ~ ^"dropnonlinearalgorithmindex" ~ whitespace* ~ (if_exists)? ~ "(" ~ non_linear_algorithms ~ ")" ~ in_ignored ~ store_name }
+get_key = { whitespace* ~ ^"getkey" ~ whitespace* ~ "(" ~ f32_arrays ~ ")" ~ in_ignored ~ store_name }
+del_key = { whitespace* ~ ^"delkey" ~ whitespace* ~ "(" ~ f32_arrays ~ ")" ~ in_ignored ~ store_name }
+get_pred = { whitespace* ~ ^"getpred" ~ whitespace* ~ predicate_condition ~ in_ignored ~ store_name }
+
+if_exists = { whitespace* ~ ^"if" ~ whitespace* ~ ^"exists" ~ whitespace* }
+
+// stores and predicates can be alphanumeric
+store_name = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
+index_name = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
+metadata_key = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
+non_linear_algorithm = { ^"kdtree" }
+non_linear_algorithms = { non_linear_algorithm ~ (whitespace* ~ "," ~ whitespace* ~ non_linear_algorithm)* }
+index_names = { index_name ~ (whitespace* ~ "," ~ whitespace* ~ index_name)* }
+
+// Floating point number
+f32 = { ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+
+// Array of floating-point numbers
+f32_array = { "(" ~ f32 ~ (whitespace* ~ "," ~ whitespace* ~ f32)* ~ ")"}
+
+// List of f32 arrays (comma-separated)
+f32_arrays = { f32_array ~ (whitespace* ~ "," ~ whitespace* ~ f32_array)* }
+
+
+// raw string. For simplicity no quotes in the string
+raw_string = { (!("," | ")") ~ ANY)+ }
+ASCII_HEX = { '0'..'9' | 'A'..'F' | 'a'..'f' }
+// image contains all possible ascii hex
+image = { "/x" ~ ASCII_HEX+ }
+metadata_value = _{ raw_string | image }
+
+in_ignored = _{ whitespace* ~ ^"in" ~ whitespace* }
+
+// predicate functions
+equals = { whitespace* ~ ^"=" ~ whitespace* }
+in_op = { whitespace* ~ ^"in" ~ whitespace* }
+not_equals = { whitespace* ~ "!=" ~ whitespace* }
+not_in = { whitespace* ~ ^"not" ~ in_op }
+and = { whitespace* ~ ^"and" ~ whitespace* }
+or = { whitespace* ~ ^"or" ~ whitespace* }
+metadata_values = { "(" ~ whitespace* ~ metadata_value ~ (whitespace* ~ "," ~ whitespace* ~ metadata_value)* ~ whitespace* ~ ")" }
+simple_expression = { 
+    (metadata_key ~ (in_op | not_in) ~ whitespace* ~ metadata_values) |
+    (metadata_key ~ (equals | not_equals) ~ whitespace* ~ metadata_value)
+   }
+compound_expression = {
+ "(" ~ whitespace* ~ predicate_expression ~ whitespace* ~ ")" ~ (whitespace* ~ (and | or) ~ whitespace* ~ predicate_expression)*
+}
+predicate_expression = _{
+  simple_expression | compound_expression
+}
+predicate_condition = {
+ whitespace* ~ "(" ~ whitespace* ~ predicate_expression ~ whitespace* ~ ")" ~ whitespace*
+}
+
+// Catch-all rule for invalid statements
+invalid_statement = { whitespace* ~ (!";" ~ ANY)+ } // Match anything that isn't a valid statement

@@ -1,3 +1,4 @@
+use crate::parser::{QueryParser, Rule};
 use ahnlich_types::{
     db::DBQuery,
     keyval::{StoreKey, StoreName},
@@ -5,14 +6,10 @@ use ahnlich_types::{
     similarity::NonLinearAlgorithm,
 };
 use ndarray::Array1;
+use pest::iterators::Pair;
 use pest::Parser;
-use pest_derive::Parser;
 
-use crate::error::DslError;
-
-#[derive(Parser)]
-#[grammar = "syntax/db.pest"]
-struct DBQueryParser;
+use crate::{error::DslError, predicate::parse_predicate_expression};
 
 fn to_non_linear(input: &str) -> Option<NonLinearAlgorithm> {
     match input.to_lowercase().trim() {
@@ -21,11 +18,11 @@ fn to_non_linear(input: &str) -> Option<NonLinearAlgorithm> {
     }
 }
 
-fn parse_multi_f32_array(f32_arrays_pair: pest::iterators::Pair<Rule>) -> Vec<StoreKey> {
+fn parse_multi_f32_array(f32_arrays_pair: Pair<Rule>) -> Vec<StoreKey> {
     f32_arrays_pair.into_inner().map(parse_f32_array).collect()
 }
 
-fn parse_f32_array(pair: pest::iterators::Pair<Rule>) -> StoreKey {
+fn parse_f32_array(pair: Pair<Rule>) -> StoreKey {
     StoreKey(Array1::from_iter(pair.into_inner().map(|f32_pair| {
         f32_pair
             .as_str()
@@ -48,14 +45,14 @@ fn parse_f32_array(pair: pest::iterators::Pair<Rule>) -> StoreKey {
 // DROPNONLINEARALGORITHMINDEX IF EXISTS (kdtree) in store_name
 // GETKEY ((1.0, 2.0), (3.0, 4.0)) IN my_store
 // DELKEY ((1.2, 3.0), (5.6, 7.8)) IN my_store
+// GETPRED ((author = dickens) OR (country != Nigeria)) IN my_store
 //
 // #TODO
 // SET
 // CREATESTORE
-// GETPRED
 // GETSIMN
 pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
-    let pairs = DBQueryParser::parse(Rule::query, input).map_err(Box::new)?;
+    let pairs = QueryParser::parse(Rule::db_query, input).map_err(Box::new)?;
     let statements = pairs.into_iter().collect::<Vec<_>>();
     let mut queries = Vec::with_capacity(statements.len());
     for statement in statements {
@@ -66,6 +63,20 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
             Rule::list_clients => DBQuery::ListClients,
             Rule::list_stores => DBQuery::ListStores,
             Rule::info_server => DBQuery::InfoServer,
+            Rule::get_pred => {
+                let mut inner_pairs = statement.into_inner();
+                let predicate_conditions = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str();
+                DBQuery::GetPred {
+                    store: StoreName(store.to_string()),
+                    condition: parse_predicate_expression(predicate_conditions)?,
+                }
+            }
             Rule::get_key => {
                 let mut inner_pairs = statement.into_inner();
                 let f32_arrays_pair = inner_pairs
@@ -218,6 +229,11 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
+
+    use ahnlich_types::{
+        metadata::MetadataValue,
+        predicate::{Predicate, PredicateCondition},
+    };
 
     use super::*;
 
@@ -410,6 +426,58 @@ mod tests {
                     StoreKey(Array1::from_iter([1.0, 2.0, 3.0])),
                     StoreKey(Array1::from_iter([3.0, 4.0])),
                 ],
+            }]
+        );
+    }
+
+    #[test]
+    fn test_get_pred_parse() {
+        let input = r#"GETPRED ((a, b, c), (3.0, 4.0)) in 1234"#;
+        let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
+            panic!("Unexpected error pattern found")
+        };
+        assert_eq!((start, end), (0, 39));
+        let input = r#"GETPRED ((firstname = king) OR (surname != charles)) in store2"#;
+        assert_eq!(
+            parse_db_query(input).expect("Could not parse query input"),
+            vec![DBQuery::GetPred {
+                store: StoreName("store2".to_string()),
+                condition: PredicateCondition::Value(Predicate::Equals {
+                    key: MetadataKey::new("firstname".into()),
+                    value: MetadataValue::RawString("king".to_string())
+                })
+                .or(PredicateCondition::Value(Predicate::NotEquals {
+                    key: MetadataKey::new("surname".into()),
+                    value: MetadataValue::RawString("charles".to_string())
+                })),
+            }]
+        );
+        let input = r#"GETPRED ((pages in (0, 1, 2)) AND (author != dickens) OR (author NOT in (jk-rowlins, rick-riodan)) ) in bookshelf"#;
+        assert_eq!(
+            parse_db_query(input).expect("Could not parse query input"),
+            vec![DBQuery::GetPred {
+                store: StoreName("bookshelf".to_string()),
+                condition: PredicateCondition::Value(Predicate::In {
+                    key: MetadataKey::new("pages".into()),
+                    value: HashSet::from_iter([
+                        MetadataValue::RawString("0".to_string()),
+                        MetadataValue::RawString("1".to_string()),
+                        MetadataValue::RawString("2".to_string()),
+                    ]),
+                })
+                .and(
+                    PredicateCondition::Value(Predicate::NotEquals {
+                        key: MetadataKey::new("author".into()),
+                        value: MetadataValue::RawString("dickens".to_string())
+                    })
+                    .or(PredicateCondition::Value(Predicate::NotIn {
+                        key: MetadataKey::new("author".into()),
+                        value: HashSet::from_iter([
+                            MetadataValue::RawString("jk-rowlins".to_string()),
+                            MetadataValue::RawString("rick-riodan".to_string()),
+                        ]),
+                    }))
+                )
             }]
         );
     }
