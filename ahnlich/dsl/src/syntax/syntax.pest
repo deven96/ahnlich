@@ -59,7 +59,7 @@ index_names = { index_name ~ (whitespace* ~ "," ~ whitespace* ~ index_name)* }
 non_zero = { '1'..'9' ~ ASCII_DIGIT* }
 f32 = { ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
 // Array of floating-point numbers
-f32_array = { "(" ~ f32 ~ (whitespace* ~ "," ~ whitespace* ~ f32)* ~ ")"}
+f32_array = { "[" ~ f32 ~ (whitespace* ~ "," ~ whitespace* ~ f32)* ~ "]"}
 
 // List of f32 arrays (comma-separated)
 f32_arrays = { f32_array ~ (whitespace* ~ "," ~ whitespace* ~ f32_array)* }

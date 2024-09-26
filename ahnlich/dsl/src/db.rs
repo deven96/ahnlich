@@ -40,10 +40,10 @@ fn parse_f32_array(pair: Pair<Rule>) -> StoreKey {
 // DROPPREDINDEX IF EXISTS (key1, key2) in store_name
 // CREATENONLINEARALGORITHMINDEX (kdtree) in store_name
 // DROPNONLINEARALGORITHMINDEX IF EXISTS (kdtree) in store_name
-// GETKEY ((1.0, 2.0), (3.0, 4.0)) IN my_store
-// DELKEY ((1.2, 3.0), (5.6, 7.8)) IN my_store
+// GETKEY ([1.0, 2.0], [3.0, 4.0]) IN my_store
+// DELKEY ([1.2, 3.0], [5.6, 7.8]) IN my_store
 // GETPRED ((author = dickens) OR (country != Nigeria)) IN my_store
-// GETSIMN 4 WITH (0.65, 2.78) USING cosinesimilarity IN my_store WHERE (author = dickens)
+// GETSIMN 4 WITH [0.65, 2.78] USING cosinesimilarity IN my_store WHERE (author = dickens)
 // CREATESTORE IF NOT EXISTS my_store DIMENSION 21 PREDICATES (author, country) NONLINEARALGORITHMINDEX (kdtree)
 //
 // #TODO

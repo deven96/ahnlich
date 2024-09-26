@@ -210,12 +210,12 @@ fn test_create_non_linear_algorithm_parse() {
 #[test]
 fn test_get_sim_n_parse() {
     // passing in a zero value to ensure it doesn't work
-    let input = r#"GETSIMN 0 with (0.1, 0.2) using kdtree in store1 where ( author = hi )"#;
+    let input = r#"GETSIMN 0 with [0.1, 0.2] using kdtree in store1 where ( author = hi )"#;
     let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
         panic!("Unexpected error pattern found")
     };
     assert_eq!((start, end), (0, 70));
-    let input = r#"GETSIMN 5 with (34.1, 72.2) using cosinesimilarity in random"#;
+    let input = r#"GETSIMN 5 with [34.1, 72.2] using cosinesimilarity in random"#;
     assert_eq!(
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::GetSimN {
@@ -226,7 +226,7 @@ fn test_get_sim_n_parse() {
             condition: None
         }]
     );
-    let input = r#"GETSIMN 8 with (3.7, 9.6) using euclideandistance in other where ((year != 2012) AND (month not in (december, october)))"#;
+    let input = r#"GETSIMN 8 with [3.7, 9.6] using euclideandistance in other where ((year != 2012) AND (month not in (december, october)))"#;
     assert_eq!(
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::GetSimN {
@@ -280,12 +280,12 @@ fn test_drop_non_linear_algorithm_parse() {
 
 #[test]
 fn test_get_key_parse() {
-    let input = r#"getkey ((a, b, c), (3.0, 4.0)) in 1234"#;
+    let input = r#"getkey ([a, b, c], [3.0, 4.0]) in 1234"#;
     let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
         panic!("Unexpected error pattern found")
     };
     assert_eq!((start, end), (0, 38));
-    let input = r#"getkey ((1, 2, 3), (3.0, 4.0)) in 1234"#;
+    let input = r#"getkey ([1, 2, 3], [3.0, 4.0]) in 1234"#;
     assert_eq!(
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::GetKey {
@@ -300,12 +300,12 @@ fn test_get_key_parse() {
 
 #[test]
 fn test_del_key_parse() {
-    let input = r#"DELKEY ((a, b, c), (3.0, 4.0)) in 1234"#;
+    let input = r#"DELKEY ([a, b, c], [3.0, 4.0]) in 1234"#;
     let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
         panic!("Unexpected error pattern found")
     };
     assert_eq!((start, end), (0, 38));
-    let input = r#"DELKEY ((1, 2, 3), (3.0, 4.0)) in 1234"#;
+    let input = r#"DELKEY ([1, 2, 3], [3.0, 4.0]) in 1234"#;
     assert_eq!(
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::DelKey {
@@ -320,7 +320,7 @@ fn test_del_key_parse() {
 
 #[test]
 fn test_get_pred_parse() {
-    let input = r#"GETPRED ((a, b, c), (3.0, 4.0)) in 1234"#;
+    let input = r#"GETPRED ([a, b, c], [3.0, 4.0]) in 1234"#;
     let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
         panic!("Unexpected error pattern found")
     };
