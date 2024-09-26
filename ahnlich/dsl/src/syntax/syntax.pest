@@ -15,6 +15,7 @@ db_statement = _{
     get_key |
     del_key |
     get_pred |
+    get_sim_n |
     invalid_statement 
 }
 
@@ -30,6 +31,8 @@ drop_non_linear_algorithm_index = { whitespace* ~ ^"dropnonlinearalgorithmindex"
 get_key = { whitespace* ~ ^"getkey" ~ whitespace* ~ "(" ~ f32_arrays ~ ")" ~ in_ignored ~ store_name }
 del_key = { whitespace* ~ ^"delkey" ~ whitespace* ~ "(" ~ f32_arrays ~ ")" ~ in_ignored ~ store_name }
 get_pred = { whitespace* ~ ^"getpred" ~ whitespace* ~ predicate_condition ~ in_ignored ~ store_name }
+// GETSIMN 2 WITH store-key USING algorithm IN store (WHERE predicate_condition)
+get_sim_n = { whitespace* ~ ^"getsimn" ~ whitespace* ~ non_zero ~ whitespace* ~ ^"with" ~ whitespace* ~ f32_array ~ whitespace* ~ ^"using" ~ whitespace* ~ algorithm ~ whitespace* ~ in_ignored ~ whitespace* ~ store_name ~ whitespace* ~ (^"where" ~ whitespace* ~ predicate_condition)? }
 
 if_exists = { whitespace* ~ ^"if" ~ whitespace* ~ ^"exists" ~ whitespace* }
 
@@ -38,12 +41,18 @@ store_name = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
 index_name = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
 metadata_key = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
 non_linear_algorithm = { ^"kdtree" }
+algorithm = {
+    ^"kdtree" |
+    ^"euclideandistance" |
+    ^"cosinesimilarity" |
+    "dotproductsimilarity"
+}
 non_linear_algorithms = { non_linear_algorithm ~ (whitespace* ~ "," ~ whitespace* ~ non_linear_algorithm)* }
 index_names = { index_name ~ (whitespace* ~ "," ~ whitespace* ~ index_name)* }
 
-// Floating point number
+// Numbers
+non_zero = { '1'..'9' ~ ASCII_DIGIT* }
 f32 = { ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
-
 // Array of floating-point numbers
 f32_array = { "(" ~ f32 ~ (whitespace* ~ "," ~ whitespace* ~ f32)* ~ ")"}
 

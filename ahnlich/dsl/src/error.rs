@@ -1,3 +1,5 @@
+use std::num::ParseIntError;
+
 use crate::parser::Rule;
 use thiserror::Error;
 
@@ -9,4 +11,8 @@ pub enum DslError {
     UnexpectedSpan((usize, usize)),
     #[error("Could not parse Hex string into image {0:?}")]
     UnexpectedHex(String),
+    #[error("Could not parse string into nonzerousize {0:?}")]
+    NonZeroUsizeParse(#[from] ParseIntError),
+    #[error("Found unsupported algorithm {0}")]
+    UnsupportedAlgorithm(String),
 }
