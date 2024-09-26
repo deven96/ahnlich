@@ -2,31 +2,14 @@ use std::{collections::HashSet, num::NonZeroUsize};
 
 use crate::{
     algorithm::{to_algorithm, to_non_linear},
+    array::{parse_f32_array, parse_multi_f32_array},
+    metadata::parse_store_keys_to_store_value,
     parser::{QueryParser, Rule},
 };
-use ahnlich_types::{
-    db::DBQuery,
-    keyval::{StoreKey, StoreName},
-    metadata::MetadataKey,
-};
-use ndarray::Array1;
-use pest::iterators::Pair;
+use ahnlich_types::{db::DBQuery, keyval::StoreName, metadata::MetadataKey};
 use pest::Parser;
 
 use crate::{error::DslError, predicate::parse_predicate_expression};
-
-fn parse_multi_f32_array(f32_arrays_pair: Pair<Rule>) -> Vec<StoreKey> {
-    f32_arrays_pair.into_inner().map(parse_f32_array).collect()
-}
-
-fn parse_f32_array(pair: Pair<Rule>) -> StoreKey {
-    StoreKey(Array1::from_iter(pair.into_inner().map(|f32_pair| {
-        f32_pair
-            .as_str()
-            .parse::<f32>()
-            .expect("Cannot parse single f32 num")
-    })))
-}
 
 // Parse raw strings separated by ; into a Vec<DBQuery>. Examples include but are not restricted
 // to
@@ -45,9 +28,7 @@ fn parse_f32_array(pair: Pair<Rule>) -> StoreKey {
 // GETPRED ((author = dickens) OR (country != Nigeria)) IN my_store
 // GETSIMN 4 WITH [0.65, 2.78] USING cosinesimilarity IN my_store WHERE (author = dickens)
 // CREATESTORE IF NOT EXISTS my_store DIMENSION 21 PREDICATES (author, country) NONLINEARALGORITHMINDEX (kdtree)
-//
-// #TODO
-// SET
+// SET (([1.0, 2.1, 3.2], {name: Haks, category: dev}), ([3.1, 4.8, 5.0], {name: Deven, category: dev})) in store
 pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
     let pairs = QueryParser::parse(Rule::db_query, input).map_err(Box::new)?;
     let statements = pairs.into_iter().collect::<Vec<_>>();
@@ -60,6 +41,21 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
             Rule::list_clients => DBQuery::ListClients,
             Rule::list_stores => DBQuery::ListStores,
             Rule::info_server => DBQuery::InfoServer,
+            Rule::set_in_store => {
+                let mut inner_pairs = statement.into_inner();
+                let store_keys_to_store_values = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str();
+
+                DBQuery::Set {
+                    store: StoreName(store.to_string()),
+                    inputs: parse_store_keys_to_store_value(store_keys_to_store_values)?,
+                }
+            }
             Rule::create_store => {
                 let mut inner_pairs = statement.into_inner().peekable();
                 let mut error_if_exists = true;

@@ -5,7 +5,10 @@ use ahnlich_types::{
     metadata::MetadataKey,
 };
 use ndarray::Array1;
-use std::{collections::HashSet, num::NonZeroUsize};
+use std::{
+    collections::{HashMap, HashSet},
+    num::NonZeroUsize,
+};
 
 use ahnlich_types::{
     metadata::MetadataValue,
@@ -293,6 +296,44 @@ fn test_get_key_parse() {
             keys: vec![
                 StoreKey(Array1::from_iter([1.0, 2.0, 3.0])),
                 StoreKey(Array1::from_iter([3.0, 4.0])),
+            ],
+        }]
+    );
+}
+
+#[test]
+fn test_set_in_store_parse() {
+    let input = r#"set 2134 in store"#;
+    let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
+        panic!("Unexpected error pattern found")
+    };
+    assert_eq!((start, end), (0, 17));
+    let input = r#"SET (([1,2,3], {state: Munich, country: Germany}), ([3.2, 4.5, 9.4], {country: USA})) in geo"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::Set {
+            store: StoreName("geo".to_string()),
+            inputs: vec![
+                (
+                    StoreKey(Array1::from_iter([1.0, 2.0, 3.0])),
+                    HashMap::from_iter([
+                        (
+                            MetadataKey::new("state".to_string()),
+                            MetadataValue::RawString("Munich".to_string())
+                        ),
+                        (
+                            MetadataKey::new("country".to_string()),
+                            MetadataValue::RawString("Germany".to_string())
+                        ),
+                    ])
+                ),
+                (
+                    StoreKey(Array1::from_iter([3.2, 4.5, 9.4])),
+                    HashMap::from_iter([(
+                        MetadataKey::new("country".to_string()),
+                        MetadataValue::RawString("USA".to_string())
+                    ),])
+                )
             ],
         }]
     );

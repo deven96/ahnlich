@@ -1,4 +1,5 @@
 mod algorithm;
+mod array;
 pub mod db;
 pub mod error;
 mod metadata;
