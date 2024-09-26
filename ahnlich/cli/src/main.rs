@@ -1,46 +1,30 @@
-use crossterm::{
-    cursor::position,
-    event::{self, read, Event, KeyCode, KeyEvent},
-    style::{self, Stylize},
-    terminal, ExecutableCommand, QueueableCommand,
-};
-use std::io::{self, Write};
-use std::time::Duration;
+use ahnlich_cli::{connect::AgentPool, term::Term};
+use clap::Parser;
+use std::io;
 
-const RESERVED_WORDS: [&str; 3] = ["hello", "print", "ping"];
+#[tokio::main]
+async fn main() -> std::io::Result<()> {
+    let cli = ahnlich_cli::config::cli::Cli::parse();
 
-pub fn read_line() -> io::Result<String> {
-    let mut line = String::new();
-    while let Event::Key(KeyEvent { code, .. }) = event::read()? {
-        match code {
-            KeyCode::Enter => {
-                break;
+    match cli.commands {
+        ahnlich_cli::config::cli::Commands::Ahnlich(config) => {
+            let agent_pool = AgentPool::create_pool(config.agent, &config.host, config.port)
+                .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+
+            if !agent_pool
+                .is_valid_connection()
+                .await
+                .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Connected Server is not a valid {} Server", agent_pool),
+                ));
             }
-            KeyCode::Char(c) => {
-                line.push(c);
-            }
-            KeyCode::Esc => {
-                break;
-            }
-            _ => {}
+            let term = Term::new(agent_pool);
+            term.welcome_message()?;
+            term.run().await?;
         }
     }
-    Ok(line)
-}
-
-fn main() -> io::Result<()> {
-    let line = read_line()?;
-
-    let output = String::from_iter(line.split(" ").map(|ex| {
-        if RESERVED_WORDS.contains(&ex) {
-            format!("{} ", ex.yellow())
-        } else {
-            format!("{} ", ex.green())
-        }
-    }));
-
-    println!("read line:");
-    println!("{output}");
-
     Ok(())
 }

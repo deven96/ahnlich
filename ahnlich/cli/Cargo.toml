@@ -7,9 +7,16 @@ edition = "2021"
 name = "ahnlich_cli"
 path = "src/main.rs"
 
+[lib]
+name = "ahnlich_cli"
+path = "src/lib.rs"
+
 
 [dependencies]
 crossterm = "0.28.1"
 clap.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 ahnlich_client_rs = { path = "../client", version = "*" }
+deadpool.workspace = true
+ahnlich_types = { path = "../types", version = "*" }
