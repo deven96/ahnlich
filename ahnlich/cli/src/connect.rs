@@ -59,8 +59,8 @@ impl AgentPool {
                     .map_err(|err| err.to_string())?;
                 if let ServerResponse::InfoServer(server_details) = result {
                     match server_details.r#type {
-                        ServerType::AI => return Ok(true),
-                        ServerType::Database => return Ok(false),
+                        ServerType::AI => return Ok(false),
+                        ServerType::Database => return Ok(true),
                     }
                 }
             }

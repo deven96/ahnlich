@@ -39,7 +39,10 @@ impl Term {
     pub fn welcome_message(&self) -> io::Result<()> {
         let mut stdout = stdout();
         stdout.execute(SetForegroundColor(Color::White))?;
-        stdout.execute(Print(format!("Welcome To Ahnlich {}", self.client_pool)))?;
+        stdout.execute(Print(format!(
+            "Welcome To Ahnlich {}\n\n",
+            self.client_pool
+        )))?;
         stdout.execute(SetForegroundColor(Color::White))?;
         stdout.flush()?;
         stdout.flush()?;
