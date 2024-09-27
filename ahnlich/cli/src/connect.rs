@@ -14,16 +14,16 @@ pub enum AgentPool {
 }
 
 impl AgentPool {
-    pub fn create_pool(agent: Agent, host: &str, port: u16) -> Result<Self, String> {
+    pub fn create_pool(agent: Agent, host: &str, port: Option<u16>) -> Result<Self, String> {
         match agent {
             Agent::AI => {
-                let pool = Pool::builder(AIConnManager::new(host.to_owned(), port))
+                let pool = Pool::builder(AIConnManager::new(host.to_owned(), port.unwrap_or(1370)))
                     .build()
                     .map_err(|err| err.to_string())?;
                 Ok(Self::AI(pool))
             }
             Agent::DB => {
-                let pool = Pool::builder(DbConnManager::new(host.to_owned(), port))
+                let pool = Pool::builder(DbConnManager::new(host.to_owned(), port.unwrap_or(1369)))
                     .build()
                     .map_err(|err| err.to_string())?;
 

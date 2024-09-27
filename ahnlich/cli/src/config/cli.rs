@@ -29,6 +29,6 @@ pub struct AhnlichCliConfig {
     pub host: String,
 
     /// Host to connect to Ahnlich AI or DB
-    #[arg(long, default_value_t = 1369)]
-    pub port: u16,
+    #[arg(long)]
+    pub port: Option<u16>,
 }
