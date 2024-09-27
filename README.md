@@ -43,11 +43,42 @@ create_store(
 
 ## Usage
 
-`ahnlich-db` and `ahnlich-ai` are packaged and released as [binaries](https://github.com/deven96/ahnlich/releases) for multiple platforms alongside [docker images](https://github.com/deven96?tab=packages&repo_name=ahnlich)
+`ahnlich-db`, `ahnlich-ai` and `ahnlich-cli` are packaged and released as [binaries](https://github.com/deven96/ahnlich/releases) for multiple platforms alongside [docker images](https://github.com/deven96?tab=packages&repo_name=ahnlich)
 
 ### Docker Images.
 
-`Note`: Arguments and commands must be passed in quotes. E.G: `docker run <image_name> "ahnlich-db run --enable-tracing --port 8000"`
+`Note`: 
+1. Arguments and commands must be passed in quotes. E.G: `docker run <image_name> "ahnlich-db run --enable-tracing --port 8000"`
+
+2. The CLI comes packaged into the docker images.
+
+
+### Ahnlich CLI.
+Ahnlich ships our CLI that can be used to query either AI or DB binaries.
+
+<p align="left"><img src="assets/cli-clear.gif" alt="ahnlich" height="auto"></p>
+
+To run:
+`ahnlich_cli ahnlich --agent .. --host .. --port ...`
+where:
+  - Agent: Binary to connect to (ai or db)
+  - Host: defaults to `127.0.0.1`
+  - port: default is infered from the agent selected. (`AI = 1370`, `DB = 1369`) 
+
+#### Example Commands
+- **DB**
+
+  - Create Store with dimension 2 and indexes author and country
+
+    `CREATESTORE test_store DIMENSION 2 PREDICATES (author, country)`
+  - Set In store
+    `SET (([1.0, 2.1], {name: Haks, category: dev}), ([3.1, 4.8], {name: Deven, category: dev})) in test_store`
+
+  
+  #### Combining commands
+  CLI can process multiple commands at once as long as each command is delimited by `;`
+    
+    `GETKEY ([1.0, 2.0], [3.0, 4.0]) IN test_store;CREATEPREDINDEX (name, category) in test_store`
 
 ## Development
 
@@ -77,5 +108,8 @@ Your message(in bytes) should be serialized and deserialized in the following fo
 
 The clients follow a similar process when deploying new releases.
 [Example with python client](https://github.com/deven96/ahnlich/blob/main/sdk/ahnlich-client-py/README.md#deploy-to-artifactory).
+
+
+
 
 
