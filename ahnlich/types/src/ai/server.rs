@@ -69,6 +69,10 @@ impl AIServerResult {
     pub fn is_empty(&self) -> bool {
         self.results.is_empty()
     }
+
+    pub fn into_inner(self) -> AIServerResultInner {
+        self.results
+    }
 }
 
 impl BinCodeSerAndDeserResponse for AIServerResult {

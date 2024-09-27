@@ -1,11 +1,15 @@
 use super::config::cli::Agent;
 use ahnlich_client_rs::{
     ai::{AIClient, AIConnManager},
-    db::{DbClient, DbConnManager},
+    db::{DbClient, DbConnManager, DbPipeline},
     prelude::{AIServerResponse, ServerResponse},
 };
-use ahnlich_types::ServerType;
+use ahnlich_types::{db::ServerDBQuery, ServerType};
 use deadpool::managed::Pool;
+use dsl::db::parse_db_query;
+
+use crossterm::style::Stylize;
+use serde::Serialize;
 
 #[derive(Debug)]
 pub enum AgentPool {
@@ -68,6 +72,28 @@ impl AgentPool {
 
         Ok(false)
     }
+
+    pub async fn parse_queries(&self, input: &str) -> Result<Vec<String>, String> {
+        match self {
+            AgentPool::AI(_pool) => Err(String::from("Unimplemented")),
+            AgentPool::DB(pool) => {
+                let queries = parse_db_query(input).map_err(|err| err.to_string())?;
+
+                let server_query = ServerDBQuery::from_queries(&queries);
+
+                let conn = pool
+                    .get()
+                    .await
+                    .map_err(|err| format!("Could not get db client connection {err}"))?;
+
+                let pipeline = DbPipeline::new_from_queries_and_conn(server_query, conn);
+
+                let response = pipeline.exec().await.map_err(|err| err.to_string())?;
+
+                Ok(render(response.into_inner()))
+            }
+        }
+    }
 }
 
 impl std::fmt::Display for AgentPool {
@@ -77,4 +103,26 @@ impl std::fmt::Display for AgentPool {
             AgentPool::DB(_) => f.write_str("DB"),
         }
     }
+}
+
+fn render(input: Vec<Result<impl Serialize, String>>) -> Vec<String> {
+    input
+        .into_iter()
+        .map(|val| match val {
+            Ok(success) => format_success(
+                serde_json::to_string_pretty(&success)
+                    .map_err(|err| err.to_string())
+                    .expect("Failed to parse ai success response to json"),
+            ),
+            Err(err) => format_error(err),
+        })
+        .collect()
+}
+
+fn format_success(input: String) -> String {
+    format!("{}", input.green())
+}
+
+fn format_error(input: String) -> String {
+    format!("{}", input.red())
 }

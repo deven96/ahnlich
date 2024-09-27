@@ -15,8 +15,11 @@ path = "src/lib.rs"
 [dependencies]
 crossterm = "0.28.1"
 clap.workspace = true
+dsl = { path = "../dsl", version = "*" }
 thiserror.workspace = true
 tokio.workspace = true
 ahnlich_client_rs = { path = "../client", version = "*" }
 deadpool.workspace = true
 ahnlich_types = { path = "../types", version = "*" }
+serde_json.workspace = true
+serde.workspace = true
