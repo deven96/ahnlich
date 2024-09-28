@@ -125,7 +125,6 @@ impl BinCodeSerAndDeserQuery for ServerQuery {
     fn into_inner(self) -> Vec<Query> {
         self.queries
     }
-    // TODO: might change default value
     fn get_traceparent(&self) -> Option<String> {
         self.trace_id.clone()
     }

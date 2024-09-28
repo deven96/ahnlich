@@ -106,7 +106,6 @@ impl BinCodeSerAndDeserQuery for AIServerQuery {
     fn into_inner(self) -> Self::Inner {
         self.queries
     }
-    // TODO: might change default value
     fn get_traceparent(&self) -> Option<String> {
         self.trace_id.clone()
     }

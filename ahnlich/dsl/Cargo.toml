@@ -10,4 +10,6 @@ pest_derive = "2.7.13"
 thiserror.workspace = true
 ndarray.workspace = true
 hex = "0.4.3"
+[dev-dependencies]
+pretty_assertions.workspace = true
 

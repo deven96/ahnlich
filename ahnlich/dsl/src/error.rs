@@ -15,4 +15,8 @@ pub enum DslError {
     NonZeroUsizeParse(#[from] ParseIntError),
     #[error("Found unsupported algorithm {0}")]
     UnsupportedAlgorithm(String),
+    #[error("Found unsupported ai model {0}")]
+    UnsupportedAIModel(String),
+    #[error("Unsupported rule used in parse fn {0:?}")]
+    UnsupportedRule(Rule),
 }
