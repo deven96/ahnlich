@@ -29,7 +29,6 @@ pub enum ServerResponse {
     Del(usize),
     // number of created indexes
     CreateIndex(usize),
-    // TODO: Define return types for queries, e.t.c
 }
 
 /// StoreUpsert shows how many entries were inserted and updated during a store add call

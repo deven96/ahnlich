@@ -5,6 +5,7 @@ use ahnlich_types::{
     metadata::MetadataKey,
 };
 use ndarray::Array1;
+use pretty_assertions::assert_eq;
 use std::{
     collections::{HashMap, HashSet},
     num::NonZeroUsize,

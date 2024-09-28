@@ -2,50 +2,75 @@ use std::{collections::HashSet, num::NonZeroUsize};
 
 use crate::{
     algorithm::{to_algorithm, to_non_linear},
-    array::{parse_f32_array, parse_multi_f32_array},
-    metadata::parse_store_keys_to_store_value,
+    metadata::{parse_store_input, parse_store_inputs, parse_store_inputs_to_store_value},
     parser::{QueryParser, Rule},
     shared::{
         parse_create_non_linear_algorithm_index, parse_create_pred_index,
         parse_drop_non_linear_algorithm_index, parse_drop_pred_index, parse_drop_store,
     },
 };
-use ahnlich_types::{db::DBQuery, keyval::StoreName, metadata::MetadataKey};
+use ahnlich_types::{
+    ai::{AIModel, AIQuery, ImageAction, PreprocessAction, StringAction},
+    keyval::StoreName,
+    metadata::MetadataKey,
+};
 use pest::Parser;
 
 use crate::{error::DslError, predicate::parse_predicate_expression};
 
-// Parse raw strings separated by ; into a Vec<DBQuery>. Examples include but are not restricted
+fn parse_to_preprocess_action(input: &str) -> PreprocessAction {
+    match input.to_lowercase().trim() {
+        "erroriftokensexceed" => PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+        "truncateiftokensexceed" => {
+            PreprocessAction::RawString(StringAction::TruncateIfTokensExceed)
+        }
+        "resizeimage" => PreprocessAction::Image(ImageAction::ResizeImage),
+        "errorifdimensionsmismatch" => {
+            PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch)
+        }
+        _ => panic!("Unexpected preprocess action"),
+    }
+}
+
+fn parse_to_ai_model(input: &str) -> Result<AIModel, DslError> {
+    match input.to_lowercase().trim() {
+        "dalle3" => Ok(AIModel::DALLE3),
+        "llama3" => Ok(AIModel::Llama3),
+        e => Err(DslError::UnsupportedAIModel(e.to_string())),
+    }
+}
+
+// Parse raw strings separated by ; into a Vec<AIQuery>. Examples include but are not restricted
 // to
 //
 // PING
 // LISTCLIENTS
 // LISTSTORES
 // INFOSERVER
+// PURGESTORES
 // DROPSTORE store_name IF EXISTS
 // CREATEPREDINDEX (key_1, key_2) in store_name
 // DROPPREDINDEX IF EXISTS (key1, key2) in store_name
 // CREATENONLINEARALGORITHMINDEX (kdtree) in store_name
 // DROPNONLINEARALGORITHMINDEX IF EXISTS (kdtree) in store_name
-// GETKEY ([1.0, 2.0], [3.0, 4.0]) IN my_store
-// DELKEY ([1.2, 3.0], [5.6, 7.8]) IN my_store
+// DELKEY ([input 1 text], [input 2 text]) IN my_store
 // GETPRED ((author = dickens) OR (country != Nigeria)) IN my_store
-// GETSIMN 4 WITH [0.65, 2.78] USING cosinesimilarity IN my_store WHERE (author = dickens)
-// CREATESTORE IF NOT EXISTS my_store DIMENSION 21 PREDICATES (author, country) NONLINEARALGORITHMINDEX (kdtree)
-// SET (([1.0, 2.1, 3.2], {name: Haks, category: dev}), ([3.1, 4.8, 5.0], {name: Deven, category: dev})) in store
-pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
-    let pairs = QueryParser::parse(Rule::db_query, input).map_err(Box::new)?;
+// GETSIMN 4 WITH [random text inserted here] USING cosinesimilarity IN my_store WHERE (author = dickens)
+// CREATESTORE IF NOT EXISTS my_store QUERYMODEL dalle3 INDEXMODEL dalle3 PREDICATES (author, country) NONLINEARALGORITHMINDEX (kdtree)
+// SET (([This is the life of Haks paragraphed], {name: Haks, category: dev}), ([This is the life of Deven paragraphed], {name: Deven, category: dev})) in store
+pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
+    let pairs = QueryParser::parse(Rule::ai_query, input).map_err(Box::new)?;
     let statements = pairs.into_iter().collect::<Vec<_>>();
     let mut queries = Vec::with_capacity(statements.len());
     for statement in statements {
         let start_pos = statement.as_span().start_pos().pos();
         let end_pos = statement.as_span().end_pos().pos();
         let query = match statement.as_rule() {
-            Rule::ping => DBQuery::Ping,
-            Rule::list_clients => DBQuery::ListClients,
-            Rule::list_stores => DBQuery::ListStores,
-            Rule::info_server => DBQuery::InfoServer,
-            Rule::set_in_store => {
+            Rule::ping => AIQuery::Ping,
+            Rule::list_stores => AIQuery::ListStores,
+            Rule::info_server => AIQuery::InfoServer,
+            Rule::purge_stores => AIQuery::PurgeStores,
+            Rule::ai_set_in_store => {
                 let mut inner_pairs = statement.into_inner();
                 let store_keys_to_store_values = inner_pairs
                     .next()
@@ -55,36 +80,44 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str();
 
-                DBQuery::Set {
+                let preprocess_action = parse_to_preprocess_action(
+                    inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                        .as_str(),
+                );
+
+                AIQuery::Set {
                     store: StoreName(store.to_string()),
-                    inputs: parse_store_keys_to_store_value(store_keys_to_store_values)?,
+                    inputs: parse_store_inputs_to_store_value(store_keys_to_store_values)?,
+                    preprocess_action,
                 }
             }
-            Rule::create_store => {
+            Rule::ai_create_store => {
                 let mut inner_pairs = statement.into_inner().peekable();
-                let mut error_if_exists = true;
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::if_not_exists {
-                        inner_pairs.next(); // Consume rule
-                        error_if_exists = false;
-                    }
-                };
                 let store = inner_pairs
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str();
-                let dimension = inner_pairs
-                    .next()
-                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                    .as_str()
-                    .parse::<NonZeroUsize>()?;
-                let mut create_predicates = HashSet::new();
+                let query_model = parse_to_ai_model(
+                    inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                        .as_str(),
+                )?;
+                let index_model = parse_to_ai_model(
+                    inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                        .as_str(),
+                )?;
+                let mut predicates = HashSet::new();
                 if let Some(next_pair) = inner_pairs.peek() {
                     if next_pair.as_rule() == Rule::metadata_keys {
                         let index_name_pairs = inner_pairs
                             .next()
                             .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
-                        create_predicates = index_name_pairs
+                        predicates = index_name_pairs
                             .into_inner()
                             .map(|index_pair| MetadataKey::new(index_pair.as_str().to_string()))
                             .collect();
@@ -102,25 +135,25 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                             .collect();
                     }
                 };
-                DBQuery::CreateStore {
+                AIQuery::CreateStore {
                     store: StoreName(store.to_string()),
-                    dimension,
-                    create_predicates,
+                    query_model,
+                    index_model,
+                    predicates,
                     non_linear_indices,
-                    error_if_exists,
                 }
             }
-            Rule::get_sim_n => {
+            Rule::ai_get_sim_n => {
                 let mut inner_pairs = statement.into_inner();
                 let closest_n = inner_pairs
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .parse::<NonZeroUsize>()?;
-                let f32_array = inner_pairs
+                let store_input = inner_pairs
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
-                let search_input = parse_f32_array(f32_array);
+                let search_input = parse_store_input(store_input)?;
                 let algorithm = to_algorithm(
                     inner_pairs
                         .next()
@@ -136,7 +169,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                 } else {
                     None
                 };
-                DBQuery::GetSimN {
+                AIQuery::GetSimN {
                     store: StoreName(store.to_string()),
                     search_input,
                     closest_n,
@@ -153,59 +186,46 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str();
-                DBQuery::GetPred {
+                AIQuery::GetPred {
                     store: StoreName(store.to_string()),
                     condition: parse_predicate_expression(predicate_conditions)?,
                 }
             }
-            Rule::get_key => {
+            Rule::ai_del_key => {
                 let mut inner_pairs = statement.into_inner();
-                let f32_arrays_pair = inner_pairs
+                let key = inner_pairs
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
-                let keys = parse_multi_f32_array(f32_arrays_pair);
+                let mut key = parse_store_inputs(key)?;
 
                 let store = inner_pairs
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str();
-                DBQuery::GetKey {
+                AIQuery::DelKey {
                     store: StoreName(store.to_string()),
-                    keys,
+                    // TODO: Fix inconsistencies with protocol delkey, this should take in a
+                    // Vec<StoreInput> and not a single store input
+                    key: key.remove(0),
                 }
             }
-            Rule::del_key => {
-                let mut inner_pairs = statement.into_inner();
-                let f32_arrays_pair = inner_pairs
-                    .next()
-                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
-                let keys = parse_multi_f32_array(f32_arrays_pair);
-
-                let store = inner_pairs
-                    .next()
-                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                    .as_str();
-                DBQuery::DelKey {
-                    store: StoreName(store.to_string()),
-                    keys,
-                }
-            }
+            // TODO: Introduce AIQuery::GetKey & AIQuery::ListClients
             Rule::create_non_linear_algorithm_index => {
                 let (store, non_linear_indices) =
                     parse_create_non_linear_algorithm_index(statement)?;
-                DBQuery::CreateNonLinearAlgorithmIndex {
+                AIQuery::CreateNonLinearAlgorithmIndex {
                     store,
                     non_linear_indices,
                 }
             }
             Rule::create_pred_index => {
                 let (store, predicates) = parse_create_pred_index(statement)?;
-                DBQuery::CreatePredIndex { store, predicates }
+                AIQuery::CreatePredIndex { store, predicates }
             }
             Rule::drop_non_linear_algorithm_index => {
                 let (store, error_if_not_exists, non_linear_indices) =
                     parse_drop_non_linear_algorithm_index(statement)?;
-                DBQuery::DropNonLinearAlgorithmIndex {
+                AIQuery::DropNonLinearAlgorithmIndex {
                     store,
                     non_linear_indices,
                     error_if_not_exists,
@@ -213,7 +233,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
             }
             Rule::drop_pred_index => {
                 let (store, predicates, error_if_not_exists) = parse_drop_pred_index(statement)?;
-                DBQuery::DropPredIndex {
+                AIQuery::DropPredIndex {
                     store,
                     predicates,
                     error_if_not_exists,
@@ -221,7 +241,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
             }
             Rule::drop_store => {
                 let (store, error_if_not_exists) = parse_drop_store(statement)?;
-                DBQuery::DropStore {
+                AIQuery::DropStore {
                     store,
                     error_if_not_exists,
                 }
