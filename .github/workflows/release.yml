@@ -57,7 +57,7 @@ jobs:
             - name: Setup Cargo ZigBuild
               working-directory: ./ahnlich
               run: |
-                cargo install --locked cargo-zigbuild
+                cargo install --locked cargo-zigbuild --version 0.19.1
 
             - name: Build Aarch64 Darwin Release for ${{ steps.get_binary_version.outputs.BIN_NAME }} And CLI
               working-directory: ./ahnlich
