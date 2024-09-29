@@ -45,7 +45,6 @@ impl Term {
         )))?;
         stdout.execute(SetForegroundColor(Color::White))?;
         stdout.flush()?;
-        stdout.flush()?;
         Ok(())
     }
 

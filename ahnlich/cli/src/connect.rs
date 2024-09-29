@@ -1,12 +1,12 @@
 use super::config::cli::Agent;
 use ahnlich_client_rs::{
-    ai::{AIClient, AIConnManager},
+    ai::{AIClient, AIConnManager, AIPipeline},
     db::{DbClient, DbConnManager, DbPipeline},
     prelude::{AIServerResponse, ServerResponse},
 };
-use ahnlich_types::{db::ServerDBQuery, ServerType};
+use ahnlich_types::{ai::AIServerQuery, db::ServerDBQuery, ServerType};
 use deadpool::managed::Pool;
-use dsl::db::parse_db_query;
+use dsl::{ai::parse_ai_query, db::parse_db_query};
 
 use crossterm::style::Stylize;
 use serde::Serialize;
@@ -75,7 +75,22 @@ impl AgentPool {
 
     pub async fn parse_queries(&self, input: &str) -> Result<Vec<String>, String> {
         match self {
-            AgentPool::AI(_pool) => Err(String::from("Unimplemented")),
+            AgentPool::AI(pool) => {
+                let queries = parse_ai_query(input).map_err(|err| err.to_string())?;
+
+                let server_query = AIServerQuery::from_queries(&queries);
+
+                let conn = pool
+                    .get()
+                    .await
+                    .map_err(|err| format!("Could not get ai client connection {err}"))?;
+
+                let pipeline = AIPipeline::new_from_queries_and_conn(server_query, conn);
+
+                let response = pipeline.exec().await.map_err(|err| err.to_string())?;
+
+                Ok(render(response.into_inner()))
+            }
             AgentPool::DB(pool) => {
                 let queries = parse_db_query(input).map_err(|err| err.to_string())?;
 
@@ -112,7 +127,7 @@ fn render(input: Vec<Result<impl Serialize, String>>) -> Vec<String> {
             Ok(success) => format_success(
                 serde_json::to_string_pretty(&success)
                     .map_err(|err| err.to_string())
-                    .expect("Failed to parse ai success response to json"),
+                    .expect("Failed to parse success response to json"),
             ),
             Err(err) => format_error(err),
         })
