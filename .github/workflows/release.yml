@@ -37,6 +37,8 @@ jobs:
             
             - name: Setup Zig
               uses: goto-bus-stop/setup-zig@v2
+              with:
+                version: 0.14.0-dev.1417+242d268a0
 
             - name: Build Linux Release for ${{ steps.get_binary_version.outputs.BIN_NAME }} And CLI
               working-directory: ./ahnlich
