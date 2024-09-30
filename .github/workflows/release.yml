@@ -36,9 +36,9 @@ jobs:
                 toolchain: 1.78.0
             
             - name: Setup Zig
-              uses: goto-bus-stop/setup-zig@v2
+              uses: mlugg/setup-zig@v1
               with:
-                version: 0.14.0-dev.1417+242d268a0
+                version: 0.13.0
 
             - name: Build Linux Release for ${{ steps.get_binary_version.outputs.BIN_NAME }} And CLI
               working-directory: ./ahnlich
