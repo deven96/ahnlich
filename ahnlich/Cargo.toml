@@ -3,6 +3,7 @@ members = [
   "ai",
   "db",
   "dsl",
+  "cli",
   "client",
   "similarity",
   "task-manager",

@@ -45,6 +45,10 @@ pub struct DbPipeline {
 }
 
 impl DbPipeline {
+    pub fn new_from_queries_and_conn(queries: ServerDBQuery, conn: Object<DbConnManager>) -> Self {
+        Self { queries, conn }
+    }
+
     /// push create store command to pipeline
     pub fn create_store(
         &mut self,
@@ -214,10 +218,10 @@ impl DbClient {
         capacity: usize,
         tracing_id: Option<String>,
     ) -> Result<DbPipeline, AhnlichError> {
-        Ok(DbPipeline {
-            queries: ServerDBQuery::with_capacity_and_tracing_id(capacity, tracing_id)?,
-            conn: self.pool.get().await?,
-        })
+        Ok(DbPipeline::new_from_queries_and_conn(
+            ServerDBQuery::with_capacity_and_tracing_id(capacity, tracing_id)?,
+            self.pool.get().await?,
+        ))
     }
 
     pub async fn create_store(

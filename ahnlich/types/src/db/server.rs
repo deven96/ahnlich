@@ -94,6 +94,10 @@ impl ServerResult {
     pub fn push(&mut self, entry: Result<ServerResponse, String>) {
         self.results.push(entry)
     }
+
+    pub fn into_inner(self) -> ServerResultInner {
+        self.results
+    }
 }
 
 impl BinCodeSerAndDeserResponse for ServerResult {
