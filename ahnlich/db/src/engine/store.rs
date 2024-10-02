@@ -1,4 +1,5 @@
 use crate::errors::ServerError;
+use rayon::prelude::*;
 
 use super::super::algorithm::non_linear::NonLinearAlgorithmIndices;
 use super::super::algorithm::{AlgorithmByType, FindSimilarN};
@@ -14,7 +15,6 @@ use ahnlich_types::predicate::PredicateCondition;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::NonLinearAlgorithm;
 use ahnlich_types::similarity::Similarity;
-use fallible_collections::FallibleVec;
 use flurry::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
 use serde::Serialize;
@@ -22,8 +22,8 @@ use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Arc;
 use utils::persistence::AhnlichPersistenceUtils;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
@@ -157,7 +157,7 @@ impl StoreHandler {
     }
 
     /// Matches DELKEY - removes keys from a store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, keys), fields(keys_length=keys.len()))]
     pub(crate) fn del_key_in_store(
         &self,
         store_name: &StoreName,
@@ -267,7 +267,7 @@ impl StoreHandler {
     }
 
     /// Matches GETKEY - gets all keys matching the inputs
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, keys), fields(key_length=keys.len()))]
     pub(crate) fn get_key_in_store(
         &self,
         store_name: &StoreName,
@@ -278,7 +278,7 @@ impl StoreHandler {
     }
 
     /// Matches SET - adds new entries into a particular store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, new), fields(entries_length=new.len()))]
     pub fn set_in_store(
         &self,
         store_name: &StoreName,
@@ -396,7 +396,7 @@ pub struct Store {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     id_to_value: ConcurrentHashMap<StoreKeyId, (StoreKey, StoreValue)>,
     /// Indices to filter for the store
-    predicate_indices: PredicateIndices,
+    predicate_indices: Arc<PredicateIndices>,
     /// Non linear Indices
     non_linear_indices: NonLinearAlgorithmIndices,
 }
@@ -411,7 +411,7 @@ impl Store {
         Self {
             dimension,
             id_to_value: ConcurrentHashMap::new(),
-            predicate_indices: PredicateIndices::init(predicates),
+            predicate_indices: Arc::new(PredicateIndices::init(predicates)),
             non_linear_indices: NonLinearAlgorithmIndices::create(non_linear_indices, dimension),
         }
     }
@@ -441,7 +441,7 @@ impl Store {
     }
 
     /// filters input dimension to make sure it matches store dimension
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, input), fields(input_length=input.len()))]
     fn filter_dimension(&self, input: Vec<StoreKey>) -> Result<Vec<StoreKey>, ServerError> {
         input
             .into_iter()
@@ -460,7 +460,7 @@ impl Store {
     }
 
     /// Deletes a bunch of store keys from the store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, del), fields(key_length=del.len()))]
     fn delete_keys(&self, del: Vec<StoreKey>) -> Result<usize, ServerError> {
         if del.is_empty() {
             return Ok(0);
@@ -478,7 +478,7 @@ impl Store {
     }
 
     /// Gets a bunch of store keys from the store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, val), fields(key_length=val.len()))]
     fn get_keys(&self, val: Vec<StoreKey>) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
         if val.is_empty() {
             return Ok(vec![]);
@@ -562,7 +562,7 @@ impl Store {
     /// Adds a bunch of entries into the store if they match the dimensions
     /// Returns the len of values added, if a value already existed it is updated but not counted
     /// as a new insert
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, new), fields(entry_length=new.len()))]
     fn add(&self, new: Vec<(StoreKey, StoreValue)>) -> Result<StoreUpsert, ServerError> {
         if new.is_empty() {
             return Ok(StoreUpsert {
@@ -571,36 +571,44 @@ impl Store {
             });
         }
         let store_dimension: usize = self.dimension.into();
-        let check_bounds = |(store_key, store_val): (StoreKey, StoreValue)| -> Result<(StoreKeyId, (StoreKey, StoreValue)), ServerError> {
+        let check_bounds = |(store_key, store_val): &(StoreKey, StoreValue)| -> Result<(StoreKeyId, (StoreKey, StoreValue)), ServerError> {
             let input_dimension = store_key.0.len();
             if input_dimension != store_dimension {
                 Err(ServerError::StoreDimensionMismatch { store_dimension, input_dimension  })
             } else {
-                Ok(((&store_key).into(), (store_key, store_val)))
+                Ok(((store_key).into(), (store_key.to_owned(), store_val.to_owned())))
             }
         };
-        let res: Vec<(StoreKeyId, (StoreKey, StoreValue))> = new
-            .into_iter()
-            .map(check_bounds)
-            .collect::<Result<_, _>>()?;
+        let res: Vec<(StoreKeyId, (StoreKey, StoreValue))> =
+            new.par_iter().map(check_bounds).collect::<Result<_, _>>()?;
         let predicate_insert = res
-            .iter()
+            .par_iter()
             .map(|(k, (_, v))| (k.clone(), v.clone()))
             .collect();
-        let pinned = self.id_to_value.pin();
-        let (mut inserted, mut updated) = (0, 0);
-        let mut inserted_keys: Vec<_> = FallibleVec::try_with_capacity(res.len())?;
-        for (key, val) in res {
-            if pinned.insert(key, val.clone()).is_some() {
-                updated += 1;
-            } else {
-                inserted += 1;
-                inserted_keys.push(val.0 .0);
-            }
+        let inserted = AtomicUsize::new(0);
+        let updated = AtomicUsize::new(0);
+        let inserted_keys = res
+            .into_par_iter()
+            .flat_map_iter(|(k, v)| {
+                let pinned = self.id_to_value.pin();
+                if pinned.insert(k, v.clone()).is_some() {
+                    updated.fetch_add(1, Ordering::SeqCst);
+                } else {
+                    inserted.fetch_add(1, Ordering::SeqCst);
+                    return Some(v.0 .0);
+                }
+                None
+            })
+            .collect();
+        let predicate_indices = self.predicate_indices.clone();
+        predicate_indices.add(predicate_insert);
+        if !self.non_linear_indices.is_empty() {
+            self.non_linear_indices.insert(inserted_keys);
         }
-        self.predicate_indices.add(predicate_insert);
-        self.non_linear_indices.insert(inserted_keys);
-        Ok(StoreUpsert { inserted, updated })
+        Ok(StoreUpsert {
+            inserted: inserted.into_inner(),
+            updated: updated.into_inner(),
+        })
     }
 
     #[tracing::instrument(skip(self))]

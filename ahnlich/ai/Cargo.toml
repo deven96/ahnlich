@@ -41,12 +41,12 @@ rayon.workspace = true
 fastembed = { version = "4.0.0", features = ["default"] }
 hf-hub = { version = "0.3", default-features = false }
 dirs = "5.0.1"
-ort = { version = "2.0.0-rc.5", features = [
+ort = { version = "=2.0.0-rc.5", default-features = false, features = [
     "ndarray",
 ]}
 moka = { version = "0.12.8", features = ["future"] }
-bincode = "1.3.3"
-
+tracing-opentelemetry.workspace = true
+futures.workspace = true
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true
