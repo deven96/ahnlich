@@ -186,6 +186,7 @@ impl Default for AIProxyConfig {
                 SupportedModels::AllMiniLML12V2,
                 SupportedModels::BGEBaseEnV15,
                 SupportedModels::Resnet50,
+                SupportedModels::ClipVitB32,
             ],
             model_cache_location: home_dir()
                 .map(|mut path| {

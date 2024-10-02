@@ -38,7 +38,9 @@ impl fmt::Debug for ORTProvider {
 pub struct ORTImageModel {
     repo_name: String,
     weights_file: String,
-    session: Option<Session>
+    session: Option<Session>,
+    input_param: String,
+    output_param: String
 }
 
 pub enum ORTModel {
@@ -53,11 +55,15 @@ impl TryFrom<&SupportedModels> for ORTModel {
             SupportedModels::Resnet50 => Ok(ORTImageModel {
                 repo_name: "Qdrant/resnet50-onnx".to_string(),
                 weights_file: "model.onnx".to_string(),
+                input_param: "input".to_string(),
+                output_param: "image_embeds".to_string(),
                 ..Default::default()
             }),
             SupportedModels::ClipVitB32 => Ok(ORTImageModel {
                 repo_name: "Qdrant/clip-ViT-B-32-vision".to_string(),
                 weights_file: "model.onnx".to_string(),
+                input_param: "pixel_values".to_string(),
+                output_param: "image_embeds".to_string(),
                 ..Default::default()
             }),
             _ => Err(AIProxyError::AIModelNotSupported)
@@ -116,7 +122,8 @@ impl ProviderTrait for ORTProvider {
             .unwrap();
 
         match ort_model {
-            ORTModel::Image(ORTImageModel {weights_file, repo_name, ..}) => {
+            ORTModel::Image(ORTImageModel {weights_file, repo_name, input_param,
+                                output_param, ..}) => {
                 let model_repo = api.model(repo_name.clone());
                 let model_file_reference = model_repo.get(&weights_file)
                     .unwrap_or_else(|_| panic!("Failed to retrieve {} ", weights_file));
@@ -129,6 +136,8 @@ impl ProviderTrait for ORTProvider {
                 self.model = Some(ORTModel::Image(ORTImageModel {
                     repo_name,
                     weights_file,
+                    input_param,
+                    output_param,
                     session: Some(session)
                 }));
             }
@@ -165,7 +174,8 @@ impl ProviderTrait for ORTProvider {
     }
 
     fn run_inference(&self, input: &StoreInput, action_type: InputAction) -> Vec<f32> {
-        if let Some(ORTModel::Image(ORTImageModel{session, ..})) = &self.model {
+        if let Some(ORTModel::Image(ORTImageModel{session, input_param,
+                                        output_param, ..})) = &self.model {
             let image = match input {
                 StoreInput::Image(image) => image.clone(),
                 _ => panic!("{}", AIProxyError::TypeMismatchError {
@@ -186,12 +196,12 @@ impl ProviderTrait for ORTProvider {
             match session {
                 Some(session) => {
                     let session_inputs = ort::inputs![
-                        "input" => pixel_values_array.view(),
+                        input_param.as_str() => pixel_values_array.view(),
                     ].unwrap();
                     let outputs = session.run(session_inputs).unwrap();
                     let last_hidden_state_key = match outputs.len() {
                         1 => outputs.keys().next().unwrap(),
-                        _ => "image_embeds",
+                        _ => output_param.as_str(),
                     };
                     let output_data = outputs[last_hidden_state_key].try_extract_tensor::<f32>().unwrap();
                     let embeddings: Vec<Vec<f32>> = output_data
