@@ -46,79 +46,90 @@ static DEFAULT_CONFIG: OnceLock<AIProxyConfig> = OnceLock::new();
 #[derive(Args, Debug, Clone)]
 pub struct AIProxyConfig {
     /// Ahnlich AI proxy host
-    #[arg(long, default_value_t = String::from("127.0.0.1"))]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).host.clone())]
     pub host: String,
 
     /// Ahnlich AI proxy port
-    #[arg(long, default_value_t = 1370)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).port.clone())]
     pub port: u16,
 
     /// Allows server to persist data to disk on occassion
-    #[arg(long, default_value_t = false, action=ArgAction::SetTrue)]
+    #[arg(long, action=ArgAction::SetTrue, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).enable_persistence.clone())]
     pub(crate) enable_persistence: bool,
 
     /// persistence location
     #[arg(long, requires_if("true", "enable_persistence"))]
     pub(crate) persist_location: Option<std::path::PathBuf>,
     /// Controls whether we crash or not on startup if persisting load fails
-    #[arg(long, default_value_t = false, action=ArgAction::SetFalse)]
+    #[arg(long, action=ArgAction::SetFalse, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).fail_on_startup_if_persist_load_fails.clone())]
     pub(crate) fail_on_startup_if_persist_load_fails: bool,
 
     /// persistence interval in milliseconds
     /// A new persistence round would be scheduled for persistence_interval into the future after
     /// current persistence round is completed
-    #[arg(long, default_value_t = 1000 * 60 * 5)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).persistence_interval.clone())]
     pub(crate) persistence_interval: u64,
 
     /// Ahnlich Database Host
-    #[arg(long, default_value_t = String::from("127.0.0.1"))]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_host.clone())]
     pub db_host: String,
 
     /// Ahnlich Database port
-    #[arg(long, default_value_t = 1369)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_port.clone())]
     pub db_port: u16,
 
     /// Ahnlich Database Client Connection Pool Size
-    #[arg(long, default_value_t = 10)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_client_pool_size.clone())]
     pub db_client_pool_size: usize,
 
     /// sets size(in bytes) for global allocator used
     /// Defaults to 1 Gi (1 * 1024 * 1024 * 1024)
-    #[arg(long, default_value_t = 1_073_741_824)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).allocator_size.clone())]
     pub allocator_size: usize,
 
     /// limits the message size of expected messages, defaults to 1MiB (1 * 1024 * 1024)
-    #[arg(long, default_value_t = 1_048_576)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).message_size.clone())]
     pub message_size: usize,
     /// Allows enables tracing
-    #[arg(long, default_value_t = true, action=ArgAction::SetTrue)]
+    #[arg(long, action=ArgAction::SetTrue, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).enable_tracing.clone())]
     pub(crate) enable_tracing: bool,
     /// Otel collector url to send traces to
     #[arg(long, requires_if("true", "enable_tracing"))]
     pub(crate) otel_endpoint: Option<String>,
 
     ///  Log level
-    #[arg(long, default_value_t = String::from("info"))]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).log_level.clone())]
     pub(crate) log_level: String,
 
     ///  Maximum client connections allowed
     ///  Defaults to 1000
-    #[arg(long, default_value_t = 1000)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).maximum_clients.clone())]
     pub(crate) maximum_clients: usize,
 
     /// List of ai models to support in your aiproxy stores
-    #[arg(long, value_enum, value_delimiter = ',',
-        default_values_t =
-    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default)
-    .supported_models.clone())
-    ]
+    #[arg(long, value_enum, value_delimiter = ',', default_values_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).supported_models.clone())]
     pub(crate) supported_models: Vec<SupportedModels>,
 
     /// AI Model Idle Time in seconds
     /// Defaults to 5 mins
     /// Time in seconds for an unused/idle supported model to be dropped
     /// Futher calls after a drop reinitializes the model from scratch
-    #[arg(long, default_value_t = 60 * 5)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).ai_model_idle_time.clone())]
     pub(crate) ai_model_idle_time: u64,
 
     /// Directory path for storing the model artifacts
@@ -177,7 +188,7 @@ impl Default for AIProxyConfig {
             allocator_size: 1_073_741_824,
             message_size: 1_048_576,
 
-            enable_tracing: false,
+            enable_tracing: true,
             otel_endpoint: None,
             log_level: String::from("info"),
             maximum_clients: 1000,
