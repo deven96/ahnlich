@@ -1,3 +1,4 @@
+use crate::keyval::ImageArray;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
@@ -20,5 +21,5 @@ impl fmt::Display for MetadataKey {
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum MetadataValue {
     RawString(String),
-    Image(Vec<u8>),
+    Image(ImageArray),
 }

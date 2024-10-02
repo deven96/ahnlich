@@ -18,6 +18,7 @@ flurry.workspace = true
 tokio.workspace = true
 serde.workspace = true
 ndarray.workspace = true
+image.workspace = true
 clap.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
@@ -40,10 +41,11 @@ rayon.workspace = true
 fastembed = { version = "4.0.0", features = ["default"] }
 hf-hub = { version = "0.3", default-features = false }
 dirs = "5.0.1"
-ort = { version = "=2.0.0-rc.5", default-features = false, features = [
+ort = { version = "2.0.0-rc.5", features = [
     "ndarray",
 ]}
 moka = { version = "0.12.8", features = ["future"] }
+bincode = "1.3.3"
 
 [dev-dependencies]
 db = { path = "../db", version = "*" }

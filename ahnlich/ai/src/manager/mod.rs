@@ -8,6 +8,7 @@ use crate::engine::ai::models::InputAction;
 /// channel
 use crate::engine::ai::models::Model;
 use crate::error::AIProxyError;
+use ahnlich_types::keyval::{ImageArray, InputLength};
 use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
@@ -128,22 +129,27 @@ impl ModelThread {
     #[tracing::instrument(skip(self))]
     fn process_image(
         &self,
-        input: Vec<u8>,
+        input: ImageArray,
         image_action: ImageAction,
     ) -> Result<StoreInput, AIProxyError> {
         // process image, return error if max dimensions exceeded
-        if let Some(max_image_dimensions) = self.model.max_image_dimensions() {
-            if input.len() > max_image_dimensions.into() {
+        let dimensions = input.image_dim();
+        if let (
+            Some((expected_width, expected_height)),
+            InputLength::Image { width, height }
+        ) = (self.model.expected_image_dimensions(), dimensions) {
+            if width != expected_width || height != expected_height {
                 if let ImageAction::ErrorIfDimensionsMismatch = image_action {
                     return Err(AIProxyError::ImageDimensionsMismatchError {
-                        image_dimensions: input.len(),
-                        max_dimensions: max_image_dimensions.into(),
+                        image_dimensions: (width.into(), height.into()),
+                        expected_dimensions: (expected_width.into(), expected_height.into()),
                     });
                 } else {
                     // resize image
                 }
             }
         }
+
         Ok(StoreInput::Image(input))
     }
 }

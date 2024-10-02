@@ -26,7 +26,8 @@ pub enum Model {
     Image {
         supported_model: SupportedModels,
         description: String,
-        max_image_dimensions: NonZeroUsize,
+        // width, height
+        expected_image_dimensions: (NonZeroUsize, NonZeroUsize),
         embedding_size: NonZeroUsize,
         provider: ModelProviders,
     },
@@ -73,7 +74,7 @@ impl From<&AIModel> for Model {
                 supported_model: SupportedModels::Resnet50,
                 description: String::from("Residual Networks model, with 50 layers."),
                 embedding_size: nonzero!(2048usize),
-                max_image_dimensions: nonzero!(224usize),
+                expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
                 provider: ModelProviders::ORT(ORTProvider::new()),
             },
             AIModel::ClipVitB32 => Self::Image {
@@ -82,7 +83,7 @@ impl From<&AIModel> for Model {
                     "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
                 ),
                 embedding_size: nonzero!(512usize),
-                max_image_dimensions: nonzero!(224usize),
+                expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
                 provider: ModelProviders::ORT(ORTProvider::new()),
             },
         }
@@ -113,31 +114,19 @@ impl Model {
         storeinput: &StoreInput,
         action_type: InputAction,
     ) -> Result<StoreKey, AIProxyError> {
-        let length = storeinput.len() as f32;
-        if let (StoreInput::RawString(string), Model::Text { provider, .. }) = (storeinput, self) {
-            return match provider {
-                ModelProviders::FastEmbed(provider) => {
-                    let embedding = provider.run_inference(storeinput, action_type);
-                    Ok(StoreKey(<Array1<f32>>::from(embedding)))
-                },
-                ModelProviders::ORT(provider) => {
-                    let embedding = provider.run_inference(storeinput, action_type);
-                    Ok(StoreKey(<Array1<f32>>::from(embedding)))
+        match self {
+            Model::Text { provider, .. } | Model::Image { provider, .. } => {
+                return match provider {
+                    ModelProviders::FastEmbed(provider) => {
+                        let embedding = provider.run_inference(storeinput, action_type);
+                        Ok(StoreKey(<Array1<f32>>::from(embedding)))
+                    },
+                    ModelProviders::ORT(provider) => {
+                        let embedding = provider.run_inference(storeinput, action_type);
+                        Ok(StoreKey(<Array1<f32>>::from(embedding)))
+                    }
                 }
-            };
-        } else if let (StoreInput::Image(image), Model::Image { provider, .. }) = (storeinput, self)
-        {
-            // let embedding = provider.run_inference(image);
-            // return StoreKey(embedding);
-            Ok(StoreKey(
-                Array1::from_iter(0..self.embedding_size().into()).mapv(|v| v as f32 * length),
-            ))
-        } else {
-            return Err(AIProxyError::TypeMismatchError {
-                model_type: storeinput.into(),
-                input_type: self.into(),
-                action_type,
-            });
+            }
         }
     }
 
@@ -151,13 +140,13 @@ impl Model {
         }
     }
     #[tracing::instrument(skip(self))]
-    pub fn max_image_dimensions(&self) -> Option<NonZeroUsize> {
+    pub fn expected_image_dimensions(&self) -> Option<(NonZeroUsize, NonZeroUsize)> {
         match self {
             Model::Text { .. } => None,
             Model::Image {
-                max_image_dimensions,
+                expected_image_dimensions: (width, height),
                 ..
-            } => Some(*max_image_dimensions),
+            } => Some((*width, *height)),
         }
     }
     #[tracing::instrument(skip(self))]
@@ -235,7 +224,7 @@ pub(crate) struct ModelInfo {
     input_type: AIStoreInputType,
     embedding_size: NonZeroUsize,
     max_input_tokens: Option<NonZeroUsize>,
-    max_image_dimensions: Option<NonZeroUsize>,
+    expected_image_dimensions: Option<(NonZeroUsize, NonZeroUsize)>,
     description: String,
 }
 
@@ -246,7 +235,7 @@ impl ModelInfo {
             input_type: model.input_type(),
             embedding_size: model.embedding_size(),
             max_input_tokens: model.max_input_token(),
-            max_image_dimensions: model.max_image_dimensions(),
+            expected_image_dimensions: model.expected_image_dimensions(),
             description: model.model_description(),
         }
     }

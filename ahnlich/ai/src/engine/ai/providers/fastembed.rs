@@ -4,7 +4,7 @@ use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{InputAction, Model};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
-use fastembed::{EmbeddingModel, ImageEmbedding, ImageEmbeddingModel, InitOptions, TextEmbedding};
+use fastembed::{EmbeddingModel, ImageEmbedding, InitOptions, TextEmbedding};
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use std::convert::TryFrom;
 use std::fmt;
@@ -20,7 +20,6 @@ pub struct FastEmbedProvider {
 
 pub enum FastEmbedModelType {
     Text(EmbeddingModel),
-    Image(ImageEmbeddingModel),
 }
 
 impl fmt::Debug for FastEmbedProvider {
@@ -98,12 +97,10 @@ impl ProviderTrait for FastEmbedProvider {
             )
         });
 
-        if let FastEmbedModelType::Text(model_type) = model_type {
-            let model =
-                TextEmbedding::try_new(InitOptions::new(model_type).with_cache_dir(cache_location))
-                    .unwrap();
-            self.model = Some(FastEmbedModel::Text(model));
-        }
+        let FastEmbedModelType::Text(model_type) = model_type;
+        let model = TextEmbedding::try_new(InitOptions::new(model_type)
+            .with_cache_dir(cache_location)).unwrap();
+        self.model = Some(FastEmbedModel::Text(model));
 
         self
     }
@@ -132,7 +129,6 @@ impl ProviderTrait for FastEmbedProvider {
                 let model_info = TextEmbedding::get_model_info(&model_type).unwrap();
                 model_repo.get(model_info.model_file.as_str()).unwrap();
             }
-            FastEmbedModelType::Image(model_type) => {}
         }
     }
 

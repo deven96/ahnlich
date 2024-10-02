@@ -1,10 +1,14 @@
+use std::cmp::Ordering;
 use crate::metadata::MetadataKey;
 use crate::metadata::MetadataValue;
-use ndarray::Array1;
-use serde::Deserialize;
-use serde::Serialize;
+use ndarray::{Array1, Array, Ix3};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::io::Cursor;
 use std::collections::HashMap as StdHashMap;
 use std::fmt;
+use std::num::NonZeroUsize;
+use image::{ImageReader, GenericImageView};
+
 
 /// Name of a Store
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
@@ -50,18 +54,103 @@ impl PartialEq for StoreKey {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct ImageArray {
+    array: Array<u8, Ix3>,
+    bytes: Vec<u8>
+}
+
+impl ImageArray {
+    pub fn get_array(&self) -> &Array<u8, Ix3> {
+        &self.array
+    }
+
+    pub fn get_bytes(&self) -> &Vec<u8> {
+        &self.bytes
+    }
+
+    pub fn image_dim(&self) -> InputLength {
+        let shape = self.array.shape();
+        InputLength::Image {
+            width: NonZeroUsize::new(shape[1]).unwrap(),
+            height: NonZeroUsize::new(shape[0]).unwrap(),
+        }
+    }
+}
+
+
+impl Serialize for ImageArray {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(self.get_bytes())
+    }
+}
+
+impl<'de> Deserialize<'de> for ImageArray {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
+        let img_reader = ImageReader::new(Cursor::new(&bytes))
+            .with_guessed_format().unwrap();
+        let img = img_reader.decode().unwrap();
+
+        let (width, height) = img.dimensions();
+        let channels = img.color().channel_count();
+        let shape = (height as usize, width as usize, channels as usize);
+        let val = img.into_bytes();
+        let array = Array::from_shape_vec(
+            shape, val).unwrap();
+        Ok(ImageArray { array, bytes })
+    }
+}
+
+impl Ord for ImageArray {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let (array_vec, _) = self.array.clone().into_raw_vec_and_offset();
+        let (other_vec, _) = other.array.clone().into_raw_vec_and_offset();
+        array_vec.cmp(&other_vec)
+    }
+}
+
+impl PartialOrd for ImageArray {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StoreInput {
     RawString(String),
-    Image(Vec<u8>),
+    Image(ImageArray),
+}
+
+pub enum InputLength {
+    RawString(NonZeroUsize),
+    Image {
+        width: NonZeroUsize,
+        height: NonZeroUsize,
+    },
 }
 
 #[allow(clippy::len_without_is_empty)]
 impl StoreInput {
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> InputLength {
         match self {
-            Self::Image(value) => value.len(),
-            Self::RawString(s) => s.len(),
+            Self::Image(value) => {
+                let shape = value.array.shape();
+                InputLength::Image {
+                    height: NonZeroUsize::new(shape[0]).unwrap(),
+                    width: NonZeroUsize::new(shape[1]).unwrap(),
+                }
+            },
+            Self::RawString(s) => InputLength::RawString(
+                NonZeroUsize::new(s.len()).unwrap()),
         }
     }
 }

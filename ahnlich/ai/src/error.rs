@@ -37,11 +37,12 @@ pub enum AIProxyError {
     },
 
     #[error(
-        "Image Dimensions [{image_dimensions}] exceeds max model dimensions [{max_dimensions}] "
+        "Image Dimensions [({0}, {1})] does not the expected model dimensions [({2}, {3})] ",
+        image_dimensions.0, image_dimensions.1, expected_dimensions.0, expected_dimensions.1
     )]
     ImageDimensionsMismatchError {
-        image_dimensions: usize,
-        max_dimensions: usize,
+        image_dimensions: (usize, usize),
+        expected_dimensions: (usize, usize),
     },
 
     #[error("Used [{preprocess_action}] for [{input_type}] type")]
