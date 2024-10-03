@@ -1,16 +1,13 @@
-use crossterm::event::{
-    poll, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
-};
-
 use crossterm::{
     cursor,
     event::{self, Event, KeyCode, KeyEvent},
-    execute, queue,
+    queue,
     style::{Color, Print, SetForegroundColor, Stylize},
     terminal::{disable_raw_mode, enable_raw_mode},
     ExecutableCommand,
 };
 use std::io::{self, stdout, Stdout, Write};
+use std::usize;
 
 use crate::connect::AgentPool;
 
@@ -24,6 +21,7 @@ enum SpecialEntry {
     Break,
     Left,
     Right,
+    Del,
 }
 
 #[derive(Debug)]
@@ -52,6 +50,7 @@ impl Term {
                 KeyCode::Up => Entry::Special(SpecialEntry::Up),
                 KeyCode::Down => Entry::Special(SpecialEntry::Down),
                 KeyCode::Right => Entry::Special(SpecialEntry::Right),
+                KeyCode::Backspace => Entry::Special(SpecialEntry::Del),
                 _ => Entry::Other(code),
             })
         } else {
@@ -72,27 +71,72 @@ impl Term {
 
     pub(crate) fn ahnlich_prompt(&self, stdout: &mut Stdout) -> io::Result<()> {
         stdout.execute(SetForegroundColor(Color::White))?;
-        stdout.execute(Print(">>> "))?;
+        stdout.execute(Print(">>>"))?;
         stdout.execute(SetForegroundColor(Color::White))?;
 
         stdout.flush()?;
         Ok(())
     }
 
-    //  pub(crate) fn print_query(&self, query: &str) -> io::Result<()> {
-    //      self.ahnlich_prompt()?;
-    //      let output = String::from_iter(query.split(' ').map(|ex| {
-    //          if RESERVED_WORDS.contains(&(ex.to_lowercase().as_str())) {
-    //              format!("{} ", ex.magenta())
-    //          } else {
-    //              format!("{} ", ex.white())
-    //          }
-    //      }));
+    pub(crate) fn format_output(&self, query: &str) -> String {
+        let output = String::from_iter(query.split(' ').map(|ex| {
+            if RESERVED_WORDS.contains(&(ex.to_lowercase().as_str())) {
+                format!("{}", ex.magenta())
+            } else {
+                format!("{}", ex.white())
+            }
+        }));
+        output
+    }
 
-    //      println!("{output}");
+    fn remove_at_pos(&self, input: &mut String, char_index: u16) {
+        let byte_index = input
+            .char_indices()
+            .nth(char_index as usize)
+            .map(|(entry, _)| entry)
+            .expect(&format!(
+                "Index out of bounds {} --> {}",
+                input.len(),
+                char_index
+            ));
 
-    //      Ok(())
-    //  }
+        input.remove(byte_index);
+    }
+
+    fn move_to_pos_and_print(
+        &self,
+        stdout: &mut Stdout,
+        output: &str,
+        col_pos: u16,
+    ) -> io::Result<()> {
+        let formatted_output = self.format_output(&output);
+        queue!(
+            stdout,
+            cursor::MoveToColumn(col_pos),
+            Print(formatted_output)
+        )?;
+        stdout.flush()?;
+        Ok(())
+    }
+
+    fn delete_and_print_less(
+        &self,
+        stdout: &mut Stdout,
+        output: &str,
+        col_pos: u16,
+    ) -> io::Result<()> {
+        let formatted_output = self.format_output(&output);
+        let clean = vec![" "; output.len() + 1];
+        queue!(
+            stdout,
+            cursor::MoveToColumn(col_pos),
+            Print(format!("{}", clean.join(""))),
+            cursor::MoveToColumn(col_pos),
+            Print(formatted_output)
+        )?;
+        stdout.flush()?;
+        Ok(())
+    }
 
     fn read_line(&self, stdout: &mut Stdout) -> io::Result<String> {
         let (start_pos_col, _) = cursor::position()?;
@@ -104,8 +148,7 @@ impl Term {
             match char {
                 Entry::Char(c) => {
                     output.push(c);
-                    stdout.execute(Print(c))?;
-                    stdout.flush()?;
+                    self.move_to_pos_and_print(stdout, &output, start_pos_col)?;
                 }
                 Entry::Special(special) => match special {
                     SpecialEntry::Up | SpecialEntry::Down => {
@@ -124,6 +167,18 @@ impl Term {
                     SpecialEntry::Right => {
                         if start_pos_col + output.len() as u16 > current_pos_col {
                             stdout.execute(cursor::MoveRight(1))?;
+                        }
+                    }
+                    SpecialEntry::Del => {
+                        if current_pos_col == start_pos_col {
+                            continue;
+                        }
+                        let output_current_pos = current_pos_col - start_pos_col;
+
+                        if !output.is_empty() {
+                            self.remove_at_pos(&mut output, output_current_pos - 1);
+                            self.delete_and_print_less(stdout, &output, start_pos_col)?;
+                            stdout.execute(cursor::MoveToColumn(current_pos_col - 1))?;
                         }
                     }
                 },
@@ -145,12 +200,13 @@ impl Term {
             self.ahnlich_prompt(&mut stdout)?;
             let input = self.read_line(&mut stdout)?;
             match input.as_str() {
-                "quit" | "exit()" => break,
+                "quit" | "exit" | "exit()" => break,
                 command => {
                     let response = self.client_pool.parse_queries(command).await;
 
                     match response {
                         Ok(success) => {
+                            disable_raw_mode()?;
                             for msg in success {
                                 queue!(
                                     stdout,
@@ -159,6 +215,7 @@ impl Term {
                                 )?;
                             }
                             stdout.flush()?;
+                            enable_raw_mode()?
                         }
                         Err(err) => {
                             queue!(
