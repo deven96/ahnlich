@@ -7,11 +7,11 @@
 
 - [`ahnlich-db`](ahnlich/db): In-memory vector key value store for storing embeddings/vectors with corresponding metadata(key-value maps). It's a powerful system which enables AI/ML engineers to store and search similar vectors using linear (cosine, euclidean) or non-linear similarity (kdtree) algorithms. It also leverages search within metadata values to be able to filter out entries using metadata values. A simple example can look like
 ```
-GET 2 most similar vectors to [0.2, 0.1] using cosine in STORE A where "page" is not "hidden"
+GETSIMN 2 WITH [0.2, 0.1] USING cosinesimilarity IN my_store WHERE (page != hidden)
 
 // example query
 get_sim_n(
-    store="A",
+    store="my_store",
     search_input=[0.2, 0.1],
     closest_n=2,
     algorithm=CosineSimilarity,
@@ -23,11 +23,11 @@ get_sim_n(
 ```
 - [`ahnlich-ai`](ahnlich/ai/): AI proxy to communicate with `ahnlich-db`, receiving raw input, transforming into embeddings, and storing within the DB. It extends the capabilities by then allowing developers/engineers to issue queries to the same store using raw input such as images/text. It features multiple off-the-shelf models that can be selected for store index and query.
 ```
-CREATE store A with INDEX MODEL all-minilm-l6-v2 and QUERY MODEL all-minilm-l6-v2
+CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
 
 // example query
 create_store(
-    store="A",
+    store="my_store",
     index_model="all-minilm-l6-v2",
     query_model="all-minilm-l6-v2",
 )
