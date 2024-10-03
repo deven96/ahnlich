@@ -7,7 +7,6 @@ use crossterm::{
     ExecutableCommand,
 };
 use std::io::{self, stdout, Stdout, Write};
-use std::usize;
 
 use crate::connect::AgentPool;
 
@@ -18,7 +17,6 @@ enum SpecialEntry {
     Enter,
     Up,
     Down,
-    Break,
     Left,
     Right,
     Del,
@@ -28,7 +26,6 @@ enum SpecialEntry {
 enum Entry {
     Char(char),
     Special(SpecialEntry),
-    Other(KeyCode),
     None,
 }
 
@@ -41,7 +38,7 @@ impl Term {
         Self { client_pool }
     }
 
-    pub(crate) fn read_char(&self) -> io::Result<Entry> {
+    fn read_char(&self) -> io::Result<Entry> {
         if let Event::Key(KeyEvent { code, .. }) = event::read()? {
             Ok(match code {
                 KeyCode::Enter => Entry::Special(SpecialEntry::Enter),
@@ -51,7 +48,7 @@ impl Term {
                 KeyCode::Down => Entry::Special(SpecialEntry::Down),
                 KeyCode::Right => Entry::Special(SpecialEntry::Right),
                 KeyCode::Backspace => Entry::Special(SpecialEntry::Del),
-                _ => Entry::Other(code),
+                _ => Entry::None,
             })
         } else {
             Ok(Entry::None)
@@ -94,11 +91,7 @@ impl Term {
             .char_indices()
             .nth(char_index as usize)
             .map(|(entry, _)| entry)
-            .expect(&format!(
-                "Index out of bounds {} --> {}",
-                input.len(),
-                char_index
-            ));
+            .unwrap_or_else(|| panic!("Index out of bounds {} --> {}", input.len(), char_index));
 
         input.remove(byte_index);
     }
@@ -109,7 +102,7 @@ impl Term {
         output: &str,
         col_pos: u16,
     ) -> io::Result<()> {
-        let formatted_output = self.format_output(&output);
+        let formatted_output = self.format_output(output);
         queue!(
             stdout,
             cursor::MoveToColumn(col_pos),
@@ -125,12 +118,12 @@ impl Term {
         output: &str,
         col_pos: u16,
     ) -> io::Result<()> {
-        let formatted_output = self.format_output(&output);
+        let formatted_output = self.format_output(output);
         let clean = vec![" "; output.len() + 1];
         queue!(
             stdout,
             cursor::MoveToColumn(col_pos),
-            Print(format!("{}", clean.join(""))),
+            Print(clean.join("").to_string()),
             cursor::MoveToColumn(col_pos),
             Print(formatted_output)
         )?;
@@ -154,7 +147,7 @@ impl Term {
                     SpecialEntry::Up | SpecialEntry::Down => {
                         continue;
                     }
-                    SpecialEntry::Enter | SpecialEntry::Break => {
+                    SpecialEntry::Enter => {
                         queue!(stdout, Print("\n"), cursor::MoveToColumn(0))?;
                         stdout.flush()?;
                         break;
@@ -182,7 +175,7 @@ impl Term {
                         }
                     }
                 },
-                Entry::Other(_) | Entry::None => {
+                Entry::None => {
                     continue;
                 }
             }
