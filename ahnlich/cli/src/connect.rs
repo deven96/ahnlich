@@ -36,6 +36,14 @@ impl AgentPool {
         }
     }
 
+    /// Returns the commands for the agent pool in question
+    pub fn commands(&self) -> &[&str] {
+        match self {
+            AgentPool::AI(_) => dsl::ai::COMMANDS,
+            AgentPool::DB(_) => dsl::db::COMMANDS,
+        }
+    }
+
     /// Checks if the connection to to a host and post is alive, also checks the cli is connected
     /// to the right server( ahnlich ai or db)
     pub async fn is_valid_connection(&self) -> Result<bool, String> {

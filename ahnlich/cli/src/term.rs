@@ -3,14 +3,12 @@ use crossterm::{
     event::{self, Event, KeyCode, KeyEvent},
     queue,
     style::{Color, Print, SetForegroundColor, Stylize},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    terminal::{self, disable_raw_mode, enable_raw_mode},
     ExecutableCommand,
 };
 use std::io::{self, stdout, Stdout, Write};
 
 use crate::connect::AgentPool;
-
-const RESERVED_WORDS: [&str; 3] = ["ping", "infoserver", "createpredindex"];
 
 #[derive(Debug)]
 enum SpecialEntry {
@@ -20,6 +18,8 @@ enum SpecialEntry {
     Left,
     Right,
     Del,
+    Exit,
+    ClrScr,
 }
 
 #[derive(Debug)]
@@ -27,6 +27,12 @@ enum Entry {
     Char(char),
     Special(SpecialEntry),
     None,
+}
+
+#[derive(Debug)]
+enum LineResult {
+    Command(String),
+    Exit,
 }
 
 pub struct Term {
@@ -39,29 +45,40 @@ impl Term {
     }
 
     fn read_char(&self) -> io::Result<Entry> {
-        if let Event::Key(KeyEvent { code, .. }) = event::read()? {
-            Ok(match code {
-                KeyCode::Enter => Entry::Special(SpecialEntry::Enter),
-                KeyCode::Char(c) => Entry::Char(c),
-                KeyCode::Left => Entry::Special(SpecialEntry::Left),
-                KeyCode::Up => Entry::Special(SpecialEntry::Up),
-                KeyCode::Down => Entry::Special(SpecialEntry::Down),
-                KeyCode::Right => Entry::Special(SpecialEntry::Right),
-                KeyCode::Backspace => Entry::Special(SpecialEntry::Del),
-                _ => Entry::None,
-            })
-        } else {
-            Ok(Entry::None)
+        match event::read()? {
+            Event::Key(KeyEvent {
+                code, modifiers, ..
+            }) => {
+                if code == KeyCode::Char('c') && modifiers == event::KeyModifiers::CONTROL {
+                    return Ok(Entry::Special(SpecialEntry::Exit));
+                }
+                if code == KeyCode::Char('l') && modifiers == event::KeyModifiers::CONTROL {
+                    return Ok(Entry::Special(SpecialEntry::ClrScr));
+                }
+                Ok(match code {
+                    KeyCode::Enter => Entry::Special(SpecialEntry::Enter),
+                    KeyCode::Char(c) => Entry::Char(c),
+                    KeyCode::Left => Entry::Special(SpecialEntry::Left),
+                    KeyCode::Up => Entry::Special(SpecialEntry::Up),
+                    KeyCode::Down => Entry::Special(SpecialEntry::Down),
+                    KeyCode::Right => Entry::Special(SpecialEntry::Right),
+                    KeyCode::Backspace => Entry::Special(SpecialEntry::Del),
+                    _ => Entry::None,
+                })
+            }
+            _ => Ok(Entry::None),
         }
     }
     pub fn welcome_message(&self) -> io::Result<()> {
         let mut stdout = stdout();
-        stdout.execute(SetForegroundColor(Color::White))?;
-        stdout.execute(Print(format!(
-            "Welcome To Ahnlich {}\n\n",
-            self.client_pool
-        )))?;
-        stdout.execute(SetForegroundColor(Color::White))?;
+        queue!(
+            stdout,
+            terminal::Clear(terminal::ClearType::All),
+            cursor::MoveTo(0, 0),
+            SetForegroundColor(Color::White),
+            Print(format!("Welcome To Ahnlich {}\n\n", self.client_pool)),
+            SetForegroundColor(Color::White),
+        )?;
         stdout.flush()?;
         Ok(())
     }
@@ -76,13 +93,26 @@ impl Term {
     }
 
     pub(crate) fn format_output(&self, query: &str) -> String {
-        let output = String::from_iter(query.split(' ').map(|ex| {
-            if RESERVED_WORDS.contains(&(ex.to_lowercase().as_str())) {
-                format!("{}", ex.magenta())
-            } else {
-                format!("{}", ex.white())
-            }
-        }));
+        let matches = |c| c == ';' || c == ' ';
+        let output = query
+            .split_inclusive(matches)
+            .map(|ex| {
+                // Trim the trailing space or semicolon from the command part
+                let trimmed_ex = ex.trim_end_matches(matches);
+
+                if self
+                    .client_pool
+                    .commands()
+                    .contains(&(trimmed_ex.to_lowercase().as_str()))
+                {
+                    // Add back the space or semicolon at the end (if present)
+                    format!("{}{}", trimmed_ex.magenta(), &ex[trimmed_ex.len()..])
+                } else {
+                    format!("{}{}", trimmed_ex.white(), &ex[trimmed_ex.len()..])
+                }
+            })
+            .collect::<String>();
+
         output
     }
 
@@ -131,7 +161,7 @@ impl Term {
         Ok(())
     }
 
-    fn read_line(&self, stdout: &mut Stdout) -> io::Result<String> {
+    fn read_line(&self, stdout: &mut Stdout) -> io::Result<LineResult> {
         let (start_pos_col, _) = cursor::position()?;
         let mut output = String::new();
 
@@ -174,13 +204,23 @@ impl Term {
                             stdout.execute(cursor::MoveToColumn(current_pos_col - 1))?;
                         }
                     }
+                    SpecialEntry::ClrScr => {
+                        queue!(
+                            stdout,
+                            cursor::MoveTo(0, 0),
+                            terminal::Clear(terminal::ClearType::All),
+                        )?;
+                        self.ahnlich_prompt(stdout)?;
+                        self.move_to_pos_and_print(stdout, &output, start_pos_col)?;
+                    }
+                    SpecialEntry::Exit => return Ok(LineResult::Exit),
                 },
                 Entry::None => {
                     continue;
                 }
             }
         }
-        Ok(output)
+        Ok(LineResult::Command(output))
     }
 
     pub async fn run(&self) -> io::Result<()> {
@@ -192,34 +232,39 @@ impl Term {
         loop {
             self.ahnlich_prompt(&mut stdout)?;
             let input = self.read_line(&mut stdout)?;
-            match input.as_str() {
-                "quit" | "exit" | "exit()" => break,
-                command => {
-                    let response = self.client_pool.parse_queries(command).await;
+            match input {
+                LineResult::Exit => {
+                    break;
+                }
+                LineResult::Command(input) => match input.as_str() {
+                    "quit" | "exit" | "exit()" => break,
+                    command => {
+                        let response = self.client_pool.parse_queries(command).await;
 
-                    match response {
-                        Ok(success) => {
-                            disable_raw_mode()?;
-                            for msg in success {
+                        match response {
+                            Ok(success) => {
+                                disable_raw_mode()?;
+                                for msg in success {
+                                    queue!(
+                                        stdout,
+                                        Print(format!("{}\n", msg)),
+                                        cursor::MoveToColumn(0)
+                                    )?;
+                                }
+                                stdout.flush()?;
+                                enable_raw_mode()?
+                            }
+                            Err(err) => {
                                 queue!(
                                     stdout,
-                                    Print(format!("{}\n", msg)),
+                                    Print(format!("{}\n", err.red())),
                                     cursor::MoveToColumn(0)
                                 )?;
+                                stdout.flush()?;
                             }
-                            stdout.flush()?;
-                            enable_raw_mode()?
-                        }
-                        Err(err) => {
-                            queue!(
-                                stdout,
-                                Print(format!("{}\n", err.red())),
-                                cursor::MoveToColumn(0)
-                            )?;
-                            stdout.flush()?;
                         }
                     }
-                }
+                },
             };
         }
         disable_raw_mode()?;

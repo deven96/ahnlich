@@ -13,7 +13,7 @@ path = "src/lib.rs"
 
 
 [dependencies]
-crossterm = "0.28.1"
+crossterm = { version = "0.28.1", feature = ["bracketed-paste"]}
 clap.workspace = true
 dsl = { path = "../dsl", version = "*" }
 thiserror.workspace = true
