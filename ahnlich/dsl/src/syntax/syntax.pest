@@ -40,12 +40,12 @@ db_statement = _{
     invalid_statement 
 }
 
-ping = { whitespace* ~ ^"ping" ~ whitespace* }
-info_server = { whitespace* ~ ^"infoserver" ~ whitespace* }
-list_stores = { whitespace* ~ ^"liststores" ~ whitespace* }
-list_clients = { whitespace* ~ ^"listclients" ~ whitespace* }
-purge_stores = { whitespace* ~ ^"purgestores" ~ whitespace* }
-drop_store = { whitespace* ~ ^"dropstore" ~ whitespace* ~ store_name ~ (if_exists | invalid_statement)? }
+ping = { whitespace* ~ ^"ping" ~ whitespace* ~ !(ASCII_ALPHANUMERIC) }
+info_server = { whitespace* ~ ^"infoserver" ~ whitespace* ~ !(ASCII_ALPHANUMERIC)}
+list_stores = { whitespace* ~ ^"liststores" ~ whitespace* ~ !(ASCII_ALPHANUMERIC)}
+list_clients = { whitespace* ~ ^"listclients" ~ whitespace* ~ !(ASCII_ALPHANUMERIC)}
+purge_stores = { whitespace* ~ ^"purgestores" ~ whitespace* ~ !(ASCII_ALPHANUMERIC)}
+drop_store = { whitespace* ~ ^"dropstore" ~ whitespace* ~ store_name ~ (if_exists | invalid_statement)?}
 create_pred_index = { whitespace* ~ ^"createpredindex" ~ whitespace* ~ "(" ~ index_names ~ ")" ~ in_ignored ~ store_name }
 create_non_linear_algorithm_index = { whitespace* ~ ^"createnonlinearalgorithmindex" ~ whitespace* ~ "(" ~ non_linear_algorithms ~ ")" ~ in_ignored ~ store_name}
 drop_pred_index = { whitespace* ~ ^"droppredindex" ~ whitespace* ~ (if_exists)? ~ "(" ~ index_names ~ ")" ~ in_ignored ~ store_name }

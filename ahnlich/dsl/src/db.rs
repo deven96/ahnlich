@@ -17,22 +17,24 @@ use crate::{error::DslError, predicate::parse_predicate_expression};
 
 // Parse raw strings separated by ; into a Vec<DBQuery>. Examples include but are not restricted
 // to
-//
-// PING
-// LISTCLIENTS
-// LISTSTORES
-// INFOSERVER
-// DROPSTORE store_name IF EXISTS
-// CREATEPREDINDEX (key_1, key_2) in store_name
-// DROPPREDINDEX IF EXISTS (key1, key2) in store_name
-// CREATENONLINEARALGORITHMINDEX (kdtree) in store_name
-// DROPNONLINEARALGORITHMINDEX IF EXISTS (kdtree) in store_name
-// GETKEY ([1.0, 2.0], [3.0, 4.0]) IN my_store
-// DELKEY ([1.2, 3.0], [5.6, 7.8]) IN my_store
-// GETPRED ((author = dickens) OR (country != Nigeria)) IN my_store
-// GETSIMN 4 WITH [0.65, 2.78] USING cosinesimilarity IN my_store WHERE (author = dickens)
-// CREATESTORE IF NOT EXISTS my_store DIMENSION 21 PREDICATES (author, country) NONLINEARALGORITHMINDEX (kdtree)
-// SET (([1.0, 2.1, 3.2], {name: Haks, category: dev}), ([3.1, 4.8, 5.0], {name: Deven, category: dev})) in store
+pub const COMMANDS: &[&str] = &[
+    "ping",
+    "listclients",
+    "liststores",
+    "infoserver",
+    "dropstore",                     // store_name if exists can be handled dynamically
+    "createpredindex",               // (key_1, key_2) in store_name
+    "droppredindex",                 // if exists (key1, key2) in store_name
+    "createnonlinearalgorithmindex", // (kdtree) in store_name
+    "dropnonlinearalgorithmindex",   // if exists (kdtree) in store_name
+    "getkey",                        // ([1.0, 2.0], [3.0, 4.0]) in my_store
+    "delkey",                        // ([1.2, 3.0], [5.6, 7.8]) in my_store
+    "getpred",                       // ((author = dickens) or (country != Nigeria)) in my_store
+    "getsimn", // 4 with [0.65, 2.78] using cosinesimilarity in my_store where (author = dickens)
+    "createstore", // if not exists my_store dimension 21 predicates (author, country) nonlinearalgorithmindex (kdtree)
+    "set", // (([1.0, 2.1, 3.2], {name: Haks, category: dev}), ([3.1, 4.8, 5.0], {name: Deven, category: dev})) in store
+];
+
 pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
     let pairs = QueryParser::parse(Rule::db_query, input).map_err(Box::new)?;
     let statements = pairs.into_iter().collect::<Vec<_>>();

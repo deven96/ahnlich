@@ -42,22 +42,24 @@ fn parse_to_ai_model(input: &str) -> Result<AIModel, DslError> {
 
 // Parse raw strings separated by ; into a Vec<AIQuery>. Examples include but are not restricted
 // to
-//
-// PING
-// LISTCLIENTS
-// LISTSTORES
-// INFOSERVER
-// PURGESTORES
-// DROPSTORE store_name IF EXISTS
-// CREATEPREDINDEX (key_1, key_2) in store_name
-// DROPPREDINDEX IF EXISTS (key1, key2) in store_name
-// CREATENONLINEARALGORITHMINDEX (kdtree) in store_name
-// DROPNONLINEARALGORITHMINDEX IF EXISTS (kdtree) in store_name
-// DELKEY ([input 1 text], [input 2 text]) IN my_store
-// GETPRED ((author = dickens) OR (country != Nigeria)) IN my_store
-// GETSIMN 4 WITH [random text inserted here] USING cosinesimilarity IN my_store WHERE (author = dickens)
-// CREATESTORE IF NOT EXISTS my_store QUERYMODEL dalle3 INDEXMODEL dalle3 PREDICATES (author, country) NONLINEARALGORITHMINDEX (kdtree)
-// SET (([This is the life of Haks paragraphed], {name: Haks, category: dev}), ([This is the life of Deven paragraphed], {name: Deven, category: dev})) in store
+pub const COMMANDS: &[&str] = &[
+    "ping",
+    "listclients",
+    "liststores",
+    "infoserver",
+    "purgestores",
+    "dropstore",                     // store_name if exists can be handled dynamically
+    "createpredindex",               // (key_1, key_2) in store_name
+    "droppredindex",                 // if exists (key1, key2) in store_name
+    "createnonlinearalgorithmindex", // (kdtree) in store_name
+    "dropnonlinearalgorithmindex",   // if exists (kdtree) in store_name
+    "delkey",                        // ([input 1 text], [input 2 text]) in my_store
+    "getpred",                       // ((author = dickens) or (country != Nigeria)) in my_store
+    "getsimn", // 4 with [random text inserted here] using cosinesimilarity in my_store where (author = dickens)
+    "createstore", // if not exists my_store querymodel dalle3 indexmodel dalle3 predicates (author, country) nonlinearalgorithmindex (kdtree)
+    "set", // (([This is the life of Haks paragraphed], {name: Haks, category: dev}), ([This is the life of Deven paragraphed], {name: Deven, category: dev})) in store
+];
+
 pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
     let pairs = QueryParser::parse(Rule::ai_query, input).map_err(Box::new)?;
     let statements = pairs.into_iter().collect::<Vec<_>>();
