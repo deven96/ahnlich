@@ -8,7 +8,7 @@ use crossterm::{
 };
 use std::io::{self, stdout, Stdout, Write};
 
-use crate::connect::AgentPool;
+use crate::{connect::AgentPool, history::HistoryManager};
 
 #[derive(Debug)]
 enum SpecialEntry {
@@ -27,6 +27,15 @@ enum Entry {
     Char(char),
     Special(SpecialEntry),
     None,
+}
+
+impl Entry {
+    fn is_history_key(&self) -> bool {
+        matches!(
+            self,
+            Entry::Special(SpecialEntry::Up) | Entry::Special(SpecialEntry::Down)
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -136,6 +145,7 @@ impl Term {
         queue!(
             stdout,
             cursor::MoveToColumn(col_pos),
+            terminal::Clear(terminal::ClearType::FromCursorDown),
             Print(formatted_output)
         )?;
         stdout.flush()?;
@@ -161,21 +171,45 @@ impl Term {
         Ok(())
     }
 
-    fn read_line(&self, stdout: &mut Stdout) -> io::Result<LineResult> {
+    fn read_line(
+        &self,
+        stdout: &mut Stdout,
+        history: &mut HistoryManager,
+    ) -> io::Result<LineResult> {
         let (start_pos_col, _) = cursor::position()?;
         let mut output = String::new();
 
         loop {
             let char = self.read_char()?;
             let (current_pos_col, _) = cursor::position()?;
+            if !char.is_history_key() {
+                history.reset_index();
+            }
             match char {
                 Entry::Char(c) => {
-                    output.push(c);
+                    let insertion_position = current_pos_col - start_pos_col;
+                    output.insert(insertion_position as usize, c);
                     self.move_to_pos_and_print(stdout, &output, start_pos_col)?;
+                    stdout.execute(cursor::MoveToColumn(current_pos_col + 1))?;
                 }
                 Entry::Special(special) => match special {
-                    SpecialEntry::Up | SpecialEntry::Down => {
-                        continue;
+                    SpecialEntry::Up => {
+                        output = history.up();
+                        queue!(
+                            stdout,
+                            cursor::MoveToColumn(start_pos_col),
+                            terminal::Clear(terminal::ClearType::FromCursorDown),
+                        )?;
+                        self.move_to_pos_and_print(stdout, &output, start_pos_col)?;
+                    }
+                    SpecialEntry::Down => {
+                        output = history.down();
+                        queue!(
+                            stdout,
+                            cursor::MoveToColumn(start_pos_col),
+                            terminal::Clear(terminal::ClearType::FromCursorDown),
+                        )?;
+                        self.move_to_pos_and_print(stdout, &output, start_pos_col)?;
                     }
                     SpecialEntry::Enter => {
                         queue!(stdout, Print("\n"), cursor::MoveToColumn(0))?;
@@ -220,6 +254,8 @@ impl Term {
                 }
             }
         }
+        history.add_command(&output);
+        history.save_to_disk();
         Ok(LineResult::Command(output))
     }
 
@@ -229,9 +265,11 @@ impl Term {
         stdout.execute(cursor::EnableBlinking)?;
         stdout.execute(cursor::SetCursorStyle::BlinkingBar)?;
 
+        let mut history = HistoryManager::new();
+
         loop {
             self.ahnlich_prompt(&mut stdout)?;
-            let input = self.read_line(&mut stdout)?;
+            let input = self.read_line(&mut stdout, &mut history)?;
             match input {
                 LineResult::Exit => {
                     break;

@@ -15,6 +15,7 @@ path = "src/lib.rs"
 [dependencies]
 crossterm = { version = "0.28.1", feature = ["bracketed-paste"]}
 clap.workspace = true
+dirs.workspace = true
 dsl = { path = "../dsl", version = "*" }
 thiserror.workspace = true
 tokio.workspace = true
