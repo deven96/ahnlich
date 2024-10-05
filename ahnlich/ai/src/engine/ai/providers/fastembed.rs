@@ -1,7 +1,6 @@
-use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::ai::AIStoreInputType;
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::models::{InputAction, Model};
+use crate::engine::ai::models::{InputAction, Model, ModelInput};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use fastembed::{EmbeddingModel, ImageEmbedding, InitOptions, TextEmbedding};
@@ -132,11 +131,11 @@ impl ProviderTrait for FastEmbedProvider {
         }
     }
 
-    fn run_inference(&self, input: &StoreInput, action_type: &InputAction) -> Vec<f32> {
+    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Vec<f32> {
         if let Some(fastembed_model) = &self.model {
             let response = match fastembed_model {
                 FastEmbedModel::Text(model) => {
-                    if let StoreInput::RawString(value) = input {
+                    if let ModelInput::Text(value) = input {
                         model.embed(vec![value], None).expect("Could not run inference.")
                     } else {
                         panic!("{}", AIProxyError::TypeMismatchError {

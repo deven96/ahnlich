@@ -1,7 +1,6 @@
-use ahnlich_types::keyval::{StoreInput};
 use ahnlich_types::ai::AIStoreInputType;
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::models::InputAction;
+use crate::engine::ai::models::{InputAction, ModelInput};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ort::{ExecutionProviderDispatch, GraphOptimizationLevel, Session};
@@ -173,11 +172,11 @@ impl ProviderTrait for ORTProvider {
         }
     }
 
-    fn run_inference(&self, input: &StoreInput, action_type: &InputAction) -> Vec<f32> {
+    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Vec<f32> {
         if let Some(ORTModel::Image(ORTImageModel{session, input_param,
                                         output_param, ..})) = &self.model {
             let image = match input {
-                StoreInput::Image(image) => image.clone(),
+                ModelInput::Image(image) => image.clone(),
                 _ => panic!("{}", AIProxyError::TypeMismatchError {
                     model_type: AIStoreInputType::RawString,
                     input_type: input.into(),

@@ -107,7 +107,7 @@ def run_insert_image():
             store_name=ai_store_payload_with_predicates_images["store_name"],
             inputs=store_inputs,
             preprocess_action=ai_query.PreprocessAction__Image(
-                ai_query.ImageAction__ErrorIfDimensionsMismatch()
+                ai_query.ImageAction__ResizeImage()
             ),
         )
 

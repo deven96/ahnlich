@@ -2,13 +2,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::cli::server::{ModelConfig, SupportedModels};
-use crate::engine::ai::models::InputAction;
+use crate::engine::ai::models::{ImageArray, InputAction};
 /// The ModelManager is a wrapper around all the AI models running on various green threads. It
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
-use crate::engine::ai::models::Model;
+use crate::engine::ai::models::{Model, ModelInput};
 use crate::error::AIProxyError;
-use ahnlich_types::keyval::{ImageArray, InputLength};
 use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
@@ -79,25 +78,25 @@ impl ModelThread {
         &self,
         process_action: PreprocessAction,
         input: StoreInput,
-    ) -> Result<StoreInput, AIProxyError> {
-        match (process_action, input) {
-            (PreprocessAction::Image(image_action), StoreInput::Image(image_input)) => {
-                // resize image and edit
-                let output = self.process_image(image_input, image_action)?;
-                Ok(output)
+    ) -> Result<ModelInput, AIProxyError> {
+        let input = ModelInput::from(input);
+        match (process_action, &input) {
+            (PreprocessAction::Image(image_action), ModelInput::Image(image_array)) => {
+                let image_array = image_array;
+                let output = self.process_image(image_array, image_action)?;
+                Ok(ModelInput::Image(output))
             }
-            (PreprocessAction::RawString(string_action), StoreInput::RawString(string_input)) => {
-                let output = self.preprocess_raw_string(string_input, string_action)?;
-                Ok(output)
+            (PreprocessAction::RawString(string_action), ModelInput::Text(string)) => {
+                let output = self.preprocess_raw_string(string, string_action)?;
+                Ok(ModelInput::Text(output))
             }
-            (PreprocessAction::RawString(_), StoreInput::Image(_)) => {
+            (PreprocessAction::RawString(_), ModelInput::Image(_)) => {
                 Err(AIProxyError::PreprocessingMismatchError {
                     input_type: AIStoreInputType::Image,
                     preprocess_action: process_action,
                 })
             }
-
-            (PreprocessAction::Image(_), StoreInput::RawString(_)) => {
+            (PreprocessAction::Image(_), ModelInput::Text(_)) => {
                 Err(AIProxyError::PreprocessingMismatchError {
                     input_type: AIStoreInputType::RawString,
                     preprocess_action: process_action,
@@ -108,34 +107,33 @@ impl ModelThread {
     #[tracing::instrument(skip(self, input))]
     fn preprocess_raw_string(
         &self,
-        input: String,
+        input: &String,
         string_action: StringAction,
-    ) -> Result<StoreInput, AIProxyError> {
-        // tokenize string, return error if max token
-        //let tokenized_input;
-        if let Some(max_token_size) = self.model.max_input_token() {
-            if input.len() > max_token_size.into() {
-                if let StringAction::ErrorIfTokensExceed = string_action {
-                    return Err(AIProxyError::TokenExceededError {
-                        input_token_size: input.len(),
-                        max_token_size: max_token_size.into(),
-                    });
-                } else {
-                    // truncate raw string
-                    // let tokenized_input;
-                    let _input = input.as_str()[..max_token_size.into()].to_string();
-                }
+    ) -> Result<String, AIProxyError> {
+        let max_token_size = self.model.max_input_token().expect(
+            format!("`max_input_token()` is not supported for model: {:?}", self.model.model_name()).as_str()
+        );
+
+        if input.len() > max_token_size.into() {
+            if let StringAction::ErrorIfTokensExceed = string_action {
+                return Err(AIProxyError::TokenExceededError {
+                    input_token_size: input.len(),
+                    max_token_size: max_token_size.into(),
+                });
+            } else {
+                let processed_input = input.as_str()[..max_token_size.into()].to_string();
+                return Ok(processed_input);
             }
         }
-        Ok(StoreInput::RawString(input))
+        Ok(input.clone())
     }
 
     #[tracing::instrument(skip(self, input))]
     fn process_image(
         &self,
-        input: ImageArray,
+        input: &ImageArray,
         image_action: ImageAction,
-    ) -> Result<StoreInput, AIProxyError> {
+    ) -> Result<ImageArray, AIProxyError> {
         // process image, return error if max dimensions exceeded
         let dimensions = input.image_dim();
 
@@ -149,9 +147,7 @@ impl ModelThread {
             return preprocess_mismatch;
         };
 
-        let InputLength::Image { width, height, .. } = dimensions else {
-            return preprocess_mismatch;
-        };
+        let (width, height) = dimensions;
 
         if width != expected_width || height != expected_height {
             if let ImageAction::ErrorIfDimensionsMismatch = image_action {
@@ -162,11 +158,11 @@ impl ModelThread {
             } else {
                 let input = input.resize(
                     usize::from(expected_width), usize::from(expected_height))?;
-                return Ok(StoreInput::Image(input));
+                return Ok(input);
             }
         }
 
-        Ok(StoreInput::Image(input))
+        Ok(input.clone())
     }
 }
 

@@ -8,12 +8,16 @@ use ahnlich_types::{
     ai::{AIModel, AIStoreInputType},
     keyval::{StoreInput, StoreKey},
 };
-use ndarray::Array1;
+use ndarray::{Array, Array1, Ix3};
 use nonzero_ext::nonzero;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
+use std::cmp::Ordering;
+use ahnlich_types::errors::TypeError;
+use image::{GenericImageView, ImageReader};
+use std::io::Cursor;
 
 pub enum Model {
     Text {
@@ -111,7 +115,7 @@ impl Model {
     #[tracing::instrument(skip(self))]
     pub fn model_ndarray(
         &self,
-        storeinput: &StoreInput,
+        storeinput: &ModelInput,
         action_type: &InputAction,
     ) -> Result<StoreKey, AIProxyError> {
         match self {
@@ -252,6 +256,127 @@ impl fmt::Display for InputAction {
         match self {
             Self::Query => write!(f, "query"),
             Self::Index => write!(f, "index"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ModelInput {
+    Text(String),
+    Image(ImageArray),
+}
+
+
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct ImageArray {
+    array: Array<u8, Ix3>,
+    bytes: Vec<u8>
+}
+
+impl ImageArray {
+    pub fn try_new(bytes: Vec<u8>) -> Result<Self, TypeError> {
+        let img_reader = ImageReader::new(Cursor::new(&bytes))
+            .with_guessed_format()
+            .map_err(|_| TypeError::ImageBytesDecodeError)?;
+
+        let img = img_reader
+            .decode()
+            .map_err(|_| TypeError::ImageBytesDecodeError)?;
+        let (width, height) = img.dimensions();
+        let channels = img.color().channel_count();
+        let shape = (height as usize, width as usize, channels as usize);
+        let array = Array::from_shape_vec(shape, img.into_bytes())
+            .map_err(|_| TypeError::ImageBytesDecodeError)?;
+        Ok(ImageArray { array, bytes })
+    }
+
+    pub fn get_array(&self) -> &Array<u8, Ix3> {
+        &self.array
+    }
+
+    pub fn get_bytes(&self) -> &Vec<u8> {
+        &self.bytes
+    }
+
+    pub fn resize(&self, width: usize, height: usize) -> Result<Self, TypeError> {
+        let img_reader = ImageReader::new(Cursor::new(&self.bytes))
+            .with_guessed_format()
+            .map_err(|_| TypeError::ImageBytesDecodeError)?;
+        let img_format = img_reader.format().ok_or(TypeError::ImageBytesDecodeError)?;
+        let original_img = img_reader
+            .decode()
+            .map_err(|_| TypeError::ImageBytesDecodeError)?;
+
+        let resized_img = original_img.resize_exact(width as u32, height as u32,
+                                                    image::imageops::FilterType::Triangle);
+        let channels = resized_img.color().channel_count();
+        let shape = (height as usize, width as usize, channels as usize);
+
+        let mut buffer = Cursor::new(Vec::new());
+        resized_img.write_to(&mut buffer, img_format)
+            .map_err(|_| TypeError::ImageResizeError)?;
+
+        let flattened_pixels = resized_img.into_bytes();
+        let array = Array::from_shape_vec(shape, flattened_pixels)
+            .map_err(|_| TypeError::ImageResizeError)?;
+        let bytes = buffer.into_inner();
+        Ok(ImageArray { array, bytes })
+    }
+
+    pub fn image_dim(&self) -> (NonZeroUsize, NonZeroUsize) {
+        let shape = self.array.shape();
+        return (NonZeroUsize::new(shape[1]).unwrap(),
+                NonZeroUsize::new(shape[0]).unwrap()); // (width, height)
+    }
+}
+
+impl Serialize for ImageArray {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(self.get_bytes())
+    }
+}
+
+impl<'de> Deserialize<'de> for ImageArray {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
+        Ok(ImageArray::try_new(bytes).map_err(serde::de::Error::custom)?)
+    }
+}
+
+impl Ord for ImageArray {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let (array_vec, _) = self.array.clone().into_raw_vec_and_offset();
+        let (other_vec, _) = other.array.clone().into_raw_vec_and_offset();
+        array_vec.cmp(&other_vec)
+    }
+}
+
+impl PartialOrd for ImageArray {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl From<StoreInput> for ModelInput {
+    fn from(value: StoreInput) -> Self {
+        match value {
+            StoreInput::RawString(s) => ModelInput::Text(s),
+            StoreInput::Image(bytes) => ModelInput::Image(ImageArray::try_new(bytes).unwrap()),
+        }
+    }
+}
+
+impl Into<AIStoreInputType> for &ModelInput {
+    fn into(self) -> AIStoreInputType {
+        match self {
+            ModelInput::Text(_) => AIStoreInputType::RawString,
+            ModelInput::Image(_) => AIStoreInputType::Image,
         }
     }
 }
