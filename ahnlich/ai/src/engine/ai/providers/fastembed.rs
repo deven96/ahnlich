@@ -79,8 +79,8 @@ impl ProviderTrait for FastEmbedProvider {
         self
     }
 
-    fn set_model(&mut self, model: SupportedModels) -> &mut Self {
-        self.supported_models = Some(model);
+    fn set_model(&mut self, model: &SupportedModels) -> &mut Self {
+        self.supported_models = Some(model.clone());
         self
     }
 
@@ -132,7 +132,7 @@ impl ProviderTrait for FastEmbedProvider {
         }
     }
 
-    fn run_inference(&self, input: &StoreInput, action_type: InputAction) -> Vec<f32> {
+    fn run_inference(&self, input: &StoreInput, action_type: &InputAction) -> Vec<f32> {
         if let Some(fastembed_model) = &self.model {
             let response = match fastembed_model {
                 FastEmbedModel::Text(model) => {
@@ -142,7 +142,7 @@ impl ProviderTrait for FastEmbedProvider {
                         panic!("{}", AIProxyError::TypeMismatchError {
                             model_type: AIStoreInputType::RawString,
                             input_type: input.into(),
-                            action_type,
+                            action_type: action_type.clone(),
                         })
                     }
                 }

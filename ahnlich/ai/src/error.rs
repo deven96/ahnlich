@@ -2,10 +2,12 @@ use crate::engine::ai::models::InputAction;
 use ahnlich_types::{
     ai::{AIStoreInputType, PreprocessAction},
     keyval::StoreName,
+    errors::TypeError
 };
 use fallible_collections::TryReserveError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
+
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum AIProxyError {
@@ -44,6 +46,9 @@ pub enum AIProxyError {
         image_dimensions: (usize, usize),
         expected_dimensions: (usize, usize),
     },
+
+    #[error("AIProxyError: {0}")]
+    TypeError(#[from] TypeError),
 
     #[error("Used [{preprocess_action}] for [{input_type}] type")]
     PreprocessingMismatchError {

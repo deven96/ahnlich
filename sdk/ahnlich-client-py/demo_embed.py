@@ -91,10 +91,8 @@ def run_insert_image():
         print("Processing image: ", url)
         location = urlopen(url)
         image = Image.open(location)
-        resized_image = image.resize((224, 224))
-
         buffer = io.BytesIO()
-        resized_image.save(buffer, format=image.format)
+        image.save(buffer, format=image.format)
 
         store_inputs = [
             (
@@ -120,10 +118,8 @@ def run_get_simn_image():
     builder = ai_client.pipeline()
     url = "https://i.pinimg.com/564x/9d/76/c8/9d76c8229b7528643d69636c1a9a428d.jpg"
     image = Image.open(urlopen(url))
-    resized_image = image.resize((224, 224))
-
     buffer = io.BytesIO()
-    resized_image.save(buffer, format=image.format)
+    image.save(buffer, format=image.format)
     builder.get_sim_n(
         store_name=ai_store_payload_with_predicates_images["store_name"],
         search_input=ai_query.StoreInput__Image(buffer.getvalue()),

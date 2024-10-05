@@ -43,7 +43,8 @@ impl ModelThread {
         cache_location: &PathBuf,
         request_receiver: mpsc::Receiver<ModelThreadRequest>,
     ) -> Self {
-        let mut model: Model = (&supported_model).into();
+        let supported_model = &supported_model;
+        let mut model: Model = (supported_model).into();
         model.setup_provider(supported_model, cache_location);
         model.load();
         Self {
@@ -67,7 +68,7 @@ impl ModelThread {
         // move this from for loop into vec of inputs
         for input in inputs {
             let processed_input = self.preprocess_store_input(process_action, input)?;
-            let store_key = self.model.model_ndarray(&processed_input, action_type)?;
+            let store_key = self.model.model_ndarray(&processed_input, &action_type)?;
             response.push(store_key);
         }
         Ok(response)
@@ -137,19 +138,31 @@ impl ModelThread {
     ) -> Result<StoreInput, AIProxyError> {
         // process image, return error if max dimensions exceeded
         let dimensions = input.image_dim();
-        if let (
-            Some((expected_width, expected_height)),
-            InputLength::Image { width, height }
-        ) = (self.model.expected_image_dimensions(), dimensions) {
-            if width != expected_width || height != expected_height {
-                if let ImageAction::ErrorIfDimensionsMismatch = image_action {
-                    return Err(AIProxyError::ImageDimensionsMismatchError {
-                        image_dimensions: (width.into(), height.into()),
-                        expected_dimensions: (expected_width.into(), expected_height.into()),
-                    });
-                } else {
-                    // resize image
-                }
+
+        let preprocess_mismatch = Err(AIProxyError::PreprocessingMismatchError {
+            input_type: AIStoreInputType::Image,
+            preprocess_action: PreprocessAction::Image(image_action),
+        });
+
+        let Some((expected_width, expected_height)) =
+            self.model.expected_image_dimensions() else {
+            return preprocess_mismatch;
+        };
+
+        let InputLength::Image { width, height, .. } = dimensions else {
+            return preprocess_mismatch;
+        };
+
+        if width != expected_width || height != expected_height {
+            if let ImageAction::ErrorIfDimensionsMismatch = image_action {
+                return Err(AIProxyError::ImageDimensionsMismatchError {
+                    image_dimensions: (width.into(), height.into()),
+                    expected_dimensions: (expected_width.into(), expected_height.into()),
+                });
+            } else {
+                let input = input.resize(
+                    usize::from(expected_width), usize::from(expected_height))?;
+                return Ok(StoreInput::Image(input));
             }
         }
 

@@ -100,8 +100,8 @@ impl ProviderTrait for ORTProvider {
         self
     }
 
-    fn set_model(&mut self, model: SupportedModels) -> &mut Self {
-        self.supported_models = Some(model);
+    fn set_model(&mut self, model: &SupportedModels) -> &mut Self {
+        self.supported_models = Some(model.clone());
         self
     }
 
@@ -173,7 +173,7 @@ impl ProviderTrait for ORTProvider {
         }
     }
 
-    fn run_inference(&self, input: &StoreInput, action_type: InputAction) -> Vec<f32> {
+    fn run_inference(&self, input: &StoreInput, action_type: &InputAction) -> Vec<f32> {
         if let Some(ORTModel::Image(ORTImageModel{session, input_param,
                                         output_param, ..})) = &self.model {
             let image = match input {
@@ -181,7 +181,7 @@ impl ProviderTrait for ORTProvider {
                 _ => panic!("{}", AIProxyError::TypeMismatchError {
                     model_type: AIStoreInputType::RawString,
                     input_type: input.into(),
-                    action_type,
+                    action_type: action_type.clone(),
                 }),
             };
 

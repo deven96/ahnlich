@@ -316,10 +316,10 @@ impl AhnlichProtocol for AIProxyTask {
                     algorithm,
                 } => {
                     // TODO: Replace this with calls to self.model_manager.handle_request
-                    // TODO (HAKSOAT): Improve on the hardcoded preprocess action by including in the query
+                    // TODO (HAKSOAT): Shouldn't preprocess action also be in the params?
                     let preprocess = match search_input {
                         StoreInput::RawString(_) => PreprocessAction::RawString(StringAction::TruncateIfTokensExceed),
-                        StoreInput::Image(_) => PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch)
+                        StoreInput::Image(_) => PreprocessAction::Image(ImageAction::ResizeImage)
                     };
                     let repr = self
                         .store_handler

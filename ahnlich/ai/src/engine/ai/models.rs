@@ -112,7 +112,7 @@ impl Model {
     pub fn model_ndarray(
         &self,
         storeinput: &StoreInput,
-        action_type: InputAction,
+        action_type: &InputAction,
     ) -> Result<StoreKey, AIProxyError> {
         match self {
             Model::Text { provider, .. } | Model::Image { provider, .. } => {
@@ -167,7 +167,7 @@ impl Model {
         }
     }
 
-    pub fn setup_provider(&mut self, supported_model: SupportedModels, cache_location: &PathBuf) {
+    pub fn setup_provider(&mut self, supported_model: &SupportedModels, cache_location: &PathBuf) {
         match self {
             Model::Text { provider, .. } | Model::Image { provider, .. } => match provider {
                 ModelProviders::FastEmbed(provider) => {

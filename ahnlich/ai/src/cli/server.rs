@@ -195,7 +195,6 @@ impl Default for AIProxyConfig {
             supported_models: vec![
                 SupportedModels::AllMiniLML6V2,
                 SupportedModels::AllMiniLML12V2,
-                SupportedModels::BGEBaseEnV15,
                 SupportedModels::Resnet50,
                 SupportedModels::ClipVitB32,
             ],

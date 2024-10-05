@@ -17,8 +17,8 @@ pub enum ModelProviders {
 
 pub trait ProviderTrait: std::fmt::Debug + Send + Sync {
     fn set_cache_location(&mut self, location: &PathBuf) -> &mut Self;
-    fn set_model(&mut self, model: SupportedModels) -> &mut Self;
+    fn set_model(&mut self, model: &SupportedModels) -> &mut Self;
     fn load_model(&mut self) -> &mut Self;
     fn get_model(&self);
-    fn run_inference(&self, input: &StoreInput, action_type: InputAction) -> Vec<f32>;
+    fn run_inference(&self, input: &StoreInput, action_type: &InputAction) -> Vec<f32>;
 }

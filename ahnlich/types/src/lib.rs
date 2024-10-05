@@ -7,6 +7,7 @@ pub mod metadata;
 pub mod predicate;
 pub mod similarity;
 pub mod version;
+pub mod errors;
 
 use serde::{Deserialize, Serialize};
 
