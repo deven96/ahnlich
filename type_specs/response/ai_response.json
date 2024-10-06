@@ -245,6 +245,13 @@
         "RawString": {
           "NEWTYPE": "STR"
         }
+      },
+      "1": {
+        "Image": {
+          "NEWTYPE": {
+            "SEQ": "U8"
+          }
+        }
       }
     }
   },
