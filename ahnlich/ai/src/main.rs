@@ -9,7 +9,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match cli.command {
         ahnlich_ai_proxy::cli::Commands::Run(config) => {
             let server = ahnlich_ai_proxy::server::handler::AIProxyServer::new(config).await?;
-            // TODO: Use server task manager here to spawn inference thread;
             server.start().await?;
         }
         ahnlich_ai_proxy::cli::Commands::SupportedModels(config) => config.output(),

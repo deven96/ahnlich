@@ -296,9 +296,10 @@ mod tests {
         ];
 
         let task_manager = Arc::new(TaskManager::new());
+        let time_to_idle: u64 = 5;
         let model_config = ModelConfig {
             supported_models: supported_models.clone(),
-            model_idle_time: 5,
+            model_idle_time: time_to_idle,
             ..Default::default()
         };
         let model_manager = ModelManager::new(model_config, task_manager).await.unwrap();
@@ -319,9 +320,10 @@ mod tests {
         let sample_supported_model: SupportedModels = (&sample_ai_model).into();
 
         let task_manager = Arc::new(TaskManager::new());
+        let time_to_idle: u64 = 1;
         let model_config = ModelConfig {
             supported_models: supported_models.clone(),
-            model_idle_time: 1,
+            model_idle_time: time_to_idle,
             ..Default::default()
         };
         let model_manager = ModelManager::new(model_config, task_manager).await.unwrap();

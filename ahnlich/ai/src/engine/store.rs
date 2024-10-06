@@ -197,10 +197,9 @@ impl AIStoreHandler {
             let store_input_type: AIStoreInputType = (&store_input).into();
             let index_model_repr: Model = (&index_model).into();
             if store_input_type != index_model_repr.input_type() {
-                return Err(AIProxyError::TypeMismatchError {
-                    model_type: index_model_repr.input_type(),
-                    input_type: store_input_type,
-                    action_type: InputAction::Index,
+                return Err(AIProxyError::StoreSetTypeMismatchError {
+                    index_model_type: index_model_repr.to_string(),
+                    storeinput_type: store_input_type.to_string(),
                 });
             }
             let metadata_value: MetadataValue = store_input.clone().into();
@@ -212,7 +211,7 @@ impl AIStoreHandler {
     }
 
     /// Stores storeinput into ahnlich db
-    #[tracing::instrument(skip(self), fields(input_length=inputs.len()))]
+    #[tracing::instrument(skip(self, inputs), fields(input_length=inputs.len()))]
     pub(crate) async fn set(
         &self,
         store_name: &StoreName,
@@ -240,7 +239,7 @@ impl AIStoreHandler {
 
     /// Converts (storekey, storevalue) into (storeinput, storevalue)
     /// by removing the reserved_key from storevalue
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, output), fields(output_len=output.len()))]
     pub(crate) fn store_key_val_to_store_input_val(
         &self,
         output: Vec<(StoreKey, StoreValue)>,

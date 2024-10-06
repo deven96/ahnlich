@@ -480,8 +480,14 @@ async fn test_server_with_persistence() {
     let address = server.local_addr().expect("Could not get local addr");
     let _ = tokio::spawn(async move { server.start().await });
     // Allow some time for the server to start
-    let file_metadata =
-        std::fs::metadata(&CONFIG_WITH_PERSISTENCE.persist_location.clone().unwrap()).unwrap();
+    let file_metadata = std::fs::metadata(
+        &CONFIG_WITH_PERSISTENCE
+            .common
+            .persist_location
+            .clone()
+            .unwrap(),
+    )
+    .unwrap();
     assert!(file_metadata.len() > 0, "The persistence file is empty");
     tokio::time::sleep(Duration::from_millis(100)).await;
     // check peristence was not overriden
@@ -1186,7 +1192,7 @@ async fn test_get_key() {
         address: "127.0.0.1:1369".to_string(),
         version: *ahnlich_types::version::VERSION,
         r#type: ahnlich_types::ServerType::Database,
-        limit: CONFIG.allocator_size,
+        limit: CONFIG.common.allocator_size,
         remaining: 1073609219,
     })));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -1504,7 +1510,7 @@ async fn test_run_server_echos() {
                 address: "127.0.0.1:1369".to_string(),
                 version: *ahnlich_types::version::VERSION,
                 r#type: ahnlich_types::ServerType::Database,
-                limit: CONFIG.allocator_size,
+                limit: CONFIG.common.allocator_size,
                 remaining: 1073614873,
             })));
             expected.push(Ok(ServerResponse::Pong));
@@ -1520,7 +1526,7 @@ async fn test_run_server_echos() {
                 address: "127.0.0.1:1369".to_string(),
                 version: *ahnlich_types::version::VERSION,
                 r#type: ahnlich_types::ServerType::Database,
-                limit: CONFIG.allocator_size,
+                limit: CONFIG.common.allocator_size,
                 remaining: 1073614873,
             })));
             let stream = TcpStream::connect(address).await.unwrap();

@@ -29,7 +29,6 @@ pub enum ServerResponse {
     Del(usize),
     // number of created indexes
     CreateIndex(usize),
-    // TODO: Define return types for queries, e.t.c
 }
 
 /// StoreUpsert shows how many entries were inserted and updated during a store add call
@@ -94,6 +93,10 @@ impl ServerResult {
 
     pub fn push(&mut self, entry: Result<ServerResponse, String>) {
         self.results.push(entry)
+    }
+
+    pub fn into_inner(self) -> ServerResultInner {
+        self.results
     }
 }
 

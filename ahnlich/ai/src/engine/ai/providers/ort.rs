@@ -1,6 +1,6 @@
 use ahnlich_types::ai::AIStoreInputType;
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::models::{InputAction, ModelInput};
+use crate::engine::ai::models::{InputAction, ModelInput, Model};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ort::{ExecutionProviderDispatch, GraphOptimizationLevel, Session};
@@ -177,11 +177,24 @@ impl ProviderTrait for ORTProvider {
                                         output_param, ..})) = &self.model {
             let image = match input {
                 ModelInput::Image(image) => image.clone(),
-                _ => panic!("{}", AIProxyError::TypeMismatchError {
-                    model_type: AIStoreInputType::RawString,
-                    input_type: input.into(),
-                    action_type: action_type.clone(),
-                }),
+                _ => {
+                    let store_input_type: AIStoreInputType = input.into();
+                    let index_model_repr: Model = (&self.supported_models.unwrap()).into();
+                    match action_type {
+                        InputAction::Query => {
+                            panic!("{}", AIProxyError::StoreQueryTypeMismatchError {
+                                store_query_model_type: index_model_repr.to_string(),
+                                storeinput_type: store_input_type.to_string(),
+                            })
+                        },
+                        InputAction::Index => {
+                            panic!("{}", AIProxyError::StoreSetTypeMismatchError {
+                                index_model_type: index_model_repr.to_string(),
+                                storeinput_type: store_input_type.to_string(),
+                            })
+                        },
+                    }
+                }
             };
 
             let image_arr = image.get_array();

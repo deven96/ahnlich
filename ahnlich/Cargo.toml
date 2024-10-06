@@ -1,13 +1,16 @@
 [workspace]
 members = [
+  "ai",
   "db",
-  "types",
+  "dsl",
+  "cli",
   "client",
+  "similarity",
+  "task-manager",
   "tracer", 
   "typegen",
+  "types",
   "utils",
-  "similarity",
-  "ai", "task-manager",
 ]
 resolver = "2"
 
@@ -43,3 +46,4 @@ opentelemetry =  { version = "0.23.0", features = ["trace"] }
 tracing-opentelemetry = "0.24.0"
 log = "0.4"
 fallible_collections = "0.4.9"
+dirs = "5.0.1"

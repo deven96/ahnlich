@@ -15,10 +15,11 @@ use std::fmt;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::cmp::Ordering;
-use ahnlich_types::errors::TypeError;
 use image::{GenericImageView, ImageReader};
 use std::io::Cursor;
+use strum::Display;
 
+#[derive(Display)]
 pub enum Model {
     Text {
         supported_model: SupportedModels,
@@ -274,19 +275,19 @@ pub struct ImageArray {
 }
 
 impl ImageArray {
-    pub fn try_new(bytes: Vec<u8>) -> Result<Self, TypeError> {
+    pub fn try_new(bytes: Vec<u8>) -> Result<Self, AIProxyError> {
         let img_reader = ImageReader::new(Cursor::new(&bytes))
             .with_guessed_format()
-            .map_err(|_| TypeError::ImageBytesDecodeError)?;
+            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
 
         let img = img_reader
             .decode()
-            .map_err(|_| TypeError::ImageBytesDecodeError)?;
+            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
         let (width, height) = img.dimensions();
         let channels = img.color().channel_count();
         let shape = (height as usize, width as usize, channels as usize);
         let array = Array::from_shape_vec(shape, img.into_bytes())
-            .map_err(|_| TypeError::ImageBytesDecodeError)?;
+            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
         Ok(ImageArray { array, bytes })
     }
 
@@ -298,14 +299,14 @@ impl ImageArray {
         &self.bytes
     }
 
-    pub fn resize(&self, width: usize, height: usize) -> Result<Self, TypeError> {
+    pub fn resize(&self, width: usize, height: usize) -> Result<Self, AIProxyError> {
         let img_reader = ImageReader::new(Cursor::new(&self.bytes))
             .with_guessed_format()
-            .map_err(|_| TypeError::ImageBytesDecodeError)?;
-        let img_format = img_reader.format().ok_or(TypeError::ImageBytesDecodeError)?;
+            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
+        let img_format = img_reader.format().ok_or(AIProxyError::ImageBytesDecodeError)?;
         let original_img = img_reader
             .decode()
-            .map_err(|_| TypeError::ImageBytesDecodeError)?;
+            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
 
         let resized_img = original_img.resize_exact(width as u32, height as u32,
                                                     image::imageops::FilterType::Triangle);
@@ -314,11 +315,11 @@ impl ImageArray {
 
         let mut buffer = Cursor::new(Vec::new());
         resized_img.write_to(&mut buffer, img_format)
-            .map_err(|_| TypeError::ImageResizeError)?;
+            .map_err(|_| AIProxyError::ImageResizeError)?;
 
         let flattened_pixels = resized_img.into_bytes();
         let array = Array::from_shape_vec(shape, flattened_pixels)
-            .map_err(|_| TypeError::ImageResizeError)?;
+            .map_err(|_| AIProxyError::ImageResizeError)?;
         let bytes = buffer.into_inner();
         Ok(ImageArray { array, bytes })
     }

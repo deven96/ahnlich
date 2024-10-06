@@ -45,6 +45,9 @@ pub struct AIPipeline {
 }
 
 impl AIPipeline {
+    pub fn new_from_queries_and_conn(queries: AIServerQuery, conn: Object<AIConnManager>) -> Self {
+        Self { queries, conn }
+    }
     /// push create store command to pipeline
     pub fn create_store(
         &mut self,
@@ -197,10 +200,10 @@ impl AIClient {
         capacity: usize,
         tracing_id: Option<String>,
     ) -> Result<AIPipeline, AhnlichError> {
-        Ok(AIPipeline {
-            queries: AIServerQuery::with_capacity_and_tracing_id(capacity, tracing_id),
-            conn: self.pool.get().await?,
-        })
+        Ok(AIPipeline::new_from_queries_and_conn(
+            AIServerQuery::with_capacity_and_tracing_id(capacity, tracing_id),
+            self.pool.get().await?,
+        ))
     }
 
     pub async fn create_store(
@@ -407,7 +410,7 @@ mod tests {
     static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
         let mut ai_proxy = AIProxyConfig::default().os_select_port();
         ai_proxy.db_port = CONFIG.port.clone();
-        ai_proxy.db_host = CONFIG.host.clone();
+        ai_proxy.db_host = CONFIG.common.host.clone();
         ai_proxy
     });
 

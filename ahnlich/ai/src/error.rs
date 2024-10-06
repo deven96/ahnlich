@@ -1,13 +1,10 @@
-use crate::engine::ai::models::InputAction;
 use ahnlich_types::{
     ai::{AIStoreInputType, PreprocessAction},
     keyval::StoreName,
-    errors::TypeError
 };
 use fallible_collections::TryReserveError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
-
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum AIProxyError {
@@ -25,11 +22,15 @@ pub enum AIProxyError {
     ReservedError(String),
     #[error("Unexpected DB Response {0} ")]
     UnexpectedDBResponse(String),
-    #[error("Cannot {action_type} input. Store expects [{model_type}], input type [{input_type}] was provided")]
-    TypeMismatchError {
-        model_type: AIStoreInputType,
-        input_type: AIStoreInputType,
-        action_type: InputAction,
+    #[error("Cannot Query Using Input. Store expects [{store_query_model_type}], but input type [{storeinput_type}] was provided")]
+    StoreQueryTypeMismatchError {
+        store_query_model_type: String,
+        storeinput_type: String,
+    },
+    #[error("Cannot Set Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
+    StoreSetTypeMismatchError {
+        index_model_type: String,
+        storeinput_type: String,
     },
 
     #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}] ")]
@@ -46,9 +47,6 @@ pub enum AIProxyError {
         image_dimensions: (usize, usize),
         expected_dimensions: (usize, usize),
     },
-
-    #[error("AIProxyError: {0}")]
-    TypeError(#[from] TypeError),
 
     #[error("Used [{preprocess_action}] for [{input_type}] type")]
     PreprocessingMismatchError {
@@ -79,6 +77,12 @@ pub enum AIProxyError {
 
     #[error("Error initializing a model thread {0}")]
     ModelInitializationError(String),
+
+    #[error("Bytes could not be successfully decoded into an image.")]
+    ImageBytesDecodeError,
+
+    #[error("Image could not be resized.")]
+    ImageResizeError,
 }
 
 impl From<TryReserveError> for AIProxyError {
