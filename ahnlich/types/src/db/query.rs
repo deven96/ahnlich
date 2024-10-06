@@ -1,3 +1,5 @@
+use fallible_collections::FallibleVec;
+use fallible_collections::TryReserveError;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
@@ -44,9 +46,18 @@ pub enum Query {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
     },
+    CreateNonLinearAlgorithmIndex {
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+    },
     DropPredIndex {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
+        error_if_not_exists: bool,
+    },
+    DropNonLinearAlgorithmIndex {
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_not_exists: bool,
     },
     Set {
@@ -74,13 +85,24 @@ pub enum Query {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ServerQuery {
     queries: Vec<Query>,
+    trace_id: Option<String>,
 }
 
 impl ServerQuery {
-    pub fn with_capacity(len: usize) -> Self {
-        Self {
-            queries: Vec::with_capacity(len),
-        }
+    pub fn with_capacity(len: usize) -> Result<Self, TryReserveError> {
+        Ok(Self {
+            queries: FallibleVec::try_with_capacity(len)?,
+            trace_id: None,
+        })
+    }
+    pub fn with_capacity_and_tracing_id(
+        len: usize,
+        trace_id: Option<String>,
+    ) -> Result<Self, TryReserveError> {
+        Ok(Self {
+            queries: FallibleVec::try_with_capacity(len)?,
+            trace_id,
+        })
     }
 
     pub fn push(&mut self, entry: Query) {
@@ -90,6 +112,7 @@ impl ServerQuery {
     pub fn from_queries(queries: &[Query]) -> Self {
         Self {
             queries: queries.to_vec(),
+            trace_id: None,
         }
     }
 }
@@ -101,5 +124,8 @@ impl BinCodeSerAndDeserQuery for ServerQuery {
 
     fn into_inner(self) -> Vec<Query> {
         self.queries
+    }
+    fn get_traceparent(&self) -> Option<String> {
+        self.trace_id.clone()
     }
 }

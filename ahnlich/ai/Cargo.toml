@@ -8,30 +8,38 @@ edition = "2021"
 name = "ahnlich_ai_proxy"
 path = "src/lib.rs"
 
+
+[[bin]]
+name = "ahnlich-ai"
+path = "src/main.rs"
+
 [dependencies]
 flurry.workspace = true
 tokio.workspace = true
 serde.workspace = true
-blake3.workspace = true
 ndarray.workspace = true
-bincode.workspace = true
-itertools.workspace = true
 clap.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
 utils = { path = "../utils", version = "*" }
+task-manager = { path = "../task-manager", version = "*" }
 ahnlich_types = { path = "../types", version = "*" }
-tokio-graceful.workspace = true
+tokio-util.workspace = true
 once_cell.workspace = true
 tracing.workspace = true
 tracer = { path = "../tracer", version = "*" }
 ahnlich_client_rs = { path = "../client", version = "*" }
-ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
-cap.workspace = true
 deadpool.workspace = true
 nonzero_ext = "0.3.0"
-
-
+serde_json.workspace = true
+termcolor = "1.4.1"
+strum = { version = "0.26", features = ["derive"] }
+log.workspace = true
+fallible_collections.workspace = true
+rayon.workspace = true
+moka = { version = "0.12.8", features = ["future"] }
+tracing-opentelemetry.workspace = true
+futures.workspace = true
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true

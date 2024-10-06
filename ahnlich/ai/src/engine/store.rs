@@ -1,22 +1,25 @@
+use crate::cli::server::SupportedModels;
+use crate::engine::ai::models::Model;
+use crate::error::AIProxyError;
+use crate::manager::ModelManager;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use crate::{engine::ai::AIModelManager, error::AIProxyError};
-use ahnlich_types::ai::{
-    AIModel, AIStoreInfo, AIStoreInputType, ImageAction, PreprocessAction, StringAction,
-};
+use ahnlich_types::ai::{AIModel, AIStoreInfo, AIStoreInputType, PreprocessAction};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
-use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::metadata::MetadataValue;
+use fallible_collections::FallibleVec;
 use flurry::HashMap as ConcurrentHashMap;
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use utils::parallel;
+use utils::persistence::AhnlichPersistenceUtils;
 
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]
@@ -24,32 +27,44 @@ pub struct AIStoreHandler {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     stores: AIStores,
     pub write_flag: Arc<AtomicBool>,
+    supported_models: Vec<SupportedModels>,
 }
 
 pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
 
-impl AIStoreHandler {
-    pub fn new(write_flag: Arc<AtomicBool>) -> Self {
-        Self {
-            stores: Arc::new(ConcurrentHashMap::new()),
-            write_flag,
-        }
-    }
-    pub(crate) fn get_stores(&self) -> AIStores {
-        self.stores.clone()
-    }
+type StoreSetResponse = (Vec<(StoreKey, StoreValue)>, StdHashSet<MetadataValue>);
+type StoreValidateResponse = (Vec<(StoreInput, StoreValue)>, StdHashSet<MetadataValue>);
+impl AhnlichPersistenceUtils for AIStoreHandler {
+    type PersistenceObject = AIStores;
 
-    #[cfg(test)]
-    pub fn write_flag(&self) -> Arc<AtomicBool> {
+    #[tracing::instrument(skip_all)]
+    fn write_flag(&self) -> Arc<AtomicBool> {
         self.write_flag.clone()
     }
 
+    #[tracing::instrument(skip(self))]
+    fn get_snapshot(&self) -> Self::PersistenceObject {
+        self.stores.clone()
+    }
+}
+
+impl AIStoreHandler {
+    pub fn new(write_flag: Arc<AtomicBool>, supported_models: Vec<SupportedModels>) -> Self {
+        Self {
+            stores: Arc::new(ConcurrentHashMap::new()),
+            write_flag,
+            supported_models,
+        }
+    }
+
+    #[tracing::instrument(skip(self))]
     fn set_write_flag(&self) {
         let _ = self
             .write_flag
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst);
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn use_snapshot(&mut self, stores_snapshot: AIStores) {
         self.stores = stores_snapshot;
     }
@@ -61,6 +76,22 @@ impl AIStoreHandler {
         query_model: AIModel,
         index_model: AIModel,
     ) -> Result<(), AIProxyError> {
+        if !self.supported_models.contains(&(&query_model).into())
+            || !self.supported_models.contains(&(&index_model).into())
+        {
+            return Err(AIProxyError::AIModelNotInitialized);
+        }
+
+        let index_model_repr: Model = (&index_model).into();
+        let query_model_repr: Model = (&query_model).into();
+
+        if index_model_repr.embedding_size() != query_model_repr.embedding_size() {
+            return Err(AIProxyError::DimensionsMismatchError {
+                index_model_dim: index_model_repr.embedding_size().into(),
+                query_model_dim: query_model_repr.embedding_size().into(),
+            });
+        }
+
         if self
             .stores
             .try_insert(
@@ -85,11 +116,15 @@ impl AIStoreHandler {
     pub(crate) fn list_stores(&self) -> StdHashSet<AIStoreInfo> {
         self.stores
             .iter(&self.stores.guard())
-            .map(|(store_name, store)| AIStoreInfo {
-                name: store_name.clone(),
-                query_model: store.query_model.clone(),
-                index_model: store.index_model.clone(),
-                embedding_size: store.index_model.embedding_size().into(),
+            .map(|(store_name, store)| {
+                let model: Model = (&store.index_model).into();
+
+                AIStoreInfo {
+                    name: store_name.clone(),
+                    query_model: store.query_model,
+                    index_model: store.index_model,
+                    embedding_size: model.embedding_size().into(),
+                }
             })
             .collect()
     }
@@ -110,35 +145,90 @@ impl AIStoreHandler {
     #[tracing::instrument(skip(self))]
     pub(crate) fn store_input_to_store_key_val(
         &self,
-        store_name: &StoreName,
         store_input: StoreInput,
-        store_value: StoreValue,
+        mut store_value: StoreValue,
         preprocess_action: &PreprocessAction,
-    ) -> Result<(StoreKey, StoreValue), AIProxyError> {
+    ) -> Result<(StoreInput, StoreValue), AIProxyError> {
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-        if store_value.contains_key(metadata_key) {
-            return Err(AIProxyError::ReservedError(metadata_key.to_string()));
-        }
-        let store = self.get(store_name)?;
-
-        let store_input_type: AIStoreInputType = (&store_input).into();
-        let store_index_model_info = store.index_model.model_info();
-
-        if store_input_type != store_index_model_info.input_type {
-            return Err(AIProxyError::StoreSetTypeMismatchError {
-                store_index_model_type: store_index_model_info.input_type,
-                storeinput_type: store_input_type,
-            });
-        }
 
         let metadata_value: MetadataValue = store_input.clone().into();
-        let mut final_store_value: StdHashMap<MetadataKey, MetadataValue> =
-            store_value.clone().into_iter().collect();
-        final_store_value.insert(metadata_key.clone(), metadata_value);
+        store_value.insert(metadata_key.clone(), metadata_value);
+        return Ok((store_input, store_value));
+    }
 
-        let store_key =
-            self.create_store_key(store_input, &store.index_model, preprocess_action)?;
-        return Ok((store_key, final_store_value));
+    /// Validates storeinputs against a store and checks storevalue for reservedkey.
+    #[tracing::instrument(skip(self, inputs), fields(input_length=inputs.len(), num_threads = rayon::current_num_threads()))]
+    pub(crate) fn validate_and_prepare_store_data(
+        &self,
+        store_name: &StoreName,
+        inputs: Vec<(StoreInput, StoreValue)>,
+    ) -> Result<StoreValidateResponse, AIProxyError> {
+        let store = self.get(store_name)?;
+        let index_model = store.index_model;
+        let chunk_size = parallel::chunk_size(inputs.len());
+        inputs
+            .into_par_iter()
+            .chunks(chunk_size)
+            .map(|input| Self::preprocess_store_input(index_model, input))
+            .try_reduce(
+                || (Vec::new(), StdHashSet::new()),
+                |(mut acc_vec, mut acc_set), chunk_res| {
+                    let (chunk_vec, chunk_set) = chunk_res;
+                    acc_vec.extend(chunk_vec);
+                    acc_set.extend(chunk_set);
+                    Ok((acc_vec, acc_set))
+                },
+            )
+    }
+
+    #[tracing::instrument(skip(inputs))]
+    pub(crate) fn preprocess_store_input(
+        index_model: AIModel,
+        inputs: Vec<(StoreInput, StoreValue)>,
+    ) -> Result<StoreValidateResponse, AIProxyError> {
+        let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
+        let mut delete_hashset = StdHashSet::new();
+        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
+        for (store_input, mut store_value) in inputs {
+            if store_value.contains_key(metadata_key) {
+                return Err(AIProxyError::ReservedError(metadata_key.to_string()));
+            }
+            let store_input_type: AIStoreInputType = (&store_input).into();
+            let index_model_repr: Model = (&index_model).into();
+            if store_input_type.to_string() != index_model_repr.input_type() {
+                return Err(AIProxyError::StoreSetTypeMismatchError {
+                    index_model_type: index_model_repr.input_type(),
+                    storeinput_type: store_input_type.to_string(),
+                });
+            }
+            let metadata_value: MetadataValue = store_input.clone().into();
+            store_value.insert(metadata_key.clone(), metadata_value.clone());
+            output.try_push((store_input, store_value))?;
+            delete_hashset.insert(metadata_value);
+        }
+        Ok((output, delete_hashset))
+    }
+
+    /// Stores storeinput into ahnlich db
+    #[tracing::instrument(skip(self, inputs), fields(input_length=inputs.len()))]
+    pub(crate) async fn set(
+        &self,
+        store_name: &StoreName,
+        inputs: Vec<(StoreInput, StoreValue)>,
+        model_manager: &ModelManager,
+        preprocess_action: PreprocessAction,
+    ) -> Result<StoreSetResponse, AIProxyError> {
+        let store = self.get(store_name)?;
+        let (validated_data, delete_hashset) =
+            self.validate_and_prepare_store_data(store_name, inputs)?;
+
+        let (store_inputs, store_values): (Vec<_>, Vec<_>) = validated_data.into_iter().unzip();
+        let store_keys = model_manager
+            .handle_request(&store.index_model, store_inputs, preprocess_action)
+            .await?;
+
+        let output = std::iter::zip(store_keys.into_iter(), store_values.into_iter()).collect();
+        Ok((output, delete_hashset))
     }
 
     /// Converts storeinput into a tuple of storekey and storevalue.
@@ -160,7 +250,7 @@ impl AIStoreHandler {
 
     /// Converts (storekey, storevalue) into (storeinput, storevalue)
     /// by removing the reserved_key from storevalue
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, output), fields(output_len=output.len()))]
     pub(crate) fn store_key_val_to_store_input_val(
         &self,
         output: Vec<(StoreKey, StoreValue)>,
@@ -189,7 +279,8 @@ impl AIStoreHandler {
         store_input: &StoreInput,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
-        Ok(store.index_model.model_ndarray(store_input))
+        let model: Model = (&store.index_model).into();
+        Ok(model.model_ndarray(store_input))
     }
 
     /// Matches DROPSTORE - Drops a store if exist, else returns an error

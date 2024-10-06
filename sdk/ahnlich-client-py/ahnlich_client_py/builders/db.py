@@ -1,14 +1,17 @@
 import typing
 
 from ahnlich_client_py import exceptions as ah_exceptions
-from ahnlich_client_py.internals import db_query
+from ahnlich_client_py.internals import db_query, db_response
 from ahnlich_client_py.internals import serde_types as st
+from ahnlich_client_py.internals.base_client import BaseClient
 from ahnlich_client_py.libs import NonZeroSizeInteger
 
 
 class AhnlichDBRequestBuilder:
-    def __init__(self) -> None:
+    def __init__(self, tracing_id: str = None, client: BaseClient = None) -> None:
         self.queries: typing.List[db_query.Query] = []
+        self.tracing_id = tracing_id
+        self.client: BaseClient = client
 
     def create_store(
         self,
@@ -18,7 +21,6 @@ class AhnlichDBRequestBuilder:
         non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = None,
         error_if_exists: bool = True,
     ):
-
         if not create_predicates:
             create_predicates = []
         if not non_linear_indices:
@@ -36,7 +38,6 @@ class AhnlichDBRequestBuilder:
         )
 
     def get_key(self, store_name: str, keys: typing.Sequence[db_query.Array]):
-
         self.queries.append(db_query.Query__GetKey(store=store_name, keys=keys))
 
     def get_by_predicate(self, store_name: str, condition: db_query.PredicateCondition):
@@ -68,6 +69,15 @@ class AhnlichDBRequestBuilder:
             db_query.Query__CreatePredIndex(store=store_name, predicates=predicates)
         )
 
+    def create_non_linear_algorithm_index(
+        self, store_name: str, non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
+    ):
+        self.queries.append(
+            db_query.Query__CreateNonLinearAlgorithmIndex(
+                store=store_name, non_linear_indices=non_linear_indices
+            )
+        )
+
     def drop_pred_index(
         self,
         store_name: str,
@@ -78,6 +88,20 @@ class AhnlichDBRequestBuilder:
             db_query.Query__DropPredIndex(
                 store=store_name,
                 predicates=predicates,
+                error_if_not_exists=error_if_not_exists,
+            )
+        )
+
+    def drop_non_linear_algorithm_index(
+        self,
+        store_name: str,
+        non_linear_indices: typing.Sequence["NonLinearAlgorithm"],
+        error_if_not_exists: bool,
+    ):
+        self.queries.append(
+            db_query.Query__DropNonLinearAlgorithmIndex(
+                store=store_name,
+                non_linear_indices=non_linear_indices,
                 error_if_not_exists=error_if_not_exists,
             )
         )
@@ -130,6 +154,10 @@ class AhnlichDBRequestBuilder:
         # seems straight forward
         queries = self.queries[:]
 
-        server_query = db_query.ServerQuery(queries=queries)
+        server_query = db_query.ServerQuery(queries=queries, trace_id=self.tracing_id)
         self.drop()
         return server_query
+
+    def exec(self) -> db_response.ServerResult:
+        """Executes a pipelined request"""
+        return self.client.process_request(message=self.to_server_query())

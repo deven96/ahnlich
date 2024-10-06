@@ -9,7 +9,7 @@ use std::fmt;
 
 use crate::keyval::StoreInput;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AIModel {
     // Image model
     DALLE3,

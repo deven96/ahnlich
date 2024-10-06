@@ -2,9 +2,11 @@ use ahnlich_types::{
     ai::{AIStoreInputType, PreprocessAction},
     keyval::StoreName,
 };
+use fallible_collections::TryReserveError;
 use thiserror::Error;
+use tokio::sync::oneshot::error::RecvError;
 
-#[derive(Error, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub enum AIProxyError {
     #[error("Store {0} not found")]
     StoreNotFound(StoreName),
@@ -25,15 +27,15 @@ pub enum AIProxyError {
         store_query_model_type: AIStoreInputType,
         storeinput_type: AIStoreInputType,
     },
-    #[error("Cannot Set Input. Store expects [{store_index_model_type}], input type [{storeinput_type}] was provided")]
+    #[error("Cannot Set Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
     StoreSetTypeMismatchError {
-        store_index_model_type: AIStoreInputType,
-        storeinput_type: AIStoreInputType,
+        index_model_type: String,
+        storeinput_type: String,
     },
 
-    #[error("Max Token Exceeded. Model Expects [{model_embedding_size}], input type was [{input_token_size}] ")]
+    #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}] ")]
     TokenExceededError {
-        model_embedding_size: usize,
+        max_token_size: usize,
         input_token_size: usize,
     },
 
@@ -50,4 +52,31 @@ pub enum AIProxyError {
         input_type: AIStoreInputType,
         preprocess_action: PreprocessAction,
     },
+
+    #[error("index_model or query_model not selected during aiproxy startup")]
+    AIModelNotInitialized,
+
+    // TODO: Add SendError from mpsc::Sender into this variant
+    #[error("Error sending request to model thread")]
+    AIModelThreadSendError,
+
+    #[error("Error receiving response from model thread")]
+    AIModelRecvError(#[from] RecvError),
+
+    #[error("Dimensions Mismatch between index [{index_model_dim}], and Query [{query_model_dim}] Models")]
+    DimensionsMismatchError {
+        index_model_dim: usize,
+        query_model_dim: usize,
+    },
+    #[error("allocation error {0:?}")]
+    Allocation(TryReserveError),
+
+    #[error("Error initializing a model thread {0}")]
+    ModelInitializationError(String),
+}
+
+impl From<TryReserveError> for AIProxyError {
+    fn from(input: TryReserveError) -> Self {
+        Self::Allocation(input)
+    }
 }

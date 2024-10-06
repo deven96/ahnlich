@@ -88,6 +88,7 @@ pub(crate) trait FindSimilarN {
 }
 
 impl FindSimilarN for LinearAlgorithm {
+    #[tracing::instrument(skip_all)]
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &StoreKey,

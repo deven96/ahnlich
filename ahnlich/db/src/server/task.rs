@@ -1,20 +1,23 @@
 use crate::engine::store::StoreHandler;
-use crate::server::handler::ALLOCATOR;
-use ahnlich_types::db::{
-    ConnectedClient, DBQuery, ServerDBQuery, ServerInfo, ServerResponse, ServerResult,
-};
+use ahnlich_types::client::ConnectedClient;
+use ahnlich_types::db::{DBQuery, ServerDBQuery, ServerInfo, ServerResponse, ServerResult};
 use ahnlich_types::version::VERSION;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use task_manager::Task;
+use task_manager::TaskState;
 use tokio::io::BufReader;
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
+use tracing::Instrument;
+use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::client::ClientHandler;
 use utils::protocol::AhnlichProtocol;
 
 #[derive(Debug)]
-pub(super) struct ServerTask {
+pub struct ServerTask {
     pub(super) server_addr: SocketAddr,
-    pub(super) reader: BufReader<TcpStream>,
+    pub(super) reader: Arc<Mutex<BufReader<TcpStream>>>,
     pub(super) store_handler: Arc<StoreHandler>,
     pub(super) client_handler: Arc<ClientHandler>,
     pub(super) connected_client: ConnectedClient,
@@ -32,8 +35,8 @@ impl AhnlichProtocol for ServerTask {
     fn maximum_message_size(&self) -> u64 {
         self.maximum_message_size
     }
-    fn reader(&mut self) -> &mut BufReader<TcpStream> {
-        &mut self.reader
+    fn reader(&self) -> Arc<Mutex<BufReader<TcpStream>>> {
+        self.reader.clone()
     }
 
     async fn handle(&self, queries: Vec<DBQuery>) -> ServerResult {
@@ -68,6 +71,14 @@ impl AhnlichProtocol for ServerTask {
                     .create_pred_index(&store, predicates.into_iter().collect())
                     .map(ServerResponse::CreateIndex)
                     .map_err(|e| format!("{e}")),
+                DBQuery::CreateNonLinearAlgorithmIndex {
+                    store,
+                    non_linear_indices,
+                } => self
+                    .store_handler
+                    .create_non_linear_algorithm_index(&store, non_linear_indices)
+                    .map(ServerResponse::CreateIndex)
+                    .map_err(|e| format!("{e}")),
                 DBQuery::DropStore {
                     store,
                     error_if_not_exists,
@@ -85,6 +96,19 @@ impl AhnlichProtocol for ServerTask {
                     .drop_pred_index_in_store(
                         &store,
                         predicates.into_iter().collect(),
+                        error_if_not_exists,
+                    )
+                    .map(ServerResponse::Del)
+                    .map_err(|e| format!("{e}")),
+                DBQuery::DropNonLinearAlgorithmIndex {
+                    store,
+                    error_if_not_exists,
+                    non_linear_indices,
+                } => self
+                    .store_handler
+                    .drop_non_linear_algorithm_index(
+                        &store,
+                        non_linear_indices,
                         error_if_not_exists,
                     )
                     .map(ServerResponse::Del)
@@ -132,14 +156,28 @@ impl AhnlichProtocol for ServerTask {
 }
 
 impl ServerTask {
+    #[tracing::instrument(skip(self))]
     fn server_info(&self) -> ServerInfo {
         ServerInfo {
             address: format!("{}", self.server_addr),
             version: *VERSION,
             r#type: ahnlich_types::ServerType::Database,
-            limit: ALLOCATOR.limit(),
-            remaining: ALLOCATOR.remaining(),
+            limit: GLOBAL_ALLOCATOR.limit(),
+            remaining: GLOBAL_ALLOCATOR.remaining(),
         }
+    }
+}
+
+#[async_trait::async_trait]
+impl Task for ServerTask {
+    fn task_name(&self) -> String {
+        format!("db-{}-connection", self.connected_client.address)
+    }
+
+    async fn run(&self) -> TaskState {
+        self.process()
+            .instrument(tracing::info_span!("db-server-listener"))
+            .await
     }
 }
 

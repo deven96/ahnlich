@@ -33,9 +33,18 @@ pub enum AIQuery {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
     },
+    CreateNonLinearAlgorithmIndex {
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+    },
     DropPredIndex {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
+        error_if_not_exists: bool,
+    },
+    DropNonLinearAlgorithmIndex {
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_not_exists: bool,
     },
     Set {
@@ -60,12 +69,20 @@ pub enum AIQuery {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AIServerQuery {
     queries: Vec<AIQuery>,
+    trace_id: Option<String>,
 }
 
 impl AIServerQuery {
     pub fn with_capacity(len: usize) -> Self {
         Self {
             queries: Vec::with_capacity(len),
+            trace_id: None,
+        }
+    }
+    pub fn with_capacity_and_tracing_id(len: usize, trace_id: Option<String>) -> Self {
+        Self {
+            queries: Vec::with_capacity(len),
+            trace_id,
         }
     }
 
@@ -76,6 +93,7 @@ impl AIServerQuery {
     pub fn from_queries(queries: &[AIQuery]) -> Self {
         Self {
             queries: queries.to_vec(),
+            trace_id: None,
         }
     }
 }
@@ -87,5 +105,8 @@ impl BinCodeSerAndDeserQuery for AIServerQuery {
 
     fn into_inner(self) -> Self::Inner {
         self.queries
+    }
+    fn get_traceparent(&self) -> Option<String> {
+        self.trace_id.clone()
     }
 }

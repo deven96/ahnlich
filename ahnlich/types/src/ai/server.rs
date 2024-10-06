@@ -1,6 +1,7 @@
 use super::AIModel;
 use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserResponse};
-use crate::db::{ConnectedClient, ServerInfo, StoreUpsert};
+use crate::client::ConnectedClient;
+use crate::db::{ServerInfo, StoreUpsert};
 use crate::keyval::StoreInput;
 use crate::keyval::StoreName;
 use crate::keyval::StoreValue;
@@ -67,6 +68,10 @@ impl AIServerResult {
 
     pub fn is_empty(&self) -> bool {
         self.results.is_empty()
+    }
+
+    pub fn into_inner(self) -> AIServerResultInner {
+        self.results
     }
 }
 

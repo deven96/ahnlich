@@ -4,102 +4,176 @@ use ahnlich_types::bincode::BinCodeSerAndDeserResponse;
 use ahnlich_types::bincode::LENGTH_HEADER_SIZE;
 use ahnlich_types::bincode::MAGIC_BYTES;
 use ahnlich_types::bincode::VERSION_LENGTH;
-use ahnlich_types::db::ConnectedClient;
+use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::version::Version;
 use ahnlich_types::version::VERSION;
+use fallible_collections::vec::FallibleVec;
 use std::fmt::Debug;
 use std::io::Error;
-use std::io::Result as IoResult;
+use std::io::ErrorKind;
+use std::sync::Arc;
+use tokio::sync::MutexGuard;
+
+use task_manager::TaskState;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
-use tokio::select;
-use tokio_graceful::ShutdownGuard;
+use tokio::sync::Mutex;
 use tracing::Instrument;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 #[async_trait::async_trait]
 pub trait AhnlichProtocol
 where
-    Self::ServerQuery: BinCodeSerAndDeserQuery + Sized + Debug,
-    Self::ServerResponse: BinCodeSerAndDeserResponse + Sized + Debug,
+    Self::ServerQuery: BinCodeSerAndDeserQuery + Debug,
+    Self::ServerResponse: BinCodeSerAndDeserResponse + Debug,
 {
     type ServerQuery;
     type ServerResponse;
 
     fn connected_client(&self) -> &ConnectedClient;
     fn maximum_message_size(&self) -> u64;
-    fn reader(&mut self) -> &mut BufReader<TcpStream>;
+    fn reader(&self) -> Arc<Mutex<BufReader<TcpStream>>>;
 
     fn prefix_log(&self, message: impl std::fmt::Display) -> String {
         format!("ClIENT [{}]: {}", &self.connected_client().address, message)
     }
 
     /// processes messages from a stream
-    async fn process(&mut self, shutdown_guard: ShutdownGuard) -> IoResult<()> {
+    async fn process(&self) -> TaskState {
         let mut magic_bytes_buf = [0u8; MAGIC_BYTES.len()];
         let mut version_buf = [0u8; VERSION_LENGTH];
         let mut length_buf = [0u8; LENGTH_HEADER_SIZE];
-
-        loop {
-            select! {
-                _ = shutdown_guard.cancelled() => {
-                    tracing::debug!("{}", self.prefix_log("Cancelling stream as server is shutting down"));
-                    break;
+        let reader = self.reader();
+        let mut reader = reader.lock().await;
+        match reader.read_exact(&mut magic_bytes_buf).await {
+            Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                let error = "Hung up on buffered stream";
+                return self.handle_error(reader, error, false).await;
+            }
+            Err(e) => {
+                let error = format!("Error reading from task buffered stream {e}");
+                return self.handle_error(reader, error, false).await;
+            }
+            Ok(_) => {
+                if magic_bytes_buf != MAGIC_BYTES {
+                    let error = "Invalid request stream".to_string();
+                    return self.handle_error(reader, error, false).await;
                 }
-                res = self.reader().read_exact(&mut magic_bytes_buf) => {
-                    match res {
-                        // reader was closed
-                        Err(ref e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-                            tracing::debug!("{}", self.prefix_log("Hung up on buffered stream"));
-                            break;
-                        }
-                        Err(e) => {
-                            tracing::error!("{}", self.prefix_log(format!("Error reading from task buffered stream {e}")));
-                        }
-                        Ok(_) => {
-                            if magic_bytes_buf != MAGIC_BYTES {
-                                return Err(Error::other("Invalid request stream"));
-                            }
-                            self.reader().read_exact(&mut version_buf).await?;
-                            let version = Version::deserialize_magic_bytes(&version_buf).map_err(|a| Error::other(format!("Unable to parse version chunk {a}")))?;
-                            if !VERSION.is_compatible(&version) {
-                                return Err(Error::other(format!("Incompatible versions, Server: {:?}, Client {version:?}", *VERSION)));
-                            }
-                            // cap the message size to be of length 1MiB
-                            self.reader().read_exact(&mut length_buf).await?;
-                            let data_length = u64::from_le_bytes(length_buf);
-                            if data_length > self.maximum_message_size() {
-                                tracing::error!("{}", self.prefix_log(format!("Message cannot exceed {} bytes, configure `message_size` for higher", self.maximum_message_size())));
-                                break
-                            }
-                            let mut data = Vec::new();
-                            if data.try_reserve(data_length as usize).is_err() {
-                                tracing::error!("{}", self.prefix_log(format!("Failed to reserve buffer of length {data_length}")));
-                                break
-                            };
-                            data.resize(data_length as usize, 0u8);
-                            self.reader().read_exact(&mut data).await?;
-                            match Self::ServerQuery::deserialize(&data) {
-                                Ok(queries) => {
-                                tracing::debug!("Got Queries {:?}", queries);
-                                let results = self.handle(queries.into_inner()).instrument(tracing::info_span!("handle").or_current()).await;
+                if let Err(error) = reader.read_exact(&mut version_buf).await {
+                    return self.handle_error(reader, error, false).await;
+                }
+                let version = match Version::deserialize_magic_bytes(&version_buf) {
+                    Ok(version) => version,
+                    Err(error) => {
+                        let error = format!("Unable to parse version chunk {error}");
+                        return self.handle_error(reader, error, false).await;
+                    }
+                };
+                if !VERSION.is_compatible(&version) {
+                    let error = format!(
+                        "Incompatible versions, Server: {:?}, Client {version:?}",
+                        *VERSION
+                    );
+                    return self.handle_error(reader, error, false).await;
+                }
+                // cap the message size to be of length 1MiB
+                if let Err(error) = reader.read_exact(&mut length_buf).await {
+                    return self.handle_error(reader, error, false).await;
+                };
+                let data_length = u64::from_le_bytes(length_buf);
+                if data_length > self.maximum_message_size() {
+                    let error = format!(
+                        "Message cannot exceed {} bytes, configure `message_size` for higher",
+                        self.maximum_message_size()
+                    );
+                    return self.handle_error(reader, error, true).await;
+                };
 
-                                if let Ok(binary_results) = results.serialize() {
-                                    self.reader().get_mut().write_all(&binary_results).await?;
-                                    tracing::debug!("Sent Response of length {}, {:?}", binary_results.len(), binary_results);
-                                }
-                            },
-                            Err(e) =>{
-                                tracing::error!("{} {e}", self.prefix_log("Could not deserialize client message as server query"));
-                                let deserialize_error = Self::ServerResponse::from_error("Could not deserialize query, error is {e}".to_string()).serialize().expect("Could not serialize deserialize error");
-                                self.reader().get_mut().write_all(&deserialize_error).await?;
-                            }
+                let mut data: Vec<_> = match FallibleVec::try_with_capacity(data_length as usize) {
+                    Err(error) => {
+                        return self
+                            .handle_error(
+                                reader,
+                                format!("Could not allocate buffer for message body {:?}", error),
+                                true,
+                            )
+                            .await;
+                    }
+                    Ok(data) => data,
+                };
+                if let Err(error) = data.try_resize(data_length as usize, 0u8) {
+                    return self
+                        .handle_error(
+                            reader,
+                            format!("Could not resize buffer for message body {:?}", error),
+                            true,
+                        )
+                        .await;
+                };
+                if let Err(e) = reader.read_exact(&mut data).await {
+                    let error = format!("Could not read data buffer {e}");
+                    return self.handle_error(reader, error.to_string(), false).await;
+                };
+                match Self::ServerQuery::deserialize(&data) {
+                    Ok(queries) => {
+                        log::debug!("Got Queries {:?}", queries);
+                        let span = tracing::info_span!("query-processor");
+                        if let Some(trace_parent) = queries.get_traceparent() {
+                            let parent_context = match tracer::trace_parent_to_span(trace_parent)
+                                .map_err(|err| Error::new(ErrorKind::Other, err))
+                            {
+                                Ok(parent_context) => parent_context,
+                                Err(error) => return self.handle_error(reader, error, false).await,
+                            };
+                            span.set_parent(parent_context);
+                        }
+                        let results = self.handle(queries.into_inner()).instrument(span).await;
+                        if let Ok(binary_results) = results.serialize() {
+                            if let Err(error) = reader.get_mut().write_all(&binary_results).await {
+                                return self.handle_error(reader, error, false).await;
+                            };
+                            log::debug!(
+                                "Sent Response of length {}, {:?}",
+                                binary_results.len(),
+                                binary_results
+                            );
                         }
                     }
+                    Err(error) => {
+                        return self.handle_error(reader, error, true).await;
                     }
                 }
             }
         }
-        Ok(())
+        TaskState::Continue
+    }
+
+    async fn handle_error(
+        &self,
+        mut reader: MutexGuard<'_, BufReader<TcpStream>>,
+        error: impl ToString + Send,
+        respond_with_error: bool,
+    ) -> TaskState {
+        let error = self.prefix_log(error.to_string());
+        log::error!("{error}");
+        if respond_with_error {
+            match Self::ServerResponse::from_error(format!(
+                "Could not deserialize query, error is {error}"
+            ))
+            .serialize()
+            {
+                Err(e) => log::error!(
+                    "{}",
+                    self.prefix_log(format!("Could not deserialize error response, {}", e))
+                ),
+                Ok(deserialize_error) => {
+                    if let Err(error) = reader.get_mut().write_all(&deserialize_error).await {
+                        log::error!("{}", self.prefix_log(format!("{error}")));
+                    }
+                }
+            };
+        }
+        TaskState::Break
     }
 
     async fn handle(

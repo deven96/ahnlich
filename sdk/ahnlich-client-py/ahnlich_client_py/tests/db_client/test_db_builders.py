@@ -12,7 +12,7 @@ def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
     request_builder.list_stores()
 
     try:
-        response: db_response.ServerResult = db_client.exec()
+        response: db_response.ServerResult = request_builder.exec()
     finally:
         db_client.cleanup()
 

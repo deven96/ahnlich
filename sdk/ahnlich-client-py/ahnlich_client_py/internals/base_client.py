@@ -3,7 +3,6 @@ import typing
 from contextlib import _GeneratorContextManager
 from ipaddress import IPv4Address
 
-from generic_connection_pool.contrib.socket import TcpSocketConnectionManager
 from generic_connection_pool.exceptions import ConnectionPoolClosedError
 from generic_connection_pool.threading import ConnectionPool
 
@@ -14,12 +13,12 @@ from ahnlich_client_py.internals import (
     ai_response,
     db_query,
     db_response,
+    pool_wrapper,
     protocol,
 )
 
 
 class BaseClient:
-
     def __init__(
         self,
         address: str,
@@ -48,7 +47,7 @@ class BaseClient:
 
     def create_connection_pool(self, settings: AhnlichPoolSettings) -> ConnectionPool:
         return ConnectionPool(
-            connection_manager=TcpSocketConnectionManager(),
+            connection_manager=pool_wrapper.AhnlichTcpSocketConnectionManager(),
             idle_timeout=settings.idle_timeout,
             max_lifetime=settings.max_lifetime,
             min_idle=settings.min_idle_connections,

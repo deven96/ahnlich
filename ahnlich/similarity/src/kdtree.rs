@@ -10,6 +10,7 @@ use std::cmp::Ordering as CmpOrdering;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::collections::HashSet;
+use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 use std::sync::atomic::Ordering;
 
@@ -18,6 +19,24 @@ pub struct KDNode {
     point: Array1<f32>,
     left: Atomic<KDNode>,
     right: Atomic<KDNode>,
+}
+
+impl KDNode {
+    fn size(&self) -> usize {
+        let mut s = size_of_val(self) + size_of_val(&self.point);
+        let guard = epoch::pin();
+        let left = self.left.load(Ordering::Acquire, &guard);
+        if !left.is_null() {
+            let left = unsafe { left.deref() };
+            s += left.size();
+        };
+        let right = self.right.load(Ordering::Acquire, &guard);
+        if !right.is_null() {
+            let right = unsafe { right.deref() };
+            s += right.size();
+        };
+        s
+    }
 }
 
 #[cfg(feature = "serde")]
@@ -203,6 +222,7 @@ impl KDTree {
     /// initialize KDTree with a specified nonzero dimension
     /// dimension: The dimension of the 1-D arrays to be inserted in the tree
     /// depth: The depth of dimension to compare each array. Must not exceed `dimension`
+    #[tracing::instrument]
     pub fn new(dimension: NonZeroUsize, depth: NonZeroUsize) -> Result<Self, Error> {
         if depth > dimension {
             return Err(Error::ImpossibleDepth {
@@ -217,6 +237,22 @@ impl KDTree {
         })
     }
 
+    #[tracing::instrument(skip_all)]
+    pub fn size(&self) -> usize {
+        let mut s = size_of_val(self)
+            + size_of_val(&self.root)
+            + size_of_val(&self.dimension)
+            + size_of_val(&self.depth);
+        let guard = epoch::pin();
+        let root = self.root.load(Ordering::Acquire, &guard);
+        if !root.is_null() {
+            let root = unsafe { root.deref() };
+            s += root.size();
+        }
+        s
+    }
+
+    #[tracing::instrument(skip_all)]
     fn assert_shape(&self, input: &Array1<f32>) -> Result<(), Error> {
         let dim = self.dimension.get();
         if [dim] != input.shape() {
@@ -228,6 +264,7 @@ impl KDTree {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn insert_multi(&self, points: Vec<Array1<f32>>) -> Result<(), Error> {
         if points.is_empty() {
             return Ok(());
@@ -242,6 +279,7 @@ impl KDTree {
     /// insert new point into the KDTree by recursively walking through each dimension of the
     /// point. This asserts that the one-dimensional array being passed in here conforms to the
     /// shape specified by dimension else a dimension mismatch error is returned
+    #[tracing::instrument(skip_all)]
     pub fn insert(&self, point: Array1<f32>) -> Result<(), Error> {
         self.assert_shape(&point)?;
         let guard = epoch::pin();
@@ -249,6 +287,7 @@ impl KDTree {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     fn insert_recursive(
         &self,
         node: &Atomic<KDNode>,
@@ -309,6 +348,7 @@ impl KDTree {
     }
 
     /// delete multiple entries from the KDTree
+    #[tracing::instrument(skip_all)]
     pub fn delete_multi(&self, delete_multi: &[Array1<f32>]) -> Result<usize, Error> {
         if delete_multi.is_empty() {
             return Ok(0);
@@ -322,12 +362,14 @@ impl KDTree {
     }
 
     /// Delete an entry matching delete_point from KD tree
+    #[tracing::instrument(skip_all)]
     pub fn delete(&self, delete_point: &Array1<f32>) -> Result<Option<Array1<f32>>, Error> {
         self.assert_shape(delete_point)?;
         let guard = epoch::pin();
         Ok(self.delete_recursive(&self.root, delete_point, 0, &guard))
     }
 
+    #[tracing::instrument(skip_all)]
     fn delete_recursive(
         &self,
         node: &Atomic<KDNode>,
@@ -401,6 +443,7 @@ impl KDTree {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn find_min<'a>(node: &Atomic<KDNode>, guard: &'a Guard) -> Shared<'a, KDNode> {
         match node.load(Ordering::Acquire, guard) {
             empty if empty == Shared::null() => Shared::null(),
@@ -419,6 +462,7 @@ impl KDTree {
     /// Returns the N nearest arrays to the reference point
     /// accept_list when passed, ensures that only points in the accept list appear in the final
     /// result
+    #[tracing::instrument(skip_all)]
     pub fn n_nearest(
         &self,
         reference_point: &Array1<f32>,
@@ -450,6 +494,7 @@ impl KDTree {
         Ok(results)
     }
 
+    #[tracing::instrument(skip_all)]
     fn is_in_accept_list(
         accept_list: &Option<HashSet<Array1F32Ordered>>,
         point: &Array1<f32>,
@@ -462,6 +507,7 @@ impl KDTree {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[tracing::instrument(skip_all)]
     fn n_nearest_recursive(
         &self,
         node: &Atomic<KDNode>,
@@ -539,6 +585,7 @@ impl KDTree {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn squared_distance(&self, a: &Array1<f32>, b: &Array1<f32>) -> f32 {
         a.iter()
             .zip(b.iter())

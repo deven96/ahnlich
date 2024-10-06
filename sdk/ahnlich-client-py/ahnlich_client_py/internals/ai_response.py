@@ -361,8 +361,15 @@ class StoreInput__RawString(StoreInput):
     value: str
 
 
+@dataclass(frozen=True)
+class StoreInput__Image(StoreInput):
+    INDEX = 1  # type: int
+    value: typing.Sequence[st.uint8]
+
+
 StoreInput.VARIANTS = [
     StoreInput__RawString,
+    StoreInput__Image,
 ]
 
 

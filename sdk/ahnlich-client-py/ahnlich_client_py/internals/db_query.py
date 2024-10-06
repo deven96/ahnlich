@@ -271,62 +271,77 @@ class Query__CreatePredIndex(Query):
 
 
 @dataclass(frozen=True)
-class Query__DropPredIndex(Query):
+class Query__CreateNonLinearAlgorithmIndex(Query):
     INDEX = 5  # type: int
+    store: str
+    non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
+
+
+@dataclass(frozen=True)
+class Query__DropPredIndex(Query):
+    INDEX = 6  # type: int
     store: str
     predicates: typing.Sequence[str]
     error_if_not_exists: bool
 
 
 @dataclass(frozen=True)
+class Query__DropNonLinearAlgorithmIndex(Query):
+    INDEX = 7  # type: int
+    store: str
+    non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
+    error_if_not_exists: bool
+
+
+@dataclass(frozen=True)
 class Query__Set(Query):
-    INDEX = 6  # type: int
+    INDEX = 8  # type: int
     store: str
     inputs: typing.Sequence[typing.Tuple["Array", typing.Dict[str, "MetadataValue"]]]
 
 
 @dataclass(frozen=True)
 class Query__DelKey(Query):
-    INDEX = 7  # type: int
+    INDEX = 9  # type: int
     store: str
     keys: typing.Sequence["Array"]
 
 
 @dataclass(frozen=True)
 class Query__DelPred(Query):
-    INDEX = 8  # type: int
+    INDEX = 10  # type: int
     store: str
     condition: "PredicateCondition"
 
 
 @dataclass(frozen=True)
 class Query__DropStore(Query):
-    INDEX = 9  # type: int
+    INDEX = 11  # type: int
     store: str
     error_if_not_exists: bool
 
 
 @dataclass(frozen=True)
 class Query__InfoServer(Query):
-    INDEX = 10  # type: int
-    pass
-
-
-@dataclass(frozen=True)
-class Query__ListStores(Query):
-    INDEX = 11  # type: int
-    pass
-
-
-@dataclass(frozen=True)
-class Query__ListClients(Query):
     INDEX = 12  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class Query__Ping(Query):
+class Query__ListStores(Query):
     INDEX = 13  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class Query__ListClients(Query):
+    INDEX = 14  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class Query__Ping(Query):
+    INDEX = 15  # type: int
     pass
 
 
@@ -336,7 +351,9 @@ Query.VARIANTS = [
     Query__GetPred,
     Query__GetSimN,
     Query__CreatePredIndex,
+    Query__CreateNonLinearAlgorithmIndex,
     Query__DropPredIndex,
+    Query__DropNonLinearAlgorithmIndex,
     Query__Set,
     Query__DelKey,
     Query__DelPred,
@@ -351,6 +368,7 @@ Query.VARIANTS = [
 @dataclass(frozen=True)
 class ServerQuery:
     queries: typing.Sequence["Query"]
+    trace_id: typing.Optional[str]
 
     def bincode_serialize(self) -> bytes:
         return bincode.serialize(self, ServerQuery)

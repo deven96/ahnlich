@@ -55,8 +55,7 @@ def test_ai_client_get_pred(spin_up_ahnlich_ai):
     )
 
     try:
-
-        ai_client.exec()
+        builder.exec()
         response = ai_client.get_pred(
             ai_store_payload_with_predicates["store_name"],
             ai_query.PredicateCondition__Value(
@@ -101,11 +100,10 @@ def test_ai_client_create_pred_index(spin_up_ahnlich_ai):
     ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
 
     try:
-
         builder = ai_client.pipeline()
         builder.create_store(**ai_store_payload_no_predicates)
         builder.list_stores()
-        response = ai_client.exec()
+        response = builder.exec()
         response = ai_client.create_pred_index(
             ai_store_payload_no_predicates["store_name"],
             predicates=["super_sales"],
@@ -126,11 +124,10 @@ def test_ai_client_drop_pred_index(spin_up_ahnlich_ai):
     ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
 
     try:
-
         builder = ai_client.pipeline()
         builder.create_store(**ai_store_payload_no_predicates)
         builder.list_stores()
-        response = ai_client.exec()
+        response = builder.exec()
         response = ai_client.create_pred_index(
             ai_store_payload_no_predicates["store_name"],
             predicates=["super_sales", "testing", "no mass"],
@@ -154,7 +151,7 @@ def test_ai_client_drop_pred_index(spin_up_ahnlich_ai):
             ["fake_predicate"],
             error_if_not_exists=True,
         )
-        response_with_err = ai_client.exec()
+        response_with_err = builder.exec()
 
         expected = ai_response.AIServerResult(
             results=[
@@ -194,7 +191,7 @@ def test_ai_client_del_key(spin_up_ahnlich_ai):
     )
 
     try:
-        ai_client.exec()
+        builder.exec()
         response = ai_client.del_key(
             ai_store_payload_with_predicates["store_name"],
             key=ai_query.StoreInput__RawString("Yeezey"),
@@ -221,7 +218,7 @@ def test_ai_client_drop_store_succeeds(spin_up_ahnlich_ai):
         builder.create_store(**ai_store_payload_no_predicates)
         builder.create_store(**ai_store_payload_with_predicates)
         builder.list_stores()
-        _ = ai_client.exec()
+        _ = builder.exec()
 
         response = ai_client.drop_store(
             store_name=ai_store_payload_with_predicates["store_name"],
@@ -248,7 +245,7 @@ def test_ai_client_purge_stores_succeeds(spin_up_ahnlich_ai):
         builder.create_store(**ai_store_payload_no_predicates)
         builder.create_store(**ai_store_payload_with_predicates)
         builder.list_stores()
-        _ = ai_client.exec()
+        _ = builder.exec()
 
         response = ai_client.purge_stores()
         expected = ai_response.AIServerResult(

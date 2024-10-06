@@ -9,7 +9,6 @@ from ahnlich_client_py.internals import serde_types as st
 
 class NonZeroSizeInteger:
     def __init__(self, num: st.uint64) -> None:
-
         if num <= 0:
             raise ah_exceptions.AhnlichValidationError(
                 "Ahnlich expects a Non zero value as integers"

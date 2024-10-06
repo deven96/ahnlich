@@ -3,6 +3,7 @@ use ahnlich_types::metadata::MetadataKey;
 pub mod cli;
 pub mod engine;
 pub mod error;
+mod manager;
 pub mod server;
 use once_cell::sync::Lazy;
 #[cfg(test)]

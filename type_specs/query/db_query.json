@@ -259,6 +259,22 @@
         }
       },
       "5": {
+        "CreateNonLinearAlgorithmIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "non_linear_indices": {
+                "SEQ": {
+                  "TYPENAME": "NonLinearAlgorithm"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "6": {
         "DropPredIndex": {
           "STRUCT": [
             {
@@ -275,7 +291,26 @@
           ]
         }
       },
-      "6": {
+      "7": {
+        "DropNonLinearAlgorithmIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "non_linear_indices": {
+                "SEQ": {
+                  "TYPENAME": "NonLinearAlgorithm"
+                }
+              }
+            },
+            {
+              "error_if_not_exists": "BOOL"
+            }
+          ]
+        }
+      },
+      "8": {
         "Set": {
           "STRUCT": [
             {
@@ -303,7 +338,7 @@
           ]
         }
       },
-      "7": {
+      "9": {
         "DelKey": {
           "STRUCT": [
             {
@@ -319,7 +354,7 @@
           ]
         }
       },
-      "8": {
+      "10": {
         "DelPred": {
           "STRUCT": [
             {
@@ -333,7 +368,7 @@
           ]
         }
       },
-      "9": {
+      "11": {
         "DropStore": {
           "STRUCT": [
             {
@@ -345,16 +380,16 @@
           ]
         }
       },
-      "10": {
+      "12": {
         "InfoServer": "UNIT"
       },
-      "11": {
+      "13": {
         "ListStores": "UNIT"
       },
-      "12": {
+      "14": {
         "ListClients": "UNIT"
       },
-      "13": {
+      "15": {
         "Ping": "UNIT"
       }
     }
@@ -366,6 +401,11 @@
           "SEQ": {
             "TYPENAME": "Query"
           }
+        }
+      },
+      {
+        "trace_id": {
+          "OPTION": "STR"
         }
       }
     ]

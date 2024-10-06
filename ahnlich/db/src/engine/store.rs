@@ -1,4 +1,5 @@
 use crate::errors::ServerError;
+use rayon::prelude::*;
 
 use super::super::algorithm::non_linear::NonLinearAlgorithmIndices;
 use super::super::algorithm::{AlgorithmByType, FindSimilarN};
@@ -21,9 +22,10 @@ use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::Arc;
+use utils::persistence::AhnlichPersistenceUtils;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
@@ -67,6 +69,20 @@ pub struct StoreHandler {
     pub write_flag: Arc<AtomicBool>,
 }
 
+impl AhnlichPersistenceUtils for StoreHandler {
+    type PersistenceObject = Stores;
+
+    #[tracing::instrument(skip_all)]
+    fn write_flag(&self) -> Arc<AtomicBool> {
+        self.write_flag.clone()
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn get_snapshot(&self) -> Self::PersistenceObject {
+        self.stores.clone()
+    }
+}
+
 pub type Stores = Arc<ConcurrentHashMap<StoreName, Arc<Store>>>;
 
 impl StoreHandler {
@@ -77,6 +93,7 @@ impl StoreHandler {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn get_stores(&self) -> Stores {
         self.stores.clone()
     }
@@ -86,12 +103,14 @@ impl StoreHandler {
         self.write_flag.clone()
     }
 
+    #[tracing::instrument(skip(self))]
     fn set_write_flag(&self) {
         let _ = self
             .write_flag
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst);
     }
 
+    #[tracing::instrument(skip(self))]
     pub(crate) fn use_snapshot(&mut self, stores_snapshot: Stores) {
         self.stores = stores_snapshot;
     }
@@ -122,8 +141,23 @@ impl StoreHandler {
         Ok(created_predicates)
     }
 
-    /// Matches DELKEY - removes keys from a store
+    /// Matches CREATENONLINEARALGORITHMINDEX - reindexes a store with some non linear algorithms
     #[tracing::instrument(skip(self))]
+    pub(crate) fn create_non_linear_algorithm_index(
+        &self,
+        store_name: &StoreName,
+        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+    ) -> Result<usize, ServerError> {
+        let store = self.get(store_name)?;
+        let created_predicates = store.create_non_linear_algorithm_index(non_linear_indices);
+        if created_predicates > 0 {
+            self.set_write_flag()
+        }
+        Ok(created_predicates)
+    }
+
+    /// Matches DELKEY - removes keys from a store
+    #[tracing::instrument(skip(self, keys), fields(keys_length=keys.len()))]
     pub(crate) fn del_key_in_store(
         &self,
         store_name: &StoreName,
@@ -233,7 +267,7 @@ impl StoreHandler {
     }
 
     /// Matches GETKEY - gets all keys matching the inputs
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, keys), fields(key_length=keys.len()))]
     pub(crate) fn get_key_in_store(
         &self,
         store_name: &StoreName,
@@ -244,7 +278,7 @@ impl StoreHandler {
     }
 
     /// Matches SET - adds new entries into a particular store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, new), fields(entries_length=new.len()))]
     pub fn set_in_store(
         &self,
         store_name: &StoreName,
@@ -313,6 +347,25 @@ impl StoreHandler {
         Ok(deleted)
     }
 
+    /// Matches DROPNONLINEARALGORITHMINDEX - Drops non linear algorithm if it exists, else returns
+    /// an error
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn drop_non_linear_algorithm_index(
+        &self,
+        store_name: &StoreName,
+        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
+        let store = self.get(store_name)?;
+        let deleted = store
+            .non_linear_indices
+            .remove_indices(non_linear_indices, error_if_not_exists)?;
+        if deleted > 0 {
+            self.set_write_flag();
+        };
+        Ok(deleted)
+    }
+
     /// Matches DROPSTORE - Drops a store if exist, else returns an error
     #[tracing::instrument(skip(self))]
     pub(crate) fn drop_store(
@@ -343,7 +396,7 @@ pub struct Store {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     id_to_value: ConcurrentHashMap<StoreKeyId, (StoreKey, StoreValue)>,
     /// Indices to filter for the store
-    predicate_indices: PredicateIndices,
+    predicate_indices: Arc<PredicateIndices>,
     /// Non linear Indices
     non_linear_indices: NonLinearAlgorithmIndices,
 }
@@ -358,7 +411,7 @@ impl Store {
         Self {
             dimension,
             id_to_value: ConcurrentHashMap::new(),
-            predicate_indices: PredicateIndices::init(predicates),
+            predicate_indices: Arc::new(PredicateIndices::init(predicates)),
             non_linear_indices: NonLinearAlgorithmIndices::create(non_linear_indices, dimension),
         }
     }
@@ -388,7 +441,7 @@ impl Store {
     }
 
     /// filters input dimension to make sure it matches store dimension
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, input), fields(input_length=input.len()))]
     fn filter_dimension(&self, input: Vec<StoreKey>) -> Result<Vec<StoreKey>, ServerError> {
         input
             .into_iter()
@@ -407,7 +460,7 @@ impl Store {
     }
 
     /// Deletes a bunch of store keys from the store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, del), fields(key_length=del.len()))]
     fn delete_keys(&self, del: Vec<StoreKey>) -> Result<usize, ServerError> {
         if del.is_empty() {
             return Ok(0);
@@ -425,7 +478,7 @@ impl Store {
     }
 
     /// Gets a bunch of store keys from the store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, val), fields(key_length=val.len()))]
     fn get_keys(&self, val: Vec<StoreKey>) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
         if val.is_empty() {
             return Ok(vec![]);
@@ -509,7 +562,7 @@ impl Store {
     /// Adds a bunch of entries into the store if they match the dimensions
     /// Returns the len of values added, if a value already existed it is updated but not counted
     /// as a new insert
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, new), fields(entry_length=new.len()))]
     fn add(&self, new: Vec<(StoreKey, StoreValue)>) -> Result<StoreUpsert, ServerError> {
         if new.is_empty() {
             return Ok(StoreUpsert {
@@ -518,36 +571,44 @@ impl Store {
             });
         }
         let store_dimension: usize = self.dimension.into();
-        let check_bounds = |(store_key, store_val): (StoreKey, StoreValue)| -> Result<(StoreKeyId, (StoreKey, StoreValue)), ServerError> {
+        let check_bounds = |(store_key, store_val): &(StoreKey, StoreValue)| -> Result<(StoreKeyId, (StoreKey, StoreValue)), ServerError> {
             let input_dimension = store_key.0.len();
             if input_dimension != store_dimension {
                 Err(ServerError::StoreDimensionMismatch { store_dimension, input_dimension  })
             } else {
-                Ok(((&store_key).into(), (store_key, store_val)))
+                Ok(((store_key).into(), (store_key.to_owned(), store_val.to_owned())))
             }
         };
-        let res: Vec<(StoreKeyId, (StoreKey, StoreValue))> = new
-            .into_iter()
-            .map(check_bounds)
-            .collect::<Result<_, _>>()?;
+        let res: Vec<(StoreKeyId, (StoreKey, StoreValue))> =
+            new.par_iter().map(check_bounds).collect::<Result<_, _>>()?;
         let predicate_insert = res
-            .iter()
+            .par_iter()
             .map(|(k, (_, v))| (k.clone(), v.clone()))
             .collect();
-        let pinned = self.id_to_value.pin();
-        let (mut inserted, mut updated) = (0, 0);
-        let mut inserted_keys = Vec::new();
-        for (key, val) in res {
-            if pinned.insert(key, val.clone()).is_some() {
-                updated += 1;
-            } else {
-                inserted += 1;
-                inserted_keys.push(val.0 .0);
-            }
+        let inserted = AtomicUsize::new(0);
+        let updated = AtomicUsize::new(0);
+        let inserted_keys = res
+            .into_par_iter()
+            .flat_map_iter(|(k, v)| {
+                let pinned = self.id_to_value.pin();
+                if pinned.insert(k, v.clone()).is_some() {
+                    updated.fetch_add(1, Ordering::SeqCst);
+                } else {
+                    inserted.fetch_add(1, Ordering::SeqCst);
+                    return Some(v.0 .0);
+                }
+                None
+            })
+            .collect();
+        let predicate_indices = self.predicate_indices.clone();
+        predicate_indices.add(predicate_insert);
+        if !self.non_linear_indices.is_empty() {
+            self.non_linear_indices.insert(inserted_keys);
         }
-        self.predicate_indices.add(predicate_insert);
-        self.non_linear_indices.insert(inserted_keys);
-        Ok(StoreUpsert { inserted, updated })
+        Ok(StoreUpsert {
+            inserted: inserted.into_inner(),
+            updated: updated.into_inner(),
+        })
     }
 
     #[tracing::instrument(skip(self))]
@@ -567,6 +628,26 @@ impl Store {
                 .collect();
             self.predicate_indices
                 .add_predicates(new_predicates, Some(values));
+        };
+        new_predicates_len
+    }
+
+    #[tracing::instrument(skip(self))]
+    fn create_non_linear_algorithm_index(
+        &self,
+        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+    ) -> usize {
+        let current_keys = self.non_linear_indices.current_keys();
+        let new_predicates: StdHashSet<_> = non_linear_indices
+            .difference(&current_keys)
+            .copied()
+            .collect();
+        let new_predicates_len = new_predicates.len();
+        if !new_predicates.is_empty() {
+            // get all the values and reindex
+            let values: Vec<_> = self.get_all().into_iter().map(|(k, _)| k.0).collect();
+            self.non_linear_indices
+                .insert_indices(new_predicates, &values, self.dimension);
         };
         new_predicates_len
     }
@@ -598,6 +679,7 @@ impl Store {
                 })
                 .sum::<usize>()
             + self.predicate_indices.size()
+            + self.non_linear_indices.size()
     }
 }
 
@@ -1050,12 +1132,12 @@ mod tests {
                 StoreInfo {
                     name: odd_store,
                     len: 2,
-                    size_in_bytes: 2136,
+                    size_in_bytes: 2144,
                 },
                 StoreInfo {
                     name: even_store,
                     len: 0,
-                    size_in_bytes: 1736,
+                    size_in_bytes: 1744,
                 },
             ])
         )

@@ -1,3 +1,4 @@
+use super::super::errors::ServerError;
 use super::FindSimilarN;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_similarity::utils::Array1F32Ordered;
@@ -8,6 +9,7 @@ use ndarray::Array1;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
+use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,6 +17,7 @@ pub(crate) enum NonLinearAlgorithmWithIndex {
     KDTree(KDTree),
 }
 impl NonLinearAlgorithmWithIndex {
+    #[tracing::instrument]
     pub(crate) fn create(algorithm: NonLinearAlgorithm, dimension: NonZeroUsize) -> Self {
         match algorithm {
             NonLinearAlgorithm::KDTree => NonLinearAlgorithmWithIndex::KDTree(
@@ -24,6 +27,7 @@ impl NonLinearAlgorithmWithIndex {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn insert(&self, new: &[Array1<f32>]) {
         match self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
@@ -34,6 +38,7 @@ impl NonLinearAlgorithmWithIndex {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn delete(&self, new: &[Array1<f32>]) {
         match self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
@@ -43,9 +48,17 @@ impl NonLinearAlgorithmWithIndex {
             }
         }
     }
+
+    #[tracing::instrument(skip_all)]
+    fn size(&self) -> usize {
+        match &self {
+            Self::KDTree(kdtree) => kdtree.size(),
+        }
+    }
 }
 
 impl FindSimilarN for NonLinearAlgorithmWithIndex {
+    #[tracing::instrument(skip_all)]
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &StoreKey,
@@ -82,6 +95,13 @@ pub struct NonLinearAlgorithmIndices {
 }
 
 impl NonLinearAlgorithmIndices {
+    #[tracing::instrument]
+    pub fn is_empty(&self) -> bool {
+        let pinned = self.algorithm_to_index.pin();
+        pinned.is_empty()
+    }
+
+    #[tracing::instrument]
     pub fn create(input: HashSet<NonLinearAlgorithm>, dimension: NonZeroUsize) -> Self {
         let algorithm_to_index = ConcurrentHashMap::new();
         for algo in input {
@@ -91,7 +111,51 @@ impl NonLinearAlgorithmIndices {
         Self { algorithm_to_index }
     }
 
+    #[tracing::instrument(skip(self))]
+    pub fn current_keys(&self) -> HashSet<NonLinearAlgorithm> {
+        let pinned = self.algorithm_to_index.pin();
+        pinned.keys().copied().collect()
+    }
+
+    #[tracing::instrument(skip(self, values))]
+    pub fn insert_indices(
+        &self,
+        indices: HashSet<NonLinearAlgorithm>,
+        values: &[Array1<f32>],
+        dimension: NonZeroUsize,
+    ) {
+        let pinned = self.algorithm_to_index.pin();
+        for algo in indices {
+            let with_index = NonLinearAlgorithmWithIndex::create(algo, dimension);
+            with_index.insert(values);
+            pinned.insert(algo, with_index);
+        }
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub fn remove_indices(
+        &self,
+        indices: HashSet<NonLinearAlgorithm>,
+        error_if_not_exists: bool,
+    ) -> Result<usize, ServerError> {
+        let pinned = self.algorithm_to_index.pin();
+        if let (true, Some(non_existing_index)) = (
+            error_if_not_exists,
+            indices.iter().find(|a| !pinned.contains_key(a)),
+        ) {
+            return Err(ServerError::NonLinearIndexNotFound(*non_existing_index));
+        }
+        let mut deleted = 0;
+        for index in indices {
+            if pinned.remove_entry(&index).is_some() {
+                deleted += 1;
+            }
+        }
+        Ok(deleted)
+    }
+
     /// insert new entries into the non linear algorithm indices
+    #[tracing::instrument(skip_all)]
     pub(crate) fn insert(&self, new: Vec<Array1<f32>>) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {
@@ -100,10 +164,21 @@ impl NonLinearAlgorithmIndices {
     }
 
     /// delete old entries from the non linear algorithm indices
+    #[tracing::instrument(skip_all)]
     pub(crate) fn delete(&self, old: &[Array1<f32>]) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {
             algo.delete(old);
         }
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub(crate) fn size(&self) -> usize {
+        size_of_val(&self)
+            + self
+                .algorithm_to_index
+                .iter(&self.algorithm_to_index.guard())
+                .map(|(k, v)| size_of_val(k) + v.size())
+                .sum::<usize>()
     }
 }
