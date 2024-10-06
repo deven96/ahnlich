@@ -243,7 +243,7 @@ func DeserializeMetadataValue(deserializer serde.Deserializer) (MetadataValue, e
 		}
 
 	case 1:
-		if val, err := load_MetadataValue__Binary(deserializer); err == nil {
+		if val, err := load_MetadataValue__Image(deserializer); err == nil {
 			return &val, nil
 		} else {
 			return nil, err
@@ -296,11 +296,11 @@ func load_MetadataValue__RawString(deserializer serde.Deserializer) (MetadataVal
 	return (MetadataValue__RawString)(obj), nil
 }
 
-type MetadataValue__Binary []uint8
+type MetadataValue__Image []uint8
 
-func (*MetadataValue__Binary) isMetadataValue() {}
+func (*MetadataValue__Image) isMetadataValue() {}
 
-func (obj *MetadataValue__Binary) Serialize(serializer serde.Serializer) error {
+func (obj *MetadataValue__Image) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
 	serializer.SerializeVariantIndex(1)
 	if err := serialize_vector_u8((([]uint8)(*obj)), serializer); err != nil { return err }
@@ -308,7 +308,7 @@ func (obj *MetadataValue__Binary) Serialize(serializer serde.Serializer) error {
 	return nil
 }
 
-func (obj *MetadataValue__Binary) BincodeSerialize() ([]byte, error) {
+func (obj *MetadataValue__Image) BincodeSerialize() ([]byte, error) {
 	if obj == nil {
 		return nil, fmt.Errorf("Cannot serialize null object")
 	}
@@ -317,12 +317,12 @@ func (obj *MetadataValue__Binary) BincodeSerialize() ([]byte, error) {
 	return serializer.GetBytes(), nil
 }
 
-func load_MetadataValue__Binary(deserializer serde.Deserializer) (MetadataValue__Binary, error) {
+func load_MetadataValue__Image(deserializer serde.Deserializer) (MetadataValue__Image, error) {
 	var obj []uint8
-	if err := deserializer.IncreaseContainerDepth(); err != nil { return (MetadataValue__Binary)(obj), err }
-	if val, err := deserialize_vector_u8(deserializer); err == nil { obj = val } else { return ((MetadataValue__Binary)(obj)), err }
+	if err := deserializer.IncreaseContainerDepth(); err != nil { return (MetadataValue__Image)(obj), err }
+	if val, err := deserialize_vector_u8(deserializer); err == nil { obj = val } else { return ((MetadataValue__Image)(obj)), err }
 	deserializer.DecreaseContainerDepth()
-	return (MetadataValue__Binary)(obj), nil
+	return (MetadataValue__Image)(obj), nil
 }
 
 type NonLinearAlgorithm interface {
@@ -778,62 +778,76 @@ func DeserializeQuery(deserializer serde.Deserializer) (Query, error) {
 		}
 
 	case 5:
-		if val, err := load_Query__DropPredIndex(deserializer); err == nil {
+		if val, err := load_Query__CreateNonLinearAlgorithmIndex(deserializer); err == nil {
 			return &val, nil
 		} else {
 			return nil, err
 		}
 
 	case 6:
-		if val, err := load_Query__Set(deserializer); err == nil {
+		if val, err := load_Query__DropPredIndex(deserializer); err == nil {
 			return &val, nil
 		} else {
 			return nil, err
 		}
 
 	case 7:
-		if val, err := load_Query__DelKey(deserializer); err == nil {
+		if val, err := load_Query__DropNonLinearAlgorithmIndex(deserializer); err == nil {
 			return &val, nil
 		} else {
 			return nil, err
 		}
 
 	case 8:
-		if val, err := load_Query__DelPred(deserializer); err == nil {
+		if val, err := load_Query__Set(deserializer); err == nil {
 			return &val, nil
 		} else {
 			return nil, err
 		}
 
 	case 9:
-		if val, err := load_Query__DropStore(deserializer); err == nil {
+		if val, err := load_Query__DelKey(deserializer); err == nil {
 			return &val, nil
 		} else {
 			return nil, err
 		}
 
 	case 10:
-		if val, err := load_Query__InfoServer(deserializer); err == nil {
+		if val, err := load_Query__DelPred(deserializer); err == nil {
 			return &val, nil
 		} else {
 			return nil, err
 		}
 
 	case 11:
-		if val, err := load_Query__ListStores(deserializer); err == nil {
+		if val, err := load_Query__DropStore(deserializer); err == nil {
 			return &val, nil
 		} else {
 			return nil, err
 		}
 
 	case 12:
-		if val, err := load_Query__ListClients(deserializer); err == nil {
+		if val, err := load_Query__InfoServer(deserializer); err == nil {
 			return &val, nil
 		} else {
 			return nil, err
 		}
 
 	case 13:
+		if val, err := load_Query__ListStores(deserializer); err == nil {
+			return &val, nil
+		} else {
+			return nil, err
+		}
+
+	case 14:
+		if val, err := load_Query__ListClients(deserializer); err == nil {
+			return &val, nil
+		} else {
+			return nil, err
+		}
+
+	case 15:
 		if val, err := load_Query__Ping(deserializer); err == nil {
 			return &val, nil
 		} else {
@@ -1046,6 +1060,40 @@ func load_Query__CreatePredIndex(deserializer serde.Deserializer) (Query__Create
 	return obj, nil
 }
 
+type Query__CreateNonLinearAlgorithmIndex struct {
+	Store string
+	NonLinearIndices []NonLinearAlgorithm
+}
+
+func (*Query__CreateNonLinearAlgorithmIndex) isQuery() {}
+
+func (obj *Query__CreateNonLinearAlgorithmIndex) Serialize(serializer serde.Serializer) error {
+	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
+	serializer.SerializeVariantIndex(5)
+	if err := serializer.SerializeStr(obj.Store); err != nil { return err }
+	if err := serialize_vector_NonLinearAlgorithm(obj.NonLinearIndices, serializer); err != nil { return err }
+	serializer.DecreaseContainerDepth()
+	return nil
+}
+
+func (obj *Query__CreateNonLinearAlgorithmIndex) BincodeSerialize() ([]byte, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("Cannot serialize null object")
+	}
+	serializer := bincode.NewSerializer();
+	if err := obj.Serialize(serializer); err != nil { return nil, err }
+	return serializer.GetBytes(), nil
+}
+
+func load_Query__CreateNonLinearAlgorithmIndex(deserializer serde.Deserializer) (Query__CreateNonLinearAlgorithmIndex, error) {
+	var obj Query__CreateNonLinearAlgorithmIndex
+	if err := deserializer.IncreaseContainerDepth(); err != nil { return obj, err }
+	if val, err := deserializer.DeserializeStr(); err == nil { obj.Store = val } else { return obj, err }
+	if val, err := deserialize_vector_NonLinearAlgorithm(deserializer); err == nil { obj.NonLinearIndices = val } else { return obj, err }
+	deserializer.DecreaseContainerDepth()
+	return obj, nil
+}
+
 type Query__DropPredIndex struct {
 	Store string
 	Predicates []string
@@ -1056,7 +1104,7 @@ func (*Query__DropPredIndex) isQuery() {}
 
 func (obj *Query__DropPredIndex) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
-	serializer.SerializeVariantIndex(5)
+	serializer.SerializeVariantIndex(6)
 	if err := serializer.SerializeStr(obj.Store); err != nil { return err }
 	if err := serialize_vector_str(obj.Predicates, serializer); err != nil { return err }
 	if err := serializer.SerializeBool(obj.ErrorIfNotExists); err != nil { return err }
@@ -1083,6 +1131,43 @@ func load_Query__DropPredIndex(deserializer serde.Deserializer) (Query__DropPred
 	return obj, nil
 }
 
+type Query__DropNonLinearAlgorithmIndex struct {
+	Store string
+	NonLinearIndices []NonLinearAlgorithm
+	ErrorIfNotExists bool
+}
+
+func (*Query__DropNonLinearAlgorithmIndex) isQuery() {}
+
+func (obj *Query__DropNonLinearAlgorithmIndex) Serialize(serializer serde.Serializer) error {
+	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
+	serializer.SerializeVariantIndex(7)
+	if err := serializer.SerializeStr(obj.Store); err != nil { return err }
+	if err := serialize_vector_NonLinearAlgorithm(obj.NonLinearIndices, serializer); err != nil { return err }
+	if err := serializer.SerializeBool(obj.ErrorIfNotExists); err != nil { return err }
+	serializer.DecreaseContainerDepth()
+	return nil
+}
+
+func (obj *Query__DropNonLinearAlgorithmIndex) BincodeSerialize() ([]byte, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("Cannot serialize null object")
+	}
+	serializer := bincode.NewSerializer();
+	if err := obj.Serialize(serializer); err != nil { return nil, err }
+	return serializer.GetBytes(), nil
+}
+
+func load_Query__DropNonLinearAlgorithmIndex(deserializer serde.Deserializer) (Query__DropNonLinearAlgorithmIndex, error) {
+	var obj Query__DropNonLinearAlgorithmIndex
+	if err := deserializer.IncreaseContainerDepth(); err != nil { return obj, err }
+	if val, err := deserializer.DeserializeStr(); err == nil { obj.Store = val } else { return obj, err }
+	if val, err := deserialize_vector_NonLinearAlgorithm(deserializer); err == nil { obj.NonLinearIndices = val } else { return obj, err }
+	if val, err := deserializer.DeserializeBool(); err == nil { obj.ErrorIfNotExists = val } else { return obj, err }
+	deserializer.DecreaseContainerDepth()
+	return obj, nil
+}
+
 type Query__Set struct {
 	Store string
 	Inputs []struct {Field0 Array; Field1 map[string]MetadataValue}
@@ -1092,7 +1177,7 @@ func (*Query__Set) isQuery() {}
 
 func (obj *Query__Set) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
-	serializer.SerializeVariantIndex(6)
+	serializer.SerializeVariantIndex(8)
 	if err := serializer.SerializeStr(obj.Store); err != nil { return err }
 	if err := serialize_vector_tuple2_Array_map_str_to_MetadataValue(obj.Inputs, serializer); err != nil { return err }
 	serializer.DecreaseContainerDepth()
@@ -1126,7 +1211,7 @@ func (*Query__DelKey) isQuery() {}
 
 func (obj *Query__DelKey) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
-	serializer.SerializeVariantIndex(7)
+	serializer.SerializeVariantIndex(9)
 	if err := serializer.SerializeStr(obj.Store); err != nil { return err }
 	if err := serialize_vector_Array(obj.Keys, serializer); err != nil { return err }
 	serializer.DecreaseContainerDepth()
@@ -1160,7 +1245,7 @@ func (*Query__DelPred) isQuery() {}
 
 func (obj *Query__DelPred) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
-	serializer.SerializeVariantIndex(8)
+	serializer.SerializeVariantIndex(10)
 	if err := serializer.SerializeStr(obj.Store); err != nil { return err }
 	if err := obj.Condition.Serialize(serializer); err != nil { return err }
 	serializer.DecreaseContainerDepth()
@@ -1194,7 +1279,7 @@ func (*Query__DropStore) isQuery() {}
 
 func (obj *Query__DropStore) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
-	serializer.SerializeVariantIndex(9)
+	serializer.SerializeVariantIndex(11)
 	if err := serializer.SerializeStr(obj.Store); err != nil { return err }
 	if err := serializer.SerializeBool(obj.ErrorIfNotExists); err != nil { return err }
 	serializer.DecreaseContainerDepth()
@@ -1226,7 +1311,7 @@ func (*Query__InfoServer) isQuery() {}
 
 func (obj *Query__InfoServer) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
-	serializer.SerializeVariantIndex(10)
+	serializer.SerializeVariantIndex(12)
 	serializer.DecreaseContainerDepth()
 	return nil
 }
@@ -1254,7 +1339,7 @@ func (*Query__ListStores) isQuery() {}
 
 func (obj *Query__ListStores) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
-	serializer.SerializeVariantIndex(11)
+	serializer.SerializeVariantIndex(13)
 	serializer.DecreaseContainerDepth()
 	return nil
 }
@@ -1282,7 +1367,7 @@ func (*Query__ListClients) isQuery() {}
 
 func (obj *Query__ListClients) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
-	serializer.SerializeVariantIndex(12)
+	serializer.SerializeVariantIndex(14)
 	serializer.DecreaseContainerDepth()
 	return nil
 }
@@ -1310,7 +1395,7 @@ func (*Query__Ping) isQuery() {}
 
 func (obj *Query__Ping) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
-	serializer.SerializeVariantIndex(13)
+	serializer.SerializeVariantIndex(15)
 	serializer.DecreaseContainerDepth()
 	return nil
 }
@@ -1333,11 +1418,13 @@ func load_Query__Ping(deserializer serde.Deserializer) (Query__Ping, error) {
 
 type ServerQuery struct {
 	Queries []Query
+	TraceId *string
 }
 
 func (obj *ServerQuery) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
 	if err := serialize_vector_Query(obj.Queries, serializer); err != nil { return err }
+	if err := serialize_option_str(obj.TraceId, serializer); err != nil { return err }
 	serializer.DecreaseContainerDepth()
 	return nil
 }
@@ -1355,6 +1442,7 @@ func DeserializeServerQuery(deserializer serde.Deserializer) (ServerQuery, error
 	var obj ServerQuery
 	if err := deserializer.IncreaseContainerDepth(); err != nil { return obj, err }
 	if val, err := deserialize_vector_Query(deserializer); err == nil { obj.Queries = val } else { return obj, err }
+	if val, err := deserialize_option_str(deserializer); err == nil { obj.TraceId = val } else { return obj, err }
 	deserializer.DecreaseContainerDepth()
 	return obj, nil
 }
@@ -1422,6 +1510,28 @@ func deserialize_option_PredicateCondition(deserializer serde.Deserializer) (*Pr
 	if tag {
 		value := new(PredicateCondition)
 		if val, err := DeserializePredicateCondition(deserializer); err == nil { *value = val } else { return nil, err }
+	        return value, nil
+	} else {
+		return nil, nil
+	}
+}
+
+func serialize_option_str(value *string, serializer serde.Serializer) error {
+	if value != nil {
+		if err := serializer.SerializeOptionTag(true); err != nil { return err }
+		if err := serializer.SerializeStr((*value)); err != nil { return err }
+	} else {
+		if err := serializer.SerializeOptionTag(false); err != nil { return err }
+	}
+	return nil
+}
+
+func deserialize_option_str(deserializer serde.Deserializer) (*string, error) {
+	tag, err := deserializer.DeserializeOptionTag()
+	if err != nil { return nil, err }
+	if tag {
+		value := new(string)
+		if val, err := deserializer.DeserializeStr(); err == nil { *value = val } else { return nil, err }
 	        return value, nil
 	} else {
 		return nil, nil

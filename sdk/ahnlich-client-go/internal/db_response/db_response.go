@@ -118,7 +118,7 @@ func DeserializeMetadataValue(deserializer serde.Deserializer) (MetadataValue, e
 		}
 
 	case 1:
-		if val, err := load_MetadataValue__Binary(deserializer); err == nil {
+		if val, err := load_MetadataValue__Image(deserializer); err == nil {
 			return &val, nil
 		} else {
 			return nil, err
@@ -171,11 +171,11 @@ func load_MetadataValue__RawString(deserializer serde.Deserializer) (MetadataVal
 	return (MetadataValue__RawString)(obj), nil
 }
 
-type MetadataValue__Binary []uint8
+type MetadataValue__Image []uint8
 
-func (*MetadataValue__Binary) isMetadataValue() {}
+func (*MetadataValue__Image) isMetadataValue() {}
 
-func (obj *MetadataValue__Binary) Serialize(serializer serde.Serializer) error {
+func (obj *MetadataValue__Image) Serialize(serializer serde.Serializer) error {
 	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
 	serializer.SerializeVariantIndex(1)
 	if err := serialize_vector_u8((([]uint8)(*obj)), serializer); err != nil { return err }
@@ -183,7 +183,7 @@ func (obj *MetadataValue__Binary) Serialize(serializer serde.Serializer) error {
 	return nil
 }
 
-func (obj *MetadataValue__Binary) BincodeSerialize() ([]byte, error) {
+func (obj *MetadataValue__Image) BincodeSerialize() ([]byte, error) {
 	if obj == nil {
 		return nil, fmt.Errorf("Cannot serialize null object")
 	}
@@ -192,12 +192,12 @@ func (obj *MetadataValue__Binary) BincodeSerialize() ([]byte, error) {
 	return serializer.GetBytes(), nil
 }
 
-func load_MetadataValue__Binary(deserializer serde.Deserializer) (MetadataValue__Binary, error) {
+func load_MetadataValue__Image(deserializer serde.Deserializer) (MetadataValue__Image, error) {
 	var obj []uint8
-	if err := deserializer.IncreaseContainerDepth(); err != nil { return (MetadataValue__Binary)(obj), err }
-	if val, err := deserialize_vector_u8(deserializer); err == nil { obj = val } else { return ((MetadataValue__Binary)(obj)), err }
+	if err := deserializer.IncreaseContainerDepth(); err != nil { return (MetadataValue__Image)(obj), err }
+	if val, err := deserialize_vector_u8(deserializer); err == nil { obj = val } else { return ((MetadataValue__Image)(obj)), err }
 	deserializer.DecreaseContainerDepth()
-	return (MetadataValue__Binary)(obj), nil
+	return (MetadataValue__Image)(obj), nil
 }
 
 type Result interface {
@@ -806,6 +806,13 @@ func DeserializeServerType(deserializer serde.Deserializer) (ServerType, error) 
 			return nil, err
 		}
 
+	case 1:
+		if val, err := load_ServerType__Ai(deserializer); err == nil {
+			return &val, nil
+		} else {
+			return nil, err
+		}
+
 	default:
 		return nil, fmt.Errorf("Unknown variant index for ServerType: %d", index)
 	}
@@ -847,6 +854,34 @@ func (obj *ServerType__Database) BincodeSerialize() ([]byte, error) {
 
 func load_ServerType__Database(deserializer serde.Deserializer) (ServerType__Database, error) {
 	var obj ServerType__Database
+	if err := deserializer.IncreaseContainerDepth(); err != nil { return obj, err }
+	deserializer.DecreaseContainerDepth()
+	return obj, nil
+}
+
+type ServerType__Ai struct {
+}
+
+func (*ServerType__Ai) isServerType() {}
+
+func (obj *ServerType__Ai) Serialize(serializer serde.Serializer) error {
+	if err := serializer.IncreaseContainerDepth(); err != nil { return err }
+	serializer.SerializeVariantIndex(1)
+	serializer.DecreaseContainerDepth()
+	return nil
+}
+
+func (obj *ServerType__Ai) BincodeSerialize() ([]byte, error) {
+	if obj == nil {
+		return nil, fmt.Errorf("Cannot serialize null object")
+	}
+	serializer := bincode.NewSerializer();
+	if err := obj.Serialize(serializer); err != nil { return nil, err }
+	return serializer.GetBytes(), nil
+}
+
+func load_ServerType__Ai(deserializer serde.Deserializer) (ServerType__Ai, error) {
+	var obj ServerType__Ai
 	if err := deserializer.IncreaseContainerDepth(); err != nil { return obj, err }
 	deserializer.DecreaseContainerDepth()
 	return obj, nil
