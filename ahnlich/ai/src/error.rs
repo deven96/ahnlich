@@ -24,8 +24,8 @@ pub enum AIProxyError {
     UnexpectedDBResponse(String),
     #[error("Cannot Query Using Input. Store expects [{store_query_model_type}], but input type [{storeinput_type}] was provided")]
     StoreQueryTypeMismatchError {
-        store_query_model_type: AIStoreInputType,
-        storeinput_type: AIStoreInputType,
+        store_query_model_type: String,
+        storeinput_type: String,
     },
     #[error("Cannot Set Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
     StoreSetTypeMismatchError {
@@ -40,11 +40,12 @@ pub enum AIProxyError {
     },
 
     #[error(
-        "Image Dimensions [{image_dimensions}] exceeds max model dimensions [{max_dimensions}] "
+        "Image Dimensions [({0}, {1})] does not the expected model dimensions [({2}, {3})] ",
+        image_dimensions.0, image_dimensions.1, expected_dimensions.0, expected_dimensions.1
     )]
     ImageDimensionsMismatchError {
-        image_dimensions: usize,
-        max_dimensions: usize,
+        image_dimensions: (usize, usize),
+        expected_dimensions: (usize, usize),
     },
 
     #[error("Used [{preprocess_action}] for [{input_type}] type")]
@@ -53,8 +54,11 @@ pub enum AIProxyError {
         preprocess_action: PreprocessAction,
     },
 
-    #[error("index_model or query_model not selected during aiproxy startup")]
+    #[error("index_model or query_model not selected or loaded during aiproxy startup")]
     AIModelNotInitialized,
+
+    #[error("index_model or query_model not supported")]
+    AIModelNotSupported,
 
     // TODO: Add SendError from mpsc::Sender into this variant
     #[error("Error sending request to model thread")]
@@ -73,6 +77,12 @@ pub enum AIProxyError {
 
     #[error("Error initializing a model thread {0}")]
     ModelInitializationError(String),
+
+    #[error("Bytes could not be successfully decoded into an image.")]
+    ImageBytesDecodeError,
+
+    #[error("Image could not be resized.")]
+    ImageResizeError,
 }
 
 impl From<TryReserveError> for AIProxyError {

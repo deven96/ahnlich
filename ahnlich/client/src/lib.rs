@@ -88,9 +88,9 @@
 //! let ai_client = AIClient::new("127.0.0.1".into(), 1369).await.unwrap();
 //! let store_name = StoreName("Less".to_string());
 //! // Model used to set to create embeddings for all forms of get command
-//! let query_model = AIModel::Llama3;
+//! let query_model = AIModel::AllMiniLML6V2;
 //! // Model used to set to create embeddings for set command
-//! let index_model = AIModel::Llama3;
+//! let index_model = AIModel::AllMiniLML6V2;
 //! let tracing_id: Option<String> = None,
 //! let mut pipeline = ai_client.pipeline(2, tracing_id).unwrap();
 //!   pipeline.create_store(

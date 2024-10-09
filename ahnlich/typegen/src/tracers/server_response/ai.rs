@@ -32,8 +32,8 @@ pub fn trace_ai_server_response_enum() -> Registry {
 
     let store_list = AIServerResponse::StoreList(HashSet::from_iter([AIStoreInfo {
         name: StoreName("testing".to_owned()),
-        query_model: AIModel::Llama3,
-        index_model: AIModel::Llama3,
+        query_model: AIModel::AllMiniLML6V2,
+        index_model: AIModel::AllMiniLML6V2,
         embedding_size: 20,
     }]));
 

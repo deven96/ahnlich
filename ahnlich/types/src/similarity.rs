@@ -45,7 +45,7 @@ pub struct Similarity(pub f32);
 
 impl PartialEq for Similarity {
     fn eq(&self, other: &Self) -> bool {
-        (self.0 - other.0).abs() < std::f32::EPSILON
+        (self.0 - other.0).abs() < f32::EPSILON
     }
 }
 

@@ -21,8 +21,6 @@ tracing.workspace = true
 
 [dependencies.ndarray]
 workspace = true
-default-features = false
-features = []
 
 [features]
 default = []
