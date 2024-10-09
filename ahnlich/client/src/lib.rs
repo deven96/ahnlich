@@ -36,6 +36,18 @@
 //! ai_client.ping(tracing_id).await.unwrap();
 //! ```
 //!
+//! ### AI Client
+//! ```rust
+//! use ahnlich_client_rs::ai::AIConnManager;
+//! use deadpool::managed::Pool;
+//! use ahnlich_client_rs::ai::AIClient;
+//!
+//! let manager = AIConnManager::new("127.0.0.1".into(), 1369);
+//! let pool = Pool::builder(manager).max_size(10).build().unwrap();
+//! let ai_client = AIClient::new_with_pool(pool);
+//! ai_client.ping().await.unwrap();
+//! ```
+//!
 //! ## Pipelining
 //!
 //! When using a client(db or aiproxy) to issue commands, there is no guarantee of reading your own writes, even

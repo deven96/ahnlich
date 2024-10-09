@@ -231,6 +231,23 @@ impl AIStoreHandler {
         Ok((output, delete_hashset))
     }
 
+    /// Converts storeinput into a tuple of storekey and storevalue.
+    /// Fails if the store input type does not match the store index_type
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn create_store_key(
+        &self,
+        store_input: StoreInput,
+        index_store_model: &AIModel,
+        preprocess_action: &PreprocessAction,
+    ) -> Result<StoreKey, AIProxyError> {
+        // Process the inner value of a store input and convert it into a ndarray by passing
+        // it into  index model. Create a storekey from ndarray
+        let processed_input =
+            self.preprocess_store_input(preprocess_action, store_input, index_store_model)?;
+        let store_key = index_store_model.model_ndarray(&processed_input);
+        Ok(store_key)
+    }
+
     /// Converts (storekey, storevalue) into (storeinput, storevalue)
     /// by removing the reserved_key from storevalue
     #[tracing::instrument(skip(self, output), fields(output_len=output.len()))]
@@ -294,6 +311,85 @@ impl AIStoreHandler {
         let guard = self.stores.guard();
         self.stores.clear(&guard);
         store_length
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn preprocess_store_input(
+        &self,
+        process_action: &PreprocessAction,
+        input: StoreInput,
+        index_model: &AIModel,
+    ) -> Result<StoreInput, AIProxyError> {
+        match (process_action, input) {
+            (PreprocessAction::Image(image_action), StoreInput::Image(image_input)) => {
+                // resize image and edit
+                let output = self.process_image(image_input, index_model, image_action)?;
+                Ok(output)
+            }
+            (PreprocessAction::RawString(string_action), StoreInput::RawString(string_input)) => {
+                let output =
+                    self.preprocess_raw_string(string_input, index_model, string_action)?;
+                Ok(output)
+            }
+            (PreprocessAction::RawString(_), StoreInput::Image(_)) => {
+                Err(AIProxyError::PreprocessingMismatchError {
+                    input_type: AIStoreInputType::Image,
+                    preprocess_action: process_action.clone(),
+                })
+            }
+
+            (PreprocessAction::Image(_), StoreInput::RawString(_)) => {
+                Err(AIProxyError::PreprocessingMismatchError {
+                    input_type: AIStoreInputType::RawString,
+                    preprocess_action: process_action.clone(),
+                })
+            }
+        }
+    }
+    fn preprocess_raw_string(
+        &self,
+        input: String,
+        index_model: &AIModel,
+        string_action: &StringAction,
+    ) -> Result<StoreInput, AIProxyError> {
+        // tokenize string, return error if max token
+        //let tokenized_input;
+        let model_embedding_dim = index_model.model_info().embedding_size;
+        if input.len() > model_embedding_dim.into() {
+            if let StringAction::ErrorIfTokensExceed = string_action {
+                return Err(AIProxyError::TokenExceededError {
+                    input_token_size: input.len(),
+                    model_embedding_size: model_embedding_dim.into(),
+                });
+            } else {
+                // truncate raw string
+                // let tokenized_input;
+                let _input = input.as_str()[..model_embedding_dim.into()].to_string();
+            }
+        }
+        Ok(StoreInput::RawString(input))
+    }
+
+    fn process_image(
+        &self,
+        input: Vec<u8>,
+        index_model: &AIModel,
+        image_action: &ImageAction,
+    ) -> Result<StoreInput, AIProxyError> {
+        // process image, return error if max dimensions exceeded
+        // let image_data;
+        let model_embedding_dim = index_model.embedding_size().into();
+        if input.len() > model_embedding_dim {
+            if let ImageAction::ErrorIfDimensionsMismatch = image_action {
+                return Err(AIProxyError::ImageDimensionsMismatchError {
+                    image_dimensions: input.len(),
+                    max_dimensions: model_embedding_dim,
+                });
+            } else {
+                // resize image
+            }
+        }
+        Ok(StoreInput::Image(input))
     }
 }
 

@@ -14,7 +14,7 @@ PYTHON_PROJECT_DIR := ../sdk/ahnlich-client-py
 CARGO_TOML := $(RUST_PROJECT_DIR)/Cargo.toml
 PYPOETRY_TOML := $(PYTHON_PROJECT_DIR)/pyproject.toml
 
-# Default version bump rule 
+# Default version bump rule
 BUMP_RULE := patch
 
 # Default crate name
@@ -29,19 +29,19 @@ format-check: ## cargo fmt --check
 format: ## cargo fmt
 	  cargo fmt
 
-clippy: ## cargo clippy 
+clippy: ## cargo clippy
 	cargo clippy -- -D warnings
 
-check: ## cargo check 
+check: ## cargo check
 	cargo check
 
 test: ## cargo test
 	cargo nextest run --no-capture
 
-generate-specs: ## generate type specs 
+generate-specs: ## generate type specs
 	cargo run --bin typegen generate
 
-run-db: ## Run ahnlich_db bin 
+run-db: ## Run ahnlich_db bin
 	cargo run --bin ahnlich-db run
 
 run-db-tracing: ## Run ahnlich_db bin with  tracing enabled
@@ -104,10 +104,10 @@ demo-tracing:
 	@cd $(PYTHON_PROJECT_DIR) && poetry config --local virtualenvs.in-project true
 	@cd $(PYTHON_PROJECT_DIR) && poetry install
 	@echo "Run demo_tracing..."
-	@cd $(PYTHON_PROJECT_DIR) && python demo_tracing.py 
+	@cd $(PYTHON_PROJECT_DIR) && python demo_tracing.py
 
 
-all: format check test clippy generate-specs bumpversion bump-py-client bump-rs-client ## format, clip, generate type specs, and bumpversions 
+all: format check test clippy generate-specs bumpversion bump-py-client bump-rs-client ## format, clip, generate type specs, and bumpversions
 
 
 # --------------Configuration-------------
