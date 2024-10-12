@@ -465,14 +465,34 @@ async fn test_ai_proxy_fails_db_server_unavailable() {
 
     let mut reader = BufReader::new(second_stream);
 
-    let response = get_server_response(&mut reader, message).await;
+    // NOTE: on windows, streams seem to wait indefinitely rather
+    // than returning an EOF to indicate a closed stream, this
+    // then tends to make the AI server's DB pool unable to immediately
+    // communicate disconnection to it's client and so we catch that as a timeout
+    // for now
+    #[cfg(windows)]
+    {
+        let serialized_message = message.serialize().unwrap();
 
-    let res = response.pop().unwrap();
+        reader.write_all(&serialized_message).await.unwrap();
 
-    assert!(res.is_err());
-    // Err("deadpool error Backend(Standard(Os { code: 61, kind: ConnectionRefused, message: \"Connection refused\" }))")] }
-    let err = res.err().unwrap();
-    assert!(err.contains(" kind: ConnectionRefused,"))
+        let mut header = [0u8; ahnlich_types::bincode::RESPONSE_HEADER_LEN];
+        assert!(
+            timeout(Duration::from_secs(1), reader.read_exact(&mut header))
+                .await
+                .is_err()
+        )
+    }
+
+    #[cfg(not(windows))]
+    {
+        let response = get_server_response(&mut reader, message).await;
+        let res = response.pop().unwrap();
+        assert!(res.is_err());
+        // Err("deadpool error Backend(Standard(Os { code: 61, kind: ConnectionRefused, message: \"Connection refused\" }))")] }
+        let err = res.err().unwrap();
+        assert!(err.contains(" kind: ConnectionRefused,"))
+    }
 }
 
 #[tokio::test]
