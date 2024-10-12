@@ -10,6 +10,22 @@ from ahnlich_client_py.exceptions import (
 from ahnlich_client_py.internals import ai_query, ai_response, db_query, db_response
 
 
+class BufReader:
+    def __init__(self, conn: socket.socket, max_size_to_read=1024):
+        self.conn = conn
+        self.max_size_to_read = max_size_to_read
+
+    def recv(self, size_to_read: int) -> bytes:
+        buffer = b""
+        size = min(size_to_read, self.max_size_to_read)
+        while size_to_read > 0:
+            data = self.conn.recv(size)
+            buffer += data
+            size_to_read -= len(data)
+            size = min(size_to_read, size)
+        return buffer
+
+
 class AhnlichMessageProtocol:
     def __init__(self, sock_timeout_sec: float = 5.0):
         self.version = self.get_version()
@@ -48,19 +64,20 @@ class AhnlichMessageProtocol:
         ],
     ) -> typing.Union[db_response.ServerResult, ai_response.AIServerResult]:
         conn.settimeout(self.timeout_sec)
-        header = conn.recv(8)
+        buf_reader = BufReader(conn=conn)
+        header = buf_reader.recv(8)
         if header == b"":
             raise AhnlichProtocolException("socket connection broken")
 
         if header != config.HEADER:
             raise AhnlichProtocolException("Fake server")
         # ignore version of 5 bytes
-        _version = conn.recv(5)
-        length = conn.recv(8)
+        _version = buf_reader.recv(5)
+        length = buf_reader.recv(8)
         # header length u64, little endian
         length_to_read = int.from_bytes(length, byteorder="little")
         # information data
-        data = conn.recv(length_to_read)
+        data = buf_reader.recv(length_to_read)
         response = self.deserialize_server_response(data, response_class=response_class)
         return response
 
