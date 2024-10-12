@@ -1,9 +1,10 @@
 # Copyright (c) Facebook, Inc. and its affiliates
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
-import numpy as np
-from dataclasses import dataclass
 import typing
+from dataclasses import dataclass
+
+import numpy as np
 
 
 class SerializationError(ValueError):
