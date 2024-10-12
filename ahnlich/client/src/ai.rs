@@ -517,17 +517,17 @@ mod tests {
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Err("Store Main already exists".to_string()));
         expected.push(Ok(AIServerResponse::Unit));
-        let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
+        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
-                embedding_size: llama3_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size().into(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
-                embedding_size: llama3_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size().into(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
             },
@@ -629,23 +629,23 @@ mod tests {
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Ok(AIServerResponse::Unit));
 
-        let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
+        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
-                embedding_size: llama3_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size().into(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Main2".to_string()),
-                embedding_size: llama3_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size().into(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
-                embedding_size: llama3_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size().into(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
             },
@@ -727,14 +727,14 @@ mod tests {
         let mut expected = AIServerResult::with_capacity(6);
 
         expected.push(Ok(AIServerResponse::Unit));
-        let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
+        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name.clone(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
 
-                embedding_size: llama3_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size().into(),
             },
         ]))));
         expected.push(Ok(AIServerResponse::CreateIndex(2)));

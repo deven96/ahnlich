@@ -8,15 +8,15 @@ use ahnlich_types::{
     ai::{AIModel, AIStoreInputType},
     keyval::{StoreInput, StoreKey},
 };
+use image::{GenericImageView, ImageReader};
 use ndarray::{Array, Array1, Ix3};
 use nonzero_ext::nonzero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt;
-use std::num::NonZeroUsize;
-use std::path::PathBuf;
 use std::cmp::Ordering;
-use image::{GenericImageView, ImageReader};
+use std::fmt;
 use std::io::Cursor;
+use std::num::NonZeroUsize;
+use std::path::Path;
 use strum::Display;
 
 #[derive(Display)]
@@ -125,7 +125,7 @@ impl Model {
                     ModelProviders::FastEmbed(provider) => {
                         let embedding = provider.run_inference(storeinput, action_type);
                         Ok(StoreKey(<Array1<f32>>::from(embedding)))
-                    },
+                    }
                     ModelProviders::ORT(provider) => {
                         let embedding = provider.run_inference(storeinput, action_type);
                         Ok(StoreKey(<Array1<f32>>::from(embedding)))
@@ -157,10 +157,12 @@ impl Model {
     #[tracing::instrument(skip(self))]
     pub fn model_name(&self) -> String {
         match self {
-            Model::Text {supported_model, ..} |
-            Model::Image {supported_model, ..} => {
-                supported_model.to_string()
+            Model::Text {
+                supported_model, ..
             }
+            | Model::Image {
+                supported_model, ..
+            } => supported_model.to_string(),
         }
     }
     #[tracing::instrument(skip(self))]
@@ -172,17 +174,17 @@ impl Model {
         }
     }
 
-    pub fn setup_provider(&mut self, supported_model: &SupportedModels, cache_location: &PathBuf) {
+    pub fn setup_provider(&mut self, supported_model: &SupportedModels, cache_location: &Path) {
         match self {
             Model::Text { provider, .. } | Model::Image { provider, .. } => match provider {
                 ModelProviders::FastEmbed(provider) => {
                     provider.set_model(supported_model);
                     provider.set_cache_location(cache_location);
-                },
+                }
                 ModelProviders::ORT(provider) => {
                     provider.set_model(supported_model);
                     provider.set_cache_location(cache_location);
-                },
+                }
             },
         }
     }
@@ -192,7 +194,7 @@ impl Model {
             Model::Text { provider, .. } | Model::Image { provider, .. } => match provider {
                 ModelProviders::FastEmbed(provider) => {
                     provider.load_model();
-                },
+                }
                 ModelProviders::ORT(provider) => {
                     provider.load_model();
                 }
@@ -205,10 +207,10 @@ impl Model {
             Model::Text { provider, .. } | Model::Image { provider, .. } => match provider {
                 ModelProviders::FastEmbed(provider) => {
                     provider.get_model();
-                },
+                }
                 ModelProviders::ORT(provider) => {
                     provider.get_model();
-                },
+                }
             },
         }
     }
@@ -267,11 +269,10 @@ pub enum ModelInput {
     Image(ImageArray),
 }
 
-
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct ImageArray {
     array: Array<u8, Ix3>,
-    bytes: Vec<u8>
+    bytes: Vec<u8>,
 }
 
 impl ImageArray {
@@ -303,18 +304,24 @@ impl ImageArray {
         let img_reader = ImageReader::new(Cursor::new(&self.bytes))
             .with_guessed_format()
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
-        let img_format = img_reader.format().ok_or(AIProxyError::ImageBytesDecodeError)?;
+        let img_format = img_reader
+            .format()
+            .ok_or(AIProxyError::ImageBytesDecodeError)?;
         let original_img = img_reader
             .decode()
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
 
-        let resized_img = original_img.resize_exact(width as u32, height as u32,
-                                                    image::imageops::FilterType::Triangle);
+        let resized_img = original_img.resize_exact(
+            width as u32,
+            height as u32,
+            image::imageops::FilterType::Triangle,
+        );
         let channels = resized_img.color().channel_count();
-        let shape = (height as usize, width as usize, channels as usize);
+        let shape = (height, width, channels as usize);
 
         let mut buffer = Cursor::new(Vec::new());
-        resized_img.write_to(&mut buffer, img_format)
+        resized_img
+            .write_to(&mut buffer, img_format)
             .map_err(|_| AIProxyError::ImageResizeError)?;
 
         let flattened_pixels = resized_img.into_bytes();
@@ -326,8 +333,10 @@ impl ImageArray {
 
     pub fn image_dim(&self) -> (NonZeroUsize, NonZeroUsize) {
         let shape = self.array.shape();
-        return (NonZeroUsize::new(shape[1]).unwrap(),
-                NonZeroUsize::new(shape[0]).unwrap()); // (width, height)
+        (
+            NonZeroUsize::new(shape[1]).unwrap(),
+            NonZeroUsize::new(shape[0]).unwrap(),
+        ) // (width, height)
     }
 }
 
@@ -346,7 +355,7 @@ impl<'de> Deserialize<'de> for ImageArray {
         D: Deserializer<'de>,
     {
         let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
-        Ok(ImageArray::try_new(bytes).map_err(serde::de::Error::custom)?)
+        ImageArray::try_new(bytes).map_err(serde::de::Error::custom)
     }
 }
 
@@ -373,9 +382,9 @@ impl From<StoreInput> for ModelInput {
     }
 }
 
-impl Into<AIStoreInputType> for &ModelInput {
-    fn into(self) -> AIStoreInputType {
-        match self {
+impl From<&ModelInput> for AIStoreInputType {
+    fn from(value: &ModelInput) -> AIStoreInputType {
+        match value {
             ModelInput::Text(_) => AIStoreInputType::RawString,
             ModelInput::Image(_) => AIStoreInputType::Image,
         }

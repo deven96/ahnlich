@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::cli::server::{ModelConfig, SupportedModels};
@@ -39,7 +39,7 @@ struct ModelThread {
 impl ModelThread {
     fn new(
         supported_model: SupportedModels,
-        cache_location: &PathBuf,
+        cache_location: &Path,
         request_receiver: mpsc::Receiver<ModelThreadRequest>,
     ) -> Self {
         let supported_model = &supported_model;
@@ -82,7 +82,6 @@ impl ModelThread {
         let input = ModelInput::from(input);
         match (process_action, &input) {
             (PreprocessAction::Image(image_action), ModelInput::Image(image_array)) => {
-                let image_array = image_array;
                 let output = self.process_image(image_array, image_action)?;
                 Ok(ModelInput::Image(output))
             }
@@ -107,12 +106,15 @@ impl ModelThread {
     #[tracing::instrument(skip(self, input))]
     fn preprocess_raw_string(
         &self,
-        input: &String,
+        input: &str,
         string_action: StringAction,
     ) -> Result<String, AIProxyError> {
-        let max_token_size = self.model.max_input_token().expect(
-            format!("`max_input_token()` is not supported for model: {:?}", self.model.model_name()).as_str()
-        );
+        let max_token_size = self.model.max_input_token().unwrap_or_else(|| {
+            panic!(
+                "`max_input_token()` is not supported for model: {:?}",
+                self.model.model_name()
+            )
+        });
 
         if input.len() > max_token_size.into() {
             if let StringAction::ErrorIfTokensExceed = string_action {
@@ -121,11 +123,11 @@ impl ModelThread {
                     max_token_size: max_token_size.into(),
                 });
             } else {
-                let processed_input = input.as_str()[..max_token_size.into()].to_string();
+                let processed_input = input[..max_token_size.into()].to_string();
                 return Ok(processed_input);
             }
         }
-        Ok(input.clone())
+        Ok(input.to_owned())
     }
 
     #[tracing::instrument(skip(self, input))]
@@ -142,8 +144,7 @@ impl ModelThread {
             preprocess_action: PreprocessAction::Image(image_action),
         });
 
-        let Some((expected_width, expected_height)) =
-            self.model.expected_image_dimensions() else {
+        let Some((expected_width, expected_height)) = self.model.expected_image_dimensions() else {
             return preprocess_mismatch;
         };
 
@@ -156,8 +157,8 @@ impl ModelThread {
                     expected_dimensions: (expected_width.into(), expected_height.into()),
                 });
             } else {
-                let input = input.resize(
-                    usize::from(expected_width), usize::from(expected_height))?;
+                let input =
+                    input.resize(usize::from(expected_width), usize::from(expected_height))?;
                 return Ok(input);
             }
         }

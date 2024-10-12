@@ -78,10 +78,19 @@ def run_get_simn_text():
 
 def run_insert_image():
     image_urls = [
-        ("https://cdn.britannica.com/96/195196-050-3909D5BD/Michael-Jordan-1988.jpg", "Slam Dunk Jordan"),
+        (
+            "https://cdn.britannica.com/96/195196-050-3909D5BD/Michael-Jordan-1988.jpg",
+            "Slam Dunk Jordan",
+        ),
         ("https://i.ebayimg.com/images/g/0-wAAOSwsQ1h5Pqc/s-l1600.webp", "Air Jordan"),
-        ("https://as2.ftcdn.net/v2/jpg/02/70/86/51/1000_F_270865104_HMpmjP3Hqt0MvdlV7QkQJful50bBzj46.jpg", "Aeroplane"),
-        ("https://csaenvironmental.co.uk/wp-content/uploads/2020/06/landscape-value-600x325.jpg", "Landscape")
+        (
+            "https://as2.ftcdn.net/v2/jpg/02/70/86/51/1000_F_270865104_HMpmjP3Hqt0MvdlV7QkQJful50bBzj46.jpg",
+            "Aeroplane",
+        ),
+        (
+            "https://csaenvironmental.co.uk/wp-content/uploads/2020/06/landscape-value-600x325.jpg",
+            "Landscape",
+        ),
     ]
 
     ai_client = AhnlichAIClient(address="127.0.0.1", port=1370, connect_timeout_sec=30)
@@ -96,9 +105,7 @@ def run_insert_image():
 
         store_inputs = [
             (
-                ai_query.StoreInput__Image(
-                    buffer.getvalue()
-                ),
+                ai_query.StoreInput__Image(buffer.getvalue()),
                 {"brand": ai_query.MetadataValue__RawString(brand)},
             ),
         ]
@@ -112,6 +119,7 @@ def run_insert_image():
         )
 
     return builder.exec()
+
 
 def run_get_simn_image():
     ai_client = AhnlichAIClient(address="127.0.0.1", port=1370)

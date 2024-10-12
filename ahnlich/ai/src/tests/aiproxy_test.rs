@@ -147,13 +147,13 @@ async fn test_ai_proxy_create_store_success() {
     // list stores to verify it's present.
     let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
     let mut expected = AIServerResult::with_capacity(1);
-    let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
+    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name.clone(),
             query_model: AIModel::AllMiniLML6V2,
             index_model: AIModel::AllMiniLML6V2,
-            embedding_size: llama3_model.embedding_size().into(),
+            embedding_size: ai_model.embedding_size().into(),
         },
     ]))));
     let mut reader = BufReader::new(second_stream);
@@ -575,14 +575,14 @@ async fn test_ai_proxy_test_with_persistence() {
     let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
 
     let mut expected = AIServerResult::with_capacity(1);
-    let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
+    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
 
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name_2.clone(),
             query_model: AIModel::AllMiniLML6V2,
             index_model: AIModel::AllMiniLML6V2,
-            embedding_size: llama3_model.embedding_size().into(),
+            embedding_size: ai_model.embedding_size().into(),
         },
     ]))));
 
@@ -611,14 +611,14 @@ async fn test_ai_proxy_destroy_database() {
     ]);
     let mut expected = AIServerResult::with_capacity(4);
 
-    let llama3_model: Model = (&AIModel::AllMiniLML6V2).into();
+    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name,
             query_model: AIModel::AllMiniLML6V2,
             index_model: AIModel::AllMiniLML6V2,
-            embedding_size: llama3_model.embedding_size().into(),
+            embedding_size: ai_model.embedding_size().into(),
         },
     ]))));
     expected.push(Ok(AIServerResponse::Del(1)));

@@ -1,5 +1,5 @@
-use std::sync::OnceLock;
 use clap::{ArgAction, Args};
+use std::sync::OnceLock;
 
 static DEFAULT_CONFIG: OnceLock<CommandLineConfig> = OnceLock::new();
 

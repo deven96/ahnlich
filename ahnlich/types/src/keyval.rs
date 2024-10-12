@@ -48,7 +48,6 @@ impl PartialEq for StoreKey {
     }
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StoreInput {
     RawString(String),

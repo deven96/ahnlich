@@ -33,6 +33,7 @@ pub struct Cli {
     pub command: Commands,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 pub enum Commands {
     /// Starts Anhlich AI Proxy

@@ -1,12 +1,12 @@
 pub(crate) mod fastembed;
 pub(crate) mod ort;
 
-use std::path::PathBuf;
-use strum::EnumIter;
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{InputAction, ModelInput};
 use crate::engine::ai::providers::fastembed::FastEmbedProvider;
 use crate::engine::ai::providers::ort::ORTProvider;
+use std::path::Path;
+use strum::EnumIter;
 
 #[derive(Debug, EnumIter)]
 pub enum ModelProviders {
@@ -15,7 +15,7 @@ pub enum ModelProviders {
 }
 
 pub trait ProviderTrait: std::fmt::Debug + Send + Sync {
-    fn set_cache_location(&mut self, location: &PathBuf) -> &mut Self;
+    fn set_cache_location(&mut self, location: &Path) -> &mut Self;
     fn set_model(&mut self, model: &SupportedModels) -> &mut Self;
     fn load_model(&mut self) -> &mut Self;
     fn get_model(&self);

@@ -1,13 +1,13 @@
-use ahnlich_types::ai::AIStoreInputType;
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{InputAction, Model, ModelInput};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
+use ahnlich_types::ai::AIStoreInputType;
 use fastembed::{EmbeddingModel, ImageEmbedding, InitOptions, TextEmbedding};
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use std::convert::TryFrom;
 use std::fmt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Default)]
 pub struct FastEmbedProvider {
@@ -36,7 +36,6 @@ pub enum FastEmbedModel {
     Image(ImageEmbedding),
 }
 
-
 impl TryFrom<&SupportedModels> for FastEmbedModelType {
     type Error = AIProxyError;
 
@@ -49,11 +48,11 @@ impl TryFrom<&SupportedModels> for FastEmbedModelType {
                     SupportedModels::AllMiniLML12V2 => EmbeddingModel::AllMiniLML12V2,
                     SupportedModels::BGEBaseEnV15 => EmbeddingModel::BGEBaseENV15,
                     SupportedModels::BGELargeEnV15 => EmbeddingModel::BGELargeENV15,
-                    _ => return Err(AIProxyError::AIModelNotSupported)
+                    _ => return Err(AIProxyError::AIModelNotSupported),
                 };
                 FastEmbedModelType::Text(model_type)
             }
-            _ => return Err(AIProxyError::AIModelNotSupported)
+            _ => return Err(AIProxyError::AIModelNotSupported),
         };
         Ok(model_type)
     }
@@ -71,15 +70,13 @@ impl FastEmbedProvider {
 }
 
 impl ProviderTrait for FastEmbedProvider {
-    fn set_cache_location(&mut self, location: &PathBuf) -> &mut Self {
-        let mut cache_location = location.clone();
-        cache_location.push(self.cache_location_extension.clone());
-        self.cache_location = Some(cache_location);
+    fn set_cache_location(&mut self, location: &Path) -> &mut Self {
+        self.cache_location = Some(location.join(self.cache_location_extension.clone()));
         self
     }
 
     fn set_model(&mut self, model: &SupportedModels) -> &mut Self {
-        self.supported_models = Some(model.clone());
+        self.supported_models = Some(*model);
         self
     }
 
@@ -97,8 +94,9 @@ impl ProviderTrait for FastEmbedProvider {
         });
 
         let FastEmbedModelType::Text(model_type) = model_type;
-        let model = TextEmbedding::try_new(InitOptions::new(model_type)
-            .with_cache_dir(cache_location)).unwrap();
+        let model =
+            TextEmbedding::try_new(InitOptions::new(model_type).with_cache_dir(cache_location))
+                .unwrap();
         self.model = Some(FastEmbedModel::Text(model));
 
         self
@@ -136,23 +134,31 @@ impl ProviderTrait for FastEmbedProvider {
             let response = match fastembed_model {
                 FastEmbedModel::Text(model) => {
                     if let ModelInput::Text(value) = input {
-                        model.embed(vec![value], None).expect("Could not run inference.")
+                        model
+                            .embed(vec![value], None)
+                            .expect("Could not run inference.")
                     } else {
                         let store_input_type: AIStoreInputType = input.into();
                         let index_model_repr: Model = (&self.supported_models.unwrap()).into();
                         match action_type {
                             InputAction::Query => {
-                                panic!("{}", AIProxyError::StoreQueryTypeMismatchError {
-                                    store_query_model_type: index_model_repr.to_string(),
-                                    storeinput_type: store_input_type.to_string(),
-                                })
-                            },
+                                panic!(
+                                    "{}",
+                                    AIProxyError::StoreQueryTypeMismatchError {
+                                        store_query_model_type: index_model_repr.to_string(),
+                                        storeinput_type: store_input_type.to_string(),
+                                    }
+                                )
+                            }
                             InputAction::Index => {
-                                panic!("{}", AIProxyError::StoreSetTypeMismatchError {
-                                    index_model_type: index_model_repr.to_string(),
-                                    storeinput_type: store_input_type.to_string(),
-                                })
-                            },
+                                panic!(
+                                    "{}",
+                                    AIProxyError::StoreSetTypeMismatchError {
+                                        index_model_type: index_model_repr.to_string(),
+                                        storeinput_type: store_input_type.to_string(),
+                                    }
+                                )
+                            }
                         }
                     }
                 }
