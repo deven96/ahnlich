@@ -1,6 +1,6 @@
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{InputAction, Model, ModelInput};
-use crate::engine::ai::providers::ProviderTrait;
+use crate::engine::ai::providers::{ProviderTrait, TextPreprocessorTrait};
 use crate::error::AIProxyError;
 use ahnlich_types::ai::AIStoreInputType;
 use fastembed::{EmbeddingModel, ImageEmbedding, InitOptions, TextEmbedding};
@@ -8,13 +8,44 @@ use hf_hub::{api::sync::ApiBuilder, Cache};
 use std::convert::TryFrom;
 use std::fmt;
 use std::path::{Path, PathBuf};
+use tiktoken_rs::{cl100k_base, CoreBPE};
 
 #[derive(Default)]
 pub struct FastEmbedProvider {
     cache_location: Option<PathBuf>,
     cache_location_extension: PathBuf,
     supported_models: Option<SupportedModels>,
+    pub preprocessor: Option<FastEmbedPreprocessor>,
     pub model: Option<FastEmbedModel>,
+}
+
+struct Tokenizer(CoreBPE);
+
+// TODO (HAKSOAT): Implement Tokenizers specific to models
+impl Tokenizer {
+    fn new(supported_models: &SupportedModels) -> Self {
+        let _ = supported_models;
+        // Using ChatGPT model tokenizers as a default till we add specific implementations.
+        let bpe = cl100k_base().unwrap();
+        Tokenizer(bpe)
+    }
+}
+
+pub struct FastEmbedPreprocessor {
+    tokenizer: Tokenizer
+}
+
+// TODO (HAKSOAT): Implement other preprocessors
+impl TextPreprocessorTrait for FastEmbedPreprocessor {
+    fn encode_str(&self, text: &str) -> Result<Vec<usize>, AIProxyError> {
+        let tokens = self.tokenizer.0.encode_with_special_tokens(text);
+        Ok(tokens)
+    }
+
+    fn decode_tokens(&self, tokens: Vec<usize>) -> Result<String, AIProxyError> {
+        let text = self.tokenizer.0.decode(tokens).map_err(|_| AIProxyError::ModelTokenizationError)?;
+        Ok(text)
+    }
 }
 
 pub enum FastEmbedModelType {
@@ -65,6 +96,30 @@ impl FastEmbedProvider {
             cache_location_extension: PathBuf::from("huggingface".to_string()),
             supported_models: None,
             model: None,
+            preprocessor: None,
+        }
+    }
+
+    fn load_tokenizer(&mut self) -> &mut Self {
+        let supported_models = self.supported_models.expect("Model has not been set.");
+        let tokenizer = Tokenizer::new(&supported_models);
+        self.preprocessor = Some(FastEmbedPreprocessor { tokenizer });
+        self
+    }
+
+    pub fn encode_str(&self, text: &str) -> Result<Vec<usize>, AIProxyError> {
+        if let Some(preprocessor) = &self.preprocessor {
+            preprocessor.encode_str(text)
+        } else {
+            Err(AIProxyError::AIModelNotInitialized)
+        }
+    }
+
+    pub fn decode_tokens(&self, tokens: Vec<usize>) -> Result<String, AIProxyError> {
+        if let Some(preprocessor) = &self.preprocessor {
+            preprocessor.decode_tokens(tokens)
+        } else {
+            Err(AIProxyError::AIModelNotInitialized)
         }
     }
 }
@@ -98,7 +153,7 @@ impl ProviderTrait for FastEmbedProvider {
             TextEmbedding::try_new(InitOptions::new(model_type).with_cache_dir(cache_location))
                 .unwrap();
         self.model = Some(FastEmbedModel::Text(model));
-
+        self.load_tokenizer();
         self
     }
 
@@ -107,7 +162,8 @@ impl ProviderTrait for FastEmbedProvider {
             .cache_location
             .clone()
             .expect("Cache location not set.");
-        let model_type = self.supported_models.expect("A model has not been set.");
+        let model_type = self.supported_models.expect(
+            &AIProxyError::AIModelNotInitialized.to_string());
         let model_type = FastEmbedModelType::try_from(&model_type).unwrap_or_else(|_| {
             panic!(
                 "This provider does not support the model: {:?}.",
@@ -127,50 +183,44 @@ impl ProviderTrait for FastEmbedProvider {
                 model_repo.get(model_info.model_file.as_str()).unwrap();
             }
         }
+    //     TODO (HAKSOAT): When we add model specific tokenizers, add the get tokenizer call here too.
     }
 
-    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Vec<f32> {
+    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Result<Vec<f32>, AIProxyError> {
         if let Some(fastembed_model) = &self.model {
-            let response = match fastembed_model {
+            let embeddings = match fastembed_model {
                 FastEmbedModel::Text(model) => {
                     if let ModelInput::Text(value) = input {
                         model
                             .embed(vec![value], None)
-                            .expect("Could not run inference.")
+                            .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?
                     } else {
                         let store_input_type: AIStoreInputType = input.into();
-                        let index_model_repr: Model = (&self.supported_models.unwrap()).into();
+                        let index_model_repr: Model = (&self.supported_models.expect(
+                            &AIProxyError::AIModelNotInitialized.to_string())).into();
                         match action_type {
                             InputAction::Query => {
-                                panic!(
-                                    "{}",
-                                    AIProxyError::StoreQueryTypeMismatchError {
+                                return Err(AIProxyError::StoreQueryTypeMismatchError {
                                         store_query_model_type: index_model_repr.to_string(),
                                         storeinput_type: store_input_type.to_string(),
-                                    }
-                                )
+                                    })
                             }
                             InputAction::Index => {
-                                panic!(
-                                    "{}",
-                                    AIProxyError::StoreSetTypeMismatchError {
+                                return Err(AIProxyError::StoreSetTypeMismatchError {
                                         index_model_type: index_model_repr.to_string(),
                                         storeinput_type: store_input_type.to_string(),
-                                    }
-                                )
+                                    })
                             }
                         }
                     }
                 }
-                _ => panic!("{}", AIProxyError::AIModelNotSupported),
+                _ => return Err(AIProxyError::AIModelNotSupported)
             };
-            let response: Vec<f32> = response
-                .first()
-                .expect("Response embedding is empty")
-                .to_owned();
-            response
+            let embeddings = embeddings.first().ok_or(
+                AIProxyError::ModelProviderPostprocessingError)?;
+            return Ok(embeddings.to_owned());
         } else {
-            panic!("{}", AIProxyError::AIModelNotInitialized);
+            return Err(AIProxyError::AIModelNotSupported)
         }
     }
 }

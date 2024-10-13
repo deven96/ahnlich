@@ -12,7 +12,6 @@ use image::{GenericImageView, ImageReader};
 use ndarray::{Array, Array1, Ix3};
 use nonzero_ext::nonzero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::cmp::Ordering;
 use std::fmt;
 use std::io::Cursor;
 use std::num::NonZeroUsize;
@@ -124,11 +123,11 @@ impl Model {
                 return match provider {
                     ModelProviders::FastEmbed(provider) => {
                         let embedding = provider.run_inference(storeinput, action_type);
-                        Ok(StoreKey(<Array1<f32>>::from(embedding)))
+                        Ok(StoreKey(<Array1<f32>>::from(embedding?)))
                     }
                     ModelProviders::ORT(provider) => {
                         let embedding = provider.run_inference(storeinput, action_type);
-                        Ok(StoreKey(<Array1<f32>>::from(embedding)))
+                        Ok(StoreKey(<Array1<f32>>::from(embedding?)))
                     }
                 }
             }
@@ -285,6 +284,14 @@ impl ImageArray {
             .decode()
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
         let (width, height) = img.dimensions();
+
+        if width == 0 || height == 0 {
+            return Err(AIProxyError::ImageNonzeroDimensionError {
+                width: width as usize,
+                height: height as usize,
+            });
+        }
+
         let channels = img.color().channel_count();
         let shape = (height as usize, width as usize, channels as usize);
         let array = Array::from_shape_vec(shape, img.into_bytes())
@@ -300,7 +307,9 @@ impl ImageArray {
         &self.bytes
     }
 
-    pub fn resize(&self, width: usize, height: usize) -> Result<Self, AIProxyError> {
+    pub fn resize(&self, width: NonZeroUsize, height: NonZeroUsize) -> Result<Self, AIProxyError> {
+        let width = usize::from(width);
+        let height = usize::from(height);
         let img_reader = ImageReader::new(Cursor::new(&self.bytes))
             .with_guessed_format()
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
@@ -312,8 +321,7 @@ impl ImageArray {
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
 
         let resized_img = original_img.resize_exact(
-            width as u32,
-            height as u32,
+            width as u32, height as u32,
             image::imageops::FilterType::Triangle,
         );
         let channels = resized_img.color().channel_count();
@@ -334,8 +342,8 @@ impl ImageArray {
     pub fn image_dim(&self) -> (NonZeroUsize, NonZeroUsize) {
         let shape = self.array.shape();
         (
-            NonZeroUsize::new(shape[1]).unwrap(),
-            NonZeroUsize::new(shape[0]).unwrap(),
+            NonZeroUsize::new(shape[1]).expect("Array columns should be non-zero"),
+            NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero")
         ) // (width, height)
     }
 }
@@ -356,20 +364,6 @@ impl<'de> Deserialize<'de> for ImageArray {
     {
         let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
         ImageArray::try_new(bytes).map_err(serde::de::Error::custom)
-    }
-}
-
-impl Ord for ImageArray {
-    fn cmp(&self, other: &Self) -> Ordering {
-        let (array_vec, _) = self.array.clone().into_raw_vec_and_offset();
-        let (other_vec, _) = other.array.clone().into_raw_vec_and_offset();
-        array_vec.cmp(&other_vec)
-    }
-}
-
-impl PartialOrd for ImageArray {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
     }
 }
 

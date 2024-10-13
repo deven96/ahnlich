@@ -39,6 +39,9 @@ pub enum AIProxyError {
         input_token_size: usize,
     },
 
+    #[error("Model does not support token truncation.")]
+    TokenTruncationNotSupported,
+
     #[error(
         "Image Dimensions [({0}, {1})] does not the expected model dimensions [({2}, {3})] ",
         image_dimensions.0, image_dimensions.1, expected_dimensions.0, expected_dimensions.1
@@ -81,8 +84,26 @@ pub enum AIProxyError {
     #[error("Bytes could not be successfully decoded into an image.")]
     ImageBytesDecodeError,
 
+    #[error("Image can't have zero value in any dimension. Found height: {height}, width: {width}")]
+    ImageNonzeroDimensionError {
+        width: usize,
+        height: usize,
+    },
+
     #[error("Image could not be resized.")]
     ImageResizeError,
+
+    #[error("Model provider failed to process input.")]
+    ModelProviderPreprocessingError,
+
+    #[error("Model provider failed to run inference.")]
+    ModelProviderRunInferenceError,
+
+    #[error("Model provider failed to process output.")]
+    ModelProviderPostprocessingError,
+
+    #[error("Model provider failed on tokenization of text inputs.")]
+    ModelTokenizationError
 }
 
 impl From<TryReserveError> for AIProxyError {

@@ -7,6 +7,7 @@ use crate::engine::ai::providers::fastembed::FastEmbedProvider;
 use crate::engine::ai::providers::ort::ORTProvider;
 use std::path::Path;
 use strum::EnumIter;
+use crate::error::AIProxyError;
 
 #[derive(Debug, EnumIter)]
 pub enum ModelProviders {
@@ -19,5 +20,10 @@ pub trait ProviderTrait: std::fmt::Debug + Send + Sync {
     fn set_model(&mut self, model: &SupportedModels) -> &mut Self;
     fn load_model(&mut self) -> &mut Self;
     fn get_model(&self);
-    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Vec<f32>;
+    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Result<Vec<f32>, AIProxyError>;
+}
+
+pub trait TextPreprocessorTrait {
+    fn encode_str(&self, text: &str) -> Result<Vec<usize>, AIProxyError>;
+    fn decode_tokens(&self, tokens: Vec<usize>) -> Result<String, AIProxyError>;
 }

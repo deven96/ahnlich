@@ -19,6 +19,7 @@ use tokio::sync::Mutex;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
+use crate::engine::ai::providers::ModelProviders;
 
 type ModelThreadResponse = Result<Vec<StoreKey>, AIProxyError>;
 
@@ -116,17 +117,27 @@ impl ModelThread {
             )
         });
 
-        if input.len() > max_token_size.into() {
+        let Model::Text {provider: model_provider, ..} = &self.model else {
+            return Err(AIProxyError::TokenTruncationNotSupported);
+        };
+
+        let ModelProviders::FastEmbed(provider) = model_provider else {
+            return Err(AIProxyError::TokenTruncationNotSupported);
+        };
+
+        let tokens = provider.encode_str(input)?;
+
+        if tokens.len() > max_token_size.into() {
             if let StringAction::ErrorIfTokensExceed = string_action {
                 return Err(AIProxyError::TokenExceededError {
-                    input_token_size: input.len(),
+                    input_token_size: tokens.len(),
                     max_token_size: max_token_size.into(),
                 });
             } else {
-                let processed_input = input[..max_token_size.into()].to_string();
+                let processed_input = provider.decode_tokens(tokens)?;
                 return Ok(processed_input);
             }
-        }
+        };
         Ok(input.to_owned())
     }
 
@@ -158,7 +169,7 @@ impl ModelThread {
                 });
             } else {
                 let input =
-                    input.resize(usize::from(expected_width), usize::from(expected_height))?;
+                    input.resize(expected_width, expected_height)?;
                 return Ok(input);
             }
         }

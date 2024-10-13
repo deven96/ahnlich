@@ -23,7 +23,7 @@ pub struct ORTProvider {
 
 impl fmt::Debug for ORTProvider {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CandleProvider")
+        f.debug_struct("ORTProvider")
             .field("cache_location", &self.cache_location)
             .field("cache_location_extension", &self.cache_location_extension)
             .field("supported_models", &self.supported_models)
@@ -104,7 +104,8 @@ impl ProviderTrait for ORTProvider {
             .cache_location
             .clone()
             .expect("Cache location not set.");
-        let supported_model = self.supported_models.expect("A model has not been set.");
+        let supported_model = self.supported_models.expect(
+            &AIProxyError::AIModelNotInitialized.to_string());
         let ort_model = ORTModel::try_from(&supported_model).unwrap();
 
         let threads = available_parallelism()
@@ -187,7 +188,7 @@ impl ProviderTrait for ORTProvider {
         }
     }
 
-    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Vec<f32> {
+    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Result<Vec<f32>, AIProxyError> {
         if let Some(ORTModel::Image(ORTImageModel {
             session,
             input_param,
@@ -199,7 +200,8 @@ impl ProviderTrait for ORTProvider {
                 ModelInput::Image(image) => image.clone(),
                 _ => {
                     let store_input_type: AIStoreInputType = input.into();
-                    let index_model_repr: Model = (&self.supported_models.unwrap()).into();
+                    let index_model_repr: Model = (&self.supported_models.expect(
+                        &AIProxyError::AIModelNotInitialized.to_string())).into();
                     match action_type {
                         InputAction::Query => {
                             panic!(
@@ -230,35 +232,35 @@ impl ProviderTrait for ORTProvider {
 
             let array = vec![image_arr.view()];
             let pixel_values_array = ndarray::stack(ndarray::Axis(0), &array).unwrap();
-
             match session {
                 Some(session) => {
                     let session_inputs = ort::inputs![
                         input_param.as_str() => pixel_values_array.view(),
-                    ]
-                    .unwrap();
-                    let outputs = session.run(session_inputs).unwrap();
+                    ].map_err(|_| AIProxyError::ModelProviderPreprocessingError)?;
+
+
+                    let outputs = session.run(session_inputs)
+                        .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?;
                     let last_hidden_state_key = match outputs.len() {
                         1 => outputs.keys().next().unwrap(),
                         _ => output_param.as_str(),
                     };
+
                     let output_data = outputs[last_hidden_state_key]
                         .try_extract_tensor::<f32>()
-                        .unwrap();
+                        .map_err(|_| AIProxyError::ModelProviderPostprocessingError)?;
                     let embeddings: Vec<Vec<f32>> = output_data
                         .rows()
                         .into_iter()
                         .map(|row| ORTProvider::normalize(row.as_slice().unwrap()))
                         .collect();
-                    return embeddings
-                        .first()
-                        .expect("Failed to get embeddings")
-                        .to_owned();
+                    let embeddings = embeddings.first().ok_or(AIProxyError::ModelProviderPostprocessingError)?;
+                    return Ok(embeddings.to_owned());
                 }
-                None => panic!("{}", AIProxyError::AIModelNotInitialized),
+                None => return Err(AIProxyError::AIModelNotInitialized)
             }
         } else {
-            panic!("{}", AIProxyError::AIModelNotInitialized);
+            return Err(AIProxyError::AIModelNotSupported);
         }
     }
 }
