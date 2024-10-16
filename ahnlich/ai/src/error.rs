@@ -42,7 +42,7 @@ pub enum AIProxyError {
     TokenTruncationNotSupported,
 
     #[error(
-        "Image Dimensions [({0}, {1})] does not the expected model dimensions [({2}, {3})] ",
+        "Image Dimensions [({0}, {1})] does not match the expected model dimensions [({2}, {3})]",
         image_dimensions.0, image_dimensions.1, expected_dimensions.0, expected_dimensions.1
     )]
     ImageDimensionsMismatchError {

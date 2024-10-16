@@ -787,7 +787,7 @@ mod tests {
 
         let store_name = StoreName(String::from("Deven Image Store"));
         let matching_metadatakey = MetadataKey::new("Name".to_owned());
-        let matching_metadatavalue = MetadataValue::RawString("Greatness".to_owned());
+        let matching_metadatavalue = MetadataValue::RawString("Daniel".to_owned());
 
         let store_value_1 =
             StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
@@ -797,19 +797,19 @@ mod tests {
         )]);
         let store_data = vec![
             (
-                StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
-                store_value_1.clone(),
+                StoreInput::Image(include_bytes!("../../ai/src/tests/images/dog.jpg").to_vec()),
+                StoreValue::from_iter([(
+                    matching_metadatakey.clone(),
+                    MetadataValue::RawString("Greatness".to_owned()),
+                )]),
             ),
             (
-                StoreInput::Image(vec![102, 3, 4, 6, 7, 8, 4, 190]),
+                StoreInput::Image(include_bytes!("../../ai/src/tests/images/test.webp").to_vec()),
                 store_value_2.clone(),
             ),
             (
-                StoreInput::Image(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
-                StoreValue::from_iter([(
-                    matching_metadatakey.clone(),
-                    MetadataValue::RawString("Daniel".to_owned()),
-                )]),
+                StoreInput::Image(include_bytes!("../../ai/src/tests/images/cat.png").to_vec()),
+                store_value_1.clone(),
             ),
         ];
 
@@ -873,7 +873,7 @@ mod tests {
         })));
         expected.push(Ok(AIServerResponse::Del(1)));
         expected.push(Ok(AIServerResponse::Get(vec![(
-            StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+            StoreInput::Image(include_bytes!("../../ai/src/tests/images/cat.png").to_vec()),
             store_value_1.clone(),
         )])));
         expected.push(Ok(AIServerResponse::Del(1)));
