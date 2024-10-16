@@ -6,6 +6,8 @@ use fallible_collections::TryReserveError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 
+use crate::engine::ai::models::InputAction;
+
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum AIProxyError {
     #[error("Store {0} not found")]
@@ -22,17 +24,12 @@ pub enum AIProxyError {
     ReservedError(String),
     #[error("Unexpected DB Response {0} ")]
     UnexpectedDBResponse(String),
-    #[error("Cannot Query Using Input. Store expects [{store_query_model_type}], but input type [{storeinput_type}] was provided")]
-    StoreQueryTypeMismatchError {
-        store_query_model_type: String,
-        storeinput_type: String,
+    #[error("Cannot {action} Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
+    StoreTypeMismatchError {
+        action: InputAction,
+        index_model_type: AIStoreInputType,
+        storeinput_type: AIStoreInputType,
     },
-    #[error("Cannot Set Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
-    StoreSetTypeMismatchError {
-        index_model_type: String,
-        storeinput_type: String,
-    },
-
     #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}] ")]
     TokenExceededError {
         max_token_size: usize,
@@ -84,11 +81,10 @@ pub enum AIProxyError {
     #[error("Bytes could not be successfully decoded into an image.")]
     ImageBytesDecodeError,
 
-    #[error("Image can't have zero value in any dimension. Found height: {height}, width: {width}")]
-    ImageNonzeroDimensionError {
-        width: usize,
-        height: usize,
-    },
+    #[error(
+        "Image can't have zero value in any dimension. Found height: {height}, width: {width}"
+    )]
+    ImageNonzeroDimensionError { width: usize, height: usize },
 
     #[error("Image could not be resized.")]
     ImageResizeError,
@@ -103,7 +99,7 @@ pub enum AIProxyError {
     ModelProviderPostprocessingError,
 
     #[error("Model provider failed on tokenization of text inputs.")]
-    ModelTokenizationError
+    ModelTokenizationError,
 }
 
 impl From<TryReserveError> for AIProxyError {

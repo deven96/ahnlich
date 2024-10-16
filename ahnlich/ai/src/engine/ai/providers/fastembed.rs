@@ -32,7 +32,7 @@ impl Tokenizer {
 }
 
 pub struct FastEmbedPreprocessor {
-    tokenizer: Tokenizer
+    tokenizer: Tokenizer,
 }
 
 // TODO (HAKSOAT): Implement other preprocessors
@@ -43,7 +43,11 @@ impl TextPreprocessorTrait for FastEmbedPreprocessor {
     }
 
     fn decode_tokens(&self, tokens: Vec<usize>) -> Result<String, AIProxyError> {
-        let text = self.tokenizer.0.decode(tokens).map_err(|_| AIProxyError::ModelTokenizationError)?;
+        let text = self
+            .tokenizer
+            .0
+            .decode(tokens)
+            .map_err(|_| AIProxyError::ModelTokenizationError)?;
         Ok(text)
     }
 }
@@ -162,8 +166,9 @@ impl ProviderTrait for FastEmbedProvider {
             .cache_location
             .clone()
             .expect("Cache location not set.");
-        let model_type = self.supported_models.expect(
-            &AIProxyError::AIModelNotInitialized.to_string());
+        let model_type = self
+            .supported_models
+            .expect(&AIProxyError::AIModelNotInitialized.to_string());
         let model_type = FastEmbedModelType::try_from(&model_type).unwrap_or_else(|_| {
             panic!(
                 "This provider does not support the model: {:?}.",
@@ -183,10 +188,14 @@ impl ProviderTrait for FastEmbedProvider {
                 model_repo.get(model_info.model_file.as_str()).unwrap();
             }
         }
-    //     TODO (HAKSOAT): When we add model specific tokenizers, add the get tokenizer call here too.
+        //     TODO (HAKSOAT): When we add model specific tokenizers, add the get tokenizer call here too.
     }
 
-    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Result<Vec<f32>, AIProxyError> {
+    fn run_inference(
+        &self,
+        input: &ModelInput,
+        action_type: &InputAction,
+    ) -> Result<Vec<f32>, AIProxyError> {
         if let Some(fastembed_model) = &self.model {
             let embeddings = match fastembed_model {
                 FastEmbedModel::Text(model) => {
@@ -196,31 +205,25 @@ impl ProviderTrait for FastEmbedProvider {
                             .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?
                     } else {
                         let store_input_type: AIStoreInputType = input.into();
-                        let index_model_repr: Model = (&self.supported_models.expect(
-                            &AIProxyError::AIModelNotInitialized.to_string())).into();
-                        match action_type {
-                            InputAction::Query => {
-                                return Err(AIProxyError::StoreQueryTypeMismatchError {
-                                        store_query_model_type: index_model_repr.to_string(),
-                                        storeinput_type: store_input_type.to_string(),
-                                    })
-                            }
-                            InputAction::Index => {
-                                return Err(AIProxyError::StoreSetTypeMismatchError {
-                                        index_model_type: index_model_repr.to_string(),
-                                        storeinput_type: store_input_type.to_string(),
-                                    })
-                            }
-                        }
+                        let index_model_repr: Model = (&self
+                            .supported_models
+                            .expect(&AIProxyError::AIModelNotInitialized.to_string()))
+                            .into();
+                        return Err(AIProxyError::StoreTypeMismatchError {
+                            action: *action_type,
+                            index_model_type: index_model_repr.input_type(),
+                            storeinput_type: store_input_type,
+                        });
                     }
                 }
-                _ => return Err(AIProxyError::AIModelNotSupported)
+                _ => return Err(AIProxyError::AIModelNotSupported),
             };
-            let embeddings = embeddings.first().ok_or(
-                AIProxyError::ModelProviderPostprocessingError)?;
+            let embeddings = embeddings
+                .first()
+                .ok_or(AIProxyError::ModelProviderPostprocessingError)?;
             return Ok(embeddings.to_owned());
         } else {
-            return Err(AIProxyError::AIModelNotSupported)
+            return Err(AIProxyError::AIModelNotSupported);
         }
     }
 }

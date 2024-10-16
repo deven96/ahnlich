@@ -104,8 +104,9 @@ impl ProviderTrait for ORTProvider {
             .cache_location
             .clone()
             .expect("Cache location not set.");
-        let supported_model = self.supported_models.expect(
-            &AIProxyError::AIModelNotInitialized.to_string());
+        let supported_model = self
+            .supported_models
+            .expect(&AIProxyError::AIModelNotInitialized.to_string());
         let ort_model = ORTModel::try_from(&supported_model).unwrap();
 
         let threads = available_parallelism()
@@ -188,7 +189,11 @@ impl ProviderTrait for ORTProvider {
         }
     }
 
-    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Result<Vec<f32>, AIProxyError> {
+    fn run_inference(
+        &self,
+        input: &ModelInput,
+        action_type: &InputAction,
+    ) -> Result<Vec<f32>, AIProxyError> {
         if let Some(ORTModel::Image(ORTImageModel {
             session,
             input_param,
@@ -200,28 +205,15 @@ impl ProviderTrait for ORTProvider {
                 ModelInput::Image(image) => image.clone(),
                 _ => {
                     let store_input_type: AIStoreInputType = input.into();
-                    let index_model_repr: Model = (&self.supported_models.expect(
-                        &AIProxyError::AIModelNotInitialized.to_string())).into();
-                    match action_type {
-                        InputAction::Query => {
-                            panic!(
-                                "{}",
-                                AIProxyError::StoreQueryTypeMismatchError {
-                                    store_query_model_type: index_model_repr.to_string(),
-                                    storeinput_type: store_input_type.to_string(),
-                                }
-                            )
-                        }
-                        InputAction::Index => {
-                            panic!(
-                                "{}",
-                                AIProxyError::StoreSetTypeMismatchError {
-                                    index_model_type: index_model_repr.to_string(),
-                                    storeinput_type: store_input_type.to_string(),
-                                }
-                            )
-                        }
-                    }
+                    let index_model_repr: Model = (&self
+                        .supported_models
+                        .expect(&AIProxyError::AIModelNotInitialized.to_string()))
+                        .into();
+                    return Err(AIProxyError::StoreTypeMismatchError {
+                        action: *action_type,
+                        index_model_type: index_model_repr.input_type(),
+                        storeinput_type: store_input_type,
+                    });
                 }
             };
 
@@ -236,10 +228,11 @@ impl ProviderTrait for ORTProvider {
                 Some(session) => {
                     let session_inputs = ort::inputs![
                         input_param.as_str() => pixel_values_array.view(),
-                    ].map_err(|_| AIProxyError::ModelProviderPreprocessingError)?;
+                    ]
+                    .map_err(|_| AIProxyError::ModelProviderPreprocessingError)?;
 
-
-                    let outputs = session.run(session_inputs)
+                    let outputs = session
+                        .run(session_inputs)
                         .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?;
                     let last_hidden_state_key = match outputs.len() {
                         1 => outputs.keys().next().unwrap(),
@@ -254,10 +247,12 @@ impl ProviderTrait for ORTProvider {
                         .into_iter()
                         .map(|row| ORTProvider::normalize(row.as_slice().unwrap()))
                         .collect();
-                    let embeddings = embeddings.first().ok_or(AIProxyError::ModelProviderPostprocessingError)?;
+                    let embeddings = embeddings
+                        .first()
+                        .ok_or(AIProxyError::ModelProviderPostprocessingError)?;
                     return Ok(embeddings.to_owned());
                 }
-                None => return Err(AIProxyError::AIModelNotInitialized)
+                None => return Err(AIProxyError::AIModelNotInitialized),
             }
         } else {
             return Err(AIProxyError::AIModelNotSupported);

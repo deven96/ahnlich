@@ -197,9 +197,10 @@ impl AIStoreHandler {
             let store_input_type: AIStoreInputType = (&store_input).into();
             let index_model_repr: Model = (&index_model).into();
             if store_input_type != index_model_repr.input_type() {
-                return Err(AIProxyError::StoreSetTypeMismatchError {
-                    index_model_type: index_model_repr.to_string(),
-                    storeinput_type: store_input_type.to_string(),
+                return Err(AIProxyError::StoreTypeMismatchError {
+                    action: InputAction::Index,
+                    index_model_type: index_model_repr.input_type(),
+                    storeinput_type: store_input_type,
                 });
             }
             let metadata_value: MetadataValue = store_input.clone().into();
