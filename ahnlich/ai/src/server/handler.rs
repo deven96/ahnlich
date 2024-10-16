@@ -1,4 +1,6 @@
+use crate::cli::server::ModelConfig;
 use crate::cli::AIProxyConfig;
+use crate::engine::ai::models::Model;
 use crate::engine::store::AIStoreHandler;
 use crate::manager::ModelManager;
 use crate::server::task::AIProxyTask;
@@ -122,12 +124,17 @@ impl AIProxyServer {
         };
         let client_handler = Arc::new(ClientHandler::new(config.common.maximum_clients));
         let task_manager = Arc::new(TaskManager::new());
-        let model_manager = ModelManager::new(
-            &config.supported_models,
-            task_manager.clone(),
-            config.ai_model_idle_time,
-        )
-        .await?;
+        let mut models: Vec<Model> = Vec::with_capacity(config.supported_models.len());
+        for supported_model in &config.supported_models {
+            let mut model: Model = supported_model.into();
+            model.setup_provider(&config.model_cache_location);
+            // TODO (HAKSOAT): Handle if download fails or verification check fails
+            model.get()?;
+            models.push(model);
+        }
+
+        let model_config = ModelConfig::from(&config);
+        let model_manager = ModelManager::new(model_config, task_manager.clone()).await?;
 
         Ok(Self {
             listener: Arc::new(listener),

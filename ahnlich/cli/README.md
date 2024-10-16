@@ -86,7 +86,7 @@ The CLI also supports AI binary queries.
 
 1. **Create a Store for AI**  
    ```bash
-   CREATESTORE my_store QUERYMODEL dalle3 INDEXMODEL dalle3 PREDICATES (author, country) NONLINEARALGORITHMINDEX (kdtree)
+   CREATESTORE my_store QUERYMODEL resnet-50 INDEXMODEL resnet-50 PREDICATES (author, country) NONLINEARALGORITHMINDEX (kdtree)
    ```
 
 2. **Insert AI Data**  

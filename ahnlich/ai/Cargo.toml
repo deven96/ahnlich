@@ -18,6 +18,7 @@ flurry.workspace = true
 tokio.workspace = true
 serde.workspace = true
 ndarray.workspace = true
+image.workspace = true
 clap.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
@@ -37,9 +38,14 @@ strum = { version = "0.26", features = ["derive"] }
 log.workspace = true
 fallible_collections.workspace = true
 rayon.workspace = true
+fastembed = { version = "4.0.0", features = ["default"] }
+hf-hub = { version = "0.3", default-features = false }
+dirs = "5.0.1"
+ort = { version = "=2.0.0-rc.5", default-features = false }
 moka = { version = "0.12.8", features = ["future"] }
 tracing-opentelemetry.workspace = true
 futures.workspace = true
+tiktoken-rs = "0.5.9"
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true

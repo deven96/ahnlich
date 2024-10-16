@@ -20,3 +20,5 @@ target/
 
 # persistence file for test
 ahnlich.dat
+
+**/.idea/

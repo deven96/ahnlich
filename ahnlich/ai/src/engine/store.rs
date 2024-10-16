@@ -1,4 +1,5 @@
 use crate::cli::server::SupportedModels;
+use crate::engine::ai::models::InputAction;
 use crate::engine::ai::models::Model;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
@@ -85,10 +86,10 @@ impl AIStoreHandler {
         let index_model_repr: Model = (&index_model).into();
         let query_model_repr: Model = (&query_model).into();
 
-        if index_model_repr.embedding_size() != query_model_repr.embedding_size() {
+        if index_model_repr.embedding_size != query_model_repr.embedding_size {
             return Err(AIProxyError::DimensionsMismatchError {
-                index_model_dim: index_model_repr.embedding_size().into(),
-                query_model_dim: query_model_repr.embedding_size().into(),
+                index_model_dim: index_model_repr.embedding_size.into(),
+                query_model_dim: query_model_repr.embedding_size.into(),
             });
         }
 
@@ -123,7 +124,7 @@ impl AIStoreHandler {
                     name: store_name.clone(),
                     query_model: store.query_model,
                     index_model: store.index_model,
-                    embedding_size: model.embedding_size().into(),
+                    embedding_size: model.embedding_size.into(),
                 }
             })
             .collect()
@@ -195,10 +196,11 @@ impl AIStoreHandler {
             }
             let store_input_type: AIStoreInputType = (&store_input).into();
             let index_model_repr: Model = (&index_model).into();
-            if store_input_type.to_string() != index_model_repr.input_type() {
-                return Err(AIProxyError::StoreSetTypeMismatchError {
+            if store_input_type != index_model_repr.input_type() {
+                return Err(AIProxyError::StoreTypeMismatchError {
+                    action: InputAction::Index,
                     index_model_type: index_model_repr.input_type(),
-                    storeinput_type: store_input_type.to_string(),
+                    storeinput_type: store_input_type,
                 });
             }
             let metadata_value: MetadataValue = store_input.clone().into();
@@ -224,7 +226,12 @@ impl AIStoreHandler {
 
         let (store_inputs, store_values): (Vec<_>, Vec<_>) = validated_data.into_iter().unzip();
         let store_keys = model_manager
-            .handle_request(&store.index_model, store_inputs, preprocess_action)
+            .handle_request(
+                &store.index_model,
+                store_inputs,
+                preprocess_action,
+                InputAction::Index,
+            )
             .await?;
 
         let output = std::iter::zip(store_keys.into_iter(), store_values.into_iter()).collect();
@@ -256,14 +263,24 @@ impl AIStoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get_ndarray_repr_for_store(
+    pub(crate) async fn get_ndarray_repr_for_store(
         &self,
         store_name: &StoreName,
-        store_input: &StoreInput,
+        store_input: StoreInput,
+        model_manager: &ModelManager,
+        preprocess_action: PreprocessAction,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
-        let model: Model = (&store.index_model).into();
-        Ok(model.model_ndarray(store_input))
+        let mut store_keys = model_manager
+            .handle_request(
+                &store.index_model,
+                vec![store_input],
+                preprocess_action,
+                InputAction::Query,
+            )
+            .await?;
+
+        Ok(store_keys.pop().expect("Expected an embedding value."))
     }
 
     /// Matches DROPSTORE - Drops a store if exist, else returns an error

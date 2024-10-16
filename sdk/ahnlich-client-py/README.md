@@ -400,7 +400,7 @@ client = AhnlichAIClient(address="127.0.0.1", port=port)
 
 response = client.create_store(
     store_name = "test store",
-    model = ai_query.AIModel__Llama3(),
+    model = ai_query.AIModel__AllMiniLML6V2(),
     store_type = ai_query.AIStoreType__RawString(),
     predicates = [
         "job"
