@@ -8,8 +8,14 @@ from generic_connection_pool.threading import ConnectionPool
 
 from ahnlich_client_py.config import AhnlichPoolSettings
 from ahnlich_client_py.exceptions import AhnlichClientException
-from ahnlich_client_py.internals import (ai_query, ai_response, db_query,
-                                         db_response, pool_wrapper, protocol)
+from ahnlich_client_py.internals import (
+    ai_query,
+    ai_response,
+    db_query,
+    db_response,
+    pool_wrapper,
+    protocol,
+)
 
 
 class BaseClient:
