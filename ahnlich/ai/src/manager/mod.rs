@@ -7,6 +7,7 @@ use crate::engine::ai::models::{ImageArray, InputAction};
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
 use crate::engine::ai::models::{Model, ModelInput};
+use crate::engine::ai::providers::ModelProviders;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
@@ -19,7 +20,6 @@ use tokio::sync::Mutex;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-use crate::engine::ai::providers::ModelProviders;
 
 type ModelThreadResponse = Result<Vec<StoreKey>, AIProxyError>;
 
@@ -42,15 +42,15 @@ impl ModelThread {
         supported_model: SupportedModels,
         cache_location: &Path,
         request_receiver: mpsc::Receiver<ModelThreadRequest>,
-    ) -> Self {
+    ) -> Result<Self, AIProxyError> {
         let supported_model = &supported_model;
         let mut model: Model = (supported_model).into();
-        model.setup_provider(supported_model, cache_location);
-        model.load();
-        Self {
+        model.setup_provider(cache_location);
+        model.load()?;
+        Ok(Self {
             request_receiver: Mutex::new(request_receiver),
             model,
-        }
+        })
     }
 
     fn name(&self) -> String {
@@ -80,7 +80,7 @@ impl ModelThread {
         process_action: PreprocessAction,
         input: StoreInput,
     ) -> Result<ModelInput, AIProxyError> {
-        let input = ModelInput::from(input);
+        let input = ModelInput::try_from(input)?;
         match (process_action, &input) {
             (PreprocessAction::Image(image_action), ModelInput::Image(image_array)) => {
                 let output = self.process_image(image_array, image_action)?;
@@ -117,11 +117,11 @@ impl ModelThread {
             )
         });
 
-        let Model::Text {provider: model_provider, ..} = &self.model else {
+        if self.model.input_type() != AIStoreInputType::RawString {
             return Err(AIProxyError::TokenTruncationNotSupported);
-        };
+        }
 
-        let ModelProviders::FastEmbed(provider) = model_provider else {
+        let ModelProviders::FastEmbed(provider) = &self.model.provider else {
             return Err(AIProxyError::TokenTruncationNotSupported);
         };
 
@@ -168,8 +168,7 @@ impl ModelThread {
                     expected_dimensions: (expected_width.into(), expected_height.into()),
                 });
             } else {
-                let input =
-                    input.resize(expected_width, expected_height)?;
+                let input = input.resize(expected_width, expected_height)?;
                 return Ok(input);
             }
         }
@@ -252,7 +251,7 @@ impl ModelManager {
         let (request_sender, request_receiver) = mpsc::channel(100);
         // There may be other things needed to load a model thread
         let model_thread =
-            ModelThread::new(*model, &self.config.model_cache_location, request_receiver);
+            ModelThread::new(*model, &self.config.model_cache_location, request_receiver)?;
         let _ = &self.task_manager.spawn_task_loop(model_thread).await;
         Ok(request_sender)
     }

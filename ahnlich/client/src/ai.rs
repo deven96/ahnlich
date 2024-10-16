@@ -521,13 +521,13 @@ mod tests {
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
-                embedding_size: ai_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size.into(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
-                embedding_size: ai_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size.into(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
             },
@@ -633,19 +633,19 @@ mod tests {
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
-                embedding_size: ai_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size.into(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Main2".to_string()),
-                embedding_size: ai_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size.into(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
-                embedding_size: ai_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size.into(),
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
             },
@@ -734,7 +734,7 @@ mod tests {
                 query_model: AIModel::AllMiniLML6V2,
                 index_model: AIModel::AllMiniLML6V2,
 
-                embedding_size: ai_model.embedding_size().into(),
+                embedding_size: ai_model.embedding_size.into(),
             },
         ]))));
         expected.push(Ok(AIServerResponse::CreateIndex(2)));
@@ -863,7 +863,7 @@ mod tests {
                 name: store_name,
                 query_model: AIModel::Resnet50,
                 index_model: AIModel::Resnet50,
-                embedding_size: resnet_model.embedding_size().into(),
+                embedding_size: resnet_model.embedding_size.into(),
             },
         ]))));
         expected.push(Ok(AIServerResponse::CreateIndex(2)));

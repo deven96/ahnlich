@@ -84,7 +84,7 @@ impl AhnlichProtocol for AIProxyTask {
                             .db_client
                             .create_store(
                                 store.clone(),
-                                model.embedding_size(),
+                                model.embedding_size,
                                 predicates,
                                 non_linear_indices,
                                 false,

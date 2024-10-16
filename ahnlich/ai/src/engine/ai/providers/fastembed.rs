@@ -1,5 +1,5 @@
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::models::{InputAction, Model, ModelInput};
+use crate::engine::ai::models::{InputAction, Model, ModelInput, ModelType};
 use crate::engine::ai::providers::{ProviderTrait, TextPreprocessorTrait};
 use crate::error::AIProxyError;
 use ahnlich_types::ai::AIStoreInputType;
@@ -23,11 +23,11 @@ struct Tokenizer(CoreBPE);
 
 // TODO (HAKSOAT): Implement Tokenizers specific to models
 impl Tokenizer {
-    fn new(supported_models: &SupportedModels) -> Self {
+    fn new(supported_models: &SupportedModels) -> Result<Self, AIProxyError> {
         let _ = supported_models;
         // Using ChatGPT model tokenizers as a default till we add specific implementations.
-        let bpe = cl100k_base().unwrap();
-        Tokenizer(bpe)
+        let bpe = cl100k_base().map_err(|e| AIProxyError::TokenizerInitError(e.to_string()))?;
+        Ok(Tokenizer(bpe))
     }
 }
 
@@ -76,8 +76,8 @@ impl TryFrom<&SupportedModels> for FastEmbedModelType {
 
     fn try_from(model: &SupportedModels) -> Result<Self, Self::Error> {
         let model_modality: Model = model.into();
-        let model_type = match model_modality {
-            Model::Text { .. } => {
+        let model_type = match model_modality.model_type {
+            ModelType::Text { .. } => {
                 let model_type = match model {
                     SupportedModels::AllMiniLML6V2 => EmbeddingModel::AllMiniLML6V2,
                     SupportedModels::AllMiniLML12V2 => EmbeddingModel::AllMiniLML12V2,
@@ -104,11 +104,13 @@ impl FastEmbedProvider {
         }
     }
 
-    fn load_tokenizer(&mut self) -> &mut Self {
-        let supported_models = self.supported_models.expect("Model has not been set.");
-        let tokenizer = Tokenizer::new(&supported_models);
+    fn load_tokenizer(&mut self) -> Result<(), AIProxyError> {
+        let Some(supported_models) = self.supported_models else {
+            return Err(AIProxyError::AIModelNotInitialized);
+        };
+        let tokenizer = Tokenizer::new(&supported_models)?;
         self.preprocessor = Some(FastEmbedPreprocessor { tokenizer });
-        self
+        Ok(())
     }
 
     pub fn encode_str(&self, text: &str) -> Result<Vec<usize>, AIProxyError> {
@@ -129,63 +131,52 @@ impl FastEmbedProvider {
 }
 
 impl ProviderTrait for FastEmbedProvider {
-    fn set_cache_location(&mut self, location: &Path) -> &mut Self {
+    fn set_cache_location(&mut self, location: &Path) {
         self.cache_location = Some(location.join(self.cache_location_extension.clone()));
-        self
     }
 
-    fn set_model(&mut self, model: &SupportedModels) -> &mut Self {
+    fn set_model(&mut self, model: &SupportedModels) {
         self.supported_models = Some(*model);
-        self
     }
 
-    fn load_model(&mut self) -> &mut Self {
-        let cache_location = self
-            .cache_location
-            .clone()
-            .expect("Cache location not set.");
-        let model_type = self.supported_models.expect("Model has not been set.");
-        let model_type = FastEmbedModelType::try_from(&model_type).unwrap_or_else(|_| {
-            panic!(
-                "This provider does not support the model: {:?}.",
-                model_type
-            )
-        });
-
+    fn load_model(&mut self) -> Result<(), AIProxyError> {
+        let Some(cache_location) = self.cache_location.clone() else {
+            return Err(AIProxyError::CacheLocationNotInitiailized);
+        };
+        let Some(model_type) = self.supported_models else {
+            return Err(AIProxyError::AIModelNotInitialized);
+        };
+        let model_type = FastEmbedModelType::try_from(&model_type)?;
         let FastEmbedModelType::Text(model_type) = model_type;
         let model =
             TextEmbedding::try_new(InitOptions::new(model_type).with_cache_dir(cache_location))
-                .unwrap();
+                .map_err(|e| AIProxyError::TextEmbeddingInitError(e.to_string()))?;
         self.model = Some(FastEmbedModel::Text(model));
-        self.load_tokenizer();
-        self
+        self.load_tokenizer()
     }
 
-    fn get_model(&self) {
-        let cache_location = self
-            .cache_location
-            .clone()
-            .expect("Cache location not set.");
-        let model_type = self
-            .supported_models
-            .expect(&AIProxyError::AIModelNotInitialized.to_string());
-        let model_type = FastEmbedModelType::try_from(&model_type).unwrap_or_else(|_| {
-            panic!(
-                "This provider does not support the model: {:?}.",
-                model_type
-            )
-        });
-
+    fn get_model(&self) -> Result<(), AIProxyError> {
+        let Some(cache_location) = self.cache_location.clone() else {
+            return Err(AIProxyError::CacheLocationNotInitiailized);
+        };
+        let Some(model_type) = self.supported_models else {
+            return Err(AIProxyError::AIModelNotInitialized);
+        };
+        let model_type = FastEmbedModelType::try_from(&model_type)?;
         match model_type {
             FastEmbedModelType::Text(model_type) => {
                 let cache = Cache::new(cache_location);
                 let api = ApiBuilder::from_cache(cache)
                     .with_progress(true)
                     .build()
-                    .unwrap();
+                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
                 let model_repo = api.model(model_type.to_string());
-                let model_info = TextEmbedding::get_model_info(&model_type).unwrap();
-                model_repo.get(model_info.model_file.as_str()).unwrap();
+                let model_info = TextEmbedding::get_model_info(&model_type)
+                    .map_err(|e| AIProxyError::TextEmbeddingInitError(e.to_string()))?;
+                model_repo
+                    .get(model_info.model_file.as_str())
+                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+                Ok(())
             }
         }
         //     TODO (HAKSOAT): When we add model specific tokenizers, add the get tokenizer call here too.
@@ -205,10 +196,10 @@ impl ProviderTrait for FastEmbedProvider {
                             .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?
                     } else {
                         let store_input_type: AIStoreInputType = input.into();
-                        let index_model_repr: Model = (&self
-                            .supported_models
-                            .expect(&AIProxyError::AIModelNotInitialized.to_string()))
-                            .into();
+                        let Some(index_model_repr) = self.supported_models else {
+                            return Err(AIProxyError::AIModelNotInitialized);
+                        };
+                        let index_model_repr: Model = (&index_model_repr).into();
                         return Err(AIProxyError::StoreTypeMismatchError {
                             action: *action_type,
                             index_model_type: index_model_repr.input_type(),
@@ -221,9 +212,9 @@ impl ProviderTrait for FastEmbedProvider {
             let embeddings = embeddings
                 .first()
                 .ok_or(AIProxyError::ModelProviderPostprocessingError)?;
-            return Ok(embeddings.to_owned());
+            Ok(embeddings.to_owned())
         } else {
-            return Err(AIProxyError::AIModelNotSupported);
+            Err(AIProxyError::AIModelNotSupported)
         }
     }
 }

@@ -153,7 +153,7 @@ async fn test_ai_proxy_create_store_success() {
             name: store_name.clone(),
             query_model: AIModel::AllMiniLML6V2,
             index_model: AIModel::AllMiniLML6V2,
-            embedding_size: ai_model.embedding_size().into(),
+            embedding_size: ai_model.embedding_size.into(),
         },
     ]))));
     let mut reader = BufReader::new(second_stream);
@@ -582,7 +582,7 @@ async fn test_ai_proxy_test_with_persistence() {
             name: store_name_2.clone(),
             query_model: AIModel::AllMiniLML6V2,
             index_model: AIModel::AllMiniLML6V2,
-            embedding_size: ai_model.embedding_size().into(),
+            embedding_size: ai_model.embedding_size.into(),
         },
     ]))));
 
@@ -618,7 +618,7 @@ async fn test_ai_proxy_destroy_database() {
             name: store_name,
             query_model: AIModel::AllMiniLML6V2,
             index_model: AIModel::AllMiniLML6V2,
-            embedding_size: ai_model.embedding_size().into(),
+            embedding_size: ai_model.embedding_size.into(),
         },
     ]))));
     expected.push(Ok(AIServerResponse::Del(1)));
@@ -705,7 +705,7 @@ async fn test_ai_proxy_binary_store_actions() {
             name: store_name,
             query_model: AIModel::Resnet50,
             index_model: AIModel::Resnet50,
-            embedding_size: resnet_model.embedding_size().into(),
+            embedding_size: resnet_model.embedding_size.into(),
         },
     ]))));
     expected.push(Ok(AIServerResponse::CreateIndex(2)));
@@ -840,8 +840,8 @@ async fn test_ai_proxy_embedding_size_mismatch_error() {
     let bge_model: Model = (&AIModel::BGEBaseEnV15).into();
 
     let error_message = AIProxyError::DimensionsMismatchError {
-        index_model_dim: bge_model.embedding_size().into(),
-        query_model_dim: lml12_model.embedding_size().into(),
+        index_model_dim: bge_model.embedding_size.into(),
+        query_model_dim: lml12_model.embedding_size.into(),
     };
     expected.push(Err(error_message.to_string()));
     let connected_stream = TcpStream::connect(address).await.unwrap();

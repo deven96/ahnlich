@@ -86,10 +86,10 @@ impl AIStoreHandler {
         let index_model_repr: Model = (&index_model).into();
         let query_model_repr: Model = (&query_model).into();
 
-        if index_model_repr.embedding_size() != query_model_repr.embedding_size() {
+        if index_model_repr.embedding_size != query_model_repr.embedding_size {
             return Err(AIProxyError::DimensionsMismatchError {
-                index_model_dim: index_model_repr.embedding_size().into(),
-                query_model_dim: query_model_repr.embedding_size().into(),
+                index_model_dim: index_model_repr.embedding_size.into(),
+                query_model_dim: query_model_repr.embedding_size.into(),
             });
         }
 
@@ -124,7 +124,7 @@ impl AIStoreHandler {
                     name: store_name.clone(),
                     query_model: store.query_model,
                     index_model: store.index_model,
-                    embedding_size: model.embedding_size().into(),
+                    embedding_size: model.embedding_size.into(),
                 }
             })
             .collect()

@@ -19,76 +19,88 @@ use std::path::Path;
 use strum::Display;
 
 #[derive(Display)]
-pub enum Model {
+pub enum ModelType {
     Text {
-        supported_model: SupportedModels,
-        description: String,
-        embedding_size: NonZeroUsize,
         max_input_tokens: NonZeroUsize,
-        provider: ModelProviders,
     },
     Image {
-        supported_model: SupportedModels,
-        description: String,
         // width, height
         expected_image_dimensions: (NonZeroUsize, NonZeroUsize),
-        embedding_size: NonZeroUsize,
-        provider: ModelProviders,
     },
+}
+
+pub struct Model {
+    pub model_type: ModelType,
+    pub provider: ModelProviders,
+    pub description: String,
+    pub supported_model: SupportedModels,
+    pub embedding_size: NonZeroUsize,
 }
 
 impl From<&AIModel> for Model {
     fn from(value: &AIModel) -> Self {
         match value {
-            AIModel::AllMiniLML6V2 => Self::Text {
+            AIModel::AllMiniLML6V2 => Self {
+                model_type: ModelType::Text {
+                    max_input_tokens: nonzero!(256usize),
+                },
+                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
                 supported_model: SupportedModels::AllMiniLML6V2,
                 description: String::from("Sentence Transformer model, with 6 layers, version 2"),
                 embedding_size: nonzero!(384usize),
-                max_input_tokens: nonzero!(256usize),
-                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
             },
-            AIModel::AllMiniLML12V2 => Self::Text {
+            AIModel::AllMiniLML12V2 => Self {
+                model_type: ModelType::Text {
+                    // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
+                    max_input_tokens: nonzero!(256usize),
+                },
+                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
                 supported_model: SupportedModels::AllMiniLML12V2,
                 description: String::from("Sentence Transformer model, with 12 layers, version 2."),
                 embedding_size: nonzero!(384usize),
-                // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
-                max_input_tokens: nonzero!(256usize),
-                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
             },
-            AIModel::BGEBaseEnV15 => Self::Text {
+            AIModel::BGEBaseEnV15 => Self {
+                model_type: ModelType::Text {
+                    // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
+                    max_input_tokens: nonzero!(512usize),
+                },
+                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
                 supported_model: SupportedModels::BGEBaseEnV15,
                 description: String::from(
                     "BAAI General Embedding model with English support, base scale, version 1.5.",
                 ),
                 embedding_size: nonzero!(768usize),
-                // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
-                max_input_tokens: nonzero!(512usize),
-                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
             },
-            AIModel::BGELargeEnV15 => Self::Text {
+            AIModel::BGELargeEnV15 => Self {
+                model_type: ModelType::Text {
+                    max_input_tokens: nonzero!(512usize),
+                },
+                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
                 supported_model: SupportedModels::BGELargeEnV15,
                 description: String::from(
                     "BAAI General Embedding model with English support, large scale, version 1.5.",
                 ),
                 embedding_size: nonzero!(1024usize),
-                max_input_tokens: nonzero!(512usize),
-                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
             },
-            AIModel::Resnet50 => Self::Image {
+            AIModel::Resnet50 => Self {
+                model_type: ModelType::Image {
+                    expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
+                },
+                provider: ModelProviders::ORT(ORTProvider::new()),
                 supported_model: SupportedModels::Resnet50,
                 description: String::from("Residual Networks model, with 50 layers."),
                 embedding_size: nonzero!(2048usize),
-                expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
-                provider: ModelProviders::ORT(ORTProvider::new()),
             },
-            AIModel::ClipVitB32 => Self::Image {
+            AIModel::ClipVitB32 => Self {
+                model_type: ModelType::Image {
+                    expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
+                },
+                provider: ModelProviders::ORT(ORTProvider::new()),
                 supported_model: SupportedModels::ClipVitB32,
                 description: String::from(
                     "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
                 ),
                 embedding_size: nonzero!(512usize),
-                expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
-                provider: ModelProviders::ORT(ORTProvider::new()),
             },
         }
     }
@@ -96,17 +108,10 @@ impl From<&AIModel> for Model {
 
 impl Model {
     #[tracing::instrument(skip(self))]
-    pub fn embedding_size(&self) -> NonZeroUsize {
-        match self {
-            Model::Text { embedding_size, .. } => *embedding_size,
-            Model::Image { embedding_size, .. } => *embedding_size,
-        }
-    }
-    #[tracing::instrument(skip(self))]
     pub fn input_type(&self) -> AIStoreInputType {
-        match self {
-            Model::Text { .. } => AIStoreInputType::RawString,
-            Model::Image { .. } => AIStoreInputType::Image,
+        match self.model_type {
+            ModelType::Text { .. } => AIStoreInputType::RawString,
+            ModelType::Image { .. } => AIStoreInputType::Image,
         }
     }
 
@@ -118,108 +123,86 @@ impl Model {
         storeinput: &ModelInput,
         action_type: &InputAction,
     ) -> Result<StoreKey, AIProxyError> {
-        match self {
-            Model::Text { provider, .. } | Model::Image { provider, .. } => {
-                return match provider {
-                    ModelProviders::FastEmbed(provider) => {
-                        let embedding = provider.run_inference(storeinput, action_type);
-                        Ok(StoreKey(<Array1<f32>>::from(embedding?)))
-                    }
-                    ModelProviders::ORT(provider) => {
-                        let embedding = provider.run_inference(storeinput, action_type);
-                        Ok(StoreKey(<Array1<f32>>::from(embedding?)))
-                    }
-                }
+        match &self.provider {
+            ModelProviders::FastEmbed(provider) => {
+                let embedding = provider.run_inference(storeinput, action_type)?;
+                Ok(StoreKey(<Array1<f32>>::from(embedding)))
+            }
+            ModelProviders::ORT(provider) => {
+                let embedding = provider.run_inference(storeinput, action_type)?;
+                Ok(StoreKey(<Array1<f32>>::from(embedding)))
             }
         }
     }
 
     #[tracing::instrument(skip(self))]
     pub fn max_input_token(&self) -> Option<NonZeroUsize> {
-        match self {
-            Model::Text {
+        match self.model_type {
+            ModelType::Text {
                 max_input_tokens, ..
-            } => Some(*max_input_tokens),
-            Model::Image { .. } => None,
+            } => Some(max_input_tokens),
+            ModelType::Image { .. } => None,
         }
     }
     #[tracing::instrument(skip(self))]
     pub fn expected_image_dimensions(&self) -> Option<(NonZeroUsize, NonZeroUsize)> {
-        match self {
-            Model::Text { .. } => None,
-            Model::Image {
+        match self.model_type {
+            ModelType::Text { .. } => None,
+            ModelType::Image {
                 expected_image_dimensions: (width, height),
                 ..
-            } => Some((*width, *height)),
+            } => Some((width, height)),
         }
     }
     #[tracing::instrument(skip(self))]
     pub fn model_name(&self) -> String {
-        match self {
-            Model::Text {
-                supported_model, ..
+        self.supported_model.to_string()
+    }
+
+    pub fn setup_provider(&mut self, cache_location: &Path) {
+        let supported_model = self.supported_model;
+        match &mut self.provider {
+            ModelProviders::FastEmbed(provider) => {
+                provider.set_model(&supported_model);
+                provider.set_cache_location(cache_location);
             }
-            | Model::Image {
-                supported_model, ..
-            } => supported_model.to_string(),
-        }
-    }
-    #[tracing::instrument(skip(self))]
-    pub fn model_description(&self) -> String {
-        match self {
-            Model::Text { description, .. } | Model::Image { description, .. } => {
-                description.clone()
+            ModelProviders::ORT(provider) => {
+                provider.set_model(&supported_model);
+                provider.set_cache_location(cache_location);
             }
         }
     }
 
-    pub fn setup_provider(&mut self, supported_model: &SupportedModels, cache_location: &Path) {
-        match self {
-            Model::Text { provider, .. } | Model::Image { provider, .. } => match provider {
-                ModelProviders::FastEmbed(provider) => {
-                    provider.set_model(supported_model);
-                    provider.set_cache_location(cache_location);
-                }
-                ModelProviders::ORT(provider) => {
-                    provider.set_model(supported_model);
-                    provider.set_cache_location(cache_location);
-                }
-            },
+    pub fn load(&mut self) -> Result<(), AIProxyError> {
+        match &mut self.provider {
+            ModelProviders::FastEmbed(provider) => {
+                provider.load_model()?;
+            }
+            ModelProviders::ORT(provider) => {
+                provider.load_model()?;
+            }
         }
+        Ok(())
     }
 
-    pub fn load(&mut self) {
-        match self {
-            Model::Text { provider, .. } | Model::Image { provider, .. } => match provider {
-                ModelProviders::FastEmbed(provider) => {
-                    provider.load_model();
-                }
-                ModelProviders::ORT(provider) => {
-                    provider.load_model();
-                }
-            },
+    pub fn get(&self) -> Result<(), AIProxyError> {
+        match &self.provider {
+            ModelProviders::FastEmbed(provider) => {
+                provider.get_model()?;
+            }
+            ModelProviders::ORT(provider) => {
+                provider.get_model()?;
+            }
         }
-    }
-
-    pub fn get(&self) {
-        match self {
-            Model::Text { provider, .. } | Model::Image { provider, .. } => match provider {
-                ModelProviders::FastEmbed(provider) => {
-                    provider.get_model();
-                }
-                ModelProviders::ORT(provider) => {
-                    provider.get_model();
-                }
-            },
-        }
+        Ok(())
     }
 }
 
 impl From<&Model> for AIStoreInputType {
     fn from(value: &Model) -> Self {
-        match value {
-            Model::Text { .. } => AIStoreInputType::RawString,
-            Model::Image { .. } => AIStoreInputType::Image,
+        match value.model_type {
+            ModelType::Text { .. } => AIStoreInputType::RawString,
+            ModelType::Image { .. } => AIStoreInputType::Image,
         }
     }
 }
@@ -239,10 +222,10 @@ impl ModelInfo {
         Self {
             name: model.model_name(),
             input_type: model.input_type(),
-            embedding_size: model.embedding_size(),
+            embedding_size: model.embedding_size,
             max_input_tokens: model.max_input_token(),
             expected_image_dimensions: model.expected_image_dimensions(),
-            description: model.model_description(),
+            description: model.description.clone(),
         }
     }
 }
@@ -321,7 +304,8 @@ impl ImageArray {
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
 
         let resized_img = original_img.resize_exact(
-            width as u32, height as u32,
+            width as u32,
+            height as u32,
             image::imageops::FilterType::Triangle,
         );
         let channels = resized_img.color().channel_count();
@@ -343,7 +327,7 @@ impl ImageArray {
         let shape = self.array.shape();
         (
             NonZeroUsize::new(shape[1]).expect("Array columns should be non-zero"),
-            NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero")
+            NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero"),
         ) // (width, height)
     }
 }
@@ -367,11 +351,13 @@ impl<'de> Deserialize<'de> for ImageArray {
     }
 }
 
-impl From<StoreInput> for ModelInput {
-    fn from(value: StoreInput) -> Self {
+impl TryFrom<StoreInput> for ModelInput {
+    type Error = AIProxyError;
+
+    fn try_from(value: StoreInput) -> Result<Self, Self::Error> {
         match value {
-            StoreInput::RawString(s) => ModelInput::Text(s),
-            StoreInput::Image(bytes) => ModelInput::Image(ImageArray::try_new(bytes).unwrap()),
+            StoreInput::RawString(s) => Ok(ModelInput::Text(s)),
+            StoreInput::Image(bytes) => Ok(ModelInput::Image(ImageArray::try_new(bytes)?)),
         }
     }
 }
