@@ -1,5 +1,5 @@
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::models::{InputAction, Model, ModelInput};
+use crate::engine::ai::models::{ImageArray, InputAction, Model, ModelInput};
 use crate::engine::ai::providers::{ProviderTrait, TextPreprocessorTrait};
 use crate::error::AIProxyError;
 use ahnlich_types::ai::AIStoreInputType;
@@ -8,6 +8,8 @@ use hf_hub::{api::sync::ApiBuilder, Cache};
 use std::convert::TryFrom;
 use std::fmt;
 use std::path::{Path, PathBuf};
+use rayon::prelude::*;
+use rayon::iter::Either;
 use tiktoken_rs::{cl100k_base, CoreBPE};
 
 #[derive(Default)]
@@ -186,41 +188,45 @@ impl ProviderTrait for FastEmbedProvider {
     //     TODO (HAKSOAT): When we add model specific tokenizers, add the get tokenizer call here too.
     }
 
-    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Result<Vec<f32>, AIProxyError> {
-        if let Some(fastembed_model) = &self.model {
-            let embeddings = match fastembed_model {
-                FastEmbedModel::Text(model) => {
-                    if let ModelInput::Text(value) = input {
-                        model
-                            .embed(vec![value], None)
-                            .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?
-                    } else {
-                        let store_input_type: AIStoreInputType = input.into();
-                        let index_model_repr: Model = (&self.supported_models.expect(
-                            &AIProxyError::AIModelNotInitialized.to_string())).into();
-                        match action_type {
-                            InputAction::Query => {
-                                return Err(AIProxyError::StoreQueryTypeMismatchError {
-                                        store_query_model_type: index_model_repr.to_string(),
-                                        storeinput_type: store_input_type.to_string(),
-                                    })
-                            }
-                            InputAction::Index => {
-                                return Err(AIProxyError::StoreSetTypeMismatchError {
-                                        index_model_type: index_model_repr.to_string(),
-                                        storeinput_type: store_input_type.to_string(),
-                                    })
-                            }
-                        }
+    fn run_inference(&self, inputs: &Vec<ModelInput>, action_type: &InputAction) -> Result<Vec<Vec<f32>>, AIProxyError> {
+        return if let Some(fastembed_model) = &self.model {
+            let (string_inputs, image_inputs): (Vec<&String>, Vec<&ImageArray>) = inputs
+                .par_iter().partition_map(|input| {
+                match input {
+                    ModelInput::Text(value) => Either::Left(value),
+                    ModelInput::Image(value) => Either::Right(value),
+                }
+            });
+
+            if !image_inputs.is_empty() {
+                let store_input_type: AIStoreInputType = AIStoreInputType::Image;
+                let index_model_repr: Model = (&self.supported_models.expect(
+                    &AIProxyError::AIModelNotInitialized.to_string())).into();
+                match action_type {
+                    InputAction::Query => {
+                        return Err(AIProxyError::StoreQueryTypeMismatchError {
+                            store_query_model_type: index_model_repr.to_string(),
+                            storeinput_type: store_input_type.to_string(),
+                        })
+                    }
+                    InputAction::Index => {
+                        return Err(AIProxyError::StoreSetTypeMismatchError {
+                            index_model_type: index_model_repr.to_string(),
+                            storeinput_type: store_input_type.to_string(),
+                        })
                     }
                 }
-                _ => return Err(AIProxyError::AIModelNotSupported)
+            }
+            let FastEmbedModel::Text(model) = fastembed_model else {
+                return Err(AIProxyError::AIModelNotSupported)
             };
-            let embeddings = embeddings.first().ok_or(
-                AIProxyError::ModelProviderPostprocessingError)?;
-            return Ok(embeddings.to_owned());
+            let batch_size = 16;
+            let embeddings = model
+                .embed(string_inputs, Some(batch_size))
+                .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?;
+            Ok(embeddings.to_owned())
         } else {
-            return Err(AIProxyError::AIModelNotSupported)
+            Err(AIProxyError::AIModelNotSupported)
         }
     }
 }

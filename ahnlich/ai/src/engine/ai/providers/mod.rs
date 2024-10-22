@@ -20,7 +20,7 @@ pub trait ProviderTrait: std::fmt::Debug + Send + Sync {
     fn set_model(&mut self, model: &SupportedModels) -> &mut Self;
     fn load_model(&mut self) -> &mut Self;
     fn get_model(&self);
-    fn run_inference(&self, input: &ModelInput, action_type: &InputAction) -> Result<Vec<f32>, AIProxyError>;
+    fn run_inference(&self, input: &Vec<ModelInput>, action_type: &InputAction) -> Result<Vec<Vec<f32>>, AIProxyError>;
 }
 
 pub trait TextPreprocessorTrait {

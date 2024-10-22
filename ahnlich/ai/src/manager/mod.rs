@@ -66,11 +66,13 @@ impl ModelThread {
     ) -> ModelThreadResponse {
         let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         // move this from for loop into vec of inputs
+        let mut processed_inputs: Vec<ModelInput> = FallibleVec::try_with_capacity(inputs.len())?;
         for input in inputs {
             let processed_input = self.preprocess_store_input(process_action, input)?;
-            let store_key = self.model.model_ndarray(&processed_input, &action_type)?;
-            response.push(store_key);
+            processed_inputs.push(processed_input);
         }
+        let store_key = self.model.model_ndarray(&processed_inputs, &action_type)?;
+        for key in store_key { response.push(key) };
         Ok(response)
     }
 
@@ -197,8 +199,9 @@ impl Task for ModelThread {
             let child_span = tracing::info_span!("model-thread-run", model = self.task_name());
             child_span.set_parent(trace_span.context());
 
+            let responses = self.input_to_response(inputs, preprocess_action, action_type);
             if let Err(e) =
-                response.send(self.input_to_response(inputs, preprocess_action, action_type))
+                response.send(responses)
             {
                 log::error!("{} could not send response to channel {e:?}", self.name());
             }

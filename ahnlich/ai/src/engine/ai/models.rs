@@ -115,23 +115,26 @@ impl Model {
     #[tracing::instrument(skip(self))]
     pub fn model_ndarray(
         &self,
-        storeinput: &ModelInput,
+        storeinput: &Vec<ModelInput>,
         action_type: &InputAction,
-    ) -> Result<StoreKey, AIProxyError> {
-        match self {
+    ) -> Result<Vec<StoreKey>, AIProxyError> {
+        let embeddings = match self {
             Model::Text { provider, .. } | Model::Image { provider, .. } => {
-                return match provider {
+                match provider {
                     ModelProviders::FastEmbed(provider) => {
-                        let embedding = provider.run_inference(storeinput, action_type);
-                        Ok(StoreKey(<Array1<f32>>::from(embedding?)))
+                        provider.run_inference(storeinput, action_type)?
                     }
                     ModelProviders::ORT(provider) => {
-                        let embedding = provider.run_inference(storeinput, action_type);
-                        Ok(StoreKey(<Array1<f32>>::from(embedding?)))
+                        provider.run_inference(storeinput, action_type)?
                     }
                 }
             }
-        }
+        };
+        let store_keys = embeddings
+            .into_iter()
+            .map(|emb| StoreKey(<Array1<f32>>::from(emb)))
+            .collect();
+        Ok(store_keys)
     }
 
     #[tracing::instrument(skip(self))]
