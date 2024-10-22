@@ -2,7 +2,6 @@ use cap::Cap;
 use std::{
     alloc::{self, GlobalAlloc},
     ops::Deref,
-    usize,
 };
 
 pub struct AhnlichAllocator<H> {
