@@ -8,9 +8,11 @@ use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::version::Version;
 use ahnlich_types::version::VERSION;
 use fallible_collections::vec::FallibleVec;
+use futures::FutureExt;
 use std::fmt::Debug;
 use std::io::Error;
 use std::io::ErrorKind;
+use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 use tokio::sync::MutexGuard;
 
@@ -127,16 +129,36 @@ where
                             };
                             span.set_parent(parent_context);
                         }
-                        let results = self.handle(queries.into_inner()).instrument(span).await;
-                        if let Ok(binary_results) = results.serialize() {
-                            if let Err(error) = reader.get_mut().write_all(&binary_results).await {
-                                return self.handle_error(reader, error, false).await;
-                            };
-                            log::debug!(
-                                "Sent Response of length {}, {:?}",
-                                binary_results.len(),
-                                binary_results
-                            );
+
+                        log::info!("Before unwinding");
+                        let results =
+                            AssertUnwindSafe(self.handle(queries.into_inner()).instrument(span))
+                                .catch_unwind()
+                                .await
+                                .map_err(|err| format!("{:?}", err));
+
+                        log::info!("After unwinding");
+
+                        match results {
+                            Ok(results) => {
+                                if let Ok(binary_results) = results.serialize() {
+                                    if let Err(error) =
+                                        reader.get_mut().write_all(&binary_results).await
+                                    {
+                                        return self.handle_error(reader, error, false).await;
+                                    };
+                                    log::debug!(
+                                        "Sent Response of length {}, {:?}",
+                                        binary_results.len(),
+                                        binary_results
+                                    );
+                                }
+                            }
+
+                            Err(err) => {
+                                log::error!("caught unwind error, {err}");
+                                return self.handle_error(reader, err, true).await;
+                            }
                         }
                     }
                     Err(error) => {
