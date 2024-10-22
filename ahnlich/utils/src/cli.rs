@@ -32,11 +32,13 @@ pub struct CommandLineConfig {
 
     /// sets size(in bytes) for global allocator used
     /// Defaults to 1 Gi (1 * 1024 * 1024 * 1024)
+    /// Would throw a memory allocation error and stopping the server
     #[arg(long, default_value_t =
     DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).allocator_size.clone())]
     pub allocator_size: usize,
 
     /// limits the message size of expected messages, defaults to 1MiB (1 * 1024 * 1024)
+    /// Would disconnect the client only
     #[arg(long, default_value_t =
     DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).message_size.clone())]
     pub message_size: usize,

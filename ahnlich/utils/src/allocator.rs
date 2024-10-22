@@ -28,18 +28,9 @@ where
     H: GlobalAlloc,
 {
     unsafe fn alloc(&self, layout: alloc::Layout) -> *mut u8 {
-        let allocated = self.allocator.alloc(layout);
-        // we reserve 1000 bytes to handle panics
-        const RESERVED: usize = 1000;
-
-        if self.remaining() < layout.size() + RESERVED {
-            panic!("Cannot Allocate Reserved Memory")
-        }
-        // to be removed
-        if allocated.is_null() {
-            panic!("Cannot Allocate Memory")
-        }
-        allocated
+        //TODO: we reserve 1000 bytes to handle panics
+        //const RESERVED: usize = 10000;
+        self.allocator.alloc(layout)
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: alloc::Layout) {

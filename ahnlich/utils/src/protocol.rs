@@ -9,6 +9,7 @@ use ahnlich_types::version::Version;
 use ahnlich_types::version::VERSION;
 use fallible_collections::vec::FallibleVec;
 use futures::FutureExt;
+use std::any::Any;
 use std::fmt::Debug;
 use std::io::Error;
 use std::io::ErrorKind;
@@ -130,14 +131,11 @@ where
                             span.set_parent(parent_context);
                         }
 
-                        log::info!("Before unwinding");
                         let results =
                             AssertUnwindSafe(self.handle(queries.into_inner()).instrument(span))
                                 .catch_unwind()
                                 .await
-                                .map_err(|err| format!("{:?}", err));
-
-                        log::info!("After unwinding");
+                                .map_err(convert_error);
 
                         match results {
                             Ok(results) => {
@@ -179,11 +177,7 @@ where
         let error = self.prefix_log(error.to_string());
         log::error!("{error}");
         if respond_with_error {
-            match Self::ServerResponse::from_error(format!(
-                "Could not deserialize query, error is {error}"
-            ))
-            .serialize()
-            {
+            match Self::ServerResponse::from_error(error.to_string()).serialize() {
                 Err(e) => log::error!(
                     "{}",
                     self.prefix_log(format!("Could not deserialize error response, {}", e))
@@ -202,4 +196,14 @@ where
         &self,
         queries: <<Self as AhnlichProtocol>::ServerQuery as BinCodeSerAndDeserQuery>::Inner,
     ) -> Self::ServerResponse;
+}
+
+fn convert_error(err: Box<dyn Any + Send + 'static>) -> String {
+    if let Some(s) = err.downcast_ref::<String>() {
+        s.to_string()
+    } else if let Some(s) = err.downcast_ref::<&'static str>() {
+        (*s).to_string()
+    } else {
+        format!("{:?}", (*err).type_id())
+    }
 }
