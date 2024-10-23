@@ -2,6 +2,7 @@ use clap::{ArgAction, Args};
 use std::sync::OnceLock;
 
 static DEFAULT_CONFIG: OnceLock<CommandLineConfig> = OnceLock::new();
+const MIN_ALLOCATION_SIZE: usize = 10 * 1024 * 1024; // 10mb
 
 #[derive(Args, Debug, Clone)]
 pub struct CommandLineConfig {
@@ -33,8 +34,9 @@ pub struct CommandLineConfig {
     /// sets size(in bytes) for global allocator used
     /// Defaults to 1 Gi (1 * 1024 * 1024 * 1024)
     /// Would throw a memory allocation error and stopping the server
-    #[arg(long, default_value_t =
-    DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).allocator_size.clone())]
+    #[arg(long, value_parser = validate_allocator_size,
+        default_value_t = DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).allocator_size.clone()
+    )]
     pub allocator_size: usize,
 
     /// limits the message size of expected messages, defaults to 1MiB (1 * 1024 * 1024)
@@ -85,5 +87,18 @@ impl Default for CommandLineConfig {
             maximum_clients: 1000,
             threadpool_size: 16,
         }
+    }
+}
+
+fn validate_allocator_size(val: &str) -> Result<usize, String> {
+    let size: usize = val.parse::<usize>().map_err(|err| err.to_string())?;
+
+    if size < MIN_ALLOCATION_SIZE {
+        Err(format!(
+            "Size mut be atleast {} bytes (10 MB)",
+            MIN_ALLOCATION_SIZE
+        ))
+    } else {
+        Ok(size)
     }
 }
