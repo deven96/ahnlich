@@ -86,7 +86,7 @@ pub struct AIProxyConfig {
     pub(crate) model_cache_location: std::path::PathBuf,
 
     #[clap(flatten)]
-    pub(crate) common: CommandLineConfig,
+    pub common: CommandLineConfig,
 }
 
 #[derive(Debug)]
