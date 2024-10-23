@@ -1,4 +1,5 @@
 use clap::{ArgAction, Args};
+use std::os::unix::fs::MetadataExt;
 use std::sync::OnceLock;
 
 static DEFAULT_CONFIG: OnceLock<CommandLineConfig> = OnceLock::new();
@@ -101,4 +102,24 @@ fn validate_allocator_size(val: &str) -> Result<usize, String> {
     } else {
         Ok(size)
     }
+}
+
+pub fn validate_persistence(
+    allocated_size: usize,
+    persistence_file: Option<&std::path::PathBuf>,
+) -> Result<(), String> {
+    if let Some(path_file) = persistence_file {
+        let path = path_file.as_path();
+        if path.is_file() {
+            let file_metadata = std::fs::metadata(path).map_err(|err| err.to_string())?;
+            if (allocated_size / file_metadata.size() as usize) < 2 {
+                return Err(
+                    "Allocated memory should be more than two times your persistence_file size"
+                        .to_string(),
+                );
+            }
+        }
+    }
+
+    Ok(())
 }
