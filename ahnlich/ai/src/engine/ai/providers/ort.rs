@@ -1,17 +1,19 @@
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::models::{InputAction, Model, ModelInput};
+use crate::engine::ai::models::{InputAction, ImageArray, Model, ModelInput};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::AIStoreInputType;
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use ort::{ExecutionProviderDispatch, GraphOptimizationLevel, Session};
 use rayon::prelude::*;
+use rayon::iter::Either;
 
 use std::convert::TryFrom;
 use std::default::Default;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::thread::available_parallelism;
+use ndarray::{Array, ArrayView, Ix3};
 
 #[derive(Default)]
 pub struct ORTProvider {
@@ -85,6 +87,53 @@ impl ORTProvider {
 
         // We add the super-small epsilon to avoid dividing by zero
         v.par_iter().map(|&val| val / (norm + epsilon)).collect()
+    }
+
+    pub fn batch_inference(&self, inputs: Vec<&ImageArray>) -> Result<Vec<Vec<f32>>, AIProxyError> {
+        let model = match &self.model {
+            Some(ORTModel::Image(model)) => model,
+            _ => return Err(AIProxyError::AIModelNotSupported),
+        };
+
+        let array: Vec<Array<f32, Ix3>> = inputs.iter()
+            .map(|image_arr| {
+                let arr = image_arr.get_array();
+                let mut arr = arr.mapv(f32::from);
+                // Swapping axes from [rows, columns, channels] to [channels, rows, columns] for ONNX
+                arr.swap_axes(1, 2);
+                arr.swap_axes(0, 1);
+                arr
+            }).collect();
+
+        let array_views: Vec<ArrayView<f32, Ix3>> = array.iter()
+            .map(|arr| arr.view()).collect();
+
+        let pixel_values_array = ndarray::stack(ndarray::Axis(0), &array_views).unwrap();
+        match &model.session {
+            Some(session) => {
+                let session_inputs = ort::inputs![
+                                model.input_param.as_str() => pixel_values_array.view(),
+                            ].map_err(|_| AIProxyError::ModelProviderPreprocessingError)?;
+
+                let outputs = session.run(session_inputs)
+                    .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?;
+                let last_hidden_state_key = match outputs.len() {
+                    1 => outputs.keys().next().unwrap(),
+                    _ => model.output_param.as_str(),
+                };
+
+                let output_data = outputs[last_hidden_state_key]
+                    .try_extract_tensor::<f32>()
+                    .map_err(|_| AIProxyError::ModelProviderPostprocessingError)?;
+                let embeddings: Vec<Vec<f32>> = output_data
+                    .rows()
+                    .into_iter()
+                    .map(|row| ORTProvider::normalize(row.as_slice().unwrap()))
+                    .collect();
+                Ok(embeddings.to_owned())
+            }
+            None => Err(AIProxyError::AIModelNotInitialized)
+        }
     }
 }
 
@@ -177,81 +226,39 @@ impl ProviderTrait for ORTProvider {
         }
     }
 
-    fn run_inference(
-        &self,
-        input: &ModelInput,
-        action_type: &InputAction,
-    ) -> Result<Vec<f32>, AIProxyError> {
-        if let Some(ORTModel::Image(ORTImageModel {
-            session,
-            input_param,
-            output_param,
-            ..
-        })) = &self.model
-        {
-            let image = match input {
-                ModelInput::Image(image) => image.clone(),
-                _ => {
-                    let store_input_type: AIStoreInputType = input.into();
-                    let Some(index_model_repr) = self.supported_models else {
-                        return Err(AIProxyError::AIModelNotInitialized);
-                    };
-                    let index_model_repr: Model = (&index_model_repr).into();
-                    return Err(AIProxyError::StoreTypeMismatchError {
-                        action: *action_type,
-                        index_model_type: index_model_repr.input_type(),
-                        storeinput_type: store_input_type,
-                    });
-                }
-            };
-
-            let image_arr = image.get_array();
-            let mut image_arr = image_arr.mapv(f32::from);
-            image_arr.swap_axes(1, 2);
-            image_arr.swap_axes(0, 1);
-
-            let array = vec![image_arr.view()];
-            let pixel_values_array = ndarray::stack(ndarray::Axis(0), &array)
-                .map_err(|e| AIProxyError::EmbeddingShapeError(e.to_string()))?;
-            match session {
-                Some(session) => {
-                    let session_inputs = ort::inputs![
-                        input_param.as_str() => pixel_values_array.view(),
-                    ]
-                    .map_err(|_| AIProxyError::ModelProviderPreprocessingError)?;
-
-                    let outputs = session
-                        .run(session_inputs)
-                        .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?;
-                    let last_hidden_state_key = match outputs.len() {
-                        1 => outputs
-                            .keys()
-                            .next()
-                            .expect("Could not get last hidden state key"),
-                        _ => output_param.as_str(),
-                    };
-
-                    let output_data = outputs[last_hidden_state_key]
-                        .try_extract_tensor::<f32>()
-                        .map_err(|_| AIProxyError::ModelProviderPostprocessingError)?;
-                    let embeddings: Vec<Vec<f32>> = output_data
-                        .rows()
-                        .into_iter()
-                        .map(|row| {
-                            ORTProvider::normalize(
-                                row.as_slice().expect("Unable to set row as slice"),
-                            )
-                        })
-                        .collect();
-                    let embeddings = embeddings
-                        .first()
-                        .ok_or(AIProxyError::ModelProviderPostprocessingError)?;
-                    Ok(embeddings.to_owned())
-                }
-                None => Err(AIProxyError::AIModelNotInitialized),
+    fn run_inference(&self, inputs: &Vec<ModelInput>, action_type: &InputAction) -> Result<Vec<Vec<f32>>, AIProxyError> {
+        let (string_inputs, image_inputs): (Vec<&String>, Vec<&ImageArray>) = inputs
+            .par_iter().partition_map(|input| {
+            match input {
+                ModelInput::Text(value) => Either::Left(value),
+                ModelInput::Image(value) => Either::Right(value),
             }
-        } else {
-            Err(AIProxyError::AIModelNotSupported)
+        });
+
+        if !string_inputs.is_empty() {
+            let store_input_type: AIStoreInputType = AIStoreInputType::RawString;
+            let Some(index_model_repr) = self.supported_models else {
+                return Err(AIProxyError::AIModelNotInitialized);
+            };
+            let index_model_repr: Model = (&index_model_repr).into();
+            return Err(AIProxyError::StoreTypeMismatchError {
+                action: *action_type,
+                index_model_type: index_model_repr.input_type(),
+                storeinput_type: store_input_type,
+            });
         }
+
+        let batch_size = 16;
+        let all_embeddings = image_inputs
+            .par_chunks(batch_size)
+            .map(|batch_inputs| {
+                self.batch_inference(batch_inputs.to_vec())
+            })
+            .try_reduce(Vec::new, |mut accumulator, mut embeddings| {
+                accumulator.append(&mut embeddings);
+                Ok(accumulator)
+            });
+
+        return all_embeddings;
     }
 }
