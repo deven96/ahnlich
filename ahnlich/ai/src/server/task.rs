@@ -73,6 +73,7 @@ impl AhnlichProtocol for AIProxyTask {
                     index_model,
                     mut predicates,
                     non_linear_indices,
+                    error_if_exists,
                 } => {
                     let default_metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
                     if predicates.contains(&AHNLICH_AI_RESERVED_META_KEY) {
@@ -95,7 +96,7 @@ impl AhnlichProtocol for AIProxyTask {
                             Err(err) => Err(err.to_string()),
                             Ok(_) => self
                                 .store_handler
-                                .create_store(store, query_model, index_model)
+                                .create_store(store, query_model, index_model, error_if_exists)
                                 .map(|_| AIServerResponse::Unit)
                                 .map_err(|e| e.to_string()),
                         }

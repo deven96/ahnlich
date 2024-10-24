@@ -56,6 +56,7 @@ impl AIPipeline {
         index_model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
+        error_if_exists: bool,
     ) {
         self.queries.push(AIQuery::CreateStore {
             store,
@@ -63,6 +64,7 @@ impl AIPipeline {
             index_model,
             predicates,
             non_linear_indices,
+            error_if_exists,
         })
     }
 
@@ -213,6 +215,7 @@ impl AIClient {
         index_model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
+        error_if_exists: bool,
         tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
@@ -222,6 +225,7 @@ impl AIClient {
                 index_model,
                 predicates,
                 non_linear_indices,
+                error_if_exists,
             },
             tracing_id,
         )
@@ -497,6 +501,7 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
         );
         pipeline.create_store(
             StoreName("Main".to_string()),
@@ -504,6 +509,15 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
+        );
+        pipeline.create_store(
+            StoreName("Main".to_string()),
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
+            HashSet::new(),
+            HashSet::new(),
+            false,
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
@@ -511,11 +525,13 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
         );
         pipeline.list_stores();
-        let mut expected = AIServerResult::with_capacity(4);
+        let mut expected = AIServerResult::with_capacity(5);
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Err("Store Main already exists".to_string()));
+        expected.push(Ok(AIServerResponse::Unit));
         expected.push(Ok(AIServerResponse::Unit));
         let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
@@ -553,6 +569,7 @@ mod tests {
                 AIModel::AllMiniLML6V2,
                 HashSet::new(),
                 HashSet::new(),
+                true,
                 None
             )
             .await
@@ -606,6 +623,7 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
         );
         pipeline.create_store(
             StoreName("Main2".to_string()),
@@ -613,6 +631,7 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
@@ -620,6 +639,7 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
         );
         pipeline.list_stores();
         pipeline.drop_store(StoreName("Less".to_string()), true);
@@ -702,6 +722,7 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
         );
         pipeline.list_stores();
         pipeline.create_pred_index(
@@ -824,6 +845,7 @@ mod tests {
             AIModel::Resnet50,
             HashSet::new(),
             HashSet::new(),
+            true,
         );
         pipeline.list_stores();
         pipeline.create_pred_index(

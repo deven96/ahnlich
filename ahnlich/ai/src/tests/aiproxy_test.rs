@@ -137,6 +137,7 @@ async fn test_ai_proxy_create_store_success() {
         index_model: AIModel::AllMiniLML6V2,
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
+        error_if_exists: true,
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);
@@ -200,6 +201,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
                 MetadataKey::new("Original".to_owned()),
             ]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -278,6 +280,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
                 MetadataKey::new("Original".to_owned()),
             ]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -334,6 +337,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
             index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
         },
         // returns nothing
         AIQuery::GetPred {
@@ -403,6 +407,15 @@ async fn test_ai_proxy_del_key_drop_store() {
             index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+        },
+        AIQuery::CreateStore {
+            store: store_name.clone(),
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
+            predicates: HashSet::from_iter([]),
+            non_linear_indices: HashSet::new(),
+            error_if_exists: false,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -424,6 +437,7 @@ async fn test_ai_proxy_del_key_drop_store() {
     ]);
     let mut expected = AIServerResult::with_capacity(6);
 
+    expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::Set(StoreUpsert {
         inserted: 1,
@@ -460,6 +474,7 @@ async fn test_ai_proxy_fails_db_server_unavailable() {
             index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
         },
     ]);
 
@@ -528,6 +543,7 @@ async fn test_ai_proxy_test_with_persistence() {
             index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
         },
         AIQuery::CreateStore {
             store: store_name_2.clone(),
@@ -535,6 +551,7 @@ async fn test_ai_proxy_test_with_persistence() {
             index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
         },
         AIQuery::DropStore {
             store: store_name,
@@ -604,6 +621,7 @@ async fn test_ai_proxy_destroy_database() {
             index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
         },
         AIQuery::ListStores,
         AIQuery::PurgeStores,
@@ -675,6 +693,7 @@ async fn test_ai_proxy_binary_store_actions() {
             index_model: AIModel::Resnet50,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
         },
         AIQuery::ListStores,
         AIQuery::CreatePredIndex {
@@ -777,6 +796,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
             index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -828,6 +848,7 @@ async fn test_ai_proxy_create_store_errors_unsupported_models() {
         index_model: AIModel::AllMiniLML6V2,
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
+        error_if_exists: true,
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);
@@ -851,6 +872,7 @@ async fn test_ai_proxy_embedding_size_mismatch_error() {
         index_model: AIModel::BGEBaseEnV15,
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
+        error_if_exists: true,
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);

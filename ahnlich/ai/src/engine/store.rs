@@ -76,6 +76,7 @@ impl AIStoreHandler {
         store_name: StoreName,
         query_model: AIModel,
         index_model: AIModel,
+        error_if_exists: bool,
     ) -> Result<(), AIProxyError> {
         if !self.supported_models.contains(&(&query_model).into())
             || !self.supported_models.contains(&(&index_model).into())
@@ -105,6 +106,7 @@ impl AIStoreHandler {
                 &self.stores.guard(),
             )
             .is_err()
+            && error_if_exists
         {
             return Err(AIProxyError::StoreAlreadyExists(store_name.clone()));
         }

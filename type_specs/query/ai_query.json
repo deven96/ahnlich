@@ -50,6 +50,9 @@
                   "TYPENAME": "NonLinearAlgorithm"
                 }
               }
+            },
+            {
+              "error_if_exists": "BOOL"
             }
           ]
         }
