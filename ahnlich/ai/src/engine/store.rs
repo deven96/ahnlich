@@ -202,7 +202,6 @@ impl AIStoreHandler {
     ) -> Result<StoreValidateResponse, AIProxyError> {
         let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let mut delete_hashset = StdHashSet::new();
-        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
         for (store_input, mut store_value) in inputs {
             let store_input_type: AIStoreInputType = (&store_input).into();
             let index_model_repr: Model = (&index_model).into();
@@ -214,6 +213,7 @@ impl AIStoreHandler {
                 });
             }
             if store_original {
+                let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
                 if store_value.contains_key(metadata_key) {
                     return Err(AIProxyError::ReservedError(metadata_key.to_string()));
                 }
@@ -264,19 +264,13 @@ impl AIStoreHandler {
     pub(crate) fn store_key_val_to_store_input_val(
         &self,
         output: Vec<(StoreKey, StoreValue)>,
-    ) -> Vec<(StoreInput, StoreValue)> {
+    ) -> Vec<(Option<StoreInput>, StoreValue)> {
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
 
-        // TODO: Will parallelized
         output
-            .into_iter()
-            .filter_map(|(_, mut store_value)| {
-                store_value
-                    .remove(metadata_key)
-                    .map(|val| (val, store_value))
-            })
-            .map(|(metadata_value, store_value)| {
-                let store_input: StoreInput = metadata_value.into();
+            .into_par_iter()
+            .map(|(_, mut store_value)| {
+                let store_input = store_value.remove(metadata_key).map(|val| val.into());
                 (store_input, store_value)
             })
             .collect()

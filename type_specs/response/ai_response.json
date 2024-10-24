@@ -67,7 +67,9 @@
             "SEQ": {
               "TUPLE": [
                 {
-                  "TYPENAME": "StoreInput"
+                  "OPTION": {
+                    "TYPENAME": "StoreInput"
+                  }
                 },
                 {
                   "MAP": {
@@ -88,7 +90,9 @@
             "SEQ": {
               "TUPLE": [
                 {
-                  "TYPENAME": "StoreInput"
+                  "OPTION": {
+                    "TYPENAME": "StoreInput"
+                  }
                 },
                 {
                   "MAP": {

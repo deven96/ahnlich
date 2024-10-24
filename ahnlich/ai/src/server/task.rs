@@ -6,7 +6,7 @@ use ahnlich_types::ai::{
 };
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
-use ahnlich_types::keyval::{StoreInput, StoreValue};
+use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::{Predicate, PredicateCondition};
 use ahnlich_types::version::VERSION;
@@ -116,7 +116,6 @@ impl AhnlichProtocol for AIProxyTask {
                     preprocess_action,
                 } => {
                     let model_manager = &self.model_manager;
-                    let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
 
                     match self
                         .store_handler
@@ -128,6 +127,7 @@ impl AhnlichProtocol for AIProxyTask {
                                 Err(err) => Err(err.to_string()),
                                 Ok(mut pipeline) => {
                                     if let Some(del_hashset) = delete_hashset {
+                                        let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
                                         let delete_condition =
                                             PredicateCondition::Value(Predicate::In {
                                                 key: default_metadatakey.clone(),
@@ -303,7 +303,7 @@ impl AhnlichProtocol for AIProxyTask {
                         Ok(res) => {
                             if let ServerResponse::Get(response) = res {
                                 // conversion to store input here
-                                let output: Vec<(StoreInput, StoreValue)> = self
+                                let output = self
                                     .store_handler
                                     .store_key_val_to_store_input_val(response);
                                 Ok(AIServerResponse::Get(output))

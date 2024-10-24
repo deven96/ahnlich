@@ -49,6 +49,7 @@ impl AIPipeline {
         Self { queries, conn }
     }
     /// push create store command to pipeline
+    #[allow(clippy::too_many_arguments)]
     pub fn create_store(
         &mut self,
         store: StoreName,
@@ -210,6 +211,7 @@ impl AIClient {
         ))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_store(
         &self,
         store: StoreName,
@@ -794,11 +796,13 @@ mod tests {
 
         let expected = vec![
             (
-                StoreInput::RawString(String::from("Air Force 1 Retro Boost")),
+                Some(StoreInput::RawString(String::from(
+                    "Air Force 1 Retro Boost",
+                ))),
                 nike_store_value.clone(),
             ),
             (
-                StoreInput::RawString(String::from("Jordan")),
+                Some(StoreInput::RawString(String::from("Jordan"))),
                 nike_store_value.clone(),
             ),
         ];
@@ -909,7 +913,9 @@ mod tests {
         })));
         expected.push(Ok(AIServerResponse::Del(1)));
         expected.push(Ok(AIServerResponse::Get(vec![(
-            StoreInput::Image(include_bytes!("../../ai/src/tests/images/cat.png").to_vec()),
+            Some(StoreInput::Image(
+                include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
+            )),
             store_value_1.clone(),
         )])));
         expected.push(Ok(AIServerResponse::Del(1)));
