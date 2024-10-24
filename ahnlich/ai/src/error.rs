@@ -93,25 +93,26 @@ pub enum AIProxyError {
     #[error("Bytes could not be successfully decoded into an image.")]
     ImageBytesDecodeError,
 
-    #[error(
-        "Image can't have zero value in any dimension. Found height: {height}, width: {width}"
-    )]
-    ImageNonzeroDimensionError { width: usize, height: usize },
+    #[error("Image can't have zero value in any dimension. Found height: {height}, width: {width}")]
+    ImageNonzeroDimensionError {
+        width: usize,
+        height: usize,
+    },
 
     #[error("Image could not be resized.")]
     ImageResizeError,
 
-    #[error("Model provider failed to process input.")]
+    #[error("Model provider failed on preprocessing the input.")]
     ModelProviderPreprocessingError,
 
-    #[error("Model provider failed to run inference.")]
+    #[error("Model provider failed on running inference.")]
     ModelProviderRunInferenceError,
 
-    #[error("Model provider failed to process output.")]
+    #[error("Model provider failed on postprocessing the output.")]
     ModelProviderPostprocessingError,
 
     #[error("Model provider failed on tokenization of text inputs.")]
-    ModelTokenizationError,
+    ModelTokenizationError
 }
 
 impl From<TryReserveError> for AIProxyError {

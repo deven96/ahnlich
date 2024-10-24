@@ -95,6 +95,8 @@ def run_insert_image():
     ai_client = AhnlichAIClient(address="127.0.0.1", port=1370, connect_timeout_sec=30)
     builder = ai_client.pipeline()
     builder.create_store(**ai_store_payload_with_predicates_images)
+    store_inputs = []
+    action = ai_query.ImageAction__ResizeImage()
     for url, brand in image_urls:
         print("Processing image: ", url)
         location = urlopen(url)
@@ -102,20 +104,20 @@ def run_insert_image():
         buffer = io.BytesIO()
         image.save(buffer, format=image.format)
 
-        store_inputs = [
+        store_inputs.append(
             (
                 ai_query.StoreInput__Image(buffer.getvalue()),
                 {"brand": ai_query.MetadataValue__RawString(brand)},
-            ),
-        ]
-
-        builder.set(
-            store_name=ai_store_payload_with_predicates_images["store_name"],
-            inputs=store_inputs,
-            preprocess_action=ai_query.PreprocessAction__Image(
-                ai_query.ImageAction__ResizeImage()
-            ),
+            )
         )
+
+    builder.set(
+        store_name=ai_store_payload_with_predicates_images["store_name"],
+        inputs=store_inputs,
+        preprocess_action=ai_query.PreprocessAction__Image(
+            action
+        ),
+    )
 
     return builder.exec()
 
