@@ -137,6 +137,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                     }
                 };
                 let mut non_linear_indices = HashSet::new();
+                let mut store_original = false;
                 if let Some(next_pair) = inner_pairs.peek() {
                     if next_pair.as_rule() == Rule::non_linear_algorithms {
                         let index_name_pairs = inner_pairs
@@ -148,6 +149,11 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                             .collect();
                     }
                 };
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::store_original {
+                        store_original = true;
+                    }
+                }
                 AIQuery::CreateStore {
                     store: StoreName(store.to_string()),
                     query_model,
@@ -155,6 +161,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                     predicates,
                     non_linear_indices,
                     error_if_exists,
+                    store_original,
                 }
             }
             Rule::ai_get_sim_n => {

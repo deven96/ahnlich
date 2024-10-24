@@ -74,6 +74,7 @@ impl AhnlichProtocol for AIProxyTask {
                     mut predicates,
                     non_linear_indices,
                     error_if_exists,
+                    store_original,
                 } => {
                     let default_metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
                     if predicates.contains(&AHNLICH_AI_RESERVED_META_KEY) {
@@ -96,7 +97,13 @@ impl AhnlichProtocol for AIProxyTask {
                             Err(err) => Err(err.to_string()),
                             Ok(_) => self
                                 .store_handler
-                                .create_store(store, query_model, index_model, error_if_exists)
+                                .create_store(
+                                    store,
+                                    query_model,
+                                    index_model,
+                                    error_if_exists,
+                                    store_original,
+                                )
                                 .map(|_| AIServerResponse::Unit)
                                 .map_err(|e| e.to_string()),
                         }
@@ -117,35 +124,31 @@ impl AhnlichProtocol for AIProxyTask {
                         .await
                     {
                         Ok((db_inputs, delete_hashset)) => {
-                            let delete_condition = PredicateCondition::Value(Predicate::In {
-                                key: default_metadatakey.clone(),
-                                value: delete_hashset,
-                            });
-
-                            if let Err(err) = self
-                                .db_client
-                                .del_pred(store.clone(), delete_condition, parent_id.clone())
-                                .await
-                            {
-                                Err(err.to_string())
-                            } else {
-                                match self
-                                    .db_client
-                                    .set(store, db_inputs, parent_id.clone())
-                                    .await
-                                {
-                                    Ok(res) => {
-                                        if let ServerResponse::Set(upsert) = res {
-                                            Ok(AIServerResponse::Set(upsert))
-                                        } else {
-                                            Err(AIProxyError::UnexpectedDBResponse(format!(
-                                                "{:?}",
-                                                res
-                                            ))
-                                            .to_string())
-                                        }
+                            match self.db_client.pipeline(2, parent_id.clone()).await {
+                                Err(err) => Err(err.to_string()),
+                                Ok(mut pipeline) => {
+                                    if let Some(del_hashset) = delete_hashset {
+                                        let delete_condition =
+                                            PredicateCondition::Value(Predicate::In {
+                                                key: default_metadatakey.clone(),
+                                                value: del_hashset,
+                                            });
+                                        pipeline.del_pred(store.clone(), delete_condition);
                                     }
-                                    Err(err) => Err(format!("{err}")),
+                                    pipeline.set(store, db_inputs);
+                                    match pipeline.exec().await {
+                                        Ok(res) => match res.into_inner().as_slice() {
+                                            [Ok(ServerResponse::Set(upsert))]
+                                            | [Ok(_), Ok(ServerResponse::Set(upsert))] => {
+                                                Ok(AIServerResponse::Set(upsert.clone()))
+                                            }
+                                            e => Err(AIProxyError::UnexpectedDBResponse(format!(
+                                                "{e:?}"
+                                            ))
+                                            .to_string()),
+                                        },
+                                        Err(err) => Err(format!("{err}")),
+                                    }
                                 }
                             }
                         }

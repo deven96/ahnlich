@@ -57,6 +57,7 @@ impl AIPipeline {
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
+        store_original: bool,
     ) {
         self.queries.push(AIQuery::CreateStore {
             store,
@@ -65,6 +66,7 @@ impl AIPipeline {
             predicates,
             non_linear_indices,
             error_if_exists,
+            store_original,
         })
     }
 
@@ -216,6 +218,7 @@ impl AIClient {
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
+        store_original: bool,
         tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
@@ -226,6 +229,7 @@ impl AIClient {
                 predicates,
                 non_linear_indices,
                 error_if_exists,
+                store_original,
             },
             tracing_id,
         )
@@ -502,6 +506,7 @@ mod tests {
             HashSet::new(),
             HashSet::new(),
             true,
+            true,
         );
         pipeline.create_store(
             StoreName("Main".to_string()),
@@ -509,6 +514,7 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
             true,
         );
         pipeline.create_store(
@@ -518,6 +524,7 @@ mod tests {
             HashSet::new(),
             HashSet::new(),
             false,
+            true,
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
@@ -525,6 +532,7 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
             true,
         );
         pipeline.list_stores();
@@ -569,6 +577,7 @@ mod tests {
                 AIModel::AllMiniLML6V2,
                 HashSet::new(),
                 HashSet::new(),
+                true,
                 true,
                 None
             )
@@ -624,6 +633,7 @@ mod tests {
             HashSet::new(),
             HashSet::new(),
             true,
+            true,
         );
         pipeline.create_store(
             StoreName("Main2".to_string()),
@@ -632,6 +642,7 @@ mod tests {
             HashSet::new(),
             HashSet::new(),
             true,
+            true,
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
@@ -639,6 +650,7 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
             true,
         );
         pipeline.list_stores();
@@ -722,6 +734,7 @@ mod tests {
             AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
             true,
         );
         pipeline.list_stores();
@@ -845,6 +858,7 @@ mod tests {
             AIModel::Resnet50,
             HashSet::new(),
             HashSet::new(),
+            true,
             true,
         );
         pipeline.list_stores();

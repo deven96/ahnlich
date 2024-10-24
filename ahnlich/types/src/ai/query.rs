@@ -18,6 +18,7 @@ pub enum AIQuery {
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
+        store_original: bool,
     },
     GetPred {
         store: StoreName,

@@ -21,6 +21,7 @@ class AhnlichAIRequestBuilder:
         predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
         error_if_exists: bool = True,
+        store_original: bool = True,
     ):
         if not non_linear_indices:
             non_linear_indices = []
@@ -35,6 +36,7 @@ class AhnlichAIRequestBuilder:
                 predicates=predicates,
                 non_linear_indices=non_linear_indices,
                 error_if_exists=error_if_exists,
+                store_original=store_original,
             )
         )
 

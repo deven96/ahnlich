@@ -138,6 +138,7 @@ async fn test_ai_proxy_create_store_success() {
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
         error_if_exists: true,
+        store_original: true,
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);
@@ -202,6 +203,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
             ]),
             non_linear_indices: HashSet::new(),
             error_if_exists: true,
+            store_original: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -281,6 +283,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
             ]),
             non_linear_indices: HashSet::new(),
             error_if_exists: true,
+            store_original: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -338,6 +341,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
             error_if_exists: true,
+            store_original: true,
         },
         // returns nothing
         AIQuery::GetPred {
@@ -408,6 +412,7 @@ async fn test_ai_proxy_del_key_drop_store() {
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
             error_if_exists: true,
+            store_original: true,
         },
         AIQuery::CreateStore {
             store: store_name.clone(),
@@ -416,6 +421,7 @@ async fn test_ai_proxy_del_key_drop_store() {
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
             error_if_exists: false,
+            store_original: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -475,6 +481,7 @@ async fn test_ai_proxy_fails_db_server_unavailable() {
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
             error_if_exists: true,
+            store_original: true,
         },
     ]);
 
@@ -544,6 +551,7 @@ async fn test_ai_proxy_test_with_persistence() {
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
             error_if_exists: true,
+            store_original: true,
         },
         AIQuery::CreateStore {
             store: store_name_2.clone(),
@@ -552,6 +560,7 @@ async fn test_ai_proxy_test_with_persistence() {
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
             error_if_exists: true,
+            store_original: true,
         },
         AIQuery::DropStore {
             store: store_name,
@@ -622,6 +631,7 @@ async fn test_ai_proxy_destroy_database() {
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
             error_if_exists: true,
+            store_original: true,
         },
         AIQuery::ListStores,
         AIQuery::PurgeStores,
@@ -694,6 +704,7 @@ async fn test_ai_proxy_binary_store_actions() {
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
             error_if_exists: true,
+            store_original: true,
         },
         AIQuery::ListStores,
         AIQuery::CreatePredIndex {
@@ -797,6 +808,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
             error_if_exists: true,
+            store_original: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -849,6 +861,7 @@ async fn test_ai_proxy_create_store_errors_unsupported_models() {
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
         error_if_exists: true,
+        store_original: true,
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);
@@ -873,6 +886,7 @@ async fn test_ai_proxy_embedding_size_mismatch_error() {
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
         error_if_exists: true,
+        store_original: true,
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);

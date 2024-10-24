@@ -53,6 +53,9 @@
             },
             {
               "error_if_exists": "BOOL"
+            },
+            {
+              "store_original": "BOOL"
             }
           ]
         }

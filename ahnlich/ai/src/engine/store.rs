@@ -33,8 +33,14 @@ pub struct AIStoreHandler {
 
 pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
 
-type StoreSetResponse = (Vec<(StoreKey, StoreValue)>, StdHashSet<MetadataValue>);
-type StoreValidateResponse = (Vec<(StoreInput, StoreValue)>, StdHashSet<MetadataValue>);
+type StoreSetResponse = (
+    Vec<(StoreKey, StoreValue)>,
+    Option<StdHashSet<MetadataValue>>,
+);
+type StoreValidateResponse = (
+    Vec<(StoreInput, StoreValue)>,
+    Option<StdHashSet<MetadataValue>>,
+);
 impl AhnlichPersistenceUtils for AIStoreHandler {
     type PersistenceObject = AIStores;
 
@@ -77,6 +83,7 @@ impl AIStoreHandler {
         query_model: AIModel,
         index_model: AIModel,
         error_if_exists: bool,
+        store_original: bool,
     ) -> Result<(), AIProxyError> {
         if !self.supported_models.contains(&(&query_model).into())
             || !self.supported_models.contains(&(&index_model).into())
@@ -102,6 +109,7 @@ impl AIStoreHandler {
                     store_name.clone(),
                     query_model,
                     index_model,
+                    store_original,
                 )),
                 &self.stores.guard(),
             )
@@ -172,13 +180,15 @@ impl AIStoreHandler {
         inputs
             .into_par_iter()
             .chunks(chunk_size)
-            .map(|input| Self::preprocess_store_input(index_model, input))
+            .map(|input| Self::preprocess_store_input(index_model, input, store.store_original))
             .try_reduce(
-                || (Vec::new(), StdHashSet::new()),
+                || (Vec::new(), None),
                 |(mut acc_vec, mut acc_set), chunk_res| {
                     let (chunk_vec, chunk_set) = chunk_res;
                     acc_vec.extend(chunk_vec);
-                    acc_set.extend(chunk_set);
+                    if let (Some(acc), Some(chunk)) = (&mut acc_set, chunk_set) {
+                        acc.extend(chunk)
+                    }
                     Ok((acc_vec, acc_set))
                 },
             )
@@ -188,14 +198,12 @@ impl AIStoreHandler {
     pub(crate) fn preprocess_store_input(
         index_model: AIModel,
         inputs: Vec<(StoreInput, StoreValue)>,
+        store_original: bool,
     ) -> Result<StoreValidateResponse, AIProxyError> {
         let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let mut delete_hashset = StdHashSet::new();
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
         for (store_input, mut store_value) in inputs {
-            if store_value.contains_key(metadata_key) {
-                return Err(AIProxyError::ReservedError(metadata_key.to_string()));
-            }
             let store_input_type: AIStoreInputType = (&store_input).into();
             let index_model_repr: Model = (&index_model).into();
             if store_input_type != index_model_repr.input_type() {
@@ -205,11 +213,21 @@ impl AIStoreHandler {
                     storeinput_type: store_input_type,
                 });
             }
-            let metadata_value: MetadataValue = store_input.clone().into();
-            store_value.insert(metadata_key.clone(), metadata_value.clone());
+            if store_original {
+                if store_value.contains_key(metadata_key) {
+                    return Err(AIProxyError::ReservedError(metadata_key.to_string()));
+                }
+                let metadata_value: MetadataValue = store_input.clone().into();
+                store_value.insert(metadata_key.clone(), metadata_value.clone());
+                delete_hashset.insert(metadata_value);
+            }
             output.try_push((store_input, store_value))?;
-            delete_hashset.insert(metadata_value);
         }
+        let delete_hashset = if !store_original {
+            None
+        } else {
+            Some(delete_hashset)
+        };
         Ok((output, delete_hashset))
     }
 
@@ -322,6 +340,7 @@ pub struct AIStore {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     query_model: AIModel,
     index_model: AIModel,
+    store_original: bool,
 }
 
 impl AIStore {
@@ -329,11 +348,13 @@ impl AIStore {
         store_name: StoreName,
         query_model: AIModel,
         index_model: AIModel,
+        store_original: bool,
     ) -> Self {
         Self {
             name: store_name,
             query_model,
             index_model,
+            store_original,
         }
     }
 }
