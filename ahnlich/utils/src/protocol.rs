@@ -8,9 +8,12 @@ use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::version::Version;
 use ahnlich_types::version::VERSION;
 use fallible_collections::vec::FallibleVec;
+use futures::FutureExt;
+use std::any::Any;
 use std::fmt::Debug;
 use std::io::Error;
 use std::io::ErrorKind;
+use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 use tokio::sync::MutexGuard;
 
@@ -127,16 +130,33 @@ where
                             };
                             span.set_parent(parent_context);
                         }
-                        let results = self.handle(queries.into_inner()).instrument(span).await;
-                        if let Ok(binary_results) = results.serialize() {
-                            if let Err(error) = reader.get_mut().write_all(&binary_results).await {
-                                return self.handle_error(reader, error, false).await;
-                            };
-                            log::debug!(
-                                "Sent Response of length {}, {:?}",
-                                binary_results.len(),
-                                binary_results
-                            );
+
+                        let results =
+                            AssertUnwindSafe(self.handle(queries.into_inner()).instrument(span))
+                                .catch_unwind()
+                                .await
+                                .map_err(convert_error);
+
+                        match results {
+                            Ok(results) => {
+                                if let Ok(binary_results) = results.serialize() {
+                                    if let Err(error) =
+                                        reader.get_mut().write_all(&binary_results).await
+                                    {
+                                        return self.handle_error(reader, error, false).await;
+                                    };
+                                    log::debug!(
+                                        "Sent Response of length {}, {:?}",
+                                        binary_results.len(),
+                                        binary_results
+                                    );
+                                }
+                            }
+
+                            Err(err) => {
+                                log::error!("caught unwind error, {err}");
+                                return self.handle_error(reader, err, true).await;
+                            }
                         }
                     }
                     Err(error) => {
@@ -157,11 +177,7 @@ where
         let error = self.prefix_log(error.to_string());
         log::error!("{error}");
         if respond_with_error {
-            match Self::ServerResponse::from_error(format!(
-                "Could not deserialize query, error is {error}"
-            ))
-            .serialize()
-            {
+            match Self::ServerResponse::from_error(error.to_string()).serialize() {
                 Err(e) => log::error!(
                     "{}",
                     self.prefix_log(format!("Could not deserialize error response, {}", e))
@@ -180,4 +196,14 @@ where
         &self,
         queries: <<Self as AhnlichProtocol>::ServerQuery as BinCodeSerAndDeserQuery>::Inner,
     ) -> Self::ServerResponse;
+}
+
+fn convert_error(err: Box<dyn Any + Send + 'static>) -> String {
+    if let Some(s) = err.downcast_ref::<String>() {
+        s.to_string()
+    } else if let Some(s) = err.downcast_ref::<&'static str>() {
+        (*s).to_string()
+    } else {
+        format!("{:?}", (*err).type_id())
+    }
 }

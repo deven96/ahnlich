@@ -3935,6 +3935,7 @@ dependencies = [
  "clap 4.5.4",
  "fallible_collections",
  "flurry",
+ "futures",
  "log",
  "opentelemetry",
  "rayon",
