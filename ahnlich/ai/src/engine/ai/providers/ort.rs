@@ -4,7 +4,6 @@ use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::AIStoreInputType;
 use hf_hub::{api::sync::ApiBuilder, Cache};
-use log;
 use ort::{ExecutionProviderDispatch, GraphOptimizationLevel, Session};
 use rayon::prelude::*;
 use rayon::iter::Either;
@@ -83,11 +82,11 @@ impl ORTProvider {
     }
 
     pub fn normalize(v: &[f32]) -> Vec<f32> {
-        let norm = (v.iter().map(|val| val * val).sum::<f32>()).sqrt();
+        let norm = (v.par_iter().map(|val| val * val).sum::<f32>()).sqrt();
         let epsilon = 1e-12;
 
         // We add the super-small epsilon to avoid dividing by zero
-        v.iter().map(|&val| val / (norm + epsilon)).collect()
+        v.par_iter().map(|&val| val / (norm + epsilon)).collect()
     }
 
     pub fn batch_inference(&self, inputs: Vec<&ImageArray>) -> Result<Vec<Vec<f32>>, AIProxyError> {
@@ -139,24 +138,22 @@ impl ORTProvider {
 }
 
 impl ProviderTrait for ORTProvider {
-    fn set_cache_location(&mut self, location: &Path) -> &mut Self {
+    fn set_cache_location(&mut self, location: &Path) {
         self.cache_location = Some(location.join(self.cache_location_extension.clone()));
-        self
     }
 
-    fn set_model(&mut self, model: &SupportedModels) -> &mut Self {
+    fn set_model(&mut self, model: &SupportedModels) {
         self.supported_models = Some(*model);
-        self
     }
 
-    fn load_model(&mut self) -> &mut Self {
-        let cache_location = self
-            .cache_location
-            .clone()
-            .expect("Cache location not set.");
-        let supported_model = self.supported_models.expect(
-            &AIProxyError::AIModelNotInitialized.to_string());
-        let ort_model = ORTModel::try_from(&supported_model).unwrap();
+    fn load_model(&mut self) -> Result<(), AIProxyError> {
+        let Some(cache_location) = self.cache_location.clone() else {
+            return Err(AIProxyError::CacheLocationNotInitiailized);
+        };
+        let Some(supported_model) = self.supported_models else {
+            return Err(AIProxyError::AIModelNotInitialized);
+        };
+        let ort_model = ORTModel::try_from(&supported_model)?;
 
         let threads = available_parallelism()
             .expect("Could not find the threads")
@@ -166,7 +163,7 @@ impl ProviderTrait for ORTProvider {
         let api = ApiBuilder::from_cache(cache)
             .with_progress(true)
             .build()
-            .unwrap();
+            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
 
         match ort_model {
             ORTModel::Image(ORTImageModel {
@@ -179,18 +176,13 @@ impl ProviderTrait for ORTProvider {
                 let model_repo = api.model(repo_name.clone());
                 let model_file_reference = model_repo
                     .get(&weights_file)
-                    .unwrap_or_else(|_| panic!("Failed to retrieve {} ", weights_file));
+                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
                 let executioners: Vec<ExecutionProviderDispatch> = Default::default();
-                let session = Session::builder()
-                    .unwrap()
-                    .with_execution_providers(executioners)
-                    .unwrap()
-                    .with_optimization_level(GraphOptimizationLevel::Level3)
-                    .unwrap()
-                    .with_intra_threads(threads)
-                    .unwrap()
-                    .commit_from_file(model_file_reference)
-                    .unwrap();
+                let session = Session::builder()?
+                    .with_execution_providers(executioners)?
+                    .with_optimization_level(GraphOptimizationLevel::Level3)?
+                    .with_intra_threads(threads)?
+                    .commit_from_file(model_file_reference)?;
                 self.model = Some(ORTModel::Image(ORTImageModel {
                     repo_name,
                     weights_file,
@@ -200,22 +192,21 @@ impl ProviderTrait for ORTProvider {
                 }));
             }
         }
-        self
+        Ok(())
     }
 
-    fn get_model(&self) {
-        let cache_location = self
-            .cache_location
-            .clone()
-            .expect("Cache location not set.");
+    fn get_model(&self) -> Result<(), AIProxyError> {
+        let Some(cache_location) = self.cache_location.clone() else {
+            return Err(AIProxyError::CacheLocationNotInitiailized);
+        };
         let supported_model = self.supported_models.expect("A model has not been set.");
-        let ort_model = ORTModel::try_from(&supported_model).unwrap();
+        let ort_model = ORTModel::try_from(&supported_model)?;
 
         let cache = Cache::new(cache_location);
         let api = ApiBuilder::from_cache(cache)
             .with_progress(true)
             .build()
-            .unwrap();
+            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
 
         match ort_model {
             ORTModel::Image(ORTImageModel {
@@ -226,14 +217,11 @@ impl ProviderTrait for ORTProvider {
                 let model_repo = api.model(repo_name);
                 model_repo
                     .get(&weights_file)
-                    .unwrap_or_else(|_| panic!("Failed to retrieve {} ", weights_file));
-                let preprocessor = model_repo.get("preprocessor_config.json");
-                if preprocessor.is_err() {
-                    log::warn!(
-                        "Failed to retrieve preprocessor_config.json for model: {}",
-                        supported_model
-                    );
-                }
+                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+                model_repo
+                    .get("preprocessor_config.json")
+                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+                Ok(())
             }
         }
     }
@@ -249,22 +237,15 @@ impl ProviderTrait for ORTProvider {
 
         if !string_inputs.is_empty() {
             let store_input_type: AIStoreInputType = AIStoreInputType::RawString;
-            let index_model_repr: Model = (&self.supported_models.expect(
-                &AIProxyError::AIModelNotInitialized.to_string())).into();
-            match action_type {
-                InputAction::Query => {
-                    return Err(AIProxyError::StoreQueryTypeMismatchError {
-                        store_query_model_type: index_model_repr.to_string(),
-                        storeinput_type: store_input_type.to_string(),
-                    })
-                }
-                InputAction::Index => {
-                    return Err(AIProxyError::StoreSetTypeMismatchError {
-                        index_model_type: index_model_repr.to_string(),
-                        storeinput_type: store_input_type.to_string(),
-                    })
-                }
-            }
+            let Some(index_model_repr) = self.supported_models else {
+                return Err(AIProxyError::AIModelNotInitialized);
+            };
+            let index_model_repr: Model = (&index_model_repr).into();
+            return Err(AIProxyError::StoreTypeMismatchError {
+                action: *action_type,
+                index_model_type: index_model_repr.input_type(),
+                storeinput_type: store_input_type,
+            });
         }
 
         let batch_size = 16;
@@ -273,8 +254,8 @@ impl ProviderTrait for ORTProvider {
             .map(|batch_inputs| {
                 self.batch_inference(batch_inputs.to_vec())
             })
-            .try_reduce(Vec::new, |mut accumulator, embeddings| {
-                accumulator.extend(embeddings);
+            .try_reduce(Vec::new, |mut accumulator, mut embeddings| {
+                accumulator.append(&mut embeddings);
                 Ok(accumulator)
             });
 

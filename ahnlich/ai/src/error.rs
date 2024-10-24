@@ -6,7 +6,9 @@ use fallible_collections::TryReserveError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 
-#[derive(Error, Debug, Eq, PartialEq)]
+use crate::engine::ai::models::InputAction;
+
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum AIProxyError {
     #[error("Store {0} not found")]
     StoreNotFound(StoreName),
@@ -22,17 +24,14 @@ pub enum AIProxyError {
     ReservedError(String),
     #[error("Unexpected DB Response {0} ")]
     UnexpectedDBResponse(String),
-    #[error("Cannot Query Using Input. Store expects [{store_query_model_type}], but input type [{storeinput_type}] was provided")]
-    StoreQueryTypeMismatchError {
-        store_query_model_type: String,
-        storeinput_type: String,
+    #[error("Cannot {action} Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
+    StoreTypeMismatchError {
+        action: InputAction,
+        index_model_type: AIStoreInputType,
+        storeinput_type: AIStoreInputType,
     },
-    #[error("Cannot Set Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
-    StoreSetTypeMismatchError {
-        index_model_type: String,
-        storeinput_type: String,
-    },
-
+    #[error("Shape error {0}")]
+    EmbeddingShapeError(String),
     #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}] ")]
     TokenExceededError {
         max_token_size: usize,
@@ -43,14 +42,21 @@ pub enum AIProxyError {
     TokenTruncationNotSupported,
 
     #[error(
-        "Image Dimensions [({0}, {1})] does not the expected model dimensions [({2}, {3})] ",
+        "Image Dimensions [({0}, {1})] does not match the expected model dimensions [({2}, {3})]",
         image_dimensions.0, image_dimensions.1, expected_dimensions.0, expected_dimensions.1
     )]
     ImageDimensionsMismatchError {
         image_dimensions: (usize, usize),
         expected_dimensions: (usize, usize),
     },
-
+    #[error("Error initializing text embedding")]
+    TextEmbeddingInitError(String),
+    #[error("API Builder Error {0}")]
+    APIBuilderError(String),
+    #[error("Tokenizer initialization error {0}")]
+    TokenizerInitError(String),
+    #[error("ORT Error {0}")]
+    ORTError(String),
     #[error("Used [{preprocess_action}] for [{input_type}] type")]
     PreprocessingMismatchError {
         input_type: AIStoreInputType,
@@ -59,6 +65,9 @@ pub enum AIProxyError {
 
     #[error("index_model or query_model not selected or loaded during aiproxy startup")]
     AIModelNotInitialized,
+
+    #[error("Cache location for model was not initialized")]
+    CacheLocationNotInitiailized,
 
     #[error("index_model or query_model not supported")]
     AIModelNotSupported,
@@ -109,5 +118,11 @@ pub enum AIProxyError {
 impl From<TryReserveError> for AIProxyError {
     fn from(input: TryReserveError) -> Self {
         Self::Allocation(input)
+    }
+}
+
+impl From<ort::Error> for AIProxyError {
+    fn from(input: ort::Error) -> Self {
+        Self::ORTError(input.to_string())
     }
 }

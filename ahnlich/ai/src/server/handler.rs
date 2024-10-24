@@ -127,9 +127,9 @@ impl AIProxyServer {
         let mut models: Vec<Model> = Vec::with_capacity(config.supported_models.len());
         for supported_model in &config.supported_models {
             let mut model: Model = supported_model.into();
-            model.setup_provider(supported_model, &config.model_cache_location);
+            model.setup_provider(&config.model_cache_location);
             // TODO (HAKSOAT): Handle if download fails or verification check fails
-            model.get();
+            model.get()?;
             models.push(model);
         }
 

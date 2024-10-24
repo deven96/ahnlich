@@ -34,6 +34,12 @@ jobs:
       uses: ScribeMD/docker-cache@0.5.0
       with:
         key: ${{ runner.os }}-cargo-${{ hashFiles('ahnlich/Cargo.lock') }}
+
+    - name: Cache Ahnlich Home directory images.
+      uses: actions/cache@v4
+      with:
+        path: ~/.ahnlich
+        key: ${{ runner.os }}-ahnlich-models
     - name: Format and Lint
       working-directory: ./ahnlich
       run: |

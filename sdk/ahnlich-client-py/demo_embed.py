@@ -78,10 +78,6 @@ def run_get_simn_text():
 def run_insert_image():
     image_urls = [
         (
-            "https://csaenvironmental.co.uk/wp-content/uploads/2020/06/landscape-value-600x325.jpg",
-            "Landscape",
-        ),
-        (
             "https://cdn.britannica.com/96/195196-050-3909D5BD/Michael-Jordan-1988.jpg",
             "Slam Dunk Jordan",
         ),
@@ -89,6 +85,10 @@ def run_insert_image():
         (
             "https://as2.ftcdn.net/v2/jpg/02/70/86/51/1000_F_270865104_HMpmjP3Hqt0MvdlV7QkQJful50bBzj46.jpg",
             "Aeroplane",
+        ),
+        (
+            "https://csaenvironmental.co.uk/wp-content/uploads/2020/06/landscape-value-600x325.jpg",
+            "Landscape",
         ),
     ]
 

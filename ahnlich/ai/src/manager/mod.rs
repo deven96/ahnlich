@@ -7,11 +7,13 @@ use crate::engine::ai::models::{ImageArray, InputAction};
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
 use crate::engine::ai::models::{Model, ModelInput};
+use crate::engine::ai::providers::ModelProviders;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
 use moka::future::Cache;
+use rayon::prelude::*;
 use task_manager::Task;
 use task_manager::TaskManager;
 use task_manager::TaskState;
@@ -19,7 +21,6 @@ use tokio::sync::Mutex;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-use crate::engine::ai::providers::ModelProviders;
 
 type ModelThreadResponse = Result<Vec<StoreKey>, AIProxyError>;
 
@@ -42,15 +43,15 @@ impl ModelThread {
         supported_model: SupportedModels,
         cache_location: &Path,
         request_receiver: mpsc::Receiver<ModelThreadRequest>,
-    ) -> Self {
+    ) -> Result<Self, AIProxyError> {
         let supported_model = &supported_model;
         let mut model: Model = (supported_model).into();
-        model.setup_provider(supported_model, cache_location);
-        model.load();
-        Self {
+        model.setup_provider(cache_location);
+        model.load()?;
+        Ok(Self {
             request_receiver: Mutex::new(request_receiver),
             model,
-        }
+        })
     }
 
     fn name(&self) -> String {
@@ -65,46 +66,47 @@ impl ModelThread {
         action_type: InputAction,
     ) -> ModelThreadResponse {
         let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
-        // move this from for loop into vec of inputs
-        let mut processed_inputs: Vec<ModelInput> = FallibleVec::try_with_capacity(inputs.len())?;
-        for input in inputs {
-            let processed_input = self.preprocess_store_input(process_action, input)?;
-            processed_inputs.push(processed_input);
-        }
-        let store_key = self.model.model_ndarray(&processed_inputs, &action_type)?;
-        for key in store_key { response.push(key) };
+        let processed_inputs = self.preprocess_store_input(process_action, inputs)?;
+        let mut store_key = self.model.model_ndarray(&processed_inputs, &action_type)?;
+        response.append(&mut store_key);
         Ok(response)
     }
 
-    #[tracing::instrument(skip(self, input))]
+    #[tracing::instrument(skip(self, inputs))]
     pub(crate) fn preprocess_store_input(
         &self,
         process_action: PreprocessAction,
-        input: StoreInput,
-    ) -> Result<ModelInput, AIProxyError> {
-        let input = ModelInput::from(input);
-        match (process_action, &input) {
-            (PreprocessAction::Image(image_action), ModelInput::Image(image_array)) => {
-                let output = self.process_image(image_array, image_action)?;
-                Ok(ModelInput::Image(output))
-            }
-            (PreprocessAction::RawString(string_action), ModelInput::Text(string)) => {
-                let output = self.preprocess_raw_string(string, string_action)?;
-                Ok(ModelInput::Text(output))
-            }
-            (PreprocessAction::RawString(_), ModelInput::Image(_)) => {
-                Err(AIProxyError::PreprocessingMismatchError {
-                    input_type: AIStoreInputType::Image,
-                    preprocess_action: process_action,
-                })
-            }
-            (PreprocessAction::Image(_), ModelInput::Text(_)) => {
-                Err(AIProxyError::PreprocessingMismatchError {
-                    input_type: AIStoreInputType::RawString,
-                    preprocess_action: process_action,
-                })
-            }
-        }
+        inputs: Vec<StoreInput>,
+    ) -> Result<Vec<ModelInput>, AIProxyError> {
+        let preprocessed_inputs = inputs
+            .into_par_iter()
+            .try_fold(Vec::new, | mut accumulator, input| {
+                let model_input = ModelInput::try_from(input)?;
+                let processed_input = match (process_action, &model_input) {
+                    (PreprocessAction::Image(image_action), ModelInput::Image(image_array)) => {
+                        let output = self.process_image(image_array, image_action)?;
+                        Ok(ModelInput::Image(output))
+                    }
+                    (PreprocessAction::RawString(string_action), ModelInput::Text(string)) => {
+                        let output = self.preprocess_raw_string(string, string_action)?;
+                        Ok(ModelInput::Text(output))
+                    }
+                    _ => {
+                        let input_type: AIStoreInputType = (&model_input).into();
+                        Err(AIProxyError::PreprocessingMismatchError {
+                            input_type,
+                            preprocess_action: process_action,
+                        })
+                    }
+                }?;
+            accumulator.push(processed_input);
+            Ok::<Vec<ModelInput>, AIProxyError>(accumulator)
+            })
+            .try_reduce(Vec::new, |mut accumulator, mut item| {
+            accumulator.append(&mut item);
+            Ok(accumulator)
+        })?;
+        Ok(preprocessed_inputs)
     }
     #[tracing::instrument(skip(self, input))]
     fn preprocess_raw_string(
@@ -119,11 +121,11 @@ impl ModelThread {
             )
         });
 
-        let Model::Text {provider: model_provider, ..} = &self.model else {
+        if self.model.input_type() != AIStoreInputType::RawString {
             return Err(AIProxyError::TokenTruncationNotSupported);
-        };
+        }
 
-        let ModelProviders::FastEmbed(provider) = model_provider else {
+        let ModelProviders::FastEmbed(provider) = &self.model.provider else {
             return Err(AIProxyError::TokenTruncationNotSupported);
         };
 
@@ -170,8 +172,7 @@ impl ModelThread {
                     expected_dimensions: (expected_width.into(), expected_height.into()),
                 });
             } else {
-                let input =
-                    input.resize(expected_width, expected_height)?;
+                let input = input.resize(expected_width, expected_height)?;
                 return Ok(input);
             }
         }
@@ -255,7 +256,7 @@ impl ModelManager {
         let (request_sender, request_receiver) = mpsc::channel(100);
         // There may be other things needed to load a model thread
         let model_thread =
-            ModelThread::new(*model, &self.config.model_cache_location, request_receiver);
+            ModelThread::new(*model, &self.config.model_cache_location, request_receiver)?;
         let _ = &self.task_manager.spawn_task_loop(model_thread).await;
         Ok(request_sender)
     }
