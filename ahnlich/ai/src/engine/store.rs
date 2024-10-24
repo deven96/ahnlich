@@ -223,11 +223,7 @@ impl AIStoreHandler {
             }
             output.try_push((store_input, store_value))?;
         }
-        let delete_hashset = if !store_original {
-            None
-        } else {
-            Some(delete_hashset)
-        };
+        let delete_hashset = (store_original).then_some(delete_hashset);
         Ok((output, delete_hashset))
     }
 
