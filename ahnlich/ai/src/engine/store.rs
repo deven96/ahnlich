@@ -314,6 +314,12 @@ impl AIStoreHandler {
         Ok(removed)
     }
 
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn store_original(&self, store_name: StoreName) -> Result<bool, AIProxyError> {
+        let store = self.get(&store_name)?;
+        Ok(store.store_original)
+    }
+
     /// Matches DestroyDatabase - Drops all the stores in the database
     #[tracing::instrument(skip(self))]
     pub(crate) fn purge_stores(&self) -> usize {
