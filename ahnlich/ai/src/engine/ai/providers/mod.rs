@@ -22,7 +22,7 @@ pub trait ProviderTrait: std::fmt::Debug + Send + Sync {
     fn get_model(&self) -> Result<(), AIProxyError>;
     fn run_inference(
         &self,
-        input: &Vec<ModelInput>,
+        input: &[ModelInput],
         action_type: &InputAction,
     ) -> Result<Vec<Vec<f32>>, AIProxyError>;
 }

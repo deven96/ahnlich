@@ -184,7 +184,7 @@ impl ProviderTrait for FastEmbedProvider {
         //     TODO (HAKSOAT): When we add model specific tokenizers, add the get tokenizer call here too.
     }
 
-    fn run_inference(&self, inputs: &Vec<ModelInput>, action_type: &InputAction) -> Result<Vec<Vec<f32>>, AIProxyError> {
+    fn run_inference(&self, inputs: &[ModelInput], action_type: &InputAction) -> Result<Vec<Vec<f32>>, AIProxyError> {
         return if let Some(fastembed_model) = &self.model {
             let (string_inputs, image_inputs): (Vec<&String>, Vec<&ImageArray>) = inputs
                 .par_iter().partition_map(|input| {
