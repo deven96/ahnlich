@@ -406,6 +406,11 @@ response = client.create_store(
         "job"
     ],
     non_linear_indices= [],
+    error_if_exists = True,
+    # Store original controls if we choose to store the raw inputs 
+    # within the DB in order to be able to retrieve the originals again
+    # during query, else only store values are returned
+    store_original = True,
     tracing_id=None,
 )
 

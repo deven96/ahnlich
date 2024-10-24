@@ -23,8 +23,9 @@ pub enum AIServerResponse {
     Set(StoreUpsert),
     // Always returned in order of the key request, however when GetPred is used, there is no key
     // request so the order can be mixed up
-    Get(Vec<(StoreInput, StoreValue)>),
-    GetSimN(Vec<(StoreInput, StoreValue, Similarity)>),
+    Get(Vec<(Option<StoreInput>, StoreValue)>),
+    // StoreInput can be None if the store was created with `store_original` as false
+    GetSimN(Vec<(Option<StoreInput>, StoreValue, Similarity)>),
     // number of deleted entities
     Del(usize),
     // number of created indexes

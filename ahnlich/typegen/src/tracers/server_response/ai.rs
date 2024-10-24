@@ -69,14 +69,14 @@ pub fn trace_ai_server_response_enum() -> Registry {
     );
 
     let get_variant = AIServerResponse::Get(vec![
-        (store_input.clone(), store_value.clone()),
-        (test_search_input_bin, store_value.clone()),
+        (Some(store_input.clone()), store_value.clone()),
+        (Some(test_search_input_bin), store_value.clone()),
     ]);
 
     // getsminN
 
     let getsimn_variant = AIServerResponse::GetSimN(vec![(
-        store_input.clone(),
+        Some(store_input.clone()),
         store_value.clone(),
         Similarity(0.999_f32),
     )]);

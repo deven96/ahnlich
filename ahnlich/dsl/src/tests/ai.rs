@@ -139,9 +139,11 @@ fn test_create_store_parse() {
             index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: false,
         }]
     );
-    let input = r#"CREATEstore storename QUERYMODEL resnet-50 INDEXMODEL all-minilm-l6-v2 PREDICATES (department, faculty)"#;
+    let input = r#"CREATEstore IF NOT EXISTS storename QUERYMODEL resnet-50 INDEXMODEL all-minilm-l6-v2 PREDICATES (department, faculty) STOREORIGINAL"#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AIQuery::CreateStore {
@@ -153,9 +155,11 @@ fn test_create_store_parse() {
                 MetadataKey::new("faculty".to_string()),
             ]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: false,
+            store_original: true,
         }]
     );
-    let input = r#"createstore school QUERYMODEL all-minilm-l6-v2 INDEXMODEL resnet-50 NONLINEARALGORITHMINDEX (kdtree)"#;
+    let input = r#"createstore school QUERYMODEL all-minilm-l6-v2 INDEXMODEL resnet-50 NONLINEARALGORITHMINDEX (kdtree) STOREORIGINAL"#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AIQuery::CreateStore {
@@ -164,6 +168,8 @@ fn test_create_store_parse() {
             index_model: AIModel::Resnet50,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+            error_if_exists: true,
+            store_original: true,
         }]
     );
 }

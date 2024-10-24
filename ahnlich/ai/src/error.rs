@@ -112,6 +112,9 @@ pub enum AIProxyError {
 
     #[error("Model provider failed on tokenization of text inputs.")]
     ModelTokenizationError,
+
+    #[error("Cannot call DelKey on store with `store_original` as false")]
+    DelKeyError,
 }
 
 impl From<TryReserveError> for AIProxyError {
