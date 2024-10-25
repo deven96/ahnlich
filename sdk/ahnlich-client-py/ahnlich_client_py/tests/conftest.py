@@ -116,6 +116,7 @@ def spin_up_ahnlich_ai(ai_random_port, aiproxy_default_ahnlich_db):
     process = subprocess.Popen(args=command, cwd=config.AHNLICH_BIN_DIR)
     while not is_port_occupied(port):
         time.sleep(0.2)
+    time.sleep(1)
     yield port
     # cleanup
     os.kill(process.pid, signal.SIGINT)
