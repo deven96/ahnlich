@@ -61,7 +61,7 @@ jobs:
 
   run-python-tests:
     if: always()
-    needs: ["run-rust-tests"]
+    # needs: ["run-rust-tests"]
     runs-on: ubuntu-latest
 
     steps:
