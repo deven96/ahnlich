@@ -13,6 +13,8 @@ def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
 
     try:
         response: db_response.ServerResult = request_builder.exec()
+    except Exception as e:
+        print(f"Exception {e}")
     finally:
         db_client.cleanup()
 

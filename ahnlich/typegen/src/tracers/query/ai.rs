@@ -51,6 +51,8 @@ pub fn trace_ai_query_enum() -> Registry {
         query_model: AIModel::AllMiniLML6V2,
         predicates: test_create_predicates.clone(),
         non_linear_indices: test_non_linear_indices,
+        error_if_exists: false,
+        store_original: true,
     };
 
     let get_pred = AIQuery::GetPred {
