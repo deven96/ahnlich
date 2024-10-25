@@ -18,7 +18,7 @@ ai_store_payload_with_predicates = {
 def test_aiproxy_client_sends_create_stores_succeeds(spin_up_ahnlich_ai):
     port = spin_up_ahnlich_ai
 
-    ai_client = AhnlichAIClient(address="127.0.0.1", port=port, connect_timeout_sec=8)
+    ai_client = AhnlichAIClient(address="127.0.0.1", port=port, connect_timeout_sec=15)
     try:
         response: ai_response.AIServerResult = ai_client.create_store(
             **ai_store_payload_no_predicates
