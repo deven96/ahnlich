@@ -26,9 +26,10 @@ def test_client_sends_create_stores_succeeds(spin_up_ahnlich_db):
         response: db_response.ServerResult = db_client.create_store(
             **store_payload_no_predicates
         )
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
-
     assert response.results[0] == db_response.Result__Ok(
         db_response.ServerResponse__Unit()
     )
@@ -40,6 +41,8 @@ def test_client_sends_list_stores_on_existing_database_succeeds(spin_up_ahnlich_
     try:
         _ = db_client.create_store(**store_payload_no_predicates)
         response: db_response.ServerResult = db_client.list_stores()
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     store_list: db_response.ServerResponse__StoreList = response.results[0].value
@@ -55,6 +58,8 @@ def test_client_sends_create_stores_with_predicates_succeeds(module_scopped_ahnl
         response: db_response.ServerResult = db_client.create_store(
             **store_payload_with_predicates
         )
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
 
@@ -69,6 +74,8 @@ def test_client_list_stores_finds_created_store_with_predicate(spin_up_ahnlich_d
     try:
         _ = db_client.create_store(**store_payload_with_predicates)
         response: db_response.ServerResult = db_client.list_stores()
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     assert isinstance(response.results[0], db_response.Result__Ok)
@@ -99,6 +106,8 @@ def test_client_set_in_store_succeeds(spin_up_ahnlich_db, store_key, store_value
     try:
         _ = db_client.create_store(**store_payload_no_predicates)
         response: db_response.ServerResult = db_client.set(**store_data)
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
 
@@ -128,6 +137,8 @@ def test_client_set_in_store_succeeds_with_binary(spin_up_ahnlich_db):
     try:
         _ = db_client.create_store(**store_payload_no_predicates)
         response: db_response.ServerResult = db_client.set(**store_data)
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
 
@@ -161,6 +172,8 @@ def test_client_get_key_succeeds(module_scopped_ahnlich_db, store_key, store_val
         )
         _ = builder.exec()
         response: db_response.ServerResult = db_client.get_key(**get_key_data)
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     assert isinstance(response.results[0], db_response.Result__Ok)
@@ -206,6 +219,8 @@ def test_client_create_pred_index_succeeds(spin_up_ahnlich_db):
         response: db_response.ServerResult = db_client.create_pred_index(
             **create_pred_index_data
         )
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     assert response.results[0] == db_response.Result__Ok(
@@ -241,6 +256,8 @@ def test_client_get_by_predicate_succeeds(spin_up_ahnlich_db, store_key, store_v
         response: db_response.ServerResult = db_client.get_by_predicate(
             **get_predicate_data
         )
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     assert isinstance(response.results[0], db_response.Result__Ok)
@@ -291,6 +308,8 @@ def test_client_get_sim_n_succeeds(spin_up_ahnlich_db, store_key, store_value):
         _ = builder.exec()
         response: db_response.ServerResult = db_client.get_sim_n(**get_sim_n_data)
 
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     actual_results: db_response.ServerResponse__GetSimN = response.results[
@@ -315,27 +334,28 @@ def test_client_drop_pred_index_succeeds(spin_up_ahnlich_db):
         "store_name": store_payload_no_predicates["store_name"],
         "predicates": ["to_drop"],
     }
-    _ = db_client.create_store(**store_payload_no_predicates)
-    response: db_response.ServerResult = db_client.create_pred_index(
-        **create_pred_index_data
-    )
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__CreateIndex(1)
-    )
-
     drop_pred_index_data = {
         "store_name": store_payload_no_predicates["store_name"],
         "predicates": ["to_drop"],
         "error_if_not_exists": True,
     }
-
     try:
-        response: db_response.ServerResult = db_client.drop_pred_index(
+        _ = db_client.create_store(**store_payload_no_predicates)
+        response: db_response.ServerResult = db_client.create_pred_index(
+            **create_pred_index_data
+        )
+        drop_response: db_response.ServerResult = db_client.drop_pred_index(
             **drop_pred_index_data
         )
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
+
     assert response.results[0] == db_response.Result__Ok(
+        db_response.ServerResponse__CreateIndex(1)
+    )
+    assert drop_response.results[0] == db_response.Result__Ok(
         db_response.ServerResponse__Del(1)
     )
 
@@ -375,6 +395,8 @@ def test_client_delete_predicate_succeeds(spin_up_ahnlich_db, store_key, store_v
         response: db_response.ServerResult = db_client.delete_predicate(
             **delete_predicate_data
         )
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     assert response.results[0] == db_response.Result__Ok(
@@ -401,6 +423,8 @@ def test_client_delete_key_succeeds(spin_up_ahnlich_db, store_key, store_value):
         builder.set(**store_data)
         _ = builder.exec()
         response: db_response.ServerResult = db_client.delete_key(**delete_key_data)
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     assert response.results[0] == db_response.Result__Ok(
@@ -422,6 +446,8 @@ def test_client_drop_store_succeeds(spin_up_ahnlich_db):
         builder.create_store(**store_payload_no_predicates)
         builder.exec()
         response: db_response.ServerResult = db_client.drop_store(**drop_store_data)
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     assert response.results[0] == db_response.Result__Ok(
@@ -440,6 +466,8 @@ def test_client_drop_store_fails_no_store(spin_up_ahnlich_db):
 
     try:
         response: db_response.ServerResult = db_client.drop_store(**drop_store_data)
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     assert response.results[0] == db_response.Result__Err(
@@ -462,6 +490,8 @@ def test_client_list_stores_reflects_dropped_store(
         )
         builder.exec()
         response: db_response.ServerResult = db_client.list_stores()
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         db_client.cleanup()
     store_list: db_response.ServerResponse__StoreList = response.results[0].value
