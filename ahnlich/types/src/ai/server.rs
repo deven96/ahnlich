@@ -1,6 +1,7 @@
 use super::AIModel;
 use crate::bincode::{BinCodeSerAndDeser, BinCodeSerAndDeserResponse};
-use crate::db::{ConnectedClient, ServerInfo, StoreUpsert};
+use crate::client::ConnectedClient;
+use crate::db::{ServerInfo, StoreUpsert};
 use crate::keyval::StoreInput;
 use crate::keyval::StoreName;
 use crate::keyval::StoreValue;
@@ -22,8 +23,9 @@ pub enum AIServerResponse {
     Set(StoreUpsert),
     // Always returned in order of the key request, however when GetPred is used, there is no key
     // request so the order can be mixed up
-    Get(Vec<(StoreInput, StoreValue)>),
-    GetSimN(Vec<(StoreInput, StoreValue, Similarity)>),
+    Get(Vec<(Option<StoreInput>, StoreValue)>),
+    // StoreInput can be None if the store was created with `store_original` as false
+    GetSimN(Vec<(Option<StoreInput>, StoreValue, Similarity)>),
     // number of deleted entities
     Del(usize),
     // number of created indexes
@@ -67,6 +69,10 @@ impl AIServerResult {
 
     pub fn is_empty(&self) -> bool {
         self.results.is_empty()
+    }
+
+    pub fn into_inner(self) -> AIServerResultInner {
+        self.results
     }
 }
 

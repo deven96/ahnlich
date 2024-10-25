@@ -3,7 +3,8 @@ use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::similarity::Similarity;
 use ahnlich_types::{
     ai::{AIModel, AIServerResponse, AIServerResult, AIStoreInfo},
-    db::{ConnectedClient, ServerInfo, StoreUpsert},
+    client::ConnectedClient,
+    db::{ServerInfo, StoreUpsert},
     keyval::StoreName,
     metadata::{MetadataKey, MetadataValue},
     version::Version,
@@ -31,8 +32,8 @@ pub fn trace_ai_server_response_enum() -> Registry {
 
     let store_list = AIServerResponse::StoreList(HashSet::from_iter([AIStoreInfo {
         name: StoreName("testing".to_owned()),
-        query_model: AIModel::Llama3,
-        index_model: AIModel::Llama3,
+        query_model: AIModel::AllMiniLML6V2,
+        index_model: AIModel::AllMiniLML6V2,
         embedding_size: 20,
     }]));
 
@@ -54,6 +55,7 @@ pub fn trace_ai_server_response_enum() -> Registry {
     });
 
     let store_input = StoreInput::RawString("testing".into());
+    let test_search_input_bin = StoreInput::Image(vec![2, 1, 1, 4, 5]);
 
     //StoreValue = StdHashMap<MetadataKey, MetadataValue>
     let mut store_value = StdHashMap::new();
@@ -66,12 +68,15 @@ pub fn trace_ai_server_response_enum() -> Registry {
         MetadataValue::Image(vec![6, 4, 2]),
     );
 
-    let get_variant = AIServerResponse::Get(vec![(store_input.clone(), store_value.clone())]);
+    let get_variant = AIServerResponse::Get(vec![
+        (Some(store_input.clone()), store_value.clone()),
+        (Some(test_search_input_bin), store_value.clone()),
+    ]);
 
     // getsminN
 
     let getsimn_variant = AIServerResponse::GetSimN(vec![(
-        store_input.clone(),
+        Some(store_input.clone()),
         store_value.clone(),
         Similarity(0.999_f32),
     )]);

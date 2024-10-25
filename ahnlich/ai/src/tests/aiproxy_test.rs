@@ -11,12 +11,18 @@ use ahnlich_types::{
     predicate::{Predicate, PredicateCondition},
     similarity::Algorithm,
 };
+use utils::server::AhnlichServerUtils;
 
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use std::{collections::HashSet, num::NonZeroUsize, sync::atomic::Ordering};
 
-use crate::{cli::AIProxyConfig, engine::ai::AIModelManager, server::handler::AIProxyServer};
+use crate::{
+    cli::{server::SupportedModels, AIProxyConfig},
+    engine::ai::models::Model,
+    error::AIProxyError,
+    server::handler::AIProxyServer,
+};
 use ahnlich_types::bincode::BinCodeSerAndDeser;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -35,6 +41,12 @@ static AI_CONFIG_WITH_PERSISTENCE: Lazy<AIProxyConfig> = Lazy::new(|| {
         .os_select_port()
         .set_persistence_interval(200)
         .set_persist_location((*PERSISTENCE_FILE).clone())
+});
+
+static AI_CONFIG_LIMITED_MODELS: Lazy<AIProxyConfig> = Lazy::new(|| {
+    AIProxyConfig::default()
+        .os_select_port()
+        .set_supported_models(vec![SupportedModels::AllMiniLML6V2])
 });
 
 async fn get_server_response(
@@ -101,6 +113,7 @@ async fn provision_test_servers() -> SocketAddr {
 
     ai_address
 }
+
 #[tokio::test]
 async fn test_simple_ai_proxy_ping() {
     let address = provision_test_servers().await;
@@ -120,10 +133,12 @@ async fn test_ai_proxy_create_store_success() {
     let store_name = StoreName(String::from("Sample Store"));
     let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
         store: store_name.clone(),
-        query_model: AIModel::Llama3,
-        index_model: AIModel::Llama3,
+        query_model: AIModel::AllMiniLML6V2,
+        index_model: AIModel::AllMiniLML6V2,
         predicates: HashSet::new(),
         non_linear_indices: HashSet::new(),
+        error_if_exists: true,
+        store_original: true,
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);
@@ -134,16 +149,91 @@ async fn test_ai_proxy_create_store_success() {
     // list stores to verify it's present.
     let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
     let mut expected = AIServerResult::with_capacity(1);
+    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
-            embedding_size: AIModel::Llama3.embedding_size().into(),
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
+            embedding_size: ai_model.embedding_size.into(),
         },
     ]))));
     let mut reader = BufReader::new(second_stream);
     query_server_assert_result(&mut reader, message, expected.clone()).await;
+}
+
+// TODO: Same issues with random storekeys, changing the order of expected response
+#[tokio::test]
+async fn test_ai_store_no_original() {
+    let address = provision_test_servers().await;
+    let first_stream = TcpStream::connect(address).await.unwrap();
+    let second_stream = TcpStream::connect(address).await.unwrap();
+    let store_name = StoreName(String::from("Deven Kicks"));
+    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
+    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+
+    let nike_store_value =
+        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
+    let adidas_store_value = StoreValue::from_iter([(
+        matching_metadatakey.clone(),
+        MetadataValue::RawString("Adidas".to_owned()),
+    )]);
+    let store_data = vec![
+        (
+            StoreInput::RawString(String::from("Jordan 3")),
+            nike_store_value.clone(),
+        ),
+        (
+            StoreInput::RawString(String::from("Air Force 1")),
+            nike_store_value.clone(),
+        ),
+        (
+            StoreInput::RawString(String::from("Yeezy")),
+            adidas_store_value.clone(),
+        ),
+    ];
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::CreateStore {
+            store: store_name.clone(),
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
+            predicates: HashSet::from_iter([
+                matching_metadatakey.clone(),
+                MetadataKey::new("Original".to_owned()),
+            ]),
+            non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: false,
+        },
+        AIQuery::Set {
+            store: store_name.clone(),
+            inputs: store_data.clone(),
+            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+        },
+    ]);
+    let mut reader = BufReader::new(first_stream);
+
+    let _ = get_server_response(&mut reader, message).await;
+
+    let message = AIServerQuery::from_queries(&[AIQuery::GetPred {
+        store: store_name,
+        condition: PredicateCondition::Value(Predicate::Equals {
+            key: matching_metadatakey.clone(),
+            value: matching_metadatavalue,
+        }),
+    }]);
+
+    let mut expected = AIServerResult::with_capacity(1);
+
+    expected.push(Ok(AIServerResponse::Get(vec![
+        (None, nike_store_value.clone()),
+        (None, nike_store_value.clone()),
+    ])));
+
+    let mut reader = BufReader::new(second_stream);
+    //query_server_assert_result(&mut reader, message, expected.clone()).await;
+    let response = get_server_response(&mut reader, message).await;
+    assert!(response.len() == expected.len())
 }
 
 // TODO: Same issues with random storekeys, changing the order of expected response
@@ -179,13 +269,15 @@ async fn test_ai_proxy_get_pred_succeeds() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([
                 matching_metadatakey.clone(),
                 MetadataKey::new("Original".to_owned()),
             ]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -209,11 +301,11 @@ async fn test_ai_proxy_get_pred_succeeds() {
 
     expected.push(Ok(AIServerResponse::Get(vec![
         (
-            StoreInput::RawString(String::from("Jordan 3")),
+            Some(StoreInput::RawString(String::from("Jordan 3"))),
             nike_store_value.clone(),
         ),
         (
-            StoreInput::RawString(String::from("Air Force 1")),
+            Some(StoreInput::RawString(String::from("Air Force 1"))),
             nike_store_value.clone(),
         ),
     ])));
@@ -257,13 +349,15 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([
                 matching_metadatakey.clone(),
                 MetadataKey::new("Original".to_owned()),
             ]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -285,7 +379,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
 
     let mut expected = AIServerResult::with_capacity(1);
     expected.push(Ok(AIServerResponse::Get(vec![(
-        StoreInput::RawString(String::from("Yeezy")),
+        Some(StoreInput::RawString(String::from("Yeezy"))),
         adidas_store_value.clone(),
     )])));
 
@@ -316,10 +410,12 @@ async fn test_ai_proxy_create_drop_pred_index() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: true,
         },
         // returns nothing
         AIQuery::GetPred {
@@ -355,7 +451,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
         updated: 0,
     })));
     expected.push(Ok(AIServerResponse::Get(vec![(
-        StoreInput::RawString(String::from("Jordan 3")),
+        Some(StoreInput::RawString(String::from("Jordan 3"))),
         nike_store_value.clone(),
     )])));
     expected.push(Ok(AIServerResponse::Del(1)));
@@ -385,10 +481,21 @@ async fn test_ai_proxy_del_key_drop_store() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: true,
+        },
+        AIQuery::CreateStore {
+            store: store_name.clone(),
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
+            predicates: HashSet::from_iter([]),
+            non_linear_indices: HashSet::new(),
+            error_if_exists: false,
+            store_original: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -410,6 +517,7 @@ async fn test_ai_proxy_del_key_drop_store() {
     ]);
     let mut expected = AIServerResult::with_capacity(6);
 
+    expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::Set(StoreUpsert {
         inserted: 1,
@@ -442,23 +550,45 @@ async fn test_ai_proxy_fails_db_server_unavailable() {
         AIQuery::Ping,
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: true,
         },
     ]);
 
     let mut reader = BufReader::new(second_stream);
 
-    let response = get_server_response(&mut reader, message).await;
+    // NOTE: on windows, streams seem to wait indefinitely rather
+    // than returning an EOF to indicate a closed stream, this
+    // then tends to make the AI server's DB pool unable to immediately
+    // communicate disconnection to it's client and so we catch that as a timeout
+    // for now
+    #[cfg(windows)]
+    {
+        let serialized_message = message.serialize().unwrap();
 
-    let res = response.pop().unwrap();
+        reader.write_all(&serialized_message).await.unwrap();
 
-    assert!(res.is_err());
-    // Err("deadpool error Backend(Standard(Os { code: 61, kind: ConnectionRefused, message: \"Connection refused\" }))")] }
-    let err = res.err().unwrap();
-    assert!(err.contains(" kind: ConnectionRefused,"))
+        let mut header = [0u8; ahnlich_types::bincode::RESPONSE_HEADER_LEN];
+        assert!(
+            timeout(Duration::from_secs(1), reader.read_exact(&mut header))
+                .await
+                .is_err()
+        )
+    }
+
+    #[cfg(not(windows))]
+    {
+        let response = get_server_response(&mut reader, message).await;
+        let res = response.pop().unwrap();
+        assert!(res.is_err());
+        // Err("deadpool error Backend(Standard(Os { code: 61, kind: ConnectionRefused, message: \"Connection refused\" }))")] }
+        let err = res.err().unwrap();
+        assert!(err.contains(" kind: ConnectionRefused,"))
+    }
 }
 
 #[tokio::test]
@@ -490,17 +620,21 @@ async fn test_ai_proxy_test_with_persistence() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: true,
         },
         AIQuery::CreateStore {
             store: store_name_2.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: true,
         },
         AIQuery::DropStore {
             store: store_name,
@@ -541,13 +675,14 @@ async fn test_ai_proxy_test_with_persistence() {
     let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
 
     let mut expected = AIServerResult::with_capacity(1);
+    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
 
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name_2.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
-            embedding_size: AIModel::Llama3.embedding_size().into(),
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
+            embedding_size: ai_model.embedding_size.into(),
         },
     ]))));
 
@@ -565,10 +700,12 @@ async fn test_ai_proxy_destroy_database() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: true,
         },
         AIQuery::ListStores,
         AIQuery::PurgeStores,
@@ -576,13 +713,14 @@ async fn test_ai_proxy_destroy_database() {
     ]);
     let mut expected = AIServerResult::with_capacity(4);
 
+    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name,
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
-            embedding_size: AIModel::Llama3.embedding_size().into(),
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
+            embedding_size: ai_model.embedding_size.into(),
         },
     ]))));
     expected.push(Ok(AIServerResponse::Del(1)));
@@ -608,15 +746,15 @@ async fn test_ai_proxy_binary_store_actions() {
     )]);
     let store_data = vec![
         (
-            StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+            StoreInput::Image(include_bytes!("./images/dog.jpg").to_vec()),
             store_value_1.clone(),
         ),
         (
-            StoreInput::Image(vec![102, 3, 4, 6, 7, 8, 4, 190]),
+            StoreInput::Image(include_bytes!("./images/test.webp").to_vec()),
             store_value_2.clone(),
         ),
         (
-            StoreInput::Image(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
+            StoreInput::Image(include_bytes!("./images/cat.png").to_vec()),
             StoreValue::from_iter([(
                 matching_metadatakey.clone(),
                 MetadataValue::RawString("Daniel".to_owned()),
@@ -624,13 +762,23 @@ async fn test_ai_proxy_binary_store_actions() {
         ),
     ];
 
+    let oversize_data = vec![(
+        StoreInput::Image(include_bytes!("./images/large.webp").to_vec()),
+        StoreValue::from_iter([(
+            matching_metadatakey.clone(),
+            MetadataValue::RawString("Oversized".to_owned()),
+        )]),
+    )];
+
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::DALLE3,
+            query_model: AIModel::Resnet50,
+            index_model: AIModel::Resnet50,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: true,
         },
         AIQuery::ListStores,
         AIQuery::CreatePredIndex {
@@ -645,6 +793,13 @@ async fn test_ai_proxy_binary_store_actions() {
             inputs: store_data,
             preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
         },
+        // all dimensions match 224x224 so no error
+        AIQuery::Set {
+            store: store_name.clone(),
+            inputs: oversize_data,
+            preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
+        },
+        // expect an error as the dimensions do not match 224x224
         AIQuery::DropPredIndex {
             store: store_name.clone(),
             predicates: HashSet::from_iter([MetadataKey::new("Age".to_string())]),
@@ -660,15 +815,16 @@ async fn test_ai_proxy_binary_store_actions() {
         AIQuery::PurgeStores,
     ]);
 
-    let mut expected = AIServerResult::with_capacity(7);
+    let mut expected = AIServerResult::with_capacity(8);
+    let resnet_model: Model = (&AIModel::Resnet50).into();
 
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name,
-            query_model: AIModel::Llama3,
-            index_model: AIModel::DALLE3,
-            embedding_size: AIModel::DALLE3.embedding_size().into(),
+            query_model: AIModel::Resnet50,
+            index_model: AIModel::Resnet50,
+            embedding_size: resnet_model.embedding_size.into(),
         },
     ]))));
     expected.push(Ok(AIServerResponse::CreateIndex(2)));
@@ -676,9 +832,15 @@ async fn test_ai_proxy_binary_store_actions() {
         inserted: 3,
         updated: 0,
     })));
+    expected.push(Err(
+        "Image Dimensions [(821, 547)] does not match the expected model dimensions [(224, 224)]"
+            .to_string(),
+    ));
     expected.push(Ok(AIServerResponse::Del(1)));
     expected.push(Ok(AIServerResponse::Get(vec![(
-        StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+        Some(StoreInput::Image(
+            include_bytes!("./images/dog.jpg").to_vec(),
+        )),
         store_value_1.clone(),
     )])));
     expected.push(Ok(AIServerResponse::Del(1)));
@@ -717,10 +879,12 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
             store: store_name.clone(),
-            query_model: AIModel::Llama3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: true,
         },
         AIQuery::Set {
             store: store_name.clone(),
@@ -734,10 +898,83 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
 
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Err(
-        "Cannot Set Input. Store expects [RawString], input type [Image] was provided".to_string(),
+        "Cannot index Input. Store expects [RawString], input type [Image] was provided"
+            .to_string(),
     ));
     expected.push(Ok(AIServerResponse::Del(1)));
 
+    let connected_stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(connected_stream);
+
+    query_server_assert_result(&mut reader, message, expected).await;
+}
+
+#[tokio::test]
+async fn test_ai_proxy_create_store_errors_unsupported_models() {
+    let server = Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let db_port = server.local_addr().unwrap().port();
+    let mut config = AI_CONFIG_LIMITED_MODELS.clone();
+    config.db_port = db_port;
+
+    let ai_server = AIProxyServer::new(config)
+        .await
+        .expect("Could not initialize ai proxy");
+
+    let address = ai_server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    // start up ai proxy
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    // Allow some time for the servers to start
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    let store_name = StoreName(String::from("Error Handling Store"));
+    let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
+        store: store_name.clone(),
+        query_model: AIModel::AllMiniLML12V2,
+        index_model: AIModel::AllMiniLML6V2,
+        predicates: HashSet::new(),
+        non_linear_indices: HashSet::new(),
+        error_if_exists: true,
+        store_original: true,
+    }]);
+
+    let mut expected = AIServerResult::with_capacity(1);
+
+    expected.push(Err(AIProxyError::AIModelNotInitialized.to_string()));
+
+    let connected_stream = TcpStream::connect(address).await.unwrap();
+    let mut reader = BufReader::new(connected_stream);
+
+    query_server_assert_result(&mut reader, message, expected).await;
+}
+
+#[tokio::test]
+async fn test_ai_proxy_embedding_size_mismatch_error() {
+    let address = provision_test_servers().await;
+
+    let store_name = StoreName(String::from("Deven Mixed Store210u01"));
+    let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
+        store: store_name.clone(),
+        query_model: AIModel::AllMiniLML6V2,
+        index_model: AIModel::BGEBaseEnV15,
+        predicates: HashSet::new(),
+        non_linear_indices: HashSet::new(),
+        error_if_exists: true,
+        store_original: true,
+    }]);
+
+    let mut expected = AIServerResult::with_capacity(1);
+
+    let lml12_model: Model = (&AIModel::AllMiniLML12V2).into();
+    let bge_model: Model = (&AIModel::BGEBaseEnV15).into();
+
+    let error_message = AIProxyError::DimensionsMismatchError {
+        index_model_dim: bge_model.embedding_size.into(),
+        query_model_dim: lml12_model.embedding_size.into(),
+    };
+    expected.push(Err(error_message.to_string()));
     let connected_stream = TcpStream::connect(address).await.unwrap();
     let mut reader = BufReader::new(connected_stream);
 

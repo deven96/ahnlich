@@ -65,6 +65,7 @@ impl From<&LinearAlgorithm> for SimilarityFunc {
 ///                                  similarity
 ///
 
+#[tracing::instrument(skip_all)]
 fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
     // formular = dot product of vectors / product of the magnitude of the vectors
     // maginiture of a vector can be calcuated using pythagoras theorem.
@@ -90,6 +91,7 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
 /// An Implementation for most similar items would be a MaxHeap.
 /// The larger the dot product between two vectors, the more similar
 
+#[tracing::instrument(skip_all)]
 fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
     let dot_product = second.0.dot(&first.0.t());
     dot_product
@@ -114,6 +116,7 @@ fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
 ///  two points, denotes higher similarity
 ///
 
+#[tracing::instrument(skip_all)]
 fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f32 {
     // Calculate the sum of squared differences for each dimension
     let mut sum_of_squared_differences = 0.0;

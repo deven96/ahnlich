@@ -47,10 +47,12 @@ pub fn trace_ai_query_enum() -> Registry {
 
     let create_store = AIQuery::CreateStore {
         store: sample_store_name.clone(),
-        index_model: AIModel::Llama3,
-        query_model: AIModel::Llama3,
+        index_model: AIModel::AllMiniLML6V2,
+        query_model: AIModel::AllMiniLML6V2,
         predicates: test_create_predicates.clone(),
         non_linear_indices: test_non_linear_indices,
+        error_if_exists: false,
+        store_original: true,
     };
 
     let get_pred = AIQuery::GetPred {
@@ -91,7 +93,8 @@ pub fn trace_ai_query_enum() -> Registry {
         store: sample_store_name.clone(),
         error_if_not_exists: true,
     };
-
+    let trace_id = "00-djf9039023r3-1er".to_string();
+    let server_query_with_trace_id = AIServerQuery::with_capacity_and_tracing_id(2, Some(trace_id));
     let server_query = AIServerQuery::from_queries(&[del_key.clone(), set.clone()]);
 
     // trace each query variant
@@ -127,6 +130,9 @@ pub fn trace_ai_query_enum() -> Registry {
     let _ = tracer
         .trace_value(&mut samples, &server_query)
         .expect("Error tracing the server_query");
+    let _ = tracer
+        .trace_value(&mut samples, &server_query_with_trace_id)
+        .expect("Error tracing the server_query_with_trace_id");
 
     tracer
         .trace_simple_type::<Predicate>()

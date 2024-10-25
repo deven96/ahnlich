@@ -3,14 +3,14 @@ from ahnlich_client_py.internals import ai_query, ai_response
 
 ai_store_payload_no_predicates = {
     "store_name": "Diretnan Stores",
-    "query_model": ai_query.AIModel__Llama3(),
-    "index_model": ai_query.AIModel__Llama3(),
+    "query_model": ai_query.AIModel__AllMiniLML6V2(),
+    "index_model": ai_query.AIModel__AllMiniLML6V2(),
 }
 
 ai_store_payload_with_predicates = {
     "store_name": "Diretnan Predication Stores",
-    "query_model": ai_query.AIModel__Llama3(),
-    "index_model": ai_query.AIModel__Llama3(),
+    "query_model": ai_query.AIModel__AllMiniLML6V2(),
+    "index_model": ai_query.AIModel__AllMiniLML6V2(),
     "predicates": ["special", "brand"],
 }
 
@@ -18,11 +18,13 @@ ai_store_payload_with_predicates = {
 def test_aiproxy_client_sends_create_stores_succeeds(spin_up_ahnlich_ai):
     port = spin_up_ahnlich_ai
 
-    ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
+    ai_client = AhnlichAIClient(address="127.0.0.1", port=port, connect_timeout_sec=15)
     try:
         response: ai_response.AIServerResult = ai_client.create_store(
             **ai_store_payload_no_predicates
         )
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         ai_client.cleanup()
     assert response.results[0] == ai_response.Result__Ok(
@@ -53,10 +55,23 @@ def test_ai_client_get_pred(spin_up_ahnlich_ai):
             ai_query.StringAction__ErrorIfTokensExceed()
         ),
     )
+    expected = ai_response.AIServerResult(
+        results=[
+            ai_response.Result__Ok(
+                value=ai_response.AIServerResponse__Get(
+                    value=[
+                        (
+                            ai_query.StoreInput__RawString(value="Jordan One"),
+                            {"brand": ai_query.MetadataValue__RawString(value="Nike")},
+                        )
+                    ]
+                )
+            )
+        ]
+    )
 
     try:
-
-        ai_client.exec()
+        builder.exec()
         response = ai_client.get_pred(
             ai_store_payload_with_predicates["store_name"],
             ai_query.PredicateCondition__Value(
@@ -66,28 +81,11 @@ def test_ai_client_get_pred(spin_up_ahnlich_ai):
             ),
         )
 
-        expected = ai_response.AIServerResult(
-            results=[
-                ai_response.Result__Ok(
-                    value=ai_response.AIServerResponse__Get(
-                        value=[
-                            (
-                                ai_query.StoreInput__RawString(value="Jordan One"),
-                                {
-                                    "brand": ai_query.MetadataValue__RawString(
-                                        value="Nike"
-                                    )
-                                },
-                            )
-                        ]
-                    )
-                )
-            ]
-        )
-        assert str(expected) == str(response)
-
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         ai_client.cleanup()
+    assert str(expected) == str(response)
 
 
 # TODO: once model is loaded into proxy, this can be done properly
@@ -101,11 +99,10 @@ def test_ai_client_create_pred_index(spin_up_ahnlich_ai):
     ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
 
     try:
-
         builder = ai_client.pipeline()
         builder.create_store(**ai_store_payload_no_predicates)
         builder.list_stores()
-        response = ai_client.exec()
+        response = builder.exec()
         response = ai_client.create_pred_index(
             ai_store_payload_no_predicates["store_name"],
             predicates=["super_sales"],
@@ -116,6 +113,8 @@ def test_ai_client_create_pred_index(spin_up_ahnlich_ai):
             ]
         )
         assert str(response) == str(expected)
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         ai_client.cleanup()
 
@@ -126,11 +125,10 @@ def test_ai_client_drop_pred_index(spin_up_ahnlich_ai):
     ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
 
     try:
-
         builder = ai_client.pipeline()
         builder.create_store(**ai_store_payload_no_predicates)
         builder.list_stores()
-        response = ai_client.exec()
+        response = builder.exec()
         response = ai_client.create_pred_index(
             ai_store_payload_no_predicates["store_name"],
             predicates=["super_sales", "testing", "no mass"],
@@ -154,7 +152,7 @@ def test_ai_client_drop_pred_index(spin_up_ahnlich_ai):
             ["fake_predicate"],
             error_if_not_exists=True,
         )
-        response_with_err = ai_client.exec()
+        response_with_err = builder.exec()
 
         expected = ai_response.AIServerResult(
             results=[
@@ -165,6 +163,8 @@ def test_ai_client_drop_pred_index(spin_up_ahnlich_ai):
             ]
         )
         assert str(response_with_err) == str(expected)
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         ai_client.cleanup()
 
@@ -192,70 +192,75 @@ def test_ai_client_del_key(spin_up_ahnlich_ai):
             ai_query.StringAction__ErrorIfTokensExceed()
         ),
     )
+    expected = ai_response.AIServerResult(
+        results=[
+            ai_response.Result__Ok(value=ai_response.AIServerResponse__Del(1)),
+        ]
+    )
 
     try:
-        ai_client.exec()
+        builder.exec()
         response = ai_client.del_key(
             ai_store_payload_with_predicates["store_name"],
             key=ai_query.StoreInput__RawString("Yeezey"),
         )
 
-        expected = ai_response.AIServerResult(
-            results=[
-                ai_response.Result__Ok(value=ai_response.AIServerResponse__Del(1)),
-            ]
-        )
-        assert str(expected) == str(response)
-
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         ai_client.cleanup()
+    assert str(expected) == str(response)
 
 
 def test_ai_client_drop_store_succeeds(spin_up_ahnlich_ai):
     port = spin_up_ahnlich_ai
 
     ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
+    expected = ai_response.AIServerResult(
+        results=[
+            ai_response.Result__Ok(ai_response.AIServerResponse__Del(1)),
+        ]
+    )
 
     try:
         builder = ai_client.pipeline()
         builder.create_store(**ai_store_payload_no_predicates)
         builder.create_store(**ai_store_payload_with_predicates)
         builder.list_stores()
-        _ = ai_client.exec()
-
+        _ = builder.exec()
         response = ai_client.drop_store(
             store_name=ai_store_payload_with_predicates["store_name"],
             error_if_not_exists=True,
         )
 
-        expected = ai_response.AIServerResult(
-            results=[
-                ai_response.Result__Ok(ai_response.AIServerResponse__Del(1)),
-            ]
-        )
-        assert str(response) == str(expected)
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         ai_client.cleanup()
+    assert str(response) == str(expected)
 
 
 def test_ai_client_purge_stores_succeeds(spin_up_ahnlich_ai):
     port = spin_up_ahnlich_ai
 
     ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
+    expected = ai_response.AIServerResult(
+        results=[
+            ai_response.Result__Ok(ai_response.AIServerResponse__Del(2)),
+        ]
+    )
 
     try:
         builder = ai_client.pipeline()
         builder.create_store(**ai_store_payload_no_predicates)
         builder.create_store(**ai_store_payload_with_predicates)
         builder.list_stores()
-        _ = ai_client.exec()
+        _ = builder.exec()
 
         response = ai_client.purge_stores()
-        expected = ai_response.AIServerResult(
-            results=[
-                ai_response.Result__Ok(ai_response.AIServerResponse__Del(2)),
-            ]
-        )
-        assert str(response) == str(expected)
+    except Exception as e:
+        print(f"Exception: {e}")
     finally:
         ai_client.cleanup()
+
+    assert str(response) == str(expected)

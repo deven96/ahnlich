@@ -7,7 +7,11 @@ readme = "README.md"
 
 packages = [
     { include = "ahnlich_client_py" },
-    { include = "VERSION" }
+    { include = "VERSION" },
+]
+
+exclude = [
+    "ahnlich_client_py/tests", "demo_tracing.py"
 ]
 
 [tool.poetry.scripts]
@@ -20,12 +24,17 @@ numpy = "^1.26.4"
 toml = "^0.10.2"
 bump2version = "^1.0.1"
 generic-connection-pool = "^0.7.0"
+pillow = "^10.4.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"
 isort = "^5.13.2"
 pytest = "^8.2.2"
 pylint = "^3.2.3"
+opentelemetry-api = "^1.26.0"
+opentelemetry-sdk = "^1.26.0"
+opentelemetry-instrumentation = "^0.47b0"
+opentelemetry-exporter-otlp = "^1.26.0"
 
 [build-system]
 requires = ["poetry-core"]

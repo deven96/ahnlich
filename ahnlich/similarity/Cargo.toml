@@ -17,11 +17,10 @@ maintenance = { status = "actively-developed" }
 [dependencies]
 crossbeam = "0.8.4"
 serde = { workspace = true, features = ["derive"], optional = true }
+tracing.workspace = true
 
 [dependencies.ndarray]
 workspace = true
-default-features = false
-features = []
 
 [features]
 default = []

@@ -6,7 +6,12 @@ edition = "2021"
 [dependencies]
 tracing.workspace = true
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json"] }
-tracing-opentelemetry = "0.24.0"
-opentelemetry = "0.23.0"
+tracing-opentelemetry.workspace = true
+opentelemetry.workspace = true
 opentelemetry-otlp = "0.16.0"
 opentelemetry_sdk = { version = "0.23.0", features = [ "rt-tokio", "rt-tokio-current-thread"]}
+log.workspace = true
+# Builds filters given to us to ensure granular logging
+env_logger = "0.10"
+# Connects log to tracing allowing us to always use log everywhere and still appear within traces
+tracing-log = "0.1"

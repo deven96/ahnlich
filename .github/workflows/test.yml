@@ -34,6 +34,12 @@ jobs:
       uses: ScribeMD/docker-cache@0.5.0
       with:
         key: ${{ runner.os }}-cargo-${{ hashFiles('ahnlich/Cargo.lock') }}
+
+    - name: Cache Ahnlich Home directory images.
+      uses: actions/cache@v4
+      with:
+        path: ~/.ahnlich
+        key: ${{ runner.os }}-ahnlich-models
     - name: Format and Lint
       working-directory: ./ahnlich
       run: |
@@ -55,6 +61,7 @@ jobs:
 
   run-python-tests:
     if: always()
+    # needs: ["run-rust-tests"]
     runs-on: ubuntu-latest
 
     steps:
@@ -83,6 +90,11 @@ jobs:
       run: |
         poetry run isort . -c --profile black; echo $?
         poetry run black . --check; echo $?
+
+    - name: Complie Binaries
+      working-directory: ./ahnlich
+      run: |
+        cargo build
     
     - name: Run Python Client Tests
       working-directory: ./sdk/ahnlich-client-py
@@ -92,7 +104,7 @@ jobs:
           AHNLICH_AI_HOST: "127.0.0.1"
           AHNLICH_AI_PORT: 8000
       run: |
-        poetry run pytest --junitxml=./python.xml
+        poetry run pytest -s -vv --junitxml=./python.xml
 
     - name: Upload Test Results
       uses: actions/upload-artifact@v4

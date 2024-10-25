@@ -1,0 +1,10 @@
+[package]
+name = "task-manager"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio-util.workspace = true
+tokio.workspace = true
+log.workspace = true
+async-trait.workspace = true

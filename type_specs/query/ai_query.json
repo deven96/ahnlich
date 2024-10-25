@@ -2,10 +2,22 @@
   "AIModel": {
     "ENUM": {
       "0": {
-        "DALLE3": "UNIT"
+        "AllMiniLML6V2": "UNIT"
       },
       "1": {
-        "Llama3": "UNIT"
+        "AllMiniLML12V2": "UNIT"
+      },
+      "2": {
+        "BGEBaseEnV15": "UNIT"
+      },
+      "3": {
+        "BGELargeEnV15": "UNIT"
+      },
+      "4": {
+        "Resnet50": "UNIT"
+      },
+      "5": {
+        "ClipVitB32": "UNIT"
       }
     }
   },
@@ -38,6 +50,12 @@
                   "TYPENAME": "NonLinearAlgorithm"
                 }
               }
+            },
+            {
+              "error_if_exists": "BOOL"
+            },
+            {
+              "store_original": "BOOL"
             }
           ]
         }
@@ -100,6 +118,22 @@
         }
       },
       "4": {
+        "CreateNonLinearAlgorithmIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "non_linear_indices": {
+                "SEQ": {
+                  "TYPENAME": "NonLinearAlgorithm"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "5": {
         "DropPredIndex": {
           "STRUCT": [
             {
@@ -116,7 +150,26 @@
           ]
         }
       },
-      "5": {
+      "6": {
+        "DropNonLinearAlgorithmIndex": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "non_linear_indices": {
+                "SEQ": {
+                  "TYPENAME": "NonLinearAlgorithm"
+                }
+              }
+            },
+            {
+              "error_if_not_exists": "BOOL"
+            }
+          ]
+        }
+      },
+      "7": {
         "Set": {
           "STRUCT": [
             {
@@ -149,7 +202,7 @@
           ]
         }
       },
-      "6": {
+      "8": {
         "DelKey": {
           "STRUCT": [
             {
@@ -163,7 +216,7 @@
           ]
         }
       },
-      "7": {
+      "9": {
         "DropStore": {
           "STRUCT": [
             {
@@ -175,16 +228,16 @@
           ]
         }
       },
-      "8": {
+      "10": {
         "InfoServer": "UNIT"
       },
-      "9": {
+      "11": {
         "ListStores": "UNIT"
       },
-      "10": {
+      "12": {
         "PurgeStores": "UNIT"
       },
-      "11": {
+      "13": {
         "Ping": "UNIT"
       }
     }
@@ -196,6 +249,11 @@
           "SEQ": {
             "TYPENAME": "AIQuery"
           }
+        }
+      },
+      {
+        "trace_id": {
+          "OPTION": "STR"
         }
       }
     ]

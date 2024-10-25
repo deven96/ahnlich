@@ -1,6 +1,7 @@
 use ahnlich_types::similarity::Similarity;
 use ahnlich_types::{
-    db::{ConnectedClient, ServerInfo, ServerResponse, ServerResult, StoreInfo, StoreUpsert},
+    client::ConnectedClient,
+    db::{ServerInfo, ServerResponse, ServerResult, StoreInfo, StoreUpsert},
     keyval::{StoreKey, StoreName},
     metadata::{MetadataKey, MetadataValue},
     version::Version,

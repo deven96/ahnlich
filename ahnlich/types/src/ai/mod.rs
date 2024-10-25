@@ -9,11 +9,14 @@ use std::fmt;
 
 use crate::keyval::StoreInput;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum AIModel {
-    // Image model
-    DALLE3,
-    Llama3,
+    AllMiniLML6V2,
+    AllMiniLML12V2,
+    BGEBaseEnV15,
+    BGELargeEnV15,
+    Resnet50,
+    ClipVitB32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]

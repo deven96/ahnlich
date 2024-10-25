@@ -45,6 +45,10 @@ pub struct DbPipeline {
 }
 
 impl DbPipeline {
+    pub fn new_from_queries_and_conn(queries: ServerDBQuery, conn: Object<DbConnManager>) -> Self {
+        Self { queries, conn }
+    }
+
     /// push create store command to pipeline
     pub fn create_store(
         &mut self,
@@ -97,6 +101,18 @@ impl DbPipeline {
             .push(DBQuery::CreatePredIndex { store, predicates })
     }
 
+    /// push create non linear index command to pipeline
+    pub fn create_non_linear_algorithm_index(
+        &mut self,
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+    ) {
+        self.queries.push(DBQuery::CreateNonLinearAlgorithmIndex {
+            store,
+            non_linear_indices,
+        })
+    }
+
     /// push drop pred index command to pipeline
     pub fn drop_pred_index(
         &mut self,
@@ -107,6 +123,20 @@ impl DbPipeline {
         self.queries.push(DBQuery::DropPredIndex {
             store,
             predicates,
+            error_if_not_exists,
+        })
+    }
+
+    /// push drop non linear index command to pipeline
+    pub fn drop_non_linear_algorithm_index(
+        &mut self,
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+        error_if_not_exists: bool,
+    ) {
+        self.queries.push(DBQuery::DropNonLinearAlgorithmIndex {
+            store,
+            non_linear_indices,
             error_if_not_exists,
         })
     }
@@ -183,11 +213,15 @@ impl DbClient {
 
     /// Instantiate a new pipeline of a given capacity for which commands would be run sequentially
     /// on `pipeline.exec`
-    pub async fn pipeline(&self, capacity: usize) -> Result<DbPipeline, AhnlichError> {
-        Ok(DbPipeline {
-            queries: ServerDBQuery::with_capacity(capacity),
-            conn: self.pool.get().await?,
-        })
+    pub async fn pipeline(
+        &self,
+        capacity: usize,
+        tracing_id: Option<String>,
+    ) -> Result<DbPipeline, AhnlichError> {
+        Ok(DbPipeline::new_from_queries_and_conn(
+            ServerDBQuery::with_capacity_and_tracing_id(capacity, tracing_id)?,
+            self.pool.get().await?,
+        ))
     }
 
     pub async fn create_store(
@@ -197,14 +231,18 @@ impl DbClient {
         create_predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::CreateStore {
-            store,
-            dimension,
-            create_predicates,
-            non_linear_indices,
-            error_if_exists,
-        })
+        self.exec(
+            DBQuery::CreateStore {
+                store,
+                dimension,
+                create_predicates,
+                non_linear_indices,
+                error_if_exists,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -212,16 +250,19 @@ impl DbClient {
         &self,
         store: StoreName,
         keys: Vec<StoreKey>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::GetKey { store, keys }).await
+        self.exec(DBQuery::GetKey { store, keys }, tracing_id).await
     }
 
     pub async fn get_pred(
         &self,
         store: StoreName,
         condition: PredicateCondition,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::GetPred { store, condition }).await
+        self.exec(DBQuery::GetPred { store, condition }, tracing_id)
+            .await
     }
 
     pub async fn get_sim_n(
@@ -231,14 +272,18 @@ impl DbClient {
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::GetSimN {
-            store,
-            search_input,
-            closest_n,
-            algorithm,
-            condition,
-        })
+        self.exec(
+            DBQuery::GetSimN {
+                store,
+                search_input,
+                closest_n,
+                algorithm,
+                condition,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -246,9 +291,26 @@ impl DbClient {
         &self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::CreatePredIndex { store, predicates })
+        self.exec(DBQuery::CreatePredIndex { store, predicates }, tracing_id)
             .await
+    }
+
+    pub async fn create_non_linear_algorithm_index(
+        &self,
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+        tracing_id: Option<String>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(
+            DBQuery::CreateNonLinearAlgorithmIndex {
+                store,
+                non_linear_indices,
+            },
+            tracing_id,
+        )
+        .await
     }
 
     pub async fn drop_pred_index(
@@ -256,12 +318,34 @@ impl DbClient {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::DropPredIndex {
-            store,
-            predicates,
-            error_if_not_exists,
-        })
+        self.exec(
+            DBQuery::DropPredIndex {
+                store,
+                predicates,
+                error_if_not_exists,
+            },
+            tracing_id,
+        )
+        .await
+    }
+
+    pub async fn drop_non_linear_algorithm_index(
+        &self,
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+        error_if_not_exists: bool,
+        tracing_id: Option<String>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(
+            DBQuery::DropNonLinearAlgorithmIndex {
+                store,
+                non_linear_indices,
+                error_if_not_exists,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -269,57 +353,78 @@ impl DbClient {
         &self,
         store: StoreName,
         inputs: Vec<(StoreKey, StoreValue)>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::Set { store, inputs }).await
+        self.exec(DBQuery::Set { store, inputs }, tracing_id).await
     }
 
     pub async fn del_key(
         &self,
         store: StoreName,
         keys: Vec<StoreKey>,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::DelKey { store, keys }).await
+        self.exec(DBQuery::DelKey { store, keys }, tracing_id).await
     }
 
     pub async fn del_pred(
         &self,
         store: StoreName,
         condition: PredicateCondition,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::DelPred { store, condition }).await
+        self.exec(DBQuery::DelPred { store, condition }, tracing_id)
+            .await
     }
 
     pub async fn drop_store(
         &self,
         store: StoreName,
         error_if_not_exists: bool,
+        tracing_id: Option<String>,
     ) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::DropStore {
-            store,
-            error_if_not_exists,
-        })
+        self.exec(
+            DBQuery::DropStore {
+                store,
+                error_if_not_exists,
+            },
+            tracing_id,
+        )
         .await
     }
 
-    pub async fn ping(&self) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::Ping).await
+    pub async fn ping(&self, tracing_id: Option<String>) -> Result<ServerResponse, AhnlichError> {
+        self.exec(DBQuery::Ping, tracing_id).await
     }
 
-    pub async fn info_server(&self) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::InfoServer).await
+    pub async fn info_server(
+        &self,
+        tracing_id: Option<String>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(DBQuery::InfoServer, tracing_id).await
     }
 
-    pub async fn list_stores(&self) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::ListStores).await
+    pub async fn list_stores(
+        &self,
+        tracing_id: Option<String>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(DBQuery::ListStores, tracing_id).await
     }
 
-    pub async fn list_clients(&self) -> Result<ServerResponse, AhnlichError> {
-        self.exec(DBQuery::ListClients).await
+    pub async fn list_clients(
+        &self,
+        tracing_id: Option<String>,
+    ) -> Result<ServerResponse, AhnlichError> {
+        self.exec(DBQuery::ListClients, tracing_id).await
     }
 
-    async fn exec(&self, query: DBQuery) -> Result<ServerResponse, AhnlichError> {
+    async fn exec(
+        &self,
+        query: DBQuery,
+        tracing_id: Option<String>,
+    ) -> Result<ServerResponse, AhnlichError> {
         let mut conn = self.pool.get().await?;
-        let mut queries = ServerDBQuery::with_capacity(1);
+        let mut queries = ServerDBQuery::with_capacity_and_tracing_id(1, tracing_id)?;
         queries.push(query);
         let res = conn
             .send_query(queries)
@@ -341,6 +446,7 @@ mod tests {
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
     use tokio::time::Duration;
+    use utils::server::AhnlichServerUtils;
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 
@@ -358,7 +464,7 @@ mod tests {
         let db_client = DbClient::new(host.to_string(), port)
             .await
             .expect("Could not initialize client");
-        assert!(db_client.ping().await.is_ok());
+        assert!(db_client.ping(None).await.is_ok());
     }
 
     #[tokio::test]
@@ -376,7 +482,7 @@ mod tests {
             .await
             .expect("Could not initialize client");
         let mut pipeline = db_client
-            .pipeline(3)
+            .pipeline(3, None)
             .await
             .expect("Could not create pipeline");
         pipeline.list_stores();
@@ -395,7 +501,7 @@ mod tests {
         let db_client = DbClient::new(host.to_string(), port)
             .await
             .expect("Could not initialize client");
-        assert!(db_client.ping().await.is_err());
+        assert!(db_client.ping(None).await.is_err());
     }
 
     #[tokio::test]
@@ -413,7 +519,7 @@ mod tests {
             .await
             .expect("Could not initialize client");
         let mut pipeline = db_client
-            .pipeline(4)
+            .pipeline(4, None)
             .await
             .expect("Could not create pipeline");
         pipeline.create_store(
@@ -446,7 +552,7 @@ mod tests {
             StoreInfo {
                 name: StoreName("Main".to_string()),
                 len: 0,
-                size_in_bytes: 1712,
+                size_in_bytes: 1720,
             },
         ]))));
         let res = pipeline.exec().await.expect("Could not execute pipeline");
@@ -468,7 +574,7 @@ mod tests {
             .await
             .expect("Could not initialize client");
         assert!(db_client
-            .del_key(StoreName("Main".to_string()), vec![],)
+            .del_key(StoreName("Main".to_string()), vec![], None)
             .await
             .is_err());
         assert!(db_client
@@ -478,6 +584,7 @@ mod tests {
                 HashSet::from_iter([MetadataKey::new("role".into())]),
                 HashSet::from_iter([NonLinearAlgorithm::KDTree]),
                 true,
+                None
             )
             .await
             .is_ok());
@@ -486,6 +593,7 @@ mod tests {
                 .del_key(
                     StoreName("Main".to_string()),
                     vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+                    None
                 )
                 .await
                 .unwrap(),
@@ -498,15 +606,16 @@ mod tests {
                     (StoreKey(array![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
                     (StoreKey(array![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
                 ],
+                None
             )
             .await
             .is_ok());
         assert_eq!(
-            db_client.list_stores().await.unwrap(),
+            db_client.list_stores(None).await.unwrap(),
             ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
                 name: StoreName("Main".to_string()),
                 len: 2,
-                size_in_bytes: 1880,
+                size_in_bytes: 2160,
             },]))
         );
         // error as different dimensions
@@ -514,6 +623,7 @@ mod tests {
             .del_key(
                 StoreName("Main".to_string()),
                 vec![StoreKey(array![1.0, 1.2])],
+                None
             )
             .await
             .is_err());
@@ -522,17 +632,18 @@ mod tests {
                 .del_key(
                     StoreName("Main".to_string()),
                     vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+                    None
                 )
                 .await
                 .unwrap(),
             ServerResponse::Del(1)
         );
         assert_eq!(
-            db_client.list_stores().await.unwrap(),
+            db_client.list_stores(None).await.unwrap(),
             ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
                 name: StoreName("Main".to_string()),
                 len: 1,
-                size_in_bytes: 1808,
+                size_in_bytes: 1976,
             },]))
         );
     }
@@ -558,6 +669,7 @@ mod tests {
                 HashSet::from_iter([MetadataKey::new("medal".into())]),
                 HashSet::new(),
                 true,
+                None
             )
             .await
             .is_ok());
@@ -587,6 +699,7 @@ mod tests {
                         )]),
                     ),
                 ],
+                None
             )
             .await
             .is_ok());
@@ -598,6 +711,7 @@ mod tests {
                 NonZeroUsize::new(2).unwrap(),
                 Algorithm::EuclideanDistance,
                 None,
+                None
             )
             .await
             .is_err());
@@ -612,6 +726,7 @@ mod tests {
                         key: MetadataKey::new("medal".into()),
                         value: MetadataValue::RawString("gold".into()),
                     })),
+                    None
                 )
                 .await
                 .unwrap(),

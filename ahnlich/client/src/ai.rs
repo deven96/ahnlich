@@ -45,7 +45,11 @@ pub struct AIPipeline {
 }
 
 impl AIPipeline {
+    pub fn new_from_queries_and_conn(queries: AIServerQuery, conn: Object<AIConnManager>) -> Self {
+        Self { queries, conn }
+    }
     /// push create store command to pipeline
+    #[allow(clippy::too_many_arguments)]
     pub fn create_store(
         &mut self,
         store: StoreName,
@@ -53,6 +57,8 @@ impl AIPipeline {
         index_model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
+        error_if_exists: bool,
+        store_original: bool,
     ) {
         self.queries.push(AIQuery::CreateStore {
             store,
@@ -60,6 +66,8 @@ impl AIPipeline {
             index_model,
             predicates,
             non_linear_indices,
+            error_if_exists,
+            store_original,
         })
     }
 
@@ -90,6 +98,18 @@ impl AIPipeline {
     pub fn create_pred_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
         self.queries
             .push(AIQuery::CreatePredIndex { store, predicates })
+    }
+
+    /// push create non linear index command to pipeline
+    pub fn create_non_linear_algorithm_index(
+        &mut self,
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+    ) {
+        self.queries.push(AIQuery::CreateNonLinearAlgorithmIndex {
+            store,
+            non_linear_indices,
+        })
     }
 
     /// push drop pred index command to pipeline
@@ -180,13 +200,18 @@ impl AIClient {
 
     /// Instantiate a new pipeline with a given capacity. Runs commands sequentially on
     /// `pipeline.exec`
-    pub async fn pipeline(&self, capacity: usize) -> Result<AIPipeline, AhnlichError> {
-        Ok(AIPipeline {
-            queries: AIServerQuery::with_capacity(capacity),
-            conn: self.pool.get().await?,
-        })
+    pub async fn pipeline(
+        &self,
+        capacity: usize,
+        tracing_id: Option<String>,
+    ) -> Result<AIPipeline, AhnlichError> {
+        Ok(AIPipeline::new_from_queries_and_conn(
+            AIServerQuery::with_capacity_and_tracing_id(capacity, tracing_id),
+            self.pool.get().await?,
+        ))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_store(
         &self,
         store: StoreName,
@@ -194,14 +219,22 @@ impl AIClient {
         index_model: AIModel,
         predicates: HashSet<MetadataKey>,
         non_linear_indices: HashSet<NonLinearAlgorithm>,
+        error_if_exists: bool,
+        store_original: bool,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::CreateStore {
-            store,
-            query_model,
-            index_model,
-            predicates,
-            non_linear_indices,
-        })
+        self.exec(
+            AIQuery::CreateStore {
+                store,
+                query_model,
+                index_model,
+                predicates,
+                non_linear_indices,
+                error_if_exists,
+                store_original,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -209,8 +242,10 @@ impl AIClient {
         &self,
         store: StoreName,
         condition: PredicateCondition,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::GetPred { store, condition }).await
+        self.exec(AIQuery::GetPred { store, condition }, tracing_id)
+            .await
     }
 
     pub async fn get_sim_n(
@@ -220,14 +255,18 @@ impl AIClient {
         condition: Option<PredicateCondition>,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::GetSimN {
-            store,
-            search_input,
-            condition,
-            closest_n,
-            algorithm,
-        })
+        self.exec(
+            AIQuery::GetSimN {
+                store,
+                search_input,
+                condition,
+                closest_n,
+                algorithm,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -235,9 +274,26 @@ impl AIClient {
         &self,
         store: StoreName,
         predicates: HashSet<MetadataKey>,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::CreatePredIndex { store, predicates })
+        self.exec(AIQuery::CreatePredIndex { store, predicates }, tracing_id)
             .await
+    }
+
+    pub async fn create_non_linear_algorithm_index(
+        &self,
+        store: StoreName,
+        non_linear_indices: HashSet<NonLinearAlgorithm>,
+        tracing_id: Option<String>,
+    ) -> Result<AIServerResponse, AhnlichError> {
+        self.exec(
+            AIQuery::CreateNonLinearAlgorithmIndex {
+                store,
+                non_linear_indices,
+            },
+            tracing_id,
+        )
+        .await
     }
 
     pub async fn drop_pred_index(
@@ -245,12 +301,16 @@ impl AIClient {
         store: StoreName,
         predicates: HashSet<MetadataKey>,
         error_if_not_exists: bool,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::DropPredIndex {
-            store,
-            predicates,
-            error_if_not_exists,
-        })
+        self.exec(
+            AIQuery::DropPredIndex {
+                store,
+                predicates,
+                error_if_not_exists,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -259,12 +319,16 @@ impl AIClient {
         store: StoreName,
         inputs: Vec<(StoreInput, StoreValue)>,
         preprocess_action: PreprocessAction,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::Set {
-            store,
-            inputs,
-            preprocess_action,
-        })
+        self.exec(
+            AIQuery::Set {
+                store,
+                inputs,
+                preprocess_action,
+            },
+            tracing_id,
+        )
         .await
     }
 
@@ -272,42 +336,60 @@ impl AIClient {
         &self,
         store: StoreName,
         key: StoreInput,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::DelKey { store, key }).await
+        self.exec(AIQuery::DelKey { store, key }, tracing_id).await
     }
 
     pub async fn drop_store(
         &self,
         store: StoreName,
         error_if_not_exists: bool,
+        tracing_id: Option<String>,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::DropStore {
-            store,
-            error_if_not_exists,
-        })
+        self.exec(
+            AIQuery::DropStore {
+                store,
+                error_if_not_exists,
+            },
+            tracing_id,
+        )
         .await
     }
 
-    pub async fn info_server(&self) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::InfoServer).await
+    pub async fn info_server(
+        &self,
+        tracing_id: Option<String>,
+    ) -> Result<AIServerResponse, AhnlichError> {
+        self.exec(AIQuery::InfoServer, tracing_id).await
     }
 
-    pub async fn list_stores(&self) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::ListStores).await
+    pub async fn list_stores(
+        &self,
+        tracing_id: Option<String>,
+    ) -> Result<AIServerResponse, AhnlichError> {
+        self.exec(AIQuery::ListStores, tracing_id).await
     }
 
-    pub async fn purge_stores(&self) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::PurgeStores).await
+    pub async fn purge_stores(
+        &self,
+        tracing_id: Option<String>,
+    ) -> Result<AIServerResponse, AhnlichError> {
+        self.exec(AIQuery::PurgeStores, tracing_id).await
     }
 
-    pub async fn ping(&self) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::Ping).await
+    pub async fn ping(&self, tracing_id: Option<String>) -> Result<AIServerResponse, AhnlichError> {
+        self.exec(AIQuery::Ping, tracing_id).await
     }
 
-    async fn exec(&self, query: AIQuery) -> Result<AIServerResponse, AhnlichError> {
+    async fn exec(
+        &self,
+        query: AIQuery,
+        tracing_id: Option<String>,
+    ) -> Result<AIServerResponse, AhnlichError> {
         let mut conn = self.pool.get().await?;
 
-        let mut queries = AIServerQuery::with_capacity(1);
+        let mut queries = AIServerQuery::with_capacity_and_tracing_id(1, tracing_id);
         queries.push(query);
 
         let res = conn
@@ -324,7 +406,7 @@ impl AIClient {
 mod tests {
     use super::*;
     use ahnlich_ai_proxy::cli::AIProxyConfig;
-    use ahnlich_ai_proxy::{engine::ai::AIModelManager, server::handler::AIProxyServer};
+    use ahnlich_ai_proxy::{engine::ai::models::Model, server::handler::AIProxyServer};
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
     use once_cell::sync::Lazy;
@@ -332,12 +414,13 @@ mod tests {
     use std::collections::HashMap;
     use std::net::SocketAddr;
     use tokio::time::Duration;
+    use utils::server::AhnlichServerUtils;
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
     static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
         let mut ai_proxy = AIProxyConfig::default().os_select_port();
         ai_proxy.db_port = CONFIG.port.clone();
-        ai_proxy.db_host = CONFIG.host.clone();
+        ai_proxy.db_host = CONFIG.common.host.clone();
         ai_proxy
     });
 
@@ -371,7 +454,7 @@ mod tests {
         let ai_client = AIClient::new(host.to_string(), port)
             .await
             .expect("Could not initialize client");
-        assert!(ai_client.ping().await.is_ok());
+        assert!(ai_client.ping(None).await.is_ok());
     }
 
     #[tokio::test]
@@ -383,7 +466,7 @@ mod tests {
             .await
             .expect("Could not initialize client");
         let mut pipeline = ai_client
-            .pipeline(3)
+            .pipeline(3, None)
             .await
             .expect("Could not create pipeline");
         pipeline.list_stores();
@@ -402,7 +485,7 @@ mod tests {
         let ai_client = AIClient::new(host.to_string(), port)
             .await
             .expect("Could not initialize client");
-        assert!(ai_client.ping().await.is_err());
+        assert!(ai_client.ping(None).await.is_err());
     }
 
     #[tokio::test]
@@ -415,47 +498,64 @@ mod tests {
             .expect("Could not initialize client");
 
         let mut pipeline = ai_client
-            .pipeline(4)
+            .pipeline(4, None)
             .await
             .expect("Could not create pipeline");
         pipeline.create_store(
             StoreName("Main".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
+            true,
         );
         pipeline.create_store(
             StoreName("Main".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
+            true,
+        );
+        pipeline.create_store(
+            StoreName("Main".to_string()),
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
+            HashSet::new(),
+            HashSet::new(),
+            false,
+            true,
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
+            true,
         );
         pipeline.list_stores();
-        let mut expected = AIServerResult::with_capacity(4);
+        let mut expected = AIServerResult::with_capacity(5);
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Err("Store Main already exists".to_string()));
         expected.push(Ok(AIServerResponse::Unit));
+        expected.push(Ok(AIServerResponse::Unit));
+        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
-                embedding_size: AIModel::Llama3.embedding_size().into(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                embedding_size: ai_model.embedding_size.into(),
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
-                embedding_size: AIModel::Llama3.embedding_size().into(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                embedding_size: ai_model.embedding_size.into(),
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
             },
         ]))));
         let res = pipeline.exec().await.expect("Could not execute pipeline");
@@ -475,10 +575,13 @@ mod tests {
         assert!(ai_client
             .create_store(
                 store_name.clone(),
-                AIModel::Llama3,
-                AIModel::Llama3,
+                AIModel::AllMiniLML6V2,
+                AIModel::AllMiniLML6V2,
                 HashSet::new(),
                 HashSet::new(),
+                true,
+                true,
+                None
             )
             .await
             .is_ok());
@@ -493,14 +596,19 @@ mod tests {
                         HashMap::new()
                     ),
                 ],
-                PreprocessAction::RawString(StringAction::ErrorIfTokensExceed)
+                PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+                None
             )
             .await
             .is_ok());
 
         assert_eq!(
             ai_client
-                .del_key(store_name, StoreInput::RawString("Adidas Yeezy".into()))
+                .del_key(
+                    store_name,
+                    StoreInput::RawString("Adidas Yeezy".into()),
+                    None
+                )
                 .await
                 .unwrap(),
             AIServerResponse::Del(1)
@@ -517,29 +625,35 @@ mod tests {
             .expect("Could not initialize client");
 
         let mut pipeline = ai_client
-            .pipeline(4)
+            .pipeline(4, None)
             .await
             .expect("Could not create pipeline");
         pipeline.create_store(
             StoreName("Main".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
+            true,
         );
         pipeline.create_store(
             StoreName("Main2".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
+            true,
         );
         pipeline.create_store(
             StoreName("Less".to_string()),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
+            true,
         );
         pipeline.list_stores();
         pipeline.drop_store(StoreName("Less".to_string()), true);
@@ -548,24 +662,26 @@ mod tests {
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Ok(AIServerResponse::Unit));
+
+        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
-                embedding_size: AIModel::Llama3.embedding_size().into(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                embedding_size: ai_model.embedding_size.into(),
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Main2".to_string()),
-                embedding_size: AIModel::Llama3.embedding_size().into(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                embedding_size: ai_model.embedding_size.into(),
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
             },
             AIStoreInfo {
                 name: StoreName("Less".to_string()),
-                embedding_size: AIModel::Llama3.embedding_size().into(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                embedding_size: ai_model.embedding_size.into(),
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
             },
         ]))));
         expected.push(Ok(AIServerResponse::Del(1)));
@@ -610,16 +726,18 @@ mod tests {
         ];
 
         let mut pipeline = ai_client
-            .pipeline(6)
+            .pipeline(6, None)
             .await
             .expect("Could not create pipeline");
 
         pipeline.create_store(
             store_name.clone(),
-            AIModel::Llama3,
-            AIModel::Llama3,
+            AIModel::AllMiniLML6V2,
+            AIModel::AllMiniLML6V2,
             HashSet::new(),
             HashSet::new(),
+            true,
+            true,
         );
         pipeline.list_stores();
         pipeline.create_pred_index(
@@ -645,13 +763,14 @@ mod tests {
         let mut expected = AIServerResult::with_capacity(6);
 
         expected.push(Ok(AIServerResponse::Unit));
+        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name.clone(),
-                query_model: AIModel::Llama3,
-                index_model: AIModel::Llama3,
+                query_model: AIModel::AllMiniLML6V2,
+                index_model: AIModel::AllMiniLML6V2,
 
-                embedding_size: AIModel::Llama3.embedding_size().into(),
+                embedding_size: ai_model.embedding_size.into(),
             },
         ]))));
         expected.push(Ok(AIServerResponse::CreateIndex(2)));
@@ -670,17 +789,20 @@ mod tests {
                     key: matching_metadatakey,
                     value: matching_metadatavalue,
                 }),
+                None,
             )
             .await
             .unwrap();
 
         let expected = vec![
             (
-                StoreInput::RawString(String::from("Air Force 1 Retro Boost")),
+                Some(StoreInput::RawString(String::from(
+                    "Air Force 1 Retro Boost",
+                ))),
                 nike_store_value.clone(),
             ),
             (
-                StoreInput::RawString(String::from("Jordan")),
+                Some(StoreInput::RawString(String::from("Jordan"))),
                 nike_store_value.clone(),
             ),
         ];
@@ -703,7 +825,7 @@ mod tests {
 
         let store_name = StoreName(String::from("Deven Image Store"));
         let matching_metadatakey = MetadataKey::new("Name".to_owned());
-        let matching_metadatavalue = MetadataValue::RawString("Greatness".to_owned());
+        let matching_metadatavalue = MetadataValue::RawString("Daniel".to_owned());
 
         let store_value_1 =
             StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
@@ -713,33 +835,35 @@ mod tests {
         )]);
         let store_data = vec![
             (
-                StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
-                store_value_1.clone(),
+                StoreInput::Image(include_bytes!("../../ai/src/tests/images/dog.jpg").to_vec()),
+                StoreValue::from_iter([(
+                    matching_metadatakey.clone(),
+                    MetadataValue::RawString("Greatness".to_owned()),
+                )]),
             ),
             (
-                StoreInput::Image(vec![102, 3, 4, 6, 7, 8, 4, 190]),
+                StoreInput::Image(include_bytes!("../../ai/src/tests/images/test.webp").to_vec()),
                 store_value_2.clone(),
             ),
             (
-                StoreInput::Image(vec![211, 2, 4, 6, 7, 8, 8, 92, 21, 10]),
-                StoreValue::from_iter([(
-                    matching_metadatakey.clone(),
-                    MetadataValue::RawString("Daniel".to_owned()),
-                )]),
+                StoreInput::Image(include_bytes!("../../ai/src/tests/images/cat.png").to_vec()),
+                store_value_1.clone(),
             ),
         ];
 
         let mut pipeline = ai_client
-            .pipeline(7)
+            .pipeline(7, None)
             .await
             .expect("Could not create pipeline");
 
         pipeline.create_store(
             store_name.clone(),
-            AIModel::DALLE3,
-            AIModel::DALLE3,
+            AIModel::Resnet50,
+            AIModel::Resnet50,
             HashSet::new(),
             HashSet::new(),
+            true,
+            true,
         );
         pipeline.list_stores();
         pipeline.create_pred_index(
@@ -773,12 +897,13 @@ mod tests {
         let mut expected = AIServerResult::with_capacity(7);
 
         expected.push(Ok(AIServerResponse::Unit));
+        let resnet_model: Model = (&AIModel::Resnet50).into();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name,
-                query_model: AIModel::DALLE3,
-                index_model: AIModel::DALLE3,
-                embedding_size: AIModel::DALLE3.embedding_size().into(),
+                query_model: AIModel::Resnet50,
+                index_model: AIModel::Resnet50,
+                embedding_size: resnet_model.embedding_size.into(),
             },
         ]))));
         expected.push(Ok(AIServerResponse::CreateIndex(2)));
@@ -788,7 +913,9 @@ mod tests {
         })));
         expected.push(Ok(AIServerResponse::Del(1)));
         expected.push(Ok(AIServerResponse::Get(vec![(
-            StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
+            Some(StoreInput::Image(
+                include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
+            )),
             store_value_1.clone(),
         )])));
         expected.push(Ok(AIServerResponse::Del(1)));

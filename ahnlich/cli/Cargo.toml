@@ -1,0 +1,26 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ahnlich-cli"
+path = "src/main.rs"
+
+[lib]
+name = "ahnlich_cli"
+path = "src/lib.rs"
+
+
+[dependencies]
+crossterm = { version = "0.28.1", feature = ["bracketed-paste"]}
+clap.workspace = true
+dirs.workspace = true
+dsl = { path = "../dsl", version = "*" }
+thiserror.workspace = true
+tokio.workspace = true
+ahnlich_client_rs = { path = "../client", version = "*" }
+deadpool.workspace = true
+ahnlich_types = { path = "../types", version = "*" }
+serde_json.workspace = true
+serde.workspace = true
