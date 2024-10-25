@@ -2,10 +2,22 @@
   "AIModel": {
     "ENUM": {
       "0": {
-        "DALLE3": "UNIT"
+        "AllMiniLML6V2": "UNIT"
       },
       "1": {
-        "Llama3": "UNIT"
+        "AllMiniLML12V2": "UNIT"
+      },
+      "2": {
+        "BGEBaseEnV15": "UNIT"
+      },
+      "3": {
+        "BGELargeEnV15": "UNIT"
+      },
+      "4": {
+        "Resnet50": "UNIT"
+      },
+      "5": {
+        "ClipVitB32": "UNIT"
       }
     }
   },
@@ -55,7 +67,9 @@
             "SEQ": {
               "TUPLE": [
                 {
-                  "TYPENAME": "StoreInput"
+                  "OPTION": {
+                    "TYPENAME": "StoreInput"
+                  }
                 },
                 {
                   "MAP": {
@@ -76,7 +90,9 @@
             "SEQ": {
               "TUPLE": [
                 {
-                  "TYPENAME": "StoreInput"
+                  "OPTION": {
+                    "TYPENAME": "StoreInput"
+                  }
                 },
                 {
                   "MAP": {

@@ -47,6 +47,8 @@ create_store(
 
 `ahnlich-db`, `ahnlich-ai` and `ahnlich-cli` are packaged and released as [binaries](https://github.com/deven96/ahnlich/releases) for multiple platforms alongside [docker images](https://github.com/deven96?tab=packages&repo_name=ahnlich)
 
+The DB can be used without the AI proxy for more fine grained control of the generated vector embeddings as all clients support both
+
 ### Docker Images.
 
 `Note`: 

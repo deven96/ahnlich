@@ -34,8 +34,12 @@ fn parse_to_preprocess_action(input: &str) -> PreprocessAction {
 
 fn parse_to_ai_model(input: &str) -> Result<AIModel, DslError> {
     match input.to_lowercase().trim() {
-        "dalle3" => Ok(AIModel::DALLE3),
-        "llama3" => Ok(AIModel::Llama3),
+        "all-minilm-l6-v2" => Ok(AIModel::AllMiniLML6V2),
+        "all-minilm-l12-v2" => Ok(AIModel::AllMiniLML12V2),
+        "bge-base-en-v1.5" => Ok(AIModel::BGEBaseEnV15),
+        "bge-large-en-v1.5" => Ok(AIModel::BGELargeEnV15),
+        "resnet-50" => Ok(AIModel::Resnet50),
+        "clip-vit-b32" => Ok(AIModel::ClipVitB32),
         e => Err(DslError::UnsupportedAIModel(e.to_string())),
     }
 }
@@ -56,7 +60,7 @@ pub const COMMANDS: &[&str] = &[
     "delkey",                        // ([input 1 text], [input 2 text]) in my_store
     "getpred",                       // ((author = dickens) or (country != Nigeria)) in my_store
     "getsimn", // 4 with [random text inserted here] using cosinesimilarity in my_store where (author = dickens)
-    "createstore", // if not exists my_store querymodel dalle3 indexmodel dalle3 predicates (author, country) nonlinearalgorithmindex (kdtree)
+    "createstore", // if not exists my_store querymodel resnet-50 indexmodel resnet-50 predicates (author, country) nonlinearalgorithmindex (kdtree)
     "set", // (([This is the life of Haks paragraphed], {name: Haks, category: dev}), ([This is the life of Deven paragraphed], {name: Deven, category: dev})) in store
 ];
 
@@ -97,6 +101,13 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
             }
             Rule::ai_create_store => {
                 let mut inner_pairs = statement.into_inner().peekable();
+                let mut error_if_exists = true;
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::if_not_exists {
+                        inner_pairs.next(); // Consume rule
+                        error_if_exists = false;
+                    }
+                };
                 let store = inner_pairs
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
@@ -126,6 +137,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                     }
                 };
                 let mut non_linear_indices = HashSet::new();
+                let mut store_original = false;
                 if let Some(next_pair) = inner_pairs.peek() {
                     if next_pair.as_rule() == Rule::non_linear_algorithms {
                         let index_name_pairs = inner_pairs
@@ -137,12 +149,19 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                             .collect();
                     }
                 };
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::store_original {
+                        store_original = true;
+                    }
+                }
                 AIQuery::CreateStore {
                     store: StoreName(store.to_string()),
                     query_model,
                     index_model,
                     predicates,
                     non_linear_indices,
+                    error_if_exists,
+                    store_original,
                 }
             }
             Rule::ai_get_sim_n => {

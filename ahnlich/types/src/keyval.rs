@@ -1,11 +1,9 @@
 use crate::metadata::MetadataKey;
 use crate::metadata::MetadataValue;
 use ndarray::Array1;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap as StdHashMap;
 use std::fmt;
-
 /// Name of a Store
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -46,11 +44,11 @@ impl PartialEq for StoreKey {
         self.0
             .iter()
             .zip(other.0.iter())
-            .all(|(x, y)| (x - y).abs() < std::f32::EPSILON)
+            .all(|(x, y)| (x - y).abs() < f32::EPSILON)
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum StoreInput {
     RawString(String),
     Image(Vec<u8>),

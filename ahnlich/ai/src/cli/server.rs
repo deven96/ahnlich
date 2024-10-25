@@ -1,16 +1,29 @@
 use ahnlich_types::ai::AIModel;
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use dirs::home_dir;
+use std::fmt;
 use strum::VariantArray;
 
 use crate::engine::ai::models::{Model, ModelInfo};
 use std::io::Write;
+use std::sync::OnceLock;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use utils::cli::CommandLineConfig;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Hash, Ord, ValueEnum, VariantArray)]
 pub enum SupportedModels {
-    Llama3,
-    Dalle3,
+    #[clap(name = "all-minilm-l6-v2")]
+    AllMiniLML6V2,
+    #[clap(name = "all-minilm-l12-v2")]
+    AllMiniLML12V2,
+    #[clap(name = "bge-base-en-v1.5")]
+    BGEBaseEnV15,
+    #[clap(name = "bge-large-en-v1.5")]
+    BGELargeEnV15,
+    #[clap(name = "resnet-50")]
+    Resnet50,
+    #[clap(name = "clip-vit-b32")]
+    ClipVitB32,
 }
 
 #[derive(Parser)]
@@ -20,6 +33,7 @@ pub struct Cli {
     pub command: Commands,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 pub enum Commands {
     /// Starts Anhlich AI Proxy
@@ -29,37 +43,83 @@ pub enum Commands {
     SupportedModels(SupportedModelArgs),
 }
 
+static DEFAULT_CONFIG: OnceLock<AIProxyConfig> = OnceLock::new();
+
 #[derive(Args, Debug, Clone)]
 pub struct AIProxyConfig {
     /// Ahnlich AI proxy port
-    #[arg(long, default_value_t = 1370)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).port.clone())]
     pub port: u16,
 
     /// Ahnlich Database Host
-    #[arg(long, default_value_t = String::from("127.0.0.1"))]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_host.clone())]
     pub db_host: String,
 
     /// Ahnlich Database port
-    #[arg(long, default_value_t = 1369)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_port.clone())]
     pub db_port: u16,
 
     /// Ahnlich Database Client Connection Pool Size
-    #[arg(long, default_value_t = 10)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_client_pool_size.clone())]
     pub db_client_pool_size: usize,
 
     /// List of ai models to support in your aiproxy stores
-    #[arg(long, required(true), value_delimiter = ',')]
+    #[arg(long, value_enum, value_delimiter = ',', default_values_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).supported_models.clone())]
     pub(crate) supported_models: Vec<SupportedModels>,
 
     /// AI Model Idle Time in seconds
     /// Defaults to 5 mins
     /// Time in seconds for an unused/idle supported model to be dropped
     /// Futher calls after a drop reinitializes the model from scratch
-    #[arg(long, default_value_t = 60 * 5)]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).ai_model_idle_time.clone())]
     pub(crate) ai_model_idle_time: u64,
 
+    /// Directory path for storing the model artifacts
+    #[arg(long, default_value_os_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).model_cache_location.clone())]
+    pub(crate) model_cache_location: std::path::PathBuf,
+
     #[clap(flatten)]
-    pub(crate) common: CommandLineConfig,
+    pub common: CommandLineConfig,
+}
+
+#[derive(Debug)]
+pub struct ModelConfig {
+    pub(crate) supported_models: Vec<SupportedModels>,
+    pub(crate) model_cache_location: std::path::PathBuf,
+    pub(crate) model_idle_time: u64,
+}
+
+impl Default for ModelConfig {
+    fn default() -> Self {
+        Self {
+            supported_models: vec![SupportedModels::AllMiniLML6V2],
+            model_cache_location: home_dir()
+                .map(|mut path| {
+                    path.push(".ahnlich");
+                    path.push("models");
+                    path
+                })
+                .expect("Default directory could not be resolved."),
+            model_idle_time: 60 * 5,
+        }
+    }
+}
+
+impl From<&AIProxyConfig> for ModelConfig {
+    fn from(config: &AIProxyConfig) -> Self {
+        Self {
+            supported_models: config.supported_models.clone(),
+            model_cache_location: config.model_cache_location.clone(),
+            model_idle_time: config.ai_model_idle_time,
+        }
+    }
 }
 
 impl Default for AIProxyConfig {
@@ -69,7 +129,20 @@ impl Default for AIProxyConfig {
             db_host: String::from("127.0.0.1"),
             db_port: 1369,
             db_client_pool_size: 10,
-            supported_models: vec![SupportedModels::Llama3, SupportedModels::Dalle3],
+            supported_models: vec![
+                SupportedModels::AllMiniLML6V2,
+                SupportedModels::AllMiniLML12V2,
+                SupportedModels::Resnet50,
+                SupportedModels::ClipVitB32,
+                SupportedModels::BGEBaseEnV15,
+            ],
+            model_cache_location: home_dir()
+                .map(|mut path| {
+                    path.push(".ahnlich");
+                    path.push("models");
+                    path
+                })
+                .expect("Default directory could not be resolved."),
             ai_model_idle_time: 60 * 5,
             common: CommandLineConfig::default(),
         }
@@ -99,6 +172,11 @@ impl AIProxyConfig {
         self
     }
 
+    pub fn set_model_cache_location(mut self, location: std::path::PathBuf) -> Self {
+        self.model_cache_location = location;
+        self
+    }
+
     #[cfg(test)]
     pub fn set_supported_models(mut self, models: Vec<SupportedModels>) -> Self {
         self.supported_models = models;
@@ -106,11 +184,28 @@ impl AIProxyConfig {
     }
 }
 
+impl fmt::Display for SupportedModels {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SupportedModels::AllMiniLML6V2 => write!(f, "all-MiniLM-L6-v2"),
+            SupportedModels::AllMiniLML12V2 => write!(f, "all-MiniLM-L12-v2"),
+            SupportedModels::BGEBaseEnV15 => write!(f, "BGEBase-En-v1.5"),
+            SupportedModels::BGELargeEnV15 => write!(f, "BGELarge-En-v1.5"),
+            SupportedModels::Resnet50 => write!(f, "Resnet-50"),
+            SupportedModels::ClipVitB32 => write!(f, "ClipVit-B32"),
+        }
+    }
+}
+
 impl From<&AIModel> for SupportedModels {
     fn from(value: &AIModel) -> Self {
         match value {
-            AIModel::Llama3 => SupportedModels::Llama3,
-            AIModel::DALLE3 => SupportedModels::Dalle3,
+            AIModel::AllMiniLML6V2 => SupportedModels::AllMiniLML6V2,
+            AIModel::AllMiniLML12V2 => SupportedModels::AllMiniLML12V2,
+            AIModel::BGEBaseEnV15 => SupportedModels::BGEBaseEnV15,
+            AIModel::BGELargeEnV15 => SupportedModels::BGELargeEnV15,
+            AIModel::Resnet50 => SupportedModels::Resnet50,
+            AIModel::ClipVitB32 => SupportedModels::ClipVitB32,
         }
     }
 }
@@ -118,8 +213,12 @@ impl From<&AIModel> for SupportedModels {
 impl From<&SupportedModels> for AIModel {
     fn from(value: &SupportedModels) -> Self {
         match value {
-            SupportedModels::Llama3 => AIModel::Llama3,
-            SupportedModels::Dalle3 => AIModel::DALLE3,
+            SupportedModels::AllMiniLML6V2 => AIModel::AllMiniLML6V2,
+            SupportedModels::AllMiniLML12V2 => AIModel::AllMiniLML12V2,
+            SupportedModels::BGEBaseEnV15 => AIModel::BGEBaseEnV15,
+            SupportedModels::BGELargeEnV15 => AIModel::BGELargeEnV15,
+            SupportedModels::Resnet50 => AIModel::Resnet50,
+            SupportedModels::ClipVitB32 => AIModel::ClipVitB32,
         }
     }
 }

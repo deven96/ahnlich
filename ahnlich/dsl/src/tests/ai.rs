@@ -130,40 +130,46 @@ fn test_drop_pred_index_parse() {
 #[test]
 fn test_create_store_parse() {
     // simple syntax
-    let input = r#"CREATEstore storename QUERYMODEL dalle3 INDEXMODEL llama3 "#;
+    let input = r#"CREATEstore storename QUERYMODEL resnet-50 INDEXMODEL all-minilm-l6-v2 "#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AIQuery::CreateStore {
             store: StoreName("storename".to_string()),
-            query_model: AIModel::DALLE3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::Resnet50,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: false,
         }]
     );
-    let input = r#"CREATEstore storename QUERYMODEL dalle3 INDEXMODEL llama3 PREDICATES (department, faculty)"#;
+    let input = r#"CREATEstore IF NOT EXISTS storename QUERYMODEL resnet-50 INDEXMODEL all-minilm-l6-v2 PREDICATES (department, faculty) STOREORIGINAL"#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AIQuery::CreateStore {
             store: StoreName("storename".to_string()),
-            query_model: AIModel::DALLE3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::Resnet50,
+            index_model: AIModel::AllMiniLML6V2,
             predicates: HashSet::from_iter([
                 MetadataKey::new("department".to_string()),
                 MetadataKey::new("faculty".to_string()),
             ]),
             non_linear_indices: HashSet::new(),
+            error_if_exists: false,
+            store_original: true,
         }]
     );
-    let input = r#"createstore school QUERYMODEL dalle3 INDEXMODEL llama3 NONLINEARALGORITHMINDEX (kdtree)"#;
+    let input = r#"createstore school QUERYMODEL all-minilm-l6-v2 INDEXMODEL resnet-50 NONLINEARALGORITHMINDEX (kdtree) STOREORIGINAL"#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AIQuery::CreateStore {
             store: StoreName("school".to_string()),
-            query_model: AIModel::DALLE3,
-            index_model: AIModel::Llama3,
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::Resnet50,
             predicates: HashSet::new(),
             non_linear_indices: HashSet::from_iter([NonLinearAlgorithm::KDTree]),
+            error_if_exists: true,
+            store_original: true,
         }]
     );
 }

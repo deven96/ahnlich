@@ -21,20 +21,48 @@ class AIModel:
 
 
 @dataclass(frozen=True)
-class AIModel__DALLE3(AIModel):
+class AIModel__AllMiniLML6V2(AIModel):
     INDEX = 0  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIModel__Llama3(AIModel):
+class AIModel__AllMiniLML12V2(AIModel):
     INDEX = 1  # type: int
     pass
 
 
+@dataclass(frozen=True)
+class AIModel__BGEBaseEnV15(AIModel):
+    INDEX = 2  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIModel__BGELargeEnV15(AIModel):
+    INDEX = 3  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIModel__Resnet50(AIModel):
+    INDEX = 4  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIModel__ClipVitB32(AIModel):
+    INDEX = 5  # type: int
+    pass
+
+
 AIModel.VARIANTS = [
-    AIModel__DALLE3,
-    AIModel__Llama3,
+    AIModel__AllMiniLML6V2,
+    AIModel__AllMiniLML12V2,
+    AIModel__BGEBaseEnV15,
+    AIModel__BGELargeEnV15,
+    AIModel__Resnet50,
+    AIModel__ClipVitB32,
 ]
 
 
@@ -60,6 +88,8 @@ class AIQuery__CreateStore(AIQuery):
     index_model: "AIModel"
     predicates: typing.Sequence[str]
     non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
+    error_if_exists: bool
+    store_original: bool
 
 
 @dataclass(frozen=True)

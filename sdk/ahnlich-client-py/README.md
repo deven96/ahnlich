@@ -400,12 +400,17 @@ client = AhnlichAIClient(address="127.0.0.1", port=port)
 
 response = client.create_store(
     store_name = "test store",
-    model = ai_query.AIModel__Llama3(),
+    model = ai_query.AIModel__AllMiniLML6V2(),
     store_type = ai_query.AIStoreType__RawString(),
     predicates = [
         "job"
     ],
     non_linear_indices= [],
+    error_if_exists = True,
+    # Store original controls if we choose to store the raw inputs 
+    # within the DB in order to be able to retrieve the originals again
+    # during query, else only store values are returned
+    store_original = True,
     tracing_id=None,
 )
 

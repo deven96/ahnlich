@@ -47,10 +47,12 @@ pub fn trace_ai_query_enum() -> Registry {
 
     let create_store = AIQuery::CreateStore {
         store: sample_store_name.clone(),
-        index_model: AIModel::Llama3,
-        query_model: AIModel::Llama3,
+        index_model: AIModel::AllMiniLML6V2,
+        query_model: AIModel::AllMiniLML6V2,
         predicates: test_create_predicates.clone(),
         non_linear_indices: test_non_linear_indices,
+        error_if_exists: false,
+        store_original: true,
     };
 
     let get_pred = AIQuery::GetPred {

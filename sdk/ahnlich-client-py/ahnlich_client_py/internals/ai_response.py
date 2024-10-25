@@ -21,20 +21,48 @@ class AIModel:
 
 
 @dataclass(frozen=True)
-class AIModel__DALLE3(AIModel):
+class AIModel__AllMiniLML6V2(AIModel):
     INDEX = 0  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIModel__Llama3(AIModel):
+class AIModel__AllMiniLML12V2(AIModel):
     INDEX = 1  # type: int
     pass
 
 
+@dataclass(frozen=True)
+class AIModel__BGEBaseEnV15(AIModel):
+    INDEX = 2  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIModel__BGELargeEnV15(AIModel):
+    INDEX = 3  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIModel__Resnet50(AIModel):
+    INDEX = 4  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIModel__ClipVitB32(AIModel):
+    INDEX = 5  # type: int
+    pass
+
+
 AIModel.VARIANTS = [
-    AIModel__DALLE3,
-    AIModel__Llama3,
+    AIModel__AllMiniLML6V2,
+    AIModel__AllMiniLML12V2,
+    AIModel__BGEBaseEnV15,
+    AIModel__BGELargeEnV15,
+    AIModel__Resnet50,
+    AIModel__ClipVitB32,
 ]
 
 
@@ -92,7 +120,7 @@ class AIServerResponse__Set(AIServerResponse):
 class AIServerResponse__Get(AIServerResponse):
     INDEX = 6  # type: int
     value: typing.Sequence[
-        typing.Tuple["StoreInput", typing.Dict[str, "MetadataValue"]]
+        typing.Tuple[typing.Optional["StoreInput"], typing.Dict[str, "MetadataValue"]]
     ]
 
 
@@ -100,7 +128,11 @@ class AIServerResponse__Get(AIServerResponse):
 class AIServerResponse__GetSimN(AIServerResponse):
     INDEX = 7  # type: int
     value: typing.Sequence[
-        typing.Tuple["StoreInput", typing.Dict[str, "MetadataValue"], "Similarity"]
+        typing.Tuple[
+            typing.Optional["StoreInput"],
+            typing.Dict[str, "MetadataValue"],
+            "Similarity",
+        ]
     ]
 
 
