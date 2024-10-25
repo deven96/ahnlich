@@ -90,6 +90,11 @@ jobs:
       run: |
         poetry run isort . -c --profile black; echo $?
         poetry run black . --check; echo $?
+
+    - name: Complie Binaries
+      working-directory: ./ahnlich
+      run: |
+        cargo build
     
     - name: Run Python Client Tests
       working-directory: ./sdk/ahnlich-client-py
