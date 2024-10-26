@@ -4,7 +4,7 @@ use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::AIStoreInputType;
 use hf_hub::{api::sync::ApiBuilder, Cache};
-use ort::{ExecutionProviderDispatch, GraphOptimizationLevel, Session};
+use ort::Session;
 use rayon::prelude::*;
 use rayon::iter::Either;
 
@@ -13,7 +13,8 @@ use std::default::Default;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::thread::available_parallelism;
-use ndarray::{Array, ArrayView, Ix3};
+use ndarray::{Array, Array1, ArrayView, Axis, Ix3};
+use ahnlich_types::keyval::StoreKey;
 
 #[derive(Default)]
 pub struct ORTProvider {
@@ -89,13 +90,13 @@ impl ORTProvider {
         v.par_iter().map(|&val| val / (norm + epsilon)).collect()
     }
 
-    pub fn batch_inference(&self, inputs: Vec<&ImageArray>) -> Result<Vec<Vec<f32>>, AIProxyError> {
+    pub fn batch_inference(&self, inputs: &[&ImageArray]) -> Result<Vec<StoreKey>, AIProxyError> {
         let model = match &self.model {
             Some(ORTModel::Image(model)) => model,
             _ => return Err(AIProxyError::AIModelNotSupported),
         };
 
-        let array: Vec<Array<f32, Ix3>> = inputs.iter()
+        let array: Vec<Array<f32, Ix3>> = inputs.par_iter()
             .map(|image_arr| {
                 let arr = image_arr.get_array();
                 let mut arr = arr.mapv(f32::from);
@@ -103,9 +104,11 @@ impl ORTProvider {
                 arr.swap_axes(1, 2);
                 arr.swap_axes(0, 1);
                 arr
-            }).collect();
+            })
+            .collect();
 
-        let array_views: Vec<ArrayView<f32, Ix3>> = array.iter()
+        // TODO: Figure how to avoid this second par_iter.
+        let array_views: Vec<ArrayView<f32, Ix3>> = array.par_iter()
             .map(|arr| arr.view()).collect();
 
         let pixel_values_array = ndarray::stack(ndarray::Axis(0), &array_views).unwrap();
@@ -125,12 +128,15 @@ impl ORTProvider {
                 let output_data = outputs[last_hidden_state_key]
                     .try_extract_tensor::<f32>()
                     .map_err(|_| AIProxyError::ModelProviderPostprocessingError)?;
-                let embeddings: Vec<Vec<f32>> = output_data
-                    .rows()
-                    .into_iter()
-                    .map(|row| ORTProvider::normalize(row.as_slice().unwrap()))
+                let store_keys = output_data
+                    .axis_iter(Axis(0))
+                    .into_par_iter()
+                    .map(|row| {
+                        let embeddings = ORTProvider::normalize(row.as_slice().unwrap());
+                        StoreKey(<Array1<f32>>::from(embeddings))
+                    })
                     .collect();
-                Ok(embeddings.to_owned())
+                Ok(store_keys)
             }
             None => Err(AIProxyError::AIModelNotInitialized)
         }
@@ -155,15 +161,16 @@ impl ProviderTrait for ORTProvider {
         };
         let ort_model = ORTModel::try_from(&supported_model)?;
 
-        let threads = available_parallelism()
-            .expect("Could not find the threads")
-            .get();
 
         let cache = Cache::new(cache_location);
         let api = ApiBuilder::from_cache(cache)
             .with_progress(true)
             .build()
             .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+
+        let threads = available_parallelism()
+            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?
+            .get();
 
         match ort_model {
             ORTModel::Image(ORTImageModel {
@@ -177,10 +184,7 @@ impl ProviderTrait for ORTProvider {
                 let model_file_reference = model_repo
                     .get(&weights_file)
                     .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
-                let executioners: Vec<ExecutionProviderDispatch> = Default::default();
                 let session = Session::builder()?
-                    .with_execution_providers(executioners)?
-                    .with_optimization_level(GraphOptimizationLevel::Level3)?
                     .with_intra_threads(threads)?
                     .commit_from_file(model_file_reference)?;
                 self.model = Some(ORTModel::Image(ORTImageModel {
@@ -199,7 +203,8 @@ impl ProviderTrait for ORTProvider {
         let Some(cache_location) = self.cache_location.clone() else {
             return Err(AIProxyError::CacheLocationNotInitiailized);
         };
-        let supported_model = self.supported_models.expect("A model has not been set.");
+        let supported_model = self.supported_models
+            .ok_or_else(|| AIProxyError::AIModelNotInitialized)?;
         let ort_model = ORTModel::try_from(&supported_model)?;
 
         let cache = Cache::new(cache_location);
@@ -226,7 +231,7 @@ impl ProviderTrait for ORTProvider {
         }
     }
 
-    fn run_inference(&self, inputs: &[ModelInput], action_type: &InputAction) -> Result<Vec<Vec<f32>>, AIProxyError> {
+    fn run_inference(&self, inputs: &[ModelInput], action_type: &InputAction) -> Result<Vec<StoreKey>, AIProxyError> {
         let (string_inputs, image_inputs): (Vec<&String>, Vec<&ImageArray>) = inputs
             .par_iter().partition_map(|input| {
             match input {
@@ -249,16 +254,13 @@ impl ProviderTrait for ORTProvider {
         }
 
         let batch_size = 16;
-        let all_embeddings = image_inputs
-            .par_chunks(batch_size)
-            .map(|batch_inputs| {
-                self.batch_inference(batch_inputs.to_vec())
-            })
-            .try_reduce(Vec::new, |mut accumulator, mut embeddings| {
-                accumulator.append(&mut embeddings);
+        let store_keys = image_inputs
+            .chunks(batch_size)
+            .try_fold(Vec::new(), |mut accumulator, batch_inputs|{
+                accumulator.extend(self.batch_inference(batch_inputs)?);
                 Ok(accumulator)
             });
 
-        all_embeddings
+        store_keys
     }
 }

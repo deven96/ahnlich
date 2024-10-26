@@ -8,6 +8,7 @@ use crate::engine::ai::providers::ort::ORTProvider;
 use crate::error::AIProxyError;
 use std::path::Path;
 use strum::EnumIter;
+use ahnlich_types::keyval::StoreKey;
 
 #[derive(Debug, EnumIter)]
 pub enum ModelProviders {
@@ -24,7 +25,7 @@ pub trait ProviderTrait: std::fmt::Debug + Send + Sync {
         &self,
         input: &[ModelInput],
         action_type: &InputAction,
-    ) -> Result<Vec<Vec<f32>>, AIProxyError>;
+    ) -> Result<Vec<StoreKey>, AIProxyError>;
 }
 
 pub trait TextPreprocessorTrait {

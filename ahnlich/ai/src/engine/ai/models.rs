@@ -9,7 +9,7 @@ use ahnlich_types::{
     keyval::{StoreInput, StoreKey},
 };
 use image::{GenericImageView, ImageReader};
-use ndarray::{Array, Array1, Ix3};
+use ndarray::{Array, Ix3};
 use nonzero_ext::nonzero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -123,14 +123,10 @@ impl Model {
         storeinput: &Vec<ModelInput>,
         action_type: &InputAction,
     ) -> Result<Vec<StoreKey>, AIProxyError> {
-        let embeddings = match &self.provider {
+        let store_keys = match &self.provider {
             ModelProviders::FastEmbed(provider) => provider.run_inference(storeinput, action_type)?,
             ModelProviders::ORT(provider) => provider.run_inference(storeinput, action_type)?
         };
-        let store_keys = embeddings
-            .into_iter()
-            .map(|emb| StoreKey(<Array1<f32>>::from(emb)))
-            .collect();
         Ok(store_keys)
     }
 

@@ -10,7 +10,9 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 use rayon::prelude::*;
 use rayon::iter::Either;
+use ndarray::Array1;
 use tiktoken_rs::{cl100k_base, CoreBPE};
+use ahnlich_types::keyval::StoreKey;
 
 #[derive(Default)]
 pub struct FastEmbedProvider {
@@ -184,7 +186,7 @@ impl ProviderTrait for FastEmbedProvider {
         //     TODO (HAKSOAT): When we add model specific tokenizers, add the get tokenizer call here too.
     }
 
-    fn run_inference(&self, inputs: &[ModelInput], action_type: &InputAction) -> Result<Vec<Vec<f32>>, AIProxyError> {
+    fn run_inference(&self, inputs: &[ModelInput], action_type: &InputAction) -> Result<Vec<StoreKey>, AIProxyError> {
         return if let Some(fastembed_model) = &self.model {
             let (string_inputs, image_inputs): (Vec<&String>, Vec<&ImageArray>) = inputs
                 .par_iter().partition_map(|input| {
@@ -210,10 +212,15 @@ impl ProviderTrait for FastEmbedProvider {
                 return Err(AIProxyError::AIModelNotSupported)
             };
             let batch_size = 16;
-            let embeddings = model
+            let store_keys = model
                 .embed(string_inputs, Some(batch_size))
-                .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?;
-            Ok(embeddings.to_owned())
+                .map_err(|_| AIProxyError::ModelProviderRunInferenceError)?
+                .iter()
+                .try_fold(Vec::new(), |mut accumulator, embedding|{
+                    accumulator.push(StoreKey(<Array1<f32>>::from(embedding.to_owned())));
+                    Ok(accumulator)
+                });
+            store_keys
         } else {
             Err(AIProxyError::AIModelNotSupported)
         }
