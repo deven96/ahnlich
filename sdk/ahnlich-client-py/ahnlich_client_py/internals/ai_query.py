@@ -88,6 +88,8 @@ class AIQuery__CreateStore(AIQuery):
     index_model: "AIModel"
     predicates: typing.Sequence[str]
     non_linear_indices: typing.Sequence["NonLinearAlgorithm"]
+    error_if_exists: bool
+    store_original: bool
 
 
 @dataclass(frozen=True)

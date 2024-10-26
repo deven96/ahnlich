@@ -120,7 +120,7 @@ class AIServerResponse__Set(AIServerResponse):
 class AIServerResponse__Get(AIServerResponse):
     INDEX = 6  # type: int
     value: typing.Sequence[
-        typing.Tuple["StoreInput", typing.Dict[str, "MetadataValue"]]
+        typing.Tuple[typing.Optional["StoreInput"], typing.Dict[str, "MetadataValue"]]
     ]
 
 
@@ -128,7 +128,11 @@ class AIServerResponse__Get(AIServerResponse):
 class AIServerResponse__GetSimN(AIServerResponse):
     INDEX = 7  # type: int
     value: typing.Sequence[
-        typing.Tuple["StoreInput", typing.Dict[str, "MetadataValue"], "Similarity"]
+        typing.Tuple[
+            typing.Optional["StoreInput"],
+            typing.Dict[str, "MetadataValue"],
+            "Similarity",
+        ]
     ]
 
 

@@ -93,11 +93,10 @@ pub enum AIProxyError {
     #[error("Bytes could not be successfully decoded into an image.")]
     ImageBytesDecodeError,
 
-    #[error("Image can't have zero value in any dimension. Found height: {height}, width: {width}")]
-    ImageNonzeroDimensionError {
-        width: usize,
-        height: usize,
-    },
+    #[error(
+        "Image can't have zero value in any dimension. Found height: {height}, width: {width}"
+    )]
+    ImageNonzeroDimensionError { width: usize, height: usize },
 
     #[error("Image could not be resized.")]
     ImageResizeError,
@@ -112,7 +111,10 @@ pub enum AIProxyError {
     ModelProviderPostprocessingError,
 
     #[error("Model provider failed on tokenization of text inputs.")]
-    ModelTokenizationError
+    ModelTokenizationError,
+
+    #[error("Cannot call DelKey on store with `store_original` as false")]
+    DelKeyError,
 }
 
 impl From<TryReserveError> for AIProxyError {
