@@ -204,7 +204,7 @@ impl ProviderTrait for ORTProvider {
             return Err(AIProxyError::CacheLocationNotInitiailized);
         };
         let supported_model = self.supported_models
-            .ok_or_else(|| AIProxyError::AIModelNotInitialized)?;
+            .ok_or(AIProxyError::AIModelNotInitialized)?;
         let ort_model = ORTModel::try_from(&supported_model)?;
 
         let cache = Cache::new(cache_location);
