@@ -9,7 +9,7 @@ use ahnlich_types::{
     keyval::{StoreInput, StoreKey},
 };
 use image::{GenericImageView, ImageReader};
-use ndarray::{Array, Array1, Ix3};
+use ndarray::{Array, Ix3};
 use nonzero_ext::nonzero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -120,19 +120,14 @@ impl Model {
     #[tracing::instrument(skip(self))]
     pub fn model_ndarray(
         &self,
-        storeinput: &ModelInput,
+        storeinput: &Vec<ModelInput>,
         action_type: &InputAction,
-    ) -> Result<StoreKey, AIProxyError> {
-        match &self.provider {
-            ModelProviders::FastEmbed(provider) => {
-                let embedding = provider.run_inference(storeinput, action_type)?;
-                Ok(StoreKey(<Array1<f32>>::from(embedding)))
-            }
-            ModelProviders::ORT(provider) => {
-                let embedding = provider.run_inference(storeinput, action_type)?;
-                Ok(StoreKey(<Array1<f32>>::from(embedding)))
-            }
-        }
+    ) -> Result<Vec<StoreKey>, AIProxyError> {
+        let store_keys = match &self.provider {
+            ModelProviders::FastEmbed(provider) => provider.run_inference(storeinput, action_type)?,
+            ModelProviders::ORT(provider) => provider.run_inference(storeinput, action_type)?
+        };
+        Ok(store_keys)
     }
 
     #[tracing::instrument(skip(self))]
