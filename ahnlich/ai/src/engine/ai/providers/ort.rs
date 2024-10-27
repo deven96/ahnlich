@@ -3,7 +3,9 @@ use crate::engine::ai::models::{ImageArray, InputAction, Model, ModelInput};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::AIStoreInputType;
+use fallible_collections::FallibleVec;
 use hf_hub::{api::sync::ApiBuilder, Cache};
+use itertools::Itertools;
 use ort::Session;
 use rayon::iter::Either;
 use rayon::prelude::*;
@@ -256,6 +258,11 @@ impl ProviderTrait for ORTProvider {
                 storeinput_type: store_input_type,
             });
         }
-        self.batch_inference(image_inputs)
+        let batch_size = 16;
+        let mut store_keys: Vec<_> = FallibleVec::try_with_capacity(image_inputs.len())?;
+        for batch_inputs in image_inputs.into_iter().chunks(batch_size).into_iter() {
+            store_keys.extend(self.batch_inference(batch_inputs.collect())?);
+        }
+        Ok(store_keys)
     }
 }
