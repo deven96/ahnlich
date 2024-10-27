@@ -107,6 +107,7 @@ dependencies = [
  "futures",
  "hf-hub",
  "image",
+ "itertools 0.10.5",
  "log",
  "moka",
  "ndarray",
