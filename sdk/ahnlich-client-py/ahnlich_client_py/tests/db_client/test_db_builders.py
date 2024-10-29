@@ -13,21 +13,22 @@ def test_client_sends_bulk_unit_requests_to_db_succeeds(spin_up_ahnlich_db):
 
     try:
         response: db_response.ServerResult = request_builder.exec()
+        assert len(response.results) == 4
+        assert response.results[0] == db_response.Result__Ok(
+            db_response.ServerResponse__Pong()
+        )
+        # assert info servers
+        info_server: db_response.ServerInfo = response.results[1].value
+        assert info_server.value.version == db_client.message_protocol.version
+        assert info_server.value.type == db_response.ServerType__Database()
+
+        # assert list_stores
+        assert response.results[3] == db_response.Result__Ok(
+            db_response.ServerResponse__StoreList([])
+        )
     except Exception as e:
         print(f"Exception {e}")
+        db_client.cleanup()
+        raise e
     finally:
         db_client.cleanup()
-
-    assert len(response.results) == 4
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Pong()
-    )
-    # assert info servers
-    info_server: db_response.ServerInfo = response.results[1].value
-    assert info_server.value.version == db_client.message_protocol.version
-    assert info_server.value.type == db_response.ServerType__Database()
-
-    # assert list_stores
-    assert response.results[3] == db_response.Result__Ok(
-        db_response.ServerResponse__StoreList([])
-    )
