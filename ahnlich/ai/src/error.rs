@@ -69,8 +69,10 @@ pub enum AIProxyError {
     #[error("Cache location for model was not initialized")]
     CacheLocationNotInitiailized,
 
-    #[error("index_model or query_model not supported")]
-    AIModelNotSupported,
+    #[error("index_model or query_model [{model_name}] not supported")]
+    AIModelNotSupported {
+        model_name: String
+    },
 
     // TODO: Add SendError from mpsc::Sender into this variant
     #[error("Error sending request to model thread")]
@@ -79,7 +81,7 @@ pub enum AIProxyError {
     #[error("Error receiving response from model thread")]
     AIModelRecvError(#[from] RecvError),
 
-    #[error("Dimensions Mismatch between index [{index_model_dim}], and Query [{query_model_dim}] Models")]
+    #[error("Dimensions Mismatch between index [{index_model_dim}], and Query [{query_model_dim}] Models.")]
     DimensionsMismatchError {
         index_model_dim: usize,
         query_model_dim: usize,
@@ -87,7 +89,7 @@ pub enum AIProxyError {
     #[error("allocation error {0:?}")]
     Allocation(TryReserveError),
 
-    #[error("Error initializing a model thread {0}")]
+    #[error("Error initializing a model thread {0}.")]
     ModelInitializationError(String),
 
     #[error("Bytes could not be successfully decoded into an image.")]
@@ -104,6 +106,9 @@ pub enum AIProxyError {
     #[error("Model provider failed on preprocessing the input {0}")]
     ModelProviderPreprocessingError(String),
 
+    #[error("Inference can only be run on one of text or image inputs, not both.")]
+    VaryingInferenceInputTypes,
+
     #[error("Model provider failed on running inference {0}")]
     ModelProviderRunInferenceError(String),
 
@@ -115,6 +120,9 @@ pub enum AIProxyError {
 
     #[error("Cannot call DelKey on store with `store_original` as false")]
     DelKeyError,
+
+    #[error("Tokenizer for model failed on loading.")]
+    ModelTokenizerLoadError
 }
 
 impl From<TryReserveError> for AIProxyError {

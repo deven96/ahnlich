@@ -40,17 +40,20 @@ pub struct FastEmbedPreprocessor {
 }
 
 // TODO (HAKSOAT): Implement other preprocessors
-impl TextPreprocessorTrait for FastEmbedPreprocessor {
+impl TextPreprocessorTrait for FastEmbedProvider {
     fn encode_str(&self, text: &str) -> Result<Vec<usize>, AIProxyError> {
-        let tokens = self.tokenizer.0.encode_with_special_tokens(text);
+        let preprocessor = self.preprocessor.as_ref()
+            .ok_or(AIProxyError::AIModelNotInitialized)?;
+        let tokens = preprocessor
+            .tokenizer.0.encode_with_special_tokens(text);
         Ok(tokens)
     }
 
     fn decode_tokens(&self, tokens: Vec<usize>) -> Result<String, AIProxyError> {
-        let text = self
-            .tokenizer
-            .0
-            .decode(tokens)
+        let preprocessor = self.preprocessor.as_ref()
+            .ok_or(AIProxyError::AIModelNotInitialized)?;
+        let text = preprocessor
+            .tokenizer.0.decode(tokens)
             .map_err(|_| AIProxyError::ModelTokenizationError)?;
         Ok(text)
     }
@@ -87,11 +90,11 @@ impl TryFrom<&SupportedModels> for FastEmbedModelType {
                     SupportedModels::AllMiniLML12V2 => EmbeddingModel::AllMiniLML12V2,
                     SupportedModels::BGEBaseEnV15 => EmbeddingModel::BGEBaseENV15,
                     SupportedModels::BGELargeEnV15 => EmbeddingModel::BGELargeENV15,
-                    _ => return Err(AIProxyError::AIModelNotSupported),
+                    _ => return Err(AIProxyError::AIModelNotSupported { model_name: model.to_string() }),
                 };
                 FastEmbedModelType::Text(model_type)
             }
-            _ => return Err(AIProxyError::AIModelNotSupported),
+            _ => return Err(AIProxyError::AIModelNotSupported { model_name: model.to_string() }),
         };
         Ok(model_type)
     }
@@ -115,22 +118,6 @@ impl FastEmbedProvider {
         let tokenizer = Tokenizer::new(&supported_models)?;
         self.preprocessor = Some(FastEmbedPreprocessor { tokenizer });
         Ok(())
-    }
-
-    pub fn encode_str(&self, text: &str) -> Result<Vec<usize>, AIProxyError> {
-        if let Some(preprocessor) = &self.preprocessor {
-            preprocessor.encode_str(text)
-        } else {
-            Err(AIProxyError::AIModelNotInitialized)
-        }
-    }
-
-    pub fn decode_tokens(&self, tokens: Vec<usize>) -> Result<String, AIProxyError> {
-        if let Some(preprocessor) = &self.preprocessor {
-            preprocessor.decode_tokens(tokens)
-        } else {
-            Err(AIProxyError::AIModelNotInitialized)
-        }
     }
 }
 
@@ -211,7 +198,7 @@ impl ProviderTrait for FastEmbedProvider {
                 });
             }
             let FastEmbedModel::Text(model) = fastembed_model else {
-                return Err(AIProxyError::AIModelNotSupported);
+                return Err(AIProxyError::AIModelNotSupported { model_name: self.supported_models.unwrap().to_string() });
             };
             let batch_size = 16;
             let store_keys = model
@@ -224,7 +211,9 @@ impl ProviderTrait for FastEmbedProvider {
                 });
             store_keys
         } else {
-            Err(AIProxyError::AIModelNotSupported)
+            Err(AIProxyError::AIModelNotSupported {
+                model_name: self.supported_models.unwrap().to_string(),
+            })
         };
     }
 }

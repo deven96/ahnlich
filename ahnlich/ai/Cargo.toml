@@ -47,6 +47,7 @@ tracing-opentelemetry.workspace = true
 futures.workspace = true
 tiktoken-rs = "0.5.9"
 itertools.workspace = true
+tokenizers = { version = "0.20.1", features = ["hf-hub"] }
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true

@@ -1,17 +1,19 @@
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{ImageArray, InputAction, Model, ModelInput};
-use crate::engine::ai::providers::ProviderTrait;
+use crate::engine::ai::providers::ort_helper::{get_tokenizer_artifacts_hf_hub, normalize,
+                                               load_tokenizer_artifacts_hf_hub};
+use crate::engine::ai::providers::{ProviderTrait, TextPreprocessorTrait};
 use crate::error::AIProxyError;
-use ahnlich_types::ai::AIStoreInputType;
 use fallible_collections::FallibleVec;
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use itertools::Itertools;
-use ort::Session;
 use rayon::iter::Either;
+use ort::{Session, Value};
+use tokenizers::Tokenizer;
 use rayon::prelude::*;
 
 use ahnlich_types::keyval::StoreKey;
-use ndarray::{Array1, ArrayView, Axis, Ix3};
+use ndarray::{Array, Array1, ArrayView, Axis, Ix3};
 use std::convert::TryFrom;
 use std::default::Default;
 use std::fmt;
@@ -23,7 +25,8 @@ pub struct ORTProvider {
     cache_location: Option<PathBuf>,
     cache_location_extension: PathBuf,
     supported_models: Option<SupportedModels>,
-    model: Option<ORTModel>,
+    pub preprocessor: Option<ORTPreprocessor>,
+    pub model: Option<ORTModel>,
 }
 
 impl fmt::Debug for ORTProvider {
@@ -41,36 +44,64 @@ pub struct ORTImageModel {
     repo_name: String,
     weights_file: String,
     session: Option<Session>,
-    input_param: String,
+    input_params: Vec<String>,
+    output_param: String,
+}
+
+#[derive(Default)]
+pub struct ORTTextModel {
+    repo_name: String,
+    weights_file: String,
+    session: Option<Session>,
+    input_params: Vec<String>,
     output_param: String,
 }
 
 pub enum ORTModel {
     Image(ORTImageModel),
+    Text(ORTTextModel)
+}
+
+pub enum ORTPreprocessor {
+    Text(ORTTextPreprocessor),
+}
+
+pub struct ORTTextPreprocessor {
+    tokenizer: Tokenizer,
 }
 
 impl TryFrom<&SupportedModels> for ORTModel {
     type Error = AIProxyError;
 
     fn try_from(model: &SupportedModels) -> Result<Self, Self::Error> {
-        let model_type = match model {
-            SupportedModels::Resnet50 => Ok(ORTImageModel {
+        let model_type: Result<ORTModel, AIProxyError> = match model {
+            SupportedModels::Resnet50 => Ok(ORTModel::Image(ORTImageModel {
                 repo_name: "Qdrant/resnet50-onnx".to_string(),
                 weights_file: "model.onnx".to_string(),
-                input_param: "input".to_string(),
+                input_params: vec!["input".to_string()],
                 output_param: "image_embeds".to_string(),
                 ..Default::default()
-            }),
-            SupportedModels::ClipVitB32 => Ok(ORTImageModel {
+            })),
+            SupportedModels::ClipVitB32Image => Ok(ORTModel::Image(ORTImageModel {
                 repo_name: "Qdrant/clip-ViT-B-32-vision".to_string(),
                 weights_file: "model.onnx".to_string(),
-                input_param: "pixel_values".to_string(),
+                input_params: vec!["pixel_values".to_string()],
                 output_param: "image_embeds".to_string(),
                 ..Default::default()
+            })),
+            SupportedModels::ClipVitB32Text => Ok(ORTModel::Text(ORTTextModel {
+                repo_name: "Qdrant/clip-ViT-B-32-text".to_string(),
+                weights_file: "model.onnx".to_string(),
+                input_params: vec!["input_ids".to_string(), "attention_mask".to_string()],
+                output_param: "text_embeds".to_string(),
+                ..Default::default()
+            })),
+            _ => Err(AIProxyError::AIModelNotSupported {
+                model_name: model.to_string(),
             }),
-            _ => Err(AIProxyError::AIModelNotSupported),
         };
-        Ok(ORTModel::Image(model_type?))
+
+        model_type
     }
 }
 
@@ -79,26 +110,16 @@ impl ORTProvider {
         Self {
             cache_location: None,
             cache_location_extension: PathBuf::from("huggingface"),
+            preprocessor: None,
             supported_models: None,
             model: None,
         }
     }
 
-    pub fn normalize(v: &[f32]) -> Vec<f32> {
-        let norm = (v.par_iter().map(|val| val * val).sum::<f32>()).sqrt();
-        let epsilon = 1e-12;
-
-        // We add the super-small epsilon to avoid dividing by zero
-        v.par_iter().map(|&val| val / (norm + epsilon)).collect()
-    }
-
-    pub fn batch_inference(
-        &self,
-        mut inputs: Vec<ImageArray>,
-    ) -> Result<Vec<StoreKey>, AIProxyError> {
+    pub fn batch_inference_image(&self, mut inputs: Vec<ImageArray>) -> Result<Vec<StoreKey>, AIProxyError> {
         let model = match &self.model {
             Some(ORTModel::Image(model)) => model,
-            _ => return Err(AIProxyError::AIModelNotSupported),
+            _ => return Err(AIProxyError::AIModelNotSupported { model_name: self.supported_models.unwrap().to_string() }),
         };
 
         let array_views: Vec<ArrayView<f32, Ix3>> = inputs
@@ -114,12 +135,96 @@ impl ORTProvider {
         match &model.session {
             Some(session) => {
                 let session_inputs = ort::inputs![
-                    model.input_param.as_str() => pixel_values_array.view(),
-                ]
-                .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+                    model.input_params.get(0).expect("Hardcoded in parameters")
+                    .as_str() => pixel_values_array.view(),
+                ].map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
 
-                let outputs = session
-                    .run(session_inputs)
+                let outputs = session.run(session_inputs)
+                    .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
+                let last_hidden_state_key = match outputs.len() {
+                    1 => outputs.keys().next().unwrap(),
+                    _ => model.output_param.as_str(),
+                };
+
+                let output_data = outputs[last_hidden_state_key]
+                    .try_extract_tensor::<f32>()
+                    .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+                let store_keys = output_data
+                    .axis_iter(Axis(0))
+                    .into_par_iter()
+                    .map(|row| {
+                        let embeddings = normalize(row.as_slice().unwrap());
+                        StoreKey(<Array1<f32>>::from(embeddings))
+                    })
+                    .collect();
+                Ok(store_keys)
+            }
+            None => Err(AIProxyError::AIModelNotInitialized)
+        }
+    }
+
+    pub fn batch_inference_text(&self, inputs: Vec<String>) -> Result<Vec<StoreKey>, AIProxyError> {
+        let inputs = inputs.iter().map(|x| x.as_str()).collect::<Vec<&str>>();
+        let model = match &self.model {
+            Some(ORTModel::Text(model)) => model,
+            _ => return Err(AIProxyError::AIModelNotSupported { model_name: self.supported_models.unwrap().to_string() }),
+        };
+        let batch_size = inputs.len();
+        let encodings = match &self.preprocessor {
+            Some(ORTPreprocessor::Text(preprocessor)) => {
+                // TODO: We encode tokens at the preprocess step early in the workflow then also encode here.
+                // Find a way to store those encoded tokens for reuse here.
+                preprocessor.tokenizer.encode_batch(inputs, true).map_err(|_| {
+                    AIProxyError::ModelTokenizationError
+                })?
+            }
+            _ => return Err(AIProxyError::AIModelNotInitialized)
+        };
+
+        // Extract the encoding length and batch size
+        let encoding_length = encodings[0].len();
+
+        let max_size = encoding_length * batch_size;
+
+        // Preallocate arrays with the maximum size
+        let mut ids_array = Vec::with_capacity(max_size);
+        let mut mask_array = Vec::with_capacity(max_size);
+        let mut typeids_array = Vec::with_capacity(max_size);
+
+        // Not using par_iter because the closure needs to be FnMut
+        encodings.iter().for_each(|encoding| {
+            let ids = encoding.get_ids();
+            let mask = encoding.get_attention_mask();
+            let typeids = encoding.get_type_ids();
+
+            // Extend the preallocated arrays with the current encoding
+            // Requires the closure to be FnMut
+            ids_array.extend(ids.iter().map(|x| *x as i64));
+            mask_array.extend(mask.iter().map(|x| *x as i64));
+            typeids_array.extend(typeids.iter().map(|x| *x as i64));
+        });
+
+        // Create CowArrays from vectors
+        let inputs_ids_array =
+            Array::from_shape_vec((batch_size, encoding_length), ids_array)
+                .map_err(|e| {
+                AIProxyError::ModelProviderPreprocessingError(e.to_string())
+            })?;
+
+        let attention_mask_array =
+            Array::from_shape_vec((batch_size, encoding_length), mask_array).map_err(|e| {
+                AIProxyError::ModelProviderPreprocessingError(e.to_string())
+            })?;
+
+        match &model.session {
+            Some(session) => {
+                let session_inputs = ort::inputs![
+                    model.input_params.get(0)
+                    .expect("Hardcoded in parameters").as_str() => Value::from_array(inputs_ids_array)?,
+                    model.input_params.get(1)
+                    .expect("Hardcoded in parameters").as_str() => Value::from_array(attention_mask_array.view())?
+                ].map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+                let outputs = session.run(session_inputs)
                     .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
                 let last_hidden_state_key = match outputs.len() {
                     1 => outputs
@@ -136,7 +241,7 @@ impl ORTProvider {
                     .axis_iter(Axis(0))
                     .into_par_iter()
                     .map(|row| {
-                        let embeddings = ORTProvider::normalize(row.as_slice().unwrap());
+                        let embeddings = normalize(row.as_slice().unwrap());
                         StoreKey(<Array1<f32>>::from(embeddings))
                     })
                     .collect();
@@ -144,6 +249,38 @@ impl ORTProvider {
             }
             None => Err(AIProxyError::AIModelNotInitialized),
         }
+    }
+}
+
+impl TextPreprocessorTrait for ORTProvider {
+    fn encode_str(&self, text: &str) -> Result<Vec<usize>, AIProxyError> {
+        match &self.model {
+            Some(ORTModel::Text(model)) => model,
+            _ => return Err(AIProxyError::AIModelNotSupported { model_name: self.supported_models.unwrap().to_string() }),
+        };
+
+        let Some(ORTPreprocessor::Text(preprocessor)) = &self.preprocessor else {
+            return Err(AIProxyError::AIModelNotInitialized);
+        };
+
+        let tokens = preprocessor.tokenizer.encode(text, true)
+            .map_err(|_| {AIProxyError::ModelTokenizationError})?;
+        Ok(tokens.get_ids().iter().map(|x| *x as usize).collect())
+    }
+
+    fn decode_tokens(&self, tokens: Vec<usize>) -> Result<String, AIProxyError> {
+        match &self.model {
+            Some(ORTModel::Text(model)) => model,
+            _ => return Err(AIProxyError::AIModelNotSupported { model_name: self.supported_models.unwrap().to_string() }),
+        };
+
+        let Some(ORTPreprocessor::Text(preprocessor)) = &self.preprocessor else {
+            return Err(AIProxyError::AIModelNotInitialized);
+        };
+
+        let tokens = tokens.iter().map(|x| *x as u32).collect::<Vec<u32>>();
+        Ok(preprocessor.tokenizer.decode(&tokens, true)
+            .map_err(|_| {AIProxyError::ModelTokenizationError})?)
     }
 }
 
@@ -179,7 +316,7 @@ impl ProviderTrait for ORTProvider {
             ORTModel::Image(ORTImageModel {
                 weights_file,
                 repo_name,
-                input_param,
+                                input_params: input_param,
                 output_param,
                 ..
             }) => {
@@ -193,9 +330,41 @@ impl ProviderTrait for ORTProvider {
                 self.model = Some(ORTModel::Image(ORTImageModel {
                     repo_name,
                     weights_file,
-                    input_param,
+                    input_params: input_param,
                     output_param,
                     session: Some(session),
+                }));
+            },
+            ORTModel::Text(ORTTextModel {
+                weights_file,
+                repo_name,
+                input_params,
+                output_param,
+                ..
+            }) => {
+                let model_repo = api.model(repo_name.clone());
+                let model_file_reference = model_repo
+                    .get(&weights_file)
+                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+                let session = Session::builder()?
+                    .with_intra_threads(threads)?
+                    .commit_from_file(model_file_reference)?;
+                let max_token_length = Model::from(&(self.supported_models
+                    .ok_or(AIProxyError::AIModelNotInitialized)?))
+                    .max_input_token()
+                    .ok_or(AIProxyError::AIModelNotInitialized)?;
+                let tokenizer = load_tokenizer_artifacts_hf_hub(&model_repo,
+                                                                usize::from(max_token_length))?;
+                self.model = Some(ORTModel::Text(ORTTextModel {
+                    repo_name,
+                    weights_file,
+                    input_params,
+                    output_param,
+                    session: Some(session),
+                }));
+                self.preprocessor = Some(ORTPreprocessor::Text(
+                    ORTTextPreprocessor {
+                    tokenizer,
                 }));
             }
         }
@@ -231,6 +400,14 @@ impl ProviderTrait for ORTProvider {
                     .get("preprocessor_config.json")
                     .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
                 Ok(())
+            },
+            ORTModel::Text(ORTTextModel {
+                repo_name,
+                ..
+            }) => {
+                let model_repo = api.model(repo_name);
+                get_tokenizer_artifacts_hf_hub(&model_repo)?;
+                Ok(())
             }
         }
     }
@@ -238,7 +415,7 @@ impl ProviderTrait for ORTProvider {
     fn run_inference(
         &self,
         inputs: Vec<ModelInput>,
-        action_type: &InputAction,
+        _action_type: &InputAction,
     ) -> Result<Vec<StoreKey>, AIProxyError> {
         let (string_inputs, image_inputs): (Vec<String>, Vec<ImageArray>) =
             inputs.into_par_iter().partition_map(|input| match input {
@@ -246,22 +423,21 @@ impl ProviderTrait for ORTProvider {
                 ModelInput::Image(value) => Either::Right(value),
             });
 
-        if !string_inputs.is_empty() {
-            let store_input_type: AIStoreInputType = AIStoreInputType::RawString;
-            let Some(index_model_repr) = self.supported_models else {
-                return Err(AIProxyError::AIModelNotInitialized);
-            };
-            let index_model_repr: Model = (&index_model_repr).into();
-            return Err(AIProxyError::StoreTypeMismatchError {
-                action: *action_type,
-                index_model_type: index_model_repr.input_type(),
-                storeinput_type: store_input_type,
-            });
+        if !image_inputs.is_empty() && !string_inputs.is_empty() {
+            return Err(AIProxyError::VaryingInferenceInputTypes)
         }
         let batch_size = 16;
-        let mut store_keys: Vec<_> = FallibleVec::try_with_capacity(image_inputs.len())?;
-        for batch_inputs in image_inputs.into_iter().chunks(batch_size).into_iter() {
-            store_keys.extend(self.batch_inference(batch_inputs.collect())?);
+        let mut store_keys: Vec<_> = FallibleVec::try_with_capacity(
+            image_inputs.len().max(string_inputs.len())
+        )?;
+        if !image_inputs.is_empty() {
+            for batch_inputs in image_inputs.into_iter().chunks(batch_size).into_iter() {
+                store_keys.extend(self.batch_inference_image(batch_inputs.collect())?);
+            }
+        } else {
+            for batch_inputs in string_inputs.into_iter().chunks(batch_size).into_iter() {
+                store_keys.extend(self.batch_inference_text(batch_inputs.collect())?);
+            }
         }
         Ok(store_keys)
     }

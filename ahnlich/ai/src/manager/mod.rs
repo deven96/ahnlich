@@ -7,7 +7,7 @@ use crate::engine::ai::models::{ImageArray, InputAction};
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
 use crate::engine::ai::models::{Model, ModelInput};
-use crate::engine::ai::providers::ModelProviders;
+use crate::engine::ai::providers::{ModelProviders, TextPreprocessorTrait};
 use crate::error::AIProxyError;
 use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction, StringAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
@@ -122,24 +122,30 @@ impl ModelThread {
             return Err(AIProxyError::TokenTruncationNotSupported);
         }
 
-        let ModelProviders::FastEmbed(provider) = &self.model.provider else {
-            return Err(AIProxyError::TokenTruncationNotSupported);
-        };
-
-        let tokens = provider.encode_str(&input)?;
-
-        if tokens.len() > max_token_size.into() {
-            if let StringAction::ErrorIfTokensExceed = string_action {
+        let process = |provider: &dyn TextPreprocessorTrait, input| {
+            let mut tokens = provider.encode_str(input)?;
+            let max_token_size: usize = max_token_size.into();
+            if (tokens.len() > max_token_size) &&
+                (string_action == StringAction::ErrorIfTokensExceed) {
                 return Err(AIProxyError::TokenExceededError {
                     input_token_size: tokens.len(),
-                    max_token_size: max_token_size.into(),
+                    max_token_size,
                 });
             } else {
+                tokens.truncate(max_token_size);
                 let processed_input = provider.decode_tokens(tokens)?;
                 return Ok(processed_input);
             }
         };
-        Ok(input)
+
+        match &self.model.provider {
+            ModelProviders::FastEmbed(provider) => {
+                process(provider, &input)
+            },
+            ModelProviders::ORT(provider) => {
+                process(provider, &input)
+            }
+        }
     }
 
     #[tracing::instrument(skip(self, input))]

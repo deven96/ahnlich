@@ -92,14 +92,27 @@ impl From<&AIModel> for Model {
                 description: String::from("Residual Networks model, with 50 layers."),
                 embedding_size: nonzero!(2048usize),
             },
-            AIModel::ClipVitB32 => Self {
+            AIModel::ClipVitB32Image => Self {
                 model_type: ModelType::Image {
                     expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
                 },
                 provider: ModelProviders::ORT(ORTProvider::new()),
-                supported_model: SupportedModels::ClipVitB32,
+                supported_model: SupportedModels::ClipVitB32Image,
                 description: String::from(
                     "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
+                ),
+                embedding_size: nonzero!(512usize),
+            },
+            AIModel::ClipVitB32Text => Self {
+                model_type: ModelType::Text {
+                    // Token size source: https://github.com/UKPLab/sentence-transformers/issues/1269
+                    max_input_tokens: nonzero!(77usize),
+                },
+                provider: ModelProviders::ORT(ORTProvider::new()),
+                supported_model: SupportedModels::ClipVitB32Text,
+                description: String::from(
+                    "Contrastive Language-Image Pre-Training Text transformer model, base scale. \
+                    Ideal for embedding very short text and using in combination with ClipVitB32Image",
                 ),
                 embedding_size: nonzero!(512usize),
             },

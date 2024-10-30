@@ -1,5 +1,6 @@
 pub(crate) mod fastembed;
 pub(crate) mod ort;
+mod ort_helper;
 
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{InputAction, ModelInput};

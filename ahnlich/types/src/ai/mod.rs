@@ -16,7 +16,8 @@ pub enum AIModel {
     BGEBaseEnV15,
     BGELargeEnV15,
     Resnet50,
-    ClipVitB32,
+    ClipVitB32Image,
+    ClipVitB32Text,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]

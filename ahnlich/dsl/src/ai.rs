@@ -39,7 +39,7 @@ fn parse_to_ai_model(input: &str) -> Result<AIModel, DslError> {
         "bge-base-en-v1.5" => Ok(AIModel::BGEBaseEnV15),
         "bge-large-en-v1.5" => Ok(AIModel::BGELargeEnV15),
         "resnet-50" => Ok(AIModel::Resnet50),
-        "clip-vit-b32" => Ok(AIModel::ClipVitB32),
+        "clip-vit-b32-image" => Ok(AIModel::ClipVitB32Image),
         e => Err(DslError::UnsupportedAIModel(e.to_string())),
     }
 }

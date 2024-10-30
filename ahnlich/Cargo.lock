@@ -123,6 +123,7 @@ dependencies = [
  "termcolor",
  "thiserror",
  "tiktoken-rs",
+ "tokenizers 0.20.1",
  "tokio",
  "tokio-util",
  "tracer",
@@ -1092,6 +1093,9 @@ name = "esaxx-rs"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d817e038c30374a4bcb22f94d0a8a0e216958d4c3dcde369b1439fec4bdda6e6"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "event-listener"
@@ -1162,7 +1166,7 @@ dependencies = [
  "ort",
  "rayon",
  "serde_json",
- "tokenizers",
+ "tokenizers 0.19.1",
 ]
 
 [[package]]
@@ -3489,6 +3493,39 @@ dependencies = [
  "derive_builder",
  "esaxx-rs",
  "getrandom",
+ "itertools 0.12.1",
+ "lazy_static",
+ "log",
+ "macro_rules_attribute",
+ "monostate",
+ "onig",
+ "paste",
+ "rand",
+ "rayon",
+ "rayon-cond",
+ "regex",
+ "regex-syntax 0.8.5",
+ "serde",
+ "serde_json",
+ "spm_precompiled",
+ "thiserror",
+ "unicode-normalization-alignments",
+ "unicode-segmentation",
+ "unicode_categories",
+]
+
+[[package]]
+name = "tokenizers"
+version = "0.20.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b172ffa9a2e5c31bbddc940cd5725d933ced983a9333bbebc4c7eda3bbce1557"
+dependencies = [
+ "aho-corasick",
+ "derive_builder",
+ "esaxx-rs",
+ "getrandom",
+ "hf-hub",
+ "indicatif",
  "itertools 0.12.1",
  "lazy_static",
  "log",
