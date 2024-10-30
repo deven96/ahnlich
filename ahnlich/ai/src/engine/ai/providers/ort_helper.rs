@@ -1,11 +1,13 @@
+// This script was adapted from FastEmbed
+// https://github.com/Anush008/fastembed-rs/blob/474d4e62c87666781b580ffc076b8475b693fc34/src/common.rs
 use hf_hub::api::sync::ApiRepo;
+use rayon::prelude::*;
 use std::io::Read;
 use std::{fs::File, path::PathBuf};
 use tokenizers::{AddedToken, PaddingParams, PaddingStrategy, Tokenizer, TruncationParams};
 use crate::error::AIProxyError;
 
 
-// Tokenizer files for "bring your own" models
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TokenizerFiles {
     pub tokenizer_file: Vec<u8>,
@@ -101,11 +103,11 @@ pub fn load_tokenizer(tokenizer_files: TokenizerFiles, max_length: usize) -> Res
 }
 
 pub fn normalize(v: &[f32]) -> Vec<f32> {
-    let norm = (v.iter().map(|val| val * val).sum::<f32>()).sqrt();
+    let norm = (v.par_iter().map(|val| val * val).sum::<f32>()).sqrt();
     let epsilon = 1e-12;
 
     // We add the super-small epsilon to avoid dividing by zero
-    v.iter().map(|&val| val / (norm + epsilon)).collect()
+    v.par_iter().map(|&val| val / (norm + epsilon)).collect()
 }
 
 /// Public function to read a file to bytes.

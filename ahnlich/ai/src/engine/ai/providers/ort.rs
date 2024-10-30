@@ -135,7 +135,7 @@ impl ORTProvider {
         match &model.session {
             Some(session) => {
                 let session_inputs = ort::inputs![
-                    model.input_params.get(0).expect("Hardcoded in parameters")
+                    model.input_params.first().expect("Hardcoded in parameters")
                     .as_str() => pixel_values_array.view(),
                 ].map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
 
@@ -219,7 +219,7 @@ impl ORTProvider {
         match &model.session {
             Some(session) => {
                 let session_inputs = ort::inputs![
-                    model.input_params.get(0)
+                    model.input_params.first()
                     .expect("Hardcoded in parameters").as_str() => Value::from_array(inputs_ids_array)?,
                     model.input_params.get(1)
                     .expect("Hardcoded in parameters").as_str() => Value::from_array(attention_mask_array.view())?
@@ -279,8 +279,8 @@ impl TextPreprocessorTrait for ORTProvider {
         };
 
         let tokens = tokens.iter().map(|x| *x as u32).collect::<Vec<u32>>();
-        Ok(preprocessor.tokenizer.decode(&tokens, true)
-            .map_err(|_| {AIProxyError::ModelTokenizationError})?)
+        preprocessor.tokenizer.decode(&tokens, true)
+            .map_err(|_| {AIProxyError::ModelTokenizationError})
     }
 }
 

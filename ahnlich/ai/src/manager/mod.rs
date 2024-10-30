@@ -127,14 +127,14 @@ impl ModelThread {
             let max_token_size: usize = max_token_size.into();
             if (tokens.len() > max_token_size) &&
                 (string_action == StringAction::ErrorIfTokensExceed) {
-                return Err(AIProxyError::TokenExceededError {
+                Err(AIProxyError::TokenExceededError {
                     input_token_size: tokens.len(),
                     max_token_size,
-                });
+                })
             } else {
                 tokens.truncate(max_token_size);
                 let processed_input = provider.decode_tokens(tokens)?;
-                return Ok(processed_input);
+                Ok(processed_input)
             }
         };
 
