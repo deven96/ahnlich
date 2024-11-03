@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "book-search"
+version = "0.1.0"
+description = "A python example to search phrases in a book"
+authors = ["SLKhadeeja"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.scripts]
+booksearch = "main:main"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+ahnlich_client_py = { path = "../../../sdk/ahnlich-client-py/", develop = false }
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
