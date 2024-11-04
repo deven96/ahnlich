@@ -13,6 +13,7 @@ use ahnlich_types::ai::{AIModel, AIStoreInputType, ImageAction, PreprocessAction
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
 use moka::future::Cache;
+use rayon::prelude::*;
 use task_manager::Task;
 use task_manager::TaskManager;
 use task_manager::TaskState;
@@ -65,49 +66,49 @@ impl ModelThread {
         action_type: InputAction,
     ) -> ModelThreadResponse {
         let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
-        // move this from for loop into vec of inputs
-        for input in inputs {
-            let processed_input = self.preprocess_store_input(process_action, input)?;
-            let store_key = self.model.model_ndarray(&processed_input, &action_type)?;
-            response.push(store_key);
-        }
+        let processed_inputs = self.preprocess_store_input(process_action, inputs)?;
+        let mut store_key = self.model.model_ndarray(processed_inputs, &action_type)?;
+        response.append(&mut store_key);
         Ok(response)
     }
 
-    #[tracing::instrument(skip(self, input))]
+    #[tracing::instrument(skip(self, inputs))]
     pub(crate) fn preprocess_store_input(
         &self,
         process_action: PreprocessAction,
-        input: StoreInput,
-    ) -> Result<ModelInput, AIProxyError> {
-        let input = ModelInput::try_from(input)?;
-        match (process_action, &input) {
-            (PreprocessAction::Image(image_action), ModelInput::Image(image_array)) => {
-                let output = self.process_image(image_array, image_action)?;
-                Ok(ModelInput::Image(output))
-            }
-            (PreprocessAction::RawString(string_action), ModelInput::Text(string)) => {
-                let output = self.preprocess_raw_string(string, string_action)?;
-                Ok(ModelInput::Text(output))
-            }
-            (PreprocessAction::RawString(_), ModelInput::Image(_)) => {
-                Err(AIProxyError::PreprocessingMismatchError {
-                    input_type: AIStoreInputType::Image,
-                    preprocess_action: process_action,
-                })
-            }
-            (PreprocessAction::Image(_), ModelInput::Text(_)) => {
-                Err(AIProxyError::PreprocessingMismatchError {
-                    input_type: AIStoreInputType::RawString,
-                    preprocess_action: process_action,
-                })
-            }
-        }
+        inputs: Vec<StoreInput>,
+    ) -> Result<Vec<ModelInput>, AIProxyError> {
+        let preprocessed_inputs = inputs
+            .into_par_iter()
+            .try_fold(Vec::new, |mut accumulator, input| {
+                let model_input = ModelInput::try_from(input)?;
+                let processed_input = match (process_action, model_input) {
+                    (PreprocessAction::Image(image_action), ModelInput::Image(image_array)) => {
+                        let output = self.process_image(image_array, image_action)?;
+                        Ok(ModelInput::Image(output))
+                    }
+                    (PreprocessAction::RawString(string_action), ModelInput::Text(string)) => {
+                        let output = self.preprocess_raw_string(string, string_action)?;
+                        Ok(ModelInput::Text(output))
+                    }
+                    (_, model_input) => Err(AIProxyError::PreprocessingMismatchError {
+                        input_type: (&model_input).into(),
+                        preprocess_action: process_action,
+                    }),
+                }?;
+                accumulator.push(processed_input);
+                Ok::<Vec<ModelInput>, AIProxyError>(accumulator)
+            })
+            .try_reduce(Vec::new, |mut accumulator, mut item| {
+                accumulator.append(&mut item);
+                Ok(accumulator)
+            })?;
+        Ok(preprocessed_inputs)
     }
     #[tracing::instrument(skip(self, input))]
     fn preprocess_raw_string(
         &self,
-        input: &str,
+        input: String,
         string_action: StringAction,
     ) -> Result<String, AIProxyError> {
         let max_token_size = self.model.max_input_token().unwrap_or_else(|| {
@@ -125,7 +126,7 @@ impl ModelThread {
             return Err(AIProxyError::TokenTruncationNotSupported);
         };
 
-        let tokens = provider.encode_str(input)?;
+        let tokens = provider.encode_str(&input)?;
 
         if tokens.len() > max_token_size.into() {
             if let StringAction::ErrorIfTokensExceed = string_action {
@@ -138,13 +139,13 @@ impl ModelThread {
                 return Ok(processed_input);
             }
         };
-        Ok(input.to_owned())
+        Ok(input)
     }
 
     #[tracing::instrument(skip(self, input))]
     fn process_image(
         &self,
-        input: &ImageArray,
+        input: ImageArray,
         image_action: ImageAction,
     ) -> Result<ImageArray, AIProxyError> {
         // process image, return error if max dimensions exceeded
@@ -173,7 +174,7 @@ impl ModelThread {
             }
         }
 
-        Ok(input.clone())
+        Ok(input)
     }
 }
 
@@ -196,9 +197,8 @@ impl Task for ModelThread {
             let child_span = tracing::info_span!("model-thread-run", model = self.task_name());
             child_span.set_parent(trace_span.context());
 
-            if let Err(e) =
-                response.send(self.input_to_response(inputs, preprocess_action, action_type))
-            {
+            let responses = self.input_to_response(inputs, preprocess_action, action_type);
+            if let Err(e) = response.send(responses) {
                 log::error!("{} could not send response to channel {e:?}", self.name());
             }
             return TaskState::Continue;

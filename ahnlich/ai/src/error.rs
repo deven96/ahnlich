@@ -101,14 +101,14 @@ pub enum AIProxyError {
     #[error("Image could not be resized.")]
     ImageResizeError,
 
-    #[error("Model provider failed to process input.")]
-    ModelProviderPreprocessingError,
+    #[error("Model provider failed on preprocessing the input {0}")]
+    ModelProviderPreprocessingError(String),
 
-    #[error("Model provider failed to run inference.")]
-    ModelProviderRunInferenceError,
+    #[error("Model provider failed on running inference {0}")]
+    ModelProviderRunInferenceError(String),
 
-    #[error("Model provider failed to process output.")]
-    ModelProviderPostprocessingError,
+    #[error("Model provider failed on postprocessing the output {0}")]
+    ModelProviderPostprocessingError(String),
 
     #[error("Model provider failed on tokenization of text inputs.")]
     ModelTokenizationError,

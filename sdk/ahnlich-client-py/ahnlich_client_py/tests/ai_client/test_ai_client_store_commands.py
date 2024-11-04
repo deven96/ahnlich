@@ -18,18 +18,20 @@ ai_store_payload_with_predicates = {
 def test_aiproxy_client_sends_create_stores_succeeds(spin_up_ahnlich_ai):
     port = spin_up_ahnlich_ai
 
-    ai_client = AhnlichAIClient(address="127.0.0.1", port=port, connect_timeout_sec=15)
+    ai_client = AhnlichAIClient(address="127.0.0.1", port=port, connect_timeout_sec=45)
     try:
         response: ai_response.AIServerResult = ai_client.create_store(
             **ai_store_payload_no_predicates
         )
+        assert response.results[0] == ai_response.Result__Ok(
+            ai_response.AIServerResponse__Unit()
+        )
     except Exception as e:
+        ai_client.cleanup()
         print(f"Exception: {e}")
+        raise e
     finally:
         ai_client.cleanup()
-    assert response.results[0] == ai_response.Result__Ok(
-        ai_response.AIServerResponse__Unit()
-    )
 
 
 def test_ai_client_get_pred(spin_up_ahnlich_ai):
@@ -80,12 +82,14 @@ def test_ai_client_get_pred(spin_up_ahnlich_ai):
                 )
             ),
         )
+        assert str(expected) == str(response)
 
     except Exception as e:
         print(f"Exception: {e}")
+        ai_client.cleanup()
+        raise e
     finally:
         ai_client.cleanup()
-    assert str(expected) == str(response)
 
 
 # TODO: once model is loaded into proxy, this can be done properly
@@ -115,6 +119,8 @@ def test_ai_client_create_pred_index(spin_up_ahnlich_ai):
         assert str(response) == str(expected)
     except Exception as e:
         print(f"Exception: {e}")
+        ai_client.cleanup()
+        raise e
     finally:
         ai_client.cleanup()
 
@@ -165,6 +171,8 @@ def test_ai_client_drop_pred_index(spin_up_ahnlich_ai):
         assert str(response_with_err) == str(expected)
     except Exception as e:
         print(f"Exception: {e}")
+        ai_client.cleanup()
+        raise e
     finally:
         ai_client.cleanup()
 
@@ -205,11 +213,13 @@ def test_ai_client_del_key(spin_up_ahnlich_ai):
             key=ai_query.StoreInput__RawString("Yeezey"),
         )
 
+        assert str(expected) == str(response)
     except Exception as e:
         print(f"Exception: {e}")
+        ai_client.cleanup()
+        raise e
     finally:
         ai_client.cleanup()
-    assert str(expected) == str(response)
 
 
 def test_ai_client_drop_store_succeeds(spin_up_ahnlich_ai):
@@ -232,12 +242,13 @@ def test_ai_client_drop_store_succeeds(spin_up_ahnlich_ai):
             store_name=ai_store_payload_with_predicates["store_name"],
             error_if_not_exists=True,
         )
-
+        assert str(response) == str(expected)
     except Exception as e:
         print(f"Exception: {e}")
+        ai_client.cleanup()
+        raise e
     finally:
         ai_client.cleanup()
-    assert str(response) == str(expected)
 
 
 def test_ai_client_purge_stores_succeeds(spin_up_ahnlich_ai):
@@ -258,9 +269,10 @@ def test_ai_client_purge_stores_succeeds(spin_up_ahnlich_ai):
         _ = builder.exec()
 
         response = ai_client.purge_stores()
+        assert str(response) == str(expected)
     except Exception as e:
         print(f"Exception: {e}")
+        ai_client.cleanup()
+        raise e
     finally:
         ai_client.cleanup()
-
-    assert str(response) == str(expected)

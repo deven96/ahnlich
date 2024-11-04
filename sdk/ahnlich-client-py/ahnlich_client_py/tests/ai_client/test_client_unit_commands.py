@@ -32,6 +32,8 @@ def test_client_sends_info_server_to_aiproxy_success(module_scopped_ahnlich_ai):
 
     except Exception as e:
         print(f"Exception: {e}")
+        ai_client.cleanup()
+        raise e
     finally:
         ai_client.cleanup()
 
@@ -46,6 +48,8 @@ def test_client_sends_list_stores_to_fresh_aiproxy_succeeds(module_scopped_ahnli
         )
     except Exception as e:
         print(f"Exception: {e}")
+        ai_client.cleanup()
+        raise e
     finally:
         ai_client.cleanup()
 

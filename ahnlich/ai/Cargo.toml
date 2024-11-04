@@ -46,6 +46,7 @@ moka = { version = "0.12.8", features = ["future"] }
 tracing-opentelemetry.workspace = true
 futures.workspace = true
 tiktoken-rs = "0.5.9"
+itertools.workspace = true
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true

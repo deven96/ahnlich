@@ -6,6 +6,7 @@ use crate::engine::ai::models::{InputAction, ModelInput};
 use crate::engine::ai::providers::fastembed::FastEmbedProvider;
 use crate::engine::ai::providers::ort::ORTProvider;
 use crate::error::AIProxyError;
+use ahnlich_types::keyval::StoreKey;
 use std::path::Path;
 use strum::EnumIter;
 
@@ -22,9 +23,9 @@ pub trait ProviderTrait: std::fmt::Debug + Send + Sync {
     fn get_model(&self) -> Result<(), AIProxyError>;
     fn run_inference(
         &self,
-        input: &ModelInput,
+        input: Vec<ModelInput>,
         action_type: &InputAction,
-    ) -> Result<Vec<f32>, AIProxyError>;
+    ) -> Result<Vec<StoreKey>, AIProxyError>;
 }
 
 pub trait TextPreprocessorTrait {

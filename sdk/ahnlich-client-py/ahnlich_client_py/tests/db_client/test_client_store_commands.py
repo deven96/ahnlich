@@ -347,17 +347,18 @@ def test_client_drop_pred_index_succeeds(spin_up_ahnlich_db):
         drop_response: db_response.ServerResult = db_client.drop_pred_index(
             **drop_pred_index_data
         )
+        assert response.results[0] == db_response.Result__Ok(
+            db_response.ServerResponse__CreateIndex(1)
+        )
+        assert drop_response.results[0] == db_response.Result__Ok(
+            db_response.ServerResponse__Del(1)
+        )
     except Exception as e:
         print(f"Exception: {e}")
+        db_client.cleanup()
+        raise e
     finally:
         db_client.cleanup()
-
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__CreateIndex(1)
-    )
-    assert drop_response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Del(1)
-    )
 
 
 def test_client_delete_predicate_succeeds(spin_up_ahnlich_db, store_key, store_value):
@@ -395,13 +396,15 @@ def test_client_delete_predicate_succeeds(spin_up_ahnlich_db, store_key, store_v
         response: db_response.ServerResult = db_client.delete_predicate(
             **delete_predicate_data
         )
+        assert response.results[0] == db_response.Result__Ok(
+            db_response.ServerResponse__Del(1)
+        )
     except Exception as e:
         print(f"Exception: {e}")
+        db_client.cleanup()
+        raise e
     finally:
         db_client.cleanup()
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Del(1)
-    )
 
 
 def test_client_delete_key_succeeds(spin_up_ahnlich_db, store_key, store_value):
@@ -423,13 +426,15 @@ def test_client_delete_key_succeeds(spin_up_ahnlich_db, store_key, store_value):
         builder.set(**store_data)
         _ = builder.exec()
         response: db_response.ServerResult = db_client.delete_key(**delete_key_data)
+        assert response.results[0] == db_response.Result__Ok(
+            db_response.ServerResponse__Del(1)
+        )
     except Exception as e:
         print(f"Exception: {e}")
+        db_client.cleanup()
+        raise e
     finally:
         db_client.cleanup()
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Del(1)
-    )
 
 
 def test_client_drop_store_succeeds(spin_up_ahnlich_db):
@@ -446,13 +451,16 @@ def test_client_drop_store_succeeds(spin_up_ahnlich_db):
         builder.create_store(**store_payload_no_predicates)
         builder.exec()
         response: db_response.ServerResult = db_client.drop_store(**drop_store_data)
+
+        assert response.results[0] == db_response.Result__Ok(
+            db_response.ServerResponse__Del(1)
+        )
     except Exception as e:
         print(f"Exception: {e}")
+        db_client.cleanup()
+        raise e
     finally:
         db_client.cleanup()
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Del(1)
-    )
 
 
 def test_client_drop_store_fails_no_store(spin_up_ahnlich_db):
@@ -466,13 +474,15 @@ def test_client_drop_store_fails_no_store(spin_up_ahnlich_db):
 
     try:
         response: db_response.ServerResult = db_client.drop_store(**drop_store_data)
+        assert response.results[0] == db_response.Result__Err(
+            value=f"Store {store_name} not found"
+        )
     except Exception as e:
         print(f"Exception: {e}")
+        db_client.cleanup()
+        raise e
     finally:
         db_client.cleanup()
-    assert response.results[0] == db_response.Result__Err(
-        value=f"Store {store_name} not found"
-    )
 
 
 def test_client_list_stores_reflects_dropped_store(
@@ -490,12 +500,14 @@ def test_client_list_stores_reflects_dropped_store(
         )
         builder.exec()
         response: db_response.ServerResult = db_client.list_stores()
+        store_list: db_response.ServerResponse__StoreList = response.results[0].value
+        assert len(store_list.value) == 1
+        store_info: db_response.StoreInfo = store_list.value[0]
+        assert store_info.name == store_payload_with_predicates["store_name"]
+        assert isinstance(response.results[0], db_response.Result__Ok)
     except Exception as e:
         print(f"Exception: {e}")
+        db_client.cleanup()
+        raise e
     finally:
         db_client.cleanup()
-    store_list: db_response.ServerResponse__StoreList = response.results[0].value
-    assert len(store_list.value) == 1
-    store_info: db_response.StoreInfo = store_list.value[0]
-    assert store_info.name == store_payload_with_predicates["store_name"]
-    assert isinstance(response.results[0], db_response.Result__Ok)

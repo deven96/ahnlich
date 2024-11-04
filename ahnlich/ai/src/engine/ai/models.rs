@@ -9,7 +9,8 @@ use ahnlich_types::{
     keyval::{StoreInput, StoreKey},
 };
 use image::{GenericImageView, ImageReader};
-use ndarray::{Array, Array1, Ix3};
+use ndarray::ArrayView;
+use ndarray::{Array, Ix3};
 use nonzero_ext::nonzero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
@@ -115,24 +116,19 @@ impl Model {
         }
     }
 
-    // TODO: model ndarray values is based on length of string or vec, so for now make sure strings
-    // or vecs have different lengths
     #[tracing::instrument(skip(self))]
     pub fn model_ndarray(
         &self,
-        storeinput: &ModelInput,
+        storeinput: Vec<ModelInput>,
         action_type: &InputAction,
-    ) -> Result<StoreKey, AIProxyError> {
-        match &self.provider {
+    ) -> Result<Vec<StoreKey>, AIProxyError> {
+        let store_keys = match &self.provider {
             ModelProviders::FastEmbed(provider) => {
-                let embedding = provider.run_inference(storeinput, action_type)?;
-                Ok(StoreKey(<Array1<f32>>::from(embedding)))
+                provider.run_inference(storeinput, action_type)?
             }
-            ModelProviders::ORT(provider) => {
-                let embedding = provider.run_inference(storeinput, action_type)?;
-                Ok(StoreKey(<Array1<f32>>::from(embedding)))
-            }
-        }
+            ModelProviders::ORT(provider) => provider.run_inference(storeinput, action_type)?,
+        };
+        Ok(store_keys)
     }
 
     #[tracing::instrument(skip(self))]
@@ -251,9 +247,9 @@ pub enum ModelInput {
     Image(ImageArray),
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone)]
 pub struct ImageArray {
-    array: Array<u8, Ix3>,
+    array: Array<f32, Ix3>,
     bytes: Vec<u8>,
 }
 
@@ -278,12 +274,19 @@ impl ImageArray {
         let channels = img.color().channel_count();
         let shape = (height as usize, width as usize, channels as usize);
         let array = Array::from_shape_vec(shape, img.into_bytes())
-            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
+            .map_err(|_| AIProxyError::ImageBytesDecodeError)?
+            .mapv(f32::from);
         Ok(ImageArray { array, bytes })
     }
 
-    pub fn get_array(&self) -> &Array<u8, Ix3> {
-        &self.array
+    // Swapping axes from [rows, columns, channels] to [channels, rows, columns] for ONNX
+    pub fn onnx_transform(&mut self) {
+        self.array.swap_axes(1, 2);
+        self.array.swap_axes(0, 1);
+    }
+
+    pub fn view(&self) -> ArrayView<f32, Ix3> {
+        self.array.view()
     }
 
     pub fn get_bytes(&self) -> &Vec<u8> {
@@ -318,7 +321,8 @@ impl ImageArray {
 
         let flattened_pixels = resized_img.into_bytes();
         let array = Array::from_shape_vec(shape, flattened_pixels)
-            .map_err(|_| AIProxyError::ImageResizeError)?;
+            .map_err(|_| AIProxyError::ImageResizeError)?
+            .mapv(f32::from);
         let bytes = buffer.into_inner();
         Ok(ImageArray { array, bytes })
     }
