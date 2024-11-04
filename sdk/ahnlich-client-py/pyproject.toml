@@ -16,7 +16,7 @@ exclude = [
 
 [tool.poetry.scripts]
 bumpversion = "bumpversion:main"
-change_poetry_version = "poetry-versioning:main"
+change_poetry_version = "poetry_versioning:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -24,7 +24,6 @@ numpy = "^1.26.4"
 toml = "^0.10.2"
 bump2version = "^1.0.1"
 generic-connection-pool = "^0.7.0"
-pillow = "^10.4.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.4.2"
@@ -35,6 +34,7 @@ opentelemetry-api = "^1.26.0"
 opentelemetry-sdk = "^1.26.0"
 opentelemetry-instrumentation = "^0.47b0"
 opentelemetry-exporter-otlp = "^1.26.0"
+pillow = "^10.4.0"
 
 [build-system]
 requires = ["poetry-core"]
