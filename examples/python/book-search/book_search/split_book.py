@@ -1,10 +1,10 @@
-import ebooklib
-from ebooklib import epub
-from bs4 import BeautifulSoup
-
-from ahnlich_client_py.internals import ai_query
-
 from pathlib import Path
+
+import ebooklib
+from ahnlich_client_py.internals import ai_query
+from bs4 import BeautifulSoup
+from ebooklib import epub
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 def load_epub(file_path):
@@ -34,10 +34,8 @@ def split_into_chapters(book):
 def process_epub(file_path):
   book = load_epub(file_path)
   chapters = split_into_chapters(book)
-  
   return chapters
 
 def get_book():
   result = process_epub(f"{BASE_DIR}/book_search/animal_farm.epub")
-
   return result

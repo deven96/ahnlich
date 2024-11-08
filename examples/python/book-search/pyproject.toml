@@ -7,7 +7,7 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.scripts]
-insertbook = "search_actions:run_insert_text"
+insertbook = "search_actions:insert_book"
 searchphrase = "search_actions:search_phrase"
 
 [tool.poetry.dependencies]
@@ -15,6 +15,7 @@ python = "^3.11"
 ahnlich_client_py = { path = "../../../sdk/ahnlich-client-py", develop = true }
 ebooklib = "^0.18"
 bs4 = "^0.0.2"
+black = "^24.10.0"
 
 [build-system]
 requires = ["poetry-core"]
