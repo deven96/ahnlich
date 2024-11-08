@@ -15,4 +15,4 @@ To search run
 Note that the epub file being split is available locally in the example file and you can edit the example to customize processes and play around with input and output.
 
 Here's a GIF of insertion of the book
-![insertion gif]('insertbook.gif')
+![insertion gif](insertbook.gif)
