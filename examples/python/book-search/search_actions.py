@@ -1,10 +1,11 @@
-from ahnlich_client_py.clients import AhnlichAIClient
-from ahnlich_client_py.internals import ai_query
-from ahnlich_client_py.config import AhnlichPoolSettings
+import asyncio
 from functools import partial
 
+from ahnlich_client_py.clients import AhnlichAIClient
+from ahnlich_client_py.config import AhnlichPoolSettings
+from ahnlich_client_py.internals import ai_query
+
 from book_search.split_book import get_book
-import asyncio
 
 ai_store_payload_with_predicates = {
     "store_name": "book",
