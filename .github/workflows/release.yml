@@ -33,7 +33,7 @@ jobs:
             - name: Get Cargo toolchain
               uses: actions-rs/toolchain@v1
               with:
-                toolchain: 1.78.0
+                toolchain: 1.81.0
             
             - name: Setup Zig
               uses: mlugg/setup-zig@v1
