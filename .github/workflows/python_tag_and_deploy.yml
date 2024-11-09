@@ -81,9 +81,7 @@ jobs:
         working-directory: ./sdk/ahnlich-client-py
         run: |
           echo "Deploying tag ${{needs.check_version_changes_and_tag.outputs.client_version}}"
-          poetry config repositories.test-pypi https://test.pypi.org/legacy/
-          poetry run change_poetry_version
-          poetry config pypi-token.test-pypi  ${{ secrets.TEST_PYPI_TOKEN }}
-          poetry build && poetry publish -r test-pypi
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+          poetry publish --build
 
 
