@@ -1,10 +1,9 @@
 import io
 from urllib.request import urlopen
 
-from PIL import Image
-
 from ahnlich_client_py.clients import AhnlichAIClient
 from ahnlich_client_py.internals import ai_query
+from PIL import Image
 
 ai_store_payload_no_predicates = {
     "store_name": "Diretnan Stores",

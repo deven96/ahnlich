@@ -44,7 +44,7 @@ class AhnlichAIClient(BaseClient):
             index_model=index_model,
             predicates=predicates,
             non_linear_indices=non_linear_indices,
-            error_if_exists=error_if_exists
+            error_if_exists=error_if_exists,
         )
         return self.process_request(builder.to_server_query())
 
