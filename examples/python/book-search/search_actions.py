@@ -1,5 +1,7 @@
 import asyncio
 from functools import partial
+from typing import List
+from concurrent.futures import ThreadPoolExecutor, Future
 
 from ahnlich_client_py.clients import AhnlichAIClient
 from ahnlich_client_py.config import AhnlichPoolSettings
@@ -19,7 +21,7 @@ pool_setting = AhnlichPoolSettings()
 pool_setting.max_pool_size = 35
 ai_client = AhnlichAIClient(address="127.0.0.1", port=1370, connect_timeout_sec=600, pool_settings=pool_setting)
 
-async def set_client(inputs):
+def set_client(inputs):
   response = ai_client.set(
     store_name=ai_store_payload_with_predicates["store_name"],
     inputs=inputs,
@@ -31,24 +33,32 @@ async def set_client(inputs):
   print(response)
 
 
-async def create_tasks():
+def create_tasks():
   store_inputs = get_book()
   return [partial(set_client, store_inputs[i:i+10]) for i in range(0, len(store_inputs), 10)]
-
-async def run_insert_text():
-  
-  ai_client.create_store(**ai_store_payload_with_predicates)
-  task_definitions = await create_tasks()
-  tasks = [asyncio.create_task(task()) for task in task_definitions]
-  
-  await asyncio.gather(*tasks)
 
 def insert_book():
   ai_client.drop_store(
     store_name=ai_store_payload_with_predicates["store_name"],
     error_if_not_exists=False
   )
-  asyncio.run(run_insert_text())
+  ai_client.create_store(**ai_store_payload_with_predicates)
+
+  task_definitions = create_tasks()
+  thread_tasks: List[Future] = []
+  with ThreadPoolExecutor(max_workers=30) as executor:
+    for partial_func in task_definitions:
+      thread_tasks.append(executor.submit(partial_func))
+
+    for task in thread_tasks:
+      try:
+        _ = task.result()
+      except Exception as exc:
+        print(f'Exception gotten from task {task}... {exc}')
+
+    print("Cleaning up Connection Pool...")
+    ai_client.cleanup()
+    print("Shut down!....")
 
 def run_get_simn_text(input_query):
   ai_client = AhnlichAIClient(address="127.0.0.1", port=1370)
@@ -70,3 +80,5 @@ def search_phrase():
     print(f'Paragraph {result[1]["paragraph"].value}')
     print(result[0].value)
     print('\n')
+
+  ai_client.cleanup()
