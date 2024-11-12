@@ -18,7 +18,7 @@ ai_store_payload_with_predicates = {
 }
 
 pool_setting = AhnlichPoolSettings()
-pool_setting.max_pool_size = 35
+pool_setting.max_pool_size = 8
 ai_client = AhnlichAIClient(
     address="127.0.0.1", port=1370, connect_timeout_sec=600, pool_settings=pool_setting
 )

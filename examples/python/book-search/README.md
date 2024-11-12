@@ -16,4 +16,4 @@ To search run
 
 ![insertion gif](searchphrase.gif)
 
-Note that the epub file being split _(Animal Farm by George Orwell)_ is available locally in the example file and you can edit the example to customize processes and play around with input and output.
+Note that the epub file being split _(Animal Farm by George Orwell)_ is available locally in the example file and the example can be editted to customize processes and play around with input and output.
