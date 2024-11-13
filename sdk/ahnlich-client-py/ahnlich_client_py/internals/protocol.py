@@ -3,10 +3,11 @@ import socket
 import typing
 
 from ahnlich_client_py import config
-from ahnlich_client_py.exceptions import (AhnlichClientException,
-                                          AhnlichProtocolException)
-from ahnlich_client_py.internals import (ai_query, ai_response, db_query,
-                                         db_response)
+from ahnlich_client_py.exceptions import (
+    AhnlichClientException,
+    AhnlichProtocolException,
+)
+from ahnlich_client_py.internals import ai_query, ai_response, db_query, db_response
 
 
 class BufReader:

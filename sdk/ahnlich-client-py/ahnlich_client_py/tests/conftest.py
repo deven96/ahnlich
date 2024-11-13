@@ -6,6 +6,7 @@ import subprocess
 import time
 
 import pytest
+
 from ahnlich_client_py import clients, config, db_query
 from ahnlich_client_py.libs import create_store_key
 

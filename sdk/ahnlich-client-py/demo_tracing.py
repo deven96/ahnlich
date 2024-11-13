@@ -1,14 +1,14 @@
 import os
 import traceback
 
-from ahnlich_client_py.clients import AhnlichAIClient
-from ahnlich_client_py.internals import ai_query
 from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import \
-    OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+from ahnlich_client_py.clients import AhnlichAIClient
+from ahnlich_client_py.internals import ai_query
 
 ai_store_payload_no_predicates = {
     "store_name": "Diretnan Stores",
