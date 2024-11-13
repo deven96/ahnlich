@@ -48,7 +48,7 @@ run-db-tracing: ## Run ahnlich_db bin with  tracing enabled
 	cargo run --bin ahnlich-db run --enable-tracing
 
 run-ai: ## Run ahnlich_ai bin with default supported models
-	cargo run --bin ahnlich-ai run --supported-models all-minilm-l6-v2,resnet-50
+	cargo run --bin ahnlich-ai run --supported-models all-minilm-l6-v2,resnet-50,bge-base-en-v1.5
 
 run-ai-tracing: ## Run ahnlich_ai bin with default supported models and tracing_enabled
 	cargo run --bin ahnlich-ai run --supported-models all-minilm-l6-v2,resnet-50 --enable-tracing
