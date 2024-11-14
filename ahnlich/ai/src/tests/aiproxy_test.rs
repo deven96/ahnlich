@@ -375,6 +375,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         condition: None,
         closest_n: NonZeroUsize::new(1).unwrap(),
         algorithm: Algorithm::DotProductSimilarity,
+        preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);

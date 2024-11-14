@@ -320,22 +320,15 @@ impl AhnlichProtocol for AIProxyTask {
                     condition,
                     closest_n,
                     algorithm,
+                    preprocess_action,
                 } => {
-                    // TODO: Replace this with calls to self.model_manager.handle_request
-                    // TODO (HAKSOAT): Shouldn't preprocess action also be in the params?
-                    let preprocess = match search_input {
-                        StoreInput::RawString(_) => {
-                            PreprocessAction::RawString(StringAction::TruncateIfTokensExceed)
-                        }
-                        StoreInput::Image(_) => PreprocessAction::Image(ImageAction::ResizeImage),
-                    };
                     let repr = self
                         .store_handler
                         .get_ndarray_repr_for_store(
                             &store,
                             search_input,
                             &self.model_manager,
-                            preprocess,
+                            preprocess_action,
                         )
                         .await;
                     if let Ok(store_key) = repr {
@@ -384,6 +377,12 @@ impl AhnlichProtocol for AIProxyTask {
                     let destoryed = self.store_handler.purge_stores();
                     Ok(AIServerResponse::Del(destoryed))
                 }
+                AIQuery::ListClients => Ok(AIServerResponse::ClientList(self.client_handler.list())),
+                AIQuery::GetKey { store, keys } => self
+                    .store_handler
+                    .get_key_in_store(&store, keys)
+                    .map(ServerResponse::Get)
+                    .map_err(|e| format!("{e}")),
             })
         }
         result

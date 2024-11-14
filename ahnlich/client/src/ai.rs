@@ -84,6 +84,7 @@ impl AIPipeline {
         condition: Option<PredicateCondition>,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
+        preprocess_action: PreprocessAction,
     ) {
         self.queries.push(AIQuery::GetSimN {
             store,
@@ -91,6 +92,7 @@ impl AIPipeline {
             condition,
             closest_n,
             algorithm,
+            preprocess_action
         })
     }
 
@@ -256,6 +258,7 @@ impl AIClient {
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         tracing_id: Option<String>,
+        preprocess_action: PreprocessAction,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::GetSimN {
@@ -264,6 +267,7 @@ impl AIClient {
                 condition,
                 closest_n,
                 algorithm,
+                preprocess_action
             },
             tracing_id,
         )

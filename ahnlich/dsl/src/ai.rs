@@ -190,12 +190,19 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                 } else {
                     None
                 };
+                let preprocess_action = parse_to_preprocess_action(
+                    inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                        .as_str(),
+                );
                 AIQuery::GetSimN {
                     store: StoreName(store.to_string()),
                     search_input,
                     closest_n,
                     algorithm,
                     condition,
+                    preprocess_action
                 }
             }
             Rule::get_pred => {

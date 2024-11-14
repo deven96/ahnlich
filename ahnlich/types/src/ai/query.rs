@@ -30,6 +30,7 @@ pub enum AIQuery {
         condition: Option<PredicateCondition>,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
+        preprocess_action: PreprocessAction,
     },
     CreatePredIndex {
         store: StoreName,
@@ -62,7 +63,12 @@ pub enum AIQuery {
         store: StoreName,
         error_if_not_exists: bool,
     },
+    GetKey {
+        store: StoreName,
+        keys: Vec<StoreInput>,
+    },
     InfoServer,
+    ListClients,
     ListStores,
     PurgeStores,
     Ping,
