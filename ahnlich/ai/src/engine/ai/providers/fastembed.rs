@@ -41,17 +41,18 @@ pub struct FastEmbedPreprocessor {
 
 // TODO (HAKSOAT): Implement other preprocessors
 impl TextPreprocessorTrait for FastEmbedProvider {
-    fn encode_str(&self, text: &str) -> Result<Vec<usize>, AIProxyError> {
+    fn encode_str(&self, text: &str) -> Result<Vec<u32>, AIProxyError> {
         let preprocessor = self.preprocessor.as_ref()
             .ok_or(AIProxyError::AIModelNotInitialized)?;
         let tokens = preprocessor
             .tokenizer.0.encode_with_special_tokens(text);
-        Ok(tokens)
+        Ok(tokens.iter().map(|token| *token as u32).collect())
     }
 
-    fn decode_tokens(&self, tokens: Vec<usize>) -> Result<String, AIProxyError> {
+    fn decode_tokens(&self, tokens: Vec<u32>) -> Result<String, AIProxyError> {
         let preprocessor = self.preprocessor.as_ref()
             .ok_or(AIProxyError::AIModelNotInitialized)?;
+        let tokens = tokens.iter().map(|token| *token as usize).collect();
         let text = preprocessor
             .tokenizer.0.decode(tokens)
             .map_err(|_| AIProxyError::ModelTokenizationError)?;
@@ -170,7 +171,6 @@ impl ProviderTrait for FastEmbedProvider {
                 Ok(())
             }
         }
-        //     TODO (HAKSOAT): When we add model specific tokenizers, add the get tokenizer call here too.
     }
 
     fn run_inference(

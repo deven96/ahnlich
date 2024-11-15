@@ -8,7 +8,7 @@ use tokio::sync::oneshot::error::RecvError;
 
 use crate::engine::ai::models::InputAction;
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
 pub enum AIProxyError {
     #[error("Store {0} not found")]
     StoreNotFound(StoreName),
@@ -74,6 +74,32 @@ pub enum AIProxyError {
         model_name: String
     },
 
+    #[error("Invalid operation [{operation}] on model [{model_name}]")]
+    AIModelInvalidOperation {
+        operation: String,
+        model_name: String
+    },
+
+    #[error("Normalization error: [{message}]")]
+    ImageNormalizationError {
+        message: String
+    },
+
+    #[error("ImageArray to NdArray conversion error: [{message}]")]
+    ImageArrayToNdArrayError {
+        message: String
+    },
+
+    #[error("Rescale error: [{message}]")]
+    RescaleError {
+        message: String
+    },
+
+    #[error("Center crop error: [{message}]")]
+    CenterCropError {
+        message: String
+    },
+
     // TODO: Add SendError from mpsc::Sender into this variant
     #[error("Error sending request to model thread")]
     AIModelThreadSendError,
@@ -95,6 +121,9 @@ pub enum AIProxyError {
     #[error("Bytes could not be successfully decoded into an image.")]
     ImageBytesDecodeError,
 
+    #[error("Image could not be successfully encoded into bytes.")]
+    ImageBytesEncodeError,
+
     #[error(
         "Image can't have zero value in any dimension. Found height: {height}, width: {width}"
     )]
@@ -102,6 +131,9 @@ pub enum AIProxyError {
 
     #[error("Image could not be resized.")]
     ImageResizeError,
+
+    #[error("Image could not be cropped.")]
+    ImageCropError,
 
     #[error("Model provider failed on preprocessing the input {0}")]
     ModelProviderPreprocessingError(String),
@@ -122,7 +154,12 @@ pub enum AIProxyError {
     DelKeyError,
 
     #[error("Tokenizer for model failed on loading.")]
-    ModelTokenizerLoadError
+    ModelTokenizerLoadError,
+
+    #[error("Unable to load config: [{message}].")]
+    ModelConfigLoadError{
+        message: String
+    }
 }
 
 impl From<TryReserveError> for AIProxyError {

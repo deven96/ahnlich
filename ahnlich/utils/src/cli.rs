@@ -83,7 +83,7 @@ impl Default for CommandLineConfig {
 
             enable_tracing: false,
             otel_endpoint: None,
-            log_level: String::from("info"),
+            log_level: String::from("info,hf_hub=warn"),
             maximum_clients: 1000,
             threadpool_size: 16,
         }

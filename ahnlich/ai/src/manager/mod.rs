@@ -111,12 +111,12 @@ impl ModelThread {
         input: String,
         string_action: StringAction,
     ) -> Result<String, AIProxyError> {
-        let max_token_size = self.model.max_input_token().unwrap_or_else(|| {
-            panic!(
-                "`max_input_token()` is not supported for model: {:?}",
-                self.model.model_name()
-            )
-        });
+        let max_token_size = self.model.max_input_token().ok_or_else(|| {
+            AIProxyError::AIModelInvalidOperation {
+                model_name: self.model.model_name(),
+                operation: "[max_input_token] function".to_string()
+            }
+        })?;
 
         if self.model.input_type() != AIStoreInputType::RawString {
             return Err(AIProxyError::TokenTruncationNotSupported);
@@ -175,7 +175,6 @@ impl ModelThread {
                     expected_dimensions: (expected_width.into(), expected_height.into()),
                 });
             } else {
-                let input = input.resize(expected_width, expected_height)?;
                 return Ok(input);
             }
         }

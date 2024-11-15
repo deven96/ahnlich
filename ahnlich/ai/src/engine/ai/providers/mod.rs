@@ -1,6 +1,8 @@
 pub(crate) mod fastembed;
 pub(crate) mod ort;
+mod ort_text_helper;
 mod ort_helper;
+mod processors;
 
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{InputAction, ModelInput};
@@ -10,6 +12,7 @@ use crate::error::AIProxyError;
 use ahnlich_types::keyval::StoreKey;
 use std::path::Path;
 use strum::EnumIter;
+
 
 #[derive(Debug, EnumIter)]
 pub enum ModelProviders {
@@ -30,6 +33,6 @@ pub trait ProviderTrait: std::fmt::Debug + Send + Sync {
 }
 
 pub trait TextPreprocessorTrait {
-    fn encode_str(&self, text: &str) -> Result<Vec<usize>, AIProxyError>;
-    fn decode_tokens(&self, tokens: Vec<usize>) -> Result<String, AIProxyError>;
+    fn encode_str(&self, text: &str) -> Result<Vec<u32>, AIProxyError>;
+    fn decode_tokens(&self, tokens: Vec<u32>) -> Result<String, AIProxyError>;
 }

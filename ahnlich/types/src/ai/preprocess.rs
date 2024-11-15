@@ -8,6 +8,7 @@ use std::fmt;
 pub enum StringAction {
     TruncateIfTokensExceed,
     ErrorIfTokensExceed,
+    ModelPreprocessing
 }
 
 /// The action to be performed if the image dimensions is larger than the maximum size a
@@ -16,6 +17,7 @@ pub enum StringAction {
 pub enum ImageAction {
     ResizeImage,
     ErrorIfDimensionsMismatch,
+    ModelPreprocessing
 }
 
 #[derive(Copy, Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]

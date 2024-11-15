@@ -8,7 +8,7 @@ use ahnlich_types::{
     ai::{AIModel, AIStoreInputType},
     keyval::{StoreInput, StoreKey},
 };
-use image::{GenericImageView, ImageReader};
+use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader};
 use ndarray::ArrayView;
 use ndarray::{Array, Ix3};
 use nonzero_ext::nonzero;
@@ -18,6 +18,8 @@ use std::io::Cursor;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use strum::Display;
+use serde::ser::Error as SerError;
+use serde::de::Error as DeError;
 
 #[derive(Display)]
 pub enum ModelType {
@@ -263,7 +265,8 @@ pub enum ModelInput {
 #[derive(Debug, Clone)]
 pub struct ImageArray {
     array: Array<f32, Ix3>,
-    bytes: Vec<u8>,
+    image: DynamicImage,
+    image_format: ImageFormat
 }
 
 impl ImageArray {
@@ -272,10 +275,18 @@ impl ImageArray {
             .with_guessed_format()
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
 
-        let img = img_reader
+        let image_format = &img_reader
+            .format()
+            .ok_or(AIProxyError::ImageBytesDecodeError)?;
+
+        let image = img_reader
             .decode()
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
-        let (width, height) = img.dimensions();
+
+        // Always convert to RGB8 format
+        // https://github.com/Anush008/fastembed-rs/blob/cea92b6c8b877efda762393848d1c449a4eea126/src/image_embedding/utils.rs#L198
+        let image: DynamicImage = image.to_owned().into_rgb8().into();
+        let (width, height) = image.dimensions();
 
         if width == 0 || height == 0 {
             return Err(AIProxyError::ImageNonzeroDimensionError {
@@ -284,12 +295,13 @@ impl ImageArray {
             });
         }
 
-        let channels = img.color().channel_count();
-        let shape = (height as usize, width as usize, channels as usize);
-        let array = Array::from_shape_vec(shape, img.into_bytes())
+        let channels = &image.color().channel_count();
+        let shape = (height as usize, width as usize, *channels as usize);
+        let array = Array::from_shape_vec(shape, image.clone().into_bytes())
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?
             .mapv(f32::from);
-        Ok(ImageArray { array, bytes })
+
+        Ok(ImageArray { array, image, image_format: image_format.to_owned() })
     }
 
     // Swapping axes from [rows, columns, channels] to [channels, rows, columns] for ONNX
@@ -302,42 +314,42 @@ impl ImageArray {
         self.array.view()
     }
 
-    pub fn get_bytes(&self) -> &Vec<u8> {
-        &self.bytes
+    pub fn get_bytes(&self) -> Result<Vec<u8>, AIProxyError> {
+        let mut buffer = Cursor::new(Vec::new());
+        let _ = &self.image
+            .write_to(&mut buffer, self.image_format)
+            .map_err(|_| AIProxyError::ImageBytesEncodeError)?;
+        let bytes = buffer.into_inner();
+        Ok(bytes)
     }
 
-    pub fn resize(&self, width: NonZeroUsize, height: NonZeroUsize) -> Result<Self, AIProxyError> {
-        let width = usize::from(width);
-        let height = usize::from(height);
-        let img_reader = ImageReader::new(Cursor::new(&self.bytes))
-            .with_guessed_format()
-            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
-        let img_format = img_reader
-            .format()
-            .ok_or(AIProxyError::ImageBytesDecodeError)?;
-        let original_img = img_reader
-            .decode()
-            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
-
-        let resized_img = original_img.resize_exact(
-            width as u32,
-            height as u32,
-            image::imageops::FilterType::Triangle,
+    pub fn resize(&self, width: u32, height: u32, filter: Option<image::imageops::FilterType>) -> Result<Self, AIProxyError> {
+        let filter_type = filter.unwrap_or(image::imageops::FilterType::CatmullRom);
+        let resized_img = self.image.resize_exact(
+            width,
+            height,
+            filter_type,
         );
         let channels = resized_img.color().channel_count();
-        let shape = (height, width, channels as usize);
+        let shape = (height as usize, width as usize, channels as usize);
 
-        let mut buffer = Cursor::new(Vec::new());
-        resized_img
-            .write_to(&mut buffer, img_format)
-            .map_err(|_| AIProxyError::ImageResizeError)?;
-
-        let flattened_pixels = resized_img.into_bytes();
+        let flattened_pixels = resized_img.clone().into_bytes();
         let array = Array::from_shape_vec(shape, flattened_pixels)
             .map_err(|_| AIProxyError::ImageResizeError)?
             .mapv(f32::from);
-        let bytes = buffer.into_inner();
-        Ok(ImageArray { array, bytes })
+        Ok(ImageArray { array, image: resized_img, image_format: self.image_format })
+    }
+
+    pub fn crop(&self, x: u32, y: u32, width: u32, height: u32) -> Result<Self, AIProxyError> {
+        let cropped_img = self.image.crop_imm(x, y, width, height);
+        let channels = cropped_img.color().channel_count();
+        let shape = (height as usize, width as usize, channels as usize);
+
+        let flattened_pixels = cropped_img.clone().into_bytes();
+        let array = Array::from_shape_vec(shape, flattened_pixels)
+            .map_err(|_| AIProxyError::ImageCropError)?
+            .mapv(f32::from);
+        Ok(ImageArray { array, image: cropped_img, image_format: self.image_format })
     }
 
     pub fn image_dim(&self) -> (NonZeroUsize, NonZeroUsize) {
@@ -354,7 +366,7 @@ impl Serialize for ImageArray {
     where
         S: Serializer,
     {
-        serializer.serialize_bytes(self.get_bytes())
+        serializer.serialize_bytes(&self.get_bytes().map_err(S::Error::custom)?)
     }
 }
 
@@ -364,7 +376,7 @@ impl<'de> Deserialize<'de> for ImageArray {
         D: Deserializer<'de>,
     {
         let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
-        ImageArray::try_new(bytes).map_err(serde::de::Error::custom)
+        ImageArray::try_new(bytes).map_err(D::Error::custom)
     }
 }
 
