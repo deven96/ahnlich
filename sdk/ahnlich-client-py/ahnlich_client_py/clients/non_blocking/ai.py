@@ -1,15 +1,14 @@
 import typing
 
-from ahnlich_client_py import builders
-from ahnlich_client_py.builders import AsyncAhnlichDBRequestBuilder
+from ahnlich_client_py.builders import AsyncAhnlichAIRequestBuilder
 from ahnlich_client_py.config import AhnlichPoolSettings
-from ahnlich_client_py.internals import db_query, db_response
+from ahnlich_client_py.internals import ai_query, ai_response
 from ahnlich_client_py.internals import serde_types as st
 from ahnlich_client_py.internals.async_base_client import BaseClient
 
 
-class AhnlichDBClient(BaseClient):
-    """Async Wrapper for interacting with Ahnlich database"""
+class AhnlichAIClient(BaseClient):
+    """Async Wrapper for interacting with Ahnlich AI Proxy"""
 
     def __init__(
         self,
@@ -26,38 +25,49 @@ class AhnlichDBClient(BaseClient):
         )
 
     def get_response_class(self):
-        return db_response.ServerResult
+        return ai_response.AIServerResult
 
-    async def get_key(
+    async def create_store(
         self,
         store_name: str,
-        keys: typing.Sequence[db_query.Array],
+        query_model: ai_query.AIModel,
+        index_model: ai_query.AIModel,
+        predicates: typing.Sequence[str] = None,
+        non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
+        error_if_exists: bool = True,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
-        builder.get_key(store_name=store_name, keys=keys)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
+        builder.create_store(
+            store_name=store_name,
+            query_model=query_model,
+            index_model=index_model,
+            predicates=predicates,
+            non_linear_indices=non_linear_indices,
+            error_if_exists=error_if_exists,
+        )
         return await self.process_request(builder.to_server_query())
 
-    async def get_by_predicate(
+    async def get_pred(
         self,
         store_name: str,
-        condition: db_query.PredicateCondition,
+        condition: ai_query.PredicateCondition,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
-        builder.get_by_predicate(store_name=store_name, condition=condition)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
+        builder.get_pred(store_name=store_name, condition=condition)
         return await self.process_request(builder.to_server_query())
 
     async def get_sim_n(
         self,
         store_name: str,
-        search_input: db_query.Array,
+        search_input: ai_query.StoreInput,
         closest_n: st.uint64,
-        algorithm: db_query.Algorithm,
-        condition: db_query.PredicateCondition = None,
+        algorithm: ai_query.Algorithm,
+        condition: typing.Optional[ai_query.PredicateCondition] = None,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
         builder.get_sim_n(
             store_name=store_name,
             search_input=search_input,
@@ -72,8 +82,8 @@ class AhnlichDBClient(BaseClient):
         store_name: str,
         predicates: typing.Sequence[str],
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
         builder.create_pred_index(store_name=store_name, predicates=predicates)
         return await self.process_request(builder.to_server_query())
 
@@ -82,8 +92,8 @@ class AhnlichDBClient(BaseClient):
         store_name: str,
         non_linear_indices: typing.Sequence["NonLinearAlgorithm"],
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
         builder.create_non_linear_algorithm_index(
             store_name=store_name, non_linear_indices=non_linear_indices
         )
@@ -95,8 +105,8 @@ class AhnlichDBClient(BaseClient):
         predicates: typing.Sequence[str],
         error_if_not_exists: bool,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
         builder.drop_pred_index(
             store_name=store_name,
             predicates=predicates,
@@ -111,8 +121,8 @@ class AhnlichDBClient(BaseClient):
         error_if_not_exists: bool,
         tracing_id: typing.Optional[str] = None,
     ):
-        builder = builders.AhnlichDBRequestBuilder(tracing_id)
-        builder.drop_non_linear_algorithm_index()(
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
+        builder.drop_non_linear_algorithm_index(
             store_name=store_name,
             non_linear_indices=non_linear_indices,
             error_if_not_exists=error_if_not_exists,
@@ -123,32 +133,25 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         inputs: typing.Sequence[
-            typing.Tuple[db_query.Array, typing.Dict[str, db_query.MetadataValue]]
+            typing.Tuple[ai_query.StoreInput, typing.Dict[str, ai_query.MetadataValue]]
         ],
+        preprocess_action=ai_query.PreprocessAction,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
-        builder.set(store_name=store_name, inputs=inputs)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
+        builder.set(
+            store_name=store_name, inputs=inputs, preprocess_action=preprocess_action
+        )
         return await self.process_request(builder.to_server_query())
 
-    async def delete_key(
+    async def del_key(
         self,
         store_name: str,
-        keys: typing.Sequence[db_query.Array],
+        key: ai_query.StoreInput,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
-        builder.delete_key(store_name=store_name, keys=keys)
-        return await self.process_request(builder.to_server_query())
-
-    async def delete_predicate(
-        self,
-        store_name: str,
-        condition: db_query.PredicateCondition,
-        tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
-        builder.delete_predicate(store_name=store_name, condition=condition)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
+        builder.del_key(store_name=store_name, key=key)
         return await self.process_request(builder.to_server_query())
 
     async def drop_store(
@@ -156,70 +159,48 @@ class AhnlichDBClient(BaseClient):
         store_name: str,
         error_if_not_exists: bool,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
         builder.drop_store(
             store_name=store_name, error_if_not_exists=error_if_not_exists
         )
         return await self.process_request(builder.to_server_query())
 
-    async def create_store(
-        self,
-        store_name: str,
-        dimension: st.uint64,
-        create_predicates: typing.Sequence[str] = None,
-        non_linear_indices: typing.Sequence[db_query.NonLinearAlgorithm] = None,
-        error_if_exists: bool = True,
-        tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
-        builder.create_store(
-            store_name=store_name,
-            dimension=dimension,
-            create_predicates=create_predicates,
-            non_linear_indices=non_linear_indices,
-            error_if_exists=error_if_exists,
-        )
-        message = builder.to_server_query()
-        return await self.process_request(message=message)
-
-    async def list_stores(
+    async def purge_stores(
         self,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
-        builder.list_stores()
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
+        builder.purge_stores()
         return await self.process_request(builder.to_server_query())
 
     async def info_server(
         self,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
         builder.info_server()
-        return await self.process_request(
-            message=builder.to_server_query(),
-        )
+        return await self.process_request(builder.to_server_query())
 
-    async def list_clients(
+    async def list_stores(
         self,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
-        builder.list_clients()
-        return await self.process_request(
-            message=builder.to_server_query(),
-        )
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
+        builder.list_stores()
+        return await self.process_request(builder.to_server_query())
 
     async def ping(
         self,
         tracing_id: typing.Optional[str] = None,
-    ) -> db_response.ServerResult:
-        builder = AsyncAhnlichDBRequestBuilder(tracing_id)
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
         builder.ping()
-        print("Debugging, about to call process")
-        return await self.process_request(message=builder.to_server_query())
+        return await self.process_request(builder.to_server_query())
 
-    def pipeline(self, tracing_id=None) -> builders.AsyncAhnlichDBRequestBuilder:
+    def pipeline(
+        self,
+        tracing_id: typing.Optional[str] = None,
+    ) -> AsyncAhnlichAIRequestBuilder:
         """Gives you a request builder to create multple requests"""
-        return builders.AsyncAhnlichDBRequestBuilder(tracing_id=tracing_id, client=self)
+        return AsyncAhnlichAIRequestBuilder(tracing_id, client=self)

@@ -218,7 +218,7 @@ async def test_client_get_key_succeeds(
     store_key_2 = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
     # process data
     try:
-        builder = await db_client.pipeline()
+        builder = db_client.pipeline()
         builder.create_store(**store_payload_no_predicates)
         builder.set(
             store_name=store_payload_no_predicates["store_name"],
