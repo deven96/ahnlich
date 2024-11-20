@@ -684,7 +684,7 @@ condition = db_query.PredicateCondition__AND(
 
 | Version| Description           |
 | -------|:-------------:|
-| 0.1.0 | Base Python clients (Async and Sync) to connect to ahnlich db and AI, with connection pooling and Bincode serialization and deserialization |
+| 0.0.0 | Base Python clients (Async and Sync) to connect to ahnlich db and AI, with connection pooling and Bincode serialization and deserialization |
 
 
 
