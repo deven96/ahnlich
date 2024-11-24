@@ -1,6 +1,6 @@
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use crate::engine::ai::models::ImageArray;
-use crate::engine::ai::providers::processors::{CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD, Processor, ProcessorData};
+use crate::engine::ai::providers::processors::{CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD, Preprocessor, PreprocessorData};
 use crate::error::AIProxyError;
 
 pub struct CenterCrop {
@@ -81,10 +81,10 @@ impl TryFrom<&serde_json::Value> for CenterCrop {
     }
 }
 
-impl Processor for CenterCrop {
-    fn process(&self, data: ProcessorData) -> Result<ProcessorData, AIProxyError> {
+impl Preprocessor for CenterCrop {
+    fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
-            ProcessorData::ImageArray(image_array) => {
+            PreprocessorData::ImageArray(image_array) => {
                 let processed = image_array.par_iter().map(|image| {
                     if !self.process {
                         return Ok(image.clone());
@@ -112,7 +112,7 @@ impl Processor for CenterCrop {
                     }
                 })
                 .collect::<Result<Vec<ImageArray>, AIProxyError>>();
-                Ok(ProcessorData::ImageArray(processed?))
+                Ok(PreprocessorData::ImageArray(processed?))
             },
             _ => Err(AIProxyError::CenterCropError {
                 message: "CenterCrop process failed. Expected ImageArray, got NdArray3C".to_string(),

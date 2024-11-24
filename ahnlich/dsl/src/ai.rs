@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use ahnlich_types::{
-    ai::{AIModel, AIQuery, ImageAction, PreprocessAction, StringAction},
+    ai::{AIModel, AIQuery, PreprocessAction},
     keyval::StoreName,
     metadata::MetadataKey,
 };
@@ -20,14 +20,8 @@ use crate::{error::DslError, predicate::parse_predicate_expression};
 
 fn parse_to_preprocess_action(input: &str) -> PreprocessAction {
     match input.to_lowercase().trim() {
-        "erroriftokensexceed" => PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
-        "truncateiftokensexceed" => {
-            PreprocessAction::RawString(StringAction::TruncateIfTokensExceed)
-        }
-        "resizeimage" => PreprocessAction::Image(ImageAction::ResizeImage),
-        "errorifdimensionsmismatch" => {
-            PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch)
-        }
+        "nopreprocessing" => PreprocessAction::NoPreprocessing,
+        "modelpreprocessing" => PreprocessAction::ModelPreprocessing,
         _ => panic!("Unexpected preprocess action"),
     }
 }

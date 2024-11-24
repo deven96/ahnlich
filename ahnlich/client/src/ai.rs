@@ -596,7 +596,7 @@ mod tests {
                         HashMap::new()
                     ),
                 ],
-                PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+                PreprocessAction::NoPreprocessing,
                 None
             )
             .await
@@ -750,7 +750,7 @@ mod tests {
         pipeline.set(
             store_name.clone(),
             store_data,
-            PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            PreprocessAction::NoPreprocessing,
         );
 
         pipeline.drop_pred_index(
@@ -876,7 +876,7 @@ mod tests {
         pipeline.set(
             store_name.clone(),
             store_data,
-            PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
+            PreprocessAction::NoPreprocessing,
         );
 
         pipeline.drop_pred_index(

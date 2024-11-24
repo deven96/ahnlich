@@ -1,6 +1,6 @@
 use crate::error::DslError;
 use ahnlich_types::{
-    ai::{AIModel, AIQuery, PreprocessAction, StringAction},
+    ai::{AIModel, AIQuery, PreprocessAction},
     keyval::{StoreInput, StoreName},
     metadata::MetadataKey,
 };
@@ -376,7 +376,7 @@ fn test_set_in_store_parse() {
                     ])
                 )
             ],
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         }]
     );
 }

@@ -1,15 +1,15 @@
 use crate::error::AIProxyError;
-use crate::engine::ai::providers::processors::{Processor, ProcessorData};
-use ndarray::Array;
+use crate::engine::ai::providers::processors::{Postprocessor, PostprocessorData, Preprocessor, PreprocessorData};
+use ndarray::{Array, Axis};
 use std::ops::{Div, Sub};
 
-pub struct Normalize {
+pub struct ImageNormalize {
     mean: Vec<f32>,
     std: Vec<f32>,
     process: bool
 }
 
-impl TryFrom<&serde_json::Value> for Normalize {
+impl TryFrom<&serde_json::Value> for ImageNormalize {
     type Error = AIProxyError;
 
     fn try_from(config: &serde_json::Value) -> Result<Self, AIProxyError> {
@@ -39,14 +39,14 @@ impl TryFrom<&serde_json::Value> for Normalize {
     }
 }
 
-impl Processor for Normalize {
-    fn process(&self, data: ProcessorData) -> Result<ProcessorData, AIProxyError> {
+impl Preprocessor for ImageNormalize {
+    fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         if !self.process {
             return Ok(data);
         }
 
         match data {
-            ProcessorData::NdArray3C(array) => {
+            PreprocessorData::NdArray3C(array) => {
                 let mean = Array::from_vec(self.mean.clone())
                     .into_shape_with_order((3, 1, 1))
                     .unwrap();
@@ -62,7 +62,7 @@ impl Processor for Normalize {
                         let array_normalized = array
                             .sub(mean_broadcast)
                             .div(std_broadcast);
-                        Ok(ProcessorData::NdArray3C(array_normalized))
+                        Ok(PreprocessorData::NdArray3C(array_normalized))
                     }
                     _ => Err(AIProxyError::ImageNormalizationError {
                         message: format!("Image normalization failed due to invalid shape for image array; \
@@ -72,6 +72,32 @@ impl Processor for Normalize {
             }
             _ => Err(AIProxyError::ImageNormalizationError {
                 message: "Expected NdArray3C, got ImageArray".to_string(),
+            }),
+        }
+    }
+}
+
+pub struct VectorNormalize;
+
+impl Postprocessor for VectorNormalize {
+    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData, AIProxyError> {
+        match data {
+            PostprocessorData::NdArray2(array) => {
+                let norm = (&array * &array).sum_axis(Axis(1)).sqrt();
+                let epsilon = 1e-12;
+                let regularized_norm = norm + epsilon;
+                let regularized_norm = regularized_norm.insert_axis(Axis(1));
+                let source_shape = regularized_norm.shape();
+                let target_shape = array.shape();
+                let broadcasted_norm = regularized_norm
+                    .broadcast(array.dim()).ok_or(AIProxyError::VectorNormalizationError {
+                    message: format!("Could not broadcast attention mask with shape {:?} to \
+                         shape {:?} of the input tensor.", source_shape, target_shape),
+                })?.to_owned();
+                Ok(PostprocessorData::NdArray2(array / broadcasted_norm))
+            }
+            _ => Err(AIProxyError::VectorNormalizationError {
+                message: "Expected NdArray2, got NdArray3".to_string(),
             }),
         }
     }

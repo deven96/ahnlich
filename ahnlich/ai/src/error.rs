@@ -32,14 +32,28 @@ pub enum AIProxyError {
     },
     #[error("Shape error {0}")]
     EmbeddingShapeError(String),
-    #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}] ")]
+    #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}].")]
     TokenExceededError {
         max_token_size: usize,
         input_token_size: usize,
     },
 
-    #[error("Model does not support token truncation.")]
-    TokenTruncationNotSupported,
+    #[error("Model preprocessing for {model_name} failed: {message}.")]
+    ModelPreprocessingError {
+        model_name: String,
+        message: String
+    },
+
+    #[error("Model postprocessing for {model_name} failed: {message}.")]
+    ModelPostprocessingError {
+        model_name: String,
+        message: String
+    },
+
+    #[error("Pooling operation failed: {message}.")]
+    PoolingError {
+        message: String
+    },
 
     #[error(
         "Image Dimensions [({0}, {1})] does not match the expected model dimensions [({2}, {3})]",
@@ -51,7 +65,7 @@ pub enum AIProxyError {
     },
     #[error("Error initializing text embedding")]
     TextEmbeddingInitError(String),
-    #[error("API Builder Error {0}")]
+    #[error("API Builder Error: {0}")]
     APIBuilderError(String),
     #[error("Tokenizer initialization error {0}")]
     TokenizerInitError(String),
@@ -80,7 +94,12 @@ pub enum AIProxyError {
         model_name: String
     },
 
-    #[error("Normalization error: [{message}]")]
+    #[error("Vector normalization error: [{message}]")]
+    VectorNormalizationError {
+        message: String
+    },
+
+    #[error("Image normalization error: [{message}]")]
     ImageNormalizationError {
         message: String
     },
@@ -138,23 +157,24 @@ pub enum AIProxyError {
     #[error("Model provider failed on preprocessing the input {0}")]
     ModelProviderPreprocessingError(String),
 
-    #[error("Inference can only be run on one of text or image inputs, not both.")]
-    VaryingInferenceInputTypes,
-
     #[error("Model provider failed on running inference {0}")]
     ModelProviderRunInferenceError(String),
 
     #[error("Model provider failed on postprocessing the output {0}")]
     ModelProviderPostprocessingError(String),
 
-    #[error("Model provider failed on tokenization of text inputs.")]
-    ModelTokenizationError,
+    #[error("Tokenize error: {message}")]
+    ModelTokenizationError {
+        message: String
+    },
 
     #[error("Cannot call DelKey on store with `store_original` as false")]
     DelKeyError,
 
-    #[error("Tokenizer for model failed on loading.")]
-    ModelTokenizerLoadError,
+    #[error("Tokenizer for model failed to load: {message}")]
+    ModelTokenizerLoadError {
+        message: String
+    },
 
     #[error("Unable to load config: [{message}].")]
     ModelConfigLoadError{

@@ -1,7 +1,7 @@
 use image::imageops::FilterType;
 use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 use crate::engine::ai::models::ImageArray;
-use crate::engine::ai::providers::processors::{CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD, Processor, ProcessorData};
+use crate::engine::ai::providers::processors::{CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD, Preprocessor, PreprocessorData};
 use crate::error::AIProxyError;
 
 pub struct Resize {
@@ -84,10 +84,10 @@ impl TryFrom<&serde_json::Value> for Resize {
     }
 }
 
-impl Processor for Resize {
-    fn process(&self, data: ProcessorData) -> Result<ProcessorData, AIProxyError> {
+impl Preprocessor for Resize {
+    fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
-            ProcessorData::ImageArray(mut arrays) => {
+            PreprocessorData::ImageArray(mut arrays) => {
                 let processed = arrays.par_iter_mut()
                     .map(|image| {
                         if !self.process {
@@ -98,7 +98,7 @@ impl Processor for Resize {
                         Ok(image)
                     })
                     .collect::<Result<Vec<ImageArray>, AIProxyError>>();
-                Ok(ProcessorData::ImageArray(processed?))
+                Ok(PreprocessorData::ImageArray(processed?))
             }
             _ => Err(AIProxyError::ImageArrayToNdArrayError {
                 message: "Resize failed. Expected ImageArray, got NdArray3C".to_string(),

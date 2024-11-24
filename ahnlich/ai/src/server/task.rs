@@ -1,8 +1,7 @@
 use crate::engine::ai::models::Model;
 use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{
-    AIQuery, AIServerQuery, AIServerResponse, AIServerResult, ImageAction, PreprocessAction,
-    StringAction,
+    AIQuery, AIServerQuery, AIServerResponse, AIServerResult, PreprocessAction
 };
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
@@ -324,10 +323,8 @@ impl AhnlichProtocol for AIProxyTask {
                     // TODO: Replace this with calls to self.model_manager.handle_request
                     // TODO (HAKSOAT): Shouldn't preprocess action also be in the params?
                     let preprocess = match search_input {
-                        StoreInput::RawString(_) => {
-                            PreprocessAction::RawString(StringAction::TruncateIfTokensExceed)
-                        }
-                        StoreInput::Image(_) => PreprocessAction::Image(ImageAction::ResizeImage),
+                        StoreInput::RawString(_) => PreprocessAction::ModelPreprocessing,
+                        StoreInput::Image(_) => PreprocessAction::ModelPreprocessing,
                     };
                     let repr = self
                         .store_handler

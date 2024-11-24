@@ -1,22 +1,25 @@
 use std::iter;
+use std::sync::{Arc, Mutex};
 use hf_hub::api::sync::ApiRepo;
 use ndarray::{Array, Ix4};
-use tokenizers::Tokenizer;
+use tokenizers::{Encoding, Tokenizer};
 use crate::engine::ai::models::ImageArray;
 use crate::engine::ai::providers::ort_helper::HFConfigReader;
 use crate::engine::ai::providers::processors::center_crop::CenterCrop;
 use crate::engine::ai::providers::processors::imagearray_to_ndarray::ImageArrayToNdArray;
-use crate::engine::ai::providers::processors::normalize::Normalize;
-use crate::engine::ai::providers::processors::{Processor, ProcessorData};
+use crate::engine::ai::providers::processors::normalize::ImageNormalize;
+use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
 use crate::engine::ai::providers::processors::rescale::Rescale;
 use crate::engine::ai::providers::processors::resize::Resize;
+use crate::engine::ai::providers::processors::tokenize::Tokenize;
 use crate::error::AIProxyError;
 
+#[derive(Clone)]
 pub struct ImagePreprocessorFiles {
-    resize: Option<String>,
-    normalize: Option<String>,
-    rescale: Option<String>,
-    center_crop: Option<String>,
+    pub resize: Option<String>,
+    pub normalize: Option<String>,
+    pub rescale: Option<String>,
+    pub center_crop: Option<String>,
 }
 
 impl ImagePreprocessorFiles {
@@ -44,18 +47,47 @@ impl Default for ImagePreprocessorFiles {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TokenizerFiles {
+    pub tokenizer_file: String,
+    pub config_file: String,
+    pub special_tokens_map_file: String,
+    pub tokenizer_config_file: String,
+}
+
+impl Default for TokenizerFiles {
+    fn default() -> Self {
+        Self {
+            tokenizer_file: "tokenizer.json".to_string(),
+            config_file: "config.json".to_string(),
+            special_tokens_map_file: "special_tokens_map.json".to_string(),
+            tokenizer_config_file: "tokenizer_config.json".to_string(),
+        }
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct TextPreprocessorFiles {
+    pub tokenize: TokenizerFiles,
+}
+
+pub enum ORTPreprocessor {
+    Image(ORTImagePreprocessor),
+    Text(ORTTextPreprocessor),
+}
+
 #[derive(Default)]
 pub struct ORTImagePreprocessor {
-    imagearray_to_ndarray: Option<Box<dyn Processor>>,
-    normalize: Option<Box<dyn Processor>>,
-    resize: Option<Box<dyn Processor>>,
-    rescale: Option<Box<dyn Processor>>,
-    center_crop: Option<Box<dyn Processor>>,
+    imagearray_to_ndarray: Option<Box<dyn Preprocessor>>,
+    normalize: Option<Box<dyn Preprocessor>>,
+    resize: Option<Box<dyn Preprocessor>>,
+    rescale: Option<Box<dyn Preprocessor>>,
+    center_crop: Option<Box<dyn Preprocessor>>,
 }
 
 impl ORTImagePreprocessor {
     pub fn iter(&self) -> impl Iterator<Item = (
-        &str, &Box<dyn Processor>)> {
+        &str, &Box<dyn Preprocessor>)> {
         iter::empty()
             .chain(self.resize.as_ref().map(
                 |f| ("resize", f)))
@@ -87,7 +119,7 @@ impl ORTImagePreprocessor {
                     self.resize = Some(Box::new(Resize::try_from(&config.expect("Config exists"))?));
                 }
                 "normalize" => {
-                    self.normalize = Some(Box::new(Normalize::try_from(&config.expect("Config exists"))?));
+                    self.normalize = Some(Box::new(ImageNormalize::try_from(&config.expect("Config exists"))?));
                 }
                 "rescale" => {
                     self.rescale = Some(Box::new(Rescale::try_from(&config.expect("Config exists"))?));
@@ -104,12 +136,12 @@ impl ORTImagePreprocessor {
     }
 
     pub fn process(&self, data: Vec<ImageArray>) -> Result<Array<f32, Ix4>, AIProxyError> {
-        let mut data = ProcessorData::ImageArray(data);
+        let mut data = PreprocessorData::ImageArray(data);
         for (_, processor) in self.iter() {
             data = processor.process(data)?;
         }
         match data {
-            ProcessorData::NdArray3C(array) => Ok(array),
+            PreprocessorData::NdArray3C(array) => Ok(array),
             _ => Err(AIProxyError::ModelProviderPreprocessingError(
                 "Expected NdArray after processing".to_string()
             ))
@@ -117,11 +149,35 @@ impl ORTImagePreprocessor {
     }
 }
 
-pub enum ORTPreprocessor {
-    Image(ORTImagePreprocessor),
-    Text(ORTTextPreprocessor),
+pub struct ORTTextPreprocessor {
+    pub tokenize: Arc<Mutex<Tokenize>>
 }
 
-pub struct ORTTextPreprocessor {
-    pub tokenizer: Tokenizer,
+impl ORTTextPreprocessor {
+    pub fn load(model_repo: ApiRepo, processor_files: TextPreprocessorFiles) -> Result<ORTTextPreprocessor, AIProxyError> {
+        Ok(
+            ORTTextPreprocessor {
+                tokenize: Arc::new(Mutex::new(
+                    Tokenize::initialize(processor_files.tokenize, model_repo)?,
+                )),
+            }
+        )
+    }
+
+    pub fn process(&self, data: Vec<String>, truncate: bool) -> Result<Vec<Encoding>, AIProxyError> {
+        let mut data = PreprocessorData::Text(data);
+        let mut tokenize = self.tokenize.lock().map_err(|_| {
+            AIProxyError::ModelProviderPreprocessingError(
+                "Failed to acquire lock on tokenizer".to_string(),
+            )
+        })?;
+        tokenize.set_truncate(truncate);
+        data = tokenize.process(data)?;
+        match data {
+            PreprocessorData::EncodedText(encodings) => Ok(encodings),
+            _ => Err(AIProxyError::ModelProviderPreprocessingError(
+                "Expected EncodedText after processing".to_string()
+            ))
+        }
+    }
 }

@@ -135,6 +135,7 @@ impl Default for AIProxyConfig {
                 SupportedModels::AllMiniLML6V2,
                 SupportedModels::AllMiniLML12V2,
                 SupportedModels::BGEBaseEnV15,
+                SupportedModels::BGELargeEnV15,
                 SupportedModels::ClipVitB32Text,
                 SupportedModels::Resnet50,
                 SupportedModels::ClipVitB32Image,

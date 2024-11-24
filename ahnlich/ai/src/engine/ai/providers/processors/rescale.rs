@@ -1,4 +1,4 @@
-use crate::engine::ai::providers::processors::{Processor, ProcessorData};
+use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
 use crate::error::AIProxyError;
 
 pub struct Rescale {
@@ -25,17 +25,17 @@ impl TryFrom<&serde_json::Value> for Rescale {
     }
 }
 
-impl Processor for Rescale {
-    fn process(&self, data: ProcessorData) -> Result<ProcessorData, AIProxyError> {
+impl Preprocessor for Rescale {
+    fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         if !self.process {
             return Ok(data);
         }
 
         match data {
-            ProcessorData::NdArray3C(array) => {
+            PreprocessorData::NdArray3C(array) => {
                 let mut array = array;
                 array *= self.scale;
-                Ok(ProcessorData::NdArray3C(array))
+                Ok(PreprocessorData::NdArray3C(array))
             },
             _ => Err(AIProxyError::RescaleError {
                 message: "Rescale process failed. Expected NdArray3C, got ImageArray".to_string(),

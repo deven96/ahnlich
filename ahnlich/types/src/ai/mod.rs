@@ -1,7 +1,7 @@
 mod preprocess;
 mod query;
 mod server;
-pub use preprocess::{ImageAction, PreprocessAction, StringAction};
+pub use preprocess::PreprocessAction;
 pub use query::{AIQuery, AIServerQuery};
 use serde::{Deserialize, Serialize};
 pub use server::{AIServerResponse, AIServerResult, AIStoreInfo};
