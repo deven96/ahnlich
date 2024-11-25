@@ -1,6 +1,7 @@
 pub(crate) mod ort;
 mod ort_helper;
-mod processors;
+pub mod processors;
+
 
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{InputAction, ModelInput};

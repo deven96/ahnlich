@@ -8,12 +8,16 @@ use crate::engine::ai::models::{ImageArray, InputAction};
 /// channel
 use crate::engine::ai::models::{Model, ModelInput};
 use crate::engine::ai::providers::ModelProviders;
+use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
+use crate::engine::ai::providers::processors::imagearray_to_ndarray::ImageArrayToNdArray;
+
 use crate::engine::ai::providers::ort::ORTProvider;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::{AIModel, AIStoreInputType, PreprocessAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
 use moka::future::Cache;
+use ndarray::{Array, Ix4};
 use rayon::prelude::*;
 use tokenizers::Encoding;
 use task_manager::Task;
@@ -86,20 +90,20 @@ impl ModelThread {
         })?;
         match sample {
             StoreInput::RawString(_) => {
-                let inputs_inner: Vec<String> = inputs.into_par_iter().filter_map(|input| match input {
+                let inputs: Vec<String> = inputs.into_par_iter().filter_map(|input| match input {
                     StoreInput::RawString(string) => Some(string),
                     _ => None,
                 }).collect();
-                let output = self.preprocess_raw_string(inputs_inner, process_action)?;
+                let output = self.preprocess_raw_string(inputs, process_action)?;
                 Ok(ModelInput::Texts(output))
             }
             StoreInput::Image(_) => {
-                // let inputs_inner: Vec<Vec<u8>> = inputs.into_par_iter().filter_map(|input| match input {
-                //     StoreInput::Image(image_bytes) => Some(image_bytes),
-                //     _ => None,
-                // }).collect();
-                // let output = self.preprocess_image(inputs_inner, process_action)?;
-                Ok(ModelInput::Images(vec![]))
+                let inputs = inputs.into_par_iter().filter_map(|input| match input {
+                    StoreInput::Image(image_bytes) => Some(ImageArray::try_new(image_bytes).ok()?),
+                    _ => None,
+                }).collect();
+                let output = self.preprocess_image(inputs, process_action)?;
+                Ok(ModelInput::Images(output))
             }
         }
     }
@@ -109,17 +113,10 @@ impl ModelThread {
         inputs: Vec<String>,
         process_action: PreprocessAction,
     ) -> Result<Vec<Encoding>, AIProxyError> {
-        if self.model.input_type() != AIStoreInputType::RawString {
-            return Err(AIProxyError::ModelPreprocessingError {
+        let max_token_size = usize::from(self.model.max_input_token().ok_or_else(|| {
+            AIProxyError::ModelPreprocessingError {
                 model_name: self.model.model_name(),
                 message: "RawString preprocessing is not supported.".to_string(),
-            });
-        }
-
-        let max_token_size = usize::from(self.model.max_input_token().ok_or_else(|| {
-            AIProxyError::AIModelInvalidOperation {
-                model_name: self.model.model_name(),
-                operation: "[max_input_token] function".to_string()
             }
         })?);
 
@@ -146,44 +143,45 @@ impl ModelThread {
         }
     }
 
-    #[tracing::instrument(skip(self, input))]
+    #[tracing::instrument(skip(self, inputs))]
     fn preprocess_image(
         &self,
-        input: ImageArray,
+        inputs: Vec<ImageArray>,
         process_action: PreprocessAction
-        // input: Vec<Vec<u8>>,
-    ) -> Result<ImageArray, AIProxyError> {
-        Err(AIProxyError::ModelPreprocessingError {
+    ) -> Result<Array<f32, Ix4>, AIProxyError> {
+        // process image, return error if max dimensions exceeded
+        let (expected_width, expected_height) = self.model.expected_image_dimensions()
+            .ok_or(AIProxyError::ModelPreprocessingError {
             model_name: self.model.model_name(),
             message: "Image preprocessing is not supported.".to_string(),
-        })
-        // process image, return error if max dimensions exceeded
-        // let dimensions = input.image_dim();
-        //
-        // let Some((expected_width, expected_height)) =
-        //     self.model.expected_image_dimensions()
-        //         .ok_or(
-        //             Err(AIProxyError::PreprocessingMismatchError {
-        //                 input_type: AIStoreInputType::Image,
-        //                 preprocess_action: process_action,
-        //             }))?;
-        //
-        // match process_action {
-        //     PreprocessAction::NoPreprocessing => {
-        //         Ok(input)
-        //     }
-        //     PreprocessAction::ModelPreprocessing => {
-        //         let (width, height) = dimensions;
-        //         if width != expected_width || height != expected_height {
-        //             Err(AIProxyError::ImageDimensionsMismatchError {
-        //                 image_dimensions: (width.into(), height.into()),
-        //                 expected_dimensions: (expected_width.into(), expected_height.into()),
-        //             })
-        //         } else {
-        //             Ok(input)
-        //         }
-        //     }
-        // }
+        })?;
+        let expected_width = usize::from(expected_width);
+        let expected_height = usize::from(expected_height);
+
+        match &self.model.provider {
+            ModelProviders::ORT(provider) => {
+                let outputs = match process_action {
+                    PreprocessAction::ModelPreprocessing => {
+                        provider.preprocess_images(inputs)?
+                    }
+                    PreprocessAction::NoPreprocessing => {
+                        ImageArrayToNdArray.process(PreprocessorData::ImageArray(inputs))?
+                            .into_ndarray3c()?
+                    }
+                };
+                let outputs_shape = outputs.shape();
+                let width = *outputs_shape.get(2).expect("Must exist");
+                let height = *outputs_shape.get(3).expect("Must exist");
+                if width != expected_width || height != expected_height {
+                    return Err(AIProxyError::ImageDimensionsMismatchError {
+                        image_dimensions: (width, height),
+                        expected_dimensions: (expected_width.into(), expected_height.into()),
+                    });
+                } else {
+                    return Ok(outputs);
+                }
+            }
+        }
     }
 }
 

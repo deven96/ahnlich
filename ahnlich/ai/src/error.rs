@@ -30,8 +30,7 @@ pub enum AIProxyError {
         index_model_type: AIStoreInputType,
         storeinput_type: AIStoreInputType,
     },
-    #[error("Shape error {0}")]
-    EmbeddingShapeError(String),
+
     #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}].")]
     TokenExceededError {
         max_token_size: usize,
@@ -106,6 +105,11 @@ pub enum AIProxyError {
 
     #[error("ImageArray to NdArray conversion error: [{message}]")]
     ImageArrayToNdArrayError {
+        message: String
+    },
+
+    #[error("Onnx output transform error: [{message}]")]
+    OnnxOutputTransformError {
         message: String
     },
 

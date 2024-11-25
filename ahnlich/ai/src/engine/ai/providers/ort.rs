@@ -7,11 +7,11 @@ use fallible_collections::FallibleVec;
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use itertools::Itertools;
 use rayon::iter::Either;
-use ort::{Session, Value};
+use ort::{Session, SessionOutputs, Value};
 use rayon::prelude::*;
 
 use ahnlich_types::keyval::StoreKey;
-use ndarray::{Array, Array1, Axis, Ix2, Ix3, Ix4, IxDyn, IxDynImpl};
+use ndarray::{Array, Array1, ArrayView, Axis, Ix2, Ix3, Ix4, IxDyn, IxDynImpl};
 use std::convert::TryFrom;
 use std::default::Default;
 use std::fmt;
@@ -22,7 +22,7 @@ use crate::engine::ai::providers::processors::preprocessor::{ImagePreprocessorFi
 use crate::engine::ai::providers::ort_helper::normalize;
 use ndarray::s;
 use tokenizers::Tokenizer;
-use crate::engine::ai::providers::processors::postprocessor::{ORTPostprocessor, ORTTextPostprocessor};
+use crate::engine::ai::providers::processors::postprocessor::{ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor};
 
 #[derive(Default)]
 pub struct ORTProvider {
@@ -215,44 +215,46 @@ impl ORTProvider {
         }
     }
 
-    pub fn batch_inference_image(&self, inputs: Vec<ImageArray>) -> Result<Vec<StoreKey>, AIProxyError> {
+    pub fn postprocess_image_inference(&self, embeddings: SessionOutputs) -> Result<Array<f32, Ix2>, AIProxyError> {
+        match &self.postprocessor {
+            Some(ORTPostprocessor::Image(postprocessor)) => {
+                let output_data = postprocessor.process(embeddings)
+                    .map_err(
+                        |e| AIProxyError::ModelProviderPostprocessingError(
+                            format!("Postprocessing failed for {:?} with error: {}",
+                                    self.supported_models.unwrap().to_string(), e)
+                        ))?;
+                Ok(output_data)
+            }
+            _ => Err(AIProxyError::ModelPostprocessingError {
+                model_name: self.supported_models.unwrap().to_string(),
+                message: "Postprocessor not initialized".to_string(),
+            })
+        }
+    }
+
+    pub fn batch_inference_image(&self, inputs: Array<f32, Ix4>) -> Result<Array<f32, Ix2>, AIProxyError> {
         let model = match &self.model {
             Some(ORTModel::Image(model)) => model,
             _ => return Err(AIProxyError::AIModelNotSupported { model_name: self.supported_models.unwrap().to_string() }),
         };
-        let pixel_values_array = self.preprocess_images(inputs)?;
         match &model.session {
             Some(session) => {
                 let session_inputs = ort::inputs![
                     model.input_params.first().expect("Hardcoded in parameters")
-                    .as_str() => pixel_values_array.view(),
+                    .as_str() => inputs.view(),
                 ].map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
 
                 let outputs = session.run(session_inputs)
                     .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
-                let last_hidden_state_key = match outputs.len() {
-                    1 => outputs.keys().next().unwrap(),
-                    _ => model.output_param.as_str(),
-                };
-
-                let output_data = outputs[last_hidden_state_key]
-                    .try_extract_tensor::<f32>()
-                    .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
-                let store_keys = output_data
-                    .axis_iter(Axis(0))
-                    .into_par_iter()
-                    .map(|row| {
-                        let embeddings = normalize(row.as_slice().unwrap());
-                        StoreKey(<Array1<f32>>::from(embeddings))
-                    })
-                    .collect();
-                Ok(store_keys)
+                let embeddings = self.postprocess_image_inference(outputs)?;
+                Ok(embeddings)
             }
             None => Err(AIProxyError::AIModelNotInitialized)
         }
     }
 
-    pub fn batch_inference_text(&self, encodings: Vec<Encoding>) -> Result<Vec<StoreKey>, AIProxyError> {
+    pub fn batch_inference_text(&self, encodings: Vec<Encoding>) -> Result<Array<f32, Ix2>, AIProxyError> {
         let model = match &self.model {
             Some(ORTModel::Text(model)) => model,
             _ => return Err(AIProxyError::AIModelNotSupported { model_name: self.supported_models.unwrap().to_string() }),
@@ -338,13 +340,7 @@ impl ORTProvider {
                 let session_output = session_output
                     .to_owned();
                 let embeddings = self.postprocess_text_embeddings(session_output, attention_mask_array)?;
-                println!("Embeddings: {:?}", embeddings);
-                let store_keys = embeddings
-                    .axis_iter(Axis(0))
-                    .into_par_iter()
-                    .map(|embedding| StoreKey(<Array1<f32>>::from(embedding.to_owned())))
-                    .collect();
-                Ok(store_keys)
+                Ok(embeddings.to_owned())
             }
             None => Err(AIProxyError::AIModelNotInitialized),
         }
@@ -407,8 +403,9 @@ impl ProviderTrait for ORTProvider {
                 }));
                 let mut preprocessor = ORTImagePreprocessor::default();
                 preprocessor.load(model_repo, preprocessor_files)?;
-                self.preprocessor = Some(ORTPreprocessor::Image(preprocessor)
-                );
+                self.preprocessor = Some(ORTPreprocessor::Image(preprocessor));
+                let postprocessor = ORTImagePostprocessor::load(supported_model)?;
+                self.postprocessor = Some(ORTPostprocessor::Image(postprocessor));
             },
             ORTModel::Text(ORTTextModel {
                 weights_file,
@@ -487,14 +484,35 @@ impl ProviderTrait for ORTProvider {
     ) -> Result<Vec<StoreKey>, AIProxyError> {
 
         match input {
-            ModelInput::Images(images) => self.batch_inference_image(images),
+            ModelInput::Images(images) => {
+                let mut store_keys: Vec<StoreKey> = FallibleVec::try_with_capacity(images.len())?;
+
+                for batch_image in images.axis_chunks_iter(Axis(0), 16).into_iter() {
+                    let embeddings = self.batch_inference_image(batch_image.to_owned())?;
+                    let new_store_keys: Vec<StoreKey> = embeddings
+                        .axis_iter(Axis(0))
+                        .into_par_iter()
+                        .map(|embedding| StoreKey(<Array1<f32>>::from(embedding.to_owned()))
+                        )
+                        .collect();
+                    store_keys.extend(new_store_keys);
+                }
+                Ok(store_keys)
+            },
             ModelInput::Texts(encodings) => {
-                let mut store_keys: Vec<_> = FallibleVec::try_with_capacity(
+                let mut store_keys: Vec<StoreKey> = FallibleVec::try_with_capacity(
                     encodings.len()
                 )?;
 
                 for batch_encoding in encodings.into_iter().chunks(16).into_iter() {
-                    store_keys.extend(self.batch_inference_text(batch_encoding.collect())?);
+                    let embeddings = self.batch_inference_text(batch_encoding.collect())?;
+                    let new_store_keys: Vec<StoreKey> = embeddings
+                        .axis_iter(Axis(0))
+                        .into_par_iter()
+                        .map(|embedding| StoreKey(<Array1<f32>>::from(embedding.to_owned()))
+                        )
+                        .collect();
+                    store_keys.extend(new_store_keys);
                 }
                 Ok(store_keys)
             },

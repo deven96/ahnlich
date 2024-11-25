@@ -8,7 +8,7 @@ use ahnlich_types::{
     keyval::{StoreInput, StoreKey},
 };
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader};
-use ndarray::ArrayView;
+use ndarray::{ArrayView, Ix4};
 use ndarray::{Array, Ix3};
 use nonzero_ext::nonzero;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -246,14 +246,15 @@ impl fmt::Display for InputAction {
 #[derive(Debug)]
 pub enum ModelInput {
     Texts(Vec<Encoding>),
-    Images(Vec<ImageArray>),
+    Images(Array<f32, Ix4>),
 }
 
 #[derive(Debug, Clone)]
 pub struct ImageArray {
     array: Array<f32, Ix3>,
     image: DynamicImage,
-    image_format: ImageFormat
+    image_format: ImageFormat,
+    onnx_transformed: bool
 }
 
 impl ImageArray {
@@ -288,13 +289,17 @@ impl ImageArray {
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?
             .mapv(f32::from);
 
-        Ok(ImageArray { array, image, image_format: image_format.to_owned() })
+        Ok(ImageArray { array, image, image_format: image_format.to_owned(), onnx_transformed: false })
     }
 
     // Swapping axes from [rows, columns, channels] to [channels, rows, columns] for ONNX
     pub fn onnx_transform(&mut self) {
+        if self.onnx_transformed {
+            return;
+        }
         self.array.swap_axes(1, 2);
         self.array.swap_axes(0, 1);
+        self.onnx_transformed = true;
     }
 
     pub fn view(&self) -> ArrayView<f32, Ix3> {
@@ -324,7 +329,7 @@ impl ImageArray {
         let array = Array::from_shape_vec(shape, flattened_pixels)
             .map_err(|_| AIProxyError::ImageResizeError)?
             .mapv(f32::from);
-        Ok(ImageArray { array, image: resized_img, image_format: self.image_format })
+        Ok(ImageArray { array, image: resized_img, image_format: self.image_format, onnx_transformed: false })
     }
 
     pub fn crop(&self, x: u32, y: u32, width: u32, height: u32) -> Result<Self, AIProxyError> {
@@ -336,15 +341,21 @@ impl ImageArray {
         let array = Array::from_shape_vec(shape, flattened_pixels)
             .map_err(|_| AIProxyError::ImageCropError)?
             .mapv(f32::from);
-        Ok(ImageArray { array, image: cropped_img, image_format: self.image_format })
+        Ok(ImageArray { array, image: cropped_img, image_format: self.image_format, onnx_transformed: false })
     }
 
     pub fn image_dim(&self) -> (NonZeroUsize, NonZeroUsize) {
         let shape = self.array.shape();
-        (
-            NonZeroUsize::new(shape[1]).expect("Array columns should be non-zero"),
-            NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero"),
-        ) // (width, height)
+        match self.onnx_transformed {
+            true => (
+                NonZeroUsize::new(shape[2]).expect("Array columns should be non-zero"),
+                NonZeroUsize::new(shape[1]).expect("Array channels should be non-zero"),
+            ), // (width, channels)
+            false => (
+                NonZeroUsize::new(shape[1]).expect("Array columns should be non-zero"),
+                NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero"),
+            ) // (width, height)
+        }
     }
 }
 
@@ -366,17 +377,6 @@ impl<'de> Deserialize<'de> for ImageArray {
         ImageArray::try_new(bytes).map_err(D::Error::custom)
     }
 }
-
-// impl TryFrom<StoreInput> for ModelInput {
-//     type Error = AIProxyError;
-//
-//     fn try_from(value: StoreInput) -> Result<Self, Self::Error> {
-//         match value {
-//             StoreInput::RawString(s) => Ok(ModelInput::Text(s)),
-//             StoreInput::Image(bytes) => Ok(ModelInput::Image(ImageArray::try_new(bytes)?)),
-//         }
-//     }
-// }
 
 impl From<&ModelInput> for AIStoreInputType {
     fn from(value: &ModelInput) -> AIStoreInputType {

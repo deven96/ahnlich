@@ -1,9 +1,11 @@
 use std::sync::{Arc, Mutex};
 use ndarray::{Array, Ix2, Ix3};
+use ort::SessionOutputs;
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::providers::processors::normalize::VectorNormalize;
 use crate::engine::ai::providers::processors::pooling::{Pooling, RegularPooling, MeanPooling};
 use crate::engine::ai::providers::processors::{PostprocessorData, Postprocessor};
+use crate::engine::ai::providers::processors::onnx_output_transform::OnnxOutputTransform;
 use crate::error::AIProxyError;
 
 pub enum ORTPostprocessor {
@@ -20,7 +22,7 @@ pub struct ORTTextPostprocessor {
 
 impl ORTTextPostprocessor {
     pub fn load(supported_model: SupportedModels) -> Result<Self, AIProxyError> {
-        let artifacts = match supported_model {
+        let ops = match supported_model {
             SupportedModels::AllMiniLML6V2 |
             SupportedModels::AllMiniLML12V2 => Ok((
                 Pooling::Mean(MeanPooling::new()),
@@ -42,8 +44,8 @@ impl ORTTextPostprocessor {
         }?;
         Ok(Self {
             model: supported_model,
-            pooling: Arc::new(Mutex::new(artifacts.0)),
-            normalize: artifacts.1
+            pooling: Arc::new(Mutex::new(ops.0)),
+            normalize: ops.1
         })
     }
 
@@ -69,13 +71,56 @@ impl ORTTextPostprocessor {
             PostprocessorData::NdArray2(array) => Ok(array),
             _ => Err(AIProxyError::ModelPostprocessingError {
                 model_name: self.model.to_string(),
-                message: "Expected NdArray2, got NdArray3".to_string()
+                message: "Only returns NdArray2".to_string()
             })
         }
     }
 }
 
-struct ORTImagePostprocessor {
+pub struct ORTImagePostprocessor {
     model: SupportedModels,
-    normalize: VectorNormalize
+    onnx_output_transform: OnnxOutputTransform,
+    normalize: Option<VectorNormalize>
+}
+
+impl ORTImagePostprocessor {
+    pub fn load(supported_model: SupportedModels) -> Result<Self, AIProxyError> {
+        let output_transform = match supported_model {
+            SupportedModels::Resnet50 |
+            SupportedModels::ClipVitB32Image =>
+                OnnxOutputTransform::new("image_embeds".to_string()),
+            _ => Err(AIProxyError::ModelPostprocessingError {
+                model_name: supported_model.to_string(),
+                message: "Unsupported model for ORTImagePostprocessor".to_string()
+            })?
+        };
+        let normalize = match supported_model {
+            SupportedModels::Resnet50 => Ok(Some(VectorNormalize)),
+            SupportedModels::ClipVitB32Image => Ok(None),
+            _ => Err(AIProxyError::ModelPostprocessingError {
+                model_name: supported_model.to_string(),
+                message: "Unsupported model for ORTImagePostprocessor".to_string()
+            })
+        }?;
+        Ok(Self {
+            model: supported_model,
+            normalize,
+            onnx_output_transform: output_transform
+        })
+    }
+
+    pub fn process(&self, session_outputs: SessionOutputs) -> Result<Array<f32, Ix2>, AIProxyError> {
+        let embeddings = self.onnx_output_transform.process(PostprocessorData::OnnxOutput(session_outputs))?;
+        let result = match &self.normalize {
+            Some(normalize) => normalize.process(embeddings),
+            None => Ok(embeddings)
+        }?;
+        match result {
+            PostprocessorData::NdArray2(array) => Ok(array),
+            _ => Err(AIProxyError::ModelPostprocessingError {
+                model_name: self.model.to_string(),
+                message: "Only returns NdArray2".to_string()
+            })
+        }
+    }
 }
