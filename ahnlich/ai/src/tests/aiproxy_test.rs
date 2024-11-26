@@ -654,7 +654,7 @@ async fn test_ai_proxy_test_with_persistence() {
     // write flag should show that a write has occured
     assert!(write_flag.load(Ordering::SeqCst));
     // Allow some time for persistence to kick in
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
     // start another server with existing persistence
 
     let persisted_server = AIProxyServer::new(AI_CONFIG_WITH_PERSISTENCE.clone())
