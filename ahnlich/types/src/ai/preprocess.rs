@@ -4,7 +4,7 @@ use std::fmt;
 #[derive(Copy, Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PreprocessAction {
     NoPreprocessing,
-    ModelPreprocessing
+    ModelPreprocessing,
 }
 
 impl fmt::Display for PreprocessAction {

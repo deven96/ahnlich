@@ -3,7 +3,7 @@ use ahnlich_db::server::handler::Server;
 use ahnlich_types::{
     ai::{
         AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo,
-        PreprocessAction
+        PreprocessAction,
     },
     db::StoreUpsert,
     keyval::{StoreInput, StoreName, StoreValue},

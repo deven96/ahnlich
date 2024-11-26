@@ -2,7 +2,6 @@ pub(crate) mod ort;
 mod ort_helper;
 pub mod processors;
 
-
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{InputAction, ModelInput};
 use crate::engine::ai::providers::ort::ORTProvider;
@@ -10,7 +9,6 @@ use crate::error::AIProxyError;
 use ahnlich_types::keyval::StoreKey;
 use std::path::Path;
 use strum::EnumIter;
-
 
 #[derive(Debug, EnumIter)]
 pub enum ModelProviders {

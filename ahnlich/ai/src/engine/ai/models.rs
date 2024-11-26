@@ -5,20 +5,20 @@ use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ahnlich_types::{
     ai::{AIModel, AIStoreInputType},
-    keyval::{StoreInput, StoreKey},
+    keyval::StoreKey,
 };
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader};
-use ndarray::{ArrayView, Ix4};
 use ndarray::{Array, Ix3};
+use ndarray::{ArrayView, Ix4};
 use nonzero_ext::nonzero;
+use serde::de::Error as DeError;
+use serde::ser::Error as SerError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::io::Cursor;
 use std::num::NonZeroUsize;
 use std::path::Path;
 use strum::Display;
-use serde::ser::Error as SerError;
-use serde::de::Error as DeError;
 use tokenizers::Encoding;
 
 #[derive(Display)]
@@ -254,7 +254,7 @@ pub struct ImageArray {
     array: Array<f32, Ix3>,
     image: DynamicImage,
     image_format: ImageFormat,
-    onnx_transformed: bool
+    onnx_transformed: bool,
 }
 
 impl ImageArray {
@@ -289,7 +289,12 @@ impl ImageArray {
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?
             .mapv(f32::from);
 
-        Ok(ImageArray { array, image, image_format: image_format.to_owned(), onnx_transformed: false })
+        Ok(ImageArray {
+            array,
+            image,
+            image_format: image_format.to_owned(),
+            onnx_transformed: false,
+        })
     }
 
     // Swapping axes from [rows, columns, channels] to [channels, rows, columns] for ONNX
@@ -308,20 +313,22 @@ impl ImageArray {
 
     pub fn get_bytes(&self) -> Result<Vec<u8>, AIProxyError> {
         let mut buffer = Cursor::new(Vec::new());
-        let _ = &self.image
+        let _ = &self
+            .image
             .write_to(&mut buffer, self.image_format)
             .map_err(|_| AIProxyError::ImageBytesEncodeError)?;
         let bytes = buffer.into_inner();
         Ok(bytes)
     }
 
-    pub fn resize(&self, width: u32, height: u32, filter: Option<image::imageops::FilterType>) -> Result<Self, AIProxyError> {
+    pub fn resize(
+        &self,
+        width: u32,
+        height: u32,
+        filter: Option<image::imageops::FilterType>,
+    ) -> Result<Self, AIProxyError> {
         let filter_type = filter.unwrap_or(image::imageops::FilterType::CatmullRom);
-        let resized_img = self.image.resize_exact(
-            width,
-            height,
-            filter_type,
-        );
+        let resized_img = self.image.resize_exact(width, height, filter_type);
         let channels = resized_img.color().channel_count();
         let shape = (height as usize, width as usize, channels as usize);
 
@@ -329,7 +336,12 @@ impl ImageArray {
         let array = Array::from_shape_vec(shape, flattened_pixels)
             .map_err(|_| AIProxyError::ImageResizeError)?
             .mapv(f32::from);
-        Ok(ImageArray { array, image: resized_img, image_format: self.image_format, onnx_transformed: false })
+        Ok(ImageArray {
+            array,
+            image: resized_img,
+            image_format: self.image_format,
+            onnx_transformed: false,
+        })
     }
 
     pub fn crop(&self, x: u32, y: u32, width: u32, height: u32) -> Result<Self, AIProxyError> {
@@ -341,7 +353,12 @@ impl ImageArray {
         let array = Array::from_shape_vec(shape, flattened_pixels)
             .map_err(|_| AIProxyError::ImageCropError)?
             .mapv(f32::from);
-        Ok(ImageArray { array, image: cropped_img, image_format: self.image_format, onnx_transformed: false })
+        Ok(ImageArray {
+            array,
+            image: cropped_img,
+            image_format: self.image_format,
+            onnx_transformed: false,
+        })
     }
 
     pub fn image_dim(&self) -> (NonZeroUsize, NonZeroUsize) {
@@ -354,7 +371,7 @@ impl ImageArray {
             false => (
                 NonZeroUsize::new(shape[1]).expect("Array columns should be non-zero"),
                 NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero"),
-            ) // (width, height)
+            ), // (width, height)
         }
     }
 }

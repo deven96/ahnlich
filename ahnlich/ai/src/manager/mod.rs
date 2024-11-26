@@ -7,22 +7,20 @@ use crate::engine::ai::models::{ImageArray, InputAction};
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
 use crate::engine::ai::models::{Model, ModelInput};
-use crate::engine::ai::providers::ModelProviders;
-use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
 use crate::engine::ai::providers::processors::imagearray_to_ndarray::ImageArrayToNdArray;
-
-use crate::engine::ai::providers::ort::ORTProvider;
+use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
+use crate::engine::ai::providers::ModelProviders;
 use crate::error::AIProxyError;
-use ahnlich_types::ai::{AIModel, AIStoreInputType, PreprocessAction};
+use ahnlich_types::ai::{AIModel, PreprocessAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
 use moka::future::Cache;
 use ndarray::{Array, Ix4};
 use rayon::prelude::*;
-use tokenizers::Encoding;
 use task_manager::Task;
 use task_manager::TaskManager;
 use task_manager::TaskState;
+use tokenizers::Encoding;
 use tokio::sync::Mutex;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
@@ -84,24 +82,34 @@ impl ModelThread {
         process_action: PreprocessAction,
         inputs: Vec<StoreInput>,
     ) -> Result<ModelInput, AIProxyError> {
-        let sample = inputs.first().ok_or(AIProxyError::ModelPreprocessingError {
-            model_name: self.model.model_name(),
-            message: "Input is empty".to_string(),
-        })?;
+        let sample = inputs
+            .first()
+            .ok_or(AIProxyError::ModelPreprocessingError {
+                model_name: self.model.model_name(),
+                message: "Input is empty".to_string(),
+            })?;
         match sample {
             StoreInput::RawString(_) => {
-                let inputs: Vec<String> = inputs.into_par_iter().filter_map(|input| match input {
-                    StoreInput::RawString(string) => Some(string),
-                    _ => None,
-                }).collect();
+                let inputs: Vec<String> = inputs
+                    .into_par_iter()
+                    .filter_map(|input| match input {
+                        StoreInput::RawString(string) => Some(string),
+                        _ => None,
+                    })
+                    .collect();
                 let output = self.preprocess_raw_string(inputs, process_action)?;
                 Ok(ModelInput::Texts(output))
             }
             StoreInput::Image(_) => {
-                let inputs = inputs.into_par_iter().filter_map(|input| match input {
-                    StoreInput::Image(image_bytes) => Some(ImageArray::try_new(image_bytes).ok()?),
-                    _ => None,
-                }).collect();
+                let inputs = inputs
+                    .into_par_iter()
+                    .filter_map(|input| match input {
+                        StoreInput::Image(image_bytes) => {
+                            Some(ImageArray::try_new(image_bytes).ok()?)
+                        }
+                        _ => None,
+                    })
+                    .collect();
                 let output = self.preprocess_image(inputs, process_action)?;
                 Ok(ModelInput::Images(output))
             }
@@ -122,15 +130,15 @@ impl ModelThread {
 
         match &self.model.provider {
             ModelProviders::ORT(provider) => {
-                let truncate = match process_action {
-                    PreprocessAction::ModelPreprocessing => true,
-                    _ => false
-                };
+                let truncate = matches!(process_action, PreprocessAction::ModelPreprocessing);
                 let outputs = provider.preprocess_texts(inputs, truncate)?;
-                let token_size = outputs.first().ok_or(AIProxyError::ModelPreprocessingError {
-                    model_name: self.model.model_name(),
-                    message: "Processed output is empty".to_string(),
-                })?.len();
+                let token_size = outputs
+                    .first()
+                    .ok_or(AIProxyError::ModelPreprocessingError {
+                        model_name: self.model.model_name(),
+                        message: "Processed output is empty".to_string(),
+                    })?
+                    .len();
                 if token_size > max_token_size {
                     return Err(AIProxyError::TokenExceededError {
                         max_token_size,
@@ -147,27 +155,25 @@ impl ModelThread {
     fn preprocess_image(
         &self,
         inputs: Vec<ImageArray>,
-        process_action: PreprocessAction
+        process_action: PreprocessAction,
     ) -> Result<Array<f32, Ix4>, AIProxyError> {
         // process image, return error if max dimensions exceeded
-        let (expected_width, expected_height) = self.model.expected_image_dimensions()
-            .ok_or(AIProxyError::ModelPreprocessingError {
-            model_name: self.model.model_name(),
-            message: "Image preprocessing is not supported.".to_string(),
-        })?;
+        let (expected_width, expected_height) = self.model.expected_image_dimensions().ok_or(
+            AIProxyError::ModelPreprocessingError {
+                model_name: self.model.model_name(),
+                message: "Image preprocessing is not supported.".to_string(),
+            },
+        )?;
         let expected_width = usize::from(expected_width);
         let expected_height = usize::from(expected_height);
 
         match &self.model.provider {
             ModelProviders::ORT(provider) => {
                 let outputs = match process_action {
-                    PreprocessAction::ModelPreprocessing => {
-                        provider.preprocess_images(inputs)?
-                    }
-                    PreprocessAction::NoPreprocessing => {
-                        ImageArrayToNdArray.process(PreprocessorData::ImageArray(inputs))?
-                            .into_ndarray3c()?
-                    }
+                    PreprocessAction::ModelPreprocessing => provider.preprocess_images(inputs)?,
+                    PreprocessAction::NoPreprocessing => ImageArrayToNdArray
+                        .process(PreprocessorData::ImageArray(inputs))?
+                        .into_ndarray3c()?,
                 };
                 let outputs_shape = outputs.shape();
                 let width = *outputs_shape.get(2).expect("Must exist");
@@ -175,7 +181,7 @@ impl ModelThread {
                 if width != expected_width || height != expected_height {
                     return Err(AIProxyError::ImageDimensionsMismatchError {
                         image_dimensions: (width, height),
-                        expected_dimensions: (expected_width.into(), expected_height.into()),
+                        expected_dimensions: (expected_width, expected_height),
                     });
                 } else {
                     return Ok(outputs);

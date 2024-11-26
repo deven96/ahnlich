@@ -1,28 +1,27 @@
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::models::{ImageArray, InputAction, Model, ModelInput};
-use crate::engine::ai::providers::processors::tokenize::Tokenize;
+use crate::engine::ai::models::{ImageArray, InputAction, ModelInput};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use fallible_collections::FallibleVec;
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use itertools::Itertools;
-use rayon::iter::Either;
 use ort::{Session, SessionOutputs, Value};
 use rayon::prelude::*;
 
+use crate::engine::ai::providers::processors::postprocessor::{
+    ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor,
+};
+use crate::engine::ai::providers::processors::preprocessor::{
+    ORTImagePreprocessor, ORTPreprocessor, ORTTextPreprocessor,
+};
 use ahnlich_types::keyval::StoreKey;
-use ndarray::{Array, Array1, ArrayView, Axis, Ix2, Ix3, Ix4, IxDyn, IxDynImpl};
+use ndarray::{Array, Array1, Axis, Ix2, Ix4};
 use std::convert::TryFrom;
 use std::default::Default;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::thread::available_parallelism;
 use tokenizers::Encoding;
-use crate::engine::ai::providers::processors::preprocessor::{ImagePreprocessorFiles, ORTImagePreprocessor, ORTPreprocessor, ORTTextPreprocessor, TextPreprocessorFiles};
-use crate::engine::ai::providers::ort_helper::normalize;
-use ndarray::s;
-use tokenizers::Tokenizer;
-use crate::engine::ai::providers::processors::postprocessor::{ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor};
 
 #[derive(Default)]
 pub struct ORTProvider {
@@ -49,9 +48,6 @@ pub struct ORTImageModel {
     repo_name: String,
     weights_file: String,
     session: Option<Session>,
-    input_params: Vec<String>,
-    output_param: String,
-    preprocessor_files: ImagePreprocessorFiles
 }
 
 #[derive(Default)]
@@ -59,14 +55,12 @@ pub struct ORTTextModel {
     repo_name: String,
     weights_file: String,
     session: Option<Session>,
-    preprocessor_files: TextPreprocessorFiles
 }
 
 pub enum ORTModel {
     Image(ORTImageModel),
-    Text(ORTTextModel)
+    Text(ORTTextModel),
 }
-
 
 impl TryFrom<&SupportedModels> for ORTModel {
     type Error = AIProxyError;
@@ -76,15 +70,11 @@ impl TryFrom<&SupportedModels> for ORTModel {
             SupportedModels::Resnet50 => Ok(ORTModel::Image(ORTImageModel {
                 repo_name: "Qdrant/resnet50-onnx".to_string(),
                 weights_file: "model.onnx".to_string(),
-                input_params: vec!["input".to_string()],
-                output_param: "image_embeds".to_string(),
                 ..Default::default()
             })),
             SupportedModels::ClipVitB32Image => Ok(ORTModel::Image(ORTImageModel {
                 repo_name: "Qdrant/clip-ViT-B-32-vision".to_string(),
                 weights_file: "model.onnx".to_string(),
-                input_params: vec!["pixel_values".to_string()],
-                output_param: "image_embeds".to_string(),
                 ..Default::default()
             })),
             SupportedModels::ClipVitB32Text => Ok(ORTModel::Text(ORTTextModel {
@@ -112,9 +102,6 @@ impl TryFrom<&SupportedModels> for ORTModel {
                 weights_file: "onnx/model.onnx".to_string(),
                 ..Default::default()
             })),
-            _ => Err(AIProxyError::AIModelNotSupported {
-                model_name: model.to_string(),
-            }),
         };
 
         model_type
@@ -133,131 +120,145 @@ impl ORTProvider {
         }
     }
 
-    fn get_postprocessor() -> Result<(), AIProxyError> {
-        Ok(())
-    }
-
-    pub fn preprocess_images(&self, data: Vec<ImageArray>) -> Result<Array<f32, Ix4>, AIProxyError> {
+    pub fn preprocess_images(
+        &self,
+        data: Vec<ImageArray>,
+    ) -> Result<Array<f32, Ix4>, AIProxyError> {
         match &self.preprocessor {
             Some(ORTPreprocessor::Image(preprocessor)) => {
-                let output_data = preprocessor.process(data)
-                    .map_err(
-                        |e| AIProxyError::ModelProviderPreprocessingError(
-                            format!("Preprocessing failed for {:?} with error: {}",
-                                    self.supported_models.unwrap().to_string(), e)
-                        ))?;
+                let output_data = preprocessor.process(data).map_err(|e| {
+                    AIProxyError::ModelProviderPreprocessingError(format!(
+                        "Preprocessing failed for {:?} with error: {}",
+                        self.supported_models.unwrap().to_string(),
+                        e
+                    ))
+                })?;
                 Ok(output_data)
             }
-            _ => Err(AIProxyError::AIModelNotInitialized)
+            _ => Err(AIProxyError::AIModelNotInitialized),
         }
     }
 
-    pub fn preprocess_texts(&self, data: Vec<String>, truncate: bool) -> Result<Vec<Encoding>, AIProxyError> {
+    pub fn preprocess_texts(
+        &self,
+        data: Vec<String>,
+        truncate: bool,
+    ) -> Result<Vec<Encoding>, AIProxyError> {
         match &self.preprocessor {
             Some(ORTPreprocessor::Text(preprocessor)) => {
-                let output_data = preprocessor.process(data, truncate)
-                    .map_err(
-                        |e| AIProxyError::ModelProviderPreprocessingError(
-                            format!("Preprocessing failed for {:?} with error: {}",
-                                    self.supported_models.unwrap().to_string(), e)
-                        ))?;
+                let output_data = preprocessor.process(data, truncate).map_err(|e| {
+                    AIProxyError::ModelProviderPreprocessingError(format!(
+                        "Preprocessing failed for {:?} with error: {}",
+                        self.supported_models.unwrap().to_string(),
+                        e
+                    ))
+                })?;
                 Ok(output_data)
             }
             _ => Err(AIProxyError::ModelPreprocessingError {
                 model_name: self.supported_models.unwrap().to_string(),
                 message: "Preprocessor not initialized".to_string(),
-            })
+            }),
         }
     }
 
-    pub fn postprocess_text_embeddings(&self, embeddings: Array<f32, IxDyn>, attention_mask: Array<i64, Ix2>) -> Result<Array<f32, Ix2>, AIProxyError> {
-        let embeddings = match embeddings.shape().len() {
-            3 => {
-                let existing_shape = embeddings.shape().to_vec();
-                Ok(embeddings.into_dimensionality()
-                    .map_err(
-                        |e| AIProxyError::ModelPostprocessingError {
-                            model_name: self.supported_models.unwrap().to_string(),
-                            message: format!("Unable to convert into 3D array. Existing shape {:?}. {:?}", existing_shape, e.to_string())
-                        })?.to_owned())
-            }
-            2 => {
-                let existing_shape = embeddings.shape().to_vec();
-                let intermediate = embeddings.into_dimensionality()
-                    .map_err(
-                        |e| AIProxyError::ModelPostprocessingError {
-                            model_name: self.supported_models.unwrap().to_string(),
-                            message: format!("Unable to convert into 2D. Existing shape {:?}. {:?}", existing_shape, e.to_string())
-                        })?.to_owned();
-                return Ok(intermediate)
-            }
-            _ => {
-                Err(AIProxyError::ModelPostprocessingError {
-                    model_name: self.supported_models.unwrap().to_string(),
-                    message: format!("Unsupported shape for postprocessing. Shape: {:?}", embeddings.shape())
-                })
-            }
-        }?;
+    pub fn postprocess_text_output(
+        &self,
+        session_output: SessionOutputs,
+        attention_mask: Array<i64, Ix2>,
+    ) -> Result<Array<f32, Ix2>, AIProxyError> {
         match &self.postprocessor {
             Some(ORTPostprocessor::Text(postprocessor)) => {
-                let output_data = postprocessor.process(embeddings, attention_mask)
-                    .map_err(
-                        |e| AIProxyError::ModelProviderPostprocessingError(
-                            format!("Postprocessing failed for {:?} with error: {}",
-                                    self.supported_models.unwrap().to_string(), e)
-                        ))?;
+                let output_data = postprocessor
+                    .process(session_output, attention_mask)
+                    .map_err(|e| {
+                        AIProxyError::ModelProviderPostprocessingError(format!(
+                            "Postprocessing failed for {:?} with error: {}",
+                            self.supported_models.unwrap().to_string(),
+                            e
+                        ))
+                    })?;
                 Ok(output_data)
             }
             _ => Err(AIProxyError::ModelPostprocessingError {
                 model_name: self.supported_models.unwrap().to_string(),
                 message: "Postprocessor not initialized".to_string(),
-            })
+            }),
         }
     }
 
-    pub fn postprocess_image_inference(&self, embeddings: SessionOutputs) -> Result<Array<f32, Ix2>, AIProxyError> {
+    pub fn postprocess_image_output(
+        &self,
+        session_output: SessionOutputs,
+    ) -> Result<Array<f32, Ix2>, AIProxyError> {
         match &self.postprocessor {
             Some(ORTPostprocessor::Image(postprocessor)) => {
-                let output_data = postprocessor.process(embeddings)
-                    .map_err(
-                        |e| AIProxyError::ModelProviderPostprocessingError(
-                            format!("Postprocessing failed for {:?} with error: {}",
-                                    self.supported_models.unwrap().to_string(), e)
-                        ))?;
+                let output_data = postprocessor.process(session_output).map_err(|e| {
+                    AIProxyError::ModelProviderPostprocessingError(format!(
+                        "Postprocessing failed for {:?} with error: {}",
+                        self.supported_models.unwrap().to_string(),
+                        e
+                    ))
+                })?;
                 Ok(output_data)
             }
             _ => Err(AIProxyError::ModelPostprocessingError {
                 model_name: self.supported_models.unwrap().to_string(),
                 message: "Postprocessor not initialized".to_string(),
-            })
+            }),
         }
     }
 
-    pub fn batch_inference_image(&self, inputs: Array<f32, Ix4>) -> Result<Array<f32, Ix2>, AIProxyError> {
+    pub fn batch_inference_image(
+        &self,
+        inputs: Array<f32, Ix4>,
+    ) -> Result<Array<f32, Ix2>, AIProxyError> {
         let model = match &self.model {
             Some(ORTModel::Image(model)) => model,
-            _ => return Err(AIProxyError::AIModelNotSupported { model_name: self.supported_models.unwrap().to_string() }),
+            _ => {
+                return Err(AIProxyError::AIModelNotSupported {
+                    model_name: self.supported_models.unwrap().to_string(),
+                })
+            }
         };
         match &model.session {
             Some(session) => {
-                let session_inputs = ort::inputs![
-                    model.input_params.first().expect("Hardcoded in parameters")
-                    .as_str() => inputs.view(),
-                ].map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+                let input_param = match self.supported_models.unwrap() {
+                    SupportedModels::Resnet50 => "input",
+                    SupportedModels::ClipVitB32Image => "pixel_values",
+                    _ => {
+                        return Err(AIProxyError::AIModelNotSupported {
+                            model_name: self.supported_models.unwrap().to_string(),
+                        })
+                    }
+                };
 
-                let outputs = session.run(session_inputs)
+                let session_inputs = ort::inputs![
+                    input_param => inputs.view(),
+                ]
+                .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+
+                let outputs = session
+                    .run(session_inputs)
                     .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
-                let embeddings = self.postprocess_image_inference(outputs)?;
+                let embeddings = self.postprocess_image_output(outputs)?;
                 Ok(embeddings)
             }
-            None => Err(AIProxyError::AIModelNotInitialized)
+            None => Err(AIProxyError::AIModelNotInitialized),
         }
     }
 
-    pub fn batch_inference_text(&self, encodings: Vec<Encoding>) -> Result<Array<f32, Ix2>, AIProxyError> {
+    pub fn batch_inference_text(
+        &self,
+        encodings: Vec<Encoding>,
+    ) -> Result<Array<f32, Ix2>, AIProxyError> {
         let model = match &self.model {
             Some(ORTModel::Text(model)) => model,
-            _ => return Err(AIProxyError::AIModelNotSupported { model_name: self.supported_models.unwrap().to_string() }),
+            _ => {
+                return Err(AIProxyError::AIModelNotSupported {
+                    model_name: self.supported_models.unwrap().to_string(),
+                })
+            }
         };
         let batch_size = encodings.len();
         // Extract the encoding length and batch size
@@ -287,66 +288,56 @@ impl ORTProvider {
                     // Requires the closure to be FnMut
                     ids_array.extend(ids.iter().map(|x| *x as i64));
                     mask_array.extend(mask.iter().map(|x| *x as i64));
-                    match token_type_ids_array {
-                        Some(ref mut token_type_ids_array) => {
-                            token_type_ids_array.extend(encoding.get_type_ids().iter().map(|x| *x as i64));
-                        }
-                        None => {}
+                    if let Some(ref mut token_type_ids_array) = token_type_ids_array {
+                        token_type_ids_array.extend(encoding.get_type_ids().iter().map(|x| *x as i64));
                     }
                 });
 
                 // Create CowArrays from vectors
                 let inputs_ids_array =
-                    Array::from_shape_vec((batch_size, encoding_length), ids_array)
-                        .map_err(|e| {
-                            AIProxyError::ModelProviderPreprocessingError(e.to_string())
-                        })?;
+                    Array::from_shape_vec((batch_size, encoding_length), ids_array).map_err(
+                        |e| AIProxyError::ModelProviderPreprocessingError(e.to_string()),
+                    )?;
 
                 let attention_mask_array =
-                    Array::from_shape_vec((batch_size, encoding_length), mask_array).map_err(|e| {
-                        AIProxyError::ModelProviderPreprocessingError(e.to_string())
-                    })?;
+                    Array::from_shape_vec((batch_size, encoding_length), mask_array).map_err(
+                        |e| AIProxyError::ModelProviderPreprocessingError(e.to_string()),
+                    )?;
 
                 let token_type_ids_array = match token_type_ids_array {
-                    Some(token_type_ids_array) => {
-                        Some(Array::from_shape_vec((batch_size, encoding_length), token_type_ids_array)
+                    Some(token_type_ids_array) => Some(
+                        Array::from_shape_vec((batch_size, encoding_length), token_type_ids_array)
                             .map_err(|e| {
                                 AIProxyError::ModelProviderPreprocessingError(e.to_string())
-                            })?)
-                    },
+                            })?,
+                    ),
                     None => None,
                 };
 
                 let mut session_inputs = ort::inputs![
                     "input_ids" => Value::from_array(inputs_ids_array)?,
                     "attention_mask" => Value::from_array(attention_mask_array.view())?
-                ].map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
-                match token_type_ids_array {
-                    Some(token_type_ids_array) => {
-                        session_inputs.push((
-                            "token_type_ids".into(),
-                            Value::from_array(token_type_ids_array)?.into(),
-                        ));
-                    }
-                    None => {}
+                ]
+                .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+
+                if let Some(token_type_ids_array) = token_type_ids_array {
+                    session_inputs.push((
+                        "token_type_ids".into(),
+                        Value::from_array(token_type_ids_array)?.into(),
+                    ));
                 }
 
-                let output_key = session.outputs.first().expect("Must exist").name.clone();
-                let session_outputs = session.run(session_inputs)
+                let session_outputs = session
+                    .run(session_inputs)
                     .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
-                let session_output = session_outputs[output_key.as_str()]
-                    .try_extract_tensor::<f32>()
-                    .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
-                let session_output = session_output
-                    .to_owned();
-                let embeddings = self.postprocess_text_embeddings(session_output, attention_mask_array)?;
+                let embeddings =
+                    self.postprocess_text_output(session_outputs, attention_mask_array)?;
                 Ok(embeddings.to_owned())
             }
             None => Err(AIProxyError::AIModelNotInitialized),
         }
     }
 }
-
 
 impl ProviderTrait for ORTProvider {
     fn set_cache_location(&mut self, location: &Path) {
@@ -380,9 +371,6 @@ impl ProviderTrait for ORTProvider {
             ORTModel::Image(ORTImageModel {
                 weights_file,
                 repo_name,
-                                input_params: input_param,
-                output_param,
-                preprocessor_files,
                 ..
             }) => {
                 let model_repo = api.model(repo_name.clone());
@@ -395,22 +383,17 @@ impl ProviderTrait for ORTProvider {
                 self.model = Some(ORTModel::Image(ORTImageModel {
                     repo_name,
                     weights_file,
-                    input_params: input_param,
-                    output_param,
-                    session: Some(session),
-                    preprocessor_files: preprocessor_files.clone(),
-                    ..Default::default()
+                    session: Some(session)
                 }));
-                let mut preprocessor = ORTImagePreprocessor::default();
-                preprocessor.load(model_repo, preprocessor_files)?;
+                let preprocessor =
+                    ORTImagePreprocessor::load(self.supported_models.unwrap(), model_repo)?;
                 self.preprocessor = Some(ORTPreprocessor::Image(preprocessor));
                 let postprocessor = ORTImagePostprocessor::load(supported_model)?;
                 self.postprocessor = Some(ORTPostprocessor::Image(postprocessor));
-            },
+            }
             ORTModel::Text(ORTTextModel {
                 weights_file,
                 repo_name,
-                preprocessor_files,
                 ..
             }) => {
                 let model_repo = api.model(repo_name.clone());
@@ -424,9 +407,9 @@ impl ProviderTrait for ORTProvider {
                     repo_name,
                     weights_file,
                     session: Some(session),
-                    preprocessor_files: preprocessor_files.clone(),
                 }));
-                let preprocessor = ORTTextPreprocessor::load(model_repo, preprocessor_files)?;
+                let preprocessor =
+                    ORTTextPreprocessor::load(self.supported_models.unwrap(), model_repo)?;
                 self.preprocessor = Some(ORTPreprocessor::Text(preprocessor));
                 let postprocessor = ORTTextPostprocessor::load(supported_model)?;
                 self.postprocessor = Some(ORTPostprocessor::Text(postprocessor));
@@ -450,31 +433,23 @@ impl ProviderTrait for ORTProvider {
             .build()
             .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
 
-        match ort_model {
+        let (repo_name, weights_file) = match ort_model {
             ORTModel::Image(ORTImageModel {
                 repo_name,
                 weights_file,
                 ..
-            }) => {
-                let model_repo = api.model(repo_name);
-                model_repo
-                    .get(&weights_file)
-                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
-                model_repo
-                    .get("preprocessor_config.json")
-                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
-                Ok(())
-            },
+            }) => (repo_name, weights_file),
             ORTModel::Text(ORTTextModel {
                 repo_name,
-                preprocessor_files,
+                weights_file,
                 ..
-            }) => {
-                let model_repo = api.model(repo_name.clone());
-                Tokenize::download_artifacts(preprocessor_files.tokenize, model_repo)?;
-                Ok(())
-            }
-        }
+            }) => (repo_name, weights_file),
+        };
+        let model_repo = api.model(repo_name);
+        model_repo
+            .get(&weights_file)
+            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+        Ok(())
     }
 
     fn run_inference(
@@ -482,40 +457,36 @@ impl ProviderTrait for ORTProvider {
         input: ModelInput,
         _action_type: &InputAction,
     ) -> Result<Vec<StoreKey>, AIProxyError> {
-
         match input {
             ModelInput::Images(images) => {
                 let mut store_keys: Vec<StoreKey> = FallibleVec::try_with_capacity(images.len())?;
 
-                for batch_image in images.axis_chunks_iter(Axis(0), 16).into_iter() {
+                for batch_image in images.axis_chunks_iter(Axis(0), 16) {
                     let embeddings = self.batch_inference_image(batch_image.to_owned())?;
                     let new_store_keys: Vec<StoreKey> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()
-                        .map(|embedding| StoreKey(<Array1<f32>>::from(embedding.to_owned()))
-                        )
+                        .map(|embedding| StoreKey(<Array1<f32>>::from(embedding.to_owned())))
                         .collect();
                     store_keys.extend(new_store_keys);
                 }
                 Ok(store_keys)
-            },
+            }
             ModelInput::Texts(encodings) => {
-                let mut store_keys: Vec<StoreKey> = FallibleVec::try_with_capacity(
-                    encodings.len()
-                )?;
+                let mut store_keys: Vec<StoreKey> =
+                    FallibleVec::try_with_capacity(encodings.len())?;
 
                 for batch_encoding in encodings.into_iter().chunks(16).into_iter() {
                     let embeddings = self.batch_inference_text(batch_encoding.collect())?;
                     let new_store_keys: Vec<StoreKey> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()
-                        .map(|embedding| StoreKey(<Array1<f32>>::from(embedding.to_owned()))
-                        )
+                        .map(|embedding| StoreKey(<Array1<f32>>::from(embedding.to_owned())))
                         .collect();
                     store_keys.extend(new_store_keys);
                 }
                 Ok(store_keys)
-            },
+            }
         }
     }
 }

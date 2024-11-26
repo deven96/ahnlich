@@ -3,42 +3,30 @@ use crate::error::AIProxyError;
 
 pub struct Rescale {
     scale: f32,
-    process: bool
 }
 
-impl TryFrom<&serde_json::Value> for Rescale {
-    type Error = AIProxyError;
-
-    fn try_from(config: &serde_json::Value) -> Result<Self, AIProxyError> {
+impl Rescale {
+    pub fn initialize(config: &serde_json::Value) -> Result<Option<Self>, AIProxyError> {
         if !config["do_rescale"].as_bool().unwrap_or(true) {
-            return Ok(
-                Self {
-                    scale: 0f32,
-                    process: false
-                }
-            );
+            return Ok(None);
         }
 
-        let default_scale = 1.0/255.0;
+        let default_scale = 1.0 / 255.0;
         let scale = config["rescale_factor"].as_f64().unwrap_or(default_scale) as f32;
-        Ok(Self { scale, process: true })
+        Ok(Some(Self { scale }))
     }
 }
 
 impl Preprocessor for Rescale {
     fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
-        if !self.process {
-            return Ok(data);
-        }
-
         match data {
             PreprocessorData::NdArray3C(array) => {
                 let mut array = array;
                 array *= self.scale;
                 Ok(PreprocessorData::NdArray3C(array))
-            },
+            }
             _ => Err(AIProxyError::RescaleError {
-                message: "Rescale process failed. Expected NdArray3C, got ImageArray".to_string(),
+                message: "Rescale process failed. Expected NdArray3C.".to_string(),
             }),
         }
     }

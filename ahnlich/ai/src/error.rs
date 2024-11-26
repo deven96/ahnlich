@@ -38,21 +38,13 @@ pub enum AIProxyError {
     },
 
     #[error("Model preprocessing for {model_name} failed: {message}.")]
-    ModelPreprocessingError {
-        model_name: String,
-        message: String
-    },
+    ModelPreprocessingError { model_name: String, message: String },
 
     #[error("Model postprocessing for {model_name} failed: {message}.")]
-    ModelPostprocessingError {
-        model_name: String,
-        message: String
-    },
+    ModelPostprocessingError { model_name: String, message: String },
 
     #[error("Pooling operation failed: {message}.")]
-    PoolingError {
-        message: String
-    },
+    PoolingError { message: String },
 
     #[error(
         "Image Dimensions [({0}, {1})] does not match the expected model dimensions [({2}, {3})]",
@@ -83,45 +75,31 @@ pub enum AIProxyError {
     CacheLocationNotInitiailized,
 
     #[error("index_model or query_model [{model_name}] not supported")]
-    AIModelNotSupported {
-        model_name: String
-    },
+    AIModelNotSupported { model_name: String },
 
     #[error("Invalid operation [{operation}] on model [{model_name}]")]
     AIModelInvalidOperation {
         operation: String,
-        model_name: String
+        model_name: String,
     },
 
     #[error("Vector normalization error: [{message}]")]
-    VectorNormalizationError {
-        message: String
-    },
+    VectorNormalizationError { message: String },
 
     #[error("Image normalization error: [{message}]")]
-    ImageNormalizationError {
-        message: String
-    },
+    ImageNormalizationError { message: String },
 
     #[error("ImageArray to NdArray conversion error: [{message}]")]
-    ImageArrayToNdArrayError {
-        message: String
-    },
+    ImageArrayToNdArrayError { message: String },
 
     #[error("Onnx output transform error: [{message}]")]
-    OnnxOutputTransformError {
-        message: String
-    },
+    OnnxOutputTransformError { message: String },
 
     #[error("Rescale error: [{message}]")]
-    RescaleError {
-        message: String
-    },
+    RescaleError { message: String },
 
     #[error("Center crop error: [{message}]")]
-    CenterCropError {
-        message: String
-    },
+    CenterCropError { message: String },
 
     // TODO: Add SendError from mpsc::Sender into this variant
     #[error("Error sending request to model thread")]
@@ -168,22 +146,16 @@ pub enum AIProxyError {
     ModelProviderPostprocessingError(String),
 
     #[error("Tokenize error: {message}")]
-    ModelTokenizationError {
-        message: String
-    },
+    ModelTokenizationError { message: String },
 
     #[error("Cannot call DelKey on store with `store_original` as false")]
     DelKeyError,
 
     #[error("Tokenizer for model failed to load: {message}")]
-    ModelTokenizerLoadError {
-        message: String
-    },
+    ModelTokenizerLoadError { message: String },
 
     #[error("Unable to load config: [{message}].")]
-    ModelConfigLoadError{
-        message: String
-    }
+    ModelConfigLoadError { message: String },
 }
 
 impl From<TryReserveError> for AIProxyError {

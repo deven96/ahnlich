@@ -1,7 +1,7 @@
 use crate::engine::ai::models::Model;
 use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{
-    AIQuery, AIServerQuery, AIServerResponse, AIServerResult, PreprocessAction
+    AIQuery, AIServerQuery, AIServerResponse, AIServerResult, PreprocessAction,
 };
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
@@ -365,17 +365,17 @@ impl AhnlichProtocol for AIProxyTask {
                                                 .collect(),
                                         ))
                                     } else {
-                                        Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
-                                            .to_string())
+                                        Err(AIProxyError::UnexpectedDBResponse(format!(
+                                            "{:?}",
+                                            res
+                                        ))
+                                        .to_string())
                                     }
                                 }
                                 Err(err) => Err(format!("{err}")),
                             }
                         }
-                        Err(err) => Err(
-                            AIProxyError::StandardError(err.to_string())
-                                .to_string(),
-                        ),
+                        Err(err) => Err(AIProxyError::StandardError(err.to_string()).to_string()),
                     }
                 }
                 AIQuery::PurgeStores => {

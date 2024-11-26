@@ -4,16 +4,16 @@ use ndarray::{Array, Ix2, Ix3, Ix4};
 use ort::SessionOutputs;
 use tokenizers::Encoding;
 
-pub mod normalize;
-pub mod resize;
-pub mod imagearray_to_ndarray;
 pub mod center_crop;
-pub mod rescale;
-pub mod preprocessor;
-pub mod tokenize;
-pub mod postprocessor;
-pub mod pooling;
+pub mod imagearray_to_ndarray;
+pub mod normalize;
 mod onnx_output_transform;
+pub mod pooling;
+pub mod postprocessor;
+pub mod preprocessor;
+pub mod rescale;
+pub mod resize;
+pub mod tokenize;
 
 pub const CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD: u32 = 384;
 
@@ -37,7 +37,7 @@ impl PreprocessorData {
         match self {
             PreprocessorData::NdArray3C(array) => Ok(array),
             _ => Err(AIProxyError::ModelProviderPreprocessingError(
-                "`into_ndarray3c` only works for PreprocessorData::NdArray3C".to_string()
+                "`into_ndarray3c` only works for PreprocessorData::NdArray3C".to_string(),
             )),
         }
     }
@@ -46,5 +46,5 @@ impl PreprocessorData {
 pub enum PostprocessorData<'r, 's> {
     OnnxOutput(SessionOutputs<'r, 's>),
     NdArray2(Array<f32, Ix2>),
-    NdArray3(Array<f32, Ix3>)
+    NdArray3(Array<f32, Ix3>),
 }
