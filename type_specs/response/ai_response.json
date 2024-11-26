@@ -18,6 +18,9 @@
       },
       "5": {
         "ClipVitB32Image": "UNIT"
+      },
+      "6": {
+        "ClipVitB32Text": "UNIT"
       }
     }
   },

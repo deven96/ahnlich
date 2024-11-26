@@ -18,6 +18,9 @@
       },
       "5": {
         "ClipVitB32Image": "UNIT"
+      },
+      "6": {
+        "ClipVitB32Text": "UNIT"
       }
     }
   },
@@ -284,16 +287,6 @@
       }
     }
   },
-  "ImageAction": {
-    "ENUM": {
-      "0": {
-        "ResizeImage": "UNIT"
-      },
-      "1": {
-        "ErrorIfDimensionsMismatch": "UNIT"
-      }
-    }
-  },
   "MetadataValue": {
     "ENUM": {
       "0": {
@@ -419,18 +412,10 @@
   "PreprocessAction": {
     "ENUM": {
       "0": {
-        "RawString": {
-          "NEWTYPE": {
-            "TYPENAME": "StringAction"
-          }
-        }
+        "NoPreprocessing": "UNIT"
       },
       "1": {
-        "Image": {
-          "NEWTYPE": {
-            "TYPENAME": "ImageAction"
-          }
-        }
+        "ModelPreprocessing": "UNIT"
       }
     }
   },
@@ -447,16 +432,6 @@
             "SEQ": "U8"
           }
         }
-      }
-    }
-  },
-  "StringAction": {
-    "ENUM": {
-      "0": {
-        "TruncateIfTokensExceed": "UNIT"
-      },
-      "1": {
-        "ErrorIfTokensExceed": "UNIT"
       }
     }
   }
