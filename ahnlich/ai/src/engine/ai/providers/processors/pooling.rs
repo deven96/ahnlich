@@ -2,11 +2,13 @@ use crate::engine::ai::providers::processors::{Postprocessor, PostprocessorData}
 use crate::error::AIProxyError;
 use ndarray::{s, Array, Axis, Ix2};
 
+#[derive(Clone)]
 pub enum Pooling {
     Regular(RegularPooling),
-    Mean(MeanPooling),
+    Mean(MeanPoolingBuilder),
 }
 
+#[derive(Copy, Clone, Default)]
 pub struct RegularPooling;
 
 impl Postprocessor for RegularPooling {
@@ -24,44 +26,38 @@ impl Postprocessor for RegularPooling {
     }
 }
 
-#[derive(Default)]
-pub struct MeanPooling {
-    attention_mask: Option<Array<i64, Ix2>>,
+#[derive(Clone, Default)]
+pub struct MeanPoolingBuilder;
+
+impl MeanPoolingBuilder {
+    pub fn with_attention_mask<'a>(&'a self, attention_mask: Array<i64, Ix2>) -> MeanPooling {
+        MeanPooling { attention_mask }
+    }
 }
 
-impl MeanPooling {
-    pub fn new() -> Self {
-        Self {
-            attention_mask: None,
-        }
-    }
-
-    pub fn set_attention_mask(&mut self, attention_mask: Option<Array<i64, Ix2>>) {
-        self.attention_mask = attention_mask;
-    }
+#[derive(Clone, Default)]
+pub struct MeanPooling {
+    attention_mask: Array<i64, Ix2>,
 }
 
 impl Postprocessor for MeanPooling {
     fn process(&self, data: PostprocessorData) -> Result<PostprocessorData, AIProxyError> {
         match data {
             PostprocessorData::NdArray3(array) => {
-                let attention_mask = match &self.attention_mask {
-                    Some(mask) => {
-                        let attention_mask = mask.mapv(|x| x as f32);
-                        attention_mask
-                            .insert_axis(Axis(2))
-                            .broadcast(array.dim())
-                            .ok_or(AIProxyError::PoolingError {
-                                message: format!(
-                                    "Could not broadcast attention mask with shape {:?} to \
+                let attention_mask = {
+                    let attention_mask = self.attention_mask.mapv(|x| x as f32);
+                    attention_mask
+                        .insert_axis(Axis(2))
+                        .broadcast(array.dim())
+                        .ok_or(AIProxyError::PoolingError {
+                            message: format!(
+                                "Could not broadcast attention mask with shape {:?} to \
                          shape {:?} of the input tensor.",
-                                    mask.shape(),
-                                    array.shape()
-                                ),
-                            })?
-                            .to_owned()
-                    }
-                    None => Array::ones(array.dim()),
+                                self.attention_mask.shape(),
+                                array.shape()
+                            ),
+                        })?
+                        .to_owned()
                 };
 
                 let masked_array = &attention_mask * &array;

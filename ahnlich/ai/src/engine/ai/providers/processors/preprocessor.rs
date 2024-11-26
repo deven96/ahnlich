@@ -56,49 +56,56 @@ impl ORTImagePreprocessor {
     pub fn process(&self, data: Vec<ImageArray>) -> Result<Array<f32, Ix4>, AIProxyError> {
         let mut data = PreprocessorData::ImageArray(data);
         data = match self.resize {
-            Some(ref resize) => resize.process(data).map_err(
-                |e| AIProxyError::ModelPreprocessingError {
-                    model_name: self.model.to_string(),
-                    message: format!("Failed to process resize: {}", e),
-                },
-            )?,
+            Some(ref resize) => {
+                resize
+                    .process(data)
+                    .map_err(|e| AIProxyError::ModelPreprocessingError {
+                        model_name: self.model.to_string(),
+                        message: format!("Failed to process resize: {}", e),
+                    })?
+            }
             None => data,
         };
 
-        data = match self.center_crop {
-            Some(ref center_crop) => center_crop.process(data).map_err(
-                |e| AIProxyError::ModelPreprocessingError {
-                    model_name: self.model.to_string(),
-                    message: format!("Failed to process center crop: {}", e),
-                },
-            )?,
-            None => data,
-        };
+        data =
+            match self.center_crop {
+                Some(ref center_crop) => center_crop.process(data).map_err(|e| {
+                    AIProxyError::ModelPreprocessingError {
+                        model_name: self.model.to_string(),
+                        message: format!("Failed to process center crop: {}", e),
+                    }
+                })?,
+                None => data,
+            };
 
-        data = self.imagearray_to_ndarray.process(data).map_err(
-            |e| AIProxyError::ModelPreprocessingError {
+        data = self.imagearray_to_ndarray.process(data).map_err(|e| {
+            AIProxyError::ModelPreprocessingError {
                 model_name: self.model.to_string(),
                 message: format!("Failed to process imagearray to ndarray: {}", e),
-            },
-        )?;
+            }
+        })?;
 
         data = match self.rescale {
-            Some(ref rescale) => rescale.process(data).map_err(
-                |e| AIProxyError::ModelPreprocessingError {
-                    model_name: self.model.to_string(),
-                    message: format!("Failed to process rescale: {}", e),
-                },
-            )?,
+            Some(ref rescale) => {
+                rescale
+                    .process(data)
+                    .map_err(|e| AIProxyError::ModelPreprocessingError {
+                        model_name: self.model.to_string(),
+                        message: format!("Failed to process rescale: {}", e),
+                    })?
+            }
             None => data,
         };
 
         data = match self.normalize {
-            Some(ref normalize) => normalize.process(data).map_err(
-                |e| AIProxyError::ModelPreprocessingError {
-                    model_name: self.model.to_string(),
-                    message: format!("Failed to process normalize: {}", e),
-                },
-            )?,
+            Some(ref normalize) => {
+                normalize
+                    .process(data)
+                    .map_err(|e| AIProxyError::ModelPreprocessingError {
+                        model_name: self.model.to_string(),
+                        message: format!("Failed to process normalize: {}", e),
+                    })?
+            }
             None => data,
         };
 
@@ -144,19 +151,20 @@ impl ORTTextPreprocessor {
         truncate: bool,
     ) -> Result<Vec<Encoding>, AIProxyError> {
         let mut data = PreprocessorData::Text(data);
-        let mut tokenize = self.tokenize.lock().map_err(|_| {
-            AIProxyError::ModelPreprocessingError {
-                model_name: self.model.to_string(),
-                message: "Failed to acquire lock on tokenize.".to_string(),
-            }
-        })?;
+        let mut tokenize =
+            self.tokenize
+                .lock()
+                .map_err(|_| AIProxyError::ModelPreprocessingError {
+                    model_name: self.model.to_string(),
+                    message: "Failed to acquire lock on tokenize.".to_string(),
+                })?;
         let _ = tokenize.set_truncate(truncate);
-        data = tokenize.process(data).map_err(
-            |e| AIProxyError::ModelPreprocessingError {
+        data = tokenize
+            .process(data)
+            .map_err(|e| AIProxyError::ModelPreprocessingError {
                 model_name: self.model.to_string(),
                 message: format!("Failed to process tokenize: {}", e),
-            },
-        )?;
+            })?;
 
         match data {
             PreprocessorData::EncodedText(encodings) => Ok(encodings),

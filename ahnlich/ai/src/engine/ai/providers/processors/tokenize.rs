@@ -28,11 +28,7 @@ impl Tokenize {
             &model_repo
                 .get(&tokenizer_files.tokenizer_file)
                 .map_err(|e| AIProxyError::ModelConfigLoadError {
-                    message: format!(
-                        "failed to fetch {}, {}",
-                        &tokenizer_files.tokenizer_file,
-                        e
-                    ),
+                    message: format!("failed to fetch {}, {}", &tokenizer_files.tokenizer_file, e),
                 })?,
         )?;
         let mut config_reader = HFConfigReader::new(model_repo);
@@ -122,13 +118,13 @@ impl Tokenize {
     pub fn set_truncate(&mut self, truncate: bool) -> Result<(), AIProxyError> {
         let tokenizer = if truncate {
             self.tokenizer
-            .with_truncation(Some(TruncationParams {
-                max_length: self.model_max_length,
-                ..Default::default()
-            }))
-            .map_err(|_| AIProxyError::ModelTokenizerLoadError {
-                message: "Error setting truncation params.".to_string(),
-            })?
+                .with_truncation(Some(TruncationParams {
+                    max_length: self.model_max_length,
+                    ..Default::default()
+                }))
+                .map_err(|_| AIProxyError::ModelTokenizerLoadError {
+                    message: "Error setting truncation params.".to_string(),
+                })?
         } else {
             self.tokenizer.with_truncation(None).map_err(|_| {
                 AIProxyError::ModelTokenizerLoadError {

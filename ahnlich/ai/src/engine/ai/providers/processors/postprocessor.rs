@@ -6,7 +6,8 @@ use crate::engine::ai::providers::processors::{Postprocessor, PostprocessorData}
 use crate::error::AIProxyError;
 use ndarray::{Array, Ix2};
 use ort::SessionOutputs;
-use std::sync::{Arc, Mutex};
+
+use super::pooling::MeanPoolingBuilder;
 
 pub enum ORTPostprocessor {
     Image(ORTImagePostprocessor),
@@ -16,7 +17,7 @@ pub enum ORTPostprocessor {
 pub struct ORTTextPostprocessor {
     model: SupportedModels,
     onnx_output_transform: OnnxOutputTransform,
-    pooling: Arc<Mutex<Pooling>>,
+    pooling: Pooling,
     normalize: Option<VectorNormalize>,
 }
 
@@ -35,24 +36,26 @@ impl ORTTextPostprocessor {
                 message: "Unsupported model for ORTTextPostprocessor".to_string(),
             })?,
         };
-        let ops = match supported_model {
+        let (pooling, normalize) = match supported_model {
             SupportedModels::AllMiniLML6V2 | SupportedModels::AllMiniLML12V2 => {
-                Ok((Pooling::Mean(MeanPooling::new()), Some(VectorNormalize)))
+                (Pooling::Mean(MeanPoolingBuilder), Some(VectorNormalize))
             }
             SupportedModels::BGEBaseEnV15 | SupportedModels::BGELargeEnV15 => {
-                Ok((Pooling::Regular(RegularPooling), Some(VectorNormalize)))
+                (Pooling::Regular(RegularPooling), Some(VectorNormalize))
             }
-            SupportedModels::ClipVitB32Text => Ok((Pooling::Mean(MeanPooling::new()), None)),
-            _ => Err(AIProxyError::ModelPostprocessingError {
-                model_name: supported_model.to_string(),
-                message: "Unsupported model for ORTTextPostprocessor".to_string(),
-            }),
-        }?;
+            SupportedModels::ClipVitB32Text => (Pooling::Mean(MeanPoolingBuilder), None),
+            _ => {
+                return Err(AIProxyError::ModelPostprocessingError {
+                    model_name: supported_model.to_string(),
+                    message: "Unsupported model for ORTTextPostprocessor".to_string(),
+                })
+            }
+        };
         Ok(Self {
             model: supported_model,
             onnx_output_transform: output_transform,
-            pooling: Arc::new(Mutex::new(ops.0)),
-            normalize: ops.1,
+            pooling,
+            normalize,
         })
     }
 
@@ -64,19 +67,15 @@ impl ORTTextPostprocessor {
         let embeddings = self
             .onnx_output_transform
             .process(PostprocessorData::OnnxOutput(session_outputs))?;
-        let mut pooling =
-            self.pooling
-                .lock()
-                .map_err(|_| AIProxyError::ModelPostprocessingError {
-                    model_name: self.model.to_string(),
-                    message: "Failed to acquire lock on pooling.".to_string(),
-                })?;
-        let pooled = match &mut *pooling {
-            Pooling::Regular(pooling) => pooling.process(embeddings)?,
-            Pooling::Mean(pooling) => {
-                pooling.set_attention_mask(Some(attention_mask));
-                pooling.process(embeddings)?
+        let pooling_impl = match &self.pooling {
+            Pooling::Mean(ref pooling) => {
+                PoolingImpl::Mean(pooling.with_attention_mask(attention_mask))
             }
+            Pooling::Regular(a) => PoolingImpl::Regular(*a),
+        };
+        let pooled = match pooling_impl {
+            PoolingImpl::Regular(ref pooling) => pooling.process(embeddings)?,
+            PoolingImpl::Mean(ref pooling) => pooling.process(embeddings)?,
         };
         let result = match &self.normalize {
             Some(normalize) => normalize.process(pooled),
@@ -90,6 +89,11 @@ impl ORTTextPostprocessor {
             }),
         }
     }
+}
+
+enum PoolingImpl {
+    Regular(RegularPooling),
+    Mean(MeanPooling),
 }
 
 pub struct ORTImagePostprocessor {

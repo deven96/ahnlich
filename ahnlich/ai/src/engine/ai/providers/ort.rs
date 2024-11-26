@@ -289,7 +289,8 @@ impl ORTProvider {
                     ids_array.extend(ids.iter().map(|x| *x as i64));
                     mask_array.extend(mask.iter().map(|x| *x as i64));
                     if let Some(ref mut token_type_ids_array) = token_type_ids_array {
-                        token_type_ids_array.extend(encoding.get_type_ids().iter().map(|x| *x as i64));
+                        token_type_ids_array
+                            .extend(encoding.get_type_ids().iter().map(|x| *x as i64));
                     }
                 });
 
@@ -383,7 +384,7 @@ impl ProviderTrait for ORTProvider {
                 self.model = Some(ORTModel::Image(ORTImageModel {
                     repo_name,
                     weights_file,
-                    session: Some(session)
+                    session: Some(session),
                 }));
                 let preprocessor =
                     ORTImagePreprocessor::load(self.supported_models.unwrap(), model_repo)?;
