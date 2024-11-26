@@ -30,7 +30,7 @@ impl Postprocessor for RegularPooling {
 pub struct MeanPoolingBuilder;
 
 impl MeanPoolingBuilder {
-    pub fn with_attention_mask<'a>(&'a self, attention_mask: Array<i64, Ix2>) -> MeanPooling {
+    pub fn with_attention_mask(&self, attention_mask: Array<i64, Ix2>) -> MeanPooling {
         MeanPooling { attention_mask }
     }
 }

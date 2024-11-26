@@ -3,11 +3,11 @@ use crate::error::AIProxyError;
 use ndarray::{Ix2, Ix3};
 
 pub struct OnnxOutputTransform {
-    output_key: String,
+    output_key: &'static str,
 }
 
 impl OnnxOutputTransform {
-    pub fn new(output_key: String) -> Self {
+    pub fn new(output_key: &'static str) -> Self {
         Self { output_key }
     }
 }
@@ -16,7 +16,7 @@ impl Postprocessor for OnnxOutputTransform {
     fn process(&self, data: PostprocessorData) -> Result<PostprocessorData, AIProxyError> {
         match data {
             PostprocessorData::OnnxOutput(onnx_output) => {
-                let output = onnx_output.get(self.output_key.as_str()).ok_or_else(|| {
+                let output = onnx_output.get(self.output_key).ok_or_else(|| {
                     AIProxyError::OnnxOutputTransformError {
                         message: format!(
                             "Output key '{}' not found in the OnnxOutput.",
