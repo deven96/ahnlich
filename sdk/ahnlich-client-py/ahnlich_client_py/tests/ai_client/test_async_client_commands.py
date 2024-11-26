@@ -116,9 +116,7 @@ async def test_ai_client_get_pred(spin_up_ahnlich_ai):
     builder.set(
         store_name=ai_store_payload_with_predicates["store_name"],
         inputs=store_inputs,
-        preprocess_action=ai_query.PreprocessAction__RawString(
-            ai_query.StringAction__ErrorIfTokensExceed()
-        ),
+        preprocess_action=ai_query.PreprocessAction__NoPreprocessing(),
     )
     expected = ai_response.AIServerResult(
         results=[

@@ -6,7 +6,6 @@ from ahnlich_client_py.internals.async_base_client import BaseClient
 
 
 class AsyncAhnlichAIRequestBuilder(AhnlichAIRequestBuilder):
-
     def __init__(self, tracing_id: str = None, client: BaseClient = None) -> None:
         self.queries: typing.List[ai_query.AIQuery] = []
         self.tracing_id = tracing_id
