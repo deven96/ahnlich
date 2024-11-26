@@ -833,7 +833,7 @@ async fn test_ai_proxy_binary_store_actions() {
         updated: 0,
     })));
     expected.push(Err(
-        "Image Dimensions [(821, 547)] does not match the expected model dimensions [(224, 224)]"
+        "Image Dimensions [(547, 821)] does not match the expected model dimensions [(224, 224)]"
             .to_string(),
     ));
     expected.push(Ok(AIServerResponse::Del(1)));
