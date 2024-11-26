@@ -1,8 +1,7 @@
 use crate::engine::ai::models::Model;
 use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{
-    AIQuery, AIServerQuery, AIServerResponse, AIServerResult, ImageAction, PreprocessAction,
-    StringAction,
+    AIQuery, AIServerQuery, AIServerResponse, AIServerResult, PreprocessAction,
 };
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
@@ -324,10 +323,8 @@ impl AhnlichProtocol for AIProxyTask {
                     // TODO: Replace this with calls to self.model_manager.handle_request
                     // TODO (HAKSOAT): Shouldn't preprocess action also be in the params?
                     let preprocess = match search_input {
-                        StoreInput::RawString(_) => {
-                            PreprocessAction::RawString(StringAction::TruncateIfTokensExceed)
-                        }
-                        StoreInput::Image(_) => PreprocessAction::Image(ImageAction::ResizeImage),
+                        StoreInput::RawString(_) => PreprocessAction::ModelPreprocessing,
+                        StoreInput::Image(_) => PreprocessAction::ModelPreprocessing,
                     };
                     let repr = self
                         .store_handler
@@ -338,46 +335,47 @@ impl AhnlichProtocol for AIProxyTask {
                             preprocess,
                         )
                         .await;
-                    if let Ok(store_key) = repr {
-                        match self
-                            .db_client
-                            .get_sim_n(
-                                store,
-                                store_key,
-                                closest_n,
-                                algorithm,
-                                condition,
-                                parent_id.clone(),
-                            )
-                            .await
-                        {
-                            Ok(res) => {
-                                if let ServerResponse::GetSimN(response) = res {
-                                    let (store_key_input, similarities): (Vec<_>, Vec<_>) =
-                                        response
-                                            .into_par_iter()
-                                            .map(|(a, b, c)| ((a, b), c))
-                                            .unzip();
-                                    Ok(AIServerResponse::GetSimN(
-                                        self.store_handler
-                                            .store_key_val_to_store_input_val(store_key_input)
-                                            .into_par_iter()
-                                            .zip(similarities.into_par_iter())
-                                            .map(|((a, b), c)| (a, b, c))
-                                            .collect(),
-                                    ))
-                                } else {
-                                    Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
+                    match repr {
+                        Ok(store_key) => {
+                            match self
+                                .db_client
+                                .get_sim_n(
+                                    store,
+                                    store_key,
+                                    closest_n,
+                                    algorithm,
+                                    condition,
+                                    parent_id.clone(),
+                                )
+                                .await
+                            {
+                                Ok(res) => {
+                                    if let ServerResponse::GetSimN(response) = res {
+                                        let (store_key_input, similarities): (Vec<_>, Vec<_>) =
+                                            response
+                                                .into_par_iter()
+                                                .map(|(a, b, c)| ((a, b), c))
+                                                .unzip();
+                                        Ok(AIServerResponse::GetSimN(
+                                            self.store_handler
+                                                .store_key_val_to_store_input_val(store_key_input)
+                                                .into_par_iter()
+                                                .zip(similarities.into_par_iter())
+                                                .map(|((a, b), c)| (a, b, c))
+                                                .collect(),
+                                        ))
+                                    } else {
+                                        Err(AIProxyError::UnexpectedDBResponse(format!(
+                                            "{:?}",
+                                            res
+                                        ))
                                         .to_string())
+                                    }
                                 }
+                                Err(err) => Err(format!("{err}")),
                             }
-                            Err(err) => Err(format!("{err}")),
                         }
-                    } else {
-                        Err(
-                            AIProxyError::StandardError("Failed to get store".to_string())
-                                .to_string(),
-                        )
+                        Err(err) => Err(AIProxyError::StandardError(err.to_string()).to_string()),
                     }
                 }
                 AIQuery::PurgeStores => {

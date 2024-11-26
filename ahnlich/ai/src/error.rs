@@ -8,7 +8,7 @@ use tokio::sync::oneshot::error::RecvError;
 
 use crate::engine::ai::models::InputAction;
 
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Clone, Debug, PartialEq, Eq)]
 pub enum AIProxyError {
     #[error("Store {0} not found")]
     StoreNotFound(StoreName),
@@ -30,16 +30,21 @@ pub enum AIProxyError {
         index_model_type: AIStoreInputType,
         storeinput_type: AIStoreInputType,
     },
-    #[error("Shape error {0}")]
-    EmbeddingShapeError(String),
-    #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}] ")]
+
+    #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}].")]
     TokenExceededError {
         max_token_size: usize,
         input_token_size: usize,
     },
 
-    #[error("Model does not support token truncation.")]
-    TokenTruncationNotSupported,
+    #[error("Model preprocessing for {model_name} failed: {message}.")]
+    ModelPreprocessingError { model_name: String, message: String },
+
+    #[error("Model postprocessing for {model_name} failed: {message}.")]
+    ModelPostprocessingError { model_name: String, message: String },
+
+    #[error("Pooling operation failed: {message}.")]
+    PoolingError { message: String },
 
     #[error(
         "Image Dimensions [({0}, {1})] does not match the expected model dimensions [({2}, {3})]",
@@ -51,7 +56,7 @@ pub enum AIProxyError {
     },
     #[error("Error initializing text embedding")]
     TextEmbeddingInitError(String),
-    #[error("API Builder Error {0}")]
+    #[error("API Builder Error: {0}")]
     APIBuilderError(String),
     #[error("Tokenizer initialization error {0}")]
     TokenizerInitError(String),
@@ -69,8 +74,32 @@ pub enum AIProxyError {
     #[error("Cache location for model was not initialized")]
     CacheLocationNotInitiailized,
 
-    #[error("index_model or query_model not supported")]
-    AIModelNotSupported,
+    #[error("index_model or query_model [{model_name}] not supported")]
+    AIModelNotSupported { model_name: String },
+
+    #[error("Invalid operation [{operation}] on model [{model_name}]")]
+    AIModelInvalidOperation {
+        operation: String,
+        model_name: String,
+    },
+
+    #[error("Vector normalization error: [{message}]")]
+    VectorNormalizationError { message: String },
+
+    #[error("Image normalization error: [{message}]")]
+    ImageNormalizationError { message: String },
+
+    #[error("ImageArray to NdArray conversion error: [{message}]")]
+    ImageArrayToNdArrayError { message: String },
+
+    #[error("Onnx output transform error: [{message}]")]
+    OnnxOutputTransformError { message: String },
+
+    #[error("Rescale error: [{message}]")]
+    RescaleError { message: String },
+
+    #[error("Center crop error: [{message}]")]
+    CenterCropError { message: String },
 
     // TODO: Add SendError from mpsc::Sender into this variant
     #[error("Error sending request to model thread")]
@@ -79,7 +108,7 @@ pub enum AIProxyError {
     #[error("Error receiving response from model thread")]
     AIModelRecvError(#[from] RecvError),
 
-    #[error("Dimensions Mismatch between index [{index_model_dim}], and Query [{query_model_dim}] Models")]
+    #[error("Dimensions Mismatch between index [{index_model_dim}], and Query [{query_model_dim}] Models.")]
     DimensionsMismatchError {
         index_model_dim: usize,
         query_model_dim: usize,
@@ -87,11 +116,14 @@ pub enum AIProxyError {
     #[error("allocation error {0:?}")]
     Allocation(TryReserveError),
 
-    #[error("Error initializing a model thread {0}")]
+    #[error("Error initializing a model thread {0}.")]
     ModelInitializationError(String),
 
     #[error("Bytes could not be successfully decoded into an image.")]
     ImageBytesDecodeError,
+
+    #[error("Image could not be successfully encoded into bytes.")]
+    ImageBytesEncodeError,
 
     #[error(
         "Image can't have zero value in any dimension. Found height: {height}, width: {width}"
@@ -100,6 +132,9 @@ pub enum AIProxyError {
 
     #[error("Image could not be resized.")]
     ImageResizeError,
+
+    #[error("Image could not be cropped.")]
+    ImageCropError,
 
     #[error("Model provider failed on preprocessing the input {0}")]
     ModelProviderPreprocessingError(String),
@@ -110,11 +145,17 @@ pub enum AIProxyError {
     #[error("Model provider failed on postprocessing the output {0}")]
     ModelProviderPostprocessingError(String),
 
-    #[error("Model provider failed on tokenization of text inputs.")]
-    ModelTokenizationError,
+    #[error("Tokenize error: {message}")]
+    ModelTokenizationError { message: String },
 
     #[error("Cannot call DelKey on store with `store_original` as false")]
     DelKeyError,
+
+    #[error("Tokenizer for model failed to load: {message}")]
+    ModelTokenizerLoadError { message: String },
+
+    #[error("Unable to load config: [{message}].")]
+    ModelConfigLoadError { message: String },
 }
 
 impl From<TryReserveError> for AIProxyError {

@@ -51,8 +51,14 @@ class AIModel__Resnet50(AIModel):
 
 
 @dataclass(frozen=True)
-class AIModel__ClipVitB32(AIModel):
+class AIModel__ClipVitB32Image(AIModel):
     INDEX = 5  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIModel__ClipVitB32Text(AIModel):
+    INDEX = 6  # type: int
     pass
 
 
@@ -62,7 +68,8 @@ AIModel.VARIANTS = [
     AIModel__BGEBaseEnV15,
     AIModel__BGELargeEnV15,
     AIModel__Resnet50,
-    AIModel__ClipVitB32,
+    AIModel__ClipVitB32Image,
+    AIModel__ClipVitB32Text,
 ]
 
 

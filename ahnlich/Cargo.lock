@@ -96,7 +96,6 @@ dependencies = [
  "deadpool",
  "dirs",
  "fallible_collections",
- "fastembed",
  "flurry",
  "futures",
  "hf-hub",
@@ -117,6 +116,7 @@ dependencies = [
  "termcolor",
  "thiserror",
  "tiktoken-rs",
+ "tokenizers",
  "tokio",
  "tokio-util",
  "tracer",
@@ -1097,6 +1097,9 @@ name = "esaxx-rs"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d817e038c30374a4bcb22f94d0a8a0e216958d4c3dcde369b1439fec4bdda6e6"
+dependencies = [
+ "cc",
+]
 
 [[package]]
 name = "event-listener"
@@ -1151,22 +1154,6 @@ checksum = "7493d4c459da9f84325ad297371a6b2b8a162800873a22e3b6b6512e61d18c05"
 dependencies = [
  "bit-set",
  "regex",
-]
-
-[[package]]
-name = "fastembed"
-version = "4.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14916e4d447b8a8f1c62e0cf720bada980c27e9371c44b52b79e0336df97185d"
-dependencies = [
- "anyhow",
- "hf-hub",
- "image",
- "ndarray",
- "ort",
- "rayon",
- "serde_json",
- "tokenizers",
 ]
 
 [[package]]
@@ -2432,6 +2419,7 @@ version = "2.0.0-rc.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45e45a172e6c0fb7d640e92c7740f4ea476bfc49ef5c52ea9c73e9fae32b09fe"
 dependencies = [
+ "half",
  "ndarray",
  "ort-sys",
  "thiserror",
@@ -3603,14 +3591,16 @@ dependencies = [
 
 [[package]]
 name = "tokenizers"
-version = "0.19.1"
+version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e500fad1dd3af3d626327e6a3fe5050e664a6eaa4708b8ca92f1794aaf73e6fd"
+checksum = "b172ffa9a2e5c31bbddc940cd5725d933ced983a9333bbebc4c7eda3bbce1557"
 dependencies = [
  "aho-corasick",
  "derive_builder",
  "esaxx-rs",
  "getrandom",
+ "hf-hub",
+ "indicatif",
  "itertools 0.12.1",
  "lazy_static",
  "log",

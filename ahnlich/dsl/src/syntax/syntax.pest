@@ -94,13 +94,12 @@ ai_model = {
     ^"bge-base-en-v1.5"|
     ^"bge-large-en-v1.5"|
     ^"resnet-50"|
-    ^"clip-vit-b32"
+    ^"clip-vit-b32-image"|
+    ^"clip-vit-b32-text"
 }
 preprocess_action = {
-    ^"truncateiftokensexceed" |
-    ^"erroriftokensexceed" |
-    ^"resizeimage" |
-    ^"errorifdimensionsmismatch"
+    ^"nopreprocessing" |
+    ^"modelpreprocessing"
 }
 
 // Numbers

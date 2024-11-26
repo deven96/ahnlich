@@ -1,6 +1,6 @@
 use crate::error::DslError;
 use ahnlich_types::{
-    ai::{AIModel, AIQuery, PreprocessAction, StringAction},
+    ai::{AIModel, AIQuery, PreprocessAction},
     keyval::{StoreInput, StoreName},
     metadata::MetadataKey,
 };
@@ -343,7 +343,7 @@ fn test_set_in_store_parse() {
         panic!("Unexpected error pattern found")
     };
     assert_eq!((start, end), (0, 63));
-    let input = r#"SET (([This is the life of Haks paragraphed], {name: Haks, category: dev}), ([This is the life of Deven paragraphed], {name: Deven, category: dev})) in geo preprocessaction erroriftokensexceeded"#;
+    let input = r#"SET (([This is the life of Haks paragraphed], {name: Haks, category: dev}), ([This is the life of Deven paragraphed], {name: Deven, category: dev})) in geo preprocessaction nopreprocessing"#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AIQuery::Set {
@@ -376,7 +376,7 @@ fn test_set_in_store_parse() {
                     ])
                 )
             ],
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         }]
     );
 }

@@ -23,7 +23,6 @@ async def test_client_sends_ping_to_db_success(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
     db_client = non_blocking.AhnlichDBClient(address="127.0.0.1", port=port)
     try:
-
         response: db_response.ServerResult = await db_client.ping()
         assert len(response.results) == 1
         assert response.results[0] == db_response.Result__Ok(

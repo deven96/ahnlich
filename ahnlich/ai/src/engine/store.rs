@@ -283,7 +283,7 @@ impl AIStoreHandler {
         let store = self.get(store_name)?;
         let mut store_keys = model_manager
             .handle_request(
-                &store.index_model,
+                &store.query_model,
                 vec![store_input],
                 preprocess_action,
                 InputAction::Query,

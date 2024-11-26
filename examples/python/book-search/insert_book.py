@@ -20,9 +20,7 @@ async def set_client(ai_client, inputs):
     response = await ai_client.set(
         store_name=ai_store_payload_with_predicates["store_name"],
         inputs=inputs,
-        preprocess_action=ai_query.PreprocessAction__RawString(
-            ai_query.StringAction__ErrorIfTokensExceed()
-        ),
+        preprocess_action=ai_query.PreprocessAction__NoPreprocessing(),
     )
 
     print(response)

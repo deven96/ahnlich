@@ -22,8 +22,10 @@ pub enum SupportedModels {
     BGELargeEnV15,
     #[clap(name = "resnet-50")]
     Resnet50,
-    #[clap(name = "clip-vit-b32")]
-    ClipVitB32,
+    #[clap(name = "clip-vit-b32-image")]
+    ClipVitB32Image,
+    #[clap(name = "clip-vit-b32-text")]
+    ClipVitB32Text,
 }
 
 #[derive(Parser)]
@@ -132,9 +134,11 @@ impl Default for AIProxyConfig {
             supported_models: vec![
                 SupportedModels::AllMiniLML6V2,
                 SupportedModels::AllMiniLML12V2,
-                SupportedModels::Resnet50,
-                SupportedModels::ClipVitB32,
                 SupportedModels::BGEBaseEnV15,
+                SupportedModels::BGELargeEnV15,
+                SupportedModels::ClipVitB32Text,
+                SupportedModels::Resnet50,
+                SupportedModels::ClipVitB32Image,
             ],
             model_cache_location: home_dir()
                 .map(|mut path| {
@@ -192,7 +196,8 @@ impl fmt::Display for SupportedModels {
             SupportedModels::BGEBaseEnV15 => write!(f, "BGEBase-En-v1.5"),
             SupportedModels::BGELargeEnV15 => write!(f, "BGELarge-En-v1.5"),
             SupportedModels::Resnet50 => write!(f, "Resnet-50"),
-            SupportedModels::ClipVitB32 => write!(f, "ClipVit-B32"),
+            SupportedModels::ClipVitB32Image => write!(f, "ClipVit-B32-Image"),
+            SupportedModels::ClipVitB32Text => write!(f, "ClipVit-B32-Text"),
         }
     }
 }
@@ -205,7 +210,8 @@ impl From<&AIModel> for SupportedModels {
             AIModel::BGEBaseEnV15 => SupportedModels::BGEBaseEnV15,
             AIModel::BGELargeEnV15 => SupportedModels::BGELargeEnV15,
             AIModel::Resnet50 => SupportedModels::Resnet50,
-            AIModel::ClipVitB32 => SupportedModels::ClipVitB32,
+            AIModel::ClipVitB32Image => SupportedModels::ClipVitB32Image,
+            AIModel::ClipVitB32Text => SupportedModels::ClipVitB32Text,
         }
     }
 }
@@ -218,7 +224,8 @@ impl From<&SupportedModels> for AIModel {
             SupportedModels::BGEBaseEnV15 => AIModel::BGEBaseEnV15,
             SupportedModels::BGELargeEnV15 => AIModel::BGELargeEnV15,
             SupportedModels::Resnet50 => AIModel::Resnet50,
-            SupportedModels::ClipVitB32 => AIModel::ClipVitB32,
+            SupportedModels::ClipVitB32Image => AIModel::ClipVitB32Image,
+            SupportedModels::ClipVitB32Text => AIModel::ClipVitB32Text,
         }
     }
 }
