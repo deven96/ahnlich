@@ -94,12 +94,10 @@ async fn index_mode() {
         )
         .await
         .expect("Could not set in store");
-    // Simulated async work.
     println!("Indexing complete! {:?}", res);
 }
 
 async fn query_mode() {
-    // Simulated async work.
     let ai_client = AIClient::new("127.0.0.1".to_string(), 1370)
         .await
         .expect("Could not initialize client");

@@ -7,12 +7,12 @@ To install dependencies (ensure you have cargo installed)
 ```cargo build```
 
 Place the images into the images folder and run
-```poetry run insertbook```
+```cargo run index```
 
 ![insertion gif](index-image.gif)
 
 To search run  
-```poetry run searchbook```
+```cargo run query```
 
 ![insertion gif](query-image.gif)
 
