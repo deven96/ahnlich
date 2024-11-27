@@ -11,7 +11,6 @@ pub struct DBConn {
 
 impl DBConn {
     pub(crate) async fn new(host: &str, port: u16) -> Result<Self, AhnlichError> {
-        println!("Creating pool with {host}:{port}");
         let stream = TcpStream::connect(format!("{host}:{port}")).await?;
         Ok(Self { stream })
     }
