@@ -3,6 +3,8 @@
 
 [![All Test](https://github.com/deven96/ahnlich/actions/workflows/test.yml/badge.svg)](https://github.com/deven96/ahnlich/actions/workflows/test.yml)
 
+⚠️ **Note:** ahnlich is not production-ready yet and is still in **testing** and so might experience breaking changes.
+
 ähnlich means similar in german. It comprises of multiple tools for usage and development such as:
 
 - [`ahnlich-db`](ahnlich/db): In-memory vector key value store for storing embeddings/vectors with corresponding metadata(key-value maps). It's a powerful system which enables AI/ML engineers to store and search similar vectors using linear (cosine, euclidean) or non-linear similarity (kdtree) algorithms. It also leverages search within metadata values to be able to filter out entries using metadata values. A simple example can look like
@@ -56,31 +58,9 @@ The DB can be used without the AI proxy for more fine grained control of the gen
 
 2. The CLI comes packaged into the docker images.
 
+### Contributing
 
-
-## Development
-
-### Using Spec documents to interact with Ahnlich DB
-
-To generate the spec documents, run
-```bash
-cargo run --bin typegen generate
-```
-It is worth noting that any changes to the types crate, requires you to run the above command. This helps keep our spec document and types crate in sync.
-
-To Convert spec documents to a programming language, run:
-
-```bash
- cargo run --bin typegen create-client <Programming Language>
-```
-Available languages are:
-- python
-- golang
-- typescript.
-
-In order to communicate effectively with the ahnlich db, you would have to extend the bincode serialization protocol automatically provided by `serde_generate`.
-Your message(in bytes) should be serialized and deserialized in the following format => `AHNLICH_HEADERS` + `VERSION` + `QUERY/SERVER_RESPONSE`. Bytes are `Little Endian`.
-
+View [contribution guide](CONTRIBUTING.md)
 
 ### How Client Releases Work
 
