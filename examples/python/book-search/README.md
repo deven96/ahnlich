@@ -1,6 +1,6 @@
 ## Book search example for Python SDK
 
-An example on how to use the python sdk that shows the process fo splitting and 
+An example on how to use the python sdk that shows the process of splitting and 
 inserting an epub ebook into the db and querying it via a search phrase either directly or contextually
 
 To install dependencies (ensure you have poetry installed)  
