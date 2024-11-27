@@ -5,7 +5,7 @@
 
 ⚠️ **Note:** Ahnlich is not production-ready yet and is still in **testing** and so might experience breaking changes.
 
-ähnlich means similar in german. It comprises of multiple tools for usage and development such as:
+ "ähnlich" means similar in german. It comprises of multiple tools for usage and development such as:
 
 - [`ahnlich-db`](ahnlich/db): In-memory vector key value store for storing embeddings/vectors with corresponding metadata(key-value maps). It's a powerful system which enables AI/ML engineers to store and search similar vectors using linear (cosine, euclidean) or non-linear similarity (kdtree) algorithms. It also leverages search within metadata values to be able to filter out entries using metadata values. A simple example can look like
 ```
