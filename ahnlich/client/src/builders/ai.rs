@@ -1,5 +1,4 @@
 use std::{collections::HashSet, num::NonZeroUsize};
-use typed_builder::TypedBuilder;
 
 use ahnlich_types::{
     ai::{AIModel, PreprocessAction},
@@ -8,6 +7,7 @@ use ahnlich_types::{
     predicate::PredicateCondition,
     similarity::{Algorithm, NonLinearAlgorithm},
 };
+use typed_builder::TypedBuilder;
 
 #[derive(TypedBuilder)]
 pub struct CreateStoreParams {
@@ -32,6 +32,7 @@ pub struct CreateStoreParams {
     #[builder(default = true)]
     pub store_original: bool,
 
+    #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
 
@@ -40,6 +41,8 @@ pub struct GetPredParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
     pub condition: PredicateCondition,
+
+    #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
 
@@ -50,12 +53,13 @@ pub struct GetSimNParams {
     pub search_input: StoreInput,
     pub condition: Option<PredicateCondition>,
 
-    #[builder(default=NonZeroUsize::new(1).unwrap())]
+    #[builder(setter(into, transform = |n: usize| NonZeroUsize::new(n).unwrap()),default=NonZeroUsize::new(1).unwrap())]
     pub closest_n: NonZeroUsize,
 
     #[builder(default=Algorithm::CosineSimilarity)]
     pub algorithm: Algorithm,
 
+    #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
 
@@ -67,6 +71,7 @@ pub struct CreatePredIndexParams {
     //#[builder(default = HashSet::new())]
     pub predicates: HashSet<MetadataKey>,
 
+    #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
 
@@ -75,9 +80,10 @@ pub struct CreateNonLinearAlgorithmIndexParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
 
-    #[builder(default = HashSet::from_iter(&[NonLinearAlgorithm::KDTree]))]
+    #[builder(default = HashSet::from_iter([NonLinearAlgorithm::KDTree]))]
     pub non_linear_indices: HashSet<NonLinearAlgorithm>,
 
+    #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
 
@@ -92,6 +98,7 @@ pub struct DropPredIndexParams {
     #[builder(default = true)]
     pub error_if_not_exists: bool,
 
+    #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
 
@@ -105,6 +112,7 @@ pub struct SetParams {
     #[builder(default = PreprocessAction::NoPreprocessing)]
     pub preprocess_action: PreprocessAction,
 
+    #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
 
@@ -114,6 +122,8 @@ pub struct DelKeyParams {
     pub store: StoreName,
 
     pub key: StoreInput,
+
+    #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
 
@@ -125,5 +135,6 @@ pub struct DropStoreParams {
     #[builder(default = true)]
     pub error_if_not_exists: bool,
 
+    #[builder(default = None)]
     pub tracing_id: Option<String>,
 }

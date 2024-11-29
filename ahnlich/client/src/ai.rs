@@ -8,8 +8,6 @@ use deadpool::managed::Object;
 use deadpool::managed::Pool;
 use deadpool::managed::RecycleError;
 use deadpool::managed::RecycleResult;
-use std::collections::HashSet;
-use std::num::NonZeroUsize;
 
 /// TCP Connection manager to ahnlich db
 #[derive(Debug)]
@@ -50,107 +48,87 @@ impl AIPipeline {
         Self { queries, conn }
     }
     /// push create store command to pipeline
-    #[allow(clippy::too_many_arguments)]
-    pub fn create_store(
-        &mut self,
-        store: StoreName,
-        query_model: AIModel,
-        index_model: AIModel,
-        predicates: HashSet<MetadataKey>,
-        non_linear_indices: HashSet<NonLinearAlgorithm>,
-        error_if_exists: bool,
-        store_original: bool,
-    ) {
+    pub fn create_store(&mut self, params: ai_params::CreateStoreParams) {
         self.queries.push(AIQuery::CreateStore {
-            store,
-            query_model,
-            index_model,
-            predicates,
-            non_linear_indices,
-            error_if_exists,
-            store_original,
+            store: params.store,
+            query_model: params.query_model,
+            index_model: params.index_model,
+            predicates: params.predicates,
+            non_linear_indices: params.non_linear_indices,
+            error_if_exists: params.error_if_exists,
+            store_original: params.store_original,
         })
     }
 
     /// Push get pred command to pipeline
-    pub fn get_pred(&mut self, store: StoreName, condition: PredicateCondition) {
-        self.queries.push(AIQuery::GetPred { store, condition })
+    pub fn get_pred(&mut self, params: ai_params::GetPredParams) {
+        self.queries.push(AIQuery::GetPred {
+            store: params.store,
+            condition: params.condition,
+        })
     }
 
     /// Push get sim n command to pipeline
-    pub fn get_sim_n(
-        &mut self,
-        store: StoreName,
-        search_input: StoreInput,
-        condition: Option<PredicateCondition>,
-        closest_n: NonZeroUsize,
-        algorithm: Algorithm,
-    ) {
+    pub fn get_sim_n(&mut self, params: ai_params::GetSimNParams) {
         self.queries.push(AIQuery::GetSimN {
-            store,
-            search_input,
-            condition,
-            closest_n,
-            algorithm,
+            store: params.store,
+            search_input: params.search_input,
+            condition: params.condition,
+            closest_n: params.closest_n,
+            algorithm: params.algorithm,
         })
     }
 
     /// push create pred index command to pipeline
-    pub fn create_pred_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
-        self.queries
-            .push(AIQuery::CreatePredIndex { store, predicates })
+    pub fn create_pred_index(&mut self, params: ai_params::CreatePredIndexParams) {
+        self.queries.push(AIQuery::CreatePredIndex {
+            store: params.store,
+            predicates: params.predicates,
+        })
     }
 
     /// push create non linear index command to pipeline
     pub fn create_non_linear_algorithm_index(
         &mut self,
-        store: StoreName,
-        non_linear_indices: HashSet<NonLinearAlgorithm>,
+        params: ai_params::CreateNonLinearAlgorithmIndexParams,
     ) {
         self.queries.push(AIQuery::CreateNonLinearAlgorithmIndex {
-            store,
-            non_linear_indices,
+            store: params.store,
+            non_linear_indices: params.non_linear_indices,
         })
     }
 
     /// push drop pred index command to pipeline
-    pub fn drop_pred_index(
-        &mut self,
-        store: StoreName,
-        predicates: HashSet<MetadataKey>,
-        error_if_not_exists: bool,
-    ) {
+    pub fn drop_pred_index(&mut self, params: ai_params::DropPredIndexParams) {
         self.queries.push(AIQuery::DropPredIndex {
-            store,
-            predicates,
-            error_if_not_exists,
+            store: params.store,
+            predicates: params.predicates,
+            error_if_not_exists: params.error_if_not_exists,
         })
     }
 
     /// push set command to pipeline
-    pub fn set(
-        &mut self,
-        store: StoreName,
-        inputs: Vec<(StoreInput, StoreValue)>,
-        preprocess_action: PreprocessAction,
-    ) {
+    pub fn set(&mut self, params: ai_params::SetParams) {
         self.queries.push(AIQuery::Set {
-            store,
-            inputs,
-            preprocess_action,
+            store: params.store,
+            inputs: params.inputs,
+            preprocess_action: params.preprocess_action,
         })
     }
 
     /// push del key command to pipeline
-    pub fn del_key(&mut self, store: StoreName, key: StoreInput) {
-        self.queries.push(AIQuery::DelKey { store, key })
+    pub fn del_key(&mut self, params: ai_params::DelKeyParams) {
+        self.queries.push(AIQuery::DelKey {
+            store: params.store,
+            key: params.key,
+        })
     }
 
     /// Push drop store command to pipeline
-    pub fn drop_store(&mut self, store: StoreName, error_if_not_exists: bool) {
+    pub fn drop_store(&mut self, params: ai_params::DropStoreParams) {
         self.queries.push(AIQuery::DropStore {
-            store,
-            error_if_not_exists,
+            store: params.store,
+            error_if_not_exists: params.error_if_not_exists,
         })
     }
 
@@ -403,6 +381,7 @@ mod tests {
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
+    use std::collections::HashSet;
     use std::net::SocketAddr;
     use tokio::time::Duration;
     use utils::server::AhnlichServerUtils;
@@ -492,42 +471,35 @@ mod tests {
             .pipeline(4, None)
             .await
             .expect("Could not create pipeline");
-        pipeline.create_store(
-            StoreName("Main".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Main".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Main".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            false,
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Less".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
+        let create_store_params = ai_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .index_model(AIModel::AllMiniLML6V2)
+            .query_model(AIModel::AllMiniLML6V2)
+            .build();
+
+        let create_store_params_2 = ai_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .index_model(AIModel::AllMiniLML6V2)
+            .query_model(AIModel::AllMiniLML6V2)
+            .build();
+
+        let create_store_params_no_error = ai_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .index_model(AIModel::AllMiniLML6V2)
+            .query_model(AIModel::AllMiniLML6V2)
+            .error_if_exists(false)
+            .build();
+        pipeline.create_store(create_store_params);
+        pipeline.create_store(create_store_params_2);
+        pipeline.create_store(create_store_params_no_error);
+
+        let create_store_params = ai_params::CreateStoreParams::builder()
+            .store("Less".to_string())
+            .index_model(AIModel::AllMiniLML6V2)
+            .query_model(AIModel::AllMiniLML6V2)
+            .build();
+
+        pipeline.create_store(create_store_params);
         pipeline.list_stores();
         let mut expected = AIServerResult::with_capacity(5);
         expected.push(Ok(AIServerResponse::Unit));
@@ -563,45 +535,34 @@ mod tests {
             .expect("Could not initialize client");
         let store_name = StoreName("Main".to_string());
 
-        assert!(ai_client
-            .create_store(
-                store_name.clone(),
-                AIModel::AllMiniLML6V2,
-                AIModel::AllMiniLML6V2,
-                HashSet::new(),
-                HashSet::new(),
-                true,
-                true,
-                None
-            )
-            .await
-            .is_ok());
+        let create_store_params = ai_params::CreateStoreParams::builder()
+            .store(store_name.clone().to_string())
+            .index_model(AIModel::AllMiniLML6V2)
+            .query_model(AIModel::AllMiniLML6V2)
+            .build();
 
-        assert!(ai_client
-            .set(
-                store_name.clone(),
-                vec![
-                    (StoreInput::RawString("Adidas Yeezy".into()), HashMap::new()),
-                    (
-                        StoreInput::RawString("Nike Air Jordans".into()),
-                        HashMap::new()
-                    ),
-                ],
-                PreprocessAction::NoPreprocessing,
-                None
-            )
-            .await
-            .is_ok());
+        assert!(ai_client.create_store(create_store_params).await.is_ok());
 
+        let set_params = ai_params::SetParams::builder()
+            .store(store_name.clone().to_string())
+            .inputs(vec![
+                (StoreInput::RawString("Adidas Yeezy".into()), HashMap::new()),
+                (
+                    StoreInput::RawString("Nike Air Jordans".into()),
+                    HashMap::new(),
+                ),
+            ])
+            .preprocess_action(PreprocessAction::NoPreprocessing)
+            .build();
+
+        assert!(ai_client.set(set_params).await.is_ok());
+
+        let delete_key = ai_params::DelKeyParams::builder()
+            .store(store_name.to_string())
+            .key(StoreInput::RawString("Adidas Yeezy".into()))
+            .build();
         assert_eq!(
-            ai_client
-                .del_key(
-                    store_name,
-                    StoreInput::RawString("Adidas Yeezy".into()),
-                    None
-                )
-                .await
-                .unwrap(),
+            ai_client.del_key(delete_key).await.unwrap(),
             AIServerResponse::Del(1)
         )
     }
@@ -619,35 +580,32 @@ mod tests {
             .pipeline(4, None)
             .await
             .expect("Could not create pipeline");
-        pipeline.create_store(
-            StoreName("Main".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Main2".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Less".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
+
+        let create_store_params = ai_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .index_model(AIModel::AllMiniLML6V2)
+            .query_model(AIModel::AllMiniLML6V2)
+            .build();
+        pipeline.create_store(create_store_params);
+        let create_store_params_2 = ai_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .index_model(AIModel::AllMiniLML6V2)
+            .query_model(AIModel::AllMiniLML6V2)
+            .build();
+        pipeline.create_store(create_store_params_2);
+
+        let create_store_params_3 = ai_params::CreateStoreParams::builder()
+            .store("Less".to_string())
+            .index_model(AIModel::AllMiniLML6V2)
+            .query_model(AIModel::AllMiniLML6V2)
+            .build();
+
+        pipeline.create_store(create_store_params_3);
         pipeline.list_stores();
-        pipeline.drop_store(StoreName("Less".to_string()), true);
+        let drop_store_params = ai_params::DropStoreParams::builder()
+            .store("Less".to_string())
+            .build();
+        pipeline.drop_store(drop_store_params);
         pipeline.purge_stores();
         let mut expected = AIServerResult::with_capacity(6);
         expected.push(Ok(AIServerResponse::Unit));
@@ -721,34 +679,38 @@ mod tests {
             .await
             .expect("Could not create pipeline");
 
-        pipeline.create_store(
-            store_name.clone(),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
+        let create_store_params = ai_params::CreateStoreParams::builder()
+            .store("Deven Kicks".to_string())
+            .index_model(AIModel::AllMiniLML6V2)
+            .query_model(AIModel::AllMiniLML6V2)
+            .build();
+
+        pipeline.create_store(create_store_params);
         pipeline.list_stores();
-        pipeline.create_pred_index(
-            store_name.clone(),
-            HashSet::from_iter([
+        let create_pred_index_params = ai_params::CreatePredIndexParams::builder()
+            .store(store_name.clone().to_string())
+            .predicates(HashSet::from_iter([
                 MetadataKey::new("Brand".to_string()),
                 MetadataKey::new("Vintage".to_string()),
-            ]),
-        );
-        pipeline.set(
-            store_name.clone(),
-            store_data,
-            PreprocessAction::NoPreprocessing,
-        );
+            ]))
+            .build();
+        pipeline.create_pred_index(create_pred_index_params);
 
-        pipeline.drop_pred_index(
-            store_name.clone(),
-            HashSet::from_iter([MetadataKey::new("Vintage".to_string())]),
-            true,
-        );
+        let set_params = ai_params::SetParams::builder()
+            .store(store_name.clone().to_string())
+            .inputs(store_data)
+            .preprocess_action(PreprocessAction::NoPreprocessing)
+            .build();
+        pipeline.set(set_params);
+
+        let drop_pred_params = ai_params::DropPredIndexParams::builder()
+            .store(store_name.clone().to_string())
+            .predicates(HashSet::from_iter([MetadataKey::new(
+                "Vintage".to_string(),
+            )]))
+            .build();
+
+        pipeline.drop_pred_index(drop_pred_params);
         let res = pipeline.exec().await.expect("Could not execute pipeline");
 
         let mut expected = AIServerResult::with_capacity(6);
@@ -773,17 +735,15 @@ mod tests {
 
         assert_eq!(res, expected);
 
-        let response = ai_client
-            .get_pred(
-                store_name,
-                PredicateCondition::Value(Predicate::Equals {
-                    key: matching_metadatakey,
-                    value: matching_metadatavalue,
-                }),
-                None,
-            )
-            .await
-            .unwrap();
+        let get_pred_params = ai_params::GetPredParams::builder()
+            .store(store_name.to_string())
+            .condition(PredicateCondition::Value(Predicate::Equals {
+                key: matching_metadatakey,
+                value: matching_metadatavalue,
+            }))
+            .build();
+
+        let response = ai_client.get_pred(get_pred_params).await.unwrap();
 
         let expected = vec![
             (
@@ -847,41 +807,43 @@ mod tests {
             .await
             .expect("Could not create pipeline");
 
-        pipeline.create_store(
-            store_name.clone(),
-            AIModel::Resnet50,
-            AIModel::Resnet50,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
+        let create_store_params = ai_params::CreateStoreParams::builder()
+            .store(store_name.clone().to_string())
+            .index_model(AIModel::Resnet50)
+            .query_model(AIModel::Resnet50)
+            .build();
+
+        pipeline.create_store(create_store_params);
         pipeline.list_stores();
-        pipeline.create_pred_index(
-            store_name.clone(),
-            HashSet::from_iter([
+        let create_pred_index_params = ai_params::CreatePredIndexParams::builder()
+            .store(store_name.clone().to_string())
+            .predicates(HashSet::from_iter([
                 MetadataKey::new("Name".to_string()),
                 MetadataKey::new("Age".to_string()),
-            ]),
-        );
-        pipeline.set(
-            store_name.clone(),
-            store_data,
-            PreprocessAction::NoPreprocessing,
-        );
+            ]))
+            .build();
+        pipeline.create_pred_index(create_pred_index_params);
+        let set_params = ai_params::SetParams::builder()
+            .store(store_name.clone().to_string())
+            .inputs(store_data)
+            .preprocess_action(PreprocessAction::NoPreprocessing)
+            .build();
+        pipeline.set(set_params);
 
-        pipeline.drop_pred_index(
-            store_name.clone(),
-            HashSet::from_iter([MetadataKey::new("Age".to_string())]),
-            true,
-        );
-        pipeline.get_pred(
-            store_name.clone(),
-            PredicateCondition::Value(Predicate::Equals {
+        let drop_pred_index_params = ai_params::DropPredIndexParams::builder()
+            .store(store_name.clone().to_string())
+            .predicates(HashSet::from_iter([MetadataKey::new("Age".to_string())]))
+            .build();
+        pipeline.drop_pred_index(drop_pred_index_params);
+
+        let get_pred_params = ai_params::GetPredParams::builder()
+            .store(store_name.clone().to_string())
+            .condition(PredicateCondition::Value(Predicate::Equals {
                 key: matching_metadatakey.clone(),
                 value: matching_metadatavalue,
-            }),
-        );
+            }))
+            .build();
+        pipeline.get_pred(get_pred_params);
 
         pipeline.purge_stores();
 

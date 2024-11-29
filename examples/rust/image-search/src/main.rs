@@ -1,11 +1,10 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     fs::{self, File},
     io::{self, Read, Write},
-    num::NonZero,
 };
 
-use ahnlich_client_rs::ai::AIClient;
+use ahnlich_client_rs::{ai::AIClient, builders::ai as ai_params};
 use ahnlich_types::{
     ai::{AIModel, AIServerResponse, PreprocessAction},
     keyval::{StoreInput, StoreName},
@@ -72,26 +71,23 @@ async fn index_mode() {
             ));
         }
     }
+    let create_store_params = ai_params::CreateStoreParams::builder()
+        .store(storename.clone().to_string())
+        .index_model(AIModel::ClipVitB32Text)
+        .query_model(AIModel::ClipVitB32Image)
+        .error_if_exists(false)
+        .build();
     ai_client
-        .create_store(
-            storename.clone(),
-            AIModel::ClipVitB32Text,
-            AIModel::ClipVitB32Image,
-            HashSet::new(),
-            HashSet::new(),
-            false,
-            true,
-            None,
-        )
+        .create_store(create_store_params)
         .await
         .expect("Could not create store");
+    let set_params = ai_params::SetParams::builder()
+        .store(storename.to_string())
+        .inputs(inputs)
+        .preprocess_action(PreprocessAction::ModelPreprocessing)
+        .build();
     let res = ai_client
-        .set(
-            storename.clone(),
-            inputs,
-            PreprocessAction::ModelPreprocessing,
-            None,
-        )
+        .set(set_params)
         .await
         .expect("Could not set in store");
     println!("Indexing complete! {:?}", res);
@@ -114,15 +110,16 @@ async fn query_mode() {
         // Remove the trailing newline character (if needed)
         let input = input.trim();
 
+        let get_sim_n_params = ai_params::GetSimNParams::builder()
+            .store(storename.clone().to_string())
+            .search_input(StoreInput::RawString(input.to_string()))
+            .closest_n(1)
+            .algorithm(Algorithm::CosineSimilarity)
+            .condition(None)
+            .build();
+
         let res = ai_client
-            .get_sim_n(
-                storename.clone(),
-                StoreInput::RawString(input.to_owned()),
-                None,
-                NonZero::new(1).unwrap(),
-                Algorithm::CosineSimilarity,
-                None,
-            )
+            .get_sim_n(get_sim_n_params)
             .await
             .expect("Could not set in store");
         if let AIServerResponse::GetSimN(inner) = res {
