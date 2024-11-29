@@ -52,8 +52,8 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         search_input: db_query.Array,
-        closest_n: st.uint64,
-        algorithm: db_query.Algorithm,
+        closest_n: st.uint64 = 1,
+        algorithm: db_query.Algorithm = db_query.Algorithm__CosineSimilarity,
         condition: db_query.PredicateCondition = None,
         tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
@@ -93,7 +93,7 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         predicates: typing.Sequence[str],
-        error_if_not_exists: bool,
+        error_if_not_exists: bool = True,
         tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AsyncAhnlichDBRequestBuilder(tracing_id)
@@ -108,11 +108,11 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         non_linear_indices: typing.Sequence["NonLinearAlgorithm"],
-        error_if_not_exists: bool,
+        error_if_not_exists: bool = True,
         tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichDBRequestBuilder(tracing_id)
-        builder.drop_non_linear_algorithm_index()(
+        builder.drop_non_linear_algorithm_index(
             store_name=store_name,
             non_linear_indices=non_linear_indices,
             error_if_not_exists=error_if_not_exists,

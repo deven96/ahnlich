@@ -49,8 +49,8 @@ class AhnlichDBRequestBuilder:
         self,
         store_name: str,
         search_input: db_query.Array,
-        closest_n: st.uint64,
-        algorithm: db_query.Algorithm,
+        closest_n: st.uint64 = 1,
+        algorithm: db_query.Algorithm = db_query.Algorithm__CosineSimilarity,
         condition: db_query.PredicateCondition = None,
     ):
         nonzero = NonZeroSizeInteger(closest_n)
@@ -82,7 +82,7 @@ class AhnlichDBRequestBuilder:
         self,
         store_name: str,
         predicates: typing.Sequence[str],
-        error_if_not_exists: bool,
+        error_if_not_exists: bool = True,
     ):
         self.queries.append(
             db_query.Query__DropPredIndex(
@@ -96,7 +96,7 @@ class AhnlichDBRequestBuilder:
         self,
         store_name: str,
         non_linear_indices: typing.Sequence["NonLinearAlgorithm"],
-        error_if_not_exists: bool,
+        error_if_not_exists: bool = True,
     ):
         self.queries.append(
             db_query.Query__DropNonLinearAlgorithmIndex(
@@ -123,7 +123,7 @@ class AhnlichDBRequestBuilder:
             db_query.Query__DelPred(store=store_name, condition=condition)
         )
 
-    def drop_store(self, store_name: str, error_if_not_exists: bool):
+    def drop_store(self, store_name: str, error_if_not_exists: bool = True):
         self.queries.append(
             db_query.Query__DropStore(
                 store=store_name, error_if_not_exists=error_if_not_exists
