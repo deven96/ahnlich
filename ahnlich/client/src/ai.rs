@@ -588,7 +588,7 @@ mod tests {
             .build();
         pipeline.create_store(create_store_params);
         let create_store_params_2 = ai_params::CreateStoreParams::builder()
-            .store("Main".to_string())
+            .store("Main2".to_string())
             .index_model(AIModel::AllMiniLML6V2)
             .query_model(AIModel::AllMiniLML6V2)
             .build();
@@ -680,7 +680,7 @@ mod tests {
             .expect("Could not create pipeline");
 
         let create_store_params = ai_params::CreateStoreParams::builder()
-            .store("Deven Kicks".to_string())
+            .store(store_name.clone().to_string())
             .index_model(AIModel::AllMiniLML6V2)
             .query_model(AIModel::AllMiniLML6V2)
             .build();
