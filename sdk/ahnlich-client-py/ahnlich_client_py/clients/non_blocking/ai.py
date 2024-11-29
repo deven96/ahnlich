@@ -30,8 +30,8 @@ class AhnlichAIClient(BaseClient):
     async def create_store(
         self,
         store_name: str,
-        query_model: ai_query.AIModel,
-        index_model: ai_query.AIModel,
+        query_model: ai_query.AIModel = ai_query.AIModel__AllMiniLML6V2,
+        index_model: ai_query.AIModel = ai_query.AIModel__AllMiniLML6V2,
         predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
         error_if_exists: bool = True,
@@ -62,8 +62,8 @@ class AhnlichAIClient(BaseClient):
         self,
         store_name: str,
         search_input: ai_query.StoreInput,
-        closest_n: st.uint64,
-        algorithm: ai_query.Algorithm,
+        closest_n: st.uint64 = 1,
+        algorithm: ai_query.Algorithm = ai_query.Algorithm__CosineSimilarity,
         condition: typing.Optional[ai_query.PredicateCondition] = None,
         tracing_id: typing.Optional[str] = None,
     ):
@@ -135,7 +135,7 @@ class AhnlichAIClient(BaseClient):
         inputs: typing.Sequence[
             typing.Tuple[ai_query.StoreInput, typing.Dict[str, ai_query.MetadataValue]]
         ],
-        preprocess_action=ai_query.PreprocessAction,
+        preprocess_action: ai_query.PreprocessAction = ai_query.PreprocessAction__NoPreprocessing,
         tracing_id: typing.Optional[str] = None,
     ):
         builder = AsyncAhnlichAIRequestBuilder(tracing_id)
@@ -157,7 +157,7 @@ class AhnlichAIClient(BaseClient):
     async def drop_store(
         self,
         store_name: str,
-        error_if_not_exists: bool,
+        error_if_not_exists: bool = True,
         tracing_id: typing.Optional[str] = None,
     ):
         builder = AsyncAhnlichAIRequestBuilder(tracing_id)
