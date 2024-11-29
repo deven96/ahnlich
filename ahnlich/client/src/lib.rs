@@ -113,6 +113,7 @@
 //! let results = pipeline.exec().await.unwrap();
 //! ```
 pub mod ai;
+pub mod builders;
 pub mod conn;
 pub mod db;
 pub mod error;

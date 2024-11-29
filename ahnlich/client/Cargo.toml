@@ -29,3 +29,4 @@ ai = { path = "../ai", version = "*" }
 pretty_assertions.workspace = true
 ndarray.workspace = true
 utils = { path = "../utils", version = "*" }
+typed-builder = "0.20.0"

@@ -1,3 +1,4 @@
+use crate::builders::ai as ai_params;
 use crate::conn::{AIConn, Connection};
 use crate::error::AhnlichError;
 use crate::prelude::*;
@@ -211,148 +212,138 @@ impl AIClient {
         ))
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn create_store(
         &self,
-        store: StoreName,
-        query_model: AIModel,
-        index_model: AIModel,
-        predicates: HashSet<MetadataKey>,
-        non_linear_indices: HashSet<NonLinearAlgorithm>,
-        error_if_exists: bool,
-        store_original: bool,
-        tracing_id: Option<String>,
+        store_params: ai_params::CreateStoreParams,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::CreateStore {
-                store,
-                query_model,
-                index_model,
-                predicates,
-                non_linear_indices,
-                error_if_exists,
-                store_original,
+                store: store_params.store,
+                query_model: store_params.query_model,
+                index_model: store_params.index_model,
+                predicates: store_params.predicates,
+                non_linear_indices: store_params.non_linear_indices,
+                error_if_exists: store_params.error_if_exists,
+                store_original: store_params.store_original,
             },
-            tracing_id,
+            store_params.tracing_id,
         )
         .await
     }
 
     pub async fn get_pred(
         &self,
-        store: StoreName,
-        condition: PredicateCondition,
-        tracing_id: Option<String>,
+        params: ai_params::GetPredParams,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::GetPred { store, condition }, tracing_id)
-            .await
+        self.exec(
+            AIQuery::GetPred {
+                store: params.store,
+                condition: params.condition,
+            },
+            params.tracing_id,
+        )
+        .await
     }
 
     pub async fn get_sim_n(
         &self,
-        store: StoreName,
-        search_input: StoreInput,
-        condition: Option<PredicateCondition>,
-        closest_n: NonZeroUsize,
-        algorithm: Algorithm,
-        tracing_id: Option<String>,
+        params: ai_params::GetSimNParams,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::GetSimN {
-                store,
-                search_input,
-                condition,
-                closest_n,
-                algorithm,
+                store: params.store,
+                search_input: params.search_input,
+                condition: params.condition,
+                closest_n: params.closest_n,
+                algorithm: params.algorithm,
             },
-            tracing_id,
+            params.tracing_id,
         )
         .await
     }
 
     pub async fn create_pred_index(
         &self,
-        store: StoreName,
-        predicates: HashSet<MetadataKey>,
-        tracing_id: Option<String>,
+        params: ai_params::CreatePredIndexParams,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::CreatePredIndex { store, predicates }, tracing_id)
-            .await
+        self.exec(
+            AIQuery::CreatePredIndex {
+                store: params.store,
+                predicates: params.predicates,
+            },
+            params.tracing_id,
+        )
+        .await
     }
 
     pub async fn create_non_linear_algorithm_index(
         &self,
-        store: StoreName,
-        non_linear_indices: HashSet<NonLinearAlgorithm>,
-        tracing_id: Option<String>,
+        params: ai_params::CreateNonLinearAlgorithmIndexParams,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::CreateNonLinearAlgorithmIndex {
-                store,
-                non_linear_indices,
+                store: params.store,
+                non_linear_indices: params.non_linear_indices,
             },
-            tracing_id,
+            params.tracing_id,
         )
         .await
     }
 
     pub async fn drop_pred_index(
         &self,
-        store: StoreName,
-        predicates: HashSet<MetadataKey>,
-        error_if_not_exists: bool,
-        tracing_id: Option<String>,
+        params: ai_params::DropPredIndexParams,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::DropPredIndex {
-                store,
-                predicates,
-                error_if_not_exists,
+                store: params.store,
+                predicates: params.predicates,
+                error_if_not_exists: params.error_if_not_exists,
             },
-            tracing_id,
+            params.tracing_id,
         )
         .await
     }
 
     pub async fn set(
         &self,
-        store: StoreName,
-        inputs: Vec<(StoreInput, StoreValue)>,
-        preprocess_action: PreprocessAction,
-        tracing_id: Option<String>,
+        params: ai_params::SetParams,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::Set {
-                store,
-                inputs,
-                preprocess_action,
+                store: params.store,
+                inputs: params.inputs,
+                preprocess_action: params.preprocess_action,
             },
-            tracing_id,
+            params.tracing_id,
         )
         .await
     }
 
     pub async fn del_key(
         &self,
-        store: StoreName,
-        key: StoreInput,
-        tracing_id: Option<String>,
+        params: ai_params::DelKeyParams,
     ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::DelKey { store, key }, tracing_id).await
+        self.exec(
+            AIQuery::DelKey {
+                store: params.store,
+                key: params.key,
+            },
+            params.tracing_id,
+        )
+        .await
     }
 
     pub async fn drop_store(
         &self,
-        store: StoreName,
-        error_if_not_exists: bool,
-        tracing_id: Option<String>,
+        params: ai_params::DropStoreParams,
     ) -> Result<AIServerResponse, AhnlichError> {
         self.exec(
             AIQuery::DropStore {
-                store,
-                error_if_not_exists,
+                store: params.store,
+                error_if_not_exists: params.error_if_not_exists,
             },
-            tracing_id,
+            params.tracing_id,
         )
         .await
     }
