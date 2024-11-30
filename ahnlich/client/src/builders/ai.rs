@@ -51,6 +51,8 @@ pub struct GetSimNParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
     pub search_input: StoreInput,
+
+    #[builder(default = None)]
     pub condition: Option<PredicateCondition>,
 
     #[builder(setter(into, transform = |n: usize| NonZeroUsize::new(n).unwrap()),default=NonZeroUsize::new(1).unwrap())]
@@ -68,7 +70,6 @@ pub struct CreatePredIndexParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
 
-    //#[builder(default = HashSet::new())]
     pub predicates: HashSet<MetadataKey>,
 
     #[builder(default = None)]
@@ -92,7 +93,6 @@ pub struct DropPredIndexParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
 
-    //#[builder(default = HashSet::new())]
     pub predicates: HashSet<MetadataKey>,
 
     #[builder(default = true)]

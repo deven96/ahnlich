@@ -9,7 +9,6 @@ use ahnlich_types::{
     ai::{AIModel, AIServerResponse, PreprocessAction},
     keyval::{StoreInput, StoreName},
     metadata::{MetadataKey, MetadataValue},
-    similarity::Algorithm,
 };
 use clap::{Parser, Subcommand};
 use tokio;
@@ -113,9 +112,6 @@ async fn query_mode() {
         let get_sim_n_params = ai_params::GetSimNParams::builder()
             .store(storename.clone().to_string())
             .search_input(StoreInput::RawString(input.to_string()))
-            .closest_n(1)
-            .algorithm(Algorithm::CosineSimilarity)
-            .condition(None)
             .build();
 
         let res = ai_client
