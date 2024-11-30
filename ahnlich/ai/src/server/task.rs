@@ -1,12 +1,10 @@
 use crate::engine::ai::models::Model;
 use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{
-    AIQuery, AIServerQuery, AIServerResponse, AIServerResult, ImageAction, PreprocessAction,
-    StringAction,
+    AIQuery, AIServerQuery, AIServerResponse, AIServerResult
 };
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
-use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::{Predicate, PredicateCondition};
 use ahnlich_types::version::VERSION;
@@ -378,16 +376,42 @@ impl AhnlichProtocol for AIProxyTask {
                     Ok(AIServerResponse::Del(destoryed))
                 }
                 AIQuery::ListClients => Ok(AIServerResponse::ClientList(self.client_handler.list())),
-                AIQuery::GetKey { store, keys } => self
-                    .store_handler
-                    .get_key_in_store(&store, keys)
-                    .map(ServerResponse::Get)
-                    .map_err(|e| format!("{e}")),
+                AIQuery::GetKey { store, keys } => {
+                    let metadata_values: HashSet<MetadataValue> = keys.into_iter().map(
+                        |value| value.into()
+                    ).collect();
+                    let get_key_condition =
+                        PredicateCondition::Value(Predicate::In {
+                            key: AHNLICH_AI_RESERVED_META_KEY.clone(),
+                            value: metadata_values,
+                        });
+
+                    match self
+                        .db_client
+                        .get_pred(store, get_key_condition, parent_id.clone())
+                        .await
+                    {
+                        Ok(res) => {
+                            if let ServerResponse::Get(response) = res {
+                                // conversion to store input here
+                                let output = self
+                                    .store_handler
+                                    .store_key_val_to_store_input_val(response);
+                                Ok(AIServerResponse::Get(output))
+                            } else {
+                                Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
+                                    .to_string())
+                            }
+                        }
+                        Err(err) => Err(format!("{err}")),
+                    }
+                }
             })
         }
         result
     }
 }
+
 
 impl AIProxyTask {
     #[tracing::instrument(skip(self))]
