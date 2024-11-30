@@ -1,7 +1,7 @@
 use crate::engine::ai::models::Model;
 use ahnlich_client_rs::{builders::db as db_params, db::DbClient};
 use ahnlich_types::ai::{
-    AIQuery, AIServerQuery, AIServerResponse, AIServerResult, PreprocessAction,
+    AIQuery, AIServerQuery, AIServerResponse, AIServerResult,
 };
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
@@ -410,11 +410,13 @@ impl AhnlichProtocol for AIProxyTask {
                         value: metadata_values,
                     });
 
-                    match self
-                        .db_client
-                        .get_pred(store, get_key_condition, parent_id.clone())
-                        .await
-                    {
+                    let get_pred_params = db_params::GetPredParams::builder()
+                        .store(store.to_string())
+                        .condition(get_key_condition)
+                        .tracing_id(parent_id.clone())
+                        .build();
+
+                    match self.db_client.get_pred(get_pred_params).await {
                         Ok(res) => {
                             if let ServerResponse::Get(response) = res {
                                 // conversion to store input here

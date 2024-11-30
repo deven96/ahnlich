@@ -190,7 +190,7 @@ async fn test_ai_store_get_key_works() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: vec![store_data.clone()],
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -440,7 +440,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         condition: None,
         closest_n: NonZeroUsize::new(1).unwrap(),
         algorithm: Algorithm::DotProductSimilarity,
-        preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+        preprocess_action: PreprocessAction::ModelPreprocessing,
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);

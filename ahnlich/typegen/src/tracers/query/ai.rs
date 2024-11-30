@@ -66,7 +66,7 @@ pub fn trace_ai_query_enum() -> Registry {
         condition: Some(test_predicate_condition.clone()),
         closest_n: NonZeroUsize::new(4).unwrap(),
         algorithm: Algorithm::CosineSimilarity,
-        preprocess_action: PreprocessAction::RawString(StringAction::TruncateIfTokensExceed),
+        preprocess_action: PreprocessAction::ModelPreprocessing,
     };
 
     let create_index = AIQuery::CreatePredIndex {
