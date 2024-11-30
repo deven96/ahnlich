@@ -1,8 +1,10 @@
 # pyre-strict
-from dataclasses import dataclass
 import typing
-from ahnlich_client_py.internals import serde_types as st
+from dataclasses import dataclass
+
 from ahnlich_client_py.internals import bincode
+from ahnlich_client_py.internals import serde_types as st
+
 
 class AIModel:
     VARIANTS = []  # type: typing.Sequence[typing.Type[AIModel]]
@@ -11,7 +13,7 @@ class AIModel:
         return bincode.serialize(self, AIModel)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'AIModel':
+    def bincode_deserialize(input: bytes) -> "AIModel":
         v, buffer = bincode.deserialize(input, AIModel)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -59,6 +61,7 @@ class AIModel__ClipVitB32Text(AIModel):
     INDEX = 6  # type: int
     pass
 
+
 AIModel.VARIANTS = [
     AIModel__AllMiniLML6V2,
     AIModel__AllMiniLML12V2,
@@ -77,7 +80,7 @@ class AIServerResponse:
         return bincode.serialize(self, AIServerResponse)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'AIServerResponse':
+    def bincode_deserialize(input: bytes) -> "AIServerResponse":
         v, buffer = bincode.deserialize(input, AIServerResponse)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -123,13 +126,21 @@ class AIServerResponse__Set(AIServerResponse):
 @dataclass(frozen=True)
 class AIServerResponse__Get(AIServerResponse):
     INDEX = 6  # type: int
-    value: typing.Sequence[typing.Tuple[typing.Optional["StoreInput"], typing.Dict[str, "MetadataValue"]]]
+    value: typing.Sequence[
+        typing.Tuple[typing.Optional["StoreInput"], typing.Dict[str, "MetadataValue"]]
+    ]
 
 
 @dataclass(frozen=True)
 class AIServerResponse__GetSimN(AIServerResponse):
     INDEX = 7  # type: int
-    value: typing.Sequence[typing.Tuple[typing.Optional["StoreInput"], typing.Dict[str, "MetadataValue"], "Similarity"]]
+    value: typing.Sequence[
+        typing.Tuple[
+            typing.Optional["StoreInput"],
+            typing.Dict[str, "MetadataValue"],
+            "Similarity",
+        ]
+    ]
 
 
 @dataclass(frozen=True)
@@ -142,6 +153,7 @@ class AIServerResponse__Del(AIServerResponse):
 class AIServerResponse__CreateIndex(AIServerResponse):
     INDEX = 9  # type: int
     value: st.uint64
+
 
 AIServerResponse.VARIANTS = [
     AIServerResponse__Unit,
@@ -165,7 +177,7 @@ class AIServerResult:
         return bincode.serialize(self, AIServerResult)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'AIServerResult':
+    def bincode_deserialize(input: bytes) -> "AIServerResult":
         v, buffer = bincode.deserialize(input, AIServerResult)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -183,7 +195,7 @@ class AIStoreInfo:
         return bincode.serialize(self, AIStoreInfo)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'AIStoreInfo':
+    def bincode_deserialize(input: bytes) -> "AIStoreInfo":
         v, buffer = bincode.deserialize(input, AIStoreInfo)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -197,7 +209,7 @@ class AIStoreInputType:
         return bincode.serialize(self, AIStoreInputType)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'AIStoreInputType':
+    def bincode_deserialize(input: bytes) -> "AIStoreInputType":
         v, buffer = bincode.deserialize(input, AIStoreInputType)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -215,6 +227,7 @@ class AIStoreInputType__Image(AIStoreInputType):
     INDEX = 1  # type: int
     pass
 
+
 AIStoreInputType.VARIANTS = [
     AIStoreInputType__RawString,
     AIStoreInputType__Image,
@@ -230,7 +243,7 @@ class ConnectedClient:
         return bincode.serialize(self, ConnectedClient)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'ConnectedClient':
+    def bincode_deserialize(input: bytes) -> "ConnectedClient":
         v, buffer = bincode.deserialize(input, ConnectedClient)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -244,7 +257,7 @@ class MetadataValue:
         return bincode.serialize(self, MetadataValue)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'MetadataValue':
+    def bincode_deserialize(input: bytes) -> "MetadataValue":
         v, buffer = bincode.deserialize(input, MetadataValue)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -262,6 +275,7 @@ class MetadataValue__Image(MetadataValue):
     INDEX = 1  # type: int
     value: typing.Sequence[st.uint8]
 
+
 MetadataValue.VARIANTS = [
     MetadataValue__RawString,
     MetadataValue__Image,
@@ -275,7 +289,7 @@ class Result:
         return bincode.serialize(self, Result)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'Result':
+    def bincode_deserialize(input: bytes) -> "Result":
         v, buffer = bincode.deserialize(input, Result)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -292,6 +306,7 @@ class Result__Ok(Result):
 class Result__Err(Result):
     INDEX = 1  # type: int
     value: str
+
 
 Result.VARIANTS = [
     Result__Ok,
@@ -311,7 +326,7 @@ class ServerInfo:
         return bincode.serialize(self, ServerInfo)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'ServerInfo':
+    def bincode_deserialize(input: bytes) -> "ServerInfo":
         v, buffer = bincode.deserialize(input, ServerInfo)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -325,7 +340,7 @@ class ServerType:
         return bincode.serialize(self, ServerType)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'ServerType':
+    def bincode_deserialize(input: bytes) -> "ServerType":
         v, buffer = bincode.deserialize(input, ServerType)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -343,6 +358,7 @@ class ServerType__AI(ServerType):
     INDEX = 1  # type: int
     pass
 
+
 ServerType.VARIANTS = [
     ServerType__Database,
     ServerType__AI,
@@ -357,7 +373,7 @@ class Similarity:
         return bincode.serialize(self, Similarity)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'Similarity':
+    def bincode_deserialize(input: bytes) -> "Similarity":
         v, buffer = bincode.deserialize(input, Similarity)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -371,7 +387,7 @@ class StoreInput:
         return bincode.serialize(self, StoreInput)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'StoreInput':
+    def bincode_deserialize(input: bytes) -> "StoreInput":
         v, buffer = bincode.deserialize(input, StoreInput)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -389,6 +405,7 @@ class StoreInput__Image(StoreInput):
     INDEX = 1  # type: int
     value: typing.Sequence[st.uint8]
 
+
 StoreInput.VARIANTS = [
     StoreInput__RawString,
     StoreInput__Image,
@@ -404,7 +421,7 @@ class StoreUpsert:
         return bincode.serialize(self, StoreUpsert)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'StoreUpsert':
+    def bincode_deserialize(input: bytes) -> "StoreUpsert":
         v, buffer = bincode.deserialize(input, StoreUpsert)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -420,7 +437,7 @@ class SystemTime:
         return bincode.serialize(self, SystemTime)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'SystemTime':
+    def bincode_deserialize(input: bytes) -> "SystemTime":
         v, buffer = bincode.deserialize(input, SystemTime)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
@@ -437,9 +454,8 @@ class Version:
         return bincode.serialize(self, Version)
 
     @staticmethod
-    def bincode_deserialize(input: bytes) -> 'Version':
+    def bincode_deserialize(input: bytes) -> "Version":
         v, buffer = bincode.deserialize(input, Version)
         if buffer:
             raise st.DeserializationError("Some input bytes were not read")
         return v
-

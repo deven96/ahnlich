@@ -52,6 +52,7 @@ class AhnlichAIRequestBuilder:
         closest_n: st.uint64 = 1,
         algorithm: ai_query.Algorithm = ai_query.Algorithm__CosineSimilarity,
         condition: typing.Optional[ai_query.PredicateCondition] = None,
+        preprocess_action: ai_query.PreprocessAction = ai_query.PreprocessAction__ModelPreprocessing,
     ):
         nonzero_n = NonZeroSizeInteger(closest_n)
         self.queries.append(
@@ -61,6 +62,7 @@ class AhnlichAIRequestBuilder:
                 closest_n=nonzero_n.value,
                 algorithm=algorithm,
                 condition=condition,
+                preprocess_action=preprocess_action,
             )
         )
 
@@ -127,6 +129,9 @@ class AhnlichAIRequestBuilder:
     def del_key(self, store_name: str, key: ai_query.StoreInput):
         self.queries.append(ai_query.AIQuery__DelKey(store=store_name, key=key))
 
+    def get_key(self, store_name: str, keys: typing.Sequence[ai_query.StoreInput]):
+        self.queries.append(ai_query.AIQuery__GetKey(store=store_name, keys=keys))
+
     def drop_store(self, store_name: str, error_if_not_exists: bool = True):
         self.queries.append(
             ai_query.AIQuery__DropStore(
@@ -142,6 +147,9 @@ class AhnlichAIRequestBuilder:
 
     def list_stores(self):
         self.queries.append(ai_query.AIQuery__ListStores())
+
+    def list_clients(self):
+        self.queries.append(ai_query.AIQuery__ListClients())
 
     def ping(self):
         self.queries.append(ai_query.AIQuery__Ping())

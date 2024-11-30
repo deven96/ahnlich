@@ -65,6 +65,7 @@ class AhnlichAIClient(BaseClient):
         closest_n: st.uint64 = 1,
         algorithm: ai_query.Algorithm = ai_query.Algorithm__CosineSimilarity,
         condition: typing.Optional[ai_query.PredicateCondition] = None,
+        preprocess_action: ai_query.PreprocessAction = ai_query.PreprocessAction__ModelPreprocessing,
         tracing_id: typing.Optional[str] = None,
     ):
         builder = AsyncAhnlichAIRequestBuilder(tracing_id)
@@ -74,6 +75,7 @@ class AhnlichAIClient(BaseClient):
             closest_n=closest_n,
             algorithm=algorithm,
             condition=condition,
+            preprocess_action=preprocess_action,
         )
         return await self.process_request(builder.to_server_query())
 
@@ -154,6 +156,16 @@ class AhnlichAIClient(BaseClient):
         builder.del_key(store_name=store_name, key=key)
         return await self.process_request(builder.to_server_query())
 
+    async def get_key(
+        self,
+        store_name: str,
+        keys: typing.Sequence[ai_query.StoreInput],
+        tracing_id: typing.Optional[str] = None,
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
+        builder.get_key(store_name=store_name, keys=keys)
+        return await self.process_request(builder.to_server_query())
+
     async def drop_store(
         self,
         store_name: str,
@@ -188,6 +200,14 @@ class AhnlichAIClient(BaseClient):
     ):
         builder = AsyncAhnlichAIRequestBuilder(tracing_id)
         builder.list_stores()
+        return await self.process_request(builder.to_server_query())
+
+    async def list_clients(
+        self,
+        tracing_id: typing.Optional[str] = None,
+    ):
+        builder = AsyncAhnlichAIRequestBuilder(tracing_id)
+        builder.list_clients()
         return await self.process_request(builder.to_server_query())
 
     async def ping(
