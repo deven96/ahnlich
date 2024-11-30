@@ -1,8 +1,6 @@
 use crate::engine::ai::models::Model;
 use ahnlich_client_rs::db::DbClient;
-use ahnlich_types::ai::{
-    AIQuery, AIServerQuery, AIServerResponse, AIServerResult
-};
+use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
 use ahnlich_types::metadata::MetadataValue;
@@ -375,16 +373,16 @@ impl AhnlichProtocol for AIProxyTask {
                     let destoryed = self.store_handler.purge_stores();
                     Ok(AIServerResponse::Del(destoryed))
                 }
-                AIQuery::ListClients => Ok(AIServerResponse::ClientList(self.client_handler.list())),
+                AIQuery::ListClients => {
+                    Ok(AIServerResponse::ClientList(self.client_handler.list()))
+                }
                 AIQuery::GetKey { store, keys } => {
-                    let metadata_values: HashSet<MetadataValue> = keys.into_iter().map(
-                        |value| value.into()
-                    ).collect();
-                    let get_key_condition =
-                        PredicateCondition::Value(Predicate::In {
-                            key: AHNLICH_AI_RESERVED_META_KEY.clone(),
-                            value: metadata_values,
-                        });
+                    let metadata_values: HashSet<MetadataValue> =
+                        keys.into_iter().map(|value| value.into()).collect();
+                    let get_key_condition = PredicateCondition::Value(Predicate::In {
+                        key: AHNLICH_AI_RESERVED_META_KEY.clone(),
+                        value: metadata_values,
+                    });
 
                     match self
                         .db_client
@@ -411,7 +409,6 @@ impl AhnlichProtocol for AIProxyTask {
         result
     }
 }
-
 
 impl AIProxyTask {
     #[tracing::instrument(skip(self))]

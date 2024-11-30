@@ -4,14 +4,23 @@ use ahnlich_types::{
     ai::{
         AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo,
         ImageAction, PreprocessAction, StringAction,
-    }, client::ConnectedClient, db::StoreUpsert, keyval::{StoreInput, StoreName, StoreValue}, metadata::{MetadataKey, MetadataValue}, predicate::{Predicate, PredicateCondition}, similarity::Algorithm
+    },
+    db::StoreUpsert,
+    keyval::{StoreInput, StoreName, StoreValue},
+    metadata::{MetadataKey, MetadataValue},
+    predicate::{Predicate, PredicateCondition},
+    similarity::Algorithm,
 };
 // use flurry::HashMap;
 use utils::server::AhnlichServerUtils;
 
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
-use std::{collections::{HashMap, HashSet}, num::NonZeroUsize, sync::atomic::Ordering};
+use std::{
+    collections::{HashMap, HashSet},
+    num::NonZeroUsize,
+    sync::atomic::Ordering,
+};
 
 use crate::{
     cli::{server::SupportedModels, AIProxyConfig},
@@ -158,7 +167,6 @@ async fn test_ai_proxy_create_store_success() {
     query_server_assert_result(&mut reader, message, expected.clone()).await;
 }
 
-
 #[tokio::test]
 async fn test_ai_store_get_key_works() {
     let address = provision_test_servers().await;
@@ -166,10 +174,8 @@ async fn test_ai_store_get_key_works() {
     let second_stream = TcpStream::connect(address).await.unwrap();
     let store_name = StoreName(String::from("Deven Kicks"));
     let store_input = StoreInput::RawString(String::from("Jordan 3"));
-    let store_data: (StoreInput, HashMap<MetadataKey, MetadataValue>) = (
-        store_input.clone(),
-        HashMap::new()
-    );
+    let store_data: (StoreInput, HashMap<MetadataKey, MetadataValue>) =
+        (store_input.clone(), HashMap::new());
 
     let message = AIServerQuery::from_queries(&[
         AIQuery::CreateStore {
@@ -190,20 +196,22 @@ async fn test_ai_store_get_key_works() {
     let mut reader = BufReader::new(first_stream);
 
     let _ = get_server_response(&mut reader, message).await;
-    let message = AIServerQuery::from_queries(&[AIQuery::GetKey { store: store_name, keys: vec![store_input.clone()] }]);
+    let message = AIServerQuery::from_queries(&[AIQuery::GetKey {
+        store: store_name,
+        keys: vec![store_input.clone()],
+    }]);
 
     let mut expected = AIServerResult::with_capacity(1);
 
     expected.push(Ok(AIServerResponse::Get(vec![(
-        Some(store_input), HashMap::new()
+        Some(store_input),
+        HashMap::new(),
     )])));
 
     let mut reader = BufReader::new(second_stream);
     let response = get_server_response(&mut reader, message).await;
     assert!(response.len() == expected.len())
-
 }
-
 
 #[tokio::test]
 async fn test_list_clients_works() {
@@ -214,7 +222,7 @@ async fn test_list_clients_works() {
     let mut reader = BufReader::new(second_stream);
     let response = get_server_response(&mut reader, message).await;
     let inner = response.into_inner();
-    
+
     // only two clients are connected
     assert!(inner.len() == 2)
 }

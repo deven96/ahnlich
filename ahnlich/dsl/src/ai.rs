@@ -202,7 +202,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                     closest_n,
                     algorithm,
                     condition,
-                    preprocess_action
+                    preprocess_action,
                 }
             }
             Rule::get_pred => {

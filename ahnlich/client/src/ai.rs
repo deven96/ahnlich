@@ -92,7 +92,7 @@ impl AIPipeline {
             condition,
             closest_n,
             algorithm,
-            preprocess_action
+            preprocess_action,
         })
     }
 
@@ -250,6 +250,7 @@ impl AIClient {
             .await
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn get_sim_n(
         &self,
         store: StoreName,
@@ -267,7 +268,7 @@ impl AIClient {
                 condition,
                 closest_n,
                 algorithm,
-                preprocess_action
+                preprocess_action,
             },
             tracing_id,
         )
