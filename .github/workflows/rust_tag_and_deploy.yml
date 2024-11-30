@@ -2,9 +2,7 @@ name: Ahnlich Rust Client Tag and Deploy
 
 on:
   pull_request:
-    branches: ["main"]
-    types:
-      - closed
+    branches: ["*"]
 
 jobs:
   check_version_changes_and_tag:
