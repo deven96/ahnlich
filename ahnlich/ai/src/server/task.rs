@@ -1,6 +1,8 @@
 use crate::engine::ai::models::Model;
-use ahnlich_client_rs::db::DbClient;
-use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
+use ahnlich_client_rs::{builders::db as db_params, db::DbClient};
+use ahnlich_types::ai::{
+    AIQuery, AIServerQuery, AIServerResponse, AIServerResult, PreprocessAction,
+};
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
 use ahnlich_types::metadata::MetadataValue;
@@ -77,18 +79,15 @@ impl AhnlichProtocol for AIProxyTask {
                         predicates.insert(default_metadata_key.clone());
                     }
                     let model: Model = (&index_model).into();
-                    match self
-                        .db_client
-                        .create_store(
-                            store.clone(),
-                            model.embedding_size,
-                            predicates,
-                            non_linear_indices,
-                            false,
-                            parent_id.clone(),
-                        )
-                        .await
-                    {
+                    let create_store_params = db_params::CreateStoreParams::builder()
+                        .store(store.clone().to_string())
+                        .dimension(model.embedding_size.into())
+                        .create_predicates(predicates)
+                        .non_linear_indices(non_linear_indices)
+                        .error_if_exists(false)
+                        .tracing_id(parent_id.clone())
+                        .build();
+                    match self.db_client.create_store(create_store_params).await {
                         Err(err) => Err(err.to_string()),
                         Ok(_) => self
                             .store_handler
@@ -127,9 +126,20 @@ impl AhnlichProtocol for AIProxyTask {
                                                 key: default_metadatakey.clone(),
                                                 value: del_hashset,
                                             });
-                                        pipeline.del_pred(store.clone(), delete_condition);
+                                        let del_pred_params = db_params::DelPredParams::builder()
+                                            .store(store.clone().to_string())
+                                            .condition(delete_condition)
+                                            .tracing_id(parent_id.clone())
+                                            .build();
+                                        pipeline.del_pred(del_pred_params);
                                     }
-                                    pipeline.set(store, db_inputs);
+                                    let set_params = db_params::SetParams::builder()
+                                        .store(store.to_string())
+                                        .inputs(db_inputs)
+                                        .tracing_id(parent_id.clone())
+                                        .build();
+
+                                    pipeline.set(set_params);
                                     match pipeline.exec().await {
                                         Ok(res) => match res.into_inner().as_slice() {
                                             [Ok(ServerResponse::Set(upsert))]
@@ -161,11 +171,12 @@ impl AhnlichProtocol for AIProxyTask {
                                 key: default_metadatakey.clone(),
                                 value: HashSet::from_iter([metadata_value]),
                             });
-                            match self
-                                .db_client
-                                .del_pred(store, delete_condition, parent_id.clone())
-                                .await
-                            {
+                            let del_pred_params = db_params::DelPredParams::builder()
+                                .store(store.to_string())
+                                .condition(delete_condition)
+                                .tracing_id(parent_id.clone())
+                                .build();
+                            match self.db_client.del_pred(del_pred_params).await {
                                 Ok(res) => {
                                     if let ServerResponse::Del(num) = res {
                                         Ok(AIServerResponse::Del(num))
@@ -185,22 +196,30 @@ impl AhnlichProtocol for AIProxyTask {
                 AIQuery::DropStore {
                     store,
                     error_if_not_exists,
-                } => match self
-                    .db_client
-                    .drop_store(store.clone(), error_if_not_exists, parent_id.clone())
-                    .await
-                {
-                    Ok(_) => self
-                        .store_handler
-                        .drop_store(store, error_if_not_exists)
-                        .map(AIServerResponse::Del)
-                        .map_err(|e| e.to_string()),
-                    Err(err) => Err(format!("{err}")),
-                },
+                } => {
+                    let drop_store_params = db_params::DropStoreParams::builder()
+                        .store(store.to_string())
+                        .error_if_not_exists(error_if_not_exists)
+                        .tracing_id(parent_id.clone())
+                        .build();
+                    match self.db_client.drop_store(drop_store_params).await {
+                        Ok(_) => self
+                            .store_handler
+                            .drop_store(store, error_if_not_exists)
+                            .map(AIServerResponse::Del)
+                            .map_err(|e| e.to_string()),
+                        Err(err) => Err(format!("{err}")),
+                    }
+                }
                 AIQuery::CreatePredIndex { store, predicates } => {
+                    let create_pred_index_params = db_params::CreatePredIndexParams::builder()
+                        .store(store.to_string())
+                        .predicates(predicates)
+                        .tracing_id(parent_id.clone())
+                        .build();
                     match self
                         .db_client
-                        .create_pred_index(store, predicates, parent_id.clone())
+                        .create_pred_index(create_pred_index_params)
                         .await
                     {
                         Ok(res) => {
@@ -218,13 +237,15 @@ impl AhnlichProtocol for AIProxyTask {
                     store,
                     non_linear_indices,
                 } => {
+                    let create_non_linear_algo_params =
+                        db_params::CreateNonLinearAlgorithmIndexParams::builder()
+                            .store(store.to_string())
+                            .non_linear_indices(non_linear_indices)
+                            .tracing_id(parent_id.clone())
+                            .build();
                     match self
                         .db_client
-                        .create_non_linear_algorithm_index(
-                            store,
-                            non_linear_indices,
-                            parent_id.clone(),
-                        )
+                        .create_non_linear_algorithm_index(create_non_linear_algo_params)
                         .await
                     {
                         Ok(res) => {
@@ -247,20 +268,24 @@ impl AhnlichProtocol for AIProxyTask {
                     if predicates.contains(default_metadatakey) {
                         let _ = predicates.remove(default_metadatakey);
                     }
-                    match self
-                        .db_client
-                        .drop_pred_index(store, predicates, error_if_not_exists, parent_id.clone())
-                        .await
                     {
-                        Ok(res) => {
-                            if let ServerResponse::Del(num) = res {
-                                Ok(AIServerResponse::Del(num))
-                            } else {
-                                Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
-                                    .to_string())
+                        let drop_pred_index_params = db_params::DropPredIndexParams::builder()
+                            .store(store.to_string())
+                            .predicates(predicates)
+                            .error_if_not_exists(error_if_not_exists)
+                            .tracing_id(parent_id.clone())
+                            .build();
+                        match self.db_client.drop_pred_index(drop_pred_index_params).await {
+                            Ok(res) => {
+                                if let ServerResponse::Del(num) = res {
+                                    Ok(AIServerResponse::Del(num))
+                                } else {
+                                    Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
+                                        .to_string())
+                                }
                             }
+                            Err(err) => Err(format!("{err}")),
                         }
-                        Err(err) => Err(format!("{err}")),
                     }
                 }
                 AIQuery::DropNonLinearAlgorithmIndex {
@@ -268,14 +293,16 @@ impl AhnlichProtocol for AIProxyTask {
                     non_linear_indices,
                     error_if_not_exists,
                 } => {
+                    let drop_non_linear_algorithm_index_params =
+                        db_params::DropNonLinearAlgorithmIndexParams::builder()
+                            .store(store.to_string())
+                            .non_linear_indices(non_linear_indices)
+                            .error_if_not_exists(error_if_not_exists)
+                            .tracing_id(parent_id.clone())
+                            .build();
                     match self
                         .db_client
-                        .drop_non_linear_algorithm_index(
-                            store,
-                            non_linear_indices,
-                            error_if_not_exists,
-                            parent_id.clone(),
-                        )
+                        .drop_non_linear_algorithm_index(drop_non_linear_algorithm_index_params)
                         .await
                     {
                         Ok(res) => {
@@ -290,11 +317,12 @@ impl AhnlichProtocol for AIProxyTask {
                     }
                 }
                 AIQuery::GetPred { store, condition } => {
-                    match self
-                        .db_client
-                        .get_pred(store, condition, parent_id.clone())
-                        .await
-                    {
+                    let get_pred_params = db_params::GetPredParams::builder()
+                        .store(store.to_string())
+                        .condition(condition)
+                        .tracing_id(parent_id.clone())
+                        .build();
+                    match self.db_client.get_pred(get_pred_params).await {
                         Ok(res) => {
                             if let ServerResponse::Get(response) = res {
                                 // conversion to store input here
@@ -327,46 +355,44 @@ impl AhnlichProtocol for AIProxyTask {
                             preprocess_action,
                         )
                         .await;
-                    if let Ok(store_key) = repr {
-                        match self
-                            .db_client
-                            .get_sim_n(
-                                store,
-                                store_key,
-                                closest_n,
-                                algorithm,
-                                condition,
-                                parent_id.clone(),
-                            )
-                            .await
-                        {
-                            Ok(res) => {
-                                if let ServerResponse::GetSimN(response) = res {
-                                    let (store_key_input, similarities): (Vec<_>, Vec<_>) =
-                                        response
-                                            .into_par_iter()
-                                            .map(|(a, b, c)| ((a, b), c))
-                                            .unzip();
-                                    Ok(AIServerResponse::GetSimN(
-                                        self.store_handler
-                                            .store_key_val_to_store_input_val(store_key_input)
-                                            .into_par_iter()
-                                            .zip(similarities.into_par_iter())
-                                            .map(|((a, b), c)| (a, b, c))
-                                            .collect(),
-                                    ))
-                                } else {
-                                    Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
+                    match repr {
+                        Ok(store_key) => {
+                            let get_sim_n_params = db_params::GetSimNParams::builder()
+                                .store(store.to_string())
+                                .search_input(store_key)
+                                .closest_n(closest_n.into())
+                                .algorithm(algorithm)
+                                .condition(condition)
+                                .tracing_id(parent_id.clone())
+                                .build();
+                            match self.db_client.get_sim_n(get_sim_n_params).await {
+                                Ok(res) => {
+                                    if let ServerResponse::GetSimN(response) = res {
+                                        let (store_key_input, similarities): (Vec<_>, Vec<_>) =
+                                            response
+                                                .into_par_iter()
+                                                .map(|(a, b, c)| ((a, b), c))
+                                                .unzip();
+                                        Ok(AIServerResponse::GetSimN(
+                                            self.store_handler
+                                                .store_key_val_to_store_input_val(store_key_input)
+                                                .into_par_iter()
+                                                .zip(similarities.into_par_iter())
+                                                .map(|((a, b), c)| (a, b, c))
+                                                .collect(),
+                                        ))
+                                    } else {
+                                        Err(AIProxyError::UnexpectedDBResponse(format!(
+                                            "{:?}",
+                                            res
+                                        ))
                                         .to_string())
+                                    }
                                 }
+                                Err(err) => Err(format!("{err}")),
                             }
-                            Err(err) => Err(format!("{err}")),
                         }
-                    } else {
-                        Err(
-                            AIProxyError::StandardError("Failed to get store".to_string())
-                                .to_string(),
-                        )
+                        Err(err) => Err(AIProxyError::StandardError(err.to_string()).to_string()),
                     }
                 }
                 AIQuery::PurgeStores => {

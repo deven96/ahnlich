@@ -92,8 +92,14 @@ from ahnlich_client_py import server_response
 
 ### Client
 
+- Blocking clients
 ```py
 from ahnlich_client_py import AhnlichDBClient
+client = AhnlichDBClient(address="127.0.0.1", port=port)
+```
+-  Nonblocking clients
+```py
+from ahnlich_client_py.non_blocking_client import AhnlichDBClient
 client = AhnlichDBClient(address="127.0.0.1", port=port)
 ```
 
@@ -678,8 +684,7 @@ condition = db_query.PredicateCondition__AND(
 
 | Version| Description           |
 | -------|:-------------:|
-| 0.1.0 | Base Python client to connect to ahnlich db. Bincode serialization and deserialization implemented |
-| 0.2.0 |  Add Connection pooling  mechanism for `AhnlichDBClient` |
-| 0.3.0|     Add AIProxy client: `AhnlichDBClient`  |
+| 0.0.0 | Base Python clients (Async and Sync) to connect to ahnlich db and AI, with connection pooling and Bincode serialization and deserialization |
+
 
 

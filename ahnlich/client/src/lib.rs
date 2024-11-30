@@ -18,7 +18,7 @@
 //! let db_client = DbClient::new_with_pool(pool);
 //!
 //! // Library has support for distributed tracing. https://www.w3.org/TR/trace-context/#traceparent-header
-//! let tracing_id: Option<String> = None,
+//! let tracing_id: Option<String> = None;
 //! db_client.ping(tracing_id).await.unwrap();
 //! ```
 //!
@@ -31,7 +31,7 @@
 //! let manager = AIConnManager::new("127.0.0.1".into(), 1369);
 //! let pool = Pool::builder(manager).max_size(10).build().unwrap();
 //! // Library has support for distributed tracing - https://www.w3.org/TR/trace-context/#traceparent-header
-//! let tracing_id: Option<String> = None,
+//! let tracing_id: Option<String> = None;
 //! let ai_client = AIClient::new_with_pool(pool);
 //! ai_client.ping(tracing_id).await.unwrap();
 //! ```
@@ -47,7 +47,7 @@
 //! use ahnlich_client_rs::db::DbClient;
 //!
 //! let db_client = DbClient::new("127.0.0.1".into(), 1369).await.unwrap();
-//! let tracing_id: Option<String> = None,
+//! let tracing_id: Option<String> = None;
 //! let mut pipeline = db_client.pipeline(3, tracing_id).unwrap();
 //! pipeline.info_server();
 //! pipeline.list_clients();
@@ -61,27 +61,28 @@
 //!
 //! ### DB Client
 //! ```rust
-//! use ahnlich_client_rs::db::DbClient;
+//! use ahnlich_client_rs::{db::DbClient, builders::db as db_params};
 //! use ahnlich_client_rs::prelude::*;
 //! use std::num::NonZeroUsize;
 //! use std::collections::HashSet;
 //!
 //! let db_client = DbClient::new("127.0.0.1".into(), 1369).await.unwrap();
-//! let tracing_id: Option<String> = None,
+//! let tracing_id: Option<String> = None;
 //! let mut pipeline = db_client.pipeline(1, tracing_id).unwrap();
+//! let create_store_params = db_params::CreateStoreParams::builder()
+//!         .store("Main".to_string())
+//!         .dimension(3)
+//!         .build();
+//!
 //! pipeline.create_store(
-//!     // StoreName found in prelude
-//!     StoreName("Main".to_string()),
-//!     NonZeroUsize::new(3).unwap(),
-//!     HashSet::new(),
-//!     true,
+//!     create_store_params
 //! );
 //! let results = pipeline.exec().await.unwrap();
 //! ```
 //!
 //! ### AI Client
 //! ```rust
-//! use ahnlich_client_rs::ai::AIClient;
+//! use ahnlich_client_rs::{ai::AIClient, builders::ai as ai_params};
 //! use ahnlich_client_rs::prelude::*;
 //! use std::collections::HashSet;
 //!
@@ -91,28 +92,34 @@
 //! let query_model = AIModel::AllMiniLML6V2;
 //! // Model used to set to create embeddings for set command
 //! let index_model = AIModel::AllMiniLML6V2;
-//! let tracing_id: Option<String> = None,
+//! let tracing_id: Option<String> = None;
 //! let mut pipeline = ai_client.pipeline(2, tracing_id).unwrap();
+//! let create_store_params = ai_params::CreateStoreParams::builder()
+//!     .store("Main".to_string())
+//!     .index_model(index_model)
+//!     .query_model(query_model)
+//!     .build();
+//!   
 //!   pipeline.create_store(
-//!       store_name.clone(),
-//!       query_model,
-//!       index_model,
-//!       HashSet::new(),
-//!       HashSet::new(),
+//!     create_store_params
 //!   );
 //!
-//! pipeline.set(
-//!     store_name,
-//!     vec![
+//! let set_params = ai_params::SetParams::builder()
+//!     .store(store_name.clone().to_string())
+//!     .inputs(vec![
+//!     (StoreInput::RawString("Adidas Yeezy".into()), HashMap::new()),
+//!     (
+//!         StoreInput::RawString("Nike Air Jordans".into()),
+//!         HashMap::new(),
+//!     ),
+//!     ])
+//!     .preprocess_action(PreprocessAction::NoPreprocessing)
+//!     .build();
 //!
-//!         (StoreInput::RawString("Adidas Yeezy".into()), HashMap::new()),
-//!         (StoreInput::RawString("Nike Air Jordans".into()),HashMap::new()),
-//!     ],
-//!     PreprocessAction::RawString(StringAction::ErrorIfTokensExceed)
-//! )
 //! let results = pipeline.exec().await.unwrap();
 //! ```
 pub mod ai;
+pub mod builders;
 pub mod conn;
 pub mod db;
 pub mod error;

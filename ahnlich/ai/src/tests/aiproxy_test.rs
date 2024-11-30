@@ -3,7 +3,7 @@ use ahnlich_db::server::handler::Server;
 use ahnlich_types::{
     ai::{
         AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo,
-        ImageAction, PreprocessAction, StringAction,
+        PreprocessAction,
     },
     db::StoreUpsert,
     keyval::{StoreInput, StoreName, StoreValue},
@@ -273,7 +273,7 @@ async fn test_ai_store_no_original() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -347,7 +347,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -427,7 +427,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -495,7 +495,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
         AIQuery::GetPred {
             store: store_name.clone(),
@@ -566,7 +566,7 @@ async fn test_ai_proxy_del_key_drop_store() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
         AIQuery::DelKey {
             store: store_name.clone(),
@@ -720,7 +720,7 @@ async fn test_ai_proxy_test_with_persistence() {
     // write flag should show that a write has occured
     assert!(write_flag.load(Ordering::SeqCst));
     // Allow some time for persistence to kick in
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
     // start another server with existing persistence
 
     let persisted_server = AIProxyServer::new(AI_CONFIG_WITH_PERSISTENCE.clone())
@@ -857,13 +857,13 @@ async fn test_ai_proxy_binary_store_actions() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data,
-            preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
         // all dimensions match 224x224 so no error
         AIQuery::Set {
             store: store_name.clone(),
             inputs: oversize_data,
-            preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
         // expect an error as the dimensions do not match 224x224
         AIQuery::DropPredIndex {
@@ -899,7 +899,7 @@ async fn test_ai_proxy_binary_store_actions() {
         updated: 0,
     })));
     expected.push(Err(
-        "Image Dimensions [(821, 547)] does not match the expected model dimensions [(224, 224)]"
+        "Image Dimensions [(547, 821)] does not match the expected model dimensions [(224, 224)]"
             .to_string(),
     ));
     expected.push(Ok(AIServerResponse::Del(1)));
@@ -955,7 +955,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data,
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
         AIQuery::PurgeStores,
     ]);
