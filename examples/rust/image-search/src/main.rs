@@ -6,7 +6,7 @@ use std::{
 
 use ahnlich_client_rs::{ai::AIClient, builders::ai as ai_params};
 use ahnlich_types::{
-    ai::{AIModel, AIServerResponse, PreprocessAction},
+    ai::{AIModel, AIServerResponse},
     keyval::{StoreInput, StoreName},
     metadata::{MetadataKey, MetadataValue},
 };
@@ -83,7 +83,6 @@ async fn index_mode() {
     let set_params = ai_params::SetParams::builder()
         .store(storename.to_string())
         .inputs(inputs)
-        .preprocess_action(PreprocessAction::ModelPreprocessing)
         .build();
     let res = ai_client
         .set(set_params)

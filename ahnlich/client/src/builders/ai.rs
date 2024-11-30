@@ -109,7 +109,7 @@ pub struct SetParams {
 
     pub inputs: Vec<(StoreInput, StoreValue)>,
 
-    #[builder(default = PreprocessAction::NoPreprocessing)]
+    #[builder(default = PreprocessAction::ModelPreprocessing)]
     pub preprocess_action: PreprocessAction,
 
     #[builder(default = None)]
