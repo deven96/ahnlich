@@ -78,6 +78,7 @@ jobs:
 
               
     build_macos_x86_64_binaries_and_publish:
+        needs: prebuild_preparation
         name: Build MacOs x86_64 Binaries
         runs-on: 	macos-13
         steps:
