@@ -1,6 +1,6 @@
 [package]
 name = "ahnlich_client_rs"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Diretnan Domnan <diretnandomnan@gmail.com>"]
 categories = ["database-implementations", "database", "web-programming"]
 keywords = ["ahnlich", "in-memory", "ai"]
@@ -26,9 +26,9 @@ fallible_collections.workspace = true
 typed-builder = "0.20.0"
 
 [dev-dependencies]
-db = { path = "../db", version = "*" }
-ai = { path = "../ai", version = "*" }
+db = { path = "../db", version = "0.0.0" }
+ai = { path = "../ai", version = "0.0.0" }
 pretty_assertions.workspace = true
 ndarray.workspace = true
-utils = { path = "../utils", version = "*" }
+utils = { path = "../utils", version = "0.0.0" }
 
