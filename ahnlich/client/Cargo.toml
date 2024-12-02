@@ -1,9 +1,9 @@
 [package]
 name = "ahnlich_client_rs"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Diretnan Domnan <diretnandomnan@gmail.com>"]
 categories = ["database-implementations", "database", "web-programming"]
-keywords = ["ahnlich", "in-memory", "artificial-intelligence", "ai"]
+keywords = ["ahnlich", "in-memory", "ai"]
 edition = "2021"
 license-file = "LICENSE"
 homepage = "https://github.com/deven96/ahnlich"
