@@ -199,7 +199,7 @@ fn test_get_sim_n_parse() {
         panic!("Unexpected error pattern found")
     };
     assert_eq!((start, end), (0, 68));
-    let input = r#"GETSIMN 5 with [hi my name is carter] using cosinesimilarity in random"#;
+    let input = r#"GETSIMN 5 with [hi my name is carter] using cosinesimilarity preprocessaction MODELPREPROCESSING in random"#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AIQuery::GetSimN {
@@ -232,7 +232,7 @@ fn test_get_sim_n_parse() {
                     ]),
                 }))
             ),
-            preprocess_action: PreprocessAction::ModelPreprocessing,
+            preprocess_action: PreprocessAction::NoPreprocessing,
         }]
     );
 }

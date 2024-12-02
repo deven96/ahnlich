@@ -224,7 +224,6 @@ impl AIClient {
         .await
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub async fn get_sim_n(
         &self,
         params: ai_params::GetSimNParams,

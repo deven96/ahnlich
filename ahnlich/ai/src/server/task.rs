@@ -1,8 +1,6 @@
 use crate::engine::ai::models::Model;
 use ahnlich_client_rs::{builders::db as db_params, db::DbClient};
-use ahnlich_types::ai::{
-    AIQuery, AIServerQuery, AIServerResponse, AIServerResult,
-};
+use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
 use ahnlich_types::metadata::MetadataValue;

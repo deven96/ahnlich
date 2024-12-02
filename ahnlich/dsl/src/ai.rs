@@ -18,11 +18,11 @@ use pest::Parser;
 
 use crate::{error::DslError, predicate::parse_predicate_expression};
 
-fn parse_to_preprocess_action(input: &str) -> PreprocessAction {
+fn parse_to_preprocess_action(input: &str) -> Result<PreprocessAction, DslError> {
     match input.to_lowercase().trim() {
-        "nopreprocessing" => PreprocessAction::NoPreprocessing,
-        "modelpreprocessing" => PreprocessAction::ModelPreprocessing,
-        _ => panic!("Unexpected preprocess action"),
+        "nopreprocessing" => Ok(PreprocessAction::NoPreprocessing),
+        "modelpreprocessing" => Ok(PreprocessAction::ModelPreprocessing),
+        a => Err(DslError::UnsupportedPreprocessingMode(a.to_string())),
     }
 }
 
@@ -53,7 +53,7 @@ pub const COMMANDS: &[&str] = &[
     "dropnonlinearalgorithmindex",   // if exists (kdtree) in store_name
     "delkey",                        // ([input 1 text], [input 2 text]) in my_store
     "getpred",                       // ((author = dickens) or (country != Nigeria)) in my_store
-    "getsimn", // 4 with [random text inserted here] using cosinesimilarity in my_store where (author = dickens)
+    "getsimn", // 4 with [random text inserted here] using cosinesimilarity preprocessaction nopreprocessing in my_store where (author = dickens)
     "createstore", // if not exists my_store querymodel resnet-50 indexmodel resnet-50 predicates (author, country) nonlinearalgorithmindex (kdtree)
     "set", // (([This is the life of Haks paragraphed], {name: Haks, category: dev}), ([This is the life of Deven paragraphed], {name: Deven, category: dev})) in store
 ];
@@ -83,9 +83,9 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                 let preprocess_action = parse_to_preprocess_action(
                     inner_pairs
                         .next()
-                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                        .as_str(),
-                );
+                        .map(|a| a.as_str())
+                        .unwrap_or("nopreprocessing"),
+                )?;
 
                 AIQuery::Set {
                     store: StoreName(store.to_string()),
@@ -175,6 +175,18 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                         .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                         .as_str(),
                 )?;
+                let mut preprocess_action = PreprocessAction::NoPreprocessing;
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::preprocess_optional {
+                        let mut pair = inner_pairs
+                            .next()
+                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                            .into_inner();
+                        preprocess_action = parse_to_preprocess_action(
+                            pair.next().map(|a| a.as_str()).unwrap_or("nopreprocessing"),
+                        )?;
+                    }
+                };
                 let store = inner_pairs
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
@@ -184,12 +196,6 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                 } else {
                     None
                 };
-                let preprocess_action = parse_to_preprocess_action(
-                    inner_pairs
-                        .next()
-                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                        .as_str(),
-                );
                 AIQuery::GetSimN {
                     store: StoreName(store.to_string()),
                     search_input,
