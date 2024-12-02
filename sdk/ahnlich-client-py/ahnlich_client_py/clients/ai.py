@@ -199,7 +199,7 @@ class AhnlichAIClient(BaseClient):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.list_stores()
         return self.process_request(builder.to_server_query())
-    
+
     def list_clients(
         self,
         tracing_id: typing.Optional[str] = None,

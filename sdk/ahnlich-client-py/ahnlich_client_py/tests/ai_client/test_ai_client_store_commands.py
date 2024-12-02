@@ -232,7 +232,9 @@ def test_ai_client_get_key(spin_up_ahnlich_ai):
         preprocess_action=ai_query.PreprocessAction__NoPreprocessing(),
     )
     expected = ai_response.Result__Ok(
-        value=ai_response.AIServerResponse__Get([(ai_query.StoreInput__RawString(value="Jordan One"), {})])
+        value=ai_response.AIServerResponse__Get(
+            [(ai_query.StoreInput__RawString(value="Jordan One"), {})]
+        )
     )
 
     try:
