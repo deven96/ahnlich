@@ -66,10 +66,10 @@ jobs:
       - name: Get Cargo toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.78.0
+          toolchain: 1.81.0
 
       - name: Deploy using tag
         working-directory: ./ahnlich
         run: |
-          cargo publish -p ahnlich_types --dry-run --token '${{secrets.CARGO_TOKEN}}'
-          cargo publish -p ahnlich_client_rs --dry-run --token '${{secrets.CARGO_TOKEN}}'
+          cargo publish -p ahnlich_types --token '${{secrets.CARGO_TOKEN}}'
+          cargo publish -p ahnlich_client_rs --token '${{secrets.CARGO_TOKEN}}'

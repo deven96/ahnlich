@@ -32,7 +32,7 @@ dependencies = [
 
 [[package]]
 name = "ahnlich_client_rs"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "ahnlich_types",
  "ai",
@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "ahnlich_types"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "bincode",
  "fallible_collections",
@@ -87,7 +87,7 @@ dependencies = [
 
 [[package]]
 name = "ai"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "ahnlich_client_rs",
  "ahnlich_types",
@@ -630,7 +630,7 @@ checksum = "afb84c814227b90d6895e01398aee0d8033c00e7466aca416fb6a8e0eb19d8a7"
 
 [[package]]
 name = "cli"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "ahnlich_client_rs",
  "ahnlich_types",
@@ -909,7 +909,7 @@ dependencies = [
 
 [[package]]
 name = "db"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "ahnlich_similarity",
  "ahnlich_types",

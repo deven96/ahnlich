@@ -1,1 +1,3 @@
-Add AI Client for  AI Proxy
+Heimdall, open the bifrost.
+A Python client that interacts with both ahnlich DB and AI. Bincode serialization and deserialization implemented
+

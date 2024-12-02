@@ -67,6 +67,10 @@ bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, m
 	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(AHNLICH_AI_NAME)
 	@echo "Ahnlich AI version bumped to $(BUMP_RULE)"
 
+	@echo "Bumping Rust client version with rule $(BUMP_RULE)"
+	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(RUST_CLIENT_NAME)
+	@echo "Rust client version bumped to $(BUMP_RULE)"
+
 	@echo "Bumping Python project version with rule $(BUMP_RULE)"
 	@cd $(PYTHON_PROJECT_DIR) && poetry run bumpversion --component Protocol --bump-type $(BUMP_RULE)
 	@echo "Python project version bumped using rule $(BUMP_RULE)"
