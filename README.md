@@ -58,6 +58,86 @@ The DB can be used without the AI proxy for more fine grained control of the gen
 
 2. The CLI comes packaged into the docker images.
 
+---
+
+### Installation  
+
+#### Download Binaries  
+
+You can download the Ahnlich binaries for `ai` and `db` from [GitHub Releases](https://github.com/deven96/ahnlich/releases).  
+
+- **`wget`:**  
+  ```bash  
+  wget https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.0.0/aarch64-darwin-ahnlich-db.tar.gz  
+  ```  
+
+- **Extract the file:**  
+  ```bash  
+  tar -xvzf aarch64-darwin-ahnlich-db.tar.gz  
+  ```  
+
+- **Run the binary:**  
+  ```bash  
+  ./ahnlich-db  
+  ```  
+
+Replace `aarch64-darwin-ahnlich-db.tar.gz` with the appropriate file name for your architecture. For `ai`, download the corresponding `ai` binary, extract it, and run it using `./ahnlich-ai`.  
+
+---
+
+#### Using Docker  
+
+You can pull the prebuilt Docker images for Ahnlich:  
+
+- **Ahnlich AI**:  
+  ```bash  
+  docker pull ghcr.io/deven96/ahnlich-ai:latest  
+  ```  
+
+- **Ahnlich DB**:  
+  ```bash  
+  docker pull ghcr.io/deven96/ahnlich-db:latest  
+  ```  
+
+---
+
+#### Example Docker Compose  
+
+Below is an example `docker-compose.yaml` configuration to run both `ahnlich-db` and `ahnlich-ai`:  
+
+```yaml   
+services:  
+  ahnlich_db:  
+    image: ghcr.io/deven96/ahnlich-db:latest  
+    command: "ahnlich-db run --host 0.0.0.0 --enable-tracing"  
+    ports:  
+      - "1369:1369"  
+
+  ahnlich_ai:  
+    image: ghcr.io/deven96/ahnlich-ai:latest  
+    command: "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 --port 8880 --enable-tracing --supported-models all-minilm-l6-v2,resnet-50"  
+    ports:  
+      - "1370:1370"  
+```  
+
+---
+
+#### Environment Variables  
+
+The following environment variable can also be set:  
+
+- `DEMO_OTEL_URL`: Set the OpenTelemetry endpoint. Example:
+ 
+  ```bash  
+  DEMO_OTEL_URL=http://<otel-endpoint>  
+  ```  
+
+You can pass this variable directly to your Docker containers using `environment` in your Docker Compose file or when running `docker run`.  
+
+---  
+
+
+
 ### Contributing
 
 View [contribution guide](CONTRIBUTING.md)
