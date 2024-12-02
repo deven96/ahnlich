@@ -237,6 +237,9 @@ impl AIStoreHandler {
         preprocess_action: PreprocessAction,
     ) -> Result<StoreSetResponse, AIProxyError> {
         let store = self.get(store_name)?;
+        if inputs.is_empty() {
+            return Ok((vec![], None));
+        }
         let (validated_data, delete_hashset) =
             self.validate_and_prepare_store_data(store_name, inputs)?;
 
@@ -283,7 +286,7 @@ impl AIStoreHandler {
         let store = self.get(store_name)?;
         let mut store_keys = model_manager
             .handle_request(
-                &store.index_model,
+                &store.query_model,
                 vec![store_input],
                 preprocess_action,
                 InputAction::Query,

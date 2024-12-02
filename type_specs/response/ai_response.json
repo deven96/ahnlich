@@ -17,7 +17,10 @@
         "Resnet50": "UNIT"
       },
       "5": {
-        "ClipVitB32": "UNIT"
+        "ClipVitB32Image": "UNIT"
+      },
+      "6": {
+        "ClipVitB32Text": "UNIT"
       }
     }
   },

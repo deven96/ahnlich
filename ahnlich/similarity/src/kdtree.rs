@@ -218,6 +218,16 @@ impl<'de> Deserialize<'de> for KDTree {
     }
 }
 
+struct NearestRecuriveArgs<'a> {
+    node: &'a Atomic<KDNode>,
+    reference_point: &'a Array1<f32>,
+    depth: usize,
+    n: NonZeroUsize,
+    guard: &'a Guard,
+    heap: &'a mut BinaryHeap<Reverse<OrderedArray>>,
+    accept_list: &'a Option<HashSet<Array1F32Ordered>>,
+}
+
 impl KDTree {
     /// initialize KDTree with a specified nonzero dimension
     /// dimension: The dimension of the 1-D arrays to be inserted in the tree
@@ -475,15 +485,15 @@ impl KDTree {
         if matches!(accept_list.as_ref(), Some(a) if a.is_empty()) {
             return Ok(vec![]);
         }
-        self.n_nearest_recursive(
-            &self.root,
+        self.n_nearest_recursive(NearestRecuriveArgs {
+            node: &self.root,
             reference_point,
-            0,
+            depth: 0,
             n,
-            &guard,
-            &mut heap,
-            &accept_list,
-        );
+            guard: &guard,
+            heap: &mut heap,
+            accept_list: &accept_list,
+        });
         let mut results = Vec::with_capacity(n.get());
         while let Some(Reverse(OrderedArray(val, distance))) = heap.pop() {
             results.push((val, distance));
@@ -506,17 +516,18 @@ impl KDTree {
         true
     }
 
-    #[allow(clippy::too_many_arguments)]
     #[tracing::instrument(skip_all)]
     fn n_nearest_recursive(
         &self,
-        node: &Atomic<KDNode>,
-        reference_point: &Array1<f32>,
-        depth: usize,
-        n: NonZeroUsize,
-        guard: &Guard,
-        heap: &mut BinaryHeap<Reverse<OrderedArray>>,
-        accept_list: &Option<HashSet<Array1F32Ordered>>,
+        NearestRecuriveArgs {
+            node,
+            reference_point,
+            depth,
+            n,
+            guard,
+            heap,
+            accept_list,
+        }: NearestRecuriveArgs,
     ) {
         if let Some(shared) = unsafe { node.load(Ordering::Acquire, guard).as_ref() } {
             let distance = self.squared_distance(reference_point, &shared.point);
@@ -534,52 +545,52 @@ impl KDTree {
             let dim = depth % self.depth.get();
             let go_left_first = reference_point[dim] < shared.point[dim];
             if go_left_first {
-                self.n_nearest_recursive(
-                    &shared.left,
+                self.n_nearest_recursive(NearestRecuriveArgs {
+                    node: &shared.left,
                     reference_point,
-                    depth + 1,
+                    depth: depth + 1,
                     n,
                     guard,
                     heap,
                     accept_list,
-                );
+                });
                 if heap.len() < n.get()
                     || (reference_point[dim] - shared.point[dim]).abs()
                         < heap.peek().map_or(f32::INFINITY, |x| x.0 .1)
                 {
-                    self.n_nearest_recursive(
-                        &shared.right,
+                    self.n_nearest_recursive(NearestRecuriveArgs {
+                        node: &shared.right,
                         reference_point,
-                        depth + 1,
+                        depth: depth + 1,
                         n,
                         guard,
                         heap,
                         accept_list,
-                    );
+                    });
                 }
             } else {
-                self.n_nearest_recursive(
-                    &shared.right,
+                self.n_nearest_recursive(NearestRecuriveArgs {
+                    node: &shared.right,
                     reference_point,
-                    depth + 1,
+                    depth: depth + 1,
                     n,
                     guard,
                     heap,
                     accept_list,
-                );
+                });
                 if heap.len() < n.get()
                     || (reference_point[dim] - shared.point[dim]).abs()
                         < heap.peek().map_or(f32::INFINITY, |x| x.0 .1)
                 {
-                    self.n_nearest_recursive(
-                        &shared.left,
+                    self.n_nearest_recursive(NearestRecuriveArgs {
+                        node: &shared.left,
                         reference_point,
-                        depth + 1,
+                        depth: depth + 1,
                         n,
                         guard,
                         heap,
                         accept_list,
-                    );
+                    });
                 }
             }
         }

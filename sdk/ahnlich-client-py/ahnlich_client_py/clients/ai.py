@@ -34,6 +34,7 @@ class AhnlichAIClient(BaseClient):
         index_model: ai_query.AIModel,
         predicates: typing.Sequence[str] = None,
         non_linear_indices: typing.Sequence[ai_query.NonLinearAlgorithm] = None,
+        error_if_exists: bool = True,
         tracing_id: typing.Optional[str] = None,
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
@@ -43,6 +44,7 @@ class AhnlichAIClient(BaseClient):
             index_model=index_model,
             predicates=predicates,
             non_linear_indices=non_linear_indices,
+            error_if_exists=error_if_exists,
         )
         return self.process_request(builder.to_server_query())
 
@@ -152,6 +154,16 @@ class AhnlichAIClient(BaseClient):
         builder.del_key(store_name=store_name, key=key)
         return self.process_request(builder.to_server_query())
 
+    def get_key(
+        self,
+        store_name: str,
+        keys: typing.Sequence[ai_query.StoreInput],
+        tracing_id: typing.Optional[str] = None,
+    ):
+        builder = builders.AhnlichAIRequestBuilder(tracing_id)
+        builder.get_key(store_name=store_name, keys=keys)
+        return self.process_request(builder.to_server_query())
+
     def drop_store(
         self,
         store_name: str,
@@ -186,6 +198,14 @@ class AhnlichAIClient(BaseClient):
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.list_stores()
+        return self.process_request(builder.to_server_query())
+
+    def list_clients(
+        self,
+        tracing_id: typing.Optional[str] = None,
+    ):
+        builder = builders.AhnlichAIRequestBuilder(tracing_id)
+        builder.list_clients()
         return self.process_request(builder.to_server_query())
 
     def ping(

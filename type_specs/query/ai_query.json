@@ -17,7 +17,10 @@
         "Resnet50": "UNIT"
       },
       "5": {
-        "ClipVitB32": "UNIT"
+        "ClipVitB32Image": "UNIT"
+      },
+      "6": {
+        "ClipVitB32Text": "UNIT"
       }
     }
   },
@@ -98,6 +101,11 @@
             {
               "algorithm": {
                 "TYPENAME": "Algorithm"
+              }
+            },
+            {
+              "preprocess_action": {
+                "TYPENAME": "PreprocessAction"
               }
             }
           ]
@@ -229,15 +237,34 @@
         }
       },
       "10": {
-        "InfoServer": "UNIT"
+        "GetKey": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "keys": {
+                "SEQ": {
+                  "TYPENAME": "StoreInput"
+                }
+              }
+            }
+          ]
+        }
       },
       "11": {
-        "ListStores": "UNIT"
+        "InfoServer": "UNIT"
       },
       "12": {
-        "PurgeStores": "UNIT"
+        "ListClients": "UNIT"
       },
       "13": {
+        "ListStores": "UNIT"
+      },
+      "14": {
+        "PurgeStores": "UNIT"
+      },
+      "15": {
         "Ping": "UNIT"
       }
     }
@@ -281,16 +308,6 @@
       },
       "3": {
         "KDTree": "UNIT"
-      }
-    }
-  },
-  "ImageAction": {
-    "ENUM": {
-      "0": {
-        "ResizeImage": "UNIT"
-      },
-      "1": {
-        "ErrorIfDimensionsMismatch": "UNIT"
       }
     }
   },
@@ -419,18 +436,10 @@
   "PreprocessAction": {
     "ENUM": {
       "0": {
-        "RawString": {
-          "NEWTYPE": {
-            "TYPENAME": "StringAction"
-          }
-        }
+        "NoPreprocessing": "UNIT"
       },
       "1": {
-        "Image": {
-          "NEWTYPE": {
-            "TYPENAME": "ImageAction"
-          }
-        }
+        "ModelPreprocessing": "UNIT"
       }
     }
   },
@@ -447,16 +456,6 @@
             "SEQ": "U8"
           }
         }
-      }
-    }
-  },
-  "StringAction": {
-    "ENUM": {
-      "0": {
-        "TruncateIfTokensExceed": "UNIT"
-      },
-      "1": {
-        "ErrorIfTokensExceed": "UNIT"
       }
     }
   }

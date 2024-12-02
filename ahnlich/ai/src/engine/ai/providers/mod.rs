@@ -1,9 +1,9 @@
-pub(crate) mod fastembed;
 pub(crate) mod ort;
+mod ort_helper;
+pub mod processors;
 
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{InputAction, ModelInput};
-use crate::engine::ai::providers::fastembed::FastEmbedProvider;
 use crate::engine::ai::providers::ort::ORTProvider;
 use crate::error::AIProxyError;
 use ahnlich_types::keyval::StoreKey;
@@ -12,7 +12,6 @@ use strum::EnumIter;
 
 #[derive(Debug, EnumIter)]
 pub enum ModelProviders {
-    FastEmbed(FastEmbedProvider),
     ORT(ORTProvider),
 }
 
@@ -23,12 +22,7 @@ pub trait ProviderTrait: std::fmt::Debug + Send + Sync {
     fn get_model(&self) -> Result<(), AIProxyError>;
     fn run_inference(
         &self,
-        input: Vec<ModelInput>,
+        input: ModelInput,
         action_type: &InputAction,
     ) -> Result<Vec<StoreKey>, AIProxyError>;
-}
-
-pub trait TextPreprocessorTrait {
-    fn encode_str(&self, text: &str) -> Result<Vec<usize>, AIProxyError>;
-    fn decode_tokens(&self, tokens: Vec<usize>) -> Result<String, AIProxyError>;
 }

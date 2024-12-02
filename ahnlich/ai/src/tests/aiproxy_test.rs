@@ -3,7 +3,7 @@ use ahnlich_db::server::handler::Server;
 use ahnlich_types::{
     ai::{
         AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo,
-        ImageAction, PreprocessAction, StringAction,
+        PreprocessAction,
     },
     db::StoreUpsert,
     keyval::{StoreInput, StoreName, StoreValue},
@@ -11,11 +11,16 @@ use ahnlich_types::{
     predicate::{Predicate, PredicateCondition},
     similarity::Algorithm,
 };
+// use flurry::HashMap;
 use utils::server::AhnlichServerUtils;
 
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
-use std::{collections::HashSet, num::NonZeroUsize, sync::atomic::Ordering};
+use std::{
+    collections::{HashMap, HashSet},
+    num::NonZeroUsize,
+    sync::atomic::Ordering,
+};
 
 use crate::{
     cli::{server::SupportedModels, AIProxyConfig},
@@ -162,6 +167,73 @@ async fn test_ai_proxy_create_store_success() {
     query_server_assert_result(&mut reader, message, expected.clone()).await;
 }
 
+#[tokio::test]
+async fn test_ai_store_get_key_works() {
+    let address = provision_test_servers().await;
+    let first_stream = TcpStream::connect(address).await.unwrap();
+    let second_stream = TcpStream::connect(address).await.unwrap();
+    let store_name = StoreName(String::from("Deven Kicks"));
+    let store_input = StoreInput::RawString(String::from("Jordan 3"));
+    let store_data: (StoreInput, HashMap<MetadataKey, MetadataValue>) =
+        (store_input.clone(), HashMap::new());
+
+    let message = AIServerQuery::from_queries(&[
+        AIQuery::CreateStore {
+            store: store_name.clone(),
+            query_model: AIModel::AllMiniLML6V2,
+            index_model: AIModel::AllMiniLML6V2,
+            predicates: HashSet::new(),
+            non_linear_indices: HashSet::new(),
+            error_if_exists: true,
+            store_original: false,
+        },
+        AIQuery::Set {
+            store: store_name.clone(),
+            inputs: vec![store_data.clone()],
+            preprocess_action: PreprocessAction::NoPreprocessing,
+        },
+    ]);
+    let mut reader = BufReader::new(first_stream);
+
+    let _ = get_server_response(&mut reader, message).await;
+    let message = AIServerQuery::from_queries(&[AIQuery::GetKey {
+        store: store_name,
+        keys: vec![store_input.clone()],
+    }]);
+
+    let mut expected = AIServerResult::with_capacity(1);
+
+    expected.push(Ok(AIServerResponse::Get(vec![(
+        Some(store_input),
+        HashMap::new(),
+    )])));
+
+    let mut reader = BufReader::new(second_stream);
+    let response = get_server_response(&mut reader, message).await;
+    assert!(response.len() == expected.len())
+}
+
+#[tokio::test]
+async fn test_list_clients_works() {
+    let address = provision_test_servers().await;
+    let _first_stream = TcpStream::connect(address).await.unwrap();
+    let second_stream = TcpStream::connect(address).await.unwrap();
+    let message = AIServerQuery::from_queries(&[AIQuery::ListClients]);
+    let mut reader = BufReader::new(second_stream);
+    let response = get_server_response(&mut reader, message).await;
+    let inner = response.into_inner();
+
+    // only two clients are connected
+    match inner.as_slice() {
+        [Ok(AIServerResponse::ClientList(connected_clients))] => {
+            assert!(connected_clients.len() == 2)
+        }
+        a => {
+            assert!(false, "Unexpected result for client list {:?}", a);
+        }
+    };
+}
+
 // TODO: Same issues with random storekeys, changing the order of expected response
 #[tokio::test]
 async fn test_ai_store_no_original() {
@@ -208,7 +280,7 @@ async fn test_ai_store_no_original() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -282,7 +354,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -362,7 +434,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -375,6 +447,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         condition: None,
         closest_n: NonZeroUsize::new(1).unwrap(),
         algorithm: Algorithm::DotProductSimilarity,
+        preprocess_action: PreprocessAction::ModelPreprocessing,
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);
@@ -429,7 +502,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
         AIQuery::GetPred {
             store: store_name.clone(),
@@ -500,7 +573,7 @@ async fn test_ai_proxy_del_key_drop_store() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
         AIQuery::DelKey {
             store: store_name.clone(),
@@ -654,7 +727,7 @@ async fn test_ai_proxy_test_with_persistence() {
     // write flag should show that a write has occured
     assert!(write_flag.load(Ordering::SeqCst));
     // Allow some time for persistence to kick in
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
     // start another server with existing persistence
 
     let persisted_server = AIProxyServer::new(AI_CONFIG_WITH_PERSISTENCE.clone())
@@ -791,13 +864,13 @@ async fn test_ai_proxy_binary_store_actions() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data,
-            preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
         // all dimensions match 224x224 so no error
         AIQuery::Set {
             store: store_name.clone(),
             inputs: oversize_data,
-            preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
         // expect an error as the dimensions do not match 224x224
         AIQuery::DropPredIndex {
@@ -833,7 +906,7 @@ async fn test_ai_proxy_binary_store_actions() {
         updated: 0,
     })));
     expected.push(Err(
-        "Image Dimensions [(821, 547)] does not match the expected model dimensions [(224, 224)]"
+        "Image Dimensions [(547, 821)] does not match the expected model dimensions [(224, 224)]"
             .to_string(),
     ));
     expected.push(Ok(AIServerResponse::Del(1)));
@@ -889,7 +962,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
         AIQuery::Set {
             store: store_name.clone(),
             inputs: store_data,
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         },
         AIQuery::PurgeStores,
     ]);

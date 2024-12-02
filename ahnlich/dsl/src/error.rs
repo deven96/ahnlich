@@ -19,4 +19,6 @@ pub enum DslError {
     UnsupportedAIModel(String),
     #[error("Unsupported rule used in parse fn {0:?}")]
     UnsupportedRule(Rule),
+    #[error("Unexpected preprocessing {0:?}")]
+    UnsupportedPreprocessingMode(String),
 }

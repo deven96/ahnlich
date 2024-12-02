@@ -51,8 +51,14 @@ class AIModel__Resnet50(AIModel):
 
 
 @dataclass(frozen=True)
-class AIModel__ClipVitB32(AIModel):
+class AIModel__ClipVitB32Image(AIModel):
     INDEX = 5  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIModel__ClipVitB32Text(AIModel):
+    INDEX = 6  # type: int
     pass
 
 
@@ -62,7 +68,8 @@ AIModel.VARIANTS = [
     AIModel__BGEBaseEnV15,
     AIModel__BGELargeEnV15,
     AIModel__Resnet50,
-    AIModel__ClipVitB32,
+    AIModel__ClipVitB32Image,
+    AIModel__ClipVitB32Text,
 ]
 
 
@@ -107,6 +114,7 @@ class AIQuery__GetSimN(AIQuery):
     condition: typing.Optional["PredicateCondition"]
     closest_n: st.uint64
     algorithm: "Algorithm"
+    preprocess_action: "PreprocessAction"
 
 
 @dataclass(frozen=True)
@@ -164,26 +172,39 @@ class AIQuery__DropStore(AIQuery):
 
 
 @dataclass(frozen=True)
-class AIQuery__InfoServer(AIQuery):
+class AIQuery__GetKey(AIQuery):
     INDEX = 10  # type: int
-    pass
+    store: str
+    keys: typing.Sequence["StoreInput"]
 
 
 @dataclass(frozen=True)
-class AIQuery__ListStores(AIQuery):
+class AIQuery__InfoServer(AIQuery):
     INDEX = 11  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIQuery__PurgeStores(AIQuery):
+class AIQuery__ListClients(AIQuery):
     INDEX = 12  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIQuery__Ping(AIQuery):
+class AIQuery__ListStores(AIQuery):
     INDEX = 13  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIQuery__PurgeStores(AIQuery):
+    INDEX = 14  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIQuery__Ping(AIQuery):
+    INDEX = 15  # type: int
     pass
 
 
@@ -198,7 +219,9 @@ AIQuery.VARIANTS = [
     AIQuery__Set,
     AIQuery__DelKey,
     AIQuery__DropStore,
+    AIQuery__GetKey,
     AIQuery__InfoServer,
+    AIQuery__ListClients,
     AIQuery__ListStores,
     AIQuery__PurgeStores,
     AIQuery__Ping,
@@ -296,38 +319,6 @@ Algorithm.VARIANTS = [
     Algorithm__DotProductSimilarity,
     Algorithm__CosineSimilarity,
     Algorithm__KDTree,
-]
-
-
-class ImageAction:
-    VARIANTS = []  # type: typing.Sequence[typing.Type[ImageAction]]
-
-    def bincode_serialize(self) -> bytes:
-        return bincode.serialize(self, ImageAction)
-
-    @staticmethod
-    def bincode_deserialize(input: bytes) -> "ImageAction":
-        v, buffer = bincode.deserialize(input, ImageAction)
-        if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
-        return v
-
-
-@dataclass(frozen=True)
-class ImageAction__ResizeImage(ImageAction):
-    INDEX = 0  # type: int
-    pass
-
-
-@dataclass(frozen=True)
-class ImageAction__ErrorIfDimensionsMismatch(ImageAction):
-    INDEX = 1  # type: int
-    pass
-
-
-ImageAction.VARIANTS = [
-    ImageAction__ResizeImage,
-    ImageAction__ErrorIfDimensionsMismatch,
 ]
 
 
@@ -492,20 +483,20 @@ class PreprocessAction:
 
 
 @dataclass(frozen=True)
-class PreprocessAction__RawString(PreprocessAction):
+class PreprocessAction__NoPreprocessing(PreprocessAction):
     INDEX = 0  # type: int
-    value: "StringAction"
+    pass
 
 
 @dataclass(frozen=True)
-class PreprocessAction__Image(PreprocessAction):
+class PreprocessAction__ModelPreprocessing(PreprocessAction):
     INDEX = 1  # type: int
-    value: "ImageAction"
+    pass
 
 
 PreprocessAction.VARIANTS = [
-    PreprocessAction__RawString,
-    PreprocessAction__Image,
+    PreprocessAction__NoPreprocessing,
+    PreprocessAction__ModelPreprocessing,
 ]
 
 
@@ -538,36 +529,4 @@ class StoreInput__Image(StoreInput):
 StoreInput.VARIANTS = [
     StoreInput__RawString,
     StoreInput__Image,
-]
-
-
-class StringAction:
-    VARIANTS = []  # type: typing.Sequence[typing.Type[StringAction]]
-
-    def bincode_serialize(self) -> bytes:
-        return bincode.serialize(self, StringAction)
-
-    @staticmethod
-    def bincode_deserialize(input: bytes) -> "StringAction":
-        v, buffer = bincode.deserialize(input, StringAction)
-        if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
-        return v
-
-
-@dataclass(frozen=True)
-class StringAction__TruncateIfTokensExceed(StringAction):
-    INDEX = 0  # type: int
-    pass
-
-
-@dataclass(frozen=True)
-class StringAction__ErrorIfTokensExceed(StringAction):
-    INDEX = 1  # type: int
-    pass
-
-
-StringAction.VARIANTS = [
-    StringAction__TruncateIfTokensExceed,
-    StringAction__ErrorIfTokensExceed,
 ]

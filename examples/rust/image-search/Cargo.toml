@@ -1,0 +1,12 @@
+[package]
+name = "image-search"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive"] }
+ahnlich_client_rs = { path = "../../../ahnlich/client"}
+ahnlich_types = { path = "../../../ahnlich/types"}
+viuer = "0.9"
+image = "0.25"
