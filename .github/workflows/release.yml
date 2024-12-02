@@ -81,30 +81,6 @@ jobs:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
               shell: bash
               
-            - name: Setup Cross
-              working-directory: ./ahnlich
-              run: |
-                cargo install cross --git https://github.com/cross-rs/cross
-
-            - name: Build Windows x86_64-pc-windows-gnu for Ahnlich ${{ steps.get_binary_type.outputs.BIN_NAME }}
-              uses: houseabsolute/actions-rust-cross@v0
-              with:
-                working-directory: ./ahnlich
-                command: build
-                target: x86_64-pc-windows-gnu
-                args: "--locked --release --bin ${{ steps.get_binary_type.outputs.BIN_NAME }}"
-                strip: true
-
-            - name: Package and upload x86_64-pc-windows-gnu for Ahnlich ${{ steps.get_binary_type.outputs.BIN_NAME }}
-              working-directory: ./ahnlich
-              run: |
-                cd target/x86_64-pc-windows-gnu/release/ && zip ../../../win-x86_64-gnu-${{ steps.get_binary_type.outputs.BIN_NAME }}.zip ${{ steps.get_binary_type.outputs.BIN_NAME }}.exe && cd ../../../
-                gh release upload ${{github.event.release.tag_name}} win-x86_64-gnu-${{ steps.get_binary_type.outputs.BIN_NAME }}.zip
-
-              env:
-                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-              shell: bash
-              
     push_to_registries:
         needs: build_binaries_and_publish
         name: Push Docker image to multiple registries
