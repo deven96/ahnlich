@@ -31,7 +31,8 @@ jobs:
                 echo "BIN_NAME=ahnlich-${value}" >> $GITHUB_OUTPUT
 
     build_linux_binaries_and_publish:
-        name: Build Binaries
+        needs: prebuild_preparation
+        name: Build Linux Binaries
         runs-on: ubuntu-latest
         steps:
             - name: "Checkout"
@@ -54,7 +55,8 @@ jobs:
               shell: bash
 
     build_macos_darwin_binaries_and_publish:
-        name: Build Binaries
+        needs: prebuild_preparation
+        name: Build MacOs Darwin Binaries
         runs-on: macos-latest
         outputs:
           bin_name: ${{ needs.prebuild_preparation.outputs.bin_name }}
@@ -66,7 +68,6 @@ jobs:
             - name: Build Aarch64 Darwin Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
               working-directory: ./ahnlich
               run: |
-                rustup target add aarch64-apple-darwin
                 cargo build --release --target aarch64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
                 tar -cvzf aarch64-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz -C target/aarch64-apple-darwin/release ${{ needs.prebuild_preparation.outputs.bin_name }}
                 gh release upload ${{github.event.release.tag_name}} aarch64-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz                
@@ -77,7 +78,7 @@ jobs:
 
               
     build_macos_x86_64_binaries_and_publish:
-        name: Build Binaries
+        name: Build MacOs x86_64 Binaries
         runs-on: 	macos-13
         steps:
             - name: "Checkout"
@@ -91,7 +92,6 @@ jobs:
             - name: Build x86_64 Apple Darwin Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
               working-directory: ./ahnlich
               run: |
-                rustup target add x86_64-apple-darwin
                 cargo build --release --target x86_64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
                 tar -cvzf x86_64-apple-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz -C target/x86_64-apple-darwin/release ${{ needs.prebuild_preparation.outputs.bin_name }}
                 
