@@ -6,10 +6,9 @@ use std::{
 
 use ahnlich_client_rs::{ai::AIClient, builders::ai as ai_params};
 use ahnlich_types::{
-    ai::{AIModel, AIServerResponse, PreprocessAction},
+    ai::{AIModel, AIServerResponse},
     keyval::{StoreInput, StoreName},
     metadata::{MetadataKey, MetadataValue},
-    similarity::Algorithm,
 };
 use clap::{Parser, Subcommand};
 use tokio;
@@ -84,7 +83,6 @@ async fn index_mode() {
     let set_params = ai_params::SetParams::builder()
         .store(storename.to_string())
         .inputs(inputs)
-        .preprocess_action(PreprocessAction::ModelPreprocessing)
         .build();
     let res = ai_client
         .set(set_params)
@@ -113,9 +111,6 @@ async fn query_mode() {
         let get_sim_n_params = ai_params::GetSimNParams::builder()
             .store(storename.clone().to_string())
             .search_input(StoreInput::RawString(input.to_string()))
-            .closest_n(1)
-            .algorithm(Algorithm::CosineSimilarity)
-            .condition(None)
             .build();
 
         let res = ai_client
