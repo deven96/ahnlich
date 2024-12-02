@@ -1,7 +1,14 @@
 [package]
 name = "ahnlich_types"
 version = "0.0.0"
+authors = ["Diretnan Domnan <diretnandomnan@gmail.com>"]
+categories = ["database-implementations", "database", "web-programming"]
+keywords = ["ahnlich", "in-memory", "artificial-intelligence", "ai"]
 edition = "2021"
+license-file = "LICENSE"
+homepage = "https://github.com/deven96/ahnlich/ahnlich/types"
+repository = "https://github.com/deven96/ahnlich/ahnlich/types"
+description = "Types for using ahnlich_client_rs AI proxy and in-memory vector DB"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
