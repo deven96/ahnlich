@@ -224,7 +224,14 @@ async fn test_list_clients_works() {
     let inner = response.into_inner();
 
     // only two clients are connected
-    assert!(inner.len() == 2)
+    match inner.as_slice() {
+        [Ok(AIServerResponse::ClientList(connected_clients))] => {
+            assert!(connected_clients.len() == 2)
+        }
+        a => {
+            assert!(false, "Unexpected result for client list {:?}", a);
+        }
+    };
 }
 
 // TODO: Same issues with random storekeys, changing the order of expected response
