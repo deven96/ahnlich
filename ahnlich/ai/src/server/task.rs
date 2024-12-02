@@ -1,11 +1,8 @@
 use crate::engine::ai::models::Model;
 use ahnlich_client_rs::{builders::db as db_params, db::DbClient};
-use ahnlich_types::ai::{
-    AIQuery, AIServerQuery, AIServerResponse, AIServerResult, PreprocessAction,
-};
+use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
-use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::{Predicate, PredicateCondition};
 use ahnlich_types::version::VERSION;
@@ -345,20 +342,15 @@ impl AhnlichProtocol for AIProxyTask {
                     condition,
                     closest_n,
                     algorithm,
+                    preprocess_action,
                 } => {
-                    // TODO: Replace this with calls to self.model_manager.handle_request
-                    // TODO (HAKSOAT): Shouldn't preprocess action also be in the params?
-                    let preprocess = match search_input {
-                        StoreInput::RawString(_) => PreprocessAction::ModelPreprocessing,
-                        StoreInput::Image(_) => PreprocessAction::ModelPreprocessing,
-                    };
                     let repr = self
                         .store_handler
                         .get_ndarray_repr_for_store(
                             &store,
                             search_input,
                             &self.model_manager,
-                            preprocess,
+                            preprocess_action,
                         )
                         .await;
                     match repr {
@@ -404,6 +396,39 @@ impl AhnlichProtocol for AIProxyTask {
                 AIQuery::PurgeStores => {
                     let destoryed = self.store_handler.purge_stores();
                     Ok(AIServerResponse::Del(destoryed))
+                }
+                AIQuery::ListClients => {
+                    Ok(AIServerResponse::ClientList(self.client_handler.list()))
+                }
+                AIQuery::GetKey { store, keys } => {
+                    let metadata_values: HashSet<MetadataValue> =
+                        keys.into_iter().map(|value| value.into()).collect();
+                    let get_key_condition = PredicateCondition::Value(Predicate::In {
+                        key: AHNLICH_AI_RESERVED_META_KEY.clone(),
+                        value: metadata_values,
+                    });
+
+                    let get_pred_params = db_params::GetPredParams::builder()
+                        .store(store.to_string())
+                        .condition(get_key_condition)
+                        .tracing_id(parent_id.clone())
+                        .build();
+
+                    match self.db_client.get_pred(get_pred_params).await {
+                        Ok(res) => {
+                            if let ServerResponse::Get(response) = res {
+                                // conversion to store input here
+                                let output = self
+                                    .store_handler
+                                    .store_key_val_to_store_input_val(response);
+                                Ok(AIServerResponse::Get(output))
+                            } else {
+                                Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
+                                    .to_string())
+                            }
+                        }
+                        Err(err) => Err(format!("{err}")),
+                    }
                 }
             })
         }

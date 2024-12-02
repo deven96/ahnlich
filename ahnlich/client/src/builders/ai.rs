@@ -63,6 +63,8 @@ pub struct GetSimNParams {
 
     #[builder(default = None)]
     pub tracing_id: Option<String>,
+    #[builder(default = PreprocessAction::NoPreprocessing)]
+    pub preprocess_action: PreprocessAction,
 }
 
 #[derive(TypedBuilder)]

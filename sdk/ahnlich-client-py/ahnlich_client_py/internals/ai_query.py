@@ -114,6 +114,7 @@ class AIQuery__GetSimN(AIQuery):
     condition: typing.Optional["PredicateCondition"]
     closest_n: st.uint64
     algorithm: "Algorithm"
+    preprocess_action: "PreprocessAction"
 
 
 @dataclass(frozen=True)
@@ -171,26 +172,39 @@ class AIQuery__DropStore(AIQuery):
 
 
 @dataclass(frozen=True)
-class AIQuery__InfoServer(AIQuery):
+class AIQuery__GetKey(AIQuery):
     INDEX = 10  # type: int
-    pass
+    store: str
+    keys: typing.Sequence["StoreInput"]
 
 
 @dataclass(frozen=True)
-class AIQuery__ListStores(AIQuery):
+class AIQuery__InfoServer(AIQuery):
     INDEX = 11  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIQuery__PurgeStores(AIQuery):
+class AIQuery__ListClients(AIQuery):
     INDEX = 12  # type: int
     pass
 
 
 @dataclass(frozen=True)
-class AIQuery__Ping(AIQuery):
+class AIQuery__ListStores(AIQuery):
     INDEX = 13  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIQuery__PurgeStores(AIQuery):
+    INDEX = 14  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class AIQuery__Ping(AIQuery):
+    INDEX = 15  # type: int
     pass
 
 
@@ -205,7 +219,9 @@ AIQuery.VARIANTS = [
     AIQuery__Set,
     AIQuery__DelKey,
     AIQuery__DropStore,
+    AIQuery__GetKey,
     AIQuery__InfoServer,
+    AIQuery__ListClients,
     AIQuery__ListStores,
     AIQuery__PurgeStores,
     AIQuery__Ping,

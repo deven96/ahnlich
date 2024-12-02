@@ -76,6 +76,7 @@ impl AIPipeline {
             condition: params.condition,
             closest_n: params.closest_n,
             algorithm: params.algorithm,
+            preprocess_action: params.preprocess_action,
         })
     }
 
@@ -234,6 +235,7 @@ impl AIClient {
                 condition: params.condition,
                 closest_n: params.closest_n,
                 algorithm: params.algorithm,
+                preprocess_action: params.preprocess_action,
             },
             params.tracing_id,
         )

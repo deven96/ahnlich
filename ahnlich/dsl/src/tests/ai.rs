@@ -199,7 +199,7 @@ fn test_get_sim_n_parse() {
         panic!("Unexpected error pattern found")
     };
     assert_eq!((start, end), (0, 68));
-    let input = r#"GETSIMN 5 with [hi my name is carter] using cosinesimilarity in random"#;
+    let input = r#"GETSIMN 5 with [hi my name is carter] using cosinesimilarity preprocessaction MODELPREPROCESSING in random"#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AIQuery::GetSimN {
@@ -207,7 +207,8 @@ fn test_get_sim_n_parse() {
             search_input: StoreInput::RawString("hi my name is carter".to_string()),
             closest_n: NonZeroUsize::new(5).unwrap(),
             algorithm: Algorithm::CosineSimilarity,
-            condition: None
+            condition: None,
+            preprocess_action: PreprocessAction::ModelPreprocessing,
         }]
     );
     let input = r#"GETSIMN 8 with [testing the limits of life] using euclideandistance in other where ((year != 2012) AND (month not in (december, october)))"#;
@@ -231,6 +232,7 @@ fn test_get_sim_n_parse() {
                     ]),
                 }))
             ),
+            preprocess_action: PreprocessAction::NoPreprocessing,
         }]
     );
 }

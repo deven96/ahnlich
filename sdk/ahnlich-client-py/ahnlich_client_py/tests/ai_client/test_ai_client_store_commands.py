@@ -218,6 +218,40 @@ def test_ai_client_del_key(spin_up_ahnlich_ai):
         ai_client.cleanup()
 
 
+def test_ai_client_get_key(spin_up_ahnlich_ai):
+    port = spin_up_ahnlich_ai
+
+    ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
+    store_inputs = [(ai_query.StoreInput__RawString("Jordan One"), {})]
+
+    builder = ai_client.pipeline()
+    builder.create_store(**ai_store_payload_with_predicates)
+    builder.set(
+        store_name=ai_store_payload_with_predicates["store_name"],
+        inputs=store_inputs,
+        preprocess_action=ai_query.PreprocessAction__NoPreprocessing(),
+    )
+    expected = ai_response.Result__Ok(
+        value=ai_response.AIServerResponse__Get(
+            [(ai_query.StoreInput__RawString(value="Jordan One"), {})]
+        )
+    )
+
+    try:
+        builder.exec()
+        response = ai_client.get_key(
+            ai_store_payload_with_predicates["store_name"],
+            keys=[ai_query.StoreInput__RawString("Jordan One")],
+        )
+        assert str(expected) == str(response.results[0])
+    except Exception as e:
+        print(f"Exception: {e}")
+        ai_client.cleanup()
+        raise e
+    finally:
+        ai_client.cleanup()
+
+
 def test_ai_client_drop_store_succeeds(spin_up_ahnlich_ai):
     port = spin_up_ahnlich_ai
 
@@ -266,6 +300,22 @@ def test_ai_client_purge_stores_succeeds(spin_up_ahnlich_ai):
 
         response = ai_client.purge_stores()
         assert str(response) == str(expected)
+    except Exception as e:
+        print(f"Exception: {e}")
+        ai_client.cleanup()
+        raise e
+    finally:
+        ai_client.cleanup()
+
+
+def test_ai_client_list_clients_succeeds(spin_up_ahnlich_ai):
+    port = spin_up_ahnlich_ai
+
+    ai_client = AhnlichAIClient(address="127.0.0.1", port=port)
+
+    try:
+        response = ai_client.list_clients()
+        assert len(response.results) == 1
     except Exception as e:
         print(f"Exception: {e}")
         ai_client.cleanup()

@@ -102,6 +102,11 @@
               "algorithm": {
                 "TYPENAME": "Algorithm"
               }
+            },
+            {
+              "preprocess_action": {
+                "TYPENAME": "PreprocessAction"
+              }
             }
           ]
         }
@@ -232,15 +237,34 @@
         }
       },
       "10": {
-        "InfoServer": "UNIT"
+        "GetKey": {
+          "STRUCT": [
+            {
+              "store": "STR"
+            },
+            {
+              "keys": {
+                "SEQ": {
+                  "TYPENAME": "StoreInput"
+                }
+              }
+            }
+          ]
+        }
       },
       "11": {
-        "ListStores": "UNIT"
+        "InfoServer": "UNIT"
       },
       "12": {
-        "PurgeStores": "UNIT"
+        "ListClients": "UNIT"
       },
       "13": {
+        "ListStores": "UNIT"
+      },
+      "14": {
+        "PurgeStores": "UNIT"
+      },
+      "15": {
         "Ping": "UNIT"
       }
     }

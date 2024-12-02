@@ -19,6 +19,29 @@ use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 use utils::parallel;
 
+/// Predicates are essentially nested hashmaps that let us retrieve original keys that match a
+/// precise value. Take the following example
+///
+/// {
+///     "Country": {
+///         "Nigeria": [StoreKeyId(1), StoreKeyId(2)],
+///         "Australia": ..,
+///     },
+///     "Author": {
+///         ...
+///     }
+/// }
+///
+/// where `allowed_predicates` = ["Country", "Author"]
+///
+/// It takes less time to retrieve "where country = 'Nigeria'" by traversing the nested hashmap to
+/// obtain StoreKeyId(1) and StoreKeyId(2) than it would be to make a linear pass over an entire
+/// Store of size N comparing their metadata "country" along the way. Given that StoreKeyId is
+/// computed via blake hash, it is typically fast to compute and also of a fixed size which means
+/// predicate indices don't balloon with large metadata
+///
+/// Whichever key is not expressly included in `allowed_predicates` goes through the linear
+/// pass in order to obtain keys that satisfy the condition
 type InnerPredicateIndexVal = ConcurrentHashSet<StoreKeyId>;
 type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, InnerPredicateIndexVal>;
 type InnerPredicateIndices = ConcurrentHashMap<MetadataKey, PredicateIndex>;

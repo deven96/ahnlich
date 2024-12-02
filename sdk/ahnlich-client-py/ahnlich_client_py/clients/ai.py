@@ -154,6 +154,16 @@ class AhnlichAIClient(BaseClient):
         builder.del_key(store_name=store_name, key=key)
         return self.process_request(builder.to_server_query())
 
+    def get_key(
+        self,
+        store_name: str,
+        keys: typing.Sequence[ai_query.StoreInput],
+        tracing_id: typing.Optional[str] = None,
+    ):
+        builder = builders.AhnlichAIRequestBuilder(tracing_id)
+        builder.get_key(store_name=store_name, keys=keys)
+        return self.process_request(builder.to_server_query())
+
     def drop_store(
         self,
         store_name: str,
@@ -188,6 +198,14 @@ class AhnlichAIClient(BaseClient):
     ):
         builder = builders.AhnlichAIRequestBuilder(tracing_id)
         builder.list_stores()
+        return self.process_request(builder.to_server_query())
+
+    def list_clients(
+        self,
+        tracing_id: typing.Optional[str] = None,
+    ):
+        builder = builders.AhnlichAIRequestBuilder(tracing_id)
+        builder.list_clients()
         return self.process_request(builder.to_server_query())
 
     def ping(
