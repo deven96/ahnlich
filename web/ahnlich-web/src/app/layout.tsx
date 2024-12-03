@@ -1,24 +1,19 @@
 /* eslint-disable @next/next/no-img-element */
 import type { Metadata } from "next";
-import localFont from "next/font/local";
-import { Black_Ops_One } from 'next/font/google'
+import { Black_Ops_One, Lato } from 'next/font/google'
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "../fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "../fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
  
 const blackOpsOne = Black_Ops_One({
   weight: '400',
   subsets: ['latin'],
   variable: '--font-black-ops-one'
+})
+
+const lato = Lato({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-lato'
 })
 
 export const metadata: Metadata = {
@@ -43,7 +38,7 @@ export default function RootLayout({
         <link rel="icon" type="image" href="assets/logo.jpg" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${blackOpsOne.variable} antialiased`}
+        className={`${lato.variable} ${blackOpsOne.variable}`}
       >
         <header className="shadow-lg flex items-center justify-between py-4 px-8">
           <div className={`flex items-center gap-4 text-primary ${blackOpsOne.className}`}>
