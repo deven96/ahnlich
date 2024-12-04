@@ -20,7 +20,7 @@ export default function Home() {
         image: ghcr.io/deven96/ahnlich-ai:latest
         command: >
           "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 \
-          --supported-models all-minilm-l6-v2,resnet-50"
+--supported-models all-minilm-l6-v2,resnet-50"
         ports:
           - "1370:1370"
   `
