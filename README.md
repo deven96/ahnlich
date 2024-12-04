@@ -109,34 +109,28 @@ Below is an example `docker-compose.yaml` configuration to run both `ahnlich-db`
 services:  
   ahnlich_db:  
     image: ghcr.io/deven96/ahnlich-db:latest  
-    command: "ahnlich-db run --host 0.0.0.0 --enable-tracing"  
+    command: "ahnlich-db run --host 0.0.0.0 --enable-tracing --otel-endpoint http://jaeger:4317'"
     ports:  
       - "1369:1369"  
 
   ahnlich_ai:  
     image: ghcr.io/deven96/ahnlich-ai:latest  
-    command: "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 --port 8880 --enable-tracing --supported-models all-minilm-l6-v2,resnet-50"  
+    command: "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 -supported-models all-minilm-l6-v2,resnet-50 --enable-tracing ---otel-endpoint http://jaeger:4317'"
     ports:  
       - "1370:1370"  
-```  
 
----
-
-#### Environment Variables  
-
-The following environment variable can also be set:  
-
-- `DEMO_OTEL_URL`: Set the OpenTelemetry endpoint. Example:
- 
-  ```bash  
-  DEMO_OTEL_URL=http://<otel-endpoint>  
-  ```  
-
-You can pass this variable directly to your Docker containers using `environment` in your Docker Compose file or when running `docker run`.  
-
----  
-
-
+  # optional jaeger service whenever --enable-tracing and
+  # --otel-endpoint is used
+  jaeger:
+    image: jaegertracing/all-in-one:${JAEGER_VERSION:-latest}
+    ports:
+      - "16686:16686"
+      - "1888:1888" # pprof extension
+      - "8888:8888" # Prometheus metrics exposed by the collector
+      - "8889:8889" # Prometheus exporter metrics
+      - "4317:4317" # otlp grpc
+      - "4318:4318" # otlp http
+```
 
 ### Contributing
 

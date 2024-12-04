@@ -19,8 +19,6 @@ services:
       context: ./ahnlich/
       args:
         - AHNLICH_BIN=ahnlich-db
-    environment:
-      - DEMO_OTEL_URL=http://jaeger:4317
     depends_on:
       jaeger:
         condition: service_started
@@ -35,8 +33,6 @@ services:
       context: ./ahnlich/
       args:
         - AHNLICH_BIN=ahnlich-ai
-    environment:
-      - DEMO_OTEL_URL=http://jaeger:4317
     depends_on:
       jaeger:
         condition: service_started

@@ -261,7 +261,7 @@ impl ModelManager {
         &self,
         model: &SupportedModels,
     ) -> Result<mpsc::Sender<ModelThreadRequest>, AIProxyError> {
-        let (request_sender, request_receiver) = mpsc::channel(100);
+        let (request_sender, request_receiver) = mpsc::channel(10000);
         // There may be other things needed to load a model thread
         let model_thread =
             ModelThread::new(*model, &self.config.model_cache_location, request_receiver)?;
