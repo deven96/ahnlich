@@ -19,6 +19,7 @@ jobs:
           npm ci --legacy-peer-deps
           npm run build
           touch out/.nojekyll
+          echo "ahnlich.tech" >> out/CNAME
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
