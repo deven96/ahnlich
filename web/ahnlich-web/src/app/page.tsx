@@ -25,7 +25,7 @@ export default function Home() {
   return (
     <div className="font-[family-name:var(--font-lato)] text-lg leading-loose">
       <main className="flex flex-col gap-8 items-center sm:items-start w-full">
-        <section className="hero relative p-10 w-full h-[70vh] grid bg-[url('/assets/hero.webp')]">
+        <section className="hero relative p-10 w-full h-[70vh] grid bg-[url(https://res.cloudinary.com/drfw1bzcw/image/upload/v1733262252/Ahnlich/hero_f4xrul.webp)]">
           <div className="m-auto text-center text-white z-[15]">
             <h1 className="text-7xl font-semibold my-5">Ahnlich</h1>
             <h2 className="text-xl md:text-3xl">

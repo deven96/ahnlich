@@ -20,10 +20,10 @@ export const metadata: Metadata = {
   title: "Ahnlich Web",
   description: "A project by developers bringing vector database and artificial intelligence powered semantic search abilities closer to you ",
   openGraph: {
-    images: ["assets/logo.jpg"],
+    images: ["https://res.cloudinary.com/drfw1bzcw/image/upload/v1733266969/Ahnlich/logo_zfs3wk.webp"],
   },
   twitter: {
-    images: ["assets/logo.jpg"],
+    images: ["https://res.cloudinary.com/drfw1bzcw/image/upload/v1733266969/Ahnlich/logo_zfs3wk.webp"],
   },
 };
 
