@@ -197,7 +197,10 @@ impl Task for ModelThread {
     }
 
     async fn run(&self) -> TaskState {
-        if let Some(model_request) = self.request_receiver.lock().await.recv().await {
+        let mut guard = self.request_receiver.lock().await;
+        let request = guard.recv().await;
+        drop(guard);
+        if let Some(model_request) = request {
             let ModelThreadRequest {
                 inputs,
                 response,
