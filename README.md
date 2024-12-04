@@ -103,19 +103,26 @@ You can pull the prebuilt Docker images for Ahnlich:
 
 #### Example Docker Compose  
 
-Below is an example `docker-compose.yaml` configuration to run both `ahnlich-db` and `ahnlich-ai`:  
+Below is an example `docker-compose.yaml` configuration to run both `ahnlich-db` and `ahnlich-ai` with tracing:  
 
 ```yaml   
 services:
   ahnlich_db:
     image: ghcr.io/deven96/ahnlich-db:latest
-    command: "'ahnlich-db run --host 0.0.0.0 --enable-tracing --otel-endpoint http://jaeger:4317'"
+    command: >
+      "ahnlich-db run --host 0.0.0.0 \
+      --enable-tracing \
+      --otel-endpoint http://jaeger:4317"
     ports:
       - "1369:1369"
 
   ahnlich_ai:
     image: ghcr.io/deven96/ahnlich-ai:latest
-    command: "'ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 --supported-models all-minilm-l6-v2,resnet-50 --enable-tracing --otel-endpoint http://jaeger:4317'"
+    command: >
+      "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 \
+      --supported-models all-minilm-l6-v2,resnet-50 \
+      --enable-tracing \
+      --otel-endpoint http://jaeger:4317"
     ports:
       - "1370:1370"
 
@@ -130,6 +137,37 @@ services:
       - "8889:8889" # Prometheus exporter metrics
       - "4317:4317" # otlp grpc
       - "4318:4318" # otlp http
+```
+
+Below is an example `docker-compose.yaml` configuration with persistence:
+
+```yaml
+
+services:
+  ahnlich_db:
+    image: ghcr.io/deven96/ahnlich-db:latest
+    command: >
+      "ahnlich-db run --host 0.0.0.0 \
+      --enable-persistence --persist-location /root/.ahnlich/data/db.dat \
+      --persistence-interval 300"
+    ports:
+      - "1369:1369"
+    volumes:
+      - "./data/:/root/.ahnlich/data" # Persistence Location
+
+  ahnlich_ai:
+    image: ghcr.io/deven96/ahnlich-ai:latest
+    command: >
+      "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 \
+      --supported-models all-minilm-l6-v2,resnet-50 \
+      --enable-persistence --persist-location /root/.ahnlich/data/ai.dat \
+      --persistence-interval 300"
+    ports:
+      - "1370:1370"
+    volumes:
+      - "./ahnlich_ai_model_cache:/root/.ahnlich/models" # Model cache storage
+      - "./data/:/root/.ahnlich/data" # Persistence Location
+
 ```
 
 ### Contributing
