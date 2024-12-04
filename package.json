@@ -1,0 +1,9 @@
+{
+  "devDependencies": {
+    "@types/react-copy-to-clipboard": "^5.0.7",
+    "@types/react-syntax-highlighter": "^15.5.13"
+  },
+  "dependencies": {
+    "react-copy-to-clipboard": "^5.1.0"
+  }
+}
