@@ -106,18 +106,18 @@ You can pull the prebuilt Docker images for Ahnlich:
 Below is an example `docker-compose.yaml` configuration to run both `ahnlich-db` and `ahnlich-ai`:  
 
 ```yaml   
-services:  
-  ahnlich_db:  
-    image: ghcr.io/deven96/ahnlich-db:latest  
-    command: "ahnlich-db run --host 0.0.0.0 --enable-tracing --otel-endpoint http://jaeger:4317'"
-    ports:  
-      - "1369:1369"  
+services:
+  ahnlich_db:
+    image: ghcr.io/deven96/ahnlich-db:latest
+    command: "'ahnlich-db run --host 0.0.0.0 --enable-tracing --otel-endpoint http://jaeger:4317'"
+    ports:
+      - "1369:1369"
 
-  ahnlich_ai:  
-    image: ghcr.io/deven96/ahnlich-ai:latest  
-    command: "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 -supported-models all-minilm-l6-v2,resnet-50 --enable-tracing ---otel-endpoint http://jaeger:4317'"
-    ports:  
-      - "1370:1370"  
+  ahnlich_ai:
+    image: ghcr.io/deven96/ahnlich-ai:latest
+    command: "'ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 --supported-models all-minilm-l6-v2,resnet-50 --enable-tracing --otel-endpoint http://jaeger:4317'"
+    ports:
+      - "1370:1370"
 
   # optional jaeger service whenever --enable-tracing and
   # --otel-endpoint is used
