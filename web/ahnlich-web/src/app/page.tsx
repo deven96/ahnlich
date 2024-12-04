@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
-import { BookOpenText, BrainCircuit, Github, SquareTerminal, Waypoints } from "lucide-react";
+import { BookOpenText, BrainCircuit, Github, Waypoints } from "lucide-react";
 import CodeSnippet from "./components/CodeSnippet";
 import Card from "./components/Card";
 import { Title } from "./components/Title";
@@ -17,7 +17,7 @@ export default function Home() {
 
       ahnlich_ai:  
         image: ghcr.io/deven96/ahnlich-ai:latest  
-        command: "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 --port 8880 --enable-tracing --supported-models all-minilm-l6-v2,resnet-50"  
+        command: "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 --enable-tracing --supported-models all-minilm-l6-v2,resnet-50"  
         ports:  
           - "1370:1370"  
   `
@@ -98,7 +98,7 @@ export default function Home() {
               <div className="flex items-center gap-5 text-base">
                 <a
                   className="flex items-center gap-2 text-white bg-primary w-fit px-2 py-1 rounded"
-                  href='https://github.com/deven96/ahnlich/tree/main/examples/python/book-search'
+                  href='https://github.com/deven96/ahnlich/tree/main/examples/rust/image-search'
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -111,6 +111,14 @@ export default function Home() {
                   rel="noopener noreferrer"
                 >
                   See Github
+                </a>
+                <a
+                  className="flex items-center gap-2 text-white bg-primary w-fit px-2 py-1 rounded"
+                  href="https://crates.io/crates/ahnlich_client_rs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Docs
                 </a>
               </div>
             </div>
@@ -135,7 +143,7 @@ export default function Home() {
               <div className="flex items-center gap-5 text-base">
                 <a
                   className="flex items-center gap-2 text-white bg-primary w-fit px-2 py-1 rounded"
-                  href='https://github.com/deven96/ahnlich/tree/main/examples/rust/image-search'
+                  href='https://github.com/deven96/ahnlich/tree/main/examples/python/book-search'
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -148,6 +156,14 @@ export default function Home() {
                   rel="noopener noreferrer"
                 >
                   See Github
+                </a>
+                <a
+                  className="flex items-center gap-2 text-white bg-primary w-fit px-2 py-1 rounded"
+                  href="https://pypi.org/project/ahnlich-client-py/ "
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Docs
                 </a>
               </div>
             </div>
@@ -190,15 +206,6 @@ export default function Home() {
         >
           <BrainCircuit />
           AI proxy
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4 text-primary"
-          href="https://github.com/deven96/ahnlich"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <SquareTerminal />
-          Cli
         </a>
       </footer>
     </div>
