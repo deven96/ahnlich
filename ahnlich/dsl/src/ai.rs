@@ -237,7 +237,6 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                     key: key.remove(0),
                 }
             }
-            // TODO: Introduce AIQuery::GetKey & AIQuery::ListClients
             Rule::create_non_linear_algorithm_index => {
                 let (store, non_linear_indices) =
                     parse_create_non_linear_algorithm_index(statement)?;
