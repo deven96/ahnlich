@@ -29,7 +29,6 @@ use tracing_opentelemetry::OpenTelemetrySpanExt;
 type ModelThreadResponse = Result<Vec<StoreKey>, AIProxyError>;
 
 struct ModelThreadRequest {
-    // TODO: change this to a Vec of preprocessed input enum
     inputs: Vec<StoreInput>,
     response: oneshot::Sender<ModelThreadResponse>,
     preprocess_action: PreprocessAction,
@@ -198,8 +197,10 @@ impl Task for ModelThread {
     }
 
     async fn run(&self) -> TaskState {
-        if let Some(model_request) = self.request_receiver.lock().await.recv().await {
-            // TODO actually service model request in here and return
+        let mut guard = self.request_receiver.lock().await;
+        let request = guard.recv().await;
+        drop(guard);
+        if let Some(model_request) = request {
             let ModelThreadRequest {
                 inputs,
                 response,
@@ -233,8 +234,6 @@ impl ModelManager {
         model_config: ModelConfig,
         task_manager: Arc<TaskManager>,
     ) -> Result<Self, AIProxyError> {
-        // TODO: Actually load the model at this point, with supported models and throw up errors,
-        // also start up the various models with the task manager passed in
         let models = Cache::builder()
             .max_capacity(model_config.supported_models.len() as u64)
             .time_to_idle(Duration::from_secs(model_config.model_idle_time))
@@ -261,7 +260,7 @@ impl ModelManager {
         &self,
         model: &SupportedModels,
     ) -> Result<mpsc::Sender<ModelThreadRequest>, AIProxyError> {
-        let (request_sender, request_receiver) = mpsc::channel(100);
+        let (request_sender, request_receiver) = mpsc::channel(10000);
         // There may be other things needed to load a model thread
         let model_thread =
             ModelThread::new(*model, &self.config.model_cache_location, request_receiver)?;
