@@ -8,18 +8,21 @@ export default function Home() {
   const wget = `wget https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.0.0/aarch64-darwin-ahnlich-db.tar.gz`;
 
   const dockerCompose = `
-    services:  
-      ahnlich_db:  
-        image: ghcr.io/deven96/ahnlich-db:latest  
-        command: "'ahnlich-db run --host 0.0.0.0'"  
-        ports:  
-          - "1369:1369"  
+    services:
+      ahnlich_db: 
+        image: ghcr.io/deven96/ahnlich-db:latest
+        command: >
+          "ahnlich-db run --host 0.0.0.0"
+        ports:
+          - "1369:1369"
 
-      ahnlich_ai:  
-        image: ghcr.io/deven96/ahnlich-ai:latest  
-        command: "'ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 --supported-models all-minilm-l6-v2,resnet-50'"  
-        ports:  
-          - "1370:1370"  
+      ahnlich_ai:
+        image: ghcr.io/deven96/ahnlich-ai:latest
+        command: >
+          "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 \
+          --supported-models all-minilm-l6-v2,resnet-50"
+        ports:
+          - "1370:1370"
   `
 
   return (
@@ -48,7 +51,7 @@ export default function Home() {
               </li>
             </ul>
             <p>
-              <code className="native-code">ahnlich-db</code>, <code className="native-code">ahnlich-ai</code> and <code className="native-code">ahnlich-cli</code> 
+              <code className="native-code">ahnlich-db</code>, <code className="native-code">ahnlich-ai</code> and <code className="native-code">ahnlich-cli</code>
               are packaged and released as <a href="https://github.com/deven96/ahnlich/releases" className="mr-1">binaries</a>
               for multiple platforms alongside <a href="https://github.com/deven96?tab=packages&repo_name=ahnlich">docker images</a>. <br />
               The DB can be used without the AI proxy for more fine grained control of the generated vector embeddings as all clients support both.
