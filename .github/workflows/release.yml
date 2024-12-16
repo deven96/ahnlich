@@ -54,9 +54,9 @@ jobs:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
               shell: bash
 
-    build_macos_darwin_binaries_and_publish:
+    build_macos_aarch64_binaries_and_publish:
         needs: prebuild_preparation
-        name: Build MacOs Darwin Binaries
+        name: Build MacOs Aarch64 Binaries
         runs-on: macos-latest
         outputs:
           bin_name: ${{ needs.prebuild_preparation.outputs.bin_name }}
@@ -68,7 +68,11 @@ jobs:
             - name: Build Aarch64 Darwin Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
               working-directory: ./ahnlich
               run: |
-                cargo build --release --target aarch64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                if [ $BIN_NAME == "ahnlich-ai" ]; then
+                  cargo build --features coreml --release --target aarch64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                else
+                  cargo build --release --target aarch64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                fi
                 tar -cvzf aarch64-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz -C target/aarch64-apple-darwin/release ${{ needs.prebuild_preparation.outputs.bin_name }}
                 gh release upload ${{github.event.release.tag_name}} aarch64-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz                
 
@@ -90,13 +94,17 @@ jobs:
               with:
                 toolchain: 1.81.0
 
-            - name: Build x86_64 Apple Darwin Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
+            - name: Build x86_64 Darwin Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
               working-directory: ./ahnlich
               run: |
-                cargo build --release --target x86_64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                if [ $BIN_NAME == "ahnlich-ai" ]; then
+                  cargo build --features coreml --release --target x86_64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                else
+                  cargo build --release --target x86_64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                fi
                 tar -cvzf x86_64-apple-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz -C target/x86_64-apple-darwin/release ${{ needs.prebuild_preparation.outputs.bin_name }}
                 
-                gh release upload ${{github.event.release.tag_name}} x86_64-apple-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz
+                gh release upload ${{github.event.release.tag_name}} x86_64-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz
 
               env:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

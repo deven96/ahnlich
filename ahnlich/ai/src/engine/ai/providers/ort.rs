@@ -5,7 +5,10 @@ use crate::error::AIProxyError;
 use fallible_collections::FallibleVec;
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use itertools::Itertools;
-use ort::{CUDAExecutionProvider, CoreMLExecutionProvider, TensorRTExecutionProvider};
+use ort::{
+    CUDAExecutionProvider, CoreMLExecutionProvider, DirectMLExecutionProvider,
+    TensorRTExecutionProvider,
+};
 use ort::{Session, SessionOutputs, Value};
 use rayon::prelude::*;
 
@@ -356,6 +359,8 @@ impl ProviderTrait for ORTProvider {
                 // Prefer TensorRT over CUDA.
                 TensorRTExecutionProvider::default().build(),
                 CUDAExecutionProvider::default().build(),
+                // Use DirectML on Windows if NVIDIA EPs are not available
+                DirectMLExecutionProvider::default().build(),
                 // Or use ANE on Apple platforms
                 CoreMLExecutionProvider::default().build(),
             ])

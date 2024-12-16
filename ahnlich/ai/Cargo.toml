@@ -42,9 +42,6 @@ hf-hub = { version = "0.3", default-features = false }
 dirs = "5.0.1"
 ort = { version = "=2.0.0-rc.5", features = [
   "ndarray",
-  "tensorrt",
-  "cuda",
-  "coreml",
 ] }
 ort-sys = "=2.0.0-rc.8"
 moka = { version = "0.12.8", features = ["future"] }
@@ -53,6 +50,17 @@ futures.workspace = true
 tiktoken-rs = "0.5.9"
 itertools.workspace = true
 tokenizers = { version = "0.20.1", features = ["hf-hub"] }
+
+[features]
+# ORT Execution providers
+default = ["tensorrt", "cuda"]
+tensorrt = ["ort/tensorrt"]
+cuda = ["ort/cuda"]
+# activate only on apple devices
+coreml = ["ort/coreml"]
+# activate only on windows devices
+directml = ["ort/directml"]
+
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true
