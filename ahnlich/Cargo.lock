@@ -108,6 +108,7 @@ dependencies = [
  "nonzero_ext",
  "once_cell",
  "ort",
+ "ort-sys",
  "pretty_assertions",
  "rayon",
  "serde",

@@ -40,7 +40,14 @@ fallible_collections.workspace = true
 rayon.workspace = true
 hf-hub = { version = "0.3", default-features = false }
 dirs = "5.0.1"
-ort = { version = "=2.0.0-rc.5", features = ["ndarray"] }
+ort = { version = "=2.0.0-rc.5", features = [
+  "ndarray",
+  "directml",
+  "tensorrt",
+  "cuda",
+  "coreml",
+] }
+ort-sys = "=2.0.0-rc.8"
 moka = { version = "0.12.8", features = ["future"] }
 tracing-opentelemetry.workspace = true
 futures.workspace = true

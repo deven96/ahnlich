@@ -5,6 +5,10 @@ use crate::error::AIProxyError;
 use fallible_collections::FallibleVec;
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use itertools::Itertools;
+use ort::{
+    CUDAExecutionProvider, CoreMLExecutionProvider, DirectMLExecutionProvider,
+    TensorRTExecutionProvider,
+};
 use ort::{Session, SessionOutputs, Value};
 use rayon::prelude::*;
 
@@ -350,6 +354,18 @@ impl ProviderTrait for ORTProvider {
     }
 
     fn load_model(&mut self) -> Result<(), AIProxyError> {
+        ort::init()
+            .with_execution_providers([
+                // Prefer TensorRT over CUDA.
+                TensorRTExecutionProvider::default().build(),
+                CUDAExecutionProvider::default().build(),
+                // Use DirectML on Windows if NVIDIA EPs are not available
+                DirectMLExecutionProvider::default().build(),
+                // Or use ANE on Apple platforms
+                CoreMLExecutionProvider::default().build(),
+            ])
+            .commit()?;
+
         let Some(cache_location) = self.cache_location.clone() else {
             return Err(AIProxyError::CacheLocationNotInitiailized);
         };
