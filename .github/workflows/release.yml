@@ -30,9 +30,9 @@ jobs:
                 echo "BIN_SUFFIX=${value}" >> $GITHUB_OUTPUT
                 echo "BIN_NAME=ahnlich-${value}" >> $GITHUB_OUTPUT
 
-    build_linux_binaries_and_publish:
+    build_linux_x86-64_binaries_and_publish:
         needs: prebuild_preparation
-        name: Build Linux Binaries
+        name: Build Linux x86_64 Binaries
         runs-on: ubuntu-latest
         steps:
             - name: "Checkout"
@@ -46,17 +46,42 @@ jobs:
             - name: Build Linux Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
               working-directory: ./ahnlich
               run: |
-                cargo build --release --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
-                tar -cvzf linux-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz -C target/release ${{ needs.prebuild_preparation.outputs.bin_name }}
-                gh release upload ${{github.event.release.tag_name}} linux-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz
+                cargo build --release --target x86_64-unknown-linux-gnu --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                tar -cvzf x86_64-linux-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz -C target/x86_64-unknown-linux-gnu/release ${{ needs.prebuild_preparation.outputs.bin_name }}
+                gh release upload ${{github.event.release.tag_name}} x86_64-linux-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz
 
               env:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
               shell: bash
 
-    build_macos_darwin_binaries_and_publish:
+    build_linux_aarch64_binaries_and_publish:
         needs: prebuild_preparation
-        name: Build MacOs Darwin Binaries
+        name: Build Linux Aarch64 Binaries
+        runs-on: ubuntu-latest
+        steps:
+            - name: "Checkout"
+              uses: actions/checkout@v4
+
+            - name: Get Cargo toolchain
+              uses: actions-rs/toolchain@v1
+              with:
+                toolchain: 1.81.0
+
+            - name: Build Linux Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
+              working-directory: ./ahnlich
+              run: |
+                rustup target add aarch64-unknown-linux-gnu
+                cargo build --release --target aarch64-unknown-linux-gnu --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                tar -cvzf aarch64-linux-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz -C target/aarch64-unknown-linux-gnu/release ${{ needs.prebuild_preparation.outputs.bin_name }}
+                gh release upload ${{github.event.release.tag_name}} aarch64-linux-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz
+
+              env:
+                GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+              shell: bash
+
+    build_macos_aarch64_binaries_and_publish:
+        needs: prebuild_preparation
+        name: Build MacOs Aarch64 Binaries
         runs-on: macos-latest
         outputs:
           bin_name: ${{ needs.prebuild_preparation.outputs.bin_name }}
@@ -68,9 +93,13 @@ jobs:
             - name: Build Aarch64 Darwin Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
               working-directory: ./ahnlich
               run: |
-                cargo build --release --target aarch64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
-                tar -cvzf aarch64-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz -C target/aarch64-apple-darwin/release ${{ needs.prebuild_preparation.outputs.bin_name }}
-                gh release upload ${{github.event.release.tag_name}} aarch64-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz                
+                if [ $BIN_NAME == "ahnlich-ai" ]; then
+                  cargo build --features coreml --release --target aarch64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                else
+                  cargo build --release --target aarch64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                fi
+                tar -cvzf aarch64-apple-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz -C target/aarch64-apple-darwin/release ${{ needs.prebuild_preparation.outputs.bin_name }}
+                gh release upload ${{github.event.release.tag_name}} aarch64-apple-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz
 
               env:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -90,10 +119,14 @@ jobs:
               with:
                 toolchain: 1.81.0
 
-            - name: Build x86_64 Apple Darwin Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
+            - name: Build x86_64 Darwin Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
               working-directory: ./ahnlich
               run: |
-                cargo build --release --target x86_64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                if [ $BIN_NAME == "ahnlich-ai" ]; then
+                  cargo build --features coreml --release --target x86_64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                else
+                  cargo build --release --target x86_64-apple-darwin --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                fi
                 tar -cvzf x86_64-apple-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz -C target/x86_64-apple-darwin/release ${{ needs.prebuild_preparation.outputs.bin_name }}
                 
                 gh release upload ${{github.event.release.tag_name}} x86_64-apple-darwin-${{ needs.prebuild_preparation.outputs.bin_name }}.tar.gz
