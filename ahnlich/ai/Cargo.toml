@@ -42,7 +42,6 @@ hf-hub = { version = "0.3", default-features = false }
 dirs = "5.0.1"
 ort = { version = "=2.0.0-rc.5", features = [
   "ndarray",
-  "directml",
   "tensorrt",
   "cuda",
   "coreml",
