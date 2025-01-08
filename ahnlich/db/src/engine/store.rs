@@ -256,7 +256,7 @@ impl StoreHandler {
     }
 
     /// Matches GETPRED - gets all matching predicates from a store
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, condition))]
     pub(crate) fn get_pred_in_store(
         &self,
         store_name: &StoreName,
@@ -489,7 +489,7 @@ impl Store {
     }
 
     /// Gets a bunch of store entries that matches a predicate condition
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all)]
     fn get_matches(
         &self,
         condition: &PredicateCondition,

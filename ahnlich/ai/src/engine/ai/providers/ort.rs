@@ -11,6 +11,8 @@ use ort::{
 };
 use ort::{Session, SessionOutputs, Value};
 use rayon::prelude::*;
+use tracing::Span;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 use crate::engine::ai::providers::processors::postprocessor::{
     ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor,
@@ -125,6 +127,7 @@ impl ORTProvider {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn preprocess_images(
         &self,
         data: Vec<ImageArray>,
@@ -144,6 +147,7 @@ impl ORTProvider {
         }
     }
 
+    #[tracing::instrument(skip(self, data))]
     pub fn preprocess_texts(
         &self,
         data: Vec<String>,
@@ -167,6 +171,7 @@ impl ORTProvider {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn postprocess_text_output(
         &self,
         session_output: SessionOutputs,
@@ -192,6 +197,7 @@ impl ORTProvider {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn postprocess_image_output(
         &self,
         session_output: SessionOutputs,
@@ -244,9 +250,13 @@ impl ORTProvider {
                 ]
                 .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
 
+                let child_span = tracing::info_span!("image-model-session-run");
+                child_span.set_parent(Span::current().context());
+                let child_guard = child_span.enter();
                 let outputs = session
                     .run(session_inputs)
                     .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
+                drop(child_guard);
                 let embeddings = self.postprocess_image_output(outputs)?;
                 Ok(embeddings)
             }
@@ -335,9 +345,13 @@ impl ORTProvider {
                     ));
                 }
 
+                let child_span = tracing::info_span!("text-model-session-run");
+                child_span.set_parent(Span::current().context());
+                let child_guard = child_span.enter();
                 let session_outputs = session
                     .run(session_inputs)
                     .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
+                drop(child_guard);
                 let embeddings =
                     self.postprocess_text_output(session_outputs, attention_mask_array)?;
                 Ok(embeddings.to_owned())
@@ -403,6 +417,7 @@ impl ProviderTrait for ORTProvider {
                     .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
                 let session = Session::builder()?
                     .with_intra_threads(threads)?
+                    .with_profiling("profiling.json")?
                     .commit_from_file(model_file_reference)?;
                 self.model = Some(ORTModel::Image(ORTImageModel {
                     repo_name,
