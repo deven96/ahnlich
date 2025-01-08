@@ -38,6 +38,7 @@ pub struct ORTProvider {
     pub preprocessor: Option<ORTPreprocessor>,
     pub postprocessor: Option<ORTPostprocessor>,
     pub model: Option<ORTModel>,
+    pub model_batch_size: usize,
 }
 
 impl fmt::Debug for ORTProvider {
@@ -116,7 +117,7 @@ impl TryFrom<&SupportedModels> for ORTModel {
 }
 
 impl ORTProvider {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(model_batch_size: usize) -> Self {
         Self {
             cache_location: None,
             cache_location_extension: PathBuf::from("huggingface"),
@@ -124,6 +125,7 @@ impl ORTProvider {
             supported_models: None,
             model: None,
             postprocessor: None,
+            model_batch_size,
         }
     }
 
@@ -491,7 +493,7 @@ impl ProviderTrait for ORTProvider {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, input))]
+    #[tracing::instrument(skip(self, input), fields(model_batch_size = self.model_batch_size))]
     fn run_inference(
         &self,
         input: ModelInput,
@@ -501,7 +503,7 @@ impl ProviderTrait for ORTProvider {
             ModelInput::Images(images) => {
                 let mut store_keys: Vec<StoreKey> = FallibleVec::try_with_capacity(images.len())?;
 
-                for batch_image in images.axis_chunks_iter(Axis(0), 16) {
+                for batch_image in images.axis_chunks_iter(Axis(0), self.model_batch_size) {
                     let embeddings = self.batch_inference_image(batch_image.to_owned())?;
                     let new_store_keys: Vec<StoreKey> = embeddings
                         .axis_iter(Axis(0))
@@ -516,7 +518,11 @@ impl ProviderTrait for ORTProvider {
                 let mut store_keys: Vec<StoreKey> =
                     FallibleVec::try_with_capacity(encodings.len())?;
 
-                for batch_encoding in encodings.into_iter().chunks(16).into_iter() {
+                for batch_encoding in encodings
+                    .into_iter()
+                    .chunks(self.model_batch_size)
+                    .into_iter()
+                {
                     let embeddings = self.batch_inference_text(batch_encoding.collect())?;
                     let new_store_keys: Vec<StoreKey> = embeddings
                         .axis_iter(Axis(0))

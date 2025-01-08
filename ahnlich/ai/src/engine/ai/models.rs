@@ -47,7 +47,7 @@ impl From<&AIModel> for Model {
                 model_type: ModelType::Text {
                     max_input_tokens: nonzero!(256usize),
                 },
-                provider: ModelProviders::ORT(ORTProvider::new()),
+                provider: ModelProviders::ORT(ORTProvider::new(128)),
                 supported_model: SupportedModels::AllMiniLML6V2,
                 description: String::from("Sentence Transformer model, with 6 layers, version 2"),
                 embedding_size: nonzero!(384usize),
@@ -57,7 +57,7 @@ impl From<&AIModel> for Model {
                     // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
                     max_input_tokens: nonzero!(256usize),
                 },
-                provider: ModelProviders::ORT(ORTProvider::new()),
+                provider: ModelProviders::ORT(ORTProvider::new(128)),
                 supported_model: SupportedModels::AllMiniLML12V2,
                 description: String::from("Sentence Transformer model, with 12 layers, version 2."),
                 embedding_size: nonzero!(384usize),
@@ -67,7 +67,7 @@ impl From<&AIModel> for Model {
                     // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
                     max_input_tokens: nonzero!(512usize),
                 },
-                provider: ModelProviders::ORT(ORTProvider::new()),
+                provider: ModelProviders::ORT(ORTProvider::new(128)),
                 supported_model: SupportedModels::BGEBaseEnV15,
                 description: String::from(
                     "BAAI General Embedding model with English support, base scale, version 1.5.",
@@ -78,7 +78,7 @@ impl From<&AIModel> for Model {
                 model_type: ModelType::Text {
                     max_input_tokens: nonzero!(512usize),
                 },
-                provider: ModelProviders::ORT(ORTProvider::new()),
+                provider: ModelProviders::ORT(ORTProvider::new(128)),
                 supported_model: SupportedModels::BGELargeEnV15,
                 description: String::from(
                     "BAAI General Embedding model with English support, large scale, version 1.5.",
@@ -89,7 +89,7 @@ impl From<&AIModel> for Model {
                 model_type: ModelType::Image {
                     expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
                 },
-                provider: ModelProviders::ORT(ORTProvider::new()),
+                provider: ModelProviders::ORT(ORTProvider::new(16)),
                 supported_model: SupportedModels::Resnet50,
                 description: String::from("Residual Networks model, with 50 layers."),
                 embedding_size: nonzero!(2048usize),
@@ -98,7 +98,7 @@ impl From<&AIModel> for Model {
                 model_type: ModelType::Image {
                     expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
                 },
-                provider: ModelProviders::ORT(ORTProvider::new()),
+                provider: ModelProviders::ORT(ORTProvider::new(16)),
                 supported_model: SupportedModels::ClipVitB32Image,
                 description: String::from(
                     "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
@@ -110,7 +110,7 @@ impl From<&AIModel> for Model {
                     // Token size source: https://github.com/UKPLab/sentence-transformers/issues/1269
                     max_input_tokens: nonzero!(77usize),
                 },
-                provider: ModelProviders::ORT(ORTProvider::new()),
+                provider: ModelProviders::ORT(ORTProvider::new(16)),
                 supported_model: SupportedModels::ClipVitB32Text,
                 description: String::from(
                     "Contrastive Language-Image Pre-Training Text transformer model, base scale. \
