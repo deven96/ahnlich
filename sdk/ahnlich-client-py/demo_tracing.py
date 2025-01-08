@@ -1,4 +1,6 @@
 import os
+import random
+import string
 import traceback
 
 from opentelemetry import trace
@@ -46,18 +48,26 @@ def setup_tracing():
     return trace_obj
 
 
+def generate_string(string_length):
+    characters = string.ascii_letters + string.digits
+    return "".join(random.choice(characters) for _ in range(string_length))
+
+
+def generate_store_inputs(length, string_length):
+    store_inputs = []
+    for a in range(0, length):
+        store_inputs.append(
+            (
+                ai_query.StoreInput__RawString(generate_string(string_length)),
+                {"brand": ai_query.MetadataValue__RawString("Nike")},
+            )
+        )
+    return store_inputs
+
+
 def tracer(span_id):
     ai_client = AhnlichAIClient(address="127.0.0.1", port=1370)
-    store_inputs = [
-        (
-            ai_query.StoreInput__RawString("Jordan One"),
-            {"brand": ai_query.MetadataValue__RawString("Nike")},
-        ),
-        (
-            ai_query.StoreInput__RawString("Yeezey"),
-            {"brand": ai_query.MetadataValue__RawString("Adidas")},
-        ),
-    ]
+    store_inputs = generate_store_inputs(100, 16)
     builder = ai_client.pipeline(span_id)
     builder.create_store(**ai_store_payload_with_predicates)
     builder.set(

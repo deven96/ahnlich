@@ -24,6 +24,7 @@ use std::convert::TryFrom;
 use std::default::Default;
 use std::fmt;
 use std::path::{Path, PathBuf};
+use std::sync::Once;
 use std::thread::available_parallelism;
 use tokenizers::Encoding;
 
@@ -213,6 +214,7 @@ impl ORTProvider {
         }
     }
 
+    #[tracing::instrument(skip(self, inputs))]
     pub fn batch_inference_image(
         &self,
         inputs: Array<f32, Ix4>,
@@ -252,6 +254,7 @@ impl ORTProvider {
         }
     }
 
+    #[tracing::instrument(skip(self, encodings))]
     pub fn batch_inference_text(
         &self,
         encodings: Vec<Encoding>,
@@ -344,6 +347,8 @@ impl ORTProvider {
     }
 }
 
+static INIT_ORT_ONCE: Once = Once::new();
+
 impl ProviderTrait for ORTProvider {
     fn set_cache_location(&mut self, location: &Path) {
         self.cache_location = Some(location.join(self.cache_location_extension.clone()));
@@ -354,18 +359,20 @@ impl ProviderTrait for ORTProvider {
     }
 
     fn load_model(&mut self) -> Result<(), AIProxyError> {
-        ort::init()
-            .with_execution_providers([
-                // Prefer TensorRT over CUDA.
-                TensorRTExecutionProvider::default().build(),
-                CUDAExecutionProvider::default().build(),
-                // Use DirectML on Windows if NVIDIA EPs are not available
-                DirectMLExecutionProvider::default().build(),
-                // Or use ANE on Apple platforms
-                CoreMLExecutionProvider::default().build(),
-            ])
-            .commit()?;
-
+        INIT_ORT_ONCE.call_once(|| {
+            ort::init()
+                .with_execution_providers([
+                    // Prefer TensorRT over CUDA.
+                    TensorRTExecutionProvider::default().build(),
+                    CUDAExecutionProvider::default().build(),
+                    // Use DirectML on Windows if NVIDIA EPs are not available
+                    DirectMLExecutionProvider::default().build(),
+                    // Or use ANE on Apple platforms
+                    CoreMLExecutionProvider::default().build(),
+                ])
+                .commit()
+                .expect("Could not initialize ORT environment");
+        });
         let Some(cache_location) = self.cache_location.clone() else {
             return Err(AIProxyError::CacheLocationNotInitiailized);
         };
@@ -469,6 +476,7 @@ impl ProviderTrait for ORTProvider {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, input))]
     fn run_inference(
         &self,
         input: ModelInput,

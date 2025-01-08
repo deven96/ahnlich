@@ -211,10 +211,12 @@ impl Task for ModelThread {
             let child_span = tracing::info_span!("model-thread-run", model = self.task_name());
             child_span.set_parent(trace_span.context());
 
+            let child_guard = child_span.enter();
             let responses = self.input_to_response(inputs, preprocess_action, action_type);
             if let Err(e) = response.send(responses) {
                 log::error!("{} could not send response to channel {e:?}", self.name());
             }
+            drop(child_guard);
             return TaskState::Continue;
         }
         TaskState::Break

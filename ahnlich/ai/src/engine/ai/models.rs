@@ -131,7 +131,7 @@ impl Model {
         }
     }
 
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, modelinput))]
     pub fn model_ndarray(
         &self,
         modelinput: ModelInput,

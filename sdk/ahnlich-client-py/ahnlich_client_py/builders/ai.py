@@ -50,9 +50,9 @@ class AhnlichAIRequestBuilder:
         store_name: str,
         search_input: ai_query.StoreInput,
         closest_n: st.uint64 = 1,
-        algorithm: ai_query.Algorithm = ai_query.Algorithm__CosineSimilarity,
+        algorithm: ai_query.Algorithm = ai_query.Algorithm__CosineSimilarity(),
         condition: typing.Optional[ai_query.PredicateCondition] = None,
-        preprocess_action: ai_query.PreprocessAction = ai_query.PreprocessAction__ModelPreprocessing,
+        preprocess_action: ai_query.PreprocessAction = ai_query.PreprocessAction__ModelPreprocessing(),
     ):
         nonzero_n = NonZeroSizeInteger(closest_n)
         self.queries.append(
