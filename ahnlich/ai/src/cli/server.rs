@@ -257,7 +257,7 @@ impl SupportedModelArgs {
         let mut output = String::new();
 
         for supported_model in SupportedModels::VARIANTS.iter() {
-            output.push_str(format!("{}, ", supported_model.to_string()).as_str())
+            output.push_str(format!("{}, ", supported_model).as_str())
         }
         output
     }

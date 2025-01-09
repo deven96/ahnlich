@@ -24,7 +24,7 @@ use std::{
 
 use crate::{
     cli::{server::SupportedModels, AIProxyConfig},
-    engine::ai::models::Model,
+    engine::ai::models::ModelDetails,
     error::AIProxyError,
     server::handler::AIProxyServer,
 };
@@ -154,7 +154,7 @@ async fn test_ai_proxy_create_store_success() {
     // list stores to verify it's present.
     let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
     let mut expected = AIServerResult::with_capacity(1);
-    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
+    let ai_model: ModelDetails = SupportedModels::from(&AIModel::AllMiniLML6V2).to_model_details();
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name.clone(),
@@ -748,8 +748,8 @@ async fn test_ai_proxy_test_with_persistence() {
     let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
 
     let mut expected = AIServerResult::with_capacity(1);
-    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
 
+    let ai_model: ModelDetails = SupportedModels::from(&AIModel::AllMiniLML6V2).to_model_details();
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name_2.clone(),
@@ -786,7 +786,7 @@ async fn test_ai_proxy_destroy_database() {
     ]);
     let mut expected = AIServerResult::with_capacity(4);
 
-    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
+    let ai_model: ModelDetails = SupportedModels::from(&AIModel::AllMiniLML6V2).to_model_details();
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
@@ -889,7 +889,7 @@ async fn test_ai_proxy_binary_store_actions() {
     ]);
 
     let mut expected = AIServerResult::with_capacity(8);
-    let resnet_model: Model = (&AIModel::Resnet50).into();
+    let resnet_model: ModelDetails = SupportedModels::from(&AIModel::Resnet50).to_model_details();
 
     expected.push(Ok(AIServerResponse::Unit));
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
@@ -1040,8 +1040,9 @@ async fn test_ai_proxy_embedding_size_mismatch_error() {
 
     let mut expected = AIServerResult::with_capacity(1);
 
-    let lml12_model: Model = (&AIModel::AllMiniLML12V2).into();
-    let bge_model: Model = (&AIModel::BGEBaseEnV15).into();
+    let lml12_model: ModelDetails =
+        SupportedModels::from(&AIModel::AllMiniLML12V2).to_model_details();
+    let bge_model: ModelDetails = SupportedModels::from(&AIModel::BGEBaseEnV15).to_model_details();
 
     let error_message = AIProxyError::DimensionsMismatchError {
         index_model_dim: bge_model.embedding_size.into(),

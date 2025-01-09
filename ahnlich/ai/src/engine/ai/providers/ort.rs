@@ -24,7 +24,7 @@ use ahnlich_types::keyval::StoreKey;
 use ndarray::{Array, Array1, Axis, Ix2, Ix4};
 use std::convert::TryFrom;
 use std::default::Default;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::thread::available_parallelism;
 use tokenizers::Encoding;
 
@@ -37,6 +37,7 @@ pub struct ORTProvider {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Hash, Ord)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum ExecutionProvider {
     TensorRT,
     CUDA,
@@ -45,8 +46,7 @@ pub enum ExecutionProvider {
 }
 
 impl ExecutionProvider {
-    fn to_provider(&self) -> ExecutionProviderDispatch {
-        // Considered safe to do as
+    fn to_provider(self) -> ExecutionProviderDispatch {
         match self {
             Self::TensorRT => TensorRTExecutionProvider::default().build(),
             Self::CUDA => CUDAExecutionProvider::default().build(),
@@ -137,6 +137,7 @@ impl TryFrom<&SupportedModels> for ORTModel {
             SupportedModels::AllMiniLML12V2 => Ok(ORTModel {
                 model_type: ORTModality::Text,
                 repo_name: "Xenova/all-MiniLM-L12-v2".to_string(),
+                weights_file: "onnx/model.onnx".to_string(),
                 supported_execution_providers: text_supported_models,
                 ..Default::default()
             }),
@@ -160,7 +161,7 @@ impl TryFrom<&SupportedModels> for ORTModel {
     }
 }
 
-fn ort_full_cache_path(cache_location: &PathBuf) -> PathBuf {
+fn ort_full_cache_path(cache_location: &Path) -> PathBuf {
     cache_location.join(PathBuf::from("huggingface"))
 }
 
