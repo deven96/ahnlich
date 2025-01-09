@@ -59,8 +59,9 @@ run-ai-coreml: ## Run ahnlich_ai bin with coreML and tracing on mac-os
 
 run-ai-tracing: ## Run ahnlich_ai bin with default supported models and tracing_enabled
 	RUST_LOG='ort=debug' \
-	cargo run --bin ahnlich-ai run --supported-models all-minilm-l6-v2,resnet-50\
-		--enable-tracing
+					 cargo run --bin ahnlich-ai run \
+					 --supported-models all-minilm-l6-v2,resnet-50,bge-base-en-v1.5,clip-vit-b32-text,clip-vit-b32-image \
+					 --enable-tracing
 
 
 bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, minor, major.

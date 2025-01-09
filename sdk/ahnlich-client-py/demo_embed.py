@@ -1,6 +1,12 @@
 import io
+import os
 from urllib.request import urlopen
 
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from PIL import Image
 
 from ahnlich_client_py.clients import AhnlichAIClient
@@ -227,14 +233,14 @@ class Text2ImageDemo:
 
 
 class Image2ImageDemo:
-    def __init__(self):
+    def __init__(self, span_id):
         ai_client = AhnlichAIClient(
             address="127.0.0.1", port=1370, connect_timeout_sec=30
         )
         self.query_model = ai_query.AIModel__ClipVitB32Image()
         self.index_model = ai_query.AIModel__ClipVitB32Image()
         self.store_name = "The Jordan or Not Jordan Collection"
-        self.builder = ai_client.pipeline()
+        self.builder = ai_client.pipeline(span_id)
         predicates = ["label"]
         self.builder.create_store(
             store_name=self.store_name,
@@ -262,6 +268,10 @@ class Image2ImageDemo:
             (
                 "https://csaenvironmental.co.uk/wp-content/uploads/2020/06/landscape-value-600x325.jpg",
                 "Landscape",
+            ),
+            (
+                "https://images2.minutemediacdn.com/image/upload/images%2FGettyImages%2Fmmsport%2F29%2F01j9hmvteb5pzsx00tgp.jpg",
+                "Victor Wembanyama blocks Lebron",
             ),
         ]
 
@@ -296,3 +306,45 @@ class Image2ImageDemo:
             algorithm=ai_query.Algorithm__CosineSimilarity(),
         )
         return self.builder.exec()
+
+
+def setup_tracing():
+    # Step 1: Create a Resource with the service name
+    resource = Resource(attributes={SERVICE_NAME: "ahnlich_python_client"})
+
+    # Step 2: Initialize the Tracer Provider with the resource
+    trace.set_tracer_provider(TracerProvider(resource=resource))
+    # # Step 3: Initialize the Tracer Provider
+    # trace.set_tracer_provider(TracerProvider())
+
+    url = os.getenv("DEMO_OTEL_URL", "http://localhost:4317")
+    # Step 4: Configure the OTLP Exporter
+    otlp_exporter = OTLPSpanExporter(endpoint=url, insecure=True)
+
+    # Step 5: Add the Span Processor to the Tracer Provider
+    span_processor = BatchSpanProcessor(otlp_exporter)
+    trace.get_tracer_provider().add_span_processor(span_processor)
+
+    # Step 6: Get a Tracer
+    trace_obj = trace.get_tracer("ahnlich_python_client")
+    return trace_obj
+
+
+def run_with_tracing():
+    print("[INFO] Running tracing")
+    with setup_tracing().start_as_current_span("info_span") as span:
+        span.set_attribute("data-application", "ahnlich_client_py")
+        span.add_event(
+            "Testing spanning",
+            {"log.severity": "INFO", "log.message": "This is an info-level log."},
+        )
+        span_context = span.get_span_context()
+        trace_parent_id = "00-{:032x}-{:016x}-{:02x}".format(
+            span_context.trace_id, span_context.span_id, span_context.trace_flags
+        )
+        demo = Image2ImageDemo(trace_parent_id)
+        demo.insert()
+
+
+if __name__ == "__main__":
+    run_with_tracing()
