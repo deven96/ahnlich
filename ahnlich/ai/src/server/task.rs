@@ -1,4 +1,5 @@
-use crate::engine::ai::models::Model;
+use crate::cli::server::SupportedModels;
+use crate::engine::ai::models::ModelDetails;
 use ahnlich_client_rs::{builders::db as db_params, db::DbClient};
 use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
 use ahnlich_types::client::ConnectedClient;
@@ -76,7 +77,8 @@ impl AhnlichProtocol for AIProxyTask {
                     if store_original {
                         predicates.insert(default_metadata_key.clone());
                     }
-                    let model: Model = (&index_model).into();
+                    let model: ModelDetails =
+                        SupportedModels::from(&index_model).to_model_details();
                     let create_store_params = db_params::CreateStoreParams::builder()
                         .store(store.clone().to_string())
                         .dimension(model.embedding_size.into())

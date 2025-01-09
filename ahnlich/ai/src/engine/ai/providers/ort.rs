@@ -7,7 +7,7 @@ use hf_hub::{api::sync::ApiBuilder, Cache};
 use itertools::Itertools;
 use ort::{
     CUDAExecutionProvider, CoreMLExecutionProvider, DirectMLExecutionProvider,
-    TensorRTExecutionProvider,
+    ExecutionProviderDispatch, TensorRTExecutionProvider,
 };
 use ort::{Session, SessionOutputs, Value};
 use rayon::prelude::*;
@@ -24,109 +24,209 @@ use ahnlich_types::keyval::StoreKey;
 use ndarray::{Array, Array1, Axis, Ix2, Ix4};
 use std::convert::TryFrom;
 use std::default::Default;
-use std::fmt;
-use std::path::{Path, PathBuf};
-use std::sync::Once;
+use std::path::PathBuf;
 use std::thread::available_parallelism;
 use tokenizers::Encoding;
 
-#[derive(Default)]
 pub struct ORTProvider {
-    cache_location: Option<PathBuf>,
-    cache_location_extension: PathBuf,
-    supported_models: Option<SupportedModels>,
-    pub preprocessor: Option<ORTPreprocessor>,
-    pub postprocessor: Option<ORTPostprocessor>,
-    pub model: Option<ORTModel>,
-    pub model_batch_size: usize,
+    cache_location: PathBuf,
+    supported_models: SupportedModels,
+    pub preprocessor: ORTPreprocessor,
+    pub postprocessor: ORTPostprocessor,
+    pub model: ORTModel,
 }
 
-impl fmt::Debug for ORTProvider {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ORTProvider")
-            .field("cache_location", &self.cache_location)
-            .field("cache_location_extension", &self.cache_location_extension)
-            .field("supported_models", &self.supported_models)
-            .finish()
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Hash, Ord)]
+pub enum ExecutionProvider {
+    TensorRT,
+    CUDA,
+    DirectML,
+    CoreML,
+}
+
+impl ExecutionProvider {
+    fn to_provider(&self) -> ExecutionProviderDispatch {
+        // Considered safe to do as
+        match self {
+            Self::TensorRT => TensorRTExecutionProvider::default().build(),
+            Self::CUDA => CUDAExecutionProvider::default().build(),
+            Self::DirectML => DirectMLExecutionProvider::default().build(),
+            Self::CoreML => CoreMLExecutionProvider::default().build(),
+        }
     }
 }
 
-#[derive(Default)]
-pub struct ORTImageModel {
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Hash, Ord)]
+enum ORTModality {
+    Image,
+    Text,
+}
+
+#[derive(Debug)]
+pub struct ORTModel {
+    model_type: ORTModality,
     repo_name: String,
     weights_file: String,
     session: Option<Session>,
+    model_batch_size: usize,
+    supported_execution_providers: Vec<ExecutionProvider>,
 }
 
-#[derive(Default)]
-pub struct ORTTextModel {
-    repo_name: String,
-    weights_file: String,
-    session: Option<Session>,
-}
-
-pub enum ORTModel {
-    Image(ORTImageModel),
-    Text(ORTTextModel),
+impl Default for ORTModel {
+    fn default() -> Self {
+        Self {
+            model_type: ORTModality::Text,
+            repo_name: "".to_string(),
+            weights_file: "model.onnx".to_string(),
+            session: None,
+            model_batch_size: 128,
+            // ordered list of execution providers to attempt to use
+            // Considered safe to initialize with `ExecutionProvider::to_provider()` as any unavailable execution
+            // provider fails "silenty" but can be viewed with `RUST_LOG='ort=debug'`
+            // https://ort.pyke.io/perf/execution-providers
+            supported_execution_providers: vec![
+                // Prefer TensorRT over CUDA.
+                ExecutionProvider::TensorRT,
+                ExecutionProvider::CUDA,
+                // Use DirectML on Windows if NVIDIA EPs are not available
+                ExecutionProvider::DirectML,
+                // Use ANE on Apple Platforms
+                ExecutionProvider::CoreML,
+            ],
+        }
+    }
 }
 
 impl TryFrom<&SupportedModels> for ORTModel {
     type Error = AIProxyError;
 
     fn try_from(model: &SupportedModels) -> Result<Self, Self::Error> {
+        let text_supported_models = vec![
+            ExecutionProvider::TensorRT,
+            ExecutionProvider::CUDA,
+            ExecutionProvider::DirectML,
+            // NOTE: CoreML support removed as most NLP models exceed maximum input
+            // dimensions allowed by CoreML e.g AllMiniLML12V2 shape is (30522, 384)
+            // and CoreML on M1 Air has max dimensions of 16384
+        ];
         let model_type: Result<ORTModel, AIProxyError> = match model {
-            SupportedModels::Resnet50 => Ok(ORTModel::Image(ORTImageModel {
+            SupportedModels::Resnet50 => Ok(ORTModel {
+                model_type: ORTModality::Image,
                 repo_name: "Qdrant/resnet50-onnx".to_string(),
-                weights_file: "model.onnx".to_string(),
+                model_batch_size: 16,
                 ..Default::default()
-            })),
-            SupportedModels::ClipVitB32Image => Ok(ORTModel::Image(ORTImageModel {
+            }),
+            SupportedModels::ClipVitB32Image => Ok(ORTModel {
+                model_type: ORTModality::Image,
                 repo_name: "Qdrant/clip-ViT-B-32-vision".to_string(),
-                weights_file: "model.onnx".to_string(),
+                model_batch_size: 16,
                 ..Default::default()
-            })),
-            SupportedModels::ClipVitB32Text => Ok(ORTModel::Text(ORTTextModel {
+            }),
+            SupportedModels::ClipVitB32Text => Ok(ORTModel {
+                model_type: ORTModality::Text,
                 repo_name: "Qdrant/clip-ViT-B-32-text".to_string(),
-                weights_file: "model.onnx".to_string(),
+                supported_execution_providers: text_supported_models,
                 ..Default::default()
-            })),
-            SupportedModels::AllMiniLML6V2 => Ok(ORTModel::Text(ORTTextModel {
+            }),
+            SupportedModels::AllMiniLML6V2 => Ok(ORTModel {
+                model_type: ORTModality::Text,
                 repo_name: "Qdrant/all-MiniLM-L6-v2-onnx".to_string(),
-                weights_file: "model.onnx".to_string(),
+                supported_execution_providers: text_supported_models,
                 ..Default::default()
-            })),
-            SupportedModels::AllMiniLML12V2 => Ok(ORTModel::Text(ORTTextModel {
+            }),
+            SupportedModels::AllMiniLML12V2 => Ok(ORTModel {
+                model_type: ORTModality::Text,
                 repo_name: "Xenova/all-MiniLM-L12-v2".to_string(),
-                weights_file: "onnx/model.onnx".to_string(),
+                supported_execution_providers: text_supported_models,
                 ..Default::default()
-            })),
-            SupportedModels::BGEBaseEnV15 => Ok(ORTModel::Text(ORTTextModel {
+            }),
+            SupportedModels::BGEBaseEnV15 => Ok(ORTModel {
+                model_type: ORTModality::Text,
                 repo_name: "Xenova/bge-base-en-v1.5".to_string(),
                 weights_file: "onnx/model.onnx".to_string(),
+                supported_execution_providers: text_supported_models,
                 ..Default::default()
-            })),
-            SupportedModels::BGELargeEnV15 => Ok(ORTModel::Text(ORTTextModel {
+            }),
+            SupportedModels::BGELargeEnV15 => Ok(ORTModel {
+                model_type: ORTModality::Text,
                 repo_name: "Xenova/bge-large-en-v1.5".to_string(),
                 weights_file: "onnx/model.onnx".to_string(),
+                supported_execution_providers: text_supported_models,
                 ..Default::default()
-            })),
+            }),
         };
 
         model_type
     }
 }
 
+fn ort_full_cache_path(cache_location: &PathBuf) -> PathBuf {
+    cache_location.join(PathBuf::from("huggingface"))
+}
+
 impl ORTProvider {
-    pub(crate) fn new(model_batch_size: usize) -> Self {
-        Self {
-            cache_location: None,
-            cache_location_extension: PathBuf::from("huggingface"),
-            preprocessor: None,
-            supported_models: None,
-            model: None,
-            postprocessor: None,
-            model_batch_size,
-        }
+    fn cache_path(&self) -> PathBuf {
+        ort_full_cache_path(&self.cache_location)
+    }
+
+    pub(crate) fn from_model_and_cache_location(
+        supported_models: &SupportedModels,
+        cache_location: PathBuf,
+    ) -> Result<Self, AIProxyError> {
+        let mut model = ORTModel::try_from(supported_models)?;
+        let cache = Cache::new(ort_full_cache_path(&cache_location));
+        let api = ApiBuilder::from_cache(cache)
+            .with_progress(true)
+            .build()
+            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+
+        let threads = available_parallelism()
+            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?
+            .get();
+
+        let model_repo = api.model(model.repo_name.clone());
+        let model_file_reference = model_repo
+            .get(&model.weights_file)
+            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+        let session = Session::builder()?
+            .with_intra_threads(threads)?
+            .with_execution_providers(
+                model
+                    .supported_execution_providers
+                    .clone()
+                    .into_iter()
+                    .map(|a| a.to_provider()),
+            )?
+            .with_profiling("profiling.json")?
+            .commit_from_file(model_file_reference)?;
+        model.session = Some(session);
+        let (preprocessor, postprocessor) = match model.model_type {
+            ORTModality::Image => {
+                let preprocessor = ORTPreprocessor::Image(ORTImagePreprocessor::load(
+                    *supported_models,
+                    model_repo,
+                )?);
+                let postprocessor =
+                    ORTPostprocessor::Image(ORTImagePostprocessor::load(*supported_models)?);
+                (preprocessor, postprocessor)
+            }
+            ORTModality::Text => {
+                let preprocessor = ORTPreprocessor::Text(ORTTextPreprocessor::load(
+                    *supported_models,
+                    model_repo,
+                )?);
+                let postprocessor =
+                    ORTPostprocessor::Text(ORTTextPostprocessor::load(*supported_models)?);
+                (preprocessor, postprocessor)
+            }
+        };
+        Ok(Self {
+            cache_location,
+            supported_models: *supported_models,
+            postprocessor,
+            preprocessor,
+            model,
+        })
     }
 
     #[tracing::instrument(skip_all)]
@@ -135,11 +235,11 @@ impl ORTProvider {
         data: Vec<ImageArray>,
     ) -> Result<Array<f32, Ix4>, AIProxyError> {
         match &self.preprocessor {
-            Some(ORTPreprocessor::Image(preprocessor)) => {
+            ORTPreprocessor::Image(preprocessor) => {
                 let output_data = preprocessor.process(data).map_err(|e| {
                     AIProxyError::ModelProviderPreprocessingError(format!(
                         "Preprocessing failed for {:?} with error: {}",
-                        self.supported_models.unwrap().to_string(),
+                        self.supported_models.to_string(),
                         e
                     ))
                 })?;
@@ -156,18 +256,18 @@ impl ORTProvider {
         truncate: bool,
     ) -> Result<Vec<Encoding>, AIProxyError> {
         match &self.preprocessor {
-            Some(ORTPreprocessor::Text(preprocessor)) => {
+            ORTPreprocessor::Text(preprocessor) => {
                 let output_data = preprocessor.process(data, truncate).map_err(|e| {
                     AIProxyError::ModelProviderPreprocessingError(format!(
                         "Preprocessing failed for {:?} with error: {}",
-                        self.supported_models.unwrap().to_string(),
+                        self.supported_models.to_string(),
                         e
                     ))
                 })?;
                 Ok(output_data)
             }
             _ => Err(AIProxyError::ModelPreprocessingError {
-                model_name: self.supported_models.unwrap().to_string(),
+                model_name: self.supported_models.to_string(),
                 message: "Preprocessor not initialized".to_string(),
             }),
         }
@@ -180,20 +280,20 @@ impl ORTProvider {
         attention_mask: Array<i64, Ix2>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         match &self.postprocessor {
-            Some(ORTPostprocessor::Text(postprocessor)) => {
+            ORTPostprocessor::Text(postprocessor) => {
                 let output_data = postprocessor
                     .process(session_output, attention_mask)
                     .map_err(|e| {
                         AIProxyError::ModelProviderPostprocessingError(format!(
                             "Postprocessing failed for {:?} with error: {}",
-                            self.supported_models.unwrap().to_string(),
+                            self.supported_models.to_string(),
                             e
                         ))
                     })?;
                 Ok(output_data)
             }
             _ => Err(AIProxyError::ModelPostprocessingError {
-                model_name: self.supported_models.unwrap().to_string(),
+                model_name: self.supported_models.to_string(),
                 message: "Postprocessor not initialized".to_string(),
             }),
         }
@@ -205,18 +305,18 @@ impl ORTProvider {
         session_output: SessionOutputs,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         match &self.postprocessor {
-            Some(ORTPostprocessor::Image(postprocessor)) => {
+            ORTPostprocessor::Image(postprocessor) => {
                 let output_data = postprocessor.process(session_output).map_err(|e| {
                     AIProxyError::ModelProviderPostprocessingError(format!(
                         "Postprocessing failed for {:?} with error: {}",
-                        self.supported_models.unwrap().to_string(),
+                        self.supported_models.to_string(),
                         e
                     ))
                 })?;
                 Ok(output_data)
             }
             _ => Err(AIProxyError::ModelPostprocessingError {
-                model_name: self.supported_models.unwrap().to_string(),
+                model_name: self.supported_models.to_string(),
                 message: "Postprocessor not initialized".to_string(),
             }),
         }
@@ -227,22 +327,19 @@ impl ORTProvider {
         &self,
         inputs: Array<f32, Ix4>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
-        let model = match &self.model {
-            Some(ORTModel::Image(model)) => model,
-            _ => {
-                return Err(AIProxyError::AIModelNotSupported {
-                    model_name: self.supported_models.unwrap().to_string(),
-                })
-            }
-        };
-        match &model.session {
+        if self.model.model_type != ORTModality::Image {
+            return Err(AIProxyError::AIModelNotSupported {
+                model_name: self.supported_models.to_string(),
+            });
+        }
+        match &self.model.session {
             Some(session) => {
-                let input_param = match self.supported_models.unwrap() {
+                let input_param = match self.supported_models {
                     SupportedModels::Resnet50 => "input",
                     SupportedModels::ClipVitB32Image => "pixel_values",
                     _ => {
                         return Err(AIProxyError::AIModelNotSupported {
-                            model_name: self.supported_models.unwrap().to_string(),
+                            model_name: self.supported_models.to_string(),
                         })
                     }
                 };
@@ -271,20 +368,17 @@ impl ORTProvider {
         &self,
         encodings: Vec<Encoding>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
-        let model = match &self.model {
-            Some(ORTModel::Text(model)) => model,
-            _ => {
-                return Err(AIProxyError::AIModelNotSupported {
-                    model_name: self.supported_models.unwrap().to_string(),
-                })
-            }
-        };
+        if self.model.model_type != ORTModality::Text {
+            return Err(AIProxyError::AIModelNotSupported {
+                model_name: self.supported_models.to_string(),
+            });
+        }
         let batch_size = encodings.len();
         // Extract the encoding length and batch size
         let encoding_length = encodings[0].len();
         let max_size = encoding_length * batch_size;
 
-        match &model.session {
+        match &self.model.session {
             Some(session) => {
                 let need_token_type_ids = session
                     .inputs
@@ -363,137 +457,22 @@ impl ORTProvider {
     }
 }
 
-static INIT_ORT_ONCE: Once = Once::new();
-
 impl ProviderTrait for ORTProvider {
-    fn set_cache_location(&mut self, location: &Path) {
-        self.cache_location = Some(location.join(self.cache_location_extension.clone()));
-    }
-
-    fn set_model(&mut self, model: &SupportedModels) {
-        self.supported_models = Some(*model);
-    }
-
-    fn load_model(&mut self) -> Result<(), AIProxyError> {
-        INIT_ORT_ONCE.call_once(|| {
-            ort::init()
-                .with_execution_providers([
-                    // Prefer TensorRT over CUDA.
-                    TensorRTExecutionProvider::default().build(),
-                    CUDAExecutionProvider::default().build(),
-                    // Use DirectML on Windows if NVIDIA EPs are not available
-                    DirectMLExecutionProvider::default().build(),
-                    // Or use ANE on Apple platforms
-                    CoreMLExecutionProvider::default().build(),
-                ])
-                .commit()
-                .expect("Could not initialize ORT environment");
-        });
-        let Some(cache_location) = self.cache_location.clone() else {
-            return Err(AIProxyError::CacheLocationNotInitiailized);
-        };
-        let Some(supported_model) = self.supported_models else {
-            return Err(AIProxyError::AIModelNotInitialized);
-        };
-        let ort_model = ORTModel::try_from(&supported_model)?;
-
-        let cache = Cache::new(cache_location);
-        let api = ApiBuilder::from_cache(cache)
-            .with_progress(true)
-            .build()
-            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
-
-        let threads = available_parallelism()
-            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?
-            .get();
-
-        match ort_model {
-            ORTModel::Image(ORTImageModel {
-                weights_file,
-                repo_name,
-                ..
-            }) => {
-                let model_repo = api.model(repo_name.clone());
-                let model_file_reference = model_repo
-                    .get(&weights_file)
-                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
-                let session = Session::builder()?
-                    .with_intra_threads(threads)?
-                    .with_profiling("profiling.json")?
-                    .commit_from_file(model_file_reference)?;
-                self.model = Some(ORTModel::Image(ORTImageModel {
-                    repo_name,
-                    weights_file,
-                    session: Some(session),
-                }));
-                let preprocessor =
-                    ORTImagePreprocessor::load(self.supported_models.unwrap(), model_repo)?;
-                self.preprocessor = Some(ORTPreprocessor::Image(preprocessor));
-                let postprocessor = ORTImagePostprocessor::load(supported_model)?;
-                self.postprocessor = Some(ORTPostprocessor::Image(postprocessor));
-            }
-            ORTModel::Text(ORTTextModel {
-                weights_file,
-                repo_name,
-                ..
-            }) => {
-                let model_repo = api.model(repo_name.clone());
-                let model_file_reference = model_repo
-                    .get(&weights_file)
-                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
-                let session = Session::builder()?
-                    .with_intra_threads(threads)?
-                    .commit_from_file(model_file_reference)?;
-                self.model = Some(ORTModel::Text(ORTTextModel {
-                    repo_name,
-                    weights_file,
-                    session: Some(session),
-                }));
-                let preprocessor =
-                    ORTTextPreprocessor::load(self.supported_models.unwrap(), model_repo)?;
-                self.preprocessor = Some(ORTPreprocessor::Text(preprocessor));
-                let postprocessor = ORTTextPostprocessor::load(supported_model)?;
-                self.postprocessor = Some(ORTPostprocessor::Text(postprocessor));
-            }
-        }
-        Ok(())
-    }
-
     fn get_model(&self) -> Result<(), AIProxyError> {
-        let Some(cache_location) = self.cache_location.clone() else {
-            return Err(AIProxyError::CacheLocationNotInitiailized);
-        };
-        let supported_model = self
-            .supported_models
-            .ok_or(AIProxyError::AIModelNotInitialized)?;
-        let ort_model = ORTModel::try_from(&supported_model)?;
-
-        let cache = Cache::new(cache_location);
+        let cache = Cache::new(self.cache_path());
         let api = ApiBuilder::from_cache(cache)
             .with_progress(true)
             .build()
             .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
 
-        let (repo_name, weights_file) = match ort_model {
-            ORTModel::Image(ORTImageModel {
-                repo_name,
-                weights_file,
-                ..
-            }) => (repo_name, weights_file),
-            ORTModel::Text(ORTTextModel {
-                repo_name,
-                weights_file,
-                ..
-            }) => (repo_name, weights_file),
-        };
-        let model_repo = api.model(repo_name);
+        let model_repo = api.model(self.model.repo_name.clone());
         model_repo
-            .get(&weights_file)
+            .get(&self.model.weights_file)
             .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, input), fields(model_batch_size = self.model_batch_size))]
+    #[tracing::instrument(skip(self, input), fields(model_batch_size = self.model.model_batch_size))]
     fn run_inference(
         &self,
         input: ModelInput,
@@ -503,7 +482,7 @@ impl ProviderTrait for ORTProvider {
             ModelInput::Images(images) => {
                 let mut store_keys: Vec<StoreKey> = FallibleVec::try_with_capacity(images.len())?;
 
-                for batch_image in images.axis_chunks_iter(Axis(0), self.model_batch_size) {
+                for batch_image in images.axis_chunks_iter(Axis(0), self.model.model_batch_size) {
                     let embeddings = self.batch_inference_image(batch_image.to_owned())?;
                     let new_store_keys: Vec<StoreKey> = embeddings
                         .axis_iter(Axis(0))
@@ -520,7 +499,7 @@ impl ProviderTrait for ORTProvider {
 
                 for batch_encoding in encodings
                     .into_iter()
-                    .chunks(self.model_batch_size)
+                    .chunks(self.model.model_batch_size)
                     .into_iter()
                 {
                     let embeddings = self.batch_inference_text(batch_encoding.collect())?;

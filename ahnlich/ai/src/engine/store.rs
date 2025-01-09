@@ -1,6 +1,5 @@
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::InputAction;
-use crate::engine::ai::models::Model;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
@@ -21,6 +20,8 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use utils::parallel;
 use utils::persistence::AhnlichPersistenceUtils;
+
+use super::ai::models::ModelDetails;
 
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]
@@ -91,8 +92,8 @@ impl AIStoreHandler {
             return Err(AIProxyError::AIModelNotInitialized);
         }
 
-        let index_model_repr: Model = (&index_model).into();
-        let query_model_repr: Model = (&query_model).into();
+        let index_model_repr: ModelDetails = SupportedModels::from(&index_model).to_model_details();
+        let query_model_repr: ModelDetails = SupportedModels::from(&query_model).to_model_details();
 
         if index_model_repr.embedding_size != query_model_repr.embedding_size {
             return Err(AIProxyError::DimensionsMismatchError {
@@ -128,7 +129,8 @@ impl AIStoreHandler {
         self.stores
             .iter(&self.stores.guard())
             .map(|(store_name, store)| {
-                let model: Model = (&store.index_model).into();
+                let model: ModelDetails =
+                    SupportedModels::from(&store.index_model).to_model_details();
 
                 AIStoreInfo {
                     name: store_name.clone(),
@@ -204,7 +206,8 @@ impl AIStoreHandler {
         let mut delete_hashset = StdHashSet::new();
         for (store_input, mut store_value) in inputs {
             let store_input_type: AIStoreInputType = (&store_input).into();
-            let index_model_repr: Model = (&index_model).into();
+            let index_model_repr: ModelDetails =
+                SupportedModels::from(&index_model).to_model_details();
             if store_input_type != index_model_repr.input_type() {
                 return Err(AIProxyError::StoreTypeMismatchError {
                     action: InputAction::Index,

@@ -4,14 +4,29 @@ use dirs::home_dir;
 use std::fmt;
 use strum::VariantArray;
 
-use crate::engine::ai::models::{Model, ModelInfo};
+use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::sync::OnceLock;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use utils::cli::CommandLineConfig;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Hash, Ord, ValueEnum, VariantArray)]
+#[derive(
+    Default,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Hash,
+    Ord,
+    ValueEnum,
+    VariantArray,
+    Serialize,
+    Deserialize,
+)]
 pub enum SupportedModels {
+    #[default]
     #[clap(name = "all-minilm-l6-v2")]
     AllMiniLML6V2,
     #[clap(name = "all-minilm-l12-v2")]
@@ -230,13 +245,6 @@ impl From<&SupportedModels> for AIModel {
     }
 }
 
-impl From<&SupportedModels> for Model {
-    fn from(value: &SupportedModels) -> Self {
-        let ai_model: AIModel = value.into();
-        (&ai_model).into()
-    }
-}
-
 #[derive(Args, Debug, Clone)]
 pub struct SupportedModelArgs {
     ///  Models to display information about
@@ -249,9 +257,7 @@ impl SupportedModelArgs {
         let mut output = String::new();
 
         for supported_model in SupportedModels::VARIANTS.iter() {
-            let aimodel: AIModel = supported_model.into();
-            let model: Model = (&aimodel).into();
-            output.push_str(format!("{}, ", model.model_name()).as_str())
+            output.push_str(format!("{}, ", supported_model.to_string()).as_str())
         }
         output
     }
@@ -259,9 +265,8 @@ impl SupportedModelArgs {
         let mut output = vec![];
 
         for supported_model in self.names.iter() {
-            let aimodel: AIModel = supported_model.into();
-            let model: Model = (&aimodel).into();
-            output.push(ModelInfo::build(&model))
+            let model_details = supported_model.to_model_details();
+            output.push(model_details)
         }
         serde_json::to_string_pretty(&output)
             .expect("Failed Generate Supported Models Verbose Text")

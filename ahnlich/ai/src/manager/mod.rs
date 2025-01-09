@@ -47,10 +47,7 @@ impl ModelThread {
         cache_location: &Path,
         request_receiver: mpsc::Receiver<ModelThreadRequest>,
     ) -> Result<Self, AIProxyError> {
-        let supported_model = &supported_model;
-        let mut model: Model = (supported_model).into();
-        model.setup_provider(cache_location);
-        model.load()?;
+        let model = supported_model.to_concrete_model(cache_location.to_path_buf())?;
         Ok(Self {
             request_receiver: Mutex::new(request_receiver),
             model,
