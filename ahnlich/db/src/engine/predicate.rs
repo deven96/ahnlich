@@ -172,7 +172,7 @@ impl PredicateIndices {
     }
 
     /// Adds predicates if the key is within allowed_predicates
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, fields(new_len = new.len()))]
     pub(super) fn add(&self, new: Vec<(StoreKeyId, StoreValue)>) {
         let iter = new
             .into_par_iter()
@@ -209,7 +209,7 @@ impl PredicateIndices {
     }
 
     /// returns the store key id that fulfill the predicate condition
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all)]
     pub(super) fn matches(
         &self,
         condition: &PredicateCondition,
@@ -309,7 +309,7 @@ impl PredicateIndex {
     /// adds a store key id to the index using the predicate value
     /// TODO: Optimize stack consumption of this particular call as it seems to consume more than
     /// the default number when ran using Loom, this may cause an issue down the line
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip_all, fields(update_len = update.len()))]
     fn add(&self, update: Vec<(MetadataValue, StoreKeyId)>) {
         if update.is_empty() {
             return;

@@ -79,7 +79,7 @@ impl Default for CommandLineConfig {
             fail_on_startup_if_persist_load_fails: false,
             persistence_interval: 1000 * 60 * 5,
             allocator_size: 1_073_741_824,
-            message_size: 1_048_576,
+            message_size: 10_048_576,
 
             enable_tracing: false,
             otel_endpoint: None,

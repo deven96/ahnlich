@@ -66,6 +66,7 @@ class AhnlichAIClient(BaseClient):
         algorithm: ai_query.Algorithm = ai_query.Algorithm__CosineSimilarity,
         condition: typing.Optional[ai_query.PredicateCondition] = None,
         preprocess_action: ai_query.PreprocessAction = ai_query.PreprocessAction__ModelPreprocessing,
+        execution_provider: typing.Optional[ai_query.ExecutionProvider] = None,
         tracing_id: typing.Optional[str] = None,
     ):
         builder = AsyncAhnlichAIRequestBuilder(tracing_id)
@@ -76,6 +77,7 @@ class AhnlichAIClient(BaseClient):
             algorithm=algorithm,
             condition=condition,
             preprocess_action=preprocess_action,
+            execution_provider=execution_provider,
         )
         return await self.process_request(builder.to_server_query())
 
@@ -138,11 +140,15 @@ class AhnlichAIClient(BaseClient):
             typing.Tuple[ai_query.StoreInput, typing.Dict[str, ai_query.MetadataValue]]
         ],
         preprocess_action: ai_query.PreprocessAction = ai_query.PreprocessAction__NoPreprocessing,
+        execution_provider: typing.Optional[ai_query.ExecutionProvider] = None,
         tracing_id: typing.Optional[str] = None,
     ):
         builder = AsyncAhnlichAIRequestBuilder(tracing_id)
         builder.set(
-            store_name=store_name, inputs=inputs, preprocess_action=preprocess_action
+            store_name=store_name,
+            inputs=inputs,
+            preprocess_action=preprocess_action,
+            execution_provider=execution_provider,
         )
         return await self.process_request(builder.to_server_query())
 

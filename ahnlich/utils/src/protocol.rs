@@ -175,7 +175,7 @@ where
         respond_with_error: bool,
     ) -> TaskState {
         let error = self.prefix_log(error.to_string());
-        log::error!("{error}");
+        tracing::error!("{error}");
         if respond_with_error {
             match Self::ServerResponse::from_error(error.to_string()).serialize() {
                 Err(e) => log::error!(

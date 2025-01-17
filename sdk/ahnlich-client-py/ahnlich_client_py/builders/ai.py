@@ -50,9 +50,10 @@ class AhnlichAIRequestBuilder:
         store_name: str,
         search_input: ai_query.StoreInput,
         closest_n: st.uint64 = 1,
-        algorithm: ai_query.Algorithm = ai_query.Algorithm__CosineSimilarity,
+        algorithm: ai_query.Algorithm = ai_query.Algorithm__CosineSimilarity(),
         condition: typing.Optional[ai_query.PredicateCondition] = None,
-        preprocess_action: ai_query.PreprocessAction = ai_query.PreprocessAction__ModelPreprocessing,
+        preprocess_action: ai_query.PreprocessAction = ai_query.PreprocessAction__ModelPreprocessing(),
+        execution_provider: typing.Optional[ai_query.ExecutionProvider] = None,
     ):
         nonzero_n = NonZeroSizeInteger(closest_n)
         self.queries.append(
@@ -63,6 +64,7 @@ class AhnlichAIRequestBuilder:
                 algorithm=algorithm,
                 condition=condition,
                 preprocess_action=preprocess_action,
+                execution_provider=execution_provider,
             )
         )
 
@@ -117,12 +119,14 @@ class AhnlichAIRequestBuilder:
             typing.Tuple[ai_query.StoreInput, typing.Dict[str, ai_query.MetadataValue]]
         ],
         preprocess_action: ai_query.PreprocessAction = ai_query.PreprocessAction__NoPreprocessing,
+        execution_provider: typing.Optional[ai_query.ExecutionProvider] = None,
     ):
         self.queries.append(
             ai_query.AIQuery__Set(
                 store=store_name,
                 inputs=inputs,
                 preprocess_action=preprocess_action,
+                execution_provider=execution_provider,
             )
         )
 

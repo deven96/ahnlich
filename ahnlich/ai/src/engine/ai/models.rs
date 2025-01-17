@@ -3,10 +3,8 @@ use crate::engine::ai::providers::ort::ORTProvider;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
-use ahnlich_types::{
-    ai::{AIModel, AIStoreInputType},
-    keyval::StoreKey,
-};
+use ahnlich_types::ai::ExecutionProvider;
+use ahnlich_types::{ai::AIStoreInputType, keyval::StoreKey};
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader};
 use ndarray::{Array, Ix3};
 use ndarray::{ArrayView, Ix4};
@@ -17,11 +15,11 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 use std::io::Cursor;
 use std::num::NonZeroUsize;
-use std::path::Path;
+use std::path::PathBuf;
 use strum::Display;
 use tokenizers::Encoding;
 
-#[derive(Display)]
+#[derive(Display, Debug, Serialize, Deserialize)]
 pub enum ModelType {
     Text {
         max_input_tokens: NonZeroUsize,
@@ -33,114 +31,114 @@ pub enum ModelType {
 }
 
 pub struct Model {
-    pub model_type: ModelType,
     pub provider: ModelProviders,
+    pub model_details: ModelDetails,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ModelDetails {
+    pub model_type: ModelType,
     pub description: String,
     pub supported_model: SupportedModels,
     pub embedding_size: NonZeroUsize,
 }
 
-impl From<&AIModel> for Model {
-    fn from(value: &AIModel) -> Self {
-        match value {
-            AIModel::AllMiniLML6V2 => Self {
+impl SupportedModels {
+    pub fn to_model_details(&self) -> ModelDetails {
+        match self {
+            SupportedModels::AllMiniLML6V2 => ModelDetails {
                 model_type: ModelType::Text {
                     max_input_tokens: nonzero!(256usize),
                 },
-                provider: ModelProviders::ORT(ORTProvider::new()),
                 supported_model: SupportedModels::AllMiniLML6V2,
                 description: String::from("Sentence Transformer model, with 6 layers, version 2"),
                 embedding_size: nonzero!(384usize),
             },
-            AIModel::AllMiniLML12V2 => Self {
-                model_type: ModelType::Text {
-                    // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
-                    max_input_tokens: nonzero!(256usize),
-                },
-                provider: ModelProviders::ORT(ORTProvider::new()),
-                supported_model: SupportedModels::AllMiniLML12V2,
-                description: String::from("Sentence Transformer model, with 12 layers, version 2."),
-                embedding_size: nonzero!(384usize),
+            SupportedModels::AllMiniLML12V2 => ModelDetails {
+                    model_type: ModelType::Text {
+                        // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
+                        max_input_tokens: nonzero!(256usize),
+                    },
+                    supported_model: SupportedModels::AllMiniLML12V2,
+                    description: String::from("Sentence Transformer model, with 12 layers, version 2."),
+                    embedding_size: nonzero!(384usize),
             },
-            AIModel::BGEBaseEnV15 => Self {
-                model_type: ModelType::Text {
-                    // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
-                    max_input_tokens: nonzero!(512usize),
-                },
-                provider: ModelProviders::ORT(ORTProvider::new()),
-                supported_model: SupportedModels::BGEBaseEnV15,
-                description: String::from(
-                    "BAAI General Embedding model with English support, base scale, version 1.5.",
-                ),
-                embedding_size: nonzero!(768usize),
+            SupportedModels::BGEBaseEnV15 => ModelDetails {
+                    model_type: ModelType::Text {
+                        // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
+                        max_input_tokens: nonzero!(512usize),
+                    },
+                    supported_model: SupportedModels::BGEBaseEnV15,
+                    description: String::from(
+                        "BAAI General Embedding model with English support, base scale, version 1.5.",
+                    ),
+                    embedding_size: nonzero!(768usize),
             },
-            AIModel::BGELargeEnV15 => Self {
-                model_type: ModelType::Text {
-                    max_input_tokens: nonzero!(512usize),
-                },
-                provider: ModelProviders::ORT(ORTProvider::new()),
-                supported_model: SupportedModels::BGELargeEnV15,
-                description: String::from(
-                    "BAAI General Embedding model with English support, large scale, version 1.5.",
-                ),
-                embedding_size: nonzero!(1024usize),
+            SupportedModels::BGELargeEnV15 => ModelDetails {
+                    model_type: ModelType::Text {
+                        max_input_tokens: nonzero!(512usize),
+                    },
+                    supported_model: SupportedModels::BGELargeEnV15,
+                    description: String::from(
+                        "BAAI General Embedding model with English support, large scale, version 1.5.",
+                    ),
+                    embedding_size: nonzero!(1024usize),
             },
-            AIModel::Resnet50 => Self {
-                model_type: ModelType::Image {
-                    expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
-                },
-                provider: ModelProviders::ORT(ORTProvider::new()),
-                supported_model: SupportedModels::Resnet50,
-                description: String::from("Residual Networks model, with 50 layers."),
-                embedding_size: nonzero!(2048usize),
+            SupportedModels::Resnet50 => ModelDetails {
+                    model_type: ModelType::Image {
+                        expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
+                    },
+                    supported_model: SupportedModels::Resnet50,
+                    description: String::from("Residual Networks model, with 50 layers."),
+                    embedding_size: nonzero!(2048usize),
             },
-            AIModel::ClipVitB32Image => Self {
-                model_type: ModelType::Image {
-                    expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
-                },
-                provider: ModelProviders::ORT(ORTProvider::new()),
-                supported_model: SupportedModels::ClipVitB32Image,
-                description: String::from(
-                    "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
-                ),
-                embedding_size: nonzero!(512usize),
+            SupportedModels::ClipVitB32Image => ModelDetails {
+                    model_type: ModelType::Image {
+                        expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
+                    },
+                    supported_model: SupportedModels::ClipVitB32Image,
+                    description: String::from(
+                        "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
+                    ),
+                    embedding_size: nonzero!(512usize),
             },
-            AIModel::ClipVitB32Text => Self {
-                model_type: ModelType::Text {
-                    // Token size source: https://github.com/UKPLab/sentence-transformers/issues/1269
-                    max_input_tokens: nonzero!(77usize),
+            SupportedModels::ClipVitB32Text => ModelDetails {
+                    supported_model: SupportedModels::ClipVitB32Text,
+                    description: String::from(
+                        "Contrastive Language-Image Pre-Training Text transformer model, base scale. \
+                            Ideal for embedding very short text and using in combination with ClipVitB32Image",
+                    ),
+                    embedding_size: nonzero!(512usize),
+                    model_type: ModelType::Text {
+                        // Token size source: https://github.com/UKPLab/sentence-transformers/issues/1269
+                        max_input_tokens: nonzero!(77usize),
+                    },
                 },
-                provider: ModelProviders::ORT(ORTProvider::new()),
-                supported_model: SupportedModels::ClipVitB32Text,
-                description: String::from(
-                    "Contrastive Language-Image Pre-Training Text transformer model, base scale. \
-                    Ideal for embedding very short text and using in combination with ClipVitB32Image",
-                ),
-                embedding_size: nonzero!(512usize),
-            },
         }
+    }
+
+    pub async fn to_concrete_model(&self, cache_location: PathBuf) -> Result<Model, AIProxyError> {
+        let model_details = self.to_model_details();
+        // can only be created with a cache location, this ties together the model public
+        // facing details as well as the provider
+        // if there are multiple providers, feel free to match here and override
+        let provider = ModelProviders::ORT(
+            ORTProvider::from_model_and_cache_location(self, cache_location).await?,
+        );
+        Ok(Model {
+            model_details,
+            provider,
+        })
     }
 }
 
-impl Model {
+impl ModelDetails {
     #[tracing::instrument(skip(self))]
     pub fn input_type(&self) -> AIStoreInputType {
         match self.model_type {
             ModelType::Text { .. } => AIStoreInputType::RawString,
             ModelType::Image { .. } => AIStoreInputType::Image,
         }
-    }
-
-    #[tracing::instrument(skip(self))]
-    pub fn model_ndarray(
-        &self,
-        modelinput: ModelInput,
-        action_type: &InputAction,
-    ) -> Result<Vec<StoreKey>, AIProxyError> {
-        let store_keys = match &self.provider {
-            ModelProviders::ORT(provider) => provider.run_inference(modelinput, action_type)?,
-        };
-        Ok(store_keys)
     }
 
     #[tracing::instrument(skip(self))]
@@ -152,6 +150,7 @@ impl Model {
             ModelType::Image { .. } => None,
         }
     }
+
     #[tracing::instrument(skip(self))]
     pub fn expected_image_dimensions(&self) -> Option<(NonZeroUsize, NonZeroUsize)> {
         match self.model_type {
@@ -162,34 +161,55 @@ impl Model {
             } => Some((width, height)),
         }
     }
+
     #[tracing::instrument(skip(self))]
     pub fn model_name(&self) -> String {
         self.supported_model.to_string()
     }
+}
 
-    pub fn setup_provider(&mut self, cache_location: &Path) {
-        let supported_model = self.supported_model;
-        match &mut self.provider {
-            ModelProviders::ORT(provider) => {
-                provider.set_model(&supported_model);
-                provider.set_cache_location(cache_location);
-            }
-        }
+impl Model {
+    #[tracing::instrument(skip(self))]
+    pub fn input_type(&self) -> AIStoreInputType {
+        self.model_details.input_type()
     }
 
-    pub fn load(&mut self) -> Result<(), AIProxyError> {
-        match &mut self.provider {
+    #[tracing::instrument(skip(self, modelinput))]
+    pub async fn model_ndarray(
+        &self,
+        modelinput: ModelInput,
+        action_type: &InputAction,
+        execution_provider: Option<ExecutionProvider>,
+    ) -> Result<Vec<StoreKey>, AIProxyError> {
+        let store_keys = match &self.provider {
             ModelProviders::ORT(provider) => {
-                provider.load_model()?;
+                provider
+                    .run_inference(modelinput, action_type, execution_provider)
+                    .await?
             }
-        }
-        Ok(())
+        };
+        Ok(store_keys)
     }
 
-    pub fn get(&self) -> Result<(), AIProxyError> {
+    #[tracing::instrument(skip(self))]
+    pub fn max_input_token(&self) -> Option<NonZeroUsize> {
+        self.model_details.max_input_token()
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub fn expected_image_dimensions(&self) -> Option<(NonZeroUsize, NonZeroUsize)> {
+        self.model_details.expected_image_dimensions()
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub fn model_name(&self) -> String {
+        self.model_details.model_name()
+    }
+
+    pub async fn get(&self) -> Result<(), AIProxyError> {
         match &self.provider {
             ModelProviders::ORT(provider) => {
-                provider.get_model()?;
+                provider.get_model().await?;
             }
         }
         Ok(())
@@ -198,32 +218,9 @@ impl Model {
 
 impl From<&Model> for AIStoreInputType {
     fn from(value: &Model) -> Self {
-        match value.model_type {
+        match value.model_details.model_type {
             ModelType::Text { .. } => AIStoreInputType::RawString,
             ModelType::Image { .. } => AIStoreInputType::Image,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct ModelInfo {
-    name: String,
-    input_type: AIStoreInputType,
-    embedding_size: NonZeroUsize,
-    max_input_tokens: Option<NonZeroUsize>,
-    expected_image_dimensions: Option<(NonZeroUsize, NonZeroUsize)>,
-    description: String,
-}
-
-impl ModelInfo {
-    pub(crate) fn build(model: &Model) -> Self {
-        Self {
-            name: model.model_name(),
-            input_type: model.input_type(),
-            embedding_size: model.embedding_size,
-            max_input_tokens: model.max_input_token(),
-            expected_image_dimensions: model.expected_image_dimensions(),
-            description: model.description.clone(),
         }
     }
 }

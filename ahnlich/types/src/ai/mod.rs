@@ -43,3 +43,18 @@ impl fmt::Display for AIStoreInputType {
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Hash, Ord)]
+#[allow(clippy::upper_case_acronyms)]
+// list of execution providers to attempt to use
+// Considered safe to initialize with `ExecutionProvider::to_provider()` as any unavailable execution
+// provider fails "silenty" but can be viewed with `RUST_LOG='ort=debug'`
+// https://ort.pyke.io/perf/execution-providers
+//
+// If provided execution provider cannot be initialized, then this fails
+pub enum ExecutionProvider {
+    TensorRT,
+    CUDA,
+    DirectML,
+    CoreML,
+}

@@ -1,4 +1,5 @@
-use crate::engine::ai::models::Model;
+use crate::cli::server::SupportedModels;
+use crate::engine::ai::models::ModelDetails;
 use ahnlich_client_rs::{builders::db as db_params, db::DbClient};
 use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
 use ahnlich_types::client::ConnectedClient;
@@ -76,7 +77,8 @@ impl AhnlichProtocol for AIProxyTask {
                     if store_original {
                         predicates.insert(default_metadata_key.clone());
                     }
-                    let model: Model = (&index_model).into();
+                    let model: ModelDetails =
+                        SupportedModels::from(&index_model).to_model_details();
                     let create_store_params = db_params::CreateStoreParams::builder()
                         .store(store.clone().to_string())
                         .dimension(model.embedding_size.into())
@@ -86,7 +88,10 @@ impl AhnlichProtocol for AIProxyTask {
                         .tracing_id(parent_id.clone())
                         .build();
                     match self.db_client.create_store(create_store_params).await {
-                        Err(err) => Err(err.to_string()),
+                        Err(err) => {
+                            tracing::error!("{:?}", err);
+                            Err(err.to_string())
+                        }
                         Ok(_) => self
                             .store_handler
                             .create_store(
@@ -97,7 +102,10 @@ impl AhnlichProtocol for AIProxyTask {
                                 store_original,
                             )
                             .map(|_| AIServerResponse::Unit)
-                            .map_err(|e| e.to_string()),
+                            .map_err(|e| {
+                                tracing::error!("{e}");
+                                e.to_string()
+                            }),
                     }
                 }
 
@@ -105,17 +113,27 @@ impl AhnlichProtocol for AIProxyTask {
                     store,
                     inputs,
                     preprocess_action,
+                    execution_provider,
                 } => {
                     let model_manager = &self.model_manager;
 
                     match self
                         .store_handler
-                        .set(&store, inputs, model_manager, preprocess_action)
+                        .set(
+                            &store,
+                            inputs,
+                            model_manager,
+                            preprocess_action,
+                            execution_provider,
+                        )
                         .await
                     {
                         Ok((db_inputs, delete_hashset)) => {
                             match self.db_client.pipeline(2, parent_id.clone()).await {
-                                Err(err) => Err(err.to_string()),
+                                Err(err) => {
+                                    tracing::error!("{:?}", err);
+                                    Err(err.to_string())
+                                }
                                 Ok(mut pipeline) => {
                                     if let Some(del_hashset) = delete_hashset {
                                         let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
@@ -144,23 +162,35 @@ impl AhnlichProtocol for AIProxyTask {
                                             | [Ok(_), Ok(ServerResponse::Set(upsert))] => {
                                                 Ok(AIServerResponse::Set(upsert.clone()))
                                             }
-                                            e => Err(AIProxyError::UnexpectedDBResponse(format!(
-                                                "{e:?}"
-                                            ))
-                                            .to_string()),
+                                            e => {
+                                                tracing::error!("{:?}", e);
+                                                Err(AIProxyError::UnexpectedDBResponse(format!(
+                                                    "{e:?}"
+                                                ))
+                                                .to_string())
+                                            }
                                         },
-                                        Err(err) => Err(format!("{err}")),
+                                        Err(err) => {
+                                            tracing::error!("{:?}", err);
+                                            Err(format!("{err}"))
+                                        }
                                     }
                                 }
                             }
                         }
-                        Err(err) => Err(err.to_string()),
+                        Err(err) => {
+                            tracing::error!("{err}");
+                            Err(err.to_string())
+                        }
                     }
                 }
 
                 AIQuery::DelKey { store, key } => {
                     match self.store_handler.store_original(store.clone()) {
-                        Err(err) => Err(err.to_string()),
+                        Err(err) => {
+                            tracing::error!("{:?}", err);
+                            Err(err.to_string())
+                        }
                         Ok(false) => Err(AIProxyError::DelKeyError.to_string()),
                         Ok(true) => {
                             let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
@@ -179,6 +209,7 @@ impl AhnlichProtocol for AIProxyTask {
                                     if let ServerResponse::Del(num) = res {
                                         Ok(AIServerResponse::Del(num))
                                     } else {
+                                        tracing::error!("{:?}", res);
                                         Err(AIProxyError::UnexpectedDBResponse(format!(
                                             "{:?}",
                                             res
@@ -186,7 +217,10 @@ impl AhnlichProtocol for AIProxyTask {
                                         .to_string())
                                     }
                                 }
-                                Err(err) => Err(format!("{err}")),
+                                Err(err) => {
+                                    tracing::error!("{:?}", err);
+                                    Err(format!("{err}"))
+                                }
                             }
                         }
                     }
@@ -206,7 +240,10 @@ impl AhnlichProtocol for AIProxyTask {
                             .drop_store(store, error_if_not_exists)
                             .map(AIServerResponse::Del)
                             .map_err(|e| e.to_string()),
-                        Err(err) => Err(format!("{err}")),
+                        Err(err) => {
+                            tracing::error!("{:?}", err);
+                            Err(format!("{err}"))
+                        }
                     }
                 }
                 AIQuery::CreatePredIndex { store, predicates } => {
@@ -224,11 +261,15 @@ impl AhnlichProtocol for AIProxyTask {
                             if let ServerResponse::CreateIndex(num) = res {
                                 Ok(AIServerResponse::CreateIndex(num))
                             } else {
+                                tracing::error!("{:?}", res);
                                 Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
                                     .to_string())
                             }
                         }
-                        Err(err) => Err(format!("{err}")),
+                        Err(err) => {
+                            tracing::error!("{:?}", err);
+                            Err(format!("{err}"))
+                        }
                     }
                 }
                 AIQuery::CreateNonLinearAlgorithmIndex {
@@ -250,11 +291,15 @@ impl AhnlichProtocol for AIProxyTask {
                             if let ServerResponse::CreateIndex(num) = res {
                                 Ok(AIServerResponse::CreateIndex(num))
                             } else {
+                                tracing::error!("{:?}", res);
                                 Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
                                     .to_string())
                             }
                         }
-                        Err(err) => Err(format!("{err}")),
+                        Err(err) => {
+                            tracing::error!("{:?}", err);
+                            Err(format!("{err}"))
+                        }
                     }
                 }
                 AIQuery::DropPredIndex {
@@ -343,6 +388,7 @@ impl AhnlichProtocol for AIProxyTask {
                     closest_n,
                     algorithm,
                     preprocess_action,
+                    execution_provider,
                 } => {
                     let repr = self
                         .store_handler
@@ -351,6 +397,7 @@ impl AhnlichProtocol for AIProxyTask {
                             search_input,
                             &self.model_manager,
                             preprocess_action,
+                            execution_provider,
                         )
                         .await;
                     match repr {
@@ -387,10 +434,16 @@ impl AhnlichProtocol for AIProxyTask {
                                         .to_string())
                                     }
                                 }
-                                Err(err) => Err(format!("{err}")),
+                                Err(err) => {
+                                    tracing::error!("{:?}", err);
+                                    Err(format!("{err}"))
+                                }
                             }
                         }
-                        Err(err) => Err(AIProxyError::StandardError(err.to_string()).to_string()),
+                        Err(err) => {
+                            tracing::error!("{:?}", err);
+                            Err(AIProxyError::StandardError(err.to_string()).to_string())
+                        }
                     }
                 }
                 AIQuery::PurgeStores => {
@@ -423,11 +476,15 @@ impl AhnlichProtocol for AIProxyTask {
                                     .store_key_val_to_store_input_val(response);
                                 Ok(AIServerResponse::Get(output))
                             } else {
+                                tracing::error!("{:?}", res);
                                 Err(AIProxyError::UnexpectedDBResponse(format!("{:?}", res))
                                     .to_string())
                             }
                         }
-                        Err(err) => Err(format!("{err}")),
+                        Err(err) => {
+                            tracing::error!("{:?}", err);
+                            Err(format!("{err}"))
+                        }
                     }
                 }
             })

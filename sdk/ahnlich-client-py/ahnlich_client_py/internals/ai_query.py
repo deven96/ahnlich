@@ -115,6 +115,7 @@ class AIQuery__GetSimN(AIQuery):
     closest_n: st.uint64
     algorithm: "Algorithm"
     preprocess_action: "PreprocessAction"
+    execution_provider: typing.Optional["ExecutionProvider"]
 
 
 @dataclass(frozen=True)
@@ -155,6 +156,7 @@ class AIQuery__Set(AIQuery):
         typing.Tuple["StoreInput", typing.Dict[str, "MetadataValue"]]
     ]
     preprocess_action: "PreprocessAction"
+    execution_provider: typing.Optional["ExecutionProvider"]
 
 
 @dataclass(frozen=True)
@@ -319,6 +321,52 @@ Algorithm.VARIANTS = [
     Algorithm__DotProductSimilarity,
     Algorithm__CosineSimilarity,
     Algorithm__KDTree,
+]
+
+
+class ExecutionProvider:
+    VARIANTS = []  # type: typing.Sequence[typing.Type[ExecutionProvider]]
+
+    def bincode_serialize(self) -> bytes:
+        return bincode.serialize(self, ExecutionProvider)
+
+    @staticmethod
+    def bincode_deserialize(input: bytes) -> "ExecutionProvider":
+        v, buffer = bincode.deserialize(input, ExecutionProvider)
+        if buffer:
+            raise st.DeserializationError("Some input bytes were not read")
+        return v
+
+
+@dataclass(frozen=True)
+class ExecutionProvider__TensorRT(ExecutionProvider):
+    INDEX = 0  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class ExecutionProvider__CUDA(ExecutionProvider):
+    INDEX = 1  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class ExecutionProvider__DirectML(ExecutionProvider):
+    INDEX = 2  # type: int
+    pass
+
+
+@dataclass(frozen=True)
+class ExecutionProvider__CoreML(ExecutionProvider):
+    INDEX = 3  # type: int
+    pass
+
+
+ExecutionProvider.VARIANTS = [
+    ExecutionProvider__TensorRT,
+    ExecutionProvider__CUDA,
+    ExecutionProvider__DirectML,
+    ExecutionProvider__CoreML,
 ]
 
 

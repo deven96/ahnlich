@@ -1,10 +1,11 @@
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::InputAction;
-use crate::engine::ai::models::Model;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use ahnlich_types::ai::{AIModel, AIStoreInfo, AIStoreInputType, PreprocessAction};
+use ahnlich_types::ai::{
+    AIModel, AIStoreInfo, AIStoreInputType, ExecutionProvider, PreprocessAction,
+};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
@@ -21,6 +22,8 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use utils::parallel;
 use utils::persistence::AhnlichPersistenceUtils;
+
+use super::ai::models::ModelDetails;
 
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]
@@ -91,8 +94,8 @@ impl AIStoreHandler {
             return Err(AIProxyError::AIModelNotInitialized);
         }
 
-        let index_model_repr: Model = (&index_model).into();
-        let query_model_repr: Model = (&query_model).into();
+        let index_model_repr: ModelDetails = SupportedModels::from(&index_model).to_model_details();
+        let query_model_repr: ModelDetails = SupportedModels::from(&query_model).to_model_details();
 
         if index_model_repr.embedding_size != query_model_repr.embedding_size {
             return Err(AIProxyError::DimensionsMismatchError {
@@ -128,7 +131,8 @@ impl AIStoreHandler {
         self.stores
             .iter(&self.stores.guard())
             .map(|(store_name, store)| {
-                let model: Model = (&store.index_model).into();
+                let model: ModelDetails =
+                    SupportedModels::from(&store.index_model).to_model_details();
 
                 AIStoreInfo {
                     name: store_name.clone(),
@@ -204,7 +208,8 @@ impl AIStoreHandler {
         let mut delete_hashset = StdHashSet::new();
         for (store_input, mut store_value) in inputs {
             let store_input_type: AIStoreInputType = (&store_input).into();
-            let index_model_repr: Model = (&index_model).into();
+            let index_model_repr: ModelDetails =
+                SupportedModels::from(&index_model).to_model_details();
             if store_input_type != index_model_repr.input_type() {
                 return Err(AIProxyError::StoreTypeMismatchError {
                     action: InputAction::Index,
@@ -235,6 +240,7 @@ impl AIStoreHandler {
         inputs: Vec<(StoreInput, StoreValue)>,
         model_manager: &ModelManager,
         preprocess_action: PreprocessAction,
+        execution_provider: Option<ExecutionProvider>,
     ) -> Result<StoreSetResponse, AIProxyError> {
         let store = self.get(store_name)?;
         if inputs.is_empty() {
@@ -250,6 +256,7 @@ impl AIStoreHandler {
                 store_inputs,
                 preprocess_action,
                 InputAction::Index,
+                execution_provider,
             )
             .await?;
 
@@ -282,6 +289,7 @@ impl AIStoreHandler {
         store_input: StoreInput,
         model_manager: &ModelManager,
         preprocess_action: PreprocessAction,
+        execution_provider: Option<ExecutionProvider>,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
         let mut store_keys = model_manager
@@ -290,6 +298,7 @@ impl AIStoreHandler {
                 vec![store_input],
                 preprocess_action,
                 InputAction::Query,
+                execution_provider,
             )
             .await?;
 

@@ -71,9 +71,6 @@ pub enum AIProxyError {
     #[error("index_model or query_model not selected or loaded during aiproxy startup")]
     AIModelNotInitialized,
 
-    #[error("Cache location for model was not initialized")]
-    CacheLocationNotInitiailized,
-
     #[error("index_model or query_model [{model_name}] not supported")]
     AIModelNotSupported { model_name: String },
 

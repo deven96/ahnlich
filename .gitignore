@@ -21,4 +21,7 @@ target/
 # persistence file for test
 ahnlich.dat
 
+# profiling file from ORT
+profiling.json*
+
 **/.idea/

@@ -77,6 +77,7 @@ impl AIPipeline {
             closest_n: params.closest_n,
             algorithm: params.algorithm,
             preprocess_action: params.preprocess_action,
+            execution_provider: params.execution_provider,
         })
     }
 
@@ -114,6 +115,7 @@ impl AIPipeline {
             store: params.store,
             inputs: params.inputs,
             preprocess_action: params.preprocess_action,
+            execution_provider: params.execution_provider,
         })
     }
 
@@ -236,6 +238,7 @@ impl AIClient {
                 closest_n: params.closest_n,
                 algorithm: params.algorithm,
                 preprocess_action: params.preprocess_action,
+                execution_provider: params.execution_provider,
             },
             params.tracing_id,
         )
@@ -294,6 +297,7 @@ impl AIClient {
                 store: params.store,
                 inputs: params.inputs,
                 preprocess_action: params.preprocess_action,
+                execution_provider: params.execution_provider,
             },
             params.tracing_id,
         )
@@ -376,8 +380,10 @@ impl AIClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ahnlich_ai_proxy::cli::server::SupportedModels;
     use ahnlich_ai_proxy::cli::AIProxyConfig;
-    use ahnlich_ai_proxy::{engine::ai::models::Model, server::handler::AIProxyServer};
+    use ahnlich_ai_proxy::engine::ai::models::ModelDetails;
+    use ahnlich_ai_proxy::server::handler::AIProxyServer;
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
     use once_cell::sync::Lazy;
@@ -508,7 +514,8 @@ mod tests {
         expected.push(Err("Store Main already exists".to_string()));
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Ok(AIServerResponse::Unit));
-        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
+        let ai_model: ModelDetails =
+            SupportedModels::from(&AIModel::AllMiniLML6V2).to_model_details();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
@@ -614,7 +621,8 @@ mod tests {
         expected.push(Ok(AIServerResponse::Unit));
         expected.push(Ok(AIServerResponse::Unit));
 
-        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
+        let ai_model: ModelDetails =
+            SupportedModels::from(&AIModel::AllMiniLML6V2).to_model_details();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: StoreName("Main".to_string()),
@@ -718,7 +726,8 @@ mod tests {
         let mut expected = AIServerResult::with_capacity(6);
 
         expected.push(Ok(AIServerResponse::Unit));
-        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
+        let ai_model: ModelDetails =
+            SupportedModels::from(&AIModel::AllMiniLML6V2).to_model_details();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name.clone(),
@@ -852,7 +861,8 @@ mod tests {
         let mut expected = AIServerResult::with_capacity(7);
 
         expected.push(Ok(AIServerResponse::Unit));
-        let resnet_model: Model = (&AIModel::Resnet50).into();
+        let resnet_model: ModelDetails =
+            SupportedModels::from(&AIModel::Resnet50).to_model_details();
         expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
             AIStoreInfo {
                 name: store_name,

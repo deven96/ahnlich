@@ -65,12 +65,18 @@ impl AhnlichProtocol for ServerTask {
                         error_if_exists,
                     )
                     .map(|_| ServerResponse::Unit)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::CreatePredIndex { store, predicates } => self
                     .store_handler
                     .create_pred_index(&store, predicates.into_iter().collect())
                     .map(ServerResponse::CreateIndex)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::CreateNonLinearAlgorithmIndex {
                     store,
                     non_linear_indices,
@@ -78,7 +84,10 @@ impl AhnlichProtocol for ServerTask {
                     .store_handler
                     .create_non_linear_algorithm_index(&store, non_linear_indices)
                     .map(ServerResponse::CreateIndex)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::DropStore {
                     store,
                     error_if_not_exists,
@@ -86,7 +95,10 @@ impl AhnlichProtocol for ServerTask {
                     .store_handler
                     .drop_store(store, error_if_not_exists)
                     .map(ServerResponse::Del)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::DropPredIndex {
                     store,
                     error_if_not_exists,
@@ -99,7 +111,10 @@ impl AhnlichProtocol for ServerTask {
                         error_if_not_exists,
                     )
                     .map(ServerResponse::Del)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::DropNonLinearAlgorithmIndex {
                     store,
                     error_if_not_exists,
@@ -112,22 +127,34 @@ impl AhnlichProtocol for ServerTask {
                         error_if_not_exists,
                     )
                     .map(ServerResponse::Del)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::Set { store, inputs } => self
                     .store_handler
                     .set_in_store(&store, inputs)
                     .map(ServerResponse::Set)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::GetKey { store, keys } => self
                     .store_handler
                     .get_key_in_store(&store, keys)
                     .map(ServerResponse::Get)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::GetPred { store, condition } => self
                     .store_handler
                     .get_pred_in_store(&store, &condition)
                     .map(ServerResponse::Get)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::GetSimN {
                     store,
                     search_input,
@@ -138,17 +165,26 @@ impl AhnlichProtocol for ServerTask {
                     .store_handler
                     .get_sim_in_store(&store, search_input, closest_n, algorithm, condition)
                     .map(ServerResponse::GetSimN)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::DelKey { store, keys } => self
                     .store_handler
                     .del_key_in_store(&store, keys)
                     .map(ServerResponse::Del)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
                 DBQuery::DelPred { store, condition } => self
                     .store_handler
                     .del_pred_in_store(&store, &condition)
                     .map(ServerResponse::Del)
-                    .map_err(|e| format!("{e}")),
+                    .map_err(|e| {
+                        tracing::error!("{:?}", e);
+                        format!("{e}")
+                    }),
             })
         }
         result
