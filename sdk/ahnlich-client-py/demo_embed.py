@@ -289,6 +289,7 @@ class Image2ImageDemo:
             store_name=self.store_name,
             inputs=store_inputs,
             preprocess_action=ai_query.PreprocessAction__ModelPreprocessing(),
+            execution_provider=ai_query.ExecutionProvider__CUDA(),
         )
         return self.builder.exec()
 
@@ -343,7 +344,8 @@ def run_with_tracing():
             span_context.trace_id, span_context.span_id, span_context.trace_flags
         )
         demo = Image2ImageDemo(trace_parent_id)
-        demo.insert()
+        a = demo.insert()
+        print(a)
 
 
 if __name__ == "__main__":
