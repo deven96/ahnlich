@@ -206,7 +206,8 @@ store_value =  {"rank": query.MetadataValue__RawString(value="chunin")}
 
 response = client.set(
     store_name = "test store",
-    inputs=[(store_key, store_value)]
+    inputs=[(store_key, store_value)],
+    execution_provider=None,
 )
 ```
 
@@ -241,6 +242,7 @@ response = client.get_sim_n(
     algorithm = query.Algorithm__CosineSimilarity(),
     condition = None,
     tracing_id=None,
+    execution_provider=None,
 )
 ```
 <u>*Closest_n is a Nonzero integer value*</u>
@@ -445,7 +447,8 @@ store_inputs = [
 response = client.set(
     store_name = "test store",
     inputs=store_inputs,
-    tracing_id=None
+    tracing_id=None,
+    execution_provider=None,
 )
 ```
 
@@ -483,7 +486,8 @@ response = client.get_sim_n(
     closest_n = 3,
     algorithm = query.Algorithm__CosineSimilarity(),
     condition = None,
-    tracing_id=None
+    tracing_id=None,
+    execution_provider=None,
 )
 ```
 <u>*Closest_n is a Nonzero integer value*</u>
