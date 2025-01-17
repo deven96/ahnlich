@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use ahnlich_types::{
-    ai::{AIModel, AIQuery, PreprocessAction},
+    ai::{AIModel, AIQuery, ExecutionProvider, PreprocessAction},
     keyval::StoreName,
     metadata::MetadataKey,
 };
@@ -22,6 +22,16 @@ fn parse_to_preprocess_action(input: &str) -> Result<PreprocessAction, DslError>
     match input.to_lowercase().trim() {
         "nopreprocessing" => Ok(PreprocessAction::NoPreprocessing),
         "modelpreprocessing" => Ok(PreprocessAction::ModelPreprocessing),
+        a => Err(DslError::UnsupportedPreprocessingMode(a.to_string())),
+    }
+}
+
+fn parse_to_execution_provider(input: &str) -> Result<ExecutionProvider, DslError> {
+    match input.to_lowercase().trim() {
+        "cuda" => Ok(ExecutionProvider::CUDA),
+        "coreml" => Ok(ExecutionProvider::CoreML),
+        "directml" => Ok(ExecutionProvider::DirectML),
+        "tensorrt" => Ok(ExecutionProvider::TensorRT),
         a => Err(DslError::UnsupportedPreprocessingMode(a.to_string())),
     }
 }
@@ -87,10 +97,24 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                         .unwrap_or("nopreprocessing"),
                 )?;
 
+                let mut execution_provider = None;
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::execution_provider_optional {
+                        let mut pair = inner_pairs
+                            .next()
+                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                            .into_inner();
+                        execution_provider = Some(parse_to_execution_provider(
+                            pair.next().map(|a| a.as_str()).unwrap(),
+                        )?);
+                    }
+                };
+
                 AIQuery::Set {
                     store: StoreName(store.to_string()),
                     inputs: parse_store_inputs_to_store_value(store_keys_to_store_values)?,
                     preprocess_action,
+                    execution_provider,
                 }
             }
             Rule::ai_create_store => {
@@ -176,6 +200,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                         .as_str(),
                 )?;
                 let mut preprocess_action = PreprocessAction::NoPreprocessing;
+                let mut execution_provider = None;
                 if let Some(next_pair) = inner_pairs.peek() {
                     if next_pair.as_rule() == Rule::preprocess_optional {
                         let mut pair = inner_pairs
@@ -185,6 +210,17 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                         preprocess_action = parse_to_preprocess_action(
                             pair.next().map(|a| a.as_str()).unwrap_or("nopreprocessing"),
                         )?;
+                    }
+                };
+                if let Some(next_pair) = inner_pairs.peek() {
+                    if next_pair.as_rule() == Rule::execution_provider_optional {
+                        let mut pair = inner_pairs
+                            .next()
+                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                            .into_inner();
+                        execution_provider = Some(parse_to_execution_provider(
+                            pair.next().map(|a| a.as_str()).unwrap(),
+                        )?);
                     }
                 };
                 let store = inner_pairs
@@ -203,6 +239,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AIQuery>, DslError> {
                     algorithm,
                     condition,
                     preprocess_action,
+                    execution_provider,
                 }
             }
             Rule::get_pred => {

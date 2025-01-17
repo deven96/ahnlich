@@ -1,4 +1,4 @@
-use super::{AIModel, PreprocessAction};
+use super::{AIModel, ExecutionProvider, PreprocessAction};
 use crate::keyval::{StoreInput, StoreName, StoreValue};
 use crate::metadata::MetadataKey;
 use crate::predicate::PredicateCondition;
@@ -31,6 +31,7 @@ pub enum AIQuery {
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         preprocess_action: PreprocessAction,
+        execution_provider: Option<ExecutionProvider>,
     },
     CreatePredIndex {
         store: StoreName,
@@ -54,6 +55,7 @@ pub enum AIQuery {
         store: StoreName,
         inputs: Vec<(StoreInput, StoreValue)>,
         preprocess_action: PreprocessAction,
+        execution_provider: Option<ExecutionProvider>,
     },
     DelKey {
         store: StoreName,

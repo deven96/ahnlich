@@ -1,7 +1,7 @@
 use std::{collections::HashSet, num::NonZeroUsize};
 
 use ahnlich_types::{
-    ai::{AIModel, PreprocessAction},
+    ai::{AIModel, ExecutionProvider, PreprocessAction},
     keyval::{StoreInput, StoreName, StoreValue},
     metadata::MetadataKey,
     predicate::PredicateCondition,
@@ -65,6 +65,9 @@ pub struct GetSimNParams {
     pub tracing_id: Option<String>,
     #[builder(default = PreprocessAction::NoPreprocessing)]
     pub preprocess_action: PreprocessAction,
+
+    #[builder(default=None)]
+    pub execution_provider: Option<ExecutionProvider>,
 }
 
 #[derive(TypedBuilder)]
@@ -116,6 +119,9 @@ pub struct SetParams {
 
     #[builder(default = None)]
     pub tracing_id: Option<String>,
+
+    #[builder(default=None)]
+    pub execution_provider: Option<ExecutionProvider>,
 }
 
 #[derive(TypedBuilder)]

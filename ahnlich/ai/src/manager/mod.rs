@@ -11,7 +11,7 @@ use crate::engine::ai::providers::processors::imagearray_to_ndarray::ImageArrayT
 use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
 use crate::engine::ai::providers::ModelProviders;
 use crate::error::AIProxyError;
-use ahnlich_types::ai::{AIModel, PreprocessAction};
+use ahnlich_types::ai::{AIModel, ExecutionProvider, PreprocessAction};
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
 use moka::future::Cache;
@@ -33,6 +33,7 @@ struct ModelThreadRequest {
     response: oneshot::Sender<ModelThreadResponse>,
     preprocess_action: PreprocessAction,
     action_type: InputAction,
+    execution_provider: Option<ExecutionProvider>,
     trace_span: tracing::Span,
 }
 
@@ -42,12 +43,14 @@ struct ModelThread {
 }
 
 impl ModelThread {
-    fn new(
+    async fn new(
         supported_model: SupportedModels,
         cache_location: &Path,
         request_receiver: mpsc::Receiver<ModelThreadRequest>,
     ) -> Result<Self, AIProxyError> {
-        let model = supported_model.to_concrete_model(cache_location.to_path_buf())?;
+        let model = supported_model
+            .to_concrete_model(cache_location.to_path_buf())
+            .await?;
         Ok(Self {
             request_receiver: Mutex::new(request_receiver),
             model,
@@ -59,15 +62,19 @@ impl ModelThread {
     }
 
     #[tracing::instrument(skip(self, inputs))]
-    fn input_to_response(
+    async fn input_to_response(
         &self,
         inputs: Vec<StoreInput>,
         process_action: PreprocessAction,
         action_type: InputAction,
+        execution_provider: Option<ExecutionProvider>,
     ) -> ModelThreadResponse {
         let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let processed_inputs = self.preprocess_store_input(process_action, inputs)?;
-        let mut store_key = self.model.model_ndarray(processed_inputs, &action_type)?;
+        let mut store_key = self
+            .model
+            .model_ndarray(processed_inputs, &action_type, execution_provider)
+            .await?;
         response.append(&mut store_key);
         Ok(response)
     }
@@ -203,13 +210,16 @@ impl Task for ModelThread {
                 response,
                 preprocess_action,
                 action_type,
+                execution_provider,
                 trace_span,
             } = model_request;
             let child_span = tracing::info_span!("model-thread-run", model = self.task_name());
             child_span.set_parent(trace_span.context());
 
             let child_guard = child_span.enter();
-            let responses = self.input_to_response(inputs, preprocess_action, action_type);
+            let responses = self
+                .input_to_response(inputs, preprocess_action, action_type, execution_provider)
+                .await;
             if let Err(e) = response.send(responses) {
                 log::error!("{} could not send response to channel {e:?}", self.name());
             }
@@ -262,7 +272,7 @@ impl ModelManager {
         let (request_sender, request_receiver) = mpsc::channel(10000);
         // There may be other things needed to load a model thread
         let model_thread =
-            ModelThread::new(*model, &self.config.model_cache_location, request_receiver)?;
+            ModelThread::new(*model, &self.config.model_cache_location, request_receiver).await?;
         let _ = &self.task_manager.spawn_task_loop(model_thread).await;
         Ok(request_sender)
     }
@@ -274,6 +284,7 @@ impl ModelManager {
         inputs: Vec<StoreInput>,
         preprocess_action: PreprocessAction,
         action_type: InputAction,
+        execution_provider: Option<ExecutionProvider>,
     ) -> Result<Vec<StoreKey>, AIProxyError> {
         let supported = model.into();
 
@@ -292,6 +303,7 @@ impl ModelManager {
             response: response_tx,
             preprocess_action,
             action_type,
+            execution_provider,
             trace_span: tracing::Span::current(),
         };
         // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
@@ -356,7 +368,7 @@ mod tests {
         let inputs = vec![StoreInput::RawString(String::from("Hello"))];
         let action = PreprocessAction::ModelPreprocessing;
         let _ = model_manager
-            .handle_request(&sample_ai_model, inputs, action, InputAction::Query)
+            .handle_request(&sample_ai_model, inputs, action, InputAction::Query, None)
             .await
             .unwrap();
         let recreated_model = model_manager.models.get(&sample_supported_model).await;

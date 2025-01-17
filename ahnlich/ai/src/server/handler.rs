@@ -126,10 +126,11 @@ impl AIProxyServer {
         let task_manager = Arc::new(TaskManager::new());
         let mut models: Vec<Model> = Vec::with_capacity(config.supported_models.len());
         for supported_model in &config.supported_models {
-            let model =
-                supported_model.to_concrete_model(config.model_cache_location.to_path_buf())?;
+            let model = supported_model
+                .to_concrete_model(config.model_cache_location.to_path_buf())
+                .await?;
             // TODO (HAKSOAT): Handle if download fails or verification check fails
-            model.get()?;
+            model.get().await?;
             models.push(model);
         }
 

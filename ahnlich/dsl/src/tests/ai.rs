@@ -1,6 +1,6 @@
 use crate::error::DslError;
 use ahnlich_types::{
-    ai::{AIModel, AIQuery, PreprocessAction},
+    ai::{AIModel, AIQuery, ExecutionProvider, PreprocessAction},
     keyval::{StoreInput, StoreName},
     metadata::MetadataKey,
 };
@@ -209,9 +209,10 @@ fn test_get_sim_n_parse() {
             algorithm: Algorithm::CosineSimilarity,
             condition: None,
             preprocess_action: PreprocessAction::ModelPreprocessing,
+            execution_provider: None,
         }]
     );
-    let input = r#"GETSIMN 8 with [testing the limits of life] using euclideandistance in other where ((year != 2012) AND (month not in (december, october)))"#;
+    let input = r#"GETSIMN 8 with [testing the limits of life] using euclideandistance executionprovider tensorrt in other where ((year != 2012) AND (month not in (december, october)))"#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AIQuery::GetSimN {
@@ -233,6 +234,7 @@ fn test_get_sim_n_parse() {
                 }))
             ),
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: Some(ExecutionProvider::TensorRT)
         }]
     );
 }
@@ -379,6 +381,44 @@ fn test_set_in_store_parse() {
                 )
             ],
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: None,
+        }]
+    );
+    let input = r#"SET (([This is the life of Haks paragraphed], {name: Haks, category: dev}), ([This is the life of Deven paragraphed], {name: Deven, category: dev})) in geo preprocessaction nopreprocessing executionprovider cuda"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AIQuery::Set {
+            store: StoreName("geo".to_string()),
+            inputs: vec![
+                (
+                    StoreInput::RawString("This is the life of Haks paragraphed".to_string()),
+                    HashMap::from_iter([
+                        (
+                            MetadataKey::new("name".to_string()),
+                            MetadataValue::RawString("Haks".to_string())
+                        ),
+                        (
+                            MetadataKey::new("category".to_string()),
+                            MetadataValue::RawString("dev".to_string())
+                        ),
+                    ])
+                ),
+                (
+                    StoreInput::RawString("This is the life of Deven paragraphed".to_string()),
+                    HashMap::from_iter([
+                        (
+                            MetadataKey::new("name".to_string()),
+                            MetadataValue::RawString("Deven".to_string())
+                        ),
+                        (
+                            MetadataKey::new("category".to_string()),
+                            MetadataValue::RawString("dev".to_string())
+                        ),
+                    ])
+                )
+            ],
+            preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: Some(ExecutionProvider::CUDA),
         }]
     );
 }

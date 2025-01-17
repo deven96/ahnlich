@@ -1,4 +1,4 @@
-use ahnlich_types::ai::{AIModel, AIStoreInputType, PreprocessAction};
+use ahnlich_types::ai::{AIModel, AIStoreInputType, ExecutionProvider, PreprocessAction};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
@@ -67,6 +67,7 @@ pub fn trace_ai_query_enum() -> Registry {
         closest_n: NonZeroUsize::new(4).unwrap(),
         algorithm: Algorithm::CosineSimilarity,
         preprocess_action: PreprocessAction::ModelPreprocessing,
+        execution_provider: Some(ExecutionProvider::TensorRT),
     };
 
     let create_index = AIQuery::CreatePredIndex {
@@ -84,6 +85,7 @@ pub fn trace_ai_query_enum() -> Registry {
         store: sample_store_name.clone(),
         preprocess_action: PreprocessAction::NoPreprocessing,
         inputs: vec![(test_search_input_bin.clone(), store_value)],
+        execution_provider: Some(ExecutionProvider::CUDA),
     };
 
     let del_key = AIQuery::DelKey {
@@ -135,6 +137,9 @@ pub fn trace_ai_query_enum() -> Registry {
         .trace_value(&mut samples, &server_query_with_trace_id)
         .expect("Error tracing the server_query_with_trace_id");
 
+    tracer
+        .trace_simple_type::<ExecutionProvider>()
+        .expect("Error tracing ExecutionProvider");
     tracer
         .trace_simple_type::<Predicate>()
         .expect("Error tracing Predicate");

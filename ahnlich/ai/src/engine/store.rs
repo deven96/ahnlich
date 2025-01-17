@@ -3,7 +3,9 @@ use crate::engine::ai::models::InputAction;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use ahnlich_types::ai::{AIModel, AIStoreInfo, AIStoreInputType, PreprocessAction};
+use ahnlich_types::ai::{
+    AIModel, AIStoreInfo, AIStoreInputType, ExecutionProvider, PreprocessAction,
+};
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
@@ -238,6 +240,7 @@ impl AIStoreHandler {
         inputs: Vec<(StoreInput, StoreValue)>,
         model_manager: &ModelManager,
         preprocess_action: PreprocessAction,
+        execution_provider: Option<ExecutionProvider>,
     ) -> Result<StoreSetResponse, AIProxyError> {
         let store = self.get(store_name)?;
         if inputs.is_empty() {
@@ -253,6 +256,7 @@ impl AIStoreHandler {
                 store_inputs,
                 preprocess_action,
                 InputAction::Index,
+                execution_provider,
             )
             .await?;
 
@@ -285,6 +289,7 @@ impl AIStoreHandler {
         store_input: StoreInput,
         model_manager: &ModelManager,
         preprocess_action: PreprocessAction,
+        execution_provider: Option<ExecutionProvider>,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
         let mut store_keys = model_manager
@@ -293,6 +298,7 @@ impl AIStoreHandler {
                 vec![store_input],
                 preprocess_action,
                 InputAction::Query,
+                execution_provider,
             )
             .await?;
 

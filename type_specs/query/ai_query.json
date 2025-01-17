@@ -107,6 +107,13 @@
               "preprocess_action": {
                 "TYPENAME": "PreprocessAction"
               }
+            },
+            {
+              "execution_provider": {
+                "OPTION": {
+                  "TYPENAME": "ExecutionProvider"
+                }
+              }
             }
           ]
         }
@@ -205,6 +212,13 @@
             {
               "preprocess_action": {
                 "TYPENAME": "PreprocessAction"
+              }
+            },
+            {
+              "execution_provider": {
+                "OPTION": {
+                  "TYPENAME": "ExecutionProvider"
+                }
               }
             }
           ]
@@ -308,6 +322,22 @@
       },
       "3": {
         "KDTree": "UNIT"
+      }
+    }
+  },
+  "ExecutionProvider": {
+    "ENUM": {
+      "0": {
+        "TensorRT": "UNIT"
+      },
+      "1": {
+        "CUDA": "UNIT"
+      },
+      "2": {
+        "DirectML": "UNIT"
+      },
+      "3": {
+        "CoreML": "UNIT"
       }
     }
   },

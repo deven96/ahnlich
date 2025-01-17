@@ -191,6 +191,7 @@ async fn test_ai_store_get_key_works() {
             store: store_name.clone(),
             inputs: vec![store_data.clone()],
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: None,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -281,6 +282,7 @@ async fn test_ai_store_no_original() {
             store: store_name.clone(),
             inputs: store_data.clone(),
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: None,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -355,6 +357,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
             store: store_name.clone(),
             inputs: store_data.clone(),
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: None,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -435,6 +438,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
             store: store_name.clone(),
             inputs: store_data.clone(),
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: None,
         },
     ]);
     let mut reader = BufReader::new(first_stream);
@@ -448,6 +452,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         closest_n: NonZeroUsize::new(1).unwrap(),
         algorithm: Algorithm::DotProductSimilarity,
         preprocess_action: PreprocessAction::ModelPreprocessing,
+        execution_provider: None,
     }]);
 
     let mut expected = AIServerResult::with_capacity(1);
@@ -503,6 +508,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
             store: store_name.clone(),
             inputs: store_data.clone(),
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: None,
         },
         AIQuery::GetPred {
             store: store_name.clone(),
@@ -574,6 +580,7 @@ async fn test_ai_proxy_del_key_drop_store() {
             store: store_name.clone(),
             inputs: store_data.clone(),
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: None,
         },
         AIQuery::DelKey {
             store: store_name.clone(),
@@ -865,12 +872,14 @@ async fn test_ai_proxy_binary_store_actions() {
             store: store_name.clone(),
             inputs: store_data,
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: None,
         },
         // all dimensions match 224x224 so no error
         AIQuery::Set {
             store: store_name.clone(),
             inputs: oversize_data,
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: None,
         },
         // expect an error as the dimensions do not match 224x224
         AIQuery::DropPredIndex {
@@ -963,6 +972,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
             store: store_name.clone(),
             inputs: store_data,
             preprocess_action: PreprocessAction::NoPreprocessing,
+            execution_provider: None,
         },
         AIQuery::PurgeStores,
     ]);

@@ -1,4 +1,4 @@
-use crate::engine::ai::providers::ort_helper::{read_file_to_bytes, HFConfigReader};
+use crate::engine::ai::providers::ort::helper::{read_file_to_bytes, HFConfigReader};
 use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
 use crate::error::AIProxyError;
 use hf_hub::api::sync::ApiRepo;

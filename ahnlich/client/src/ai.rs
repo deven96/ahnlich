@@ -77,6 +77,7 @@ impl AIPipeline {
             closest_n: params.closest_n,
             algorithm: params.algorithm,
             preprocess_action: params.preprocess_action,
+            execution_provider: params.execution_provider,
         })
     }
 
@@ -114,6 +115,7 @@ impl AIPipeline {
             store: params.store,
             inputs: params.inputs,
             preprocess_action: params.preprocess_action,
+            execution_provider: params.execution_provider,
         })
     }
 
@@ -236,6 +238,7 @@ impl AIClient {
                 closest_n: params.closest_n,
                 algorithm: params.algorithm,
                 preprocess_action: params.preprocess_action,
+                execution_provider: params.execution_provider,
             },
             params.tracing_id,
         )
@@ -294,6 +297,7 @@ impl AIClient {
                 store: params.store,
                 inputs: params.inputs,
                 preprocess_action: params.preprocess_action,
+                execution_provider: params.execution_provider,
             },
             params.tracing_id,
         )

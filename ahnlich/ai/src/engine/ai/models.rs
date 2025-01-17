@@ -3,6 +3,7 @@ use crate::engine::ai::providers::ort::ORTProvider;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
+use ahnlich_types::ai::ExecutionProvider;
 use ahnlich_types::{ai::AIStoreInputType, keyval::StoreKey};
 use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader};
 use ndarray::{Array, Ix3};
@@ -116,15 +117,14 @@ impl SupportedModels {
         }
     }
 
-    pub fn to_concrete_model(&self, cache_location: PathBuf) -> Result<Model, AIProxyError> {
+    pub async fn to_concrete_model(&self, cache_location: PathBuf) -> Result<Model, AIProxyError> {
         let model_details = self.to_model_details();
         // can only be created with a cache location, this ties together the model public
         // facing details as well as the provider
         // if there are multiple providers, feel free to match here and override
-        let provider = ModelProviders::ORT(ORTProvider::from_model_and_cache_location(
-            self,
-            cache_location,
-        )?);
+        let provider = ModelProviders::ORT(
+            ORTProvider::from_model_and_cache_location(self, cache_location).await?,
+        );
         Ok(Model {
             model_details,
             provider,
@@ -175,13 +175,18 @@ impl Model {
     }
 
     #[tracing::instrument(skip(self, modelinput))]
-    pub fn model_ndarray(
+    pub async fn model_ndarray(
         &self,
         modelinput: ModelInput,
         action_type: &InputAction,
+        execution_provider: Option<ExecutionProvider>,
     ) -> Result<Vec<StoreKey>, AIProxyError> {
         let store_keys = match &self.provider {
-            ModelProviders::ORT(provider) => provider.run_inference(modelinput, action_type)?,
+            ModelProviders::ORT(provider) => {
+                provider
+                    .run_inference(modelinput, action_type, execution_provider)
+                    .await?
+            }
         };
         Ok(store_keys)
     }
@@ -201,10 +206,10 @@ impl Model {
         self.model_details.model_name()
     }
 
-    pub fn get(&self) -> Result<(), AIProxyError> {
+    pub async fn get(&self) -> Result<(), AIProxyError> {
         match &self.provider {
             ModelProviders::ORT(provider) => {
-                provider.get_model()?;
+                provider.get_model().await?;
             }
         }
         Ok(())

@@ -1,6 +1,6 @@
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::ImageArray;
-use crate::engine::ai::providers::ort_helper::HFConfigReader;
+use crate::engine::ai::providers::ort::helper::HFConfigReader;
 use crate::engine::ai::providers::processors::center_crop::CenterCrop;
 use crate::engine::ai::providers::processors::imagearray_to_ndarray::ImageArrayToNdArray;
 use crate::engine::ai::providers::processors::normalize::ImageNormalize;

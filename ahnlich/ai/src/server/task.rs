@@ -107,12 +107,19 @@ impl AhnlichProtocol for AIProxyTask {
                     store,
                     inputs,
                     preprocess_action,
+                    execution_provider,
                 } => {
                     let model_manager = &self.model_manager;
 
                     match self
                         .store_handler
-                        .set(&store, inputs, model_manager, preprocess_action)
+                        .set(
+                            &store,
+                            inputs,
+                            model_manager,
+                            preprocess_action,
+                            execution_provider,
+                        )
                         .await
                     {
                         Ok((db_inputs, delete_hashset)) => {
@@ -345,6 +352,7 @@ impl AhnlichProtocol for AIProxyTask {
                     closest_n,
                     algorithm,
                     preprocess_action,
+                    execution_provider,
                 } => {
                     let repr = self
                         .store_handler
@@ -353,6 +361,7 @@ impl AhnlichProtocol for AIProxyTask {
                             search_input,
                             &self.model_manager,
                             preprocess_action,
+                            execution_provider,
                         )
                         .await;
                     match repr {

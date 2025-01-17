@@ -56,17 +56,18 @@ ai_del_key = { whitespace* ~ ^"delkey" ~ whitespace* ~ "(" ~ store_inputs ~ ")" 
 get_pred = { whitespace* ~ ^"getpred" ~ whitespace* ~ predicate_condition ~ in_ignored ~ store_name }
 // GETSIMN 2 WITH store-key USING algorithm IN store (WHERE predicate_condition)
 get_sim_n = { whitespace* ~ ^"getsimn" ~ whitespace* ~ non_zero ~ whitespace* ~ ^"with" ~ whitespace* ~ f32_array ~ whitespace* ~ ^"using" ~ whitespace* ~ algorithm ~ whitespace* ~ in_ignored ~ whitespace* ~ store_name ~ whitespace* ~ (^"where" ~ whitespace* ~ predicate_condition)? }
-ai_get_sim_n = { whitespace* ~ ^"getsimn" ~ whitespace* ~ non_zero ~ whitespace* ~ ^"with" ~ whitespace* ~ "[" ~ whitespace* ~ metadata_value ~ whitespace* ~ "]" ~ whitespace* ~ ^"using" ~ whitespace* ~ algorithm ~ whitespace* ~ (preprocess_optional)? ~ whitespace* ~ in_ignored ~ whitespace* ~ store_name ~ whitespace* ~ (^"where" ~ whitespace* ~ predicate_condition)? }
+ai_get_sim_n = { whitespace* ~ ^"getsimn" ~ whitespace* ~ non_zero ~ whitespace* ~ ^"with" ~ whitespace* ~ "[" ~ whitespace* ~ metadata_value ~ whitespace* ~ "]" ~ whitespace* ~ ^"using" ~ whitespace* ~ algorithm ~ whitespace* ~ (preprocess_optional)? ~ whitespace* ~ (execution_provider_optional)? ~ whitespace* ~ in_ignored ~ whitespace* ~ store_name ~ whitespace* ~ (^"where" ~ whitespace* ~ predicate_condition)? }
 // CREATESTORE IF NOT EXISTS store-name DIMENSION non-zero-size PREDICATES (key1, key2) NONLINEARALGORITHMINDEX (kdtree) 
 create_store = { whitespace* ~ ^"createstore" ~ whitespace* ~ (if_not_exists)? ~ whitespace* ~ store_name ~ whitespace* ~ ^"dimension" ~ whitespace* ~ non_zero ~ whitespace* ~ (^"predicates" ~ whitespace* ~ "(" ~ whitespace* ~ metadata_keys ~ whitespace* ~ ")" )? ~ (whitespace* ~ ^"nonlinearalgorithmindex" ~ whitespace* ~ "(" ~ whitespace* ~ non_linear_algorithms ~ whitespace* ~ ")")? }
 // CREATESTORE IF NOT EXISTS store-name QUERYMODEL model INDEXMODEL model PREDICATES (key1, key2) NONLINEARALGORITHMINDEX (kdtree) 
 ai_create_store = { whitespace* ~ ^"createstore" ~ whitespace* ~ (if_not_exists)? ~ whitespace* ~ store_name ~ whitespace* ~ ^"querymodel" ~ whitespace* ~ ai_model ~ whitespace* ~ ^"indexmodel" ~ whitespace* ~ ai_model ~ whitespace* ~ (^"predicates" ~ whitespace* ~ "(" ~ whitespace* ~ metadata_keys ~ whitespace* ~ ")" )? ~ (whitespace* ~ ^"nonlinearalgorithmindex" ~ whitespace* ~ "(" ~ whitespace* ~ non_linear_algorithms ~ whitespace* ~ ")")? ~ (store_original)?}
 set_in_store = { whitespace* ~ ^"set" ~ whitespace* ~ store_keys_to_store_value ~ whitespace* ~ ^"in" ~ whitespace* ~ store_name }
-ai_set_in_store = { whitespace* ~ ^"set" ~ whitespace* ~ store_inputs_to_store_value ~ whitespace* ~ ^"in" ~ whitespace* ~ store_name ~ whitespace* ~ ^"preprocessaction" ~ whitespace* ~ preprocess_action }
+ai_set_in_store = { whitespace* ~ ^"set" ~ whitespace* ~ store_inputs_to_store_value ~ whitespace* ~ ^"in" ~ whitespace* ~ store_name ~ whitespace* ~ ^"preprocessaction" ~ whitespace* ~ preprocess_action ~ whitespace* ~ (execution_provider_optional)?}
 
 if_exists = { whitespace* ~ ^"if" ~ whitespace* ~ ^"exists" ~ whitespace* }
 if_not_exists = { whitespace* ~ ^"if" ~ whitespace* ~ ^"not" ~ whitespace* ~ ^"exists" ~ whitespace* }
 preprocess_optional = { whitespace* ~ ^"preprocessaction" ~ whitespace* ~ preprocess_action}
+execution_provider_optional = { whitespace* ~ ^"executionprovider" ~ whitespace ~ execution_provider}
 store_original = { whitespace* ~ ^"storeoriginal" ~ whitespace* }
 
 // stores and predicates can be alphanumeric
@@ -86,6 +87,12 @@ algorithm = {
     ^"euclideandistance" |
     ^"cosinesimilarity" |
     "dotproductsimilarity"
+}
+execution_provider = { 
+    ^"coreml" |
+    ^"tensorrt" |
+    ^"directml" |
+    "cuda"
 }
 non_linear_algorithms = { non_linear_algorithm ~ (whitespace* ~ "," ~ whitespace* ~ non_linear_algorithm)* }
 index_names = { index_name ~ (whitespace* ~ "," ~ whitespace* ~ index_name)* }
