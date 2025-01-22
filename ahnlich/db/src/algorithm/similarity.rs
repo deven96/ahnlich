@@ -1,5 +1,6 @@
 use super::LinearAlgorithm;
 use ahnlich_types::keyval::StoreKey;
+use pulp::{Arch, Simd, WithSimd};
 use std::ops::Deref;
 
 type SimFuncSig = fn(&StoreKey, &StoreKey) -> f32;
@@ -23,6 +24,50 @@ impl From<&LinearAlgorithm> for SimilarityFunc {
 
             LinearAlgorithm::DotProductSimilarity => SimilarityFunc(dot_product),
         }
+    }
+}
+
+struct Magnitude<'a> {
+    first: &'a [f32],
+    second: &'a [f32],
+}
+
+impl<'a> WithSimd for Magnitude<'a> {
+    type Output = f32;
+
+    #[inline(always)]
+    fn with_simd<S: Simd>(self, simd: S) -> Self::Output {
+        let (first_head, _first_tail) = S::as_simd_f32s(self.first);
+        let (second_head, _second_tail) = S::as_simd_f32s(self.second);
+
+        let mut mag_first = simd.splat_f32s(0.0);
+        let mut mag_second = simd.splat_f32s(0.0);
+
+        // Process the SIMD-aligned portion
+        for (&chunk_first, &chunk_second) in first_head.iter().zip(second_head) {
+            mag_first = simd.mul_add_f32s(chunk_first, chunk_first, mag_first);
+            mag_second = simd.mul_add_f32s(chunk_second, chunk_second, mag_second);
+        }
+
+        // Reduce the SIMD results (no sqrt yet)
+        let mag_first = simd.reduce_sum_f32s(mag_first);
+        let mag_second = simd.reduce_sum_f32s(mag_second);
+
+        // Process the remaining scalar portion, adding to mag_first and mag_second
+        let mut scalar_mag_first = 0.0;
+        let mut scalar_mag_second = 0.0;
+
+        for (&x, &y) in self.first.iter().zip(self.second).skip(first_head.len()) {
+            scalar_mag_first += x * x;
+            scalar_mag_second += y * y;
+        }
+        let mag_first = mag_first + scalar_mag_first;
+        let mag_second = mag_second + scalar_mag_second;
+
+        println!("Simd Magniture of Values First {mag_first}, Second {mag_second}");
+
+        // Apply sqrt to the total sum of squares
+        mag_first.sqrt() * mag_second.sqrt()
     }
 }
 
@@ -76,11 +121,13 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
     let dot_product = dot_product(first, second);
 
     // the magnitude can be calculated using the arr.norm method.
-    let mag_first = &first.0.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let mag_first = &first.0.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
 
-    let mag_second = &second.0.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let mag_second = &second.0.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
 
-    dot_product / (mag_first * mag_second)
+    println!("Scalar Maginiture: First {mag_first}, Second: {mag_second}");
+
+    dot_product / (mag_first.sqrt() * mag_second.sqrt())
 }
 
 ///
@@ -95,6 +142,24 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
 fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
     let dot_product = second.0.dot(&first.0.t());
     dot_product
+}
+
+fn cosine_similarity_simd(first: &StoreKey, second: &StoreKey) -> f32 {
+    assert_eq!(
+        first.0.len(),
+        second.0.len(),
+        "Vectors must have the same length!"
+    );
+
+    let dot_product = dot_product(first, second);
+
+    let arch = Arch::new();
+    let magniture = arch.dispatch(Magnitude {
+        first: first.0.as_slice().unwrap(),
+        second: second.0.as_slice().unwrap(),
+    });
+
+    dot_product / magniture
 }
 
 ///  
@@ -133,6 +198,18 @@ fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f32 {
 mod tests {
     use super::*;
     use crate::tests::*;
+    use ndarray::array;
+
+    #[test]
+    fn test_verify_simd_cosine_sim() {
+        let array_one = StoreKey(array![1.0, 1.1, 1.2, 1.3]);
+        let array_two = StoreKey(array![2.0, 3.1, 1.2, 1.3]);
+
+        let scalar_cos_sim = cosine_similarity(&array_one, &array_two);
+        let simd_cos_sim = cosine_similarity_simd(&array_one, &array_two);
+
+        assert_eq!(scalar_cos_sim, simd_cos_sim);
+    }
 
     #[test]
     fn test_find_top_3_similar_words_using_cosine_similarity() {
