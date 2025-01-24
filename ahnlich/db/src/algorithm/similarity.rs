@@ -162,8 +162,57 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
 ///  two points, denotes higher similarity
 ///
 
+struct EuclideanDistance<'a> {
+    first: &'a [f32],
+    second: &'a [f32],
+}
+
+impl<'a> WithSimd for EuclideanDistance<'a> {
+    type Output = f32;
+
+    #[inline(always)]
+
+    fn with_simd<S: Simd>(self, simd: S) -> Self::Output {
+        let (first_head, first_tail) = S::as_simd_f32s(self.first);
+        let (second_head, second_tail) = S::as_simd_f32s(self.second);
+
+        let mut sum_of_squares = simd.splat_f32s(0.0);
+
+        for (&cord_first, &cord_second) in first_head.iter().zip(second_head) {
+            let diff = simd.sub_f32s(cord_first, cord_second);
+            sum_of_squares = simd.mul_add_f32s(diff, diff, sum_of_squares);
+        }
+
+        let mut total = simd.reduce_sum_f32s(sum_of_squares);
+
+        for (&x, &y) in first_tail.iter().zip(second_tail) {
+            let diff = x - y;
+            total += diff * diff;
+        }
+
+        total.sqrt()
+    }
+}
+
 #[tracing::instrument(skip_all)]
 fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f32 {
+    // Calculate the sum of squared differences for each dimension
+    assert_eq!(
+        first.0.len(),
+        second.0.len(),
+        "Vectors must have the same length!"
+    );
+
+    let arch = Arch::new();
+
+    arch.dispatch(EuclideanDistance {
+        first: first.0.as_slice().unwrap(),
+        second: second.0.as_slice().unwrap(),
+    })
+}
+
+#[tracing::instrument(skip_all)]
+fn euclidean_distance_comp(first: &StoreKey, second: &StoreKey) -> f32 {
     // Calculate the sum of squared differences for each dimension
     let mut sum_of_squared_differences = 0.0;
     for (&coord1, &coord2) in first.0.iter().zip(second.0.iter()) {
@@ -251,8 +300,11 @@ mod tests {
             }
         });
 
-        println!("Without SIMD duration {}", without_simd_duration.as_secs());
-        println!("With SIMD duration {}", with_simd_duration.as_secs());
+        println!(
+            "Without SIMD duration {}",
+            without_simd_duration.as_millis()
+        );
+        println!("With SIMD duration {}", with_simd_duration.as_millis());
         assert!(with_simd_duration < without_simd_duration)
     }
 
@@ -265,6 +317,50 @@ mod tests {
         let simd_cos_sim = cosine_similarity(&array_one, &array_two);
 
         assert_eq!(scalar_cos_sim, simd_cos_sim);
+    }
+
+    #[test]
+    fn test_verify_euclidean_distance_simd() {
+        let array_one = StoreKey(array![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
+        let array_two = StoreKey(array![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
+
+        let scalar_euclid = euclidean_distance_comp(&array_one, &array_two);
+        let simd_euclid = euclidean_distance(&array_one, &array_two);
+
+        assert_eq!(scalar_euclid, simd_euclid);
+    }
+
+    #[test]
+    fn test_euclidean_simd_vs_scalar_euclidean_100k_entries_of_1k_size_embeddings() {
+        // pick high dimensionality of 1024 to hopefully show difference between SIMD and non-SIMD
+        // variants of implementation
+        let dimension = 1024;
+        // simulate against 100k store inputs
+        let size = 100_000;
+        // a single array of comparison
+        let comp_array: StoreKey = generate_test_array(1, dimension)
+            .pop()
+            .expect("Could not get comp array");
+        let store_values: Vec<StoreKey> = generate_test_array(size, dimension);
+
+        let without_simd_duration = time_execution(|| {
+            for val in &store_values {
+                euclidean_distance_comp(&comp_array, val);
+            }
+        });
+
+        let with_simd_duration = time_execution(|| {
+            for val in &store_values {
+                euclidean_distance(&comp_array, val);
+            }
+        });
+
+        println!(
+            "Without SIMD duration {}",
+            without_simd_duration.as_millis()
+        );
+        println!("With SIMD duration {}", with_simd_duration.as_millis());
+        assert!(with_simd_duration < without_simd_duration)
     }
 
     #[test]
