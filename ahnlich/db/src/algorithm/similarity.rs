@@ -37,8 +37,8 @@ impl<'a> WithSimd for Magnitude<'a> {
 
     #[inline(always)]
     fn with_simd<S: Simd>(self, simd: S) -> Self::Output {
-        let (first_head, _first_tail) = S::as_simd_f32s(self.first);
-        let (second_head, _second_tail) = S::as_simd_f32s(self.second);
+        let (first_head, first_tail) = S::as_simd_f32s(self.first);
+        let (second_head, second_tail) = S::as_simd_f32s(self.second);
 
         let mut mag_first = simd.splat_f32s(0.0);
         let mut mag_second = simd.splat_f32s(0.0);
@@ -57,14 +57,12 @@ impl<'a> WithSimd for Magnitude<'a> {
         let mut scalar_mag_first = 0.0;
         let mut scalar_mag_second = 0.0;
 
-        for (&x, &y) in self.first.iter().zip(self.second).skip(first_head.len()) {
+        for (&x, &y) in first_tail.iter().zip(second_tail) {
             scalar_mag_first += x * x;
             scalar_mag_second += y * y;
         }
         let mag_first = mag_first + scalar_mag_first;
         let mag_second = mag_second + scalar_mag_second;
-
-        println!("Simd Magniture of Values First {mag_first}, Second {mag_second}");
 
         // Apply sqrt to the total sum of squares
         mag_first.sqrt() * mag_second.sqrt()
@@ -111,24 +109,6 @@ impl<'a> WithSimd for Magnitude<'a> {
 ///
 
 #[tracing::instrument(skip_all)]
-fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
-    // formular = dot product of vectors / product of the magnitude of the vectors
-    // maginiture of a vector can be calcuated using pythagoras theorem.
-    // sqrt of sum of vector values
-    //
-    //
-
-    let dot_product = dot_product(first, second);
-
-    // the magnitude can be calculated using the arr.norm method.
-    let mag_first = &first.0.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
-
-    let mag_second = &second.0.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
-
-    println!("Scalar Maginiture: First {mag_first}, Second: {mag_second}");
-
-    dot_product / (mag_first.sqrt() * mag_second.sqrt())
-}
 
 ///
 /// ## DOT PRODUCT
@@ -144,7 +124,8 @@ fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
     dot_product
 }
 
-fn cosine_similarity_simd(first: &StoreKey, second: &StoreKey) -> f32 {
+#[tracing::instrument(skip_all)]
+fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
     assert_eq!(
         first.0.len(),
         second.0.len(),
@@ -196,17 +177,92 @@ fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{Duration, Instant};
+
     use super::*;
     use crate::tests::*;
-    use ndarray::array;
+    use ndarray::{array, Array};
+
+    use rayon::{iter::ParallelIterator, slice::ParallelSlice};
+
+    // simple cosine similarity for correctness comparison against simd variant
+    fn cosine_similarity_comp(first: &StoreKey, second: &StoreKey) -> f32 {
+        // formular = dot product of vectors / product of the magnitude of the vectors
+        // maginiture of a vector can be calcuated using pythagoras theorem.
+        // sqrt of sum of vector values
+        //
+        //
+
+        let dot_product = dot_product(first, second);
+
+        // the magnitude can be calculated using the arr.norm method.
+        let mag_first = &first.0.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
+
+        let mag_second = &second.0.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
+
+        dot_product / (mag_first.sqrt() * mag_second.sqrt())
+    }
+
+    fn time_execution<F>(mut func: F) -> Duration
+    where
+        F: FnMut(),
+    {
+        let start = Instant::now();
+        func();
+        start.elapsed()
+    }
+
+    // NOTE: Test runs a bit slow due to the number gen here
+    // Tried using fast number generation plus fixed buffers and parallel iteration but
+    // the test alone still clocks ~7-8 seconds locally
+    fn generate_test_array(size: usize, dimension: usize) -> Vec<StoreKey> {
+        let mut buffer: Vec<f32> = Vec::with_capacity(size * dimension);
+        buffer.extend((0..size * dimension).map(|_| fastrand::f32()));
+
+        // Use Rayon to process the buffer in parallel
+        buffer
+            .par_chunks_exact(dimension)
+            .map(|chunk| StoreKey(Array::from(chunk.to_owned())))
+            .collect()
+    }
+
+    #[test]
+    fn test_cosine_simd_vs_cosine_100k_entries_of_1k_size_embeddings() {
+        // pick high dimensionality of 1024 to hopefully show difference between SIMD and non-SIMD
+        // variants of implementation
+        let dimension = 1024;
+        // simulate against 100k store inputs
+        let size = 100_000;
+        // a single array of comparison
+        let comp_array: StoreKey = generate_test_array(1, dimension)
+            .pop()
+            .expect("Could not get comp array");
+        let store_values: Vec<StoreKey> = generate_test_array(size, dimension);
+
+        let without_simd_duration = time_execution(|| {
+            for val in &store_values {
+                cosine_similarity_comp(&comp_array, val);
+            }
+        });
+
+        let with_simd_duration = time_execution(|| {
+            for val in &store_values {
+                cosine_similarity(&comp_array, val);
+            }
+        });
+
+        println!("Without SIMD duration {}", without_simd_duration.as_secs());
+        println!("With SIMD duration {}", with_simd_duration.as_secs());
+        assert!(with_simd_duration < without_simd_duration)
+    }
 
     #[test]
     fn test_verify_simd_cosine_sim() {
-        let array_one = StoreKey(array![1.0, 1.1, 1.2, 1.3]);
-        let array_two = StoreKey(array![2.0, 3.1, 1.2, 1.3]);
+        let array_one = StoreKey(array![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
+        let array_two = StoreKey(array![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
 
-        let scalar_cos_sim = cosine_similarity(&array_one, &array_two);
-        let simd_cos_sim = cosine_similarity_simd(&array_one, &array_two);
+        let scalar_cos_sim = cosine_similarity_comp(&array_one, &array_two);
+        let simd_cos_sim = cosine_similarity(&array_one, &array_two);
 
         assert_eq!(scalar_cos_sim, simd_cos_sim);
     }

@@ -46,6 +46,7 @@ once_cell.workspace = true
 pretty_assertions.workspace = true
 criterion = "0.4"
 rand.workspace = true
+fastrand = "1.9"
 
 [[bench]]
 name = "database"
