@@ -4,7 +4,6 @@ use ahnlich_types::{
     keyval::{StoreKey, StoreName},
     metadata::MetadataKey,
 };
-use ndarray::Array1;
 use pretty_assertions::assert_eq;
 use std::{
     collections::{HashMap, HashSet},
@@ -224,7 +223,7 @@ fn test_get_sim_n_parse() {
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::GetSimN {
             store: StoreName("random".to_string()),
-            search_input: StoreKey(Array1::from_iter([34.1, 72.2])),
+            search_input: StoreKey(vec![34.1, 72.2]),
             closest_n: NonZeroUsize::new(5).unwrap(),
             algorithm: Algorithm::CosineSimilarity,
             condition: None
@@ -235,7 +234,7 @@ fn test_get_sim_n_parse() {
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::GetSimN {
             store: StoreName("other".to_string()),
-            search_input: StoreKey(Array1::from_iter([3.7, 9.6])),
+            search_input: StoreKey(vec![3.7, 9.6]),
             closest_n: NonZeroUsize::new(8).unwrap(),
             algorithm: Algorithm::EuclideanDistance,
             condition: Some(
@@ -294,10 +293,7 @@ fn test_get_key_parse() {
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::GetKey {
             store: StoreName("1234".to_string()),
-            keys: vec![
-                StoreKey(Array1::from_iter([1.0, 2.0, 3.0])),
-                StoreKey(Array1::from_iter([3.0, 4.0])),
-            ],
+            keys: vec![StoreKey(vec![1.0, 2.0, 3.0]), StoreKey(vec![3.0, 4.0]),],
         }]
     );
 }
@@ -316,7 +312,7 @@ fn test_set_in_store_parse() {
             store: StoreName("geo".to_string()),
             inputs: vec![
                 (
-                    StoreKey(Array1::from_iter([1.0, 2.0, 3.0])),
+                    StoreKey(vec![1.0, 2.0, 3.0]),
                     HashMap::from_iter([
                         (
                             MetadataKey::new("state".to_string()),
@@ -329,7 +325,7 @@ fn test_set_in_store_parse() {
                     ])
                 ),
                 (
-                    StoreKey(Array1::from_iter([3.2, 4.5, 9.4])),
+                    StoreKey(vec![3.2, 4.5, 9.4]),
                     HashMap::from_iter([(
                         MetadataKey::new("country".to_string()),
                         MetadataValue::RawString("USA".to_string())
@@ -352,10 +348,7 @@ fn test_del_key_parse() {
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::DelKey {
             store: StoreName("1234".to_string()),
-            keys: vec![
-                StoreKey(Array1::from_iter([1.0, 2.0, 3.0])),
-                StoreKey(Array1::from_iter([3.0, 4.0])),
-            ],
+            keys: vec![StoreKey(vec![1.0, 2.0, 3.0]), StoreKey(vec![3.0, 4.0]),],
         }]
     );
 }

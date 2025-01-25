@@ -14,7 +14,6 @@ description = "Types for using ahnlich_client_rs AI proxy and in-memory vector D
 
 [dependencies]
 image.workspace = true
-ndarray.workspace = true
 serde.workspace = true
 bincode.workspace = true
 once_cell.workspace = true

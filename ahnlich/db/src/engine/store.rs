@@ -693,13 +693,11 @@ mod tests {
     use ahnlich_types::metadata::MetadataKey;
     use ahnlich_types::metadata::MetadataValue;
     use ahnlich_types::predicate::Predicate;
-    use ndarray::array;
-    use ndarray::Array1;
     use std::collections::HashMap as StdHashMap;
 
     #[test]
     fn test_compute_store_key_id_empty_vector() {
-        let array: Array1<f32> = Array1::zeros(0);
+        let array: Vec<f32> = vec![];
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
@@ -709,7 +707,7 @@ mod tests {
 
     #[test]
     fn test_compute_store_key_id_single_element_array() {
-        let array = array![1.23];
+        let array = vec![1.23];
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
@@ -719,7 +717,7 @@ mod tests {
 
     #[test]
     fn test_compute_store_key_id_multiple_elements_array() {
-        let array = array![1.22, 2.11, 3.22, 3.11];
+        let array = vec![1.22, 2.11, 3.22, 3.11];
         let store_key: StoreKeyId = (&StoreKey(array)).into();
         assert_eq!(
             store_key,
@@ -825,7 +823,7 @@ mod tests {
                 .set_in_store(
                     &even_store,
                     vec![(
-                        StoreKey(array![0.33, 0.44, 0.5]),
+                        StoreKey(vec![0.33, 0.44, 0.5]),
                         StdHashMap::from_iter(vec![(
                             MetadataKey::new("author".into()),
                             MetadataValue::RawString("Vincent".into()),
@@ -844,7 +842,7 @@ mod tests {
     fn test_create_and_set_in_store_passes() {
         let (handler, _oks, _errs) = create_store_handler(vec![]);
         let odd_store = StoreName("Odd".into());
-        let input_arr = array![0.1, 0.2, 0.3];
+        let input_arr = vec![0.1, 0.2, 0.3];
         let ret = handler
             .set_in_store(
                 &odd_store,
@@ -890,9 +888,9 @@ mod tests {
         let handler =
             create_store_handler_no_loom(vec![MetadataKey::new("author".into())], None, None);
         let even_store = StoreName("Even".into());
-        let input_arr_1 = array![0.1, 0.2, 0.3, 0.0, 0.0];
-        let input_arr_2 = array![0.2, 0.3, 0.4, 0.0, 0.0];
-        let input_arr_3 = array![0.3, 0.4, 0.4, 0.0, 0.0];
+        let input_arr_1 = vec![0.1, 0.2, 0.3, 0.0, 0.0];
+        let input_arr_2 = vec![0.2, 0.3, 0.4, 0.0, 0.0];
+        let input_arr_3 = vec![0.3, 0.4, 0.4, 0.0, 0.0];
         handler
             .set_in_store(
                 &even_store,
@@ -987,8 +985,8 @@ mod tests {
         let (handler, _oks, _errs) = create_store_handler(vec![]);
         let odd_store = StoreName("Odd".into());
         let fake_store = StoreName("Fakest".into());
-        let input_arr_1 = array![0.1, 0.2, 0.3];
-        let input_arr_2 = array![0.2, 0.3, 0.4];
+        let input_arr_1 = vec![0.1, 0.2, 0.3];
+        let input_arr_2 = vec![0.2, 0.3, 0.4];
         handler
             .set_in_store(
                 &odd_store,
@@ -1047,8 +1045,8 @@ mod tests {
         let handler =
             create_store_handler_no_loom(vec![MetadataKey::new("rank".into())], None, None);
         let even_store = StoreName("Even".into());
-        let input_arr_1 = array![0.1, 0.2, 0.3, 0.4, 0.5];
-        let input_arr_2 = array![0.2, 0.3, 0.4, 0.5, 0.6];
+        let input_arr_1 = vec![0.1, 0.2, 0.3, 0.4, 0.5];
+        let input_arr_2 = vec![0.2, 0.3, 0.4, 0.5, 0.6];
         handler
             .set_in_store(
                 &even_store,
@@ -1099,8 +1097,8 @@ mod tests {
             create_store_handler_no_loom(vec![MetadataKey::new("rank".into())], None, None);
         let odd_store = StoreName("Odd".into());
         let even_store = StoreName("Even".into());
-        let input_arr_1 = array![0.1, 0.2, 0.3];
-        let input_arr_2 = array![0.2, 0.3, 0.4];
+        let input_arr_1 = vec![0.1, 0.2, 0.3];
+        let input_arr_2 = vec![0.2, 0.3, 0.4];
         handler
             .set_in_store(
                 &odd_store,
@@ -1132,7 +1130,7 @@ mod tests {
                 StoreInfo {
                     name: odd_store,
                     len: 2,
-                    size_in_bytes: 2144,
+                    size_in_bytes: 2096,
                 },
                 StoreInfo {
                     name: even_store,

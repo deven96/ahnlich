@@ -120,8 +120,8 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
 
     let arch = Arch::new();
     let magnitude = arch.dispatch(Magnitude {
-        first: first.0.as_slice().expect("Failed to create slice"),
-        second: second.0.as_slice().expect("Failed to create slice"),
+        first: first.0.as_slice(),
+        second: second.0.as_slice(),
     });
 
     dot_product / magnitude
@@ -166,11 +166,6 @@ impl<'a> WithSimd for DotProduct<'a> {
 }
 
 #[tracing::instrument(skip_all)]
-fn dot_product_comp(first: &StoreKey, second: &StoreKey) -> f32 {
-    second.0.dot(&first.0)
-}
-
-#[tracing::instrument(skip_all)]
 fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
     assert_eq!(
         first.0.len(),
@@ -180,8 +175,8 @@ fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
 
     let arch = Arch::new();
     arch.dispatch(DotProduct {
-        first: first.0.as_slice().expect("Failed to create slice"),
-        second: second.0.as_slice().expect("Failed to create slice"),
+        first: first.0.as_slice(),
+        second: second.0.as_slice(),
     })
 }
 
@@ -253,22 +248,9 @@ fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f32 {
     let arch = Arch::new();
 
     arch.dispatch(EuclideanDistance {
-        first: first.0.as_slice().expect("Failed to create slice"),
-        second: second.0.as_slice().expect("Failed to create slice"),
+        first: first.0.as_slice(),
+        second: second.0.as_slice(),
     })
-}
-
-#[tracing::instrument(skip_all)]
-fn euclidean_distance_comp(first: &StoreKey, second: &StoreKey) -> f32 {
-    // Calculate the sum of squared differences for each dimension
-    let mut sum_of_squared_differences = 0.0;
-    for (&coord1, &coord2) in first.0.iter().zip(second.0.iter()) {
-        let diff = coord1 - coord2;
-        sum_of_squared_differences += diff * diff;
-    }
-
-    // Calculate the square root of the sum of squared differences
-    f32::sqrt(sum_of_squared_differences)
 }
 
 #[cfg(test)]
@@ -277,9 +259,29 @@ mod tests {
 
     use super::*;
     use crate::tests::*;
-    use ndarray::{array, Array};
 
     use rayon::{iter::ParallelIterator, slice::ParallelSlice};
+
+    fn euclidean_distance_comp(first: &StoreKey, second: &StoreKey) -> f32 {
+        // Calculate the sum of squared differences for each dimension
+        let mut sum_of_squared_differences = 0.0;
+        for (&coord1, &coord2) in first.0.iter().zip(second.0.iter()) {
+            let diff = coord1 - coord2;
+            sum_of_squared_differences += diff * diff;
+        }
+
+        // Calculate the square root of the sum of squared differences
+        f32::sqrt(sum_of_squared_differences)
+    }
+
+    fn dot_product_comp(first: &StoreKey, second: &StoreKey) -> f32 {
+        first
+            .0
+            .iter()
+            .zip(&second.0)
+            .map(|(&x, &y)| x * y)
+            .sum::<f32>()
+    }
 
     // simple cosine similarity for correctness comparison against simd variant
     fn cosine_similarity_comp(first: &StoreKey, second: &StoreKey) -> f32 {
@@ -318,7 +320,7 @@ mod tests {
         // Use Rayon to process the buffer in parallel
         buffer
             .par_chunks_exact(dimension)
-            .map(|chunk| StoreKey(Array::from(chunk.to_owned())))
+            .map(|chunk| StoreKey(chunk.to_owned()))
             .collect()
     }
 
@@ -357,8 +359,8 @@ mod tests {
 
     #[test]
     fn test_verify_dot_product_simd() {
-        let array_one = StoreKey(array![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
-        let array_two = StoreKey(array![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
+        let array_one = StoreKey(vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
+        let array_two = StoreKey(vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
 
         let scalar_dot_product = dot_product_comp(&array_one, &array_two);
         let simd_dot_product = dot_product(&array_one, &array_two);
@@ -401,8 +403,8 @@ mod tests {
 
     #[test]
     fn test_verify_simd_cosine_sim() {
-        let array_one = StoreKey(array![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
-        let array_two = StoreKey(array![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
+        let array_one = StoreKey(vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
+        let array_two = StoreKey(vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
 
         let scalar_cos_sim = cosine_similarity_comp(&array_one, &array_two);
         let simd_cos_sim = cosine_similarity(&array_one, &array_two);
@@ -412,8 +414,8 @@ mod tests {
 
     #[test]
     fn test_verify_euclidean_distance_simd() {
-        let array_one = StoreKey(array![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
-        let array_two = StoreKey(array![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
+        let array_one = StoreKey(vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
+        let array_two = StoreKey(vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
 
         let scalar_euclid = euclidean_distance_comp(&array_one, &array_two);
         let simd_euclid = euclidean_distance(&array_one, &array_two);

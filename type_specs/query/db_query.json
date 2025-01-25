@@ -15,25 +15,6 @@
       }
     }
   },
-  "Array": {
-    "STRUCT": [
-      {
-        "v": "U8"
-      },
-      {
-        "dim": {
-          "TUPLE": [
-            "U64"
-          ]
-        }
-      },
-      {
-        "data": {
-          "SEQ": "F32"
-        }
-      }
-    ]
-  },
   "MetadataValue": {
     "ENUM": {
       "0": {
@@ -194,7 +175,7 @@
             {
               "keys": {
                 "SEQ": {
-                  "TYPENAME": "Array"
+                  "SEQ": "F32"
                 }
               }
             }
@@ -223,7 +204,7 @@
             },
             {
               "search_input": {
-                "TYPENAME": "Array"
+                "SEQ": "F32"
               }
             },
             {
@@ -321,7 +302,7 @@
                 "SEQ": {
                   "TUPLE": [
                     {
-                      "TYPENAME": "Array"
+                      "SEQ": "F32"
                     },
                     {
                       "MAP": {
@@ -347,7 +328,7 @@
             {
               "keys": {
                 "SEQ": {
-                  "TYPENAME": "Array"
+                  "SEQ": "F32"
                 }
               }
             }

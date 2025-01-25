@@ -439,7 +439,6 @@ mod tests {
     use super::*;
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
-    use ndarray::array;
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
@@ -585,7 +584,7 @@ mod tests {
         assert!(db_client.create_store(create_store_params).await.is_ok());
         let del_key_params = db_params::DelKeyParams::builder()
             .store("Main".to_string())
-            .keys(vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])])
+            .keys(vec![StoreKey(vec![1.0, 1.1, 1.2, 1.3])])
             .build();
         assert_eq!(
             db_client.del_key(del_key_params).await.unwrap(),
@@ -594,8 +593,8 @@ mod tests {
         let set_key_params = db_params::SetParams::builder()
             .store("Main".to_string())
             .inputs(vec![
-                (StoreKey(array![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
-                (StoreKey(array![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
+                (StoreKey(vec![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
+                (StoreKey(vec![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
             ])
             .build();
         assert!(db_client.set(set_key_params).await.is_ok());
@@ -604,20 +603,20 @@ mod tests {
             ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
                 name: StoreName("Main".to_string()),
                 len: 2,
-                size_in_bytes: 2160,
+                size_in_bytes: 2016,
             },]))
         );
         // error as different dimensions
 
         let del_key_params = db_params::DelKeyParams::builder()
             .store("Main".to_string())
-            .keys(vec![StoreKey(array![1.0, 1.2])])
+            .keys(vec![StoreKey(vec![1.0, 1.2])])
             .build();
         assert!(db_client.del_key(del_key_params).await.is_err());
 
         let del_key_params = db_params::DelKeyParams::builder()
             .store("Main".to_string())
-            .keys(vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])])
+            .keys(vec![StoreKey(vec![1.0, 1.1, 1.2, 1.3])])
             .build();
 
         assert_eq!(
@@ -629,7 +628,7 @@ mod tests {
             ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
                 name: StoreName("Main".to_string()),
                 len: 1,
-                size_in_bytes: 1976,
+                size_in_bytes: 1904,
             },]))
         );
     }
@@ -661,21 +660,21 @@ mod tests {
             .store("Main".to_string())
             .inputs(vec![
                 (
-                    StoreKey(array![1.2, 1.3, 1.4]),
+                    StoreKey(vec![1.2, 1.3, 1.4]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("silver".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![2.0, 2.1, 2.2]),
+                    StoreKey(vec![2.0, 2.1, 2.2]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("gold".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![5.0, 5.1, 5.2]),
+                    StoreKey(vec![5.0, 5.1, 5.2]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("bronze".into()),
@@ -687,7 +686,7 @@ mod tests {
         // error due to dimension mismatch
         let get_sim_n_params = db_params::GetSimNParams::builder()
             .store("Main".to_string())
-            .search_input(StoreKey(array![1.1, 2.0]))
+            .search_input(StoreKey(vec![1.1, 2.0]))
             .closest_n(2)
             .algorithm(Algorithm::EuclideanDistance)
             .build();
@@ -695,7 +694,7 @@ mod tests {
 
         let get_sim_n_params = db_params::GetSimNParams::builder()
             .store("Main".to_string())
-            .search_input(StoreKey(array![5.0, 2.1, 2.2]))
+            .search_input(StoreKey(vec![5.0, 2.1, 2.2]))
             .closest_n(2)
             .algorithm(Algorithm::CosineSimilarity)
             .condition(Some(PredicateCondition::Value(Predicate::Equals {
@@ -707,7 +706,7 @@ mod tests {
         assert_eq!(
             db_client.get_sim_n(get_sim_n_params).await.unwrap(),
             ServerResponse::GetSimN(vec![(
-                StoreKey(array![2.0, 2.1, 2.2]),
+                StoreKey(vec![2.0, 2.1, 2.2]),
                 HashMap::from_iter([(
                     MetadataKey::new("medal".into()),
                     MetadataValue::RawString("gold".into()),

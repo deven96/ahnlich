@@ -31,7 +31,7 @@ class AhnlichDBClient(BaseClient):
     def get_key(
         self,
         store_name: str,
-        keys: typing.Sequence[db_query.Array],
+        keys: typing.Sequence[typing.Sequence[st.float32]],
         tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)
@@ -51,7 +51,7 @@ class AhnlichDBClient(BaseClient):
     def get_sim_n(
         self,
         store_name: str,
-        search_input: db_query.Array,
+        search_input: typing.Sequence[st.float32],
         closest_n: st.uint64,
         algorithm: db_query.Algorithm,
         condition: db_query.PredicateCondition = None,
@@ -123,7 +123,9 @@ class AhnlichDBClient(BaseClient):
         self,
         store_name: str,
         inputs: typing.Sequence[
-            typing.Tuple[db_query.Array, typing.Dict[str, db_query.MetadataValue]]
+            typing.Tuple[
+                typing.Sequence[st.float32], typing.Dict[str, db_query.MetadataValue]
+            ]
         ],
         tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
@@ -134,7 +136,7 @@ class AhnlichDBClient(BaseClient):
     def delete_key(
         self,
         store_name: str,
-        keys: typing.Sequence[db_query.Array],
+        keys: typing.Sequence[typing.Sequence[st.float32]],
         tracing_id: typing.Optional[str] = None,
     ) -> db_response.ServerResult:
         builder = AhnlichDBRequestBuilder(tracing_id)

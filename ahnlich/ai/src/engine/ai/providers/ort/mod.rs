@@ -27,7 +27,7 @@ use crate::engine::ai::providers::processors::preprocessor::{
     ORTImagePreprocessor, ORTPreprocessor, ORTTextPreprocessor,
 };
 use ahnlich_types::keyval::StoreKey;
-use ndarray::{Array, Array1, Axis, Ix2, Ix4};
+use ndarray::{Array, Axis, Ix2, Ix4};
 use std::convert::TryFrom;
 use std::default::Default;
 use std::path::{Path, PathBuf};
@@ -482,7 +482,7 @@ impl ProviderTrait for ORTProvider {
                     let new_store_keys: Vec<StoreKey> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()
-                        .map(|embedding| StoreKey(<Array1<f32>>::from(embedding.to_owned())))
+                        .map(|embedding| StoreKey(embedding.to_vec()))
                         .collect();
                     store_keys.extend(new_store_keys);
                 }
@@ -502,7 +502,7 @@ impl ProviderTrait for ORTProvider {
                     let new_store_keys: Vec<StoreKey> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()
-                        .map(|embedding| StoreKey(<Array1<f32>>::from(embedding.to_owned())))
+                        .map(|embedding| StoreKey(embedding.to_vec()))
                         .collect();
                     store_keys.extend(new_store_keys);
                 }

@@ -14,7 +14,7 @@ use std::collections::HashSet;
 use std::num::NonZeroUsize;
 
 pub fn trace_db_query_enum() -> Registry {
-    let input_arr_1 = ndarray::array![0.1, 0.2, 0.3, 0.4, 0.5];
+    let input_arr_1 = vec![0.1, 0.2, 0.3, 0.4, 0.5];
     let store_key = StoreKey(input_arr_1.clone());
 
     let mut tracer = Tracer::new(TracerConfig::default());

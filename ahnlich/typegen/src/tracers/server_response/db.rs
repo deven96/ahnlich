@@ -51,7 +51,7 @@ pub fn trace_db_server_response_enum() -> Registry {
     });
 
     // Get variant
-    let input_arr_1 = ndarray::array![0.1, 0.2, 0.3, 0.4, 0.5];
+    let input_arr_1 = vec![0.1, 0.2, 0.3, 0.4, 0.5];
     let store_key = StoreKey(input_arr_1.clone());
 
     //StoreValue = StdHashMap<MetadataKey, MetadataValue>

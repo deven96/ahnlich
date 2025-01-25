@@ -8,6 +8,5 @@ serde.workspace = true
 serde-reflection = "0.3.6"
 serde-generate = "0.25.1"
 serde_json.workspace = true
-ndarray.workspace = true
 ahnlich_types = { path = "../types", version = "*" }
 clap.workspace = true

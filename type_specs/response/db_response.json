@@ -1,23 +1,4 @@
 {
-  "Array": {
-    "STRUCT": [
-      {
-        "v": "U8"
-      },
-      {
-        "dim": {
-          "TUPLE": [
-            "U64"
-          ]
-        }
-      },
-      {
-        "data": {
-          "SEQ": "F32"
-        }
-      }
-    ]
-  },
   "ConnectedClient": {
     "STRUCT": [
       {
@@ -131,7 +112,7 @@
             "SEQ": {
               "TUPLE": [
                 {
-                  "TYPENAME": "Array"
+                  "SEQ": "F32"
                 },
                 {
                   "MAP": {
@@ -152,7 +133,7 @@
             "SEQ": {
               "TUPLE": [
                 {
-                  "TYPENAME": "Array"
+                  "SEQ": "F32"
                 },
                 {
                   "MAP": {

@@ -1,11 +1,10 @@
 use super::super::errors::ServerError;
 use super::FindSimilarN;
 use ahnlich_similarity::kdtree::KDTree;
-use ahnlich_similarity::utils::Array1F32Ordered;
+use ahnlich_similarity::utils::VecF32Ordered;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::similarity::NonLinearAlgorithm;
 use flurry::HashMap as ConcurrentHashMap;
-use ndarray::Array1;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -28,7 +27,7 @@ impl NonLinearAlgorithmWithIndex {
     }
 
     #[tracing::instrument(skip_all)]
-    fn insert(&self, new: &[Array1<f32>]) {
+    fn insert(&self, new: &[Vec<f32>]) {
         match self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
                 kdtree
@@ -39,7 +38,7 @@ impl NonLinearAlgorithmWithIndex {
     }
 
     #[tracing::instrument(skip_all)]
-    fn delete(&self, new: &[Array1<f32>]) {
+    fn delete(&self, new: &[Vec<f32>]) {
         match self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
                 kdtree
@@ -71,7 +70,7 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
         } else {
             Some(
                 search_list
-                    .map(|key| Array1F32Ordered(key.0.clone()))
+                    .map(|key| VecF32Ordered(key.0.clone()))
                     .collect(),
             )
         };
@@ -121,7 +120,7 @@ impl NonLinearAlgorithmIndices {
     pub fn insert_indices(
         &self,
         indices: HashSet<NonLinearAlgorithm>,
-        values: &[Array1<f32>],
+        values: &[Vec<f32>],
         dimension: NonZeroUsize,
     ) {
         let pinned = self.algorithm_to_index.pin();
@@ -156,7 +155,7 @@ impl NonLinearAlgorithmIndices {
 
     /// insert new entries into the non linear algorithm indices
     #[tracing::instrument(skip_all)]
-    pub(crate) fn insert(&self, new: Vec<Array1<f32>>) {
+    pub(crate) fn insert(&self, new: Vec<Vec<f32>>) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {
             algo.insert(&new);
@@ -165,7 +164,7 @@ impl NonLinearAlgorithmIndices {
 
     /// delete old entries from the non linear algorithm indices
     #[tracing::instrument(skip_all)]
-    pub(crate) fn delete(&self, old: &[Array1<f32>]) {
+    pub(crate) fn delete(&self, old: &[Vec<f32>]) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {
             algo.delete(old);

@@ -1,9 +1,8 @@
 /// K Dimensional Tree algorithm is a binary search tree that extends to multiple dimensions,
 /// making it an efficient datastructure for applying nearest neighbour searches and range searches
 use crate::error::Error;
-use crate::utils::Array1F32Ordered;
+use crate::utils::VecF32Ordered;
 use crossbeam::epoch::{self, Atomic, Guard, Owned, Shared};
-use ndarray::Array1;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering as CmpOrdering;
@@ -16,7 +15,7 @@ use std::sync::atomic::Ordering;
 
 #[derive(Debug)]
 pub struct KDNode {
-    point: Array1<f32>,
+    point: Vec<f32>,
     left: Atomic<KDNode>,
     right: Atomic<KDNode>,
 }
@@ -107,13 +106,13 @@ impl From<TempKDNode> for KDNode {
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 struct TempKDNode {
-    point: Array1<f32>,
+    point: Vec<f32>,
     left: Option<Box<TempKDNode>>,
     right: Option<Box<TempKDNode>>,
 }
 
 impl KDNode {
-    pub fn new(point: Array1<f32>) -> Self {
+    pub fn new(point: Vec<f32>) -> Self {
         Self {
             point,
             left: Atomic::null(),
@@ -124,7 +123,7 @@ impl KDNode {
 
 // Internal structure to sort array by second field which is similarity score
 #[derive(Debug)]
-struct OrderedArray(Array1<f32>, f32);
+struct OrderedArray(Vec<f32>, f32);
 
 impl PartialEq for OrderedArray {
     fn eq(&self, other: &Self) -> bool {
@@ -220,12 +219,12 @@ impl<'de> Deserialize<'de> for KDTree {
 
 struct NearestRecuriveArgs<'a> {
     node: &'a Atomic<KDNode>,
-    reference_point: &'a Array1<f32>,
+    reference_point: &'a Vec<f32>,
     depth: usize,
     n: NonZeroUsize,
     guard: &'a Guard,
     heap: &'a mut BinaryHeap<Reverse<OrderedArray>>,
-    accept_list: &'a Option<HashSet<Array1F32Ordered>>,
+    accept_list: &'a Option<HashSet<VecF32Ordered>>,
 }
 
 impl KDTree {
@@ -263,19 +262,19 @@ impl KDTree {
     }
 
     #[tracing::instrument(skip_all)]
-    fn assert_shape(&self, input: &Array1<f32>) -> Result<(), Error> {
+    fn assert_shape(&self, input: &[f32]) -> Result<(), Error> {
         let dim = self.dimension.get();
-        if [dim] != input.shape() {
+        if dim != input.len() {
             return Err(Error::DimensionMisMatch {
                 expected: dim,
-                found: input.shape()[0],
+                found: input.len(),
             });
         }
         Ok(())
     }
 
     #[tracing::instrument(skip_all)]
-    pub fn insert_multi(&self, points: Vec<Array1<f32>>) -> Result<(), Error> {
+    pub fn insert_multi(&self, points: Vec<Vec<f32>>) -> Result<(), Error> {
         if points.is_empty() {
             return Ok(());
         }
@@ -290,7 +289,7 @@ impl KDTree {
     /// point. This asserts that the one-dimensional array being passed in here conforms to the
     /// shape specified by dimension else a dimension mismatch error is returned
     #[tracing::instrument(skip_all)]
-    pub fn insert(&self, point: Array1<f32>) -> Result<(), Error> {
+    pub fn insert(&self, point: Vec<f32>) -> Result<(), Error> {
         self.assert_shape(&point)?;
         let guard = epoch::pin();
         self.insert_recursive(&self.root, point, 0, &guard);
@@ -301,7 +300,7 @@ impl KDTree {
     fn insert_recursive(
         &self,
         node: &Atomic<KDNode>,
-        point: Array1<f32>,
+        point: Vec<f32>,
         depth: usize,
         guard: &Guard,
     ) {
@@ -359,7 +358,7 @@ impl KDTree {
 
     /// delete multiple entries from the KDTree
     #[tracing::instrument(skip_all)]
-    pub fn delete_multi(&self, delete_multi: &[Array1<f32>]) -> Result<usize, Error> {
+    pub fn delete_multi(&self, delete_multi: &[Vec<f32>]) -> Result<usize, Error> {
         if delete_multi.is_empty() {
             return Ok(0);
         }
@@ -373,7 +372,7 @@ impl KDTree {
 
     /// Delete an entry matching delete_point from KD tree
     #[tracing::instrument(skip_all)]
-    pub fn delete(&self, delete_point: &Array1<f32>) -> Result<Option<Array1<f32>>, Error> {
+    pub fn delete(&self, delete_point: &Vec<f32>) -> Result<Option<Vec<f32>>, Error> {
         self.assert_shape(delete_point)?;
         let guard = epoch::pin();
         Ok(self.delete_recursive(&self.root, delete_point, 0, &guard))
@@ -383,10 +382,10 @@ impl KDTree {
     fn delete_recursive(
         &self,
         node: &Atomic<KDNode>,
-        delete_point: &Array1<f32>,
+        delete_point: &Vec<f32>,
         depth: usize,
         guard: &Guard,
-    ) -> Option<Array1<f32>> {
+    ) -> Option<Vec<f32>> {
         let dim = depth % self.depth.get();
 
         match node.load(Ordering::Acquire, guard) {
@@ -394,7 +393,7 @@ impl KDTree {
             shared => {
                 let current = unsafe { shared.deref() };
                 // found node to delete
-                if current.point == delete_point {
+                if current.point == *delete_point {
                     if current.right.load(Ordering::Acquire, guard).is_null() {
                         // Replace current with left node
                         let left_child = current.left.swap(Shared::null(), Ordering::AcqRel, guard);
@@ -475,10 +474,10 @@ impl KDTree {
     #[tracing::instrument(skip_all)]
     pub fn n_nearest(
         &self,
-        reference_point: &Array1<f32>,
+        reference_point: &Vec<f32>,
         n: NonZeroUsize,
-        accept_list: Option<HashSet<Array1F32Ordered>>,
-    ) -> Result<Vec<(Array1<f32>, f32)>, Error> {
+        accept_list: Option<HashSet<VecF32Ordered>>,
+    ) -> Result<Vec<(Vec<f32>, f32)>, Error> {
         self.assert_shape(reference_point)?;
         let guard = epoch::pin();
         let mut heap = BinaryHeap::new();
@@ -505,12 +504,9 @@ impl KDTree {
     }
 
     #[tracing::instrument(skip_all)]
-    fn is_in_accept_list(
-        accept_list: &Option<HashSet<Array1F32Ordered>>,
-        point: &Array1<f32>,
-    ) -> bool {
+    fn is_in_accept_list(accept_list: &Option<HashSet<VecF32Ordered>>, point: &[f32]) -> bool {
         if let Some(accept_list) = accept_list {
-            let point = Array1F32Ordered(point.clone());
+            let point = VecF32Ordered(point.to_owned());
             return accept_list.contains(&point);
         }
         true
@@ -597,7 +593,7 @@ impl KDTree {
     }
 
     #[tracing::instrument(skip_all)]
-    fn squared_distance(&self, a: &Array1<f32>, b: &Array1<f32>) -> f32 {
+    fn squared_distance(&self, a: &[f32], b: &[f32]) -> f32 {
         a.iter()
             .zip(b.iter())
             .map(|(ai, bi)| (ai - bi).powi(2))
@@ -608,8 +604,6 @@ impl KDTree {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::array;
-    use ndarray::Array;
     use pretty_assertions::assert_eq;
     use std::sync::Arc;
 
@@ -627,8 +621,7 @@ mod tests {
             let tree = kdtree.clone();
             let dimension = dimension.clone();
             std::thread::spawn(move || {
-                let random =
-                    Array::from((0..dimension).map(|_| rand::random()).collect::<Vec<f32>>());
+                let random = (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>();
                 tree.insert(random)
             })
         });
@@ -637,12 +630,12 @@ mod tests {
             let _ = handler.join().unwrap();
         }
 
-        let res = kdtree.n_nearest(&array![1.0, 2.0], NonZeroUsize::new(5).unwrap(), None);
+        let res = kdtree.n_nearest(&vec![1.0, 2.0], NonZeroUsize::new(5).unwrap(), None);
         // should error as dimension does not match
         assert!(res.is_err());
         let res = kdtree
             .n_nearest(
-                &array![1.0, 2.0, 3.0, 4.0, 5.0],
+                &vec![1.0, 2.0, 3.0, 4.0, 5.0],
                 NonZeroUsize::new(5).unwrap(),
                 None,
             )
@@ -656,32 +649,32 @@ mod tests {
         let dimension = NonZeroUsize::new(3).unwrap();
         let closest_n = NonZeroUsize::new(1).unwrap();
         let kdtree = Arc::new(KDTree::new(dimension, dimension).unwrap());
-        kdtree.insert(array![1.0, 2.0, 3.0]).unwrap();
-        kdtree.insert(array![1.1, 2.2, 3.3]).unwrap();
-        kdtree.insert(array![1.2, 2.3, 3.1]).unwrap();
-        kdtree.insert(array![1.3, 2.1, 3.2]).unwrap();
+        kdtree.insert(vec![1.0, 2.0, 3.0]).unwrap();
+        kdtree.insert(vec![1.1, 2.2, 3.3]).unwrap();
+        kdtree.insert(vec![1.2, 2.3, 3.1]).unwrap();
+        kdtree.insert(vec![1.3, 2.1, 3.2]).unwrap();
         // should not insert twice
-        kdtree.insert(array![1.3, 2.1, 3.2]).unwrap();
+        kdtree.insert(vec![1.3, 2.1, 3.2]).unwrap();
 
         // Exact matches
         let res = kdtree
-            .n_nearest(&array![1.0, 2.0, 3.0], closest_n, None)
+            .n_nearest(&vec![1.0, 2.0, 3.0], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(array![1.0, 2.0, 3.0], 0.0)]);
+        assert_eq!(res, vec![(vec![1.0, 2.0, 3.0], 0.0)]);
         let res = kdtree
-            .n_nearest(&array![1.3, 2.1, 3.2], closest_n, None)
+            .n_nearest(&vec![1.3, 2.1, 3.2], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(array![1.3, 2.1, 3.2], 0.0)]);
+        assert_eq!(res, vec![(vec![1.3, 2.1, 3.2], 0.0)]);
 
         // Close matches
         let res = kdtree
-            .n_nearest(&array![1.3, 2.1, 3.0], closest_n, None)
+            .n_nearest(&vec![1.3, 2.1, 3.0], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(array![1.3, 2.1, 3.2], 0.040000018)]);
+        assert_eq!(res, vec![(vec![1.3, 2.1, 3.2], 0.040000018)]);
 
         // check insertion length remained 4 despite 4 inserts
         let res = kdtree
-            .n_nearest(&array![1.3, 2.1, 3.2], NonZeroUsize::new(5).unwrap(), None)
+            .n_nearest(&vec![1.3, 2.1, 3.2], NonZeroUsize::new(5).unwrap(), None)
             .unwrap();
         assert_eq!(res.len(), 4);
     }
@@ -693,17 +686,17 @@ mod tests {
     //        let dimension = NonZeroUsize::new(3).unwrap();
     //        let closest_n = NonZeroUsize::new(2).unwrap();
     //        let kdtree = Arc::new(KDTree::new(dimension));
-    //        kdtree.insert(array![1.0, 2.0, 3.0]).unwrap();
-    //        kdtree.insert(array![1.1, 2.0, 3.0]).unwrap();
-    //        kdtree.insert(array![0.6, 2.0, 3.0]).unwrap();
+    //        kdtree.insert(vec![1.0, 2.0, 3.0]).unwrap();
+    //        kdtree.insert(vec![1.1, 2.0, 3.0]).unwrap();
+    //        kdtree.insert(vec![0.6, 2.0, 3.0]).unwrap();
     //        let res = kdtree
-    //            .n_nearest(&array![0.9, 2.0, 3.0], closest_n)
+    //            .n_nearest(&vec![0.9, 2.0, 3.0], closest_n)
     //            .unwrap();
     //        assert_eq!(
     //            res,
     //            vec![
-    //                (array![1.0, 2.0, 3.0], 0.0),
-    //                (array![1.1, 2.0, 3.0], 0.010000004),
+    //                (vec![1.0, 2.0, 3.0], 0.0),
+    //                (vec![1.1, 2.0, 3.0], 0.010000004),
     //            ]
     //        );
     //    }
@@ -713,10 +706,10 @@ mod tests {
         let dimension = NonZeroUsize::new(3).unwrap();
         let closest_n = NonZeroUsize::new(4).unwrap();
         let kdtree = Arc::new(KDTree::new(dimension, dimension).unwrap());
-        let arr_1 = array![1.0, 2.0, 3.0];
-        let arr_2 = array![0.9, 2.0, 3.0];
-        let arr_3 = array![1.1, 2.0, 3.0];
-        let arr_4 = array![0.95, 2.0, 3.2];
+        let arr_1 = vec![1.0, 2.0, 3.0];
+        let arr_2 = vec![0.9, 2.0, 3.0];
+        let arr_3 = vec![1.1, 2.0, 3.0];
+        let arr_4 = vec![0.95, 2.0, 3.2];
         kdtree.insert(arr_1.clone()).unwrap();
         kdtree.insert(arr_2.clone()).unwrap();
         kdtree.insert(arr_3.clone()).unwrap();
@@ -725,11 +718,11 @@ mod tests {
         // Exact matches
         let res = kdtree
             .n_nearest(
-                &array![0.9, 2.0, 3.0],
+                &vec![0.9, 2.0, 3.0],
                 closest_n,
                 Some(HashSet::from_iter([
-                    Array1F32Ordered(arr_1.clone()),
-                    Array1F32Ordered(arr_2.clone()),
+                    VecF32Ordered(arr_1.clone()),
+                    VecF32Ordered(arr_2.clone()),
                 ])),
             )
             .unwrap();
@@ -742,18 +735,18 @@ mod tests {
     fn test_serialize_deserialize_roundtrip() {
         let dimension = NonZeroUsize::new(3).unwrap();
         let kdtree = Arc::new(KDTree::new(dimension, dimension).unwrap());
-        kdtree.insert(array![1.0, 2.0, 3.0]).unwrap();
-        kdtree.insert(array![0.9, 2.0, 3.0]).unwrap();
-        kdtree.insert(array![1.1, 2.0, 3.0]).unwrap();
-        kdtree.insert(array![0.95, 2.0, 3.2]).unwrap();
+        kdtree.insert(vec![1.0, 2.0, 3.0]).unwrap();
+        kdtree.insert(vec![0.9, 2.0, 3.0]).unwrap();
+        kdtree.insert(vec![1.1, 2.0, 3.0]).unwrap();
+        kdtree.insert(vec![0.95, 2.0, 3.2]).unwrap();
         let serialized = serde_json::to_string(&kdtree).unwrap();
         let kdtree: KDTree = serde_json::from_str(&serialized).unwrap();
         let closest_n = NonZeroUsize::new(1).unwrap();
         // Exact matches
         let res = kdtree
-            .n_nearest(&array![0.9, 2.0, 3.0], closest_n, None)
+            .n_nearest(&vec![0.9, 2.0, 3.0], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(array![0.9, 2.0, 3.0], 0.0)]);
+        assert_eq!(res, vec![(vec![0.9, 2.0, 3.0], 0.0)]);
     }
 
     #[test]
@@ -761,66 +754,66 @@ mod tests {
         let dimension = NonZeroUsize::new(3).unwrap();
         let closest_n = NonZeroUsize::new(1).unwrap();
         let kdtree = Arc::new(KDTree::new(dimension, dimension).unwrap());
-        kdtree.insert(array![1.0, 2.0, 3.0]).unwrap();
-        kdtree.insert(array![0.9, 2.0, 3.0]).unwrap();
-        kdtree.insert(array![1.1, 2.0, 3.0]).unwrap();
-        kdtree.insert(array![0.95, 2.0, 3.2]).unwrap();
+        kdtree.insert(vec![1.0, 2.0, 3.0]).unwrap();
+        kdtree.insert(vec![0.9, 2.0, 3.0]).unwrap();
+        kdtree.insert(vec![1.1, 2.0, 3.0]).unwrap();
+        kdtree.insert(vec![0.95, 2.0, 3.2]).unwrap();
 
         // Exact matches
         let res = kdtree
-            .n_nearest(&array![0.9, 2.0, 3.0], closest_n, None)
+            .n_nearest(&vec![0.9, 2.0, 3.0], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(array![0.9, 2.0, 3.0], 0.0)]);
+        assert_eq!(res, vec![(vec![0.9, 2.0, 3.0], 0.0)]);
         let res = kdtree
-            .n_nearest(&array![0.9, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
+            .n_nearest(&vec![0.9, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         assert_eq!(res.len(), 4);
 
         // Delete returns nothing as exact does not exist
-        let res = kdtree.delete(&array![0.05, 1.0, 2.4]).unwrap();
+        let res = kdtree.delete(&vec![0.05, 1.0, 2.4]).unwrap();
         assert!(res.is_none());
         let res = kdtree
-            .n_nearest(&array![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
+            .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size remains the same as nothing was deleted
         assert_eq!(res.len(), 4);
 
         // Delete a non-leaf/non-root node
-        let res = kdtree.delete(&array![0.9, 2.0, 3.0]).unwrap().unwrap();
-        assert_eq!(res, array![0.9, 2.0, 3.0]);
+        let res = kdtree.delete(&vec![0.9, 2.0, 3.0]).unwrap().unwrap();
+        assert_eq!(res, vec![0.9, 2.0, 3.0]);
         let res = kdtree
-            .n_nearest(&array![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
+            .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size changes but only one node got removed
         assert_eq!(
             res,
             vec![
-                (array![1.0, 2.0, 3.0], 0.0),
-                (array![1.1, 2.0, 3.0], 0.010000004),
-                (array![0.95, 2.0, 3.2], 0.04250002),
+                (vec![1.0, 2.0, 3.0], 0.0),
+                (vec![1.1, 2.0, 3.0], 0.010000004),
+                (vec![0.95, 2.0, 3.2], 0.04250002),
             ]
         );
         // Delete a leaf node
-        let res = kdtree.delete(&array![0.95, 2.0, 3.2]).unwrap().unwrap();
-        assert_eq!(res, array![0.95, 2.0, 3.2]);
+        let res = kdtree.delete(&vec![0.95, 2.0, 3.2]).unwrap().unwrap();
+        assert_eq!(res, vec![0.95, 2.0, 3.2]);
         let res = kdtree
-            .n_nearest(&array![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
+            .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size changes but only one node got removed
         assert_eq!(
             res,
             vec![
-                (array![1.0, 2.0, 3.0], 0.0),
-                (array![1.1, 2.0, 3.0], 0.010000004),
+                (vec![1.0, 2.0, 3.0], 0.0),
+                (vec![1.1, 2.0, 3.0], 0.010000004),
             ]
         );
         // Delete root node
-        let res = kdtree.delete(&array![1.0, 2.0, 3.0]).unwrap().unwrap();
-        assert_eq!(res, array![1.0, 2.0, 3.0]);
+        let res = kdtree.delete(&vec![1.0, 2.0, 3.0]).unwrap().unwrap();
+        assert_eq!(res, vec![1.0, 2.0, 3.0]);
         let res = kdtree
-            .n_nearest(&array![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
+            .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size changes but only one node got removed
-        assert_eq!(res, vec![(array![1.1, 2.0, 3.0], 0.010000004),]);
+        assert_eq!(res, vec![(vec![1.1, 2.0, 3.0], 0.010000004),]);
     }
 }
