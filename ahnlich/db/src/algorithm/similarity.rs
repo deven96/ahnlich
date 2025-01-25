@@ -165,8 +165,7 @@ impl<'a> WithSimd for DotProduct<'a> {
 
 #[tracing::instrument(skip_all)]
 fn dot_product_comp(first: &StoreKey, second: &StoreKey) -> f32 {
-    let dot_product = second.0.dot(&first.0);
-    dot_product
+    second.0.dot(&first.0)
 }
 
 #[tracing::instrument(skip_all)]
@@ -187,6 +186,7 @@ fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
 ///  
 ///  ## EUCLIDEAN DISTANCE
 ///     - d(p,q)= sqrt { (p-q)^2 }
+///
 ///  Euclidean distance is the square root of the sum of squared differences between corresponding
 ///  elements of the two vectors.
 ///
