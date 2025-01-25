@@ -1,6 +1,5 @@
 use crate::metadata::MetadataKey;
 use crate::metadata::MetadataValue;
-use ndarray::Array1;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap as StdHashMap;
 use std::fmt;
@@ -21,7 +20,7 @@ pub type StoreValue = StdHashMap<MetadataKey, MetadataValue>;
 /// A store key is always an f32 one dimensional array
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct StoreKey(pub Array1<f32>);
+pub struct StoreKey(pub Vec<f32>);
 
 impl StoreKey {
     pub fn dimension(&self) -> usize {
@@ -33,7 +32,7 @@ impl Eq for StoreKey {}
 
 impl PartialEq for StoreKey {
     fn eq(&self, other: &Self) -> bool {
-        if self.0.shape() != other.0.shape() {
+        if self.0.len() != other.0.len() {
             return false;
         }
         // std::f32::EPSILON adheres to the IEEE 754 standard and we use it here to determine when

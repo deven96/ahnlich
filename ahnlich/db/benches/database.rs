@@ -5,8 +5,6 @@ use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::NonLinearAlgorithm;
 use criterion::{criterion_group, criterion_main, Criterion};
-use ndarray::Array;
-use ndarray::Array1;
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSlice;
 use std::collections::HashMap;
@@ -22,7 +20,7 @@ fn generate_storekey_store_value(size: usize, dimension: usize) -> Vec<(StoreKey
     // Use Rayon to process the buffer in parallel
     buffer
         .par_chunks_exact(dimension)
-        .map(|chunk| (StoreKey(Array::from(chunk.to_owned())), HashMap::new()))
+        .map(|chunk| (StoreKey(chunk.to_owned()), HashMap::new()))
         .collect()
 }
 
@@ -42,8 +40,8 @@ fn bench_retrieval(c: &mut Criterion) {
         let dimension = 1024;
         let bulk_insert: Vec<_> = (0..size)
             .map(|_| {
-                let random_array: Array1<f32> =
-                    Array::from((0..dimension).map(|_| rand::random()).collect::<Vec<f32>>());
+                let random_array: Vec<f32> =
+                    (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>();
                 (StoreKey(random_array), HashMap::new())
             })
             .collect();
@@ -59,9 +57,7 @@ fn bench_retrieval(c: &mut Criterion) {
         no_condition_handler
             .set_in_store(&StoreName(store_name.to_string()), bulk_insert.clone())
             .unwrap();
-        let random_input = StoreKey(Array::from(
-            (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>(),
-        ));
+        let random_input = StoreKey((0..dimension).map(|_| rand::random()).collect::<Vec<f32>>());
         group_no_condition.sampling_mode(criterion::SamplingMode::Flat);
         group_no_condition.bench_function(format!("size_{size}"), |b| {
             b.iter(|| {
@@ -85,8 +81,8 @@ fn bench_retrieval(c: &mut Criterion) {
         let dimension = 1024;
         let bulk_insert: Vec<_> = (0..size)
             .map(|_| {
-                let random_array: Array1<f32> =
-                    Array::from((0..dimension).map(|_| rand::random()).collect::<Vec<f32>>());
+                let random_array: Vec<f32> =
+                    (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>();
                 (StoreKey(random_array), HashMap::new())
             })
             .collect();
@@ -102,9 +98,7 @@ fn bench_retrieval(c: &mut Criterion) {
         non_linear_handler
             .set_in_store(&StoreName(store_name.to_string()), bulk_insert.clone())
             .unwrap();
-        let random_input = StoreKey(Array::from(
-            (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>(),
-        ));
+        let random_input = StoreKey((0..dimension).map(|_| rand::random()).collect::<Vec<f32>>());
         group_non_linear_kdtree.sampling_mode(criterion::SamplingMode::Flat);
         group_non_linear_kdtree.bench_function(format!("size_{size}"), |b| {
             b.iter(|| {
@@ -143,11 +137,11 @@ fn bench_insertion(c: &mut Criterion) {
             .unwrap();
         let dimension = dimension.clone();
         let random_array = vec![(
-            StoreKey(Array::from(
+            StoreKey(
                 (0..dimension)
                     .map(|_| fastrand::f32())
                     .collect::<Vec<f32>>(),
-            )),
+            ),
             HashMap::new(),
         )];
         group.bench_function(format!("size_{size}"), |b| {

@@ -19,12 +19,9 @@ crossbeam = "0.8.4"
 serde = { workspace = true, features = ["derive"], optional = true }
 tracing.workspace = true
 
-[dependencies.ndarray]
-workspace = true
-
 [features]
 default = []
-serde = ["dep:serde", "ndarray/serde"]
+serde = ["dep:serde"]
 
 
 [dev-dependencies]

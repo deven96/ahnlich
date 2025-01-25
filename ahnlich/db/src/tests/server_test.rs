@@ -19,7 +19,6 @@ use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::NonLinearAlgorithm;
 use ahnlich_types::similarity::Similarity;
 use futures::future::join_all;
-use ndarray::array;
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use std::collections::HashMap;
@@ -231,14 +230,14 @@ async fn test_del_pred() {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
-                    StoreKey(array![1.4, 1.5]),
+                    StoreKey(vec![1.4, 1.5]),
                     HashMap::from_iter([(
                         MetadataKey::new("planet".into()),
                         MetadataValue::RawString("jupiter".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![1.6, 1.7]),
+                    StoreKey(vec![1.6, 1.7]),
                     HashMap::from_iter([(
                         MetadataKey::new("planet".into()),
                         MetadataValue::RawString("mars".into()),
@@ -257,7 +256,7 @@ async fn test_del_pred() {
         },
         DBQuery::GetKey {
             store: StoreName("Main".to_string()),
-            keys: vec![StoreKey(array![1.4, 1.5]), StoreKey(array![1.6, 1.7])],
+            keys: vec![StoreKey(vec![1.4, 1.5]), StoreKey(vec![1.6, 1.7])],
         },
         // should delete the mars planet key
         DBQuery::DelPred {
@@ -281,12 +280,12 @@ async fn test_del_pred() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 2144,
+            size_in_bytes: 2096,
         },
     ]))));
     expected.push(Ok(ServerResponse::Del(1)));
     expected.push(Ok(ServerResponse::Get(vec![(
-        StoreKey(array![1.6, 1.7]),
+        StoreKey(vec![1.6, 1.7]),
         HashMap::from_iter([(
             MetadataKey::new("planet".into()),
             MetadataValue::RawString("mars".into()),
@@ -331,25 +330,25 @@ async fn test_del_key() {
         // but should delete nothing as nothing exists in the store yet
         DBQuery::DelKey {
             store: StoreName("Main".to_string()),
-            keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+            keys: vec![StoreKey(vec![1.0, 1.1, 1.2, 1.3])],
         },
         DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
-                (StoreKey(array![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
-                (StoreKey(array![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
+                (StoreKey(vec![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
+                (StoreKey(vec![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
             ],
         },
         DBQuery::ListStores,
         // should error as different dimensions
         DBQuery::DelKey {
             store: StoreName("Main".to_string()),
-            keys: vec![StoreKey(array![1.0, 1.1, 1.2])],
+            keys: vec![StoreKey(vec![1.0, 1.1, 1.2])],
         },
         // should work as key exists
         DBQuery::DelKey {
             store: StoreName("Main".to_string()),
-            keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+            keys: vec![StoreKey(vec![1.0, 1.1, 1.2, 1.3])],
         },
         DBQuery::ListStores,
     ]);
@@ -365,7 +364,7 @@ async fn test_del_key() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 1888,
+            size_in_bytes: 1840,
         },
     ]))));
     expected.push(Err(
@@ -376,7 +375,7 @@ async fn test_del_key() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 1,
-            size_in_bytes: 1816,
+            size_in_bytes: 1792,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -411,14 +410,14 @@ async fn test_server_with_persistence() {
         // but should delete nothing as nothing exists in the store yet
         DBQuery::DelKey {
             store: StoreName("Main".to_string()),
-            keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+            keys: vec![StoreKey(vec![1.0, 1.1, 1.2, 1.3])],
         },
         DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
-                (StoreKey(array![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
+                (StoreKey(vec![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
                 (
-                    StoreKey(array![1.1, 1.2, 1.3, 1.4]),
+                    StoreKey(vec![1.1, 1.2, 1.3, 1.4]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::Image(vec![1, 2, 3]),
@@ -430,12 +429,12 @@ async fn test_server_with_persistence() {
         // should error as different dimensions
         DBQuery::DelKey {
             store: StoreName("Main".to_string()),
-            keys: vec![StoreKey(array![1.0, 1.1, 1.2])],
+            keys: vec![StoreKey(vec![1.0, 1.1, 1.2])],
         },
         // should work as key exists
         DBQuery::DelKey {
             store: StoreName("Main".to_string()),
-            keys: vec![StoreKey(array![1.0, 1.1, 1.2, 1.3])],
+            keys: vec![StoreKey(vec![1.0, 1.1, 1.2, 1.3])],
         },
         DBQuery::ListStores,
     ]);
@@ -451,7 +450,7 @@ async fn test_server_with_persistence() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 1944,
+            size_in_bytes: 1896,
         },
     ]))));
     expected.push(Err(
@@ -462,7 +461,7 @@ async fn test_server_with_persistence() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 1,
-            size_in_bytes: 1872,
+            size_in_bytes: 1848,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -507,7 +506,7 @@ async fn test_server_with_persistence() {
         },
         DBQuery::GetKey {
             store: StoreName("Main".to_string()),
-            keys: vec![StoreKey(array![1.1, 1.2, 1.3, 1.4])],
+            keys: vec![StoreKey(vec![1.1, 1.2, 1.3, 1.4])],
         },
     ]);
 
@@ -515,7 +514,7 @@ async fn test_server_with_persistence() {
     expected.push(Err("Store Main already exists".to_string()));
     expected.push(Ok(ServerResponse::Del(0)));
     expected.push(Ok(ServerResponse::Get(vec![(
-        StoreKey(array![1.1, 1.2, 1.3, 1.4]),
+        StoreKey(vec![1.1, 1.2, 1.3, 1.4]),
         HashMap::from_iter([(
             MetadataKey::new("medal".into()),
             MetadataValue::Image(vec![1, 2, 3]),
@@ -554,25 +553,25 @@ async fn test_set_in_store() {
         // should not error as it is correct dimensions
         DBQuery::Set {
             store: StoreName("Main".to_string()),
-            inputs: vec![(StoreKey(array![1.23, 1.0, 0.2]), HashMap::new())],
+            inputs: vec![(StoreKey(vec![1.23, 1.0, 0.2]), HashMap::new())],
         },
         // should error as it is incorrect dimensions
         DBQuery::Set {
             store: StoreName("Main".to_string()),
-            inputs: vec![(StoreKey(array![2.1]), HashMap::new())],
+            inputs: vec![(StoreKey(vec![2.1]), HashMap::new())],
         },
         // should upsert existing value and add new value
         DBQuery::Set {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
-                    StoreKey(array![1.23, 1.0, 0.2]),
+                    StoreKey(vec![1.23, 1.0, 0.2]),
                     HashMap::from_iter([(
                         MetadataKey::new("role".into()),
                         MetadataValue::RawString("headmaster".into()),
                     )]),
                 ),
-                (StoreKey(array![0.03, 5.1, 3.23]), HashMap::new()),
+                (StoreKey(vec![0.03, 5.1, 3.23]), HashMap::new()),
             ],
         },
         DBQuery::ListStores,
@@ -595,7 +594,7 @@ async fn test_set_in_store() {
         StoreInfo {
             name: StoreName("Main".to_string()),
             len: 2,
-            size_in_bytes: 2032,
+            size_in_bytes: 1984,
         },
     ]))));
     let stream = TcpStream::connect(address).await.unwrap();
@@ -624,21 +623,21 @@ async fn test_remove_non_linear_indices() {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
-                    StoreKey(array![1.2, 1.3, 1.4]),
+                    StoreKey(vec![1.2, 1.3, 1.4]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("silver".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![2.0, 2.1, 2.2]),
+                    StoreKey(vec![2.0, 2.1, 2.2]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("gold".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![5.0, 5.1, 5.2]),
+                    StoreKey(vec![5.0, 5.1, 5.2]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("bronze".into()),
@@ -651,7 +650,7 @@ async fn test_remove_non_linear_indices() {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::KDTree,
-            search_input: StoreKey(array![1.1, 2.0, 3.0]),
+            search_input: StoreKey(vec![1.1, 2.0, 3.0]),
             condition: None,
         },
         // should remove index
@@ -671,7 +670,7 @@ async fn test_remove_non_linear_indices() {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::KDTree,
-            search_input: StoreKey(array![1.1, 2.0, 3.0]),
+            search_input: StoreKey(vec![1.1, 2.0, 3.0]),
             condition: None,
         },
         DBQuery::CreateNonLinearAlgorithmIndex {
@@ -693,7 +692,7 @@ async fn test_remove_non_linear_indices() {
     })));
     expected.push(Ok(ServerResponse::GetSimN(vec![
         (
-            StoreKey(array![2.0, 2.1, 2.2]),
+            StoreKey(vec![2.0, 2.1, 2.2]),
             HashMap::from_iter([(
                 MetadataKey::new("medal".into()),
                 MetadataValue::RawString("gold".into()),
@@ -701,7 +700,7 @@ async fn test_remove_non_linear_indices() {
             Similarity(1.4599998),
         ),
         (
-            StoreKey(array![1.2, 1.3, 1.4]),
+            StoreKey(vec![1.2, 1.3, 1.4]),
             HashMap::from_iter([(
                 MetadataKey::new("medal".into()),
                 MetadataValue::RawString("silver".into()),
@@ -744,21 +743,21 @@ async fn test_get_sim_n_non_linear() {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
-                    StoreKey(array![1.2, 1.3, 1.4]),
+                    StoreKey(vec![1.2, 1.3, 1.4]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("silver".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![2.0, 2.1, 2.2]),
+                    StoreKey(vec![2.0, 2.1, 2.2]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("gold".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![5.0, 5.1, 5.2]),
+                    StoreKey(vec![5.0, 5.1, 5.2]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("bronze".into()),
@@ -771,7 +770,7 @@ async fn test_get_sim_n_non_linear() {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::KDTree,
-            search_input: StoreKey(array![1.1, 2.0, 3.0]),
+            search_input: StoreKey(vec![1.1, 2.0, 3.0]),
             condition: None,
         },
         // return just 1 entry regardless of closest_n
@@ -780,7 +779,7 @@ async fn test_get_sim_n_non_linear() {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::KDTree,
-            search_input: StoreKey(array![5.0, 2.1, 2.2]),
+            search_input: StoreKey(vec![5.0, 2.1, 2.2]),
             condition: Some(PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("medal".into()),
                 value: MetadataValue::RawString("gold".into()),
@@ -795,7 +794,7 @@ async fn test_get_sim_n_non_linear() {
     })));
     expected.push(Ok(ServerResponse::GetSimN(vec![
         (
-            StoreKey(array![2.0, 2.1, 2.2]),
+            StoreKey(vec![2.0, 2.1, 2.2]),
             HashMap::from_iter([(
                 MetadataKey::new("medal".into()),
                 MetadataValue::RawString("gold".into()),
@@ -803,7 +802,7 @@ async fn test_get_sim_n_non_linear() {
             Similarity(1.4599998),
         ),
         (
-            StoreKey(array![1.2, 1.3, 1.4]),
+            StoreKey(vec![1.2, 1.3, 1.4]),
             HashMap::from_iter([(
                 MetadataKey::new("medal".into()),
                 MetadataValue::RawString("silver".into()),
@@ -812,7 +811,7 @@ async fn test_get_sim_n_non_linear() {
         ),
     ])));
     expected.push(Ok(ServerResponse::GetSimN(vec![(
-        StoreKey(array![2.0, 2.1, 2.2]),
+        StoreKey(vec![2.0, 2.1, 2.2]),
         HashMap::from_iter([(
             MetadataKey::new("medal".into()),
             MetadataValue::RawString("gold".into()),
@@ -837,7 +836,7 @@ async fn test_get_sim_n() {
         // should error as store does not yet exist
         DBQuery::GetSimN {
             store: StoreName("Main".to_string()),
-            search_input: StoreKey(array![]),
+            search_input: StoreKey(vec![]),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::CosineSimilarity,
             condition: None,
@@ -853,21 +852,21 @@ async fn test_get_sim_n() {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
-                    StoreKey(array![1.2, 1.3, 1.4]),
+                    StoreKey(vec![1.2, 1.3, 1.4]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("silver".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![2.0, 2.1, 2.2]),
+                    StoreKey(vec![2.0, 2.1, 2.2]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("gold".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![5.0, 5.1, 5.2]),
+                    StoreKey(vec![5.0, 5.1, 5.2]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("bronze".into()),
@@ -880,7 +879,7 @@ async fn test_get_sim_n() {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::KDTree,
-            search_input: StoreKey(array![1.1, 2.0, 3.0]),
+            search_input: StoreKey(vec![1.1, 2.0, 3.0]),
             condition: None,
         },
         // error due to dimension mismatch
@@ -888,7 +887,7 @@ async fn test_get_sim_n() {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::EuclideanDistance,
-            search_input: StoreKey(array![1.1, 2.0]),
+            search_input: StoreKey(vec![1.1, 2.0]),
             condition: None,
         },
         // return just 1 entry regardless of closest_n
@@ -897,7 +896,7 @@ async fn test_get_sim_n() {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::CosineSimilarity,
-            search_input: StoreKey(array![5.0, 2.1, 2.2]),
+            search_input: StoreKey(vec![5.0, 2.1, 2.2]),
             condition: Some(PredicateCondition::Value(Predicate::Equals {
                 key: MetadataKey::new("medal".into()),
                 value: MetadataValue::RawString("gold".into()),
@@ -908,7 +907,7 @@ async fn test_get_sim_n() {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::DotProductSimilarity,
-            search_input: StoreKey(array![1.0, 2.1, 2.2]),
+            search_input: StoreKey(vec![1.0, 2.1, 2.2]),
             condition: None,
         },
         // Get closest 2 without precondition using EuclideanDistance
@@ -916,7 +915,7 @@ async fn test_get_sim_n() {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(2).unwrap(),
             algorithm: Algorithm::EuclideanDistance,
-            search_input: StoreKey(array![1.0, 2.1, 2.2]),
+            search_input: StoreKey(vec![1.0, 2.1, 2.2]),
             condition: None,
         },
         // get closest one where medal is not gold
@@ -924,7 +923,7 @@ async fn test_get_sim_n() {
             store: StoreName("Main".to_string()),
             closest_n: NonZeroUsize::new(1).unwrap(),
             algorithm: Algorithm::CosineSimilarity,
-            search_input: StoreKey(array![5.0, 2.1, 2.2]),
+            search_input: StoreKey(vec![5.0, 2.1, 2.2]),
             condition: Some(PredicateCondition::Value(Predicate::NotEquals {
                 key: MetadataKey::new("medal".into()),
                 value: MetadataValue::RawString("gold".into()),
@@ -945,7 +944,7 @@ async fn test_get_sim_n() {
         "Store dimension is [3], input dimension of [2] was specified".into(),
     ));
     expected.push(Ok(ServerResponse::GetSimN(vec![(
-        StoreKey(array![2.0, 2.1, 2.2]),
+        StoreKey(vec![2.0, 2.1, 2.2]),
         HashMap::from_iter([(
             MetadataKey::new("medal".into()),
             MetadataValue::RawString("gold".into()),
@@ -954,7 +953,7 @@ async fn test_get_sim_n() {
     )])));
     expected.push(Ok(ServerResponse::GetSimN(vec![
         (
-            StoreKey(array![5.0, 5.1, 5.2]),
+            StoreKey(vec![5.0, 5.1, 5.2]),
             HashMap::from_iter([(
                 MetadataKey::new("medal".into()),
                 MetadataValue::RawString("bronze".into()),
@@ -962,7 +961,7 @@ async fn test_get_sim_n() {
             Similarity(27.149998),
         ),
         (
-            StoreKey(array![2.0, 2.1, 2.2]),
+            StoreKey(vec![2.0, 2.1, 2.2]),
             HashMap::from_iter([(
                 MetadataKey::new("medal".into()),
                 MetadataValue::RawString("gold".into()),
@@ -972,7 +971,7 @@ async fn test_get_sim_n() {
     ])));
     expected.push(Ok(ServerResponse::GetSimN(vec![
         (
-            StoreKey(array![2.0, 2.1, 2.2]),
+            StoreKey(vec![2.0, 2.1, 2.2]),
             HashMap::from_iter([(
                 MetadataKey::new("medal".into()),
                 MetadataValue::RawString("gold".into()),
@@ -980,7 +979,7 @@ async fn test_get_sim_n() {
             Similarity(1.0),
         ),
         (
-            StoreKey(array![1.2, 1.3, 1.4]),
+            StoreKey(vec![1.2, 1.3, 1.4]),
             HashMap::from_iter([(
                 MetadataKey::new("medal".into()),
                 MetadataValue::RawString("silver".into()),
@@ -989,7 +988,7 @@ async fn test_get_sim_n() {
         ),
     ])));
     expected.push(Ok(ServerResponse::GetSimN(vec![(
-        StoreKey(array![5.0, 5.1, 5.2]),
+        StoreKey(vec![5.0, 5.1, 5.2]),
         HashMap::from_iter([(
             MetadataKey::new("medal".into()),
             MetadataValue::RawString("bronze".into()),
@@ -1030,14 +1029,14 @@ async fn test_get_pred() {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
-                    StoreKey(array![1.2, 1.3, 1.4]),
+                    StoreKey(vec![1.2, 1.3, 1.4]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("silver".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![1.3, 1.4, 1.5]),
+                    StoreKey(vec![1.3, 1.4, 1.5]),
                     HashMap::from_iter([(
                         MetadataKey::new("medal".into()),
                         MetadataValue::RawString("bronze".into()),
@@ -1077,14 +1076,14 @@ async fn test_get_pred() {
     })));
     expected.push(Ok(ServerResponse::Get(vec![])));
     expected.push(Ok(ServerResponse::Get(vec![(
-        StoreKey(array![1.3, 1.4, 1.5]),
+        StoreKey(vec![1.3, 1.4, 1.5]),
         HashMap::from_iter([(
             MetadataKey::new("medal".into()),
             MetadataValue::RawString("bronze".into()),
         )]),
     )])));
     expected.push(Ok(ServerResponse::Get(vec![(
-        StoreKey(array![1.2, 1.3, 1.4]),
+        StoreKey(vec![1.2, 1.3, 1.4]),
         HashMap::from_iter([(
             MetadataKey::new("medal".into()),
             MetadataValue::RawString("silver".into()),
@@ -1121,14 +1120,14 @@ async fn test_get_key() {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
-                    StoreKey(array![1.0, 0.2]),
+                    StoreKey(vec![1.0, 0.2]),
                     HashMap::from_iter([(
                         MetadataKey::new("title".into()),
                         MetadataValue::RawString("sorcerer".into()),
                     )]),
                 ),
                 (
-                    StoreKey(array![1.2, 0.3]),
+                    StoreKey(vec![1.2, 0.3]),
                     HashMap::from_iter([(
                         MetadataKey::new("title".into()),
                         MetadataValue::RawString("elf".into()),
@@ -1140,23 +1139,23 @@ async fn test_get_key() {
         DBQuery::GetKey {
             store: StoreName("Main".to_string()),
             keys: vec![
-                StoreKey(array![0.2, 0.3, 0.4]),
-                StoreKey(array![0.2, 0.3, 0.4, 0.6]),
-                StoreKey(array![0.4, 0.6]),
+                StoreKey(vec![0.2, 0.3, 0.4]),
+                StoreKey(vec![0.2, 0.3, 0.4, 0.6]),
+                StoreKey(vec![0.4, 0.6]),
             ],
         },
         // should not error however the keys do not exist so should be empty
         DBQuery::GetKey {
             store: StoreName("Main".to_string()),
-            keys: vec![StoreKey(array![0.4, 0.6]), StoreKey(array![0.2, 0.5])],
+            keys: vec![StoreKey(vec![0.4, 0.6]), StoreKey(vec![0.2, 0.5])],
         },
         // Gets back the existing key in order
         DBQuery::GetKey {
             store: StoreName("Main".to_string()),
             keys: vec![
-                StoreKey(array![1.2, 0.3]),
-                StoreKey(array![0.4, 0.6]),
-                StoreKey(array![1.0, 0.2]),
+                StoreKey(vec![1.2, 0.3]),
+                StoreKey(vec![0.4, 0.6]),
+                StoreKey(vec![1.0, 0.2]),
             ],
         },
         DBQuery::InfoServer,
@@ -1174,14 +1173,14 @@ async fn test_get_key() {
     expected.push(Ok(ServerResponse::Get(vec![])));
     expected.push(Ok(ServerResponse::Get(vec![
         (
-            StoreKey(array![1.2, 0.3]),
+            StoreKey(vec![1.2, 0.3]),
             HashMap::from_iter([(
                 MetadataKey::new("title".into()),
                 MetadataValue::RawString("elf".into()),
             )]),
         ),
         (
-            StoreKey(array![1.0, 0.2]),
+            StoreKey(vec![1.0, 0.2]),
             HashMap::from_iter([(
                 MetadataKey::new("title".into()),
                 MetadataValue::RawString("sorcerer".into()),
@@ -1226,7 +1225,7 @@ async fn test_create_pred_index() {
             store: StoreName("Main".to_string()),
             inputs: vec![
                 (
-                    StoreKey(array![1.4, 1.5]),
+                    StoreKey(vec![1.4, 1.5]),
                     HashMap::from_iter([
                         (
                             MetadataKey::new("galaxy".into()),
@@ -1239,7 +1238,7 @@ async fn test_create_pred_index() {
                     ]),
                 ),
                 (
-                    StoreKey(array![1.6, 1.7]),
+                    StoreKey(vec![1.6, 1.7]),
                     HashMap::from_iter([
                         (
                             MetadataKey::new("galaxy".into()),
@@ -1317,7 +1316,7 @@ async fn test_create_pred_index() {
     })));
     expected.push(Ok(ServerResponse::CreateIndex(0)));
     expected.push(Ok(ServerResponse::Get(vec![(
-        StoreKey(array![1.6, 1.7]),
+        StoreKey(vec![1.6, 1.7]),
         HashMap::from_iter([
             (
                 MetadataKey::new("galaxy".into()),
@@ -1330,7 +1329,7 @@ async fn test_create_pred_index() {
         ]),
     )])));
     expected.push(Ok(ServerResponse::Get(vec![(
-        StoreKey(array![1.4, 1.5]),
+        StoreKey(vec![1.4, 1.5]),
         HashMap::from_iter([
             (
                 MetadataKey::new("galaxy".into()),
@@ -1343,7 +1342,7 @@ async fn test_create_pred_index() {
         ]),
     )])));
     expected.push(Ok(ServerResponse::Get(vec![(
-        StoreKey(array![1.6, 1.7]),
+        StoreKey(vec![1.6, 1.7]),
         HashMap::from_iter([
             (
                 MetadataKey::new("galaxy".into()),
@@ -1356,7 +1355,7 @@ async fn test_create_pred_index() {
         ]),
     )])));
     expected.push(Ok(ServerResponse::Get(vec![(
-        StoreKey(array![1.6, 1.7]),
+        StoreKey(vec![1.6, 1.7]),
         HashMap::from_iter([
             (
                 MetadataKey::new("galaxy".into()),
@@ -1370,7 +1369,7 @@ async fn test_create_pred_index() {
     )])));
     expected.push(Ok(ServerResponse::CreateIndex(2)));
     expected.push(Ok(ServerResponse::Get(vec![(
-        StoreKey(array![1.4, 1.5]),
+        StoreKey(vec![1.4, 1.5]),
         HashMap::from_iter([
             (
                 MetadataKey::new("galaxy".into()),

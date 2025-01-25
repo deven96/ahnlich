@@ -55,7 +55,6 @@ name = "ahnlich_similarity"
 version = "0.0.1"
 dependencies = [
  "crossbeam",
- "ndarray",
  "pretty_assertions",
  "rand",
  "serde",
@@ -70,7 +69,6 @@ dependencies = [
  "bincode",
  "fallible_collections",
  "image",
- "ndarray",
  "once_cell",
  "serde",
  "thiserror",
@@ -1048,7 +1046,6 @@ version = "0.1.0"
 dependencies = [
  "ahnlich_types",
  "hex",
- "ndarray",
  "pest",
  "pest_derive",
  "pretty_assertions",
@@ -3984,7 +3981,6 @@ version = "0.1.0"
 dependencies = [
  "ahnlich_types",
  "clap 4.5.21",
- "ndarray",
  "serde",
  "serde-generate",
  "serde-reflection",

@@ -180,7 +180,7 @@ def test_client_get_key_succeeds(module_scopped_ahnlich_db, store_key, store_val
     expected_result = [(store_key, store_value)]
     actual_response = response.results[0].value.value
     assert len(actual_response) == len(expected_result)
-    assert actual_response[0][0].data == store_key.data
+    assert actual_response[0][0] == store_key
 
 
 # def test_client_get_by_predicate_succeeds_with_no_index_in_store(spin_up_ahnlich_db):
@@ -264,7 +264,7 @@ def test_client_get_by_predicate_succeeds(spin_up_ahnlich_db, store_key, store_v
     expected_result = [(store_key, store_value)]
     actual_response = response.results[0].value.value
     assert len(actual_response) == len(expected_result)
-    assert actual_response[0][0].data == store_key.data
+    assert actual_response[0][0] == store_key
 
 
 def assert_store_value(

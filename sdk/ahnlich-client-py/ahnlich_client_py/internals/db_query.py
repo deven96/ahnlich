@@ -52,23 +52,6 @@ Algorithm.VARIANTS = [
 ]
 
 
-@dataclass(frozen=True)
-class Array:
-    v: st.uint8
-    dim: typing.Tuple[st.uint64]
-    data: typing.Sequence[st.float32]
-
-    def bincode_serialize(self) -> bytes:
-        return bincode.serialize(self, Array)
-
-    @staticmethod
-    def bincode_deserialize(input: bytes) -> "Array":
-        v, buffer = bincode.deserialize(input, Array)
-        if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
-        return v
-
-
 class MetadataValue:
     VARIANTS = []  # type: typing.Sequence[typing.Type[MetadataValue]]
 
@@ -243,7 +226,7 @@ class Query__CreateStore(Query):
 class Query__GetKey(Query):
     INDEX = 1  # type: int
     store: str
-    keys: typing.Sequence["Array"]
+    keys: typing.Sequence[typing.Sequence[st.float32]]
 
 
 @dataclass(frozen=True)
@@ -257,7 +240,7 @@ class Query__GetPred(Query):
 class Query__GetSimN(Query):
     INDEX = 3  # type: int
     store: str
-    search_input: "Array"
+    search_input: typing.Sequence[st.float32]
     closest_n: st.uint64
     algorithm: "Algorithm"
     condition: typing.Optional["PredicateCondition"]
@@ -297,14 +280,16 @@ class Query__DropNonLinearAlgorithmIndex(Query):
 class Query__Set(Query):
     INDEX = 8  # type: int
     store: str
-    inputs: typing.Sequence[typing.Tuple["Array", typing.Dict[str, "MetadataValue"]]]
+    inputs: typing.Sequence[
+        typing.Tuple[typing.Sequence[st.float32], typing.Dict[str, "MetadataValue"]]
+    ]
 
 
 @dataclass(frozen=True)
 class Query__DelKey(Query):
     INDEX = 9  # type: int
     store: str
-    keys: typing.Sequence["Array"]
+    keys: typing.Sequence[typing.Sequence[st.float32]]
 
 
 @dataclass(frozen=True)

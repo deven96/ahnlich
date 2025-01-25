@@ -1,11 +1,10 @@
-use ndarray::Array1;
 use std::hash::Hash;
 use std::hash::Hasher;
 
 #[derive(Debug, Clone)]
-pub struct Array1F32Ordered(pub Array1<f32>);
+pub struct VecF32Ordered(pub Vec<f32>);
 
-impl PartialEq for Array1F32Ordered {
+impl PartialEq for VecF32Ordered {
     fn eq(&self, other: &Self) -> bool {
         self.0
             .iter()
@@ -14,9 +13,9 @@ impl PartialEq for Array1F32Ordered {
     }
 }
 
-impl Eq for Array1F32Ordered {}
+impl Eq for VecF32Ordered {}
 
-impl Hash for Array1F32Ordered {
+impl Hash for VecF32Ordered {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for &value in self.0.iter() {
             let truncated = (value / f32::EPSILON).trunc() as i32;

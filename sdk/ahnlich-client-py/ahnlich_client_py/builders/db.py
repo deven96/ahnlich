@@ -37,7 +37,9 @@ class AhnlichDBRequestBuilder:
             )
         )
 
-    def get_key(self, store_name: str, keys: typing.Sequence[db_query.Array]):
+    def get_key(
+        self, store_name: str, keys: typing.Sequence[typing.Sequence[st.float32]]
+    ):
         self.queries.append(db_query.Query__GetKey(store=store_name, keys=keys))
 
     def get_by_predicate(self, store_name: str, condition: db_query.PredicateCondition):
@@ -48,7 +50,7 @@ class AhnlichDBRequestBuilder:
     def get_sim_n(
         self,
         store_name: str,
-        search_input: db_query.Array,
+        search_input: typing.Sequence[st.float32],
         closest_n: st.uint64 = 1,
         algorithm: db_query.Algorithm = db_query.Algorithm__CosineSimilarity,
         condition: db_query.PredicateCondition = None,
@@ -110,12 +112,16 @@ class AhnlichDBRequestBuilder:
         self,
         store_name,
         inputs: typing.Sequence[
-            typing.Tuple[db_query.Array, typing.Dict[str, db_query.MetadataValue]]
+            typing.Tuple[
+                typing.Sequence[st.float32], typing.Dict[str, db_query.MetadataValue]
+            ]
         ],
     ):
         self.queries.append(db_query.Query__Set(store=store_name, inputs=inputs))
 
-    def delete_key(self, store_name: str, keys: typing.Sequence[db_query.Array]):
+    def delete_key(
+        self, store_name: str, keys: typing.Sequence[typing.Sequence[st.float32]]
+    ):
         self.queries.append(db_query.Query__DelKey(store=store_name, keys=keys))
 
     def delete_predicate(self, store_name: str, condition: db_query.PredicateCondition):

@@ -6,13 +6,7 @@ use std::collections::HashMap;
 pub fn word_to_vector() -> HashMap<String, StoreKey> {
     let words = std::fs::read_to_string("src/tests/mock_data.json").unwrap();
 
-    let words_to_vec: HashMap<String, Vec<f32>> = serde_json::from_str(&words).unwrap();
-
-    HashMap::from_iter(
-        words_to_vec
-            .into_iter()
-            .map(|(key, value)| (key, StoreKey(ndarray::Array1::<f32>::from_vec(value)))),
-    )
+    serde_json::from_str(&words).unwrap()
 }
 
 pub const SEACH_TEXT: &'static str =

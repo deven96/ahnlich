@@ -7,23 +7,6 @@ from ahnlich_client_py.internals import serde_types as st
 
 
 @dataclass(frozen=True)
-class Array:
-    v: st.uint8
-    dim: typing.Tuple[st.uint64]
-    data: typing.Sequence[st.float32]
-
-    def bincode_serialize(self) -> bytes:
-        return bincode.serialize(self, Array)
-
-    @staticmethod
-    def bincode_deserialize(input: bytes) -> "Array":
-        v, buffer = bincode.deserialize(input, Array)
-        if buffer:
-            raise st.DeserializationError("Some input bytes were not read")
-        return v
-
-
-@dataclass(frozen=True)
 class ConnectedClient:
     address: str
     time_connected: "SystemTime"
@@ -175,14 +158,18 @@ class ServerResponse__Set(ServerResponse):
 @dataclass(frozen=True)
 class ServerResponse__Get(ServerResponse):
     INDEX = 6  # type: int
-    value: typing.Sequence[typing.Tuple["Array", typing.Dict[str, "MetadataValue"]]]
+    value: typing.Sequence[
+        typing.Tuple[typing.Sequence[st.float32], typing.Dict[str, "MetadataValue"]]
+    ]
 
 
 @dataclass(frozen=True)
 class ServerResponse__GetSimN(ServerResponse):
     INDEX = 7  # type: int
     value: typing.Sequence[
-        typing.Tuple["Array", typing.Dict[str, "MetadataValue"], "Similarity"]
+        typing.Tuple[
+            typing.Sequence[st.float32], typing.Dict[str, "MetadataValue"], "Similarity"
+        ]
     ]
 
 
