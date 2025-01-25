@@ -1,16 +1,30 @@
 use ahnlich_db::engine::store::StoreHandler;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
+use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::NonLinearAlgorithm;
 use criterion::{criterion_group, criterion_main, Criterion};
 use ndarray::Array;
 use ndarray::Array1;
+use rayon::iter::ParallelIterator;
+use rayon::slice::ParallelSlice;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+
+fn generate_storekey_store_value(size: usize, dimension: usize) -> Vec<(StoreKey, StoreValue)> {
+    let mut buffer: Vec<f32> = Vec::with_capacity(size * dimension);
+    buffer.extend((0..size * dimension).map(|_| fastrand::f32()));
+
+    // Use Rayon to process the buffer in parallel
+    buffer
+        .par_chunks_exact(dimension)
+        .map(|chunk| (StoreKey(Array::from(chunk.to_owned())), HashMap::new()))
+        .collect()
+}
 
 fn initialize_store_handler() -> Arc<StoreHandler> {
     let write_flag = Arc::new(AtomicBool::new(false));
@@ -130,7 +144,9 @@ fn bench_insertion(c: &mut Criterion) {
         let dimension = dimension.clone();
         let random_array = vec![(
             StoreKey(Array::from(
-                (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>(),
+                (0..dimension)
+                    .map(|_| fastrand::f32())
+                    .collect::<Vec<f32>>(),
             )),
             HashMap::new(),
         )];
@@ -151,13 +167,9 @@ fn bench_insertion(c: &mut Criterion) {
     for size in sizes {
         let handler = initialize_store_handler();
         let dimension = 1024;
-        let bulk_insert: Vec<_> = (0..size)
-            .map(|_| {
-                let random_array: Array1<f32> =
-                    Array::from((0..dimension).map(|_| rand::random()).collect::<Vec<f32>>());
-                (StoreKey(random_array), HashMap::new())
-            })
-            .collect();
+
+        let bulk_insert = generate_storekey_store_value(size, dimension);
+
         handler
             .create_store(
                 StoreName(store_name.to_string()),

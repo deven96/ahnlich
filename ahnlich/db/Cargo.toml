@@ -38,7 +38,7 @@ async-trait.workspace = true
 rayon.workspace = true
 log.workspace = true
 fallible_collections.workspace = true
-
+pulp = "0.21.4"
 
 [dev-dependencies]
 futures.workspace = true
@@ -46,6 +46,7 @@ once_cell.workspace = true
 pretty_assertions.workspace = true
 criterion = "0.4"
 rand.workspace = true
+fastrand = "1.9"
 
 [[bench]]
 name = "database"
