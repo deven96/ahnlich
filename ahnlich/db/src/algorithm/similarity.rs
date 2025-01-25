@@ -119,12 +119,12 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
     let dot_product = dot_product(first, second);
 
     let arch = Arch::new();
-    let magniture = arch.dispatch(Magnitude {
-        first: first.0.as_slice().unwrap(),
-        second: second.0.as_slice().unwrap(),
+    let magnitude = arch.dispatch(Magnitude {
+        first: first.0.as_slice().expect("Failed to create slice"),
+        second: second.0.as_slice().expect("Failed to create slice"),
     });
 
-    dot_product / magniture
+    dot_product / magnitude
 }
 
 ///
@@ -156,9 +156,11 @@ impl<'a> WithSimd for DotProduct<'a> {
 
         let mut dot_product = simd.reduce_sum_f32s(sum_of_points);
 
-        for (&x, &y) in first_tail.iter().zip(second_tail) {
-            dot_product += x * y;
-        }
+        dot_product += first_tail
+            .iter()
+            .zip(second_tail)
+            .map(|(&x, &y)| x * y)
+            .sum::<f32>();
         dot_product
     }
 }
@@ -178,8 +180,8 @@ fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
 
     let arch = Arch::new();
     arch.dispatch(DotProduct {
-        first: first.0.as_slice().unwrap(),
-        second: second.0.as_slice().unwrap(),
+        first: first.0.as_slice().expect("Failed to create slice"),
+        second: second.0.as_slice().expect("Failed to create slice"),
     })
 }
 
@@ -226,10 +228,14 @@ impl<'a> WithSimd for EuclideanDistance<'a> {
 
         let mut total = simd.reduce_sum_f32s(sum_of_squares);
 
-        for (&x, &y) in first_tail.iter().zip(second_tail) {
-            let diff = x - y;
-            total += diff * diff;
-        }
+        total += first_tail
+            .iter()
+            .zip(second_tail)
+            .map(|(&x, &y)| {
+                let diff = x - y;
+                diff * diff
+            })
+            .sum::<f32>();
 
         total.sqrt()
     }
@@ -247,8 +253,8 @@ fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f32 {
     let arch = Arch::new();
 
     arch.dispatch(EuclideanDistance {
-        first: first.0.as_slice().unwrap(),
-        second: second.0.as_slice().unwrap(),
+        first: first.0.as_slice().expect("Failed to create slice"),
+        second: second.0.as_slice().expect("Failed to create slice"),
     })
 }
 
