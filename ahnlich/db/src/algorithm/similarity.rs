@@ -109,22 +109,6 @@ impl<'a> WithSimd for Magnitude<'a> {
 ///
 
 #[tracing::instrument(skip_all)]
-
-///
-/// ## DOT PRODUCT
-/// The dot product or scalar product is an algebraic operation that takes two equal-length
-/// sequences of numbers (usually coordinate vectors), and returns a single number.
-///
-/// An Implementation for most similar items would be a MaxHeap.
-/// The larger the dot product between two vectors, the more similar
-
-#[tracing::instrument(skip_all)]
-fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
-    let dot_product = second.0.dot(&first.0.t());
-    dot_product
-}
-
-#[tracing::instrument(skip_all)]
 fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
     assert_eq!(
         first.0.len(),
@@ -141,6 +125,63 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
     });
 
     dot_product / magniture
+}
+
+///
+/// ## DOT PRODUCT
+/// The dot product or scalar product is an algebraic operation that takes two equal-length
+/// sequences of numbers (usually coordinate vectors), and returns a single number.
+///
+/// An Implementation for most similar items would be a MaxHeap.
+/// The larger the dot product between two vectors, the more similar
+
+struct DotProduct<'a> {
+    first: &'a [f32],
+    second: &'a [f32],
+}
+
+impl<'a> WithSimd for DotProduct<'a> {
+    type Output = f32;
+
+    #[inline(always)]
+    fn with_simd<S: Simd>(self, simd: S) -> Self::Output {
+        let (first_head, first_tail) = S::as_simd_f32s(self.first);
+        let (second_head, second_tail) = S::as_simd_f32s(self.second);
+
+        let mut sum_of_points = simd.splat_f32s(0.0);
+
+        for (&chunk_first, &chunk_second) in first_head.iter().zip(second_head) {
+            sum_of_points = simd.mul_add_f32s(chunk_first, chunk_second, sum_of_points);
+        }
+
+        let mut dot_product = simd.reduce_sum_f32s(sum_of_points);
+
+        for (&x, &y) in first_tail.iter().zip(second_tail) {
+            dot_product += x * y;
+        }
+        dot_product
+    }
+}
+
+#[tracing::instrument(skip_all)]
+fn dot_product_comp(first: &StoreKey, second: &StoreKey) -> f32 {
+    let dot_product = second.0.dot(&first.0);
+    dot_product
+}
+
+#[tracing::instrument(skip_all)]
+fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
+    assert_eq!(
+        first.0.len(),
+        second.0.len(),
+        "Vectors must have the same length!"
+    );
+
+    let arch = Arch::new();
+    arch.dispatch(DotProduct {
+        first: first.0.as_slice().unwrap(),
+        second: second.0.as_slice().unwrap(),
+    })
 }
 
 ///  
@@ -297,6 +338,50 @@ mod tests {
         let with_simd_duration = time_execution(|| {
             for val in &store_values {
                 cosine_similarity(&comp_array, val);
+            }
+        });
+
+        println!(
+            "Without SIMD duration {}",
+            without_simd_duration.as_millis()
+        );
+        println!("With SIMD duration {}", with_simd_duration.as_millis());
+        assert!(with_simd_duration < without_simd_duration)
+    }
+
+    #[test]
+    fn test_verify_dot_product_simd() {
+        let array_one = StoreKey(array![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
+        let array_two = StoreKey(array![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
+
+        let scalar_dot_product = dot_product_comp(&array_one, &array_two);
+        let simd_dot_product = dot_product(&array_one, &array_two);
+
+        assert_eq!(scalar_dot_product, simd_dot_product);
+    }
+
+    #[test]
+    fn test_simd_dot_product_vs_scalar_dot_product_100k_entries_of_1k_size_embeddings() {
+        // pick high dimensionality of 1024 to hopefully show difference between SIMD and non-SIMD
+        // variants of implementation
+        let dimension = 1024;
+        // simulate against 100k store inputs
+        let size = 100_000;
+        // a single array of comparison
+        let comp_array: StoreKey = generate_test_array(1, dimension)
+            .pop()
+            .expect("Could not get comp array");
+        let store_values: Vec<StoreKey> = generate_test_array(size, dimension);
+
+        let without_simd_duration = time_execution(|| {
+            for val in &store_values {
+                dot_product_comp(&comp_array, val);
+            }
+        });
+
+        let with_simd_duration = time_execution(|| {
+            for val in &store_values {
+                dot_product(&comp_array, val);
             }
         });
 
