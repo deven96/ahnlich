@@ -146,6 +146,7 @@ impl ORTTextPreprocessor {
         })
     }
 
+    #[tracing::instrument(skip(self, data))]
     pub fn process(
         &self,
         data: Vec<String>,

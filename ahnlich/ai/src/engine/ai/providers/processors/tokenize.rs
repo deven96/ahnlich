@@ -139,6 +139,7 @@ impl Tokenize {
 }
 
 impl Preprocessor for Tokenize {
+    #[tracing::instrument(skip(self, data))]
     fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
             PreprocessorData::Text(text) => {
