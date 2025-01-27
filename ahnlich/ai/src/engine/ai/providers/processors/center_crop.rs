@@ -3,7 +3,7 @@ use crate::engine::ai::providers::processors::{
     Preprocessor, PreprocessorData, CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD,
 };
 use crate::error::AIProxyError;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 pub struct CenterCrop {
     crop_size: (u32, u32), // (width, height)
@@ -102,14 +102,13 @@ impl Preprocessor for CenterCrop {
         match data {
             PreprocessorData::ImageArray(image_array) => {
                 let processed = image_array
-                    .par_iter()
-                    .map(|image| {
+                    .into_par_iter()
+                    .map(|mut image| {
                         let (width, height) = image.image_dim();
                         let width = width.get() as u32;
                         let height = height.get() as u32;
                         let (crop_width, crop_height) = self.crop_size;
                         if crop_width == width && crop_height == height {
-                            let image = image.to_owned();
                             Ok(image)
                         } else if crop_width <= width || crop_height <= height {
                             let x = (width - crop_width) / 2;

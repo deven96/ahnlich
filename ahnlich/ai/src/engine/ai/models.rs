@@ -5,19 +5,22 @@ use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::ExecutionProvider;
 use ahnlich_types::{ai::AIStoreInputType, keyval::StoreKey};
-use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader};
+use image::imageops;
+use image::ImageReader;
+use image::RgbImage;
 use ndarray::{Array, Ix3};
 use ndarray::{ArrayView, Ix4};
 use nonzero_ext::nonzero;
-use serde::de::Error as DeError;
-use serde::ser::Error as SerError;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::io::Cursor;
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use strum::Display;
 use tokenizers::Encoding;
+
+const CHANNELS: Lazy<u8> = Lazy::new(|| image::ColorType::Rgb8.channel_count());
 
 #[derive(Display, Debug, Serialize, Deserialize)]
 pub enum ModelType {
@@ -246,31 +249,71 @@ pub enum ModelInput {
     Images(Array<f32, Ix4>),
 }
 
-#[derive(Debug, Clone)]
-pub struct ImageArray {
+#[derive(Debug)]
+pub struct OnnxTransformResult {
     array: Array<f32, Ix3>,
-    image: DynamicImage,
-    image_format: ImageFormat,
-    onnx_transformed: bool,
 }
 
-impl ImageArray {
-    pub fn try_new(bytes: Vec<u8>) -> Result<Self, AIProxyError> {
-        let img_reader = ImageReader::new(Cursor::new(&bytes))
+impl OnnxTransformResult {
+    pub fn view(&self) -> ArrayView<f32, Ix3> {
+        self.array.view()
+    }
+
+    pub fn image_dim(&self) -> (NonZeroUsize, NonZeroUsize) {
+        let shape = self.array.shape();
+        (
+            NonZeroUsize::new(shape[2]).expect("Array columns should be non zero"),
+            NonZeroUsize::new(shape[1]).expect("Array channels should be non zero"),
+        )
+    }
+}
+
+impl TryFrom<ImageArray> for OnnxTransformResult {
+    type Error = AIProxyError;
+
+    // Swapping axes from [rows, columns, channels] to [channels, rows, columns] for ONNX
+    #[tracing::instrument(skip_all)]
+    fn try_from(value: ImageArray) -> Result<Self, Self::Error> {
+        let image = value.image;
+        let mut array = Array::from_shape_vec(
+            (
+                image.height() as usize,
+                image.width() as usize,
+                *CHANNELS as usize,
+            ),
+            image.into_raw(),
+        )
+        .map_err(|e| AIProxyError::ImageArrayToNdArrayError {
+            message: format!("Error running onnx transform {e}"),
+        })?
+        .mapv(f32::from);
+        array.swap_axes(1, 2);
+        array.swap_axes(0, 1);
+        Ok(Self { array })
+    }
+}
+
+#[derive(Debug)]
+pub struct ImageArray {
+    image: RgbImage,
+}
+
+impl TryFrom<&[u8]> for ImageArray {
+    type Error = AIProxyError;
+
+    #[tracing::instrument(skip_all)]
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let img_reader = ImageReader::new(Cursor::new(value))
             .with_guessed_format()
-            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
-
-        let image_format = &img_reader
-            .format()
-            .ok_or(AIProxyError::ImageBytesDecodeError)?;
-
-        let image = img_reader
-            .decode()
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
 
         // Always convert to RGB8 format
         // https://github.com/Anush008/fastembed-rs/blob/cea92b6c8b877efda762393848d1c449a4eea126/src/image_embedding/utils.rs#L198
-        let image: DynamicImage = image.to_owned().into_rgb8().into();
+        let image = img_reader
+            .decode()
+            .map_err(|_| AIProxyError::ImageBytesDecodeError)?
+            .into_rgb8();
+
         let (width, height) = image.dimensions();
 
         if width == 0 || height == 0 {
@@ -279,116 +322,47 @@ impl ImageArray {
                 height: height as usize,
             });
         }
+        Ok(Self { image })
+    }
+}
 
-        let channels = &image.color().channel_count();
-        let shape = (height as usize, width as usize, *channels as usize);
-        let array = Array::from_shape_vec(shape, image.clone().into_bytes())
-            .map_err(|_| AIProxyError::ImageBytesDecodeError)?
-            .mapv(f32::from);
-
-        Ok(ImageArray {
-            array,
-            image,
-            image_format: image_format.to_owned(),
-            onnx_transformed: false,
-        })
+impl ImageArray {
+    fn array_view(&self) -> ArrayView<u8, Ix3> {
+        let shape = (
+            self.image.height() as usize,
+            self.image.width() as usize,
+            *CHANNELS as usize,
+        );
+        let raw_bytes = self.image.as_raw();
+        ArrayView::from_shape(shape, raw_bytes).expect("Image bytes decode error")
     }
 
-    // Swapping axes from [rows, columns, channels] to [channels, rows, columns] for ONNX
-    pub fn onnx_transform(&mut self) {
-        if self.onnx_transformed {
-            return;
-        }
-        self.array.swap_axes(1, 2);
-        self.array.swap_axes(0, 1);
-        self.onnx_transformed = true;
-    }
-
-    pub fn view(&self) -> ArrayView<f32, Ix3> {
-        self.array.view()
-    }
-
-    pub fn get_bytes(&self) -> Result<Vec<u8>, AIProxyError> {
-        let mut buffer = Cursor::new(Vec::new());
-        let _ = &self
-            .image
-            .write_to(&mut buffer, self.image_format)
-            .map_err(|_| AIProxyError::ImageBytesEncodeError)?;
-        let bytes = buffer.into_inner();
-        Ok(bytes)
-    }
-
+    #[tracing::instrument(skip(self))]
     pub fn resize(
-        &self,
+        &mut self,
         width: u32,
         height: u32,
         filter: Option<image::imageops::FilterType>,
     ) -> Result<Self, AIProxyError> {
         let filter_type = filter.unwrap_or(image::imageops::FilterType::CatmullRom);
-        let resized_img = self.image.resize_exact(width, height, filter_type);
-        let channels = resized_img.color().channel_count();
-        let shape = (height as usize, width as usize, channels as usize);
-
-        let flattened_pixels = resized_img.clone().into_bytes();
-        let array = Array::from_shape_vec(shape, flattened_pixels)
-            .map_err(|_| AIProxyError::ImageResizeError)?
-            .mapv(f32::from);
-        Ok(ImageArray {
-            array,
-            image: resized_img,
-            image_format: self.image_format,
-            onnx_transformed: false,
-        })
+        let resized_img = imageops::resize(&self.image, width, height, filter_type);
+        Ok(ImageArray { image: resized_img })
     }
 
-    pub fn crop(&self, x: u32, y: u32, width: u32, height: u32) -> Result<Self, AIProxyError> {
-        let cropped_img = self.image.crop_imm(x, y, width, height);
-        let channels = cropped_img.color().channel_count();
-        let shape = (height as usize, width as usize, channels as usize);
+    #[tracing::instrument(skip(self))]
+    pub fn crop(&mut self, x: u32, y: u32, width: u32, height: u32) -> Result<Self, AIProxyError> {
+        let cropped_img = imageops::crop(&mut self.image, x, y, width, height).to_image();
 
-        let flattened_pixels = cropped_img.clone().into_bytes();
-        let array = Array::from_shape_vec(shape, flattened_pixels)
-            .map_err(|_| AIProxyError::ImageCropError)?
-            .mapv(f32::from);
-        Ok(ImageArray {
-            array,
-            image: cropped_img,
-            image_format: self.image_format,
-            onnx_transformed: false,
-        })
+        Ok(ImageArray { image: cropped_img })
     }
 
     pub fn image_dim(&self) -> (NonZeroUsize, NonZeroUsize) {
-        let shape = self.array.shape();
-        match self.onnx_transformed {
-            true => (
-                NonZeroUsize::new(shape[2]).expect("Array columns should be non-zero"),
-                NonZeroUsize::new(shape[1]).expect("Array channels should be non-zero"),
-            ), // (width, channels)
-            false => (
-                NonZeroUsize::new(shape[1]).expect("Array columns should be non-zero"),
-                NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero"),
-            ), // (width, height)
-        }
-    }
-}
-
-impl Serialize for ImageArray {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_bytes(&self.get_bytes().map_err(S::Error::custom)?)
-    }
-}
-
-impl<'de> Deserialize<'de> for ImageArray {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
-        ImageArray::try_new(bytes).map_err(D::Error::custom)
+        let arr_view = self.array_view();
+        let shape = arr_view.shape();
+        (
+            NonZeroUsize::new(shape[1]).expect("Array columns should be non-zero"),
+            NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero"),
+        )
     }
 }
 
