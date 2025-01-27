@@ -127,8 +127,8 @@ pub enum AIProxyError {
     )]
     ImageNonzeroDimensionError { width: usize, height: usize },
 
-    #[error("Image could not be resized.")]
-    ImageResizeError,
+    #[error("Image could not be resized. {0}")]
+    ImageResizeError(String),
 
     #[error("Image could not be cropped.")]
     ImageCropError,

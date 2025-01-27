@@ -43,6 +43,7 @@ dirs = "5.0.1"
 ort = { version = "=2.0.0-rc.5", features = [
   "ndarray",
 ] }
+fast_image_resize = { version = "5.1.1", features = ["rayon"]}
 ort-sys = "=2.0.0-rc.8"
 moka = { version = "0.12.8", features = ["future", "sync"] }
 tracing-opentelemetry.workspace = true

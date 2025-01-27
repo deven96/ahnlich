@@ -12,7 +12,7 @@ impl Preprocessor for ImageArrayToNdArray {
                 // Not using par_iter_mut here because it messes up the order of the images
                 let arrays = arrays
                     .into_iter()
-                    .map(|image_arr| OnnxTransformResult::try_from(image_arr))
+                    .map(OnnxTransformResult::try_from)
                     .collect::<Result<Vec<_>, _>>()?;
                 let array_views: Vec<_> = arrays.iter().map(|a| a.view()).collect();
 

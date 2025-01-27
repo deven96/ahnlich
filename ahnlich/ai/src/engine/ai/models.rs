@@ -5,6 +5,13 @@ use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::ExecutionProvider;
 use ahnlich_types::{ai::AIStoreInputType, keyval::StoreKey};
+use fast_image_resize::images::Image;
+use fast_image_resize::images::ImageRef;
+use fast_image_resize::FilterType;
+use fast_image_resize::PixelType;
+use fast_image_resize::ResizeAlg;
+use fast_image_resize::ResizeOptions;
+use fast_image_resize::Resizer;
 use image::imageops;
 use image::ImageReader;
 use image::RgbImage;
@@ -20,7 +27,7 @@ use std::path::PathBuf;
 use strum::Display;
 use tokenizers::Encoding;
 
-const CHANNELS: Lazy<u8> = Lazy::new(|| image::ColorType::Rgb8.channel_count());
+static CHANNELS: Lazy<u8> = Lazy::new(|| image::ColorType::Rgb8.channel_count());
 
 #[derive(Display, Debug, Serialize, Deserialize)]
 pub enum ModelType {
@@ -344,8 +351,20 @@ impl ImageArray {
         height: u32,
         filter: Option<image::imageops::FilterType>,
     ) -> Result<Self, AIProxyError> {
-        let filter_type = filter.unwrap_or(image::imageops::FilterType::CatmullRom);
-        let resized_img = imageops::resize(&self.image, width, height, filter_type);
+        // Create container for data of destination image
+        let (width, height) = self.image.dimensions();
+        let mut dest_image = Image::new(width, height, PixelType::U8x3);
+        let mut resizer = Resizer::new();
+        resizer
+            .resize(
+                &ImageRef::new(width, height, self.image.as_raw(), PixelType::U8x3)
+                    .map_err(|e| AIProxyError::ImageResizeError(e.to_string()))?,
+                &mut dest_image,
+                &ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::CatmullRom)),
+            )
+            .map_err(|e| AIProxyError::ImageResizeError(e.to_string()))?;
+        let resized_img = RgbImage::from_raw(width, height, dest_image.into_vec())
+            .expect("Could not get image after resizing");
         Ok(ImageArray { image: resized_img })
     }
 
