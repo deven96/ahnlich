@@ -98,6 +98,7 @@ impl CenterCrop {
 }
 
 impl Preprocessor for CenterCrop {
+    #[tracing::instrument(skip_all)]
     fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
             PreprocessorData::ImageArray(image_array) => {

@@ -53,6 +53,7 @@ impl ORTImagePreprocessor {
         })
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn process(&self, data: Vec<ImageArray>) -> Result<Array<f32, Ix4>, AIProxyError> {
         let mut data = PreprocessorData::ImageArray(data);
         data = match self.resize {

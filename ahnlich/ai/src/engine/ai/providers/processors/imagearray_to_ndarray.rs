@@ -5,6 +5,7 @@ use crate::error::AIProxyError;
 pub struct ImageArrayToNdArray;
 
 impl Preprocessor for ImageArrayToNdArray {
+    #[tracing::instrument(skip_all)]
     fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
             PreprocessorData::ImageArray(arrays) => {
