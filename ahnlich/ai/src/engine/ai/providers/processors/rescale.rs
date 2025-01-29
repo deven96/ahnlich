@@ -18,6 +18,7 @@ impl Rescale {
 }
 
 impl Preprocessor for Rescale {
+    #[tracing::instrument(skip_all)]
     fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
             PreprocessorData::NdArray3C(array) => {

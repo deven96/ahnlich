@@ -94,6 +94,7 @@ impl Resize {
 }
 
 impl Preprocessor for Resize {
+    #[tracing::instrument(skip_all)]
     fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
             PreprocessorData::ImageArray(mut arrays) => {

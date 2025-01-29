@@ -39,6 +39,7 @@ impl ImageNormalize {
 }
 
 impl Preprocessor for ImageNormalize {
+    #[tracing::instrument(skip_all)]
     fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
             PreprocessorData::NdArray3C(array) => {

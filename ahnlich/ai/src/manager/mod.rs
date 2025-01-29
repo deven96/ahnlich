@@ -108,7 +108,7 @@ impl ModelThread {
                     .into_par_iter()
                     .filter_map(|input| match input {
                         StoreInput::Image(image_bytes) => {
-                            Some(ImageArray::try_new(image_bytes).ok()?)
+                            Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
                         }
                         _ => None,
                     })
