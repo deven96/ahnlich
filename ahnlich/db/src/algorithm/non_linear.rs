@@ -4,7 +4,7 @@ use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_similarity::utils::VecF32Ordered;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::similarity::NonLinearAlgorithm;
-use flurry::HashMap as ConcurrentHashMap;
+use papaya::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
