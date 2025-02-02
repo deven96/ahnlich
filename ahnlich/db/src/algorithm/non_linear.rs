@@ -140,7 +140,7 @@ impl NonLinearAlgorithmIndices {
         let pinned = self.algorithm_to_index.pin();
         if let (true, Some(non_existing_index)) = (
             error_if_not_exists,
-            indices.iter().find(|a| !pinned.contains_key(a)),
+            indices.iter().find(|a| !pinned.contains_key(*a)),
         ) {
             return Err(ServerError::NonLinearIndexNotFound(*non_existing_index));
         }

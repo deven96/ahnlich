@@ -11,7 +11,6 @@ use ahnlich_types::{
     predicate::{Predicate, PredicateCondition},
     similarity::Algorithm,
 };
-// use flurry::HashMap;
 use utils::server::AhnlichServerUtils;
 
 use once_cell::sync::Lazy;
