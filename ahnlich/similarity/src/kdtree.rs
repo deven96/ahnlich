@@ -220,7 +220,7 @@ impl<'de> Deserialize<'de> for KDTree {
 
 struct NearestRecuriveArgs<'a> {
     node: &'a Atomic<KDNode>,
-    reference_point: &'a Vec<f32>,
+    reference_point: &'a [f32],
     depth: usize,
     n: NonZeroUsize,
     guard: &'a Guard,
@@ -574,7 +574,7 @@ impl NonLinearAlgorithmWithIndexImpl<'_> for KDTree {
     #[tracing::instrument(skip_all)]
     fn n_nearest(
         &self,
-        reference_point: &Vec<f32>,
+        reference_point: &[f32],
         n: NonZeroUsize,
         accept_list: Option<HashSet<VecF32Ordered>>,
     ) -> Result<Vec<(Vec<f32>, f32)>, Error> {

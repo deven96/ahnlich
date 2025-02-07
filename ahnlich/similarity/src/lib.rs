@@ -21,7 +21,7 @@ pub trait NonLinearAlgorithmWithIndexImpl<'a>: Serialize + Deserialize<'a> {
     // almost linear search to find points within the accept list
     fn n_nearest(
         &self,
-        reference_point: &Vec<f32>,
+        reference_point: &[f32],
         n: NonZeroUsize,
         accept_list: Option<HashSet<VecF32Ordered>>,
     ) -> Result<Vec<(Vec<f32>, f32)>, error::Error>;
