@@ -2,13 +2,18 @@ mod heap;
 pub mod non_linear;
 mod similarity;
 
+use std::cmp::Reverse;
+use std::collections::BinaryHeap;
 use std::num::NonZeroUsize;
 
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::NonLinearAlgorithm;
+use heap::HeapOrder;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
 
-use self::{heap::AlgorithmHeapType, similarity::SimilarityFunc};
+use self::similarity::SimilarityFunc;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) enum AlgorithmByType {
@@ -48,11 +53,6 @@ impl<'a> From<(&'a StoreKey, f32)> for SimilarityVector<'a> {
         SimilarityVector((value.0, value.1))
     }
 }
-impl<'a> From<SimilarityVector<'a>> for (&'a StoreKey, f32) {
-    fn from(value: SimilarityVector<'a>) -> (&'a StoreKey, f32) {
-        ((value.0).0, (value.0).1)
-    }
-}
 
 impl<'a> PartialEq for SimilarityVector<'a> {
     fn eq(&self, other: &Self) -> bool {
@@ -77,11 +77,16 @@ impl Ord for SimilarityVector<'_> {
     }
 }
 
+// Pop the topmost N from a generic binary tree
+fn pop_n<T: Ord>(heap: &mut BinaryHeap<T>, n: NonZeroUsize) -> Vec<T> {
+    (0..n.get()).filter_map(|_| heap.pop()).collect()
+}
+
 pub(crate) trait FindSimilarN {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &StoreKey,
-        search_list: impl Iterator<Item = &'a StoreKey>,
+        search_list: impl ParallelIterator<Item = &'a StoreKey>,
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKey, f32)>;
@@ -92,26 +97,48 @@ impl FindSimilarN for LinearAlgorithm {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &StoreKey,
-        search_list: impl Iterator<Item = &'a StoreKey>,
+        search_list: impl ParallelIterator<Item = &'a StoreKey>,
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKey, f32)> {
-        let mut heap: AlgorithmHeapType = (self, n).into();
-
+        let heap_order: HeapOrder = self.into();
         let similarity_function: SimilarityFunc = self.into();
 
-        for second_vector in search_list {
-            let similarity = similarity_function(search_vector, second_vector);
-
-            let heap_value: SimilarityVector = (second_vector, similarity).into();
-            heap.push(heap_value)
+        match heap_order {
+            HeapOrder::Min => pop_n(
+                &mut search_list
+                    .map(|second_vector| {
+                        let similarity = similarity_function(search_vector, second_vector);
+                        let heap_value: SimilarityVector = (second_vector, similarity).into();
+                        Reverse(heap_value)
+                    })
+                    .collect::<BinaryHeap<_>>(),
+                n,
+            )
+            .into_par_iter()
+            .map(|a| (a.0 .0 .0.clone(), a.0 .0 .1))
+            .collect(),
+            HeapOrder::Max => pop_n(
+                &mut search_list
+                    .map(|second_vector| {
+                        let similarity = similarity_function(search_vector, second_vector);
+                        let heap_value: SimilarityVector = (second_vector, similarity).into();
+                        heap_value
+                    })
+                    .collect::<BinaryHeap<_>>(),
+                n,
+            )
+            .into_par_iter()
+            .map(|a| (a.0 .0.clone(), a.0 .1))
+            .collect(),
         }
-        heap.output()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use rayon::iter::IntoParallelRefIterator;
+
     use super::*;
     use crate::tests::*;
 
@@ -135,7 +162,7 @@ mod tests {
 
         let similar_n_search = cosine_algorithm.find_similar_n(
             &first_vector,
-            search_list.iter(),
+            search_list.par_iter(),
             false,
             NonZeroUsize::new(no_similar_values).unwrap(),
         );

@@ -2,20 +2,31 @@ use super::super::errors::ServerError;
 use super::FindSimilarN;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_similarity::utils::VecF32Ordered;
+use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::similarity::NonLinearAlgorithm;
 use flurry::HashMap as ConcurrentHashMap;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 
+// Maintain an enum even though we have a trait as we want to know size
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum NonLinearAlgorithmWithIndex {
     KDTree(KDTree),
 }
+
 impl NonLinearAlgorithmWithIndex {
+    fn get_inner(&self) -> &impl NonLinearAlgorithmWithIndexImpl {
+        match self {
+            Self::KDTree(kdtree) => kdtree,
+        }
+    }
+
     #[tracing::instrument]
     pub(crate) fn create(algorithm: NonLinearAlgorithm, dimension: NonZeroUsize) -> Self {
         match algorithm {
@@ -28,31 +39,21 @@ impl NonLinearAlgorithmWithIndex {
 
     #[tracing::instrument(skip_all)]
     fn insert(&self, new: &[Vec<f32>]) {
-        match self {
-            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
-                kdtree
-                    .insert_multi(new.to_vec())
-                    .expect("Impossible dimension happened during insert of kdtree");
-            }
-        }
+        self.get_inner()
+            .insert(new.to_vec())
+            .expect("Error inserting into index");
     }
 
     #[tracing::instrument(skip_all)]
-    fn delete(&self, new: &[Vec<f32>]) {
-        match self {
-            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
-                kdtree
-                    .delete_multi(new)
-                    .expect("Impossible dimension happened during delete of kdtree");
-            }
-        }
+    fn delete(&self, del: &[Vec<f32>]) {
+        self.get_inner()
+            .delete(del)
+            .expect("Error deleting from index");
     }
 
     #[tracing::instrument(skip_all)]
     fn size(&self) -> usize {
-        match &self {
-            Self::KDTree(kdtree) => kdtree.size(),
-        }
+        self.get_inner().size()
     }
 }
 
@@ -61,7 +62,7 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &StoreKey,
-        search_list: impl Iterator<Item = &'a StoreKey>,
+        search_list: impl ParallelIterator<Item = &'a StoreKey>,
         used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKey, f32)> {
@@ -74,17 +75,12 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
                     .collect(),
             )
         };
-        match self {
-            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
-                kdtree
-                    .n_nearest(&search_vector.0, n, accept_list)
-                    // we expect that algorithm shapes have already been confirmed before hand
-                    .expect("KDTree does not have the same size as reference_point")
-                    .into_iter()
-                    .map(|(arr, sim)| (StoreKey(arr), sim))
-                    .collect()
-            }
-        }
+        self.get_inner()
+            .n_nearest(&search_vector.0, n, accept_list)
+            .expect("Index does not have the same size as reference_point")
+            .into_par_iter()
+            .map(|(arr, sim)| (StoreKey(arr), sim))
+            .collect()
     }
 }
 
