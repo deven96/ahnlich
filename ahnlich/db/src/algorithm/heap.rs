@@ -140,7 +140,7 @@ mod tests {
     fn test_min_heap_ordering_works() {
         let mut heap = MinHeap::new(NonZeroUsize::new(3).unwrap());
         let mut count = 0.0;
-        let first_vector = StoreKey(vec![2.0, 2.0]);
+        let first_vector = StoreKey(ndarray::Array1::<f32>::zeros(2).map(|x| x + 2.0));
 
         // If we pop these scores now, they should come back in the reverse order.
         while count < 5.0 {
@@ -162,7 +162,7 @@ mod tests {
     fn test_max_heap_ordering_works() {
         let mut heap = MaxHeap::new(NonZeroUsize::new(3).unwrap());
         let mut count = 0.0;
-        let first_vector = StoreKey(vec![2.0, 2.0]);
+        let first_vector = StoreKey(ndarray::Array1::<f32>::zeros(2).map(|x| x + 2.0));
 
         // If we pop these scores now, they should come back  the right order(max first).
         while count < 5.0 {

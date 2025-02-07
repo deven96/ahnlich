@@ -2,6 +2,7 @@
 /// making it an efficient datastructure for applying nearest neighbour searches and range searches
 use crate::error::Error;
 use crate::utils::VecF32Ordered;
+use crate::NonLinearAlgorithmWithIndexImpl;
 use crossbeam::epoch::{self, Atomic, Guard, Owned, Shared};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -247,21 +248,6 @@ impl KDTree {
     }
 
     #[tracing::instrument(skip_all)]
-    pub fn size(&self) -> usize {
-        let mut s = size_of_val(self)
-            + size_of_val(&self.root)
-            + size_of_val(&self.dimension)
-            + size_of_val(&self.depth);
-        let guard = epoch::pin();
-        let root = self.root.load(Ordering::Acquire, &guard);
-        if !root.is_null() {
-            let root = unsafe { root.deref() };
-            s += root.size();
-        }
-        s
-    }
-
-    #[tracing::instrument(skip_all)]
     fn assert_shape(&self, input: &[f32]) -> Result<(), Error> {
         let dim = self.dimension.get();
         if dim != input.len() {
@@ -270,18 +256,6 @@ impl KDTree {
                 found: input.len(),
             });
         }
-        Ok(())
-    }
-
-    #[tracing::instrument(skip_all)]
-    pub fn insert_multi(&self, points: Vec<Vec<f32>>) -> Result<(), Error> {
-        if points.is_empty() {
-            return Ok(());
-        }
-        let _res = points
-            .into_iter()
-            .map(|point| self.insert(point))
-            .collect::<Result<Vec<()>, Error>>()?;
         Ok(())
     }
 
@@ -354,20 +328,6 @@ impl KDTree {
                 }
             }
         }
-    }
-
-    /// delete multiple entries from the KDTree
-    #[tracing::instrument(skip_all)]
-    pub fn delete_multi(&self, delete_multi: &[Vec<f32>]) -> Result<usize, Error> {
-        if delete_multi.is_empty() {
-            return Ok(0);
-        }
-        let res = delete_multi
-            .iter()
-            .map(|del| self.delete(del))
-            .collect::<Result<Vec<_>, Error>>()?;
-        let deleted_count = res.into_iter().flatten().count();
-        Ok(deleted_count)
     }
 
     /// Delete an entry matching delete_point from KD tree
@@ -468,41 +428,6 @@ impl KDTree {
         }
     }
 
-    /// Returns the N nearest arrays to the reference point
-    /// accept_list when passed, ensures that only points in the accept list appear in the final
-    /// result
-    #[tracing::instrument(skip_all)]
-    pub fn n_nearest(
-        &self,
-        reference_point: &Vec<f32>,
-        n: NonZeroUsize,
-        accept_list: Option<HashSet<VecF32Ordered>>,
-    ) -> Result<Vec<(Vec<f32>, f32)>, Error> {
-        self.assert_shape(reference_point)?;
-        let guard = epoch::pin();
-        let mut heap = BinaryHeap::new();
-        if matches!(accept_list.as_ref(), Some(a) if a.is_empty()) {
-            return Ok(vec![]);
-        }
-        self.n_nearest_recursive(NearestRecuriveArgs {
-            node: &self.root,
-            reference_point,
-            depth: 0,
-            n,
-            guard: &guard,
-            heap: &mut heap,
-            accept_list: &accept_list,
-        });
-        let mut results = Vec::with_capacity(n.get());
-        while let Some(Reverse(OrderedArray(val, distance))) = heap.pop() {
-            results.push((val, distance));
-            if results.len() == n.get() {
-                break;
-            }
-        }
-        Ok(results)
-    }
-
     #[tracing::instrument(skip_all)]
     fn is_in_accept_list(accept_list: &Option<HashSet<VecF32Ordered>>, point: &[f32]) -> bool {
         if let Some(accept_list) = accept_list {
@@ -598,6 +523,84 @@ impl KDTree {
             .zip(b.iter())
             .map(|(ai, bi)| (ai - bi).powi(2))
             .sum()
+    }
+}
+
+impl NonLinearAlgorithmWithIndexImpl<'_> for KDTree {
+    #[tracing::instrument(skip_all)]
+    fn insert(&self, points: Vec<Vec<f32>>) -> Result<(), Error> {
+        if points.is_empty() {
+            return Ok(());
+        }
+        let _res = points
+            .into_iter()
+            .map(|point| self.insert(point))
+            .collect::<Result<Vec<()>, Error>>()?;
+        Ok(())
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn size(&self) -> usize {
+        let mut s = size_of_val(self)
+            + size_of_val(&self.root)
+            + size_of_val(&self.dimension)
+            + size_of_val(&self.depth);
+        let guard = epoch::pin();
+        let root = self.root.load(Ordering::Acquire, &guard);
+        if !root.is_null() {
+            let root = unsafe { root.deref() };
+            s += root.size();
+        }
+        s
+    }
+
+    /// delete multiple entries from the KDTree
+    #[tracing::instrument(skip_all)]
+    fn delete(&self, delete_multi: &[Vec<f32>]) -> Result<usize, Error> {
+        if delete_multi.is_empty() {
+            return Ok(0);
+        }
+        let res = delete_multi
+            .iter()
+            .map(|del| self.delete(del))
+            .collect::<Result<Vec<_>, Error>>()?;
+        let deleted_count = res.into_iter().flatten().count();
+        Ok(deleted_count)
+    }
+
+    /// Returns the N nearest arrays to the reference point
+    /// accept_list when passed, ensures that only points in the accept list appear in the final
+    /// result
+    #[tracing::instrument(skip_all)]
+    fn n_nearest(
+        &self,
+        reference_point: &Vec<f32>,
+        n: NonZeroUsize,
+        accept_list: Option<HashSet<VecF32Ordered>>,
+    ) -> Result<Vec<(Vec<f32>, f32)>, Error> {
+        self.assert_shape(reference_point)?;
+        let guard = epoch::pin();
+        let mut heap = BinaryHeap::new();
+        if matches!(accept_list.as_ref(), Some(a) if a.is_empty()) {
+            return Ok(vec![]);
+        }
+        self.n_nearest_recursive(NearestRecuriveArgs {
+            node: &self.root,
+            reference_point,
+            depth: 0,
+            n,
+            guard: &guard,
+            heap: &mut heap,
+            accept_list: &accept_list,
+        });
+        let mut results = Vec::with_capacity(n.get());
+        while let Some(Reverse(OrderedArray(val, distance))) = heap.pop() {
+            results.push((val, distance));
+            if results.len() == n.get() {
+                break;
+            }
+        }
+        Ok(results)
     }
 }
 

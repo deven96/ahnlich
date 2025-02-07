@@ -444,7 +444,7 @@ impl Store {
     #[tracing::instrument(skip(self, input), fields(input_length=input.len()))]
     fn filter_dimension(&self, input: Vec<StoreKey>) -> Result<Vec<StoreKey>, ServerError> {
         input
-            .into_iter()
+            .into_par_iter()
             .map(|key| {
                 let store_dimension = self.dimension.get();
                 let input_dimension = key.dimension();
