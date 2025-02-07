@@ -62,7 +62,7 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &StoreKey,
-        search_list: impl Iterator<Item = &'a StoreKey>,
+        search_list: impl ParallelIterator<Item = &'a StoreKey>,
         used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKey, f32)> {

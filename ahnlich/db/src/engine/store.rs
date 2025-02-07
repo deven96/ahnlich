@@ -218,7 +218,7 @@ impl StoreHandler {
             return Ok(vec![]);
         }
 
-        let filtered_iter = filtered.iter().map(|(key, _)| key);
+        let filtered_iter = filtered.par_iter().map(|(key, _)| key);
 
         let algorithm_by_type: AlgorithmByType = algorithm.into();
         let similar_result = match algorithm_by_type {
