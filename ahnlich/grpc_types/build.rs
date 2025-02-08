@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 use walkdir::WalkDir;
-// NOTE: this would serve as a stand in replacement for the types crate
+// TODO: this would serve as a stand in replacement for the types crate
 fn main() -> Result<()> {
     // Get the current package directory
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
