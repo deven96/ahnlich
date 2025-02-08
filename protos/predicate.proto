@@ -1,0 +1,53 @@
+
+syntax = "proto3";
+
+package predicate;
+
+import "metadata.proto"; // Assuming MetadataKey and metadata.MetadataValue are defined here
+
+message Predicate {
+  oneof kind {
+    Equals equals = 1;
+    NotEquals not_equals = 2;
+    In in = 3;
+    NotIn not_in = 4;
+  }
+}
+
+message Equals {
+  string key = 1;
+  metadata.MetadataValue value = 2;
+}
+
+message NotEquals {
+  string key = 1;
+  metadata.MetadataValue value = 2;
+}
+
+message In {
+  string key = 1;
+  repeated metadata.MetadataValue values = 2;
+}
+
+message NotIn {
+  string key = 1;
+  repeated metadata.MetadataValue values = 2;
+}
+
+message PredicateCondition {
+  oneof kind {
+    Predicate value = 1;
+    AndCondition and = 2;
+    OrCondition or = 3;
+  }
+}
+
+message AndCondition {
+  PredicateCondition left = 1;
+  PredicateCondition right = 2;
+}
+
+message OrCondition {
+  PredicateCondition left = 1;
+  PredicateCondition right = 2;
+}

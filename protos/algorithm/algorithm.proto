@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package algorithm.algorithm;
+
+enum Algorithm {
+    EuclideanDistance = 0;
+    DotProductSimilarity = 1;
+    CosineSimilarity = 2;
+    KDTree = 3;
+}
+

@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package ai.pipeline;
+
+import "ai/query.proto";
+import "ai/server.proto";
+
+message AIQuery {
+    oneof query {
+        ai.query.CreateStore create_store = 1;
+        ai.query.GetPred get_pred = 2;
+        ai.query.GetSimN get_sim_n = 3;
+        ai.query.CreatePredIndex create_pred_index = 4;
+        ai.query.CreateNonLinearAlgorithmIndex create_non_linear_algorithm_index = 5;
+        ai.query.DropPredIndex drop_pred_index = 6;
+        ai.query.DropNonLinearAlgorithmIndex drop_non_linear_algorithm_index = 7;
+        ai.query.Set set = 8;
+        ai.query.DelKey del_key = 9;
+        ai.query.DropStore drop_store = 10;
+        ai.query.GetKey get_key = 11;
+        ai.query.InfoServer info_server = 12;
+        ai.query.ListClients list_clients = 13;
+        ai.query.ListStores list_stores = 14;
+        ai.query.PurgeStores purge_stores = 15;
+        ai.query.Ping ping = 16;
+    }
+}
+
+message AIRequestPipeline {
+    repeated AIQuery queries = 1;
+}
+
+
+
+message AIServerResponse {
+    oneof response {
+        ai.server.Unit unit = 1;
+        ai.server.Pong pong = 2;
+        ai.server.ClientList client_list = 3;
+        ai.server.StoreList store_list = 4;
+        ai.server.InfoServer info_server = 5;
+        ai.server.Set set = 6;
+        ai.server.Get get = 7;
+        ai.server.GetSimN get_sim_n = 8;
+        ai.server.Del del = 9;
+        ai.server.CreateIndex create_index = 10;
+    }
+}
+
+message AIResponsePipeline {
+    repeated AIServerResponse responses = 1;
+}

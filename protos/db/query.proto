@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package db.query;
+
+import "predicate.proto";
+import "keyval.proto";
+import "metadata.proto";
+import "algorithm/algorithm.proto";
+import "algorithm/nonlinear.proto";
+
+
+// ===================
+// === Query Types ===
+// ===================
+
+message CreateStore {
+    string store = 1;
+    uint32 dimension = 2;
+    repeated string create_predicates = 3;
+    repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 4;
+    bool error_if_exists = 5;
+}
+
+message GetKey {
+    string store = 1;
+    repeated keyval.StoreKey keys = 2;
+}
+
+message GetPred {
+    string store = 1;
+    predicate.PredicateCondition condition = 2;
+}
+
+message GetSimN {
+    string store = 1;
+    keyval.StoreKey search_input = 2;
+    uint32 closest_n = 3;
+    algorithm.algorithm.Algorithm algorithm = 4;
+    predicate.PredicateCondition condition = 5;
+}
+
+message CreatePredIndex {
+    string store = 1;
+    repeated string predicates = 2;
+}
+
+message CreateNonLinearAlgorithmIndex {
+    string store = 1;
+    repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2;
+}
+
+message DropPredIndex {
+    string store = 1;
+    repeated string predicates = 2;
+    bool error_if_not_exists = 3;
+}
+
+message DropNonLinearAlgorithmIndex {
+    string store = 1;
+    repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2;
+    bool error_if_not_exists = 3;
+}
+
+
+message DelKey {
+    string store = 1;
+    repeated keyval.StoreKey keys = 2;
+}
+
+message DelPred {
+    string store = 1;
+    predicate.PredicateCondition condition = 2;
+}
+
+message DropStore {
+    string store = 1;
+    bool error_if_not_exists = 2;
+}
+
+message InfoServer {}
+
+message ListStores {}
+
+message ListClients {}
+
+message Ping {}
+
+message Set {
+    string store = 1;
+    repeated StoreEntry inputs = 2;
+}
+
+
+// Store entry
+
+message StoreEntry {
+    keyval.StoreKey key = 1;
+    map<string, metadata.MetadataValue> value = 2; // MetadataKey is a string.
+}

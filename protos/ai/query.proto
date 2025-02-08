@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package ai.query;
+
+import "ai/models.proto";
+import "ai/execution_provider.proto";
+import "ai/preprocess.proto";
+import "keyval.proto"; 
+import "metadata.proto";
+import "algorithm/algorithm.proto";
+import "algorithm/nonlinear.proto";
+import "predicate.proto";
+
+
+
+message CreateStore {
+    string store = 1;
+    ai.models.AIModel query_model = 2;
+    ai.models.AIModel index_model = 3;
+    repeated string predicates = 4; // Validation will enforce uniqueness.
+    repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 5;
+    bool error_if_exists = 6;
+    bool store_original = 7;
+}
+
+message GetPred {
+    string store = 1;
+    predicate.PredicateCondition condition = 2;
+}
+
+message GetSimN {
+    string store = 1;
+    keyval.StoreInput search_input = 2;
+    optional predicate.PredicateCondition condition = 3; // Optional: Use `oneof` if you want explicit nullability.
+    uint32 closest_n = 4; // NonZeroUsize isn't directly supported, enforce via validation.
+    algorithm.algorithm.Algorithm algorithm = 5;
+    ai.preprocess.PreprocessAction preprocess_action = 6;
+    optional ai.execution_provider.ExecutionProvider execution_provider = 7; // Optional: Again, use `oneof` if explicit null is needed.
+}
+
+message CreatePredIndex {
+    string store = 1;
+    repeated string predicates = 2;
+}
+
+message CreateNonLinearAlgorithmIndex {
+    string store = 1;
+    repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2;
+}
+
+message DropPredIndex {
+    string store = 1;
+    repeated string predicates = 2;
+    bool error_if_not_exists = 3;
+}
+
+message DropNonLinearAlgorithmIndex {
+    string store = 1;
+    repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2;
+    bool error_if_not_exists = 3;
+}
+
+
+message DelKey {
+    string store = 1;
+    keyval.StoreInput key = 2;
+}
+
+message DropStore {
+    string store = 1;
+    bool error_if_not_exists = 2;
+}
+
+message GetKey {
+    string store = 1;
+    repeated keyval.StoreInput keys = 2; // StoreKey is imported from keyval.proto.
+}
+
+message InfoServer {}
+
+message ListClients {}
+
+message ListStores {}
+
+message PurgeStores {}
+
+message Ping {}
+
+
+message Set {
+    string store = 1;
+    repeated StoreEntry inputs = 2;
+    ai.preprocess.PreprocessAction preprocess_action = 3;
+    optional ai.execution_provider.ExecutionProvider execution_provider = 4;
+}
+
+
+message StoreEntry {
+    keyval.StoreInput key = 1;
+    map<string, metadata.MetadataValue> value = 2; // MetadataKey is a string.
+}

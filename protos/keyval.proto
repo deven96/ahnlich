@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+import "metadata.proto";
+
+package keyval;
+
+message StoreName {
+    string value = 1;
+}
+
+
+message StoreKey {
+    repeated float key = 1;
+}
+
+enum StoreInputType {
+    RawString = 0;
+    Image = 1;
+}
+
+message StoreInput {
+    StoreInputType type = 1;
+
+    oneof value {
+        string raw_string = 2;
+        bytes image = 3;
+    }
+
+
+}
+
+message StoreEntry {
+    StoreKey key = 1;
+    StoreValue value = 2;
+}
+
+
+message StoreValue {
+    map<string, metadata.MetadataValue> value = 1;
+
+}

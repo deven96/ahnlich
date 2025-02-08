@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package server_types;
+
+enum ServerType {
+    AI = 0;
+    Database = 1;
+}
+

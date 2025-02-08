@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package client;
+
+
+message ConnectedClient{
+    string address = 1;
+
+    uint64 time_connected = 2;
+}
