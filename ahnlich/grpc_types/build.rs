@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     io::{Result, Write},
     path::PathBuf,
 };
@@ -17,6 +18,15 @@ fn main() -> Result<()> {
 
     let proto_dir = workspace_root.join("protos/");
 
+    println!(
+        "cargo:rerun-if-changed={}",
+        proto_dir
+            .as_path()
+            .to_str()
+            .expect("Cannot get proto dir str path")
+    );
+    println!("cargo:warning=Run `cargo fmt` after build to format generated files.");
+
     let protofiles: Vec<PathBuf> = WalkDir::new(proto_dir.clone())
         .into_iter()
         .filter_map(|a| a.ok())
@@ -31,12 +41,10 @@ fn main() -> Result<()> {
     if let Ok(entries) = std::fs::read_dir(out_dir) {
         for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
-            if path.file_name().map_or(false, |name| name != "lib.rs") {
-                if path.is_dir() {
-                    std::fs::remove_dir_all(&path).expect("Failed to remove directory");
-                } else {
-                    std::fs::remove_file(&path).expect("Failed to remove file");
-                }
+            if path.is_dir() {
+                std::fs::remove_dir_all(&path).expect("Failed to remove directory");
+            } else {
+                std::fs::remove_file(&path).expect("Failed to remove file");
             }
         }
     }
@@ -60,10 +68,13 @@ fn restructure_generated_code(out_dir: &PathBuf) {
         .map(|entry| entry.into_path())
         .collect();
 
+    let mut module_names = HashSet::new();
+
     for file in &generated_code {
         if let Some(file_name) = file.file_name().and_then(|n| n.to_str()) {
             if file_name.contains(".") {
                 let parts: Vec<&str> = file_name.split('.').collect();
+                module_names.insert(parts[0]);
 
                 if parts.len() > 2 {
                     let module_name = parts[0];
@@ -95,4 +106,18 @@ fn restructure_generated_code(out_dir: &PathBuf) {
             }
         }
     }
+
+    let buffer = module_names
+        .into_iter()
+        .map(|sub_str| format!("pub mod {sub_str};"))
+        .collect::<Vec<String>>()
+        .join("\n");
+
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(&out_dir.join("lib.rs"))
+        .expect("Failed to create mod file");
+    file.write(buffer.as_bytes())
+        .expect("could not generate lib.rs");
 }
