@@ -35,11 +35,6 @@ fn main() -> Result<()> {
         .collect();
     let out_dir = "src/";
 
-    let config = tonic_build::configure()
-        .build_client(true)
-        .build_client(true)
-        .out_dir(out_dir);
-
     if let Ok(entries) = std::fs::read_dir(out_dir) {
         for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
@@ -51,7 +46,10 @@ fn main() -> Result<()> {
         }
     }
 
-    config
+    tonic_build::configure()
+        .build_client(true)
+        .build_client(true)
+        .out_dir(out_dir)
         .compile_protos(&protofiles, &[proto_dir])
         .inspect_err(|err| println!("{}", err))
         .expect("failed");
