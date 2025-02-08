@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 use walkdir::WalkDir;
-
+// NOTE: this would serve as a stand in replacement for the types crate
 fn main() -> Result<()> {
     // Get the current package directory
     let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -52,7 +52,7 @@ fn main() -> Result<()> {
     config
         .out_dir(out_dir)
         .compile_protos(&protofiles, &[proto_dir])
-        .inspect_err(|err| println!("{}", err.to_string()))
+        .inspect_err(|err| println!("{}", err))
         .expect("failed");
 
     restructure_generated_code(&PathBuf::from("src/"));
@@ -100,7 +100,7 @@ fn restructure_generated_code(out_dir: &PathBuf) {
 
                     let buffer = format!("pub mod {};\n", parts[1]);
 
-                    file.write(buffer.as_bytes())
+                    file.write_all(buffer.as_bytes())
                         .expect("Failed to write to mod file");
                 }
             }
@@ -115,9 +115,10 @@ fn restructure_generated_code(out_dir: &PathBuf) {
 
     let mut file = std::fs::OpenOptions::new()
         .create(true)
+        .truncate(false)
         .write(true)
-        .open(&out_dir.join("lib.rs"))
+        .open(out_dir.join("lib.rs"))
         .expect("Failed to create mod file");
-    file.write(buffer.as_bytes())
+    file.write_all(buffer.as_bytes())
         .expect("could not generate lib.rs");
 }
