@@ -38,10 +38,12 @@ fn main() -> Result<()> {
     if let Ok(entries) = std::fs::read_dir(out_dir) {
         for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
-            if path.is_dir() {
-                std::fs::remove_dir_all(&path).expect("Failed to remove directory");
-            } else {
-                std::fs::remove_file(&path).expect("Failed to remove file");
+            if path.file_name().map_or(false, |name| name != "utils") {
+                if path.is_dir() {
+                    std::fs::remove_dir_all(&path).expect("Failed to remove directory");
+                } else {
+                    std::fs::remove_file(&path).expect("Failed to remove file");
+                }
             }
         }
     }
@@ -63,7 +65,12 @@ fn restructure_generated_code(out_dir: &PathBuf) {
     let generated_code: Vec<PathBuf> = WalkDir::new(out_dir)
         .into_iter()
         .filter_map(|a| a.ok())
-        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "rs"))
+        .filter(|entry| {
+            entry.path().extension().map_or(false, |ext| ext == "rs")
+                && entry.path().parent().map_or(true, |parent| {
+                    parent.file_name().expect("Failed to get filename") != "utils"
+                })
+        })
         .map(|entry| entry.into_path())
         .collect();
 
@@ -105,6 +112,8 @@ fn restructure_generated_code(out_dir: &PathBuf) {
             }
         }
     }
+
+    module_names.insert("utils");
 
     let buffer = module_names
         .into_iter()

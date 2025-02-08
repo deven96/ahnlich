@@ -9,4 +9,5 @@ pub mod server_types;
 pub mod services;
 pub mod shared;
 pub mod similarity;
+pub mod utils;
 pub mod version;
