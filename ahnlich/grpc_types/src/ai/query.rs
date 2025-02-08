@@ -26,7 +26,7 @@ pub struct GetPred {
     #[prost(string, tag = "1")]
     pub store: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "2")]
-    pub condition: ::core::option::Option<super::super::predicate::PredicateCondition>,
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetSimN {
@@ -36,12 +36,12 @@ pub struct GetSimN {
     pub search_input: ::core::option::Option<super::super::keyval::StoreInput>,
     /// Optional: Use `oneof` if you want explicit nullability.
     #[prost(message, optional, tag = "3")]
-    pub condition: ::core::option::Option<super::super::predicate::PredicateCondition>,
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
     /// NonZeroUsize isn't directly supported, enforce via validation.
     #[prost(uint32, tag = "4")]
     pub closest_n: u32,
     #[prost(
-        enumeration = "super::super::algorithm::algorithm::Algorithm",
+        enumeration = "super::super::algorithm::algorithms::Algorithm",
         tag = "5"
     )]
     pub algorithm: i32,

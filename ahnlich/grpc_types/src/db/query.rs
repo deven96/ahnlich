@@ -28,7 +28,7 @@ pub struct GetPred {
     #[prost(string, tag = "1")]
     pub store: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "2")]
-    pub condition: ::core::option::Option<super::super::predicate::PredicateCondition>,
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetSimN {
@@ -39,12 +39,12 @@ pub struct GetSimN {
     #[prost(uint32, tag = "3")]
     pub closest_n: u32,
     #[prost(
-        enumeration = "super::super::algorithm::algorithm::Algorithm",
+        enumeration = "super::super::algorithm::algorithms::Algorithm",
         tag = "4"
     )]
     pub algorithm: i32,
     #[prost(message, optional, tag = "5")]
-    pub condition: ::core::option::Option<super::super::predicate::PredicateCondition>,
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreatePredIndex {
@@ -98,7 +98,7 @@ pub struct DelPred {
     #[prost(string, tag = "1")]
     pub store: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "2")]
-    pub condition: ::core::option::Option<super::super::predicate::PredicateCondition>,
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DropStore {

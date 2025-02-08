@@ -25,15 +25,15 @@ message CreateStore {
 
 message GetPred {
     string store = 1;
-    predicate.PredicateCondition condition = 2;
+    predicates.PredicateCondition condition = 2;
 }
 
 message GetSimN {
     string store = 1;
     keyval.StoreInput search_input = 2;
-    optional predicate.PredicateCondition condition = 3; // Optional: Use `oneof` if you want explicit nullability.
+    optional predicates.PredicateCondition condition = 3; // Optional: Use `oneof` if you want explicit nullability.
     uint32 closest_n = 4; // NonZeroUsize isn't directly supported, enforce via validation.
-    algorithm.algorithm.Algorithm algorithm = 5;
+    algorithm.algorithms.Algorithm algorithm = 5;
     ai.preprocess.PreprocessAction preprocess_action = 6;
     optional ai.execution_provider.ExecutionProvider execution_provider = 7; // Optional: Again, use `oneof` if explicit null is needed.
 }

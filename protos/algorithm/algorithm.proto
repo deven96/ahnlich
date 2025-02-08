@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package algorithm.algorithm;
+package algorithm.algorithms;
 
 enum Algorithm {
     EuclideanDistance = 0;

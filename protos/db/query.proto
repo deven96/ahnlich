@@ -28,15 +28,15 @@ message GetKey {
 
 message GetPred {
     string store = 1;
-    predicate.PredicateCondition condition = 2;
+    predicates.PredicateCondition condition = 2;
 }
 
 message GetSimN {
     string store = 1;
     keyval.StoreKey search_input = 2;
     uint32 closest_n = 3;
-    algorithm.algorithm.Algorithm algorithm = 4;
-    predicate.PredicateCondition condition = 5;
+    algorithm.algorithms.Algorithm algorithm = 4;
+    predicates.PredicateCondition condition = 5;
 }
 
 message CreatePredIndex {
@@ -69,7 +69,7 @@ message DelKey {
 
 message DelPred {
     string store = 1;
-    predicate.PredicateCondition condition = 2;
+    predicates.PredicateCondition condition = 2;
 }
 
 message DropStore {

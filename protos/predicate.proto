@@ -1,7 +1,7 @@
 
 syntax = "proto3";
 
-package predicate;
+package predicates;
 
 import "metadata.proto"; // Assuming MetadataKey and metadata.MetadataValue are defined here
 
