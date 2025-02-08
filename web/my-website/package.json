@@ -1,5 +1,5 @@
 {
-  "name": "ahnlich-web",
+  "name": "my-website",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -24,9 +24,9 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@docusaurus/module-type-aliases": "^3.7.0",
-    "@docusaurus/tsconfig": "^3.7.0",
-    "@docusaurus/types": "^3.7.0",
+    "@docusaurus/module-type-aliases": "3.7.0",
+    "@docusaurus/tsconfig": "3.7.0",
+    "@docusaurus/types": "3.7.0",
     "typescript": "~5.6.2"
   },
   "browserslist": {
