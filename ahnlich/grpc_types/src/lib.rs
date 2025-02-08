@@ -6,6 +6,7 @@ pub mod keyval;
 pub mod metadata;
 pub mod predicate;
 pub mod server_types;
+pub mod services;
 pub mod shared;
 pub mod similarity;
 pub mod version;
