@@ -40,7 +40,10 @@ pub struct GetSimN {
     /// NonZeroUsize isn't directly supported, enforce via validation.
     #[prost(uint32, tag = "4")]
     pub closest_n: u32,
-    #[prost(enumeration = "super::super::algorithm::algorithm::Algorithm", tag = "5")]
+    #[prost(
+        enumeration = "super::super::algorithm::algorithm::Algorithm",
+        tag = "5"
+    )]
     pub algorithm: i32,
     #[prost(enumeration = "super::preprocess::PreprocessAction", tag = "6")]
     pub preprocess_action: i32,

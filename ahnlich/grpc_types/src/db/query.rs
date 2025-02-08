@@ -38,7 +38,10 @@ pub struct GetSimN {
     pub search_input: ::core::option::Option<super::super::keyval::StoreKey>,
     #[prost(uint32, tag = "3")]
     pub closest_n: u32,
-    #[prost(enumeration = "super::super::algorithm::algorithm::Algorithm", tag = "4")]
+    #[prost(
+        enumeration = "super::super::algorithm::algorithm::Algorithm",
+        tag = "4"
+    )]
     pub algorithm: i32,
     #[prost(message, optional, tag = "5")]
     pub condition: ::core::option::Option<super::super::predicate::PredicateCondition>,
