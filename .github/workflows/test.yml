@@ -29,6 +29,9 @@ jobs:
     - name: Set up cargo and rustup tools
       run: |
         which cargo-nextest || cargo install cargo-nextest
+
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v3
     
     - name: Cache Docker images.
       uses: ScribeMD/docker-cache@0.5.0
@@ -74,6 +77,7 @@ jobs:
         poetry-version: 1.7.0
     - name: View poetry --help
       run: poetry --help
+
     - name: Cache using poetry lock
       uses: actions/cache@v4
       with:
@@ -89,6 +93,9 @@ jobs:
       run: |
         poetry run isort . -c --profile black; echo $?
         poetry run black . --check; echo $?
+
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v3
 
     - name: Complie Binaries
       working-directory: ./ahnlich
