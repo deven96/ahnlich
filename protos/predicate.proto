@@ -3,7 +3,9 @@ syntax = "proto3";
 
 package predicates;
 
-import "metadata.proto"; // Assuming MetadataKey and metadata.MetadataValue are defined here
+import "metadata.proto";
+
+// Defines different forms of conditions for making queries using ahnlich
 
 message Predicate {
   oneof kind {
