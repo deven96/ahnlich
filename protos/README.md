@@ -65,3 +65,10 @@ In `grpc_types`, cargo automatically compiles the .proto files via the `tonic` a
 ### Python: Generation via pyproject.toml
 
 For Python, we use `betterproto` to generate types automatically.
+
+### Tracing:
+Ahnlich would receive tracing_ids via request headers from clients.
+
+```
+"AhnlichTraceID": "trace_id"
+```
