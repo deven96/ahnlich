@@ -1,0 +1,134 @@
+syntax = "proto3";
+
+package ai.query;
+
+import "ai/models.proto";
+import "ai/execution_provider.proto";
+import "ai/preprocess.proto";
+import "keyval.proto"; 
+import "metadata.proto";
+import "algorithm/algorithm.proto";
+import "algorithm/nonlinear.proto";
+import "predicate.proto";
+
+// =====================
+// === AI Query Types ===
+// =====================
+
+message CreateStore {
+    // Creates a new store with the following details:
+    // - store name
+    // - AI query and index models (String or Images are currently supported. It's worth noting that queries/insertions must match the model's supported type)
+    // - list of predicates for indexing
+    // - optional non-linear algorithm indices for advanced searching
+    // - store behavior settings, like error handling and storing original data
+    string store = 1; // Unique name for the store
+    ai.models.AIModel query_model = 2; // AI model used for querying (string or image-based)
+    ai.models.AIModel index_model = 3; // AI model used for indexing
+    repeated string predicates = 4; // List of predicates used for creating indices
+    repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 5; // Optional non-linear indices
+    bool error_if_exists = 6; // Whether to throw an error if the store already exists
+    bool store_original = 7; // Flag to store original data. Used if you wanna keep the original(image or text) input sent
+}
+
+message GetPred {
+    // Fetches values from the store that match the specified predicates
+    // Validation checks if the predicates are enabled
+    string store = 1; // Name of the store
+    predicates.PredicateCondition condition = 2; // Condition to match for predicates
+}
+
+message GetSimN {
+    // Retrieves the top N similar entries from the store based on a given search input and algorithm
+    string store = 1; // Name of the store
+    keyval.StoreInput search_input = 2; // Input data to search (can be a string or image)
+    optional predicates.PredicateCondition condition = 3; // Optional: filters results by predicate condition
+    uint32 closest_n = 4; // Number of similar results to return
+    algorithm.algorithms.Algorithm algorithm = 5; // Algorithm to use for similarity search
+    ai.preprocess.PreprocessAction preprocess_action = 6; // Preprocessing actions to apply to input before querying
+    optional ai.execution_provider.ExecutionProvider execution_provider = 7; // Optional execution provider for specific optimizations
+}
+
+message CreatePredIndex {
+    // Creates predicate indexes for a store. Adds new predicates if they don’t already exist
+    string store = 1; // Store name
+    repeated string predicates = 2; // Predicates to use for indexing
+}
+
+message CreateNonLinearAlgorithmIndex {
+    // Creates non-linear algorithm indices for the store if they don't already exist
+    string store = 1; // Store name
+    repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2; // Non-linear indices to create
+}
+
+message DropPredIndex {
+    // Drops a predicate index for the store
+    // Throws an error if the predicate index doesn’t exist (controlled by `error_if_not_exists`)
+    string store = 1; // Store name
+    repeated string predicates = 2; // Predicates to remove
+    bool error_if_not_exists = 3; // Flag to enforce error if the predicate doesn’t exist
+}
+
+message DropNonLinearAlgorithmIndex {
+    // Drops non-linear algorithm indices from the store
+    // Similar to dropping predicate indices, does not remove existing data
+    string store = 1; // Store name
+    repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2; // Non-linear indices to remove
+    bool error_if_not_exists = 3; // Flag to enforce error if the index doesn’t exist
+}
+
+message DelKey {
+    // Deletes a key-value pair from the store, matching the given key
+    // Updates indices non-blocking after deletion
+    string store = 1; // Store name
+    keyval.StoreInput key = 2; // Key to delete (type depends on the store model)
+}
+
+message DropStore {
+    // Deletes the entire store and removes all associated data
+    // Destroys the store, and updates indices accordingly
+    string store = 1; // Store name
+    bool error_if_not_exists = 2; // Flag to throw an error if the store does not exist
+}
+
+message GetKey {
+    // Fetches specific input(image or string) from a store. This only works if, store_original is set to true
+    string store = 1; // Store name
+    repeated keyval.StoreInput keys = 2; // Keys to retrieve from the store
+}
+
+message InfoServer {
+    // Returns the information about the server, including version, host, and port
+}
+
+message ListClients {
+    // Lists all clients currently connected to the server
+}
+
+message ListStores {
+    // Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
+}
+
+message PurgeStores {
+    // Purges (deletes) all stores on the server, effectively destroying all stored data
+}
+
+message Ping {
+    // Pings the server to check if it's reachable (typically for health-checking)
+}
+
+message Set {
+    // Sets a list of entries in the store
+    // Each entry corresponds to a key-value pair and is validated before insertion
+    string store = 1; // Store name
+    repeated StoreEntry inputs = 2; // List of entries to set
+    ai.preprocess.PreprocessAction preprocess_action = 3; // Preprocessing action to apply to inputs before setting
+    optional ai.execution_provider.ExecutionProvider execution_provider = 4; // Optional execution provider for optimizations
+}
+
+message StoreEntry {
+    // A single entry in the store
+    keyval.StoreInput key = 1; // Key of the entry
+    map<string, metadata.MetadataValue> value = 2; // Metadata associated with the key
+    // MetadataKey is a string used as the key in the value map
+}

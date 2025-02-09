@@ -68,6 +68,9 @@ jobs:
         with:
           toolchain: 1.81.0
 
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
+
       - name: Deploy using tag
         working-directory: ./ahnlich
         run: |

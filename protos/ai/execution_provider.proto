@@ -1,0 +1,14 @@
+
+syntax = "proto3";
+
+package ai.execution_provider;
+
+
+
+// Enum for Execution Providers
+enum ExecutionProvider {
+    TENSOR_RT = 0;
+    CUDA = 1;
+    DIRECT_ML = 2;
+    CORE_ML = 3;
+}
