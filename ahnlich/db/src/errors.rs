@@ -3,6 +3,7 @@ use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::similarity::NonLinearAlgorithm;
 use fallible_collections::TryReserveError;
 use thiserror::Error;
+use tonic::{Code, Status};
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum ServerError {
@@ -19,10 +20,26 @@ pub enum ServerError {
         store_dimension: usize,
         input_dimension: usize,
     },
-    #[error("Could not deserialize query, error is {0}")]
-    QueryDeserializeError(String),
     #[error("allocation error {0:?}")]
     Allocation(TryReserveError),
+}
+
+impl From<ServerError> for Status {
+    fn from(input: ServerError) -> Status {
+        let message = input.to_string();
+        let code = match input {
+            ServerError::PredicateNotFound(_) => Code::NotFound,
+            ServerError::NonLinearIndexNotFound(_) => Code::NotFound,
+            ServerError::StoreNotFound(_) => Code::NotFound,
+            ServerError::StoreAlreadyExists(_) => Code::AlreadyExists,
+            ServerError::StoreDimensionMismatch {
+                store_dimension: _,
+                input_dimension: _,
+            } => Code::InvalidArgument,
+            ServerError::Allocation(_) => Code::ResourceExhausted,
+        };
+        Status::new(code, message)
+    }
 }
 
 impl From<TryReserveError> for ServerError {

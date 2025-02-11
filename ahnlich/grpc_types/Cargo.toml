@@ -12,7 +12,7 @@ repository = "https://github.com/deven96/ahnlich/ahnlich/types"
 description = "Types for using ahnlich_client_rs AI proxy and in-memory vector DB"
 
 [dependencies]
-tonic = "0.12.3"
+tonic.workspace = true
 prost = "0.13"
 prost-types = "0.13"
 

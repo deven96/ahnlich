@@ -2,6 +2,9 @@ use super::task::ServerTask;
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
 use ahnlich_types::client::ConnectedClient;
+use grpc_types::ai::query::CreateStore;
+use grpc_types::ai::server::Unit;
+use grpc_types::services::db_service::db_service_server::DbService;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
@@ -27,6 +30,19 @@ pub struct Server {
     client_handler: Arc<ClientHandler>,
     task_manager: Arc<TaskManager>,
     config: ServerConfig,
+}
+
+// maximum_message_size => DbServiceServer(server).max_decoding_message_size
+// maximum_clients => At this point yet to figure out but it might be manually implementing
+// Server/Interceptor as shown in https://chatgpt.com/share/67abdf0b-72a8-8008-b203-bc8e65b02495
+// maximum_concurrency_per_client => we just set this with `concurrency_limit_per_connection`.
+// for creating trace functions, we can add `trace_fn` and extract our header from `Request::header` and return the span
+impl DbService for Server {
+    async fn create_store(
+        &self,
+        request: tonic::Request<CreateStore>,
+    ) -> std::result::Result<tonic::Response<Unit>, tonic::Status> {
+    }
 }
 
 #[async_trait::async_trait]
