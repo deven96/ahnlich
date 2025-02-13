@@ -312,6 +312,7 @@ class DbServiceStub(betterproto.ServiceStub):
 
 
 class DbServiceBase(ServiceBase):
+
     async def create_store(
         self, db_query_create_store: "__db_query__.CreateStore"
     ) -> "__db_server__.Unit":

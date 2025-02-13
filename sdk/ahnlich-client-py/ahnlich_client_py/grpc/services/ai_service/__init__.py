@@ -295,6 +295,7 @@ class AiServiceStub(betterproto.ServiceStub):
 
 
 class AiServiceBase(ServiceBase):
+
     async def create_store(
         self, ai_query_create_store: "__ai_query__.CreateStore"
     ) -> "__ai_server__.Unit":

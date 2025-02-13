@@ -25,9 +25,9 @@ class CreateStore(betterproto.Message):
     store: str = betterproto.string_field(1)
     dimension: int = betterproto.uint32_field(2)
     create_predicates: List[str] = betterproto.string_field(3)
-    non_linear_indices: List[
-        "__algorithm_nonlinear__.NonLinearAlgorithm"
-    ] = betterproto.enum_field(4)
+    non_linear_indices: List["__algorithm_nonlinear__.NonLinearAlgorithm"] = (
+        betterproto.enum_field(4)
+    )
     error_if_exists: bool = betterproto.bool_field(5)
 
 
@@ -83,9 +83,9 @@ class CreateNonLinearAlgorithmIndex(betterproto.Message):
     """
 
     store: str = betterproto.string_field(1)
-    non_linear_indices: List[
-        "__algorithm_nonlinear__.NonLinearAlgorithm"
-    ] = betterproto.enum_field(2)
+    non_linear_indices: List["__algorithm_nonlinear__.NonLinearAlgorithm"] = (
+        betterproto.enum_field(2)
+    )
 
 
 @dataclass(eq=False, repr=False)
@@ -108,9 +108,9 @@ class DropNonLinearAlgorithmIndex(betterproto.Message):
     """
 
     store: str = betterproto.string_field(1)
-    non_linear_indices: List[
-        "__algorithm_nonlinear__.NonLinearAlgorithm"
-    ] = betterproto.enum_field(2)
+    non_linear_indices: List["__algorithm_nonlinear__.NonLinearAlgorithm"] = (
+        betterproto.enum_field(2)
+    )
     error_if_not_exists: bool = betterproto.bool_field(3)
 
 

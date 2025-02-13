@@ -37,7 +37,7 @@ opentelemetry-sdk = "^1.26.0"
 opentelemetry-instrumentation = "^0.47b0"
 opentelemetry-exporter-otlp = "^1.26.0"
 pillow = "^10.4.0"
-betterproto = { extras = ["compiler"], version = "^2.0.0b5"}
+betterproto = { extras = ["compiler"], version = "^2.0.0b7"}
 grpcio-tools = "^1.7.0"
 
 [build-system]

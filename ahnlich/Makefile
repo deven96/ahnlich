@@ -47,7 +47,8 @@ grpc-update-clients: grpc-update-rust grpc-update-python ## updates client gener
 grpc-update-python: ## updates python generated code after proto change
 	@cd ../sdk/ahnlich-client-py/ \
 		&& poetry run generate_from_protos \
-		&& isort . && black .
+		&& poetry run isort . \
+		&& poetry run black .
 
 grpc-update-rust: ## updates python generated code after proto change
 	@cargo build -p grpc_types

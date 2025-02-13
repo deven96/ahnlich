@@ -33,9 +33,9 @@ class CreateStore(betterproto.Message):
     query_model: "_models__.AiModel" = betterproto.enum_field(2)
     index_model: "_models__.AiModel" = betterproto.enum_field(3)
     predicates: List[str] = betterproto.string_field(4)
-    non_linear_indices: List[
-        "__algorithm_nonlinear__.NonLinearAlgorithm"
-    ] = betterproto.enum_field(5)
+    non_linear_indices: List["__algorithm_nonlinear__.NonLinearAlgorithm"] = (
+        betterproto.enum_field(5)
+    )
     error_if_exists: bool = betterproto.bool_field(6)
     store_original: bool = betterproto.bool_field(7)
 
@@ -59,15 +59,15 @@ class GetSimN(betterproto.Message):
     """
 
     search_input: "__keyval__.StoreInput" = betterproto.message_field(2)
-    condition: Optional[
-        "__predicates__.PredicateCondition"
-    ] = betterproto.message_field(3, optional=True)
+    condition: Optional["__predicates__.PredicateCondition"] = (
+        betterproto.message_field(3, optional=True)
+    )
     closest_n: int = betterproto.uint32_field(4)
     algorithm: "__algorithm_algorithms__.Algorithm" = betterproto.enum_field(5)
     preprocess_action: "_preprocess__.PreprocessAction" = betterproto.enum_field(6)
-    execution_provider: Optional[
-        "_execution_provider__.ExecutionProvider"
-    ] = betterproto.enum_field(7, optional=True)
+    execution_provider: Optional["_execution_provider__.ExecutionProvider"] = (
+        betterproto.enum_field(7, optional=True)
+    )
 
 
 @dataclass(eq=False, repr=False)
@@ -87,9 +87,9 @@ class CreateNonLinearAlgorithmIndex(betterproto.Message):
     Creates non-linear algorithm indices for the store if they don't already exist
     """
 
-    non_linear_indices: List[
-        "__algorithm_nonlinear__.NonLinearAlgorithm"
-    ] = betterproto.enum_field(2)
+    non_linear_indices: List["__algorithm_nonlinear__.NonLinearAlgorithm"] = (
+        betterproto.enum_field(2)
+    )
 
 
 @dataclass(eq=False, repr=False)
@@ -112,9 +112,9 @@ class DropNonLinearAlgorithmIndex(betterproto.Message):
      Similar to dropping predicate indices, does not remove existing data
     """
 
-    non_linear_indices: List[
-        "__algorithm_nonlinear__.NonLinearAlgorithm"
-    ] = betterproto.enum_field(2)
+    non_linear_indices: List["__algorithm_nonlinear__.NonLinearAlgorithm"] = (
+        betterproto.enum_field(2)
+    )
     error_if_not_exists: bool = betterproto.bool_field(3)
 
 
@@ -185,9 +185,9 @@ class Set(betterproto.Message):
 
     inputs: List["StoreEntry"] = betterproto.message_field(2)
     preprocess_action: "_preprocess__.PreprocessAction" = betterproto.enum_field(3)
-    execution_provider: Optional[
-        "_execution_provider__.ExecutionProvider"
-    ] = betterproto.enum_field(4, optional=True)
+    execution_provider: Optional["_execution_provider__.ExecutionProvider"] = (
+        betterproto.enum_field(4, optional=True)
+    )
 
 
 @dataclass(eq=False, repr=False)
