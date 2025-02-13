@@ -23,6 +23,9 @@ jobs:
       with:
         workspaces: ahnlich
 
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v3
+
     - name: Install Cargo benchcmp
       working-directory: ./ahnlich
       run: cargo install critcmp

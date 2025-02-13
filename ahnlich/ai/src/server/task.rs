@@ -455,7 +455,7 @@ impl AhnlichProtocol for AIProxyTask {
                 }
                 AIQuery::GetKey { store, keys } => {
                     let metadata_values: HashSet<MetadataValue> =
-                        keys.into_iter().map(|value| value.into()).collect();
+                        keys.into_par_iter().map(|value| value.into()).collect();
                     let get_key_condition = PredicateCondition::Value(Predicate::In {
                         key: AHNLICH_AI_RESERVED_META_KEY.clone(),
                         value: metadata_values,

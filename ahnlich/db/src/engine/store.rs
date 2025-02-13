@@ -218,7 +218,7 @@ impl StoreHandler {
             return Ok(vec![]);
         }
 
-        let filtered_iter = filtered.iter().map(|(key, _)| key);
+        let filtered_iter = filtered.par_iter().map(|(key, _)| key);
 
         let algorithm_by_type: AlgorithmByType = algorithm.into();
         let similar_result = match algorithm_by_type {
@@ -444,7 +444,7 @@ impl Store {
     #[tracing::instrument(skip(self, input), fields(input_length=input.len()))]
     fn filter_dimension(&self, input: Vec<StoreKey>) -> Result<Vec<StoreKey>, ServerError> {
         input
-            .into_iter()
+            .into_par_iter()
             .map(|key| {
                 let store_dimension = self.dimension.get();
                 let input_dimension = key.dimension();

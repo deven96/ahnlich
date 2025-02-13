@@ -1,3 +1,5 @@
+use rayon::prelude::*;
+
 use crate::engine::ai::models::OnnxTransformResult;
 use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
 use crate::error::AIProxyError;
@@ -9,9 +11,8 @@ impl Preprocessor for ImageArrayToNdArray {
     fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
             PreprocessorData::ImageArray(arrays) => {
-                // Not using par_iter_mut here because it messes up the order of the images
                 let arrays = arrays
-                    .into_iter()
+                    .into_par_iter()
                     .map(OnnxTransformResult::try_from)
                     .collect::<Result<Vec<_>, _>>()?;
                 let array_views: Vec<_> = arrays.iter().map(|a| a.view()).collect();
