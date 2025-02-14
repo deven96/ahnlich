@@ -40,6 +40,8 @@ impl std::fmt::Display for NonLinearAlgorithm {
     }
 }
 
+
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Similarity(pub f32);
 

@@ -5,7 +5,7 @@ use ahnlich_similarity::utils::VecF32Ordered;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::similarity::NonLinearAlgorithm;
-use flurry::HashMap as ConcurrentHashMap;
+use papaya::HashMap as ConcurrentHashMap;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use serde::Deserialize;
@@ -136,7 +136,7 @@ impl NonLinearAlgorithmIndices {
         let pinned = self.algorithm_to_index.pin();
         if let (true, Some(non_existing_index)) = (
             error_if_not_exists,
-            indices.iter().find(|a| !pinned.contains_key(a)),
+            indices.iter().find(|a| !pinned.contains_key(*a)),
         ) {
             return Err(ServerError::NonLinearIndexNotFound(*non_existing_index));
         }

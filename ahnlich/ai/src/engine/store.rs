@@ -12,7 +12,7 @@ use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
 use fallible_collections::FallibleVec;
-use flurry::HashMap as ConcurrentHashMap;
+use papaya::HashMap as ConcurrentHashMap;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use serde::Deserialize;
 use serde::Serialize;
