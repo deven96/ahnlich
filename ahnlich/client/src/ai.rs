@@ -1,7 +1,7 @@
-use crate::builders::ai as ai_params;
 use crate::conn::{AIConn, Connection};
 use crate::error::AhnlichError;
 use crate::prelude::*;
+use ahnlich_types::query_builders::ai as ai_params;
 use deadpool::managed::Manager;
 use deadpool::managed::Metrics;
 use deadpool::managed::Object;

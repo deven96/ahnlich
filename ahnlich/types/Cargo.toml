@@ -19,3 +19,4 @@ bincode.workspace = true
 once_cell.workspace = true
 fallible_collections.workspace = true
 thiserror.workspace = true
+typed-builder = "0.20.0"

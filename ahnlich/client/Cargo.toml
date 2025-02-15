@@ -23,7 +23,6 @@ async-trait.workspace = true
 tokio.workspace = true
 deadpool.workspace = true
 fallible_collections.workspace = true
-typed-builder = "0.20.0"
 
 [dev-dependencies]
 db = { path = "../db", version = "*" }

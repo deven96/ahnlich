@@ -1,24 +1,27 @@
-use std::collections::HashSet;
-use std::num::NonZeroUsize;
-use typed_builder::TypedBuilder;
+use std::{collections::HashSet, num::NonZeroUsize};
 
-use ahnlich_types::{
-    keyval::{StoreKey, StoreName, StoreValue},
+use crate::{
+    ai::{AIModel, ExecutionProvider, PreprocessAction},
+    keyval::{StoreInput, StoreName, StoreValue},
     metadata::MetadataKey,
     predicate::PredicateCondition,
     similarity::{Algorithm, NonLinearAlgorithm},
 };
+use typed_builder::TypedBuilder;
 
 #[derive(TypedBuilder)]
 pub struct CreateStoreParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
 
-    #[builder(setter(into, transform = |n: usize| NonZeroUsize::new(n).unwrap()))]
-    pub dimension: NonZeroUsize,
+    #[builder(default = AIModel::AllMiniLML6V2)]
+    pub query_model: AIModel,
+
+    #[builder(default = AIModel::AllMiniLML6V2)]
+    pub index_model: AIModel,
 
     #[builder(default = HashSet::new())]
-    pub create_predicates: HashSet<MetadataKey>,
+    pub predicates: HashSet<MetadataKey>,
 
     #[builder(default = HashSet::new())]
     pub non_linear_indices: HashSet<NonLinearAlgorithm>,
@@ -26,15 +29,9 @@ pub struct CreateStoreParams {
     #[builder(default = true)]
     pub error_if_exists: bool,
 
-    #[builder(default = None)]
-    pub tracing_id: Option<String>,
-}
+    #[builder(default = true)]
+    pub store_original: bool,
 
-#[derive(TypedBuilder)]
-pub struct GetKeyParams {
-    #[builder(setter(into, transform = |s: String| StoreName(s)))]
-    pub store: StoreName,
-    pub keys: Vec<StoreKey>,
     #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
@@ -43,8 +40,8 @@ pub struct GetKeyParams {
 pub struct GetPredParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
-
     pub condition: PredicateCondition,
+
     #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
@@ -53,7 +50,10 @@ pub struct GetPredParams {
 pub struct GetSimNParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
-    pub search_input: StoreKey,
+    pub search_input: StoreInput,
+
+    #[builder(default = None)]
+    pub condition: Option<PredicateCondition>,
 
     #[builder(setter(into, transform = |n: usize| NonZeroUsize::new(n).unwrap()),default=NonZeroUsize::new(1).unwrap())]
     pub closest_n: NonZeroUsize,
@@ -62,16 +62,21 @@ pub struct GetSimNParams {
     pub algorithm: Algorithm,
 
     #[builder(default = None)]
-    pub condition: Option<PredicateCondition>,
-    #[builder(default = None)]
     pub tracing_id: Option<String>,
+    #[builder(default = PreprocessAction::NoPreprocessing)]
+    pub preprocess_action: PreprocessAction,
+
+    #[builder(default=None)]
+    pub execution_provider: Option<ExecutionProvider>,
 }
 
 #[derive(TypedBuilder)]
 pub struct CreatePredIndexParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
+
     pub predicates: HashSet<MetadataKey>,
+
     #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
@@ -80,7 +85,10 @@ pub struct CreatePredIndexParams {
 pub struct CreateNonLinearAlgorithmIndexParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
+
+    #[builder(default = HashSet::from_iter([NonLinearAlgorithm::KDTree]))]
     pub non_linear_indices: HashSet<NonLinearAlgorithm>,
+
     #[builder(default = None)]
     pub tracing_id: Option<String>,
 }
@@ -89,21 +97,8 @@ pub struct CreateNonLinearAlgorithmIndexParams {
 pub struct DropPredIndexParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
+
     pub predicates: HashSet<MetadataKey>,
-
-    #[builder(default = true)]
-    pub error_if_not_exists: bool,
-
-    #[builder(default = None)]
-    pub tracing_id: Option<String>,
-}
-
-#[derive(TypedBuilder)]
-pub struct DropNonLinearAlgorithmIndexParams {
-    #[builder(setter(into, transform = |s: String| StoreName(s)))]
-    pub store: StoreName,
-
-    pub non_linear_indices: HashSet<NonLinearAlgorithm>,
 
     #[builder(default = true)]
     pub error_if_not_exists: bool,
@@ -116,9 +111,17 @@ pub struct DropNonLinearAlgorithmIndexParams {
 pub struct SetParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
-    pub inputs: Vec<(StoreKey, StoreValue)>,
+
+    pub inputs: Vec<(StoreInput, StoreValue)>,
+
+    #[builder(default = PreprocessAction::ModelPreprocessing)]
+    pub preprocess_action: PreprocessAction,
+
     #[builder(default = None)]
     pub tracing_id: Option<String>,
+
+    #[builder(default=None)]
+    pub execution_provider: Option<ExecutionProvider>,
 }
 
 #[derive(TypedBuilder)]
@@ -126,18 +129,7 @@ pub struct DelKeyParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]
     pub store: StoreName,
 
-    pub keys: Vec<StoreKey>,
-
-    #[builder(default = None)]
-    pub tracing_id: Option<String>,
-}
-
-#[derive(TypedBuilder)]
-pub struct DelPredParams {
-    #[builder(setter(into, transform = |s: String| StoreName(s)))]
-    pub store: StoreName,
-
-    pub condition: PredicateCondition,
+    pub key: StoreInput,
 
     #[builder(default = None)]
     pub tracing_id: Option<String>,

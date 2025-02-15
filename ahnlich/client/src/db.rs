@@ -1,7 +1,7 @@
-use crate::builders::db as db_params;
 use crate::conn::{Connection, DBConn};
 use crate::error::AhnlichError;
 use crate::prelude::*;
+use ahnlich_types::query_builders::db as db_params;
 use deadpool::managed::Manager;
 use deadpool::managed::Metrics;
 use deadpool::managed::Object;
