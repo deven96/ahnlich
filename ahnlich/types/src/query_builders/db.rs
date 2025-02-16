@@ -9,6 +9,8 @@ use crate::{
     similarity::{Algorithm, NonLinearAlgorithm},
 };
 
+//FIXME: Should nonzeroUsize panic especially now when using with grpc?
+
 #[derive(TypedBuilder)]
 pub struct CreateStoreParams {
     #[builder(setter(into, transform = |s: String| StoreName(s)))]

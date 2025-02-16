@@ -15,6 +15,8 @@ description = "Types for using ahnlich_client_rs AI proxy and in-memory vector D
 tonic.workspace = true
 prost = "0.13"
 prost-types = "0.13"
+ahnlich_types = { path = "../types", version = "*" }
+
 
 [build-dependencies]
 prost-build = "0.13.4"

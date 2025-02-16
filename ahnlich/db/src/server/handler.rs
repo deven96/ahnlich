@@ -2,9 +2,9 @@ use super::task::ServerTask;
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
 use ahnlich_types::client::ConnectedClient;
-use grpc_types::ai::query::CreateStore;
-use grpc_types::ai::server::Unit;
+use grpc_types::db::{query, server};
 use grpc_types::services::db_service::db_service_server::DbService;
+use grpc_types::utils as grpc_utils;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
@@ -37,11 +37,23 @@ pub struct Server {
 // Server/Interceptor as shown in https://chatgpt.com/share/67abdf0b-72a8-8008-b203-bc8e65b02495
 // maximum_concurrency_per_client => we just set this with `concurrency_limit_per_connection`.
 // for creating trace functions, we can add `trace_fn` and extract our header from `Request::header` and return the span
+#[tonic::async_trait]
 impl DbService for Server {
     async fn create_store(
         &self,
-        request: tonic::Request<CreateStore>,
-    ) -> std::result::Result<tonic::Response<Unit>, tonic::Status> {
+        request: tonic::Request<query::CreateStore>,
+    ) -> std::result::Result<tonic::Response<server::Unit>, tonic::Status> {
+        let create_store_params = grpc_utils::db_create_store(request.into_inner());
+        self.store_handler
+            .create_store(
+                create_store_params.store,
+                create_store_params.dimension,
+                create_store_params.create_predicates.into_iter().collect(),
+                create_store_params.non_linear_indices,
+                create_store_params.error_if_exists,
+            )
+            .map(|_| tonic::Response::new(server::Unit {}))
+            .map_err(|err| err.into())
     }
 }
 
