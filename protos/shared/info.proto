@@ -5,16 +5,14 @@ package shared.info;
 import "server_types.proto";
 
 message ServerInfo {
-    string address = 1;
-    string version = 2;
-    server_types.ServerType type = 3;
-    uint32 limit = 4;
-    uint32 remaining = 5;
+  string address = 1;
+  string version = 2;
+  server_types.ServerType type = 3;
+  uint64 limit = 4;
+  uint64 remaining = 5;
 }
 
-
-
 message StoreUpsert {
-    uint32 inserted = 1;
-    uint32 updated = 2;
+  uint64 inserted = 1;
+  uint64 updated = 2;
 }

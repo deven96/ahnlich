@@ -2,9 +2,8 @@ syntax = "proto3";
 
 package client;
 
+message ConnectedClient {
+  string address = 1;
 
-message ConnectedClient{
-    string address = 1;
-
-    uint64 time_connected = 2;
+  string time_connected = 2;
 }

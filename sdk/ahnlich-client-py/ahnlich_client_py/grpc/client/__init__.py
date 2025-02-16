@@ -11,4 +11,4 @@ import betterproto
 @dataclass(eq=False, repr=False)
 class ConnectedClient(betterproto.Message):
     address: str = betterproto.string_field(1)
-    time_connected: int = betterproto.uint64_field(2)
+    time_connected: str = betterproto.string_field(2)

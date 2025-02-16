@@ -7,15 +7,15 @@ pub struct ServerInfo {
     pub version: ::prost::alloc::string::String,
     #[prost(enumeration = "super::super::server_types::ServerType", tag = "3")]
     pub r#type: i32,
-    #[prost(uint32, tag = "4")]
-    pub limit: u32,
-    #[prost(uint32, tag = "5")]
-    pub remaining: u32,
+    #[prost(uint64, tag = "4")]
+    pub limit: u64,
+    #[prost(uint64, tag = "5")]
+    pub remaining: u64,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct StoreUpsert {
-    #[prost(uint32, tag = "1")]
-    pub inserted: u32,
-    #[prost(uint32, tag = "2")]
-    pub updated: u32,
+    #[prost(uint64, tag = "1")]
+    pub inserted: u64,
+    #[prost(uint64, tag = "2")]
+    pub updated: u64,
 }

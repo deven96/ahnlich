@@ -4,7 +4,7 @@ use crate::engine::store::StoreHandler;
 use ahnlich_types::client::ConnectedClient;
 use grpc_types::db::{pipeline, query, server};
 use grpc_types::services::db_service::db_service_server::DbService;
-use grpc_types::utils as grpc_utils;
+use grpc_types::{client as grpc_types_client, utils as grpc_utils};
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
@@ -17,6 +17,7 @@ use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
+use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::server::AhnlichServerUtils;
 use utils::server::ServerUtilsConfig;
 use utils::{client::ClientHandler, persistence::Persistence};
@@ -78,7 +79,7 @@ impl DbService for Server {
         &self,
         _request: tonic::Request<query::Ping>,
     ) -> std::result::Result<tonic::Response<server::Pong>, tonic::Status> {
-        todo!()
+        Ok(tonic::Response::new(server::Pong {}))
     }
     async fn create_pred_index(
         &self,
@@ -112,33 +113,87 @@ impl DbService for Server {
     }
     async fn del_pred(
         &self,
-        _request: tonic::Request<query::DelPred>,
+        request: tonic::Request<query::DelPred>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        todo!()
+        let params = request.into_inner();
+
+        let condition = grpc_utils::unwrap_predicate_condition(params.condition.map(Box::new))?;
+
+        let del = self
+            .store_handler
+            .del_pred_in_store(&ahnlich_types::keyval::StoreName(params.store), &condition)?;
+
+        Ok(tonic::Response::new(server::Del {
+            deleted_count: del as u64,
+        }))
     }
     async fn drop_store(
         &self,
-        _request: tonic::Request<query::DropStore>,
+        request: tonic::Request<query::DropStore>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        todo!()
+        let drop_store_params = request.into_inner();
+        let dropped = self.store_handler.drop_store(
+            ahnlich_types::keyval::StoreName(drop_store_params.store),
+            drop_store_params.error_if_not_exists,
+        )?;
+
+        Ok(tonic::Response::new(server::Del {
+            deleted_count: dropped as u64,
+        }))
     }
     async fn list_clients(
         &self,
         _request: tonic::Request<query::ListClients>,
     ) -> std::result::Result<tonic::Response<server::ClientList>, tonic::Status> {
-        todo!()
+        // NOTE: client handler would be shared with a middleware that does the tracking of
+        // individual clients
+        let clients = self
+            .client_handler
+            .list()
+            .into_iter()
+            .map(|client| grpc_types_client::ConnectedClient {
+                address: client.address,
+                time_connected: format!("{:?}", client.time_connected),
+            })
+            .collect();
+
+        Ok(tonic::Response::new(server::ClientList { clients }))
     }
     async fn list_stores(
         &self,
         _request: tonic::Request<query::ListStores>,
     ) -> std::result::Result<tonic::Response<server::StoreList>, tonic::Status> {
-        todo!()
+        let stores = self
+            .store_handler
+            .list_stores()
+            .into_iter()
+            .map(|store| server::StoreInfo {
+                name: store.name.to_string(),
+                len: store.len as u64,
+                size_in_bytes: store.size_in_bytes as u64,
+            })
+            .collect();
+
+        Ok(tonic::Response::new(server::StoreList { stores }))
     }
     async fn info_server(
         &self,
         _request: tonic::Request<query::InfoServer>,
     ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
-        todo!()
+        let version = env!("CARGO_PKG_VERSION").to_string();
+        let server_info = grpc_types::shared::info::ServerInfo {
+            address: format!("{:?}", self.local_addr()),
+            version,
+            r#type: grpc_types::server_types::ServerType::Database.into(),
+            limit: GLOBAL_ALLOCATOR.limit() as u64,
+            remaining: GLOBAL_ALLOCATOR.remaining() as u64,
+        };
+
+        let info_server = server::InfoServer {
+            info: Some(server_info),
+        };
+
+        Ok(tonic::Response::new(info_server))
     }
     async fn set(
         &self,
