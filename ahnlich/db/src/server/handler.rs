@@ -2,7 +2,7 @@ use super::task::ServerTask;
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
 use ahnlich_types::client::ConnectedClient;
-use grpc_types::db::{query, server};
+use grpc_types::db::{pipeline, query, server};
 use grpc_types::services::db_service::db_service_server::DbService;
 use grpc_types::utils as grpc_utils;
 use std::io::Result as IoResult;
@@ -54,6 +54,103 @@ impl DbService for Server {
             )
             .map(|_| tonic::Response::new(server::Unit {}))
             .map_err(|err| err.into())
+    }
+
+    async fn get_key(
+        &self,
+        _request: tonic::Request<query::GetKey>,
+    ) -> std::result::Result<tonic::Response<server::Get>, tonic::Status> {
+        todo!()
+    }
+    async fn get_pred(
+        &self,
+        _request: tonic::Request<query::GetPred>,
+    ) -> std::result::Result<tonic::Response<server::Get>, tonic::Status> {
+        todo!()
+    }
+    async fn get_sim_n(
+        &self,
+        _request: tonic::Request<query::GetSimN>,
+    ) -> std::result::Result<tonic::Response<server::GetSimN>, tonic::Status> {
+        todo!()
+    }
+    async fn ping(
+        &self,
+        _request: tonic::Request<query::Ping>,
+    ) -> std::result::Result<tonic::Response<server::Pong>, tonic::Status> {
+        todo!()
+    }
+    async fn create_pred_index(
+        &self,
+        _request: tonic::Request<query::CreatePredIndex>,
+    ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
+        todo!()
+    }
+    async fn create_non_linear_algorithm_index(
+        &self,
+        _request: tonic::Request<query::CreateNonLinearAlgorithmIndex>,
+    ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
+        todo!()
+    }
+    async fn drop_pred_index(
+        &self,
+        _request: tonic::Request<query::DropPredIndex>,
+    ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        todo!()
+    }
+    async fn drop_non_linear_algorithm_index(
+        &self,
+        _request: tonic::Request<query::DropNonLinearAlgorithmIndex>,
+    ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        todo!()
+    }
+    async fn del_key(
+        &self,
+        _request: tonic::Request<query::DelKey>,
+    ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        todo!()
+    }
+    async fn del_pred(
+        &self,
+        _request: tonic::Request<query::DelPred>,
+    ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        todo!()
+    }
+    async fn drop_store(
+        &self,
+        _request: tonic::Request<query::DropStore>,
+    ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        todo!()
+    }
+    async fn list_clients(
+        &self,
+        _request: tonic::Request<query::ListClients>,
+    ) -> std::result::Result<tonic::Response<server::ClientList>, tonic::Status> {
+        todo!()
+    }
+    async fn list_stores(
+        &self,
+        _request: tonic::Request<query::ListStores>,
+    ) -> std::result::Result<tonic::Response<server::StoreList>, tonic::Status> {
+        todo!()
+    }
+    async fn info_server(
+        &self,
+        _request: tonic::Request<query::InfoServer>,
+    ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
+        todo!()
+    }
+    async fn set(
+        &self,
+        _request: tonic::Request<query::Set>,
+    ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
+        todo!()
+    }
+    async fn pipeline(
+        &self,
+        _request: tonic::Request<pipeline::DbRequestPipeline>,
+    ) -> std::result::Result<tonic::Response<pipeline::DbResponsePipeline>, tonic::Status> {
+        todo!()
     }
 }
 
