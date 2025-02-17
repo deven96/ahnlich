@@ -49,6 +49,7 @@ pub struct Server {
 // for creating trace functions, we can add `trace_fn` and extract our header from `Request::header` and return the span
 #[tonic::async_trait]
 impl DbService for Server {
+    #[tracing::instrument(skip_all)]
     async fn create_store(
         &self,
         request: tonic::Request<query::CreateStore>,
@@ -66,6 +67,7 @@ impl DbService for Server {
             .map_err(|err| err.into())
     }
 
+    #[tracing::instrument(skip_all)]
     async fn get_key(
         &self,
         request: tonic::Request<query::GetKey>,
@@ -84,6 +86,8 @@ impl DbService for Server {
         let entries = self.convert_get_results_to_gprc_types(store_res);
         Ok(tonic::Response::new(server::Get { entries }))
     }
+
+    #[tracing::instrument(skip_all)]
     async fn get_pred(
         &self,
         request: tonic::Request<query::GetPred>,
@@ -100,6 +104,8 @@ impl DbService for Server {
 
         Ok(tonic::Response::new(server::Get { entries }))
     }
+
+    #[tracing::instrument(skip_all)]
     async fn get_sim_n(
         &self,
         request: tonic::Request<query::GetSimN>,
@@ -148,6 +154,8 @@ impl DbService for Server {
 
         Ok(tonic::Response::new(server::GetSimN { entries }))
     }
+
+    #[tracing::instrument(skip_all)]
     async fn ping(
         &self,
         _request: tonic::Request<query::Ping>,
@@ -155,6 +163,7 @@ impl DbService for Server {
         Ok(tonic::Response::new(server::Pong {}))
     }
 
+    #[tracing::instrument(skip_all)]
     async fn create_pred_index(
         &self,
         request: tonic::Request<query::CreatePredIndex>,
@@ -176,6 +185,7 @@ impl DbService for Server {
         }))
     }
 
+    #[tracing::instrument(skip_all)]
     async fn create_non_linear_algorithm_index(
         &self,
         request: tonic::Request<query::CreateNonLinearAlgorithmIndex>,
@@ -200,6 +210,7 @@ impl DbService for Server {
         }))
     }
 
+    #[tracing::instrument(skip_all)]
     async fn drop_pred_index(
         &self,
         request: tonic::Request<query::DropPredIndex>,
@@ -223,6 +234,7 @@ impl DbService for Server {
         }))
     }
 
+    #[tracing::instrument(skip_all)]
     async fn drop_non_linear_algorithm_index(
         &self,
         request: tonic::Request<query::DropNonLinearAlgorithmIndex>,
@@ -248,6 +260,8 @@ impl DbService for Server {
             deleted_count: del as u64,
         }))
     }
+
+    #[tracing::instrument(skip_all)]
     async fn del_key(
         &self,
         request: tonic::Request<query::DelKey>,
@@ -267,6 +281,8 @@ impl DbService for Server {
             deleted_count: del as u64,
         }))
     }
+
+    #[tracing::instrument(skip_all)]
     async fn del_pred(
         &self,
         request: tonic::Request<query::DelPred>,
@@ -283,6 +299,8 @@ impl DbService for Server {
             deleted_count: del as u64,
         }))
     }
+
+    #[tracing::instrument(skip_all)]
     async fn drop_store(
         &self,
         request: tonic::Request<query::DropStore>,
@@ -297,6 +315,8 @@ impl DbService for Server {
             deleted_count: dropped as u64,
         }))
     }
+
+    #[tracing::instrument(skip_all)]
     async fn list_clients(
         &self,
         _request: tonic::Request<query::ListClients>,
@@ -315,6 +335,8 @@ impl DbService for Server {
 
         Ok(tonic::Response::new(server::ClientList { clients }))
     }
+
+    #[tracing::instrument(skip_all)]
     async fn list_stores(
         &self,
         _request: tonic::Request<query::ListStores>,
@@ -332,6 +354,8 @@ impl DbService for Server {
 
         Ok(tonic::Response::new(server::StoreList { stores }))
     }
+
+    #[tracing::instrument(skip_all)]
     async fn info_server(
         &self,
         _request: tonic::Request<query::InfoServer>,
@@ -351,12 +375,16 @@ impl DbService for Server {
 
         Ok(tonic::Response::new(info_server))
     }
+
+    #[tracing::instrument(skip_all)]
     async fn set(
         &self,
         _request: tonic::Request<query::Set>,
     ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
         todo!()
     }
+
+    #[tracing::instrument(skip_all)]
     async fn pipeline(
         &self,
         request: tonic::Request<pipeline::DbRequestPipeline>,
