@@ -61,7 +61,8 @@
 //!
 //! ### DB Client
 //! ```rust
-//! use ahnlich_client_rs::{db::DbClient, builders::db as db_params};
+//! use ahnlich_client_rs::db::DbClient;
+//! use ahnlich_types::query_builders::db as db_params;
 //! use ahnlich_client_rs::prelude::*;
 //! use std::num::NonZeroUsize;
 //! use std::collections::HashSet;
@@ -82,8 +83,9 @@
 //!
 //! ### AI Client
 //! ```rust
-//! use ahnlich_client_rs::{ai::AIClient, builders::ai as ai_params};
+//! use ahnlich_client_rs::ai::AIClient;
 //! use ahnlich_client_rs::prelude::*;
+//! use ahnlich_types::query_builders::ai as ai_params;
 //! use std::collections::HashSet;
 //!
 //! let ai_client = AIClient::new("127.0.0.1".into(), 1369).await.unwrap();
@@ -119,7 +121,6 @@
 //! let results = pipeline.exec().await.unwrap();
 //! ```
 pub mod ai;
-pub mod builders;
 pub mod conn;
 pub mod db;
 pub mod error;

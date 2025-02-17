@@ -46,7 +46,6 @@ dependencies = [
  "pretty_assertions",
  "thiserror",
  "tokio",
- "typed-builder",
  "utils",
 ]
 
@@ -72,6 +71,7 @@ dependencies = [
  "once_cell",
  "serde",
  "thiserror",
+ "typed-builder",
 ]
 
 [[package]]
@@ -975,6 +975,7 @@ dependencies = [
  "fastrand 1.9.0",
  "flurry",
  "futures",
+ "grpc_types",
  "itertools 0.10.5",
  "log",
  "ndarray",
@@ -989,6 +990,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
+ "tonic 0.12.3",
  "tracer",
  "tracing",
  "utils",
@@ -1466,6 +1468,7 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 name = "grpc_types"
 version = "0.0.0"
 dependencies = [
+ "ahnlich_types",
  "prost 0.13.4",
  "prost-build",
  "prost-types",

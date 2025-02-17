@@ -54,7 +54,7 @@ pub struct DbRequestPipeline {
 pub struct DbServerResponse {
     #[prost(
         oneof = "db_server_response::Response",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
     )]
     pub response: ::core::option::Option<db_server_response::Response>,
 }
@@ -82,6 +82,8 @@ pub mod db_server_response {
         Del(super::super::server::Del),
         #[prost(message, tag = "10")]
         CreateIndex(super::super::server::CreateIndex),
+        #[prost(message, tag = "11")]
+        Error(super::super::super::shared::info::ErrorResponse),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

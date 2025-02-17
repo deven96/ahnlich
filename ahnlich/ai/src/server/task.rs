@@ -1,11 +1,13 @@
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::ModelDetails;
-use ahnlich_client_rs::{builders::db as db_params, db::DbClient};
+
+use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::ai::{AIQuery, AIServerQuery, AIServerResponse, AIServerResult};
 use ahnlich_types::client::ConnectedClient;
 use ahnlich_types::db::{ServerInfo, ServerResponse};
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::{Predicate, PredicateCondition};
+use ahnlich_types::query_builders::db as db_params;
 use ahnlich_types::version::VERSION;
 use rayon::prelude::*;
 use std::collections::HashSet;

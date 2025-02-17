@@ -59,7 +59,7 @@ class GetSimN(betterproto.Message):
 
     store: str = betterproto.string_field(1)
     search_input: "__keyval__.StoreKey" = betterproto.message_field(2)
-    closest_n: int = betterproto.uint32_field(3)
+    closest_n: int = betterproto.uint64_field(3)
     algorithm: "__algorithm_algorithms__.Algorithm" = betterproto.enum_field(4)
     condition: "__predicates__.PredicateCondition" = betterproto.message_field(5)
 

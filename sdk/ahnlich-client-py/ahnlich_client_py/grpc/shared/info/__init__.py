@@ -15,11 +15,17 @@ class ServerInfo(betterproto.Message):
     address: str = betterproto.string_field(1)
     version: str = betterproto.string_field(2)
     type: "__server_types__.ServerType" = betterproto.enum_field(3)
-    limit: int = betterproto.uint32_field(4)
-    remaining: int = betterproto.uint32_field(5)
+    limit: int = betterproto.uint64_field(4)
+    remaining: int = betterproto.uint64_field(5)
 
 
 @dataclass(eq=False, repr=False)
 class StoreUpsert(betterproto.Message):
-    inserted: int = betterproto.uint32_field(1)
-    updated: int = betterproto.uint32_field(2)
+    inserted: int = betterproto.uint64_field(1)
+    updated: int = betterproto.uint64_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class ErrorResponse(betterproto.Message):
+    message: str = betterproto.string_field(1)
+    code: int = betterproto.int32_field(2)

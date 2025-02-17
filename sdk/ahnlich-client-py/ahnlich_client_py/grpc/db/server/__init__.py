@@ -63,12 +63,12 @@ class GetSimN(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class Del(betterproto.Message):
-    deleted_count: int = betterproto.uint32_field(1)
+    deleted_count: int = betterproto.uint64_field(1)
 
 
 @dataclass(eq=False, repr=False)
 class CreateIndex(betterproto.Message):
-    created_indexes: int = betterproto.uint32_field(1)
+    created_indexes: int = betterproto.uint64_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -88,5 +88,5 @@ class ServerResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class StoreInfo(betterproto.Message):
     name: str = betterproto.string_field(1)
-    len: int = betterproto.uint32_field(2)
+    len: int = betterproto.uint64_field(2)
     size_in_bytes: int = betterproto.uint64_field(3)
