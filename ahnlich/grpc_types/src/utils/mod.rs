@@ -74,18 +74,18 @@ pub fn unwrap_predicate_condition(
             let left = unwrap_predicate_condition(val.left)?;
             let right = unwrap_predicate_condition(val.right)?;
 
-            return Ok(ahnlich_types::predicate::PredicateCondition::or(
+            Ok(ahnlich_types::predicate::PredicateCondition::or(
                 left, right,
-            ));
+            ))
         }
 
         crate::predicates::predicate_condition::Kind::And(val) => {
             let left = unwrap_predicate_condition(val.left)?;
             let right = unwrap_predicate_condition(val.right)?;
 
-            return Ok(ahnlich_types::predicate::PredicateCondition::and(
+            Ok(ahnlich_types::predicate::PredicateCondition::and(
                 left, right,
-            ));
+            ))
         }
 
         crate::predicates::predicate_condition::Kind::Value(val) => {
@@ -134,7 +134,7 @@ pub fn unwrap_predicate_condition(
                 }
             };
 
-            return Ok(PredicateCondition::Value(pred));
+            Ok(PredicateCondition::Value(pred))
         }
     }
 }
