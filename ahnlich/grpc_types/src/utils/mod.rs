@@ -1,16 +1,31 @@
 use std::collections::HashSet;
+use std::num::NonZeroUsize;
 
+use crate::algorithm::algorithms::Algorithm;
 use crate::metadata::MetadataValue;
 use crate::{algorithm::nonlinear::NonLinearAlgorithm, db::query as db_query};
 use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::predicate::PredicateCondition;
 use ahnlich_types::query_builders::db as db_query_builders;
-use ahnlich_types::similarity::NonLinearAlgorithm as InternalNonLinearAlgorithm;
+use ahnlich_types::similarity::{
+    Algorithm as InternalAlgorithm, NonLinearAlgorithm as InternalNonLinearAlgorithm,
+};
 
 impl From<NonLinearAlgorithm> for InternalNonLinearAlgorithm {
     fn from(value: NonLinearAlgorithm) -> Self {
         match value {
             NonLinearAlgorithm::KdTree => Self::KDTree,
+        }
+    }
+}
+
+impl From<Algorithm> for InternalAlgorithm {
+    fn from(value: Algorithm) -> Self {
+        match value {
+            Algorithm::DotProductSimilarity => Self::DotProductSimilarity,
+            Algorithm::CosineSimilarity => Self::CosineSimilarity,
+            Algorithm::EuclideanDistance => Self::EuclideanDistance,
+            Algorithm::KdTree => Self::KDTree,
         }
     }
 }
@@ -38,6 +53,7 @@ pub fn db_create_store(params: db_query::CreateStore) -> db_query_builders::Crea
         .build()
 }
 
+#[macro_export]
 macro_rules! unwrap_or_invalid {
     ($opt:expr, $msg:expr) => {
         match $opt {
@@ -137,4 +153,11 @@ fn convert_to_internal_metadatavalue(
             }
         },
     )
+}
+
+pub fn convert_to_nonzerousize(val: u64) -> Result<NonZeroUsize, tonic::Status> {
+    match NonZeroUsize::try_from(val as usize) {
+        Ok(value) => Ok(value),
+        Err(_) => Err(tonic::Status::invalid_argument("Must be nonzero value")),
+    }
 }

@@ -8,6 +8,7 @@ from typing import List
 
 import betterproto
 
+from ...shared import info as __shared_info__
 from .. import query as _query__
 from .. import server as _server__
 
@@ -58,6 +59,9 @@ class AiServerResponse(betterproto.Message):
     del_: "_server__.Del" = betterproto.message_field(9, group="response")
     create_index: "_server__.CreateIndex" = betterproto.message_field(
         10, group="response"
+    )
+    error: "__shared_info__.ErrorResponse" = betterproto.message_field(
+        11, group="response"
     )
 
 

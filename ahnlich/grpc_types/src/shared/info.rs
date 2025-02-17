@@ -19,3 +19,10 @@ pub struct StoreUpsert {
     #[prost(uint64, tag = "2")]
     pub updated: u64,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ErrorResponse {
+    #[prost(string, tag = "1")]
+    pub message: ::prost::alloc::string::String,
+    #[prost(int32, tag = "2")]
+    pub code: i32,
+}

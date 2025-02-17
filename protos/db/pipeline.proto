@@ -4,53 +4,54 @@ package db.pipeline;
 
 import "db/query.proto";
 import "db/server.proto";
+import "shared/info.proto";
 
 // =============================
 // === DB Query Wrapper & Pipeline ===
 // =============================
 
 message DBQuery {
-    oneof query {
-        db.query.CreateStore create_store = 1;
-        db.query.GetKey get_key = 2;
-        db.query.GetPred get_pred = 3;
-        db.query.GetSimN get_sim_n = 4;
-        db.query.CreatePredIndex create_pred_index = 5;
-        db.query.CreateNonLinearAlgorithmIndex create_non_linear_algorithm_index = 6;
-        db.query.DropPredIndex drop_pred_index = 7;
-        db.query.DropNonLinearAlgorithmIndex drop_non_linear_algorithm_index = 8;
-        db.query.Set set = 9;
-        db.query.DelKey del_key = 10;
-        db.query.DelPred del_pred = 11;
-        db.query.DropStore drop_store = 12;
-        db.query.InfoServer info_server = 13;
-        db.query.ListStores list_stores = 14;
-        db.query.ListClients list_clients = 15;
-        db.query.Ping ping = 16;
-    }
+  oneof query {
+    db.query.CreateStore create_store = 1;
+    db.query.GetKey get_key = 2;
+    db.query.GetPred get_pred = 3;
+    db.query.GetSimN get_sim_n = 4;
+    db.query.CreatePredIndex create_pred_index = 5;
+    db.query.CreateNonLinearAlgorithmIndex create_non_linear_algorithm_index = 6;
+    db.query.DropPredIndex drop_pred_index = 7;
+    db.query.DropNonLinearAlgorithmIndex drop_non_linear_algorithm_index = 8;
+    db.query.Set set = 9;
+    db.query.DelKey del_key = 10;
+    db.query.DelPred del_pred = 11;
+    db.query.DropStore drop_store = 12;
+    db.query.InfoServer info_server = 13;
+    db.query.ListStores list_stores = 14;
+    db.query.ListClients list_clients = 15;
+    db.query.Ping ping = 16;
+  }
 }
 
 message DBRequestPipeline {
-    repeated DBQuery queries = 1;
+  repeated DBQuery queries = 1;
 }
 
-
-
 message DBServerResponse {
-    oneof response {
-        db.server.Unit unit = 1;
-        db.server.Pong pong = 2;
-        db.server.ClientList client_list = 3;
-        db.server.StoreList store_list = 4;
-        db.server.InfoServer info_server = 5;
-        db.server.Set set = 6;
-        db.server.Get get = 7;
-        db.server.GetSimN get_sim_n = 8;
-        db.server.Del del = 9;
-        db.server.CreateIndex create_index = 10;
-    }
+  oneof response {
+    db.server.Unit unit = 1;
+    db.server.Pong pong = 2;
+    db.server.ClientList client_list = 3;
+    db.server.StoreList store_list = 4;
+    db.server.InfoServer info_server = 5;
+    db.server.Set set = 6;
+    db.server.Get get = 7;
+    db.server.GetSimN get_sim_n = 8;
+    db.server.Del del = 9;
+    db.server.CreateIndex create_index = 10;
+
+    shared.info.ErrorResponse error = 11;
+  }
 }
 
 message DBResponsePipeline {
-    repeated DBServerResponse responses = 1;
+  repeated DBServerResponse responses = 1;
 }

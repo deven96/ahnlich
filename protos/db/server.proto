@@ -46,7 +46,7 @@ message Del {
 }
 
 message CreateIndex {
-  uint32 created_indexes = 1;
+  uint64 created_indexes = 1;
 }
 
 message ServerResponse {

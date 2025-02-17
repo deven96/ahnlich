@@ -49,8 +49,8 @@ pub struct Del {
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CreateIndex {
-    #[prost(uint32, tag = "1")]
-    pub created_indexes: u32,
+    #[prost(uint64, tag = "1")]
+    pub created_indexes: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ServerResponse {

@@ -68,7 +68,7 @@ class Del(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class CreateIndex(betterproto.Message):
-    created_indexes: int = betterproto.uint32_field(1)
+    created_indexes: int = betterproto.uint64_field(1)
 
 
 @dataclass(eq=False, repr=False)

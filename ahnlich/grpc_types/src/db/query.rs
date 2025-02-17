@@ -55,8 +55,8 @@ pub struct GetSimN {
     #[prost(message, optional, tag = "2")]
     pub search_input: ::core::option::Option<super::super::keyval::StoreKey>,
     /// The number of closest matches to return.
-    #[prost(uint32, tag = "3")]
-    pub closest_n: u32,
+    #[prost(uint64, tag = "3")]
+    pub closest_n: u64,
     /// The algorithm to use for similarity computation.
     #[prost(
         enumeration = "super::super::algorithm::algorithms::Algorithm",

@@ -23,3 +23,9 @@ class ServerInfo(betterproto.Message):
 class StoreUpsert(betterproto.Message):
     inserted: int = betterproto.uint64_field(1)
     updated: int = betterproto.uint64_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class ErrorResponse(betterproto.Message):
+    message: str = betterproto.string_field(1)
+    code: int = betterproto.int32_field(2)
