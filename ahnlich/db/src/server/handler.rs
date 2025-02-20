@@ -743,6 +743,10 @@ impl Server {
         })
     }
 
+    pub fn client_handler(&self) -> Arc<ClientHandler> {
+        Arc::clone(&self.client_handler)
+    }
+
     /// initializes a server using server configuration
     pub async fn new(config: &ServerConfig) -> IoResult<Self> {
         // Enable log and tracing

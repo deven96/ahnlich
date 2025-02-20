@@ -24,3 +24,6 @@ fallible_collections.workspace = true
 rayon.workspace = true
 clap.workspace = true
 futures.workspace = true
+tower = "0.5.2"
+tower-layer = "0.3.3"
+hyper = { version = "1", features = ["full"] }
