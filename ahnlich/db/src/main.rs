@@ -1,9 +1,9 @@
 use clap::Parser;
 use grpc_types::services::db_service::db_service_server::DbServiceServer;
 
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 use utils::{
-    cli::validate_persistence, connection_layer::ConnectionTracker, server::AhnlichServerUtils,
+    cli::validate_persistence, connection_layer::RequestTrackerLayer, server::AhnlichServerUtils,
 };
 
 #[tokio::main]
@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )?;
             }
             let server = ahnlich_db::server::handler::Server::new(config).await?;
-            let conn_tracer = ConnectionTracker::new(server.client_handler());
+            let conn_tracer = RequestTrackerLayer::new(Arc::clone(&server.client_handler()));
             let db_service = DbServiceServer::new(server);
 
             //server.start().await?;
