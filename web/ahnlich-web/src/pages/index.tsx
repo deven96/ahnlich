@@ -11,19 +11,12 @@ import styles from './index.module.css';
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
-    <header className={clsx('hero hero--primary', styles.heroBanner)}>
-      <div className="container">
-        <Heading as="h1" className="hero__title">
+    <header className={clsx('hero hero--primary bg-[url(https://res.cloudinary.com/drfw1bzcw/image/upload/v1733262252/Ahnlich/hero_f4xrul.webp)] brightness-50', styles.heroBanner)}>
+      <div className="container text-white">
+        <Heading as="h1" className="hero__title text-7xl">
           {siteConfig.title}
         </Heading>
-        <p className="hero__subtitle">{siteConfig.tagline}</p>
-        <div className={styles.buttons}>
-          <Link
-            className="button button--secondary button--lg"
-            to="/docs/intro">
-            Docusaurus Tutorial - 5min ⏱️
-          </Link>
-        </div>
+        <p className="hero__subtitle text-4xl">{siteConfig.tagline}</p>
       </div>
     </header>
   );

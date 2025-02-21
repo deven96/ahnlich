@@ -8,7 +8,9 @@
   text-align: center;
   position: relative;
   overflow: hidden;
+  height: 70vh;
 }
+
 
 @media screen and (max-width: 996px) {
   .heroBanner {

@@ -2,33 +2,28 @@
 sidebar_position: 3
 ---
 
-# Create a Blog Post
+# Download Binaries
 
-Docusaurus creates a **page for each blog post**, but also a **blog index page**, a **tag system**, an **RSS** feed...
+<!-- Docusaurus creates a **page for each blog post**, but also a **blog index page**, a **tag system**, an **RSS** feed... -->
 
-## Create your first Post
+### wget
 
-Create a file at `blog/2021-02-28-greetings.md`:
+<!-- Create a file at `blog/2021-02-28-greetings.md`: -->
 
-```md title="blog/2021-02-28-greetings.md"
----
-slug: greetings
-title: Greetings!
-authors:
-  - name: Joel Marcey
-    title: Co-creator of Docusaurus 1
-    url: https://github.com/JoelMarcey
-    image_url: https://github.com/JoelMarcey.png
-  - name: Sébastien Lorber
-    title: Docusaurus maintainer
-    url: https://sebastienlorber.com
-    image_url: https://github.com/slorber.png
-tags: [greetings]
----
-
-Congratulations, you have made your first post!
-
-Feel free to play around and edit this post as much as you like.
+```
+wget https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.0.0/aarch64-darwin-ahnlich-db.tar.gz
 ```
 
-A new blog post is now available at [http://localhost:3000/blog/greetings](http://localhost:3000/blog/greetings).
+### extract the file
+
+```
+tar -xvzf aarch64-darwin-ahnlich-db.tar.gz
+```
+
+### run the library
+
+```
+./ahnlich-db 
+```
+
+<!-- A new blog post is now available at [http://localhost:3000/blog/greetings](http://localhost:3000/blog/greetings). -->

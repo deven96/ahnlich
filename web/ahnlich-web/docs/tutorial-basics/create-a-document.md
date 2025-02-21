@@ -2,25 +2,34 @@
 sidebar_position: 2
 ---
 
-# Create a Document
+# Example Docker Compose
 
-Documents are **groups of pages** connected through:
+<!-- Documents are **groups of pages** connected through:
 
 - a **sidebar**
 - **previous/next navigation**
 - **versioning**
 
-## Create your first Doc
+## Create your first Doc -->
 
-Create a Markdown file at `docs/hello.md`:
+<!-- Create a Markdown file at `docs/hello.md`: -->
 
-```md title="docs/hello.md"
-# Hello
+```
+services:  
+ ahnlich_db:  
+ image: ghcr.io/deven96/ahnlich-db:latest  
+ command: "ahnlich-db run --host 0.0.0.0 --enable-tracing"  
+ ports:  
+ - "1369:1369"
 
-This is my **first Docusaurus document**!
+      ahnlich_ai:
+        image: ghcr.io/deven96/ahnlich-ai:latest
+        command: "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 --enable-tracing --supported-models all-minilm-l6-v2,resnet-50"
+        ports:
+          - "1370:1370"
 ```
 
-A new document is now available at [http://localhost:3000/docs/hello](http://localhost:3000/docs/hello).
+<!-- A new document is now available at [http://localhost:3000/docs/hello](http://localhost:3000/docs/hello).
 
 ## Configure the Sidebar
 
@@ -30,7 +39,7 @@ Add metadata to customize the sidebar label and position:
 
 ```md title="docs/hello.md" {1-4}
 ---
-sidebar_label: 'Hi!'
+sidebar_label: "Hi!"
 sidebar_position: 3
 ---
 
@@ -44,14 +53,14 @@ It is also possible to create your sidebar explicitly in `sidebars.js`:
 ```js title="sidebars.js"
 export default {
   tutorialSidebar: [
-    'intro',
+    "intro",
     // highlight-next-line
-    'hello',
+    "hello",
     {
-      type: 'category',
-      label: 'Tutorial',
-      items: ['tutorial-basics/create-a-document'],
+      type: "category",
+      label: "Tutorial",
+      items: ["Installation/create-a-document"],
     },
   ],
 };
-```
+``` -->
