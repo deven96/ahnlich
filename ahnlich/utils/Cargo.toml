@@ -27,4 +27,5 @@ futures.workspace = true
 tower = "0.5.2"
 tower-layer = "0.3.3"
 tonic.workspace = true
+http = "1.2.0"
 hyper = { version = "1", features = ["full"] }

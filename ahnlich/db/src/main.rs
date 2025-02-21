@@ -18,13 +18,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )?;
             }
             let server = ahnlich_db::server::handler::Server::new(config).await?;
-            let conn_tracer = RequestTrackerLayer::new(Arc::clone(&server.client_handler()));
+            let request_tracker = RequestTrackerLayer::new(Arc::clone(&server.client_handler()));
             let db_service = DbServiceServer::new(server);
 
             //server.start().await?;
 
             tonic::transport::Server::builder()
-                .layer(conn_tracer)
+                .layer(request_tracker)
                 .add_service(db_service)
                 .serve("localhost:8000".parse().expect("Failed to parse"))
                 .await;

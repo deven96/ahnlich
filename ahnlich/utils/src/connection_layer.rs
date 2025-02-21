@@ -1,33 +1,18 @@
 use std::sync::Arc;
 
-use ahnlich_types::client::ConnectedClient;
-use std::net::SocketAddr;
 use tokio::net::TcpStream;
-use tonic::Request;
-use tower_layer::Layer;
+use tonic::body::BoxBody;
+use tonic::transport::server::Connected;
 
 use crate::client::ClientHandler;
 
 use std::{
-    collections::HashSet,
     error::Error,
     fmt,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
 };
-
-pub struct RequestTracker<T> {
-    inner: Request<T>,
-    client_handler: Arc<ClientHandler>,
-    connected_client: ConnectedClient,
-}
-
-impl<T> Drop for RequestTracker<T> {
-    fn drop(&mut self) {
-        self.client_handler.disconnect(&self.connected_client);
-    }
-}
 
 #[derive(Clone)]
 pub struct RequestTrackerLayer {
@@ -40,7 +25,7 @@ impl RequestTrackerLayer {
     }
 }
 
-impl<S> tower::layer::Layer<S> for RequestTrackerLayer {
+impl<S: Clone> tower::layer::Layer<S> for RequestTrackerLayer {
     type Service = RequestTrackerService<S>;
     fn layer(&self, inner: S) -> Self::Service {
         RequestTrackerService {
@@ -50,54 +35,96 @@ impl<S> tower::layer::Layer<S> for RequestTrackerLayer {
     }
 }
 
-pub struct RequestTrackerService<S> {
+#[derive(Clone)]
+pub struct RequestTrackerService<S: Clone> {
     inner: S,
     client_handler: Arc<ClientHandler>,
 }
 
-impl<S, ReqBody, ResBody> tower::Service<tonic::Request<ReqBody>> for RequestTrackerService<S>
+impl<S, ResBody> tower::Service<http::Request<BoxBody>> for RequestTrackerService<S>
 where
     S: tower::Service<
-            tonic::Request<RequestTracker<ReqBody>>,
-            Response = tonic::Response<ResBody>,
-            Error = tonic::Status,
+            http::Request<BoxBody>,
+            Response = http::Response<ResBody>,
+            Error = Box<dyn std::error::Error + Send + Sync>,
         > + Clone
-        + 'static, //ReqBody: fmt::Debug,
-    ReqBody: 'static,
+        + Send
+        + 'static,
+    S::Future: Send,
 {
     type Response = S::Response;
 
-    type Error = S::Error;
+    type Error = Box<dyn std::error::Error + Send + Sync>;
     //type Future = S::Future;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>>>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Request<ReqBody>) -> Self::Future {
-        match req.remote_addr() {
+    fn call(&mut self, req: http::Request<BoxBody>) -> Self::Future {
+        // TODO: Check if extensions actually works this way and if we get the tcpstream back
+        match req
+            .extensions()
+            .get::<TcpStream>()
+            .map(|a| a.connect_info().remote_addr())
+            .flatten()
+        {
             Some(addr) => {
                 if let Some(connected_client) = self.client_handler.connect(addr) {
-                    let tracked_request = RequestTracker {
-                        inner: req,
-                        client_handler: Arc::clone(&self.client_handler),
-                        connected_client,
-                    };
+                    let client_handler = self.client_handler.clone();
                     let mut inner = self.inner.clone();
-                    Box::pin(async move { inner.call(Request::new(tracked_request)).await })
+                    let fut = inner.call(req);
+                    Box::pin(async move {
+                        let res = fut.await;
+                        client_handler.disconnect(&connected_client);
+                        res
+                    })
                 //self.inner.call(Request::new(tracked_request))
                 } else {
                     Box::pin(async move {
-                        Err(tonic::Status::resource_exhausted(
+                        Err(status_to_error(tonic::Status::resource_exhausted(
                             "Max Connected Clients Reached",
-                        ))
+                        )))
                     })
                 }
             }
-            None => {
-                Box::pin(async move { Err(tonic::Status::aborted("Client Connection Aborted")) })
-            }
+            None => Box::pin(async move {
+                Err(status_to_error(tonic::Status::aborted(
+                    "Client Connection Aborted",
+                )))
+            }),
         }
     }
+}
+
+struct TonicError(tonic::Status);
+
+impl fmt::Display for TonicError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}: {}", self.0.code(), self.0.message())
+    }
+}
+
+impl fmt::Debug for TonicError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "TonicError {{ code: {:?}, message: {} }}",
+            self.0.code(),
+            self.0.message()
+        )
+    }
+}
+
+impl Error for TonicError {}
+
+impl From<tonic::Status> for TonicError {
+    fn from(status: tonic::Status) -> Self {
+        TonicError(status)
+    }
+}
+
+fn status_to_error(status: tonic::Status) -> Box<dyn Error + Send + Sync> {
+    Box::new(TonicError::from(status))
 }

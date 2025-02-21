@@ -4457,6 +4457,7 @@ dependencies = [
  "fallible_collections",
  "flurry",
  "futures",
+ "http 1.2.0",
  "hyper 1.6.0",
  "log",
  "opentelemetry",
