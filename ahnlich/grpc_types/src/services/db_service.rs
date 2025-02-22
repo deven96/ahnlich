@@ -10,7 +10,6 @@ pub mod db_service_client {
     )]
     use tonic::codegen::*;
     use tonic::codegen::http::Uri;
-    /// TODO: get rid of init types args: eg ping, ListStores, ListClients, InfoServer
     #[derive(Debug, Clone)]
     pub struct DbServiceClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -91,6 +90,7 @@ pub mod db_service_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
+        /// * Create methods *
         pub async fn create_store(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::db::query::CreateStore>,
@@ -115,6 +115,66 @@ pub mod db_service_client {
                 .insert(GrpcMethod::new("services.db_service.DBService", "CreateStore"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn create_pred_index(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::super::db::query::CreatePredIndex,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::db::server::CreateIndex>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/services.db_service.DBService/CreatePredIndex",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("services.db_service.DBService", "CreatePredIndex"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn create_non_linear_algorithm_index(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::super::db::query::CreateNonLinearAlgorithmIndex,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::db::server::CreateIndex>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/services.db_service.DBService/CreateNonLinearAlgorithmIndex",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "services.db_service.DBService",
+                        "CreateNonLinearAlgorithmIndex",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// * Read methods *
         pub async fn get_key(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::db::query::GetKey>,
@@ -187,11 +247,12 @@ pub mod db_service_client {
                 .insert(GrpcMethod::new("services.db_service.DBService", "GetSimN"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn ping(
+        /// * Update methods *
+        pub async fn set(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::super::db::query::Ping>,
+            request: impl tonic::IntoRequest<super::super::super::db::query::Set>,
         ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Pong>,
+            tonic::Response<super::super::super::db::server::Set>,
             tonic::Status,
         > {
             self.inner
@@ -204,72 +265,14 @@ pub mod db_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/Ping",
+                "/services.db_service.DBService/Set",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("services.db_service.DBService", "Ping"));
+                .insert(GrpcMethod::new("services.db_service.DBService", "Set"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn create_pred_index(
-            &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::super::db::query::CreatePredIndex,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::CreateIndex>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/CreatePredIndex",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("services.db_service.DBService", "CreatePredIndex"),
-                );
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn create_non_linear_algorithm_index(
-            &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::super::db::query::CreateNonLinearAlgorithmIndex,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::CreateIndex>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/CreateNonLinearAlgorithmIndex",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "services.db_service.DBService",
-                        "CreateNonLinearAlgorithmIndex",
-                    ),
-                );
-            self.inner.unary(req, path, codec).await
-        }
+        /// * Delete methods *
         pub async fn drop_pred_index(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -401,6 +404,7 @@ pub mod db_service_client {
                 .insert(GrpcMethod::new("services.db_service.DBService", "DropStore"));
             self.inner.unary(req, path, codec).await
         }
+        /// * Ancillary info methods *
         pub async fn list_clients(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::db::query::ListClients>,
@@ -473,11 +477,11 @@ pub mod db_service_client {
                 .insert(GrpcMethod::new("services.db_service.DBService", "InfoServer"));
             self.inner.unary(req, path, codec).await
         }
-        pub async fn set(
+        pub async fn ping(
             &mut self,
-            request: impl tonic::IntoRequest<super::super::super::db::query::Set>,
+            request: impl tonic::IntoRequest<super::super::super::db::query::Ping>,
         ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Set>,
+            tonic::Response<super::super::super::db::server::Pong>,
             tonic::Status,
         > {
             self.inner
@@ -490,13 +494,14 @@ pub mod db_service_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/Set",
+                "/services.db_service.DBService/Ping",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("services.db_service.DBService", "Set"));
+                .insert(GrpcMethod::new("services.db_service.DBService", "Ping"));
             self.inner.unary(req, path, codec).await
         }
+        /// * Pipeline method for all methods *
         pub async fn pipeline(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -538,6 +543,7 @@ pub mod db_service_server {
     /// Generated trait containing gRPC methods that should be implemented for use with DbServiceServer.
     #[async_trait]
     pub trait DbService: std::marker::Send + std::marker::Sync + 'static {
+        /// * Create methods *
         async fn create_store(
             &self,
             request: tonic::Request<super::super::super::db::query::CreateStore>,
@@ -545,6 +551,23 @@ pub mod db_service_server {
             tonic::Response<super::super::super::db::server::Unit>,
             tonic::Status,
         >;
+        async fn create_pred_index(
+            &self,
+            request: tonic::Request<super::super::super::db::query::CreatePredIndex>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::db::server::CreateIndex>,
+            tonic::Status,
+        >;
+        async fn create_non_linear_algorithm_index(
+            &self,
+            request: tonic::Request<
+                super::super::super::db::query::CreateNonLinearAlgorithmIndex,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::db::server::CreateIndex>,
+            tonic::Status,
+        >;
+        /// * Read methods *
         async fn get_key(
             &self,
             request: tonic::Request<super::super::super::db::query::GetKey>,
@@ -566,29 +589,15 @@ pub mod db_service_server {
             tonic::Response<super::super::super::db::server::GetSimN>,
             tonic::Status,
         >;
-        async fn ping(
+        /// * Update methods *
+        async fn set(
             &self,
-            request: tonic::Request<super::super::super::db::query::Ping>,
+            request: tonic::Request<super::super::super::db::query::Set>,
         ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Pong>,
+            tonic::Response<super::super::super::db::server::Set>,
             tonic::Status,
         >;
-        async fn create_pred_index(
-            &self,
-            request: tonic::Request<super::super::super::db::query::CreatePredIndex>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::CreateIndex>,
-            tonic::Status,
-        >;
-        async fn create_non_linear_algorithm_index(
-            &self,
-            request: tonic::Request<
-                super::super::super::db::query::CreateNonLinearAlgorithmIndex,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::CreateIndex>,
-            tonic::Status,
-        >;
+        /// * Delete methods *
         async fn drop_pred_index(
             &self,
             request: tonic::Request<super::super::super::db::query::DropPredIndex>,
@@ -626,6 +635,7 @@ pub mod db_service_server {
             tonic::Response<super::super::super::db::server::Del>,
             tonic::Status,
         >;
+        /// * Ancillary info methods *
         async fn list_clients(
             &self,
             request: tonic::Request<super::super::super::db::query::ListClients>,
@@ -647,13 +657,14 @@ pub mod db_service_server {
             tonic::Response<super::super::super::db::server::InfoServer>,
             tonic::Status,
         >;
-        async fn set(
+        async fn ping(
             &self,
-            request: tonic::Request<super::super::super::db::query::Set>,
+            request: tonic::Request<super::super::super::db::query::Ping>,
         ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Set>,
+            tonic::Response<super::super::super::db::server::Pong>,
             tonic::Status,
         >;
+        /// * Pipeline method for all methods *
         async fn pipeline(
             &self,
             request: tonic::Request<super::super::super::db::pipeline::DbRequestPipeline>,
@@ -662,7 +673,6 @@ pub mod db_service_server {
             tonic::Status,
         >;
     }
-    /// TODO: get rid of init types args: eg ping, ListStores, ListClients, InfoServer
     #[derive(Debug)]
     pub struct DbServiceServer<T> {
         inner: Arc<T>,
@@ -772,6 +782,106 @@ pub mod db_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = CreateStoreSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/services.db_service.DBService/CreatePredIndex" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreatePredIndexSvc<T: DbService>(pub Arc<T>);
+                    impl<
+                        T: DbService,
+                    > tonic::server::UnaryService<
+                        super::super::super::db::query::CreatePredIndex,
+                    > for CreatePredIndexSvc<T> {
+                        type Response = super::super::super::db::server::CreateIndex;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::super::db::query::CreatePredIndex,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as DbService>::create_pred_index(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreatePredIndexSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/services.db_service.DBService/CreateNonLinearAlgorithmIndex" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateNonLinearAlgorithmIndexSvc<T: DbService>(pub Arc<T>);
+                    impl<
+                        T: DbService,
+                    > tonic::server::UnaryService<
+                        super::super::super::db::query::CreateNonLinearAlgorithmIndex,
+                    > for CreateNonLinearAlgorithmIndexSvc<T> {
+                        type Response = super::super::super::db::server::CreateIndex;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::super::db::query::CreateNonLinearAlgorithmIndex,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as DbService>::create_non_linear_algorithm_index(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateNonLinearAlgorithmIndexSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -930,25 +1040,25 @@ pub mod db_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/services.db_service.DBService/Ping" => {
+                "/services.db_service.DBService/Set" => {
                     #[allow(non_camel_case_types)]
-                    struct PingSvc<T: DbService>(pub Arc<T>);
+                    struct SetSvc<T: DbService>(pub Arc<T>);
                     impl<
                         T: DbService,
-                    > tonic::server::UnaryService<super::super::super::db::query::Ping>
-                    for PingSvc<T> {
-                        type Response = super::super::super::db::server::Pong;
+                    > tonic::server::UnaryService<super::super::super::db::query::Set>
+                    for SetSvc<T> {
+                        type Response = super::super::super::db::server::Set;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::super::super::db::query::Ping>,
+                            request: tonic::Request<super::super::super::db::query::Set>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as DbService>::ping(&inner, request).await
+                                <T as DbService>::set(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -959,107 +1069,7 @@ pub mod db_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = PingSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/services.db_service.DBService/CreatePredIndex" => {
-                    #[allow(non_camel_case_types)]
-                    struct CreatePredIndexSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::CreatePredIndex,
-                    > for CreatePredIndexSvc<T> {
-                        type Response = super::super::super::db::server::CreateIndex;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::CreatePredIndex,
-                            >,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::create_pred_index(&inner, request).await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = CreatePredIndexSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/services.db_service.DBService/CreateNonLinearAlgorithmIndex" => {
-                    #[allow(non_camel_case_types)]
-                    struct CreateNonLinearAlgorithmIndexSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::CreateNonLinearAlgorithmIndex,
-                    > for CreateNonLinearAlgorithmIndexSvc<T> {
-                        type Response = super::super::super::db::server::CreateIndex;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::CreateNonLinearAlgorithmIndex,
-                            >,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::create_non_linear_algorithm_index(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = CreateNonLinearAlgorithmIndexSvc(inner);
+                        let method = SetSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -1462,25 +1472,25 @@ pub mod db_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/services.db_service.DBService/Set" => {
+                "/services.db_service.DBService/Ping" => {
                     #[allow(non_camel_case_types)]
-                    struct SetSvc<T: DbService>(pub Arc<T>);
+                    struct PingSvc<T: DbService>(pub Arc<T>);
                     impl<
                         T: DbService,
-                    > tonic::server::UnaryService<super::super::super::db::query::Set>
-                    for SetSvc<T> {
-                        type Response = super::super::super::db::server::Set;
+                    > tonic::server::UnaryService<super::super::super::db::query::Ping>
+                    for PingSvc<T> {
+                        type Response = super::super::super::db::server::Pong;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::super::super::db::query::Set>,
+                            request: tonic::Request<super::super::super::db::query::Ping>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as DbService>::set(&inner, request).await
+                                <T as DbService>::ping(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -1491,7 +1501,7 @@ pub mod db_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = SetSvc(inner);
+                        let method = PingSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

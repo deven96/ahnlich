@@ -124,4 +124,5 @@ pub mod ai;
 pub mod conn;
 pub mod db;
 pub mod error;
+pub mod grpc;
 pub mod prelude;

@@ -48,20 +48,28 @@ fn main() -> Result<()> {
         }
     }
 
+    let out_dir = PathBuf::from("src/");
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(out_dir.join("lib.rs"))
+        .expect("Failed to create mod file");
+
     tonic_build::configure()
         .build_client(true)
         .build_client(true)
-        .out_dir(out_dir)
+        .out_dir(out_dir.clone())
         .compile_protos(&protofiles, &[proto_dir])
         .inspect_err(|err| println!("{}", err))
         .expect("failed");
 
-    restructure_generated_code(&PathBuf::from("src/"));
+    restructure_generated_code(&out_dir, &mut file);
 
     Ok(())
 }
 
-fn restructure_generated_code(out_dir: &PathBuf) {
+fn restructure_generated_code(out_dir: &PathBuf, file: &mut std::fs::File) {
     let generated_code: Vec<PathBuf> = WalkDir::new(out_dir)
         .into_iter()
         .filter_map(|a| a.ok())
@@ -117,16 +125,11 @@ fn restructure_generated_code(out_dir: &PathBuf) {
 
     let buffer = module_names
         .into_iter()
+        .filter(|file| *file != "lib")
         .map(|sub_str| format!("pub mod {sub_str};"))
         .collect::<Vec<String>>()
         .join("\n");
 
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(out_dir.join("lib.rs"))
-        .expect("Failed to create mod file");
     file.write_all(buffer.as_bytes())
         .expect("could not generate lib.rs");
 }
