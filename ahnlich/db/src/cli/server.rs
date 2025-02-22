@@ -49,6 +49,11 @@ impl ServerConfig {
         self
     }
 
+    pub fn enable_tracing(mut self) -> Self {
+        self.common.enable_tracing = true;
+        self
+    }
+
     pub fn maximum_clients(mut self, maximum_clients: usize) -> Self {
         self.common.maximum_clients = maximum_clients;
         self

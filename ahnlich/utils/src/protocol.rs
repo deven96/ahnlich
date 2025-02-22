@@ -122,7 +122,7 @@ where
                         log::debug!("Got Queries {:?}", queries);
                         let span = tracing::info_span!("query-processor");
                         if let Some(trace_parent) = queries.get_traceparent() {
-                            let parent_context = match tracer::trace_parent_to_span(trace_parent)
+                            let parent_context = match tracer::trace_parent_to_span(&trace_parent)
                                 .map_err(|err| Error::new(ErrorKind::Other, err))
                             {
                                 Ok(parent_context) => parent_context,

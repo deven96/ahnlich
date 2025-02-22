@@ -2,28 +2,28 @@ syntax = "proto3";
 
 package services.db_service;
 
+import "db/pipeline.proto";
 import "db/query.proto";
 import "db/server.proto";
-import "db/pipeline.proto";
 
+// TODO: get rid of init types args: eg ping, ListStores, ListClients, InfoServer
 service DBService {
-    rpc CreateStore (db.query.CreateStore) returns (db.server.Unit);
-    rpc GetKey (db.query.GetKey) returns (db.server.Get);
-    rpc GetPred (db.query.GetPred) returns (db.server.Get);
-    rpc GetSimN (db.query.GetSimN) returns (db.server.GetSimN);
-    rpc Ping (db.query.Ping) returns (db.server.Pong);
-    rpc CreatePredIndex (db.query.CreatePredIndex) returns (db.server.CreateIndex);
-    rpc CreateNonLinearAlgorithmIndex (db.query.CreateNonLinearAlgorithmIndex) returns (db.server.CreateIndex);
-    rpc DropPredIndex (db.query.DropPredIndex) returns (db.server.Del);
-    rpc DropNonLinearAlgorithmIndex (db.query.DropNonLinearAlgorithmIndex) returns (db.server.Del);
-    rpc DelKey (db.query.DelKey) returns (db.server.Del);
-    rpc DelPred (db.query.DelPred) returns (db.server.Del);
-    rpc DropStore (db.query.DropStore) returns (db.server.Del);
-    rpc ListClients (db.query.ListClients) returns (db.server.ClientList);
-    rpc ListStores (db.query.ListStores) returns (db.server.StoreList);
-    rpc InfoServer (db.query.InfoServer) returns (db.server.InfoServer);
-    rpc Set (db.query.Set) returns (db.server.Set);
+  rpc CreateStore(db.query.CreateStore) returns (db.server.Unit);
+  rpc GetKey(db.query.GetKey) returns (db.server.Get);
+  rpc GetPred(db.query.GetPred) returns (db.server.Get);
+  rpc GetSimN(db.query.GetSimN) returns (db.server.GetSimN);
+  rpc Ping(db.query.Ping) returns (db.server.Pong);
+  rpc CreatePredIndex(db.query.CreatePredIndex) returns (db.server.CreateIndex);
+  rpc CreateNonLinearAlgorithmIndex(db.query.CreateNonLinearAlgorithmIndex) returns (db.server.CreateIndex);
+  rpc DropPredIndex(db.query.DropPredIndex) returns (db.server.Del);
+  rpc DropNonLinearAlgorithmIndex(db.query.DropNonLinearAlgorithmIndex) returns (db.server.Del);
+  rpc DelKey(db.query.DelKey) returns (db.server.Del);
+  rpc DelPred(db.query.DelPred) returns (db.server.Del);
+  rpc DropStore(db.query.DropStore) returns (db.server.Del);
+  rpc ListClients(db.query.ListClients) returns (db.server.ClientList);
+  rpc ListStores(db.query.ListStores) returns (db.server.StoreList);
+  rpc InfoServer(db.query.InfoServer) returns (db.server.InfoServer);
+  rpc Set(db.query.Set) returns (db.server.Set);
 
-    rpc Pipeline (db.pipeline.DBRequestPipeline) returns (db.pipeline.DBResponsePipeline);
-
+  rpc Pipeline(db.pipeline.DBRequestPipeline) returns (db.pipeline.DBResponsePipeline);
 }
