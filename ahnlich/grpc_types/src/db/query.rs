@@ -58,10 +58,7 @@ pub struct GetSimN {
     #[prost(uint64, tag = "3")]
     pub closest_n: u64,
     /// The algorithm to use for similarity computation.
-    #[prost(
-        enumeration = "super::super::algorithm::algorithms::Algorithm",
-        tag = "4"
-    )]
+    #[prost(enumeration = "super::super::algorithm::algorithms::Algorithm", tag = "4")]
     pub algorithm: i32,
     /// The predicate condition to apply.
     #[prost(message, optional, tag = "5")]

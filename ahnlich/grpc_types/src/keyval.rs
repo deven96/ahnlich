@@ -36,8 +36,10 @@ pub struct StoreEntry {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StoreValue {
     #[prost(map = "string, message", tag = "1")]
-    pub value:
-        ::std::collections::HashMap<::prost::alloc::string::String, super::metadata::MetadataValue>,
+    pub value: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        super::metadata::MetadataValue,
+    >,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
