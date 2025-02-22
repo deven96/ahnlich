@@ -1,10 +1,7 @@
 use clap::Parser;
-use grpc_types::services::db_service::db_service_server::DbServiceServer;
 
-use std::{error::Error, sync::Arc};
-use utils::{
-    cli::validate_persistence, connection_layer::RequestTrackerLayer, server::AhnlichServerUtils,
-};
+use std::error::Error;
+use utils::{cli::validate_persistence, server::AhnlichServerUtils};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -18,16 +15,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )?;
             }
             let server = ahnlich_db::server::handler::Server::new(config).await?;
-            let request_tracker = RequestTrackerLayer::new(Arc::clone(&server.client_handler()));
-            let db_service = DbServiceServer::new(server);
 
-            //server.start().await?;
-
-            tonic::transport::Server::builder()
-                .layer(request_tracker)
-                .add_service(db_service)
-                .serve("localhost:8000".parse().expect("Failed to parse"))
-                .await;
+            server.start().await?;
         }
     }
     Ok(())

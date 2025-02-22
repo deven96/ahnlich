@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use tokio::net::TcpStream;
-use tonic::body::BoxBody;
-use tonic::transport::server::Connected;
+use tonic::{body::BoxBody, transport::server::TcpConnectInfo};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 use crate::client::ClientHandler;
 
@@ -66,9 +65,8 @@ where
         // TODO: Check if extensions actually works this way and if we get the tcpstream back
         match req
             .extensions()
-            .get::<TcpStream>()
-            .map(|a| a.connect_info().remote_addr())
-            .flatten()
+            .get::<TcpConnectInfo>()
+            .and_then(|a| a.remote_addr())
         {
             Some(addr) => {
                 if let Some(connected_client) = self.client_handler.connect(addr) {
@@ -127,4 +125,18 @@ impl From<tonic::Status> for TonicError {
 
 fn status_to_error(status: tonic::Status) -> Box<dyn Error + Send + Sync> {
     Box::new(TonicError::from(status))
+}
+
+pub fn trace_with_parent(req: &http::Request<()>) -> tracing::Span {
+    let span = tracing::info_span!("query-processor");
+    if let Some(trace_parent) = req
+        .headers()
+        .get("ahnlich-trace-id")
+        .and_then(|val| val.to_str().ok())
+    {
+        if let Ok(parent_context) = tracer::trace_parent_to_span(trace_parent) {
+            span.set_parent(parent_context);
+        };
+    }
+    span
 }

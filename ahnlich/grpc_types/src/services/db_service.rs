@@ -10,6 +10,7 @@ pub mod db_service_client {
     )]
     use tonic::codegen::http::Uri;
     use tonic::codegen::*;
+    /// TODO: get rid of init types args: eg ping, ListStores, ListClients, InfoServer
     #[derive(Debug, Clone)]
     pub struct DbServiceClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -514,6 +515,7 @@ pub mod db_service_server {
             tonic::Status,
         >;
     }
+    /// TODO: get rid of init types args: eg ping, ListStores, ListClients, InfoServer
     #[derive(Debug)]
     pub struct DbServiceServer<T> {
         inner: Arc<T>,

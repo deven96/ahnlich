@@ -129,10 +129,10 @@ impl Traceparent {
     }
 }
 
-pub fn trace_parent_to_span(trace_parent: String) -> Result<Context, String> {
-    let _ = Traceparent::parse(&trace_parent)?;
+pub fn trace_parent_to_span(trace_parent: &str) -> Result<Context, String> {
+    let _ = Traceparent::parse(trace_parent)?;
     let mut carrier = HashMap::new();
-    carrier.insert("traceparent".to_string(), trace_parent);
+    carrier.insert("traceparent".to_string(), trace_parent.to_string());
     let parent_context = global::get_text_map_propagator(|propagator| propagator.extract(&carrier));
     Ok(parent_context)
 }
