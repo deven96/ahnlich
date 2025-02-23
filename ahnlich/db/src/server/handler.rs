@@ -23,23 +23,20 @@ use task_manager::TaskManager;
 use task_manager::TaskState;
 use task_manager::{BlockingTask, Task};
 use tokio::io::BufReader;
-use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::connection_layer::{trace_with_parent, RequestTrackerLayer};
-use utils::server::AhnlichServerUtils;
 use utils::server::ServerUtilsConfig;
+use utils::server::{AhnlichServerUtils, ListenerStreamOrAddress};
 use utils::{client::ClientHandler, persistence::Persistence};
 
 const SERVICE_NAME: &str = "ahnlich-db";
 
-//NOTE: we'd swtich to storing a tokio tokio_stream::wrappers::TcpListenerStream instead of a
-//regular TcpListener
 #[derive(Debug, Clone)]
 pub struct Server {
-    listener: Arc<TcpListener>,
+    listener: ListenerStreamOrAddress,
     store_handler: Arc<StoreHandler>,
     client_handler: Arc<ClientHandler>,
     task_manager: Arc<TaskManager>,
@@ -58,7 +55,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateStore>,
     ) -> std::result::Result<tonic::Response<server::Unit>, tonic::Status> {
-        let create_store_params = grpc_utils::db_create_store(request.into_inner());
+        let create_store_params = grpc_utils::to_internal_create_store(request.into_inner());
         self.store_handler
             .create_store(
                 create_store_params.store,
@@ -325,8 +322,6 @@ impl DbService for Server {
         &self,
         _request: tonic::Request<query::ListClients>,
     ) -> std::result::Result<tonic::Response<server::ClientList>, tonic::Status> {
-        // NOTE: client handler would be shared with a middleware that does the tracking of
-        // individual clients
         let clients = self
             .client_handler
             .list()
@@ -366,7 +361,7 @@ impl DbService for Server {
     ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
         let version = env!("CARGO_PKG_VERSION").to_string();
         let server_info = grpc_types::shared::info::ServerInfo {
-            address: format!("{:?}", self.local_addr()),
+            address: format!("{:?}", self.listener.local_addr()),
             version,
             r#type: grpc_types::server_types::ServerType::Database.into(),
             limit: GLOBAL_ALLOCATOR.limit() as u64,
@@ -669,21 +664,28 @@ impl Task for Server {
     }
 
     async fn run(&self) -> TaskState {
-        if let Ok((stream, connect_addr)) = self.listener.accept().await {
-            if let Some(connected_client) = self
-                .client_handler
-                .connect(stream.peer_addr().expect("Could not get peer addr"))
-            {
-                log::info!("Connecting to {}", connect_addr);
-                let task = self.create_task(
-                    stream,
-                    self.local_addr().expect("Could not get server addr"),
-                    connected_client,
-                );
-                self.task_manager.spawn_task_loop(task).await;
+        match self.listener {
+            ListenerStreamOrAddress::ListenerStream(ref stream) => {
+                if let Ok((stream, connect_addr)) = stream.as_ref().accept().await {
+                    if let Some(connected_client) = self
+                        .client_handler
+                        .connect(stream.peer_addr().expect("Could not get peer addr"))
+                    {
+                        log::info!("Connecting to {}", connect_addr);
+                        let task = self.create_task(
+                            stream,
+                            self.listener
+                                .local_addr()
+                                .expect("Could not get server addr"),
+                            connected_client,
+                        );
+                        self.task_manager.spawn_task_loop(task).await;
+                    }
+                }
+                TaskState::Continue
             }
+            _ => TaskState::Break,
         }
-        TaskState::Continue
     }
 }
 
@@ -717,7 +719,7 @@ impl Server {
     /// creates a server while injecting a shutdown_token
     pub async fn new_with_config(config: &ServerConfig) -> IoResult<Self> {
         let listener =
-            tokio::net::TcpListener::bind(format!("{}:{}", &config.common.host, &config.port))
+            ListenerStreamOrAddress::new(format!("{}:{}", &config.common.host, &config.port))
                 .await?;
         let write_flag = Arc::new(AtomicBool::new(false));
         let client_handler = Arc::new(ClientHandler::new(config.common.maximum_clients));
@@ -739,7 +741,7 @@ impl Server {
             }
         };
         Ok(Self {
-            listener: Arc::new(listener),
+            listener,
             store_handler: Arc::new(store_handler),
             client_handler,
             task_manager: Arc::new(TaskManager::new()),
@@ -747,12 +749,12 @@ impl Server {
         })
     }
 
-    pub fn listener(&self) -> Arc<TcpListener> {
-        Arc::clone(&self.listener)
-    }
-
     pub fn client_handler(&self) -> Arc<ClientHandler> {
         Arc::clone(&self.client_handler)
+    }
+
+    pub fn local_addr(&self) -> IoResult<SocketAddr> {
+        self.listener.local_addr()
     }
 
     /// initializes a server using server configuration
@@ -784,10 +786,6 @@ impl Server {
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),
         }
-    }
-
-    pub fn local_addr(&self) -> IoResult<SocketAddr> {
-        self.listener.local_addr()
     }
 
     fn convert_get_results_to_gprc_types(
@@ -851,20 +849,24 @@ impl BlockingTask for Server {
     }
 
     async fn run(
-        self,
+        mut self,
         shutdown_signal: std::pin::Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>,
     ) {
-        // to be replaced with TcpListenerStream
-
-        let address = "127.0.0.1:3000";
-        let listener = tokio::net::TcpListener::bind(address)
-            .await
-            .expect("Cannot bind");
-
-        let listener_stream = tokio_stream::wrappers::TcpListenerStream::new(listener);
-
+        let listener_stream = if let ListenerStreamOrAddress::ListenerStream(stream) = self.listener
+        {
+            stream
+        } else {
+            log::error!("listener must be of type listener stream");
+            panic!("listener must be of type listener stream")
+        };
         let request_tracker = RequestTrackerLayer::new(Arc::clone(&self.client_handler));
         let max_message_size = self.config.common.message_size;
+        self.listener = ListenerStreamOrAddress::Address(
+            listener_stream
+                .as_ref()
+                .local_addr()
+                .expect("Could not get local address"),
+        );
 
         let db_service = DbServiceServer::new(self).max_decoding_message_size(max_message_size);
 

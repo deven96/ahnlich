@@ -24,6 +24,7 @@ tokio.workspace = true
 deadpool.workspace = true
 grpc_types = { path = "../grpc_types", version = "*" }
 tonic.workspace = true
+http.workspace = true
 fallible_collections.workspace = true
 
 [dev-dependencies]

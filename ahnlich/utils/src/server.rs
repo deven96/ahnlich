@@ -3,10 +3,12 @@ use crate::parallel;
 use crate::persistence::AhnlichPersistenceUtils;
 use crate::persistence::Persistence;
 use async_trait::async_trait;
+use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::{io::Result as IoResult, sync::Arc};
 use task_manager::Task;
 use task_manager::TaskManager;
+use tokio_stream::wrappers::TcpListenerStream;
 use tokio_util::sync::CancellationToken;
 
 #[derive(Debug)]
@@ -65,5 +67,37 @@ pub trait AhnlichServerUtils: Task + Sized + Send + Sync + 'static {
         tracer::shutdown_tracing();
         log::info!("Shutdown complete");
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum ListenerStreamOrAddress {
+    ListenerStream(TcpListenerStream),
+    Address(SocketAddr),
+}
+
+// TODO: Get rid of cloning once we remove TaskState impl for Server(s)
+impl Clone for ListenerStreamOrAddress {
+    fn clone(&self) -> Self {
+        match self {
+            Self::ListenerStream(stream) => {
+                Self::Address(stream.as_ref().local_addr().expect("No local address"))
+            }
+            Self::Address(addr) => Self::Address(addr.clone()),
+        }
+    }
+}
+
+impl ListenerStreamOrAddress {
+    pub async fn new(addr: String) -> IoResult<Self> {
+        Ok(ListenerStreamOrAddress::ListenerStream(
+            TcpListenerStream::new(tokio::net::TcpListener::bind(addr).await?),
+        ))
+    }
+    pub fn local_addr(&self) -> IoResult<SocketAddr> {
+        match &self {
+            Self::ListenerStream(stream) => stream.as_ref().local_addr(),
+            Self::Address(addr) => Ok(addr.clone()),
+        }
     }
 }

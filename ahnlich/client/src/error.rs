@@ -4,6 +4,12 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AhnlichError {
+    #[error("Invalid URI {0}")]
+    InvalidURI(#[from] http::uri::InvalidUri),
+    #[error("Transport issues with tonic {0}")]
+    Tonic(#[from] tonic::transport::Error),
+    #[error("Server error {0}")]
+    ServerError(#[from] tonic::Status),
     #[error("std io error {0}")]
     Standard(#[from] std::io::Error),
     #[error("{0}")]

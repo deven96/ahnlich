@@ -50,6 +50,7 @@ dirs = "5.0.1"
 strum = { version = "0.26", features = ["derive"] }
 tonic = "0.12.3"
 tokio-stream = "0.1.17"
+http = "1.2.0"
 
 [profile.release]
 lto = true

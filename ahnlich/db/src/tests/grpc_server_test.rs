@@ -1,11 +1,9 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
-use grpc_types::services::db_service::{
-    db_service_client::DbServiceClient, db_service_server::DbServiceServer,
-};
+use grpc_types::services::db_service::db_service_client::DbServiceClient;
 use once_cell::sync::Lazy;
 use tonic::transport::Channel;
-use utils::connection_layer::{trace_with_parent, RequestTrackerLayer};
+use utils::server::AhnlichServerUtils;
 
 use crate::{cli::ServerConfig, server::handler::Server};
 
@@ -15,30 +13,13 @@ static CONFIG: Lazy<ServerConfig> =
 #[tokio::test]
 async fn test_grpc_ping_test() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
-    let address = "127.0.0.1:3000";
-
-    let listener = tokio::net::TcpListener::bind(address)
-        .await
-        .expect("Cannot bind");
-
-    let listener_stream = tokio_stream::wrappers::TcpListenerStream::new(listener);
-
-    let request_tracker = RequestTrackerLayer::new(Arc::clone(&server.client_handler()));
-    let db_service = DbServiceServer::new(server);
+    let address = server.local_addr().expect("Could not get local addr");
 
     tokio::spawn(async move {
-        let res = tonic::transport::Server::builder()
-            .layer(request_tracker)
-            .trace_fn(trace_with_parent)
-            .add_service(db_service)
-            .serve_with_incoming(listener_stream)
-            .await;
-        println!("{res:?}");
+        server.task_manager().spawn_blocking(server).await;
     });
 
     let address = format!("http://{}", address);
-
-    println!("address: {address:?}");
 
     tokio::time::sleep(Duration::from_secs(3)).await;
     let channel = Channel::from_shared(address).expect("Faild to get channel");

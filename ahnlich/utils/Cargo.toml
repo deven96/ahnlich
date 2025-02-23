@@ -27,5 +27,7 @@ futures.workspace = true
 tower = "0.5.2"
 tower-layer = "0.3.3"
 tonic.workspace = true
-http = "1.2.0"
+http.workspace = true
 hyper = { version = "1", features = ["full"] }
+grpc_types = { path = "../grpc_types", version = "*" }
+tokio-stream.workspace = true
