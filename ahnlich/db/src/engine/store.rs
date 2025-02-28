@@ -15,7 +15,7 @@ use ahnlich_types::predicate::PredicateCondition;
 use ahnlich_types::similarity::Algorithm;
 use ahnlich_types::similarity::NonLinearAlgorithm;
 use ahnlich_types::similarity::Similarity;
-use flurry::HashMap as ConcurrentHashMap;
+use papaya::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap as StdHashMap;
@@ -1130,12 +1130,12 @@ mod tests {
                 StoreInfo {
                     name: odd_store,
                     len: 2,
-                    size_in_bytes: 2096,
+                    size_in_bytes: 1432,
                 },
                 StoreInfo {
                     name: even_store,
                     len: 0,
-                    size_in_bytes: 1744,
+                    size_in_bytes: 1080,
                 },
             ])
         )

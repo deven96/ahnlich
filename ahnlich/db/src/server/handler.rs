@@ -6,7 +6,8 @@ use ahnlich_types::keyval::{StoreKey, StoreName, StoreValue};
 use ahnlich_types::metadata::MetadataKey;
 use grpc_types::db::pipeline::db_query::Query;
 use grpc_types::db::server::GetSimNEntry;
-use grpc_types::services::db_service::db_service_server::{DbService, DbServiceServer};
+use grpc_types::services::db_service::db_service_server::DbService;
+// use grpc_types::services::db_service::db_service_server::{DbServiceServer};
 use grpc_types::shared::info::ErrorResponse;
 use grpc_types::utils::unwrap_predicate_condition;
 use grpc_types::{client as grpc_types_client, utils as grpc_utils};
@@ -14,21 +15,21 @@ use grpc_types::{
     db::{pipeline, query, server},
     keyval,
 };
-use std::future::Future;
+// use std::future::Future;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use task_manager::Task;
 use task_manager::TaskManager;
 use task_manager::TaskState;
-use task_manager::{BlockingTask, Task};
 use tokio::io::BufReader;
 use tokio::net::TcpListener;
 use tokio::net::TcpStream;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use utils::allocator::GLOBAL_ALLOCATOR;
-use utils::connection_layer::{trace_with_parent, RequestTrackerLayer};
+// use utils::connection_layer::{trace_with_parent, RequestTrackerLayer};
 use utils::server::AhnlichServerUtils;
 use utils::server::ServerUtilsConfig;
 use utils::{client::ClientHandler, persistence::Persistence};
@@ -844,35 +845,35 @@ impl Server {
 // - Remove ahnlich_types, keeping the internal types we'd need
 // - rename grpc types to types
 
-#[async_trait::async_trait]
-impl BlockingTask for Server {
-    fn task_name(&self) -> String {
-        "ahnlich-db".to_string()
-    }
-
-    async fn run(
-        self,
-        shutdown_signal: std::pin::Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>,
-    ) {
-        // to be replaced with TcpListenerStream
-
-        let address = "127.0.0.1:3000";
-        let listener = tokio::net::TcpListener::bind(address)
-            .await
-            .expect("Cannot bind");
-
-        let listener_stream = tokio_stream::wrappers::TcpListenerStream::new(listener);
-
-        let request_tracker = RequestTrackerLayer::new(Arc::clone(&self.client_handler));
-        let max_message_size = self.config.common.message_size;
-
-        let db_service = DbServiceServer::new(self).max_decoding_message_size(max_message_size);
-
-        let _ = tonic::transport::Server::builder()
-            .layer(request_tracker)
-            .trace_fn(trace_with_parent)
-            .add_service(db_service)
-            .serve_with_incoming_shutdown(listener_stream, shutdown_signal)
-            .await;
-    }
-}
+// #[async_trait::async_trait]
+// impl BlockingTask for Server {
+//     fn task_name(&self) -> String {
+//         "ahnlich-db".to_string()
+//     }
+//
+//     async fn run(
+//         self,
+//         shutdown_signal: std::pin::Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>,
+//     ) {
+//         // to be replaced with TcpListenerStream
+//
+//         let address = "127.0.0.1:3000";
+//         let listener = tokio::net::TcpListener::bind(address)
+//             .await
+//             .expect("Cannot bind");
+//
+//         let listener_stream = tokio_stream::wrappers::TcpListenerStream::new(listener);
+//
+//         let request_tracker = RequestTrackerLayer::new(Arc::clone(&self.client_handler));
+//         let max_message_size = self.config.common.message_size;
+//
+//         let db_service = DbServiceServer::new(self).max_decoding_message_size(max_message_size);
+//
+//         let _ = tonic::transport::Server::builder()
+//             .layer(request_tracker)
+//             .trace_fn(trace_with_parent)
+//             .add_service(db_service)
+//             .serve_with_incoming_shutdown(listener_stream, shutdown_signal)
+//             .await;
+//     }
+// }

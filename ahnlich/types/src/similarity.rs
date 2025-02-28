@@ -5,7 +5,7 @@ use serde::Serialize;
 /// Supported ahnlich similarity algorithms
 pub enum Algorithm {
     /// LINEAR
-
+    ///
     /// Euclidean distance is defined as the L2-norm of the difference between two vectors or their
     /// straight line distance between them. It
     /// considers both magnitude and direction of vectors
@@ -21,7 +21,7 @@ pub enum Algorithm {
     /// NON-LINEAR. These are not as accurate as linear searching the store and they have internal
     /// index representations which have to be stored and incur a penalty on write, but they
     /// provide for much faster reads
-
+    ///
     /// K-Dimensional Trees constructs a binary search tree representation extended to multiple dimensions.
     KDTree,
 }

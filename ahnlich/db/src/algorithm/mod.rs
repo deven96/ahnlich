@@ -54,13 +54,13 @@ impl<'a> From<(&'a StoreKey, f32)> for SimilarityVector<'a> {
     }
 }
 
-impl<'a> PartialEq for SimilarityVector<'a> {
+impl PartialEq for SimilarityVector<'_> {
     fn eq(&self, other: &Self) -> bool {
         *((self.0).0) == *((other.0).0)
     }
 }
 
-impl<'a> Eq for SimilarityVector<'a> {}
+impl Eq for SimilarityVector<'_> {}
 
 impl PartialOrd for SimilarityVector<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {

@@ -16,7 +16,6 @@ bench = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-flurry.workspace = true
 serde.workspace = true
 blake3.workspace = true
 ndarray.workspace = true
@@ -39,6 +38,7 @@ rayon.workspace = true
 log.workspace = true
 fallible_collections.workspace = true
 pulp = "0.21.4"
+papaya.workspace = true
 grpc_types = { path = "../grpc_types", version = "*" }
 tonic.workspace = true
 tokio-stream.workspace = true

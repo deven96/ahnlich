@@ -1,5 +1,5 @@
 use ahnlich_types::client::ConnectedClient;
-use flurry::HashSet as ConcurrentHashSet;
+use papaya::HashSet as ConcurrentHashSet;
 use std::collections::HashSet as StdHashSet;
 use std::net::SocketAddr;
 use std::time::SystemTime;

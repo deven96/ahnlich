@@ -114,7 +114,7 @@ struct OutputFile<'a> {
     output_file: &'a str,
 }
 
-impl<'a> OutputFile<'a> {
+impl OutputFile<'_> {
     fn get_output_buffer(&self, file_path: std::path::PathBuf) -> BufWriter<File> {
         let spec_language_file =
             std::fs::File::create(file_path).expect("Failed to create typegen output file");
