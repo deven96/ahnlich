@@ -547,7 +547,7 @@ mod tests {
             StoreInfo {
                 name: StoreName("Main".to_string()),
                 len: 0,
-                size_in_bytes: 1720,
+                size_in_bytes: 1056,
             },
         ]))));
         let res = pipeline.exec().await.expect("Could not execute pipeline");
@@ -603,7 +603,7 @@ mod tests {
             ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
                 name: StoreName("Main".to_string()),
                 len: 2,
-                size_in_bytes: 2016,
+                size_in_bytes: 1352,
             },]))
         );
         // error as different dimensions
@@ -628,7 +628,7 @@ mod tests {
             ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
                 name: StoreName("Main".to_string()),
                 len: 1,
-                size_in_bytes: 1904,
+                size_in_bytes: 1240,
             },]))
         );
     }

@@ -1130,12 +1130,12 @@ mod tests {
                 StoreInfo {
                     name: odd_store,
                     len: 2,
-                    size_in_bytes: 2096,
+                    size_in_bytes: 1432,
                 },
                 StoreInfo {
                     name: even_store,
                     len: 0,
-                    size_in_bytes: 1744,
+                    size_in_bytes: 1080,
                 },
             ])
         )
