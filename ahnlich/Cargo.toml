@@ -47,7 +47,7 @@ log = "0.4"
 fallible_collections = "0.4.9"
 dirs = "5.0.1"
 strum = { version = "0.26", features = ["derive"] }
-papaya = { version = "0.1.8", features = ["serde"] }
+papaya = { version = "0.2.0", features = ["serde"] }
 
 [profile.release]
 lto = true
