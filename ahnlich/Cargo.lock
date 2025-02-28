@@ -45,7 +45,6 @@ dependencies = [
  "pretty_assertions",
  "thiserror",
  "tokio",
- "typed-builder",
  "utils",
 ]
 
@@ -71,6 +70,7 @@ dependencies = [
  "once_cell",
  "serde",
  "thiserror",
+ "typed-builder",
 ]
 
 [[package]]
@@ -953,6 +953,7 @@ dependencies = [
  "fallible_collections",
  "fastrand 1.9.0",
  "futures",
+ "grpc_types",
  "itertools 0.10.5",
  "log",
  "ndarray",
@@ -967,7 +968,9 @@ dependencies = [
  "task-manager",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tokio-util",
+ "tonic 0.12.3",
  "tracer",
  "tracing",
  "utils",
@@ -1430,8 +1433,9 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "grpc_types"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
+ "ahnlich_types",
  "prost 0.13.4",
  "prost-build",
  "prost-types",
@@ -3972,9 +3976,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-stream"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f4e6ce100d0eb49a2734f8c0812bcd324cf357d21810932c5df6b96ef2b86f1"
+checksum = "eca58d7bba4a75707817a2c44174253f9236b2d5fbd055602e9d5c07c139a047"
 dependencies = [
  "futures-core",
  "pin-project-lite",
@@ -4425,6 +4429,8 @@ dependencies = [
  "clap 4.5.21",
  "fallible_collections",
  "futures",
+ "http 1.2.0",
+ "hyper 1.6.0",
  "log",
  "opentelemetry",
  "papaya",
@@ -4436,6 +4442,9 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
+ "tonic 0.12.3",
+ "tower 0.5.2",
+ "tower-layer",
  "tracer",
  "tracing",
  "tracing-opentelemetry",

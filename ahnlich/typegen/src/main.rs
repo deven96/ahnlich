@@ -9,6 +9,10 @@ use tracers::save_server_response_registries;
 const SPEC_DOC_PATH: &str = "../type_specs/";
 const SDK_PATH: &str = "../sdk";
 
+// FIXME: typegen crate should be a lot easier now as every language has
+// it's own type generation within it e.g python[ahnlich_client_py::build.py]
+// and cargo[types::build.rs]. This crate may in the end be simply replaced by Makefile command
+// to trigger for each language
 fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     match &cli.command {

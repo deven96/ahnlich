@@ -41,6 +41,6 @@ impl Version {
     /// what versions are compatible. For now we assume that the versions should always be exact
     /// but ultimately we want major versions being the same to be enough
     pub fn is_compatible(&self, other: &Self) -> bool {
-        self == other
+        self.major == other.major
     }
 }

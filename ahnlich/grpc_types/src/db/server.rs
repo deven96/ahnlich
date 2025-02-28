@@ -44,17 +44,20 @@ pub struct GetSimN {
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct Del {
-    #[prost(uint32, tag = "1")]
-    pub deleted_count: u32,
+    #[prost(uint64, tag = "1")]
+    pub deleted_count: u64,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CreateIndex {
-    #[prost(uint32, tag = "1")]
-    pub created_indexes: u32,
+    #[prost(uint64, tag = "1")]
+    pub created_indexes: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ServerResponse {
-    #[prost(oneof = "server_response::Response", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10")]
+    #[prost(
+        oneof = "server_response::Response",
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    )]
     pub response: ::core::option::Option<server_response::Response>,
 }
 /// Nested message and enum types in `ServerResponse`.
@@ -87,8 +90,8 @@ pub mod server_response {
 pub struct StoreInfo {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
-    #[prost(uint32, tag = "2")]
-    pub len: u32,
+    #[prost(uint64, tag = "2")]
+    pub len: u64,
     #[prost(uint64, tag = "3")]
     pub size_in_bytes: u64,
 }

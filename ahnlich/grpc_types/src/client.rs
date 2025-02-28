@@ -3,6 +3,6 @@
 pub struct ConnectedClient {
     #[prost(string, tag = "1")]
     pub address: ::prost::alloc::string::String,
-    #[prost(uint64, tag = "2")]
-    pub time_connected: u64,
+    #[prost(string, tag = "2")]
+    pub time_connected: ::prost::alloc::string::String,
 }

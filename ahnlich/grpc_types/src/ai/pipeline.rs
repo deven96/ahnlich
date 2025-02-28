@@ -20,9 +20,7 @@ pub mod ai_query {
         #[prost(message, tag = "4")]
         CreatePredIndex(super::super::query::CreatePredIndex),
         #[prost(message, tag = "5")]
-        CreateNonLinearAlgorithmIndex(
-            super::super::query::CreateNonLinearAlgorithmIndex,
-        ),
+        CreateNonLinearAlgorithmIndex(super::super::query::CreateNonLinearAlgorithmIndex),
         #[prost(message, tag = "6")]
         DropPredIndex(super::super::query::DropPredIndex),
         #[prost(message, tag = "7")]
@@ -56,7 +54,7 @@ pub struct AiRequestPipeline {
 pub struct AiServerResponse {
     #[prost(
         oneof = "ai_server_response::Response",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
     )]
     pub response: ::core::option::Option<ai_server_response::Response>,
 }
@@ -84,6 +82,8 @@ pub mod ai_server_response {
         Del(super::super::server::Del),
         #[prost(message, tag = "10")]
         CreateIndex(super::super::server::CreateIndex),
+        #[prost(message, tag = "11")]
+        Error(super::super::super::shared::info::ErrorResponse),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

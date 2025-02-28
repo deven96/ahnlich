@@ -1,6 +1,6 @@
 use std::{collections::HashSet, num::NonZeroUsize};
 
-use ahnlich_types::{
+use crate::{
     ai::{AIModel, ExecutionProvider, PreprocessAction},
     keyval::{StoreInput, StoreName, StoreValue},
     metadata::MetadataKey,
@@ -8,6 +8,8 @@ use ahnlich_types::{
     similarity::{Algorithm, NonLinearAlgorithm},
 };
 use typed_builder::TypedBuilder;
+
+//FIXME: Should nonzeroUsize panic especially now when using with grpc?
 
 #[derive(TypedBuilder)]
 pub struct CreateStoreParams {

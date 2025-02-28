@@ -2,12 +2,14 @@ use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use typed_builder::TypedBuilder;
 
-use ahnlich_types::{
+use crate::{
     keyval::{StoreKey, StoreName, StoreValue},
     metadata::MetadataKey,
     predicate::PredicateCondition,
     similarity::{Algorithm, NonLinearAlgorithm},
 };
+
+//FIXME: Should nonzeroUsize panic especially now when using with grpc?
 
 #[derive(TypedBuilder)]
 pub struct CreateStoreParams {

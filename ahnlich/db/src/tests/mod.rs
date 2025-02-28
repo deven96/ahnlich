@@ -1,3 +1,4 @@
+mod grpc_server_test;
 mod server_test;
 
 use ahnlich_types::keyval::StoreKey;
