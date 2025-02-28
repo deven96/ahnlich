@@ -6,9 +6,9 @@ use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicate::Predicate;
 use ahnlich_types::predicate::PredicateCondition;
+use itertools::Itertools;
 use papaya::HashMap as ConcurrentHashMap;
 use papaya::HashSet as ConcurrentHashSet;
-use itertools::Itertools;
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -114,7 +114,7 @@ impl PredicateIndices {
         // first check all predicates
         if let (true, Some(non_existing_index)) = (
             error_if_not_exists,
-            predicates.iter().find(|a| !pinned_keys.contains(a)),
+            predicates.iter().find(|a| !pinned_keys.contains(*a)),
         ) {
             return Err(ServerError::PredicateNotFound(non_existing_index.clone()));
         }
