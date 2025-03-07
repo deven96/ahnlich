@@ -56,10 +56,31 @@ fn main() -> Result<()> {
         .open(out_dir.join("lib.rs"))
         .expect("Failed to create mod file");
 
+    // nonlinear algorthim, storekeyid, storevalue, metadatakey and value,
     tonic_build::configure()
         .build_client(true)
         .build_client(true)
         .out_dir(out_dir.clone())
+        .type_attribute(
+            "algorithm.nonlinear.NonLinearAlgorithm",
+            "#[derive(serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
+            "keyval.StoreKey",
+            "#[derive(serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
+            "keyval.StoreValue",
+            "#[derive(serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
+            "metadata.MetadataValue",
+            "#[derive(serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
+            "metadata.MetadataValue.value",
+            "#[derive(serde::Serialize, serde::Deserialize)]",
+        )
         .compile_protos(&protofiles, &[proto_dir])
         .inspect_err(|err| println!("{}", err))
         .expect("failed");

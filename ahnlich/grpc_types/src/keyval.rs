@@ -4,7 +4,7 @@ pub struct StoreName {
     #[prost(string, tag = "1")]
     pub value: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message)]
 pub struct StoreKey {
     #[prost(float, repeated, tag = "1")]
     pub key: ::prost::alloc::vec::Vec<f32>,
@@ -33,7 +33,7 @@ pub struct StoreEntry {
     #[prost(message, optional, tag = "2")]
     pub value: ::core::option::Option<StoreValue>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message)]
 pub struct StoreValue {
     #[prost(map = "string, message", tag = "1")]
     pub value:

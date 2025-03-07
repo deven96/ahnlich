@@ -1476,6 +1476,7 @@ dependencies = [
  "prost 0.13.4",
  "prost-build",
  "prost-types",
+ "serde",
  "tonic 0.12.3",
  "tonic-build",
  "walkdir",

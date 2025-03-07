@@ -16,6 +16,7 @@ tonic.workspace = true
 prost = "0.13"
 prost-types = "0.13"
 ahnlich_types = { path = "../types", version = "*" }
+serde.workspace = true
 
 
 [build-dependencies]
