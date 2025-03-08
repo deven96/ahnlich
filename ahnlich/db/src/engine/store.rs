@@ -4,18 +4,15 @@ use rayon::prelude::*;
 use super::super::algorithm::non_linear::NonLinearAlgorithmIndices;
 use super::super::algorithm::{AlgorithmByType, FindSimilarN};
 use super::predicate::PredicateIndices;
-use ahnlich_types::db::StoreInfo;
-use ahnlich_types::db::StoreUpsert;
-use ahnlich_types::keyval::StoreKey;
-use ahnlich_types::keyval::StoreName;
-use ahnlich_types::keyval::StoreValue;
-use ahnlich_types::metadata::MetadataKey;
-use ahnlich_types::predicate::Predicate;
-use ahnlich_types::predicate::PredicateCondition;
-use ahnlich_types::similarity::Algorithm;
-use ahnlich_types::similarity::NonLinearAlgorithm;
-use ahnlich_types::similarity::Similarity;
 use flurry::HashMap as ConcurrentHashMap;
+use grpc_types::algorithm::algorithms::Algorithm;
+use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
+use grpc_types::db::server::StoreInfo;
+use grpc_types::keyval::StoreName;
+use grpc_types::keyval::{StoreKey, StoreValue};
+use grpc_types::predicates::{Predicate, PredicateCondition};
+use grpc_types::shared::info::StoreUpsert;
+use grpc_types::similarity::Similarity;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap as StdHashMap;
@@ -52,7 +49,7 @@ impl From<&StoreKey> for StoreKeyId {
         // compute a fast blake hash of the vector to ensure it always gives us the same value
         // and use that as a reference to the vector
         let mut hasher = blake3::Hasher::new();
-        for element in value.0.iter() {
+        for element in value.key.iter() {
             let bytes = element.to_ne_bytes();
             hasher.update(&bytes);
         }
@@ -131,7 +128,8 @@ impl StoreHandler {
     pub(crate) fn create_pred_index(
         &self,
         store_name: &StoreName,
-        predicates: Vec<MetadataKey>,
+        // TODO: create grpc datatype for metadata key
+        predicates: Vec<String>,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
         let created_predicates = store.create_pred_index(predicates);
@@ -198,7 +196,7 @@ impl StoreHandler {
     ) -> Result<Vec<(StoreKey, StoreValue, Similarity)>, ServerError> {
         let store = self.get(store_name)?;
         let store_dimension = store.dimension.get();
-        let input_dimension = search_input.dimension();
+        let input_dimension = search_input.key.len();
 
         if input_dimension != store_dimension {
             return Err(ServerError::StoreDimensionMismatch {
@@ -298,9 +296,9 @@ impl StoreHandler {
         self.stores
             .iter(&self.stores.guard())
             .map(|(store_name, store)| StoreInfo {
-                name: store_name.clone(),
-                len: store.len(),
-                size_in_bytes: store.size(),
+                name: store_name.clone().value,
+                len: store.len() as u64,
+                size_in_bytes: store.size() as u64,
             })
             .collect()
     }
@@ -311,7 +309,8 @@ impl StoreHandler {
         &self,
         store_name: StoreName,
         dimension: NonZeroUsize,
-        predicates: Vec<MetadataKey>,
+        // FIXME: update metadata key with grpc type key
+        predicates: Vec<String>,
         non_linear_indices: StdHashSet<NonLinearAlgorithm>,
         error_if_exists: bool,
     ) -> Result<(), ServerError> {
@@ -336,7 +335,7 @@ impl StoreHandler {
     pub(crate) fn drop_pred_index_in_store(
         &self,
         store_name: &StoreName,
-        predicates: Vec<MetadataKey>,
+        predicates: Vec<String>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
@@ -405,7 +404,7 @@ impl Store {
     /// Creates a new empty store
     pub(super) fn create(
         dimension: NonZeroUsize,
-        predicates: Vec<MetadataKey>,
+        predicates: Vec<String>,
         non_linear_indices: StdHashSet<NonLinearAlgorithm>,
     ) -> Self {
         Self {
@@ -419,7 +418,7 @@ impl Store {
     #[tracing::instrument(skip(self))]
     fn drop_predicates(
         &self,
-        predicates: Vec<MetadataKey>,
+        predicates: Vec<String>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
         self.predicate_indices
@@ -433,7 +432,7 @@ impl Store {
         let removed = keys
             .iter()
             .flat_map(|k| pinned.remove(k))
-            .map(|(k, _)| k.0.clone())
+            .map(|(k, _)| k.key.clone())
             .collect::<Vec<_>>();
         self.predicate_indices.remove_store_keys(&keys);
         self.non_linear_indices.delete(&removed);
@@ -447,7 +446,7 @@ impl Store {
             .into_par_iter()
             .map(|key| {
                 let store_dimension = self.dimension.get();
-                let input_dimension = key.dimension();
+                let input_dimension = key.key.len();
                 if input_dimension != store_dimension {
                     return Err(ServerError::StoreDimensionMismatch {
                         store_dimension,
@@ -572,7 +571,7 @@ impl Store {
         }
         let store_dimension: usize = self.dimension.into();
         let check_bounds = |(store_key, store_val): &(StoreKey, StoreValue)| -> Result<(StoreKeyId, (StoreKey, StoreValue)), ServerError> {
-            let input_dimension = store_key.0.len();
+            let input_dimension = store_key.key.len();
             if input_dimension != store_dimension {
                 Err(ServerError::StoreDimensionMismatch { store_dimension, input_dimension  })
             } else {
@@ -595,7 +594,7 @@ impl Store {
                     updated.fetch_add(1, Ordering::SeqCst);
                 } else {
                     inserted.fetch_add(1, Ordering::SeqCst);
-                    return Some(v.0 .0);
+                    return Some(v.0.key);
                 }
                 None
             })
@@ -606,13 +605,13 @@ impl Store {
             self.non_linear_indices.insert(inserted_keys);
         }
         Ok(StoreUpsert {
-            inserted: inserted.into_inner(),
-            updated: updated.into_inner(),
+            inserted: inserted.into_inner() as u64,
+            updated: updated.into_inner() as u64,
         })
     }
 
     #[tracing::instrument(skip(self))]
-    fn create_pred_index(&self, requested_predicates: Vec<MetadataKey>) -> usize {
+    fn create_pred_index(&self, requested_predicates: Vec<String>) -> usize {
         let current_predicates = self.predicate_indices.current_predicates();
         let new_predicates: Vec<_> = StdHashSet::from_iter(requested_predicates)
             .difference(&current_predicates)
@@ -645,7 +644,7 @@ impl Store {
         let new_predicates_len = new_predicates.len();
         if !new_predicates.is_empty() {
             // get all the values and reindex
-            let values: Vec<_> = self.get_all().into_iter().map(|(k, _)| k.0).collect();
+            let values: Vec<_> = self.get_all().into_iter().map(|(k, _)| k.key).collect();
             self.non_linear_indices
                 .insert_indices(new_predicates, &values, self.dimension);
         };
@@ -671,6 +670,7 @@ impl Store {
                     size_of_val(k)
                         + size_of_val(&v.0)
                         + v.1
+                            .value
                             .iter()
                             .map(|(inner_k, inner_val)| {
                                 size_of_val(inner_k) + size_of_val(inner_val)
@@ -687,18 +687,18 @@ impl Store {
 mod tests {
     use crate::tests::*;
     use pretty_assertions::assert_eq;
+    use serde_json::to_string;
     use std::num::NonZeroUsize;
 
     use super::*;
-    use ahnlich_types::metadata::MetadataKey;
-    use ahnlich_types::metadata::MetadataValue;
     use ahnlich_types::predicate::Predicate;
+    use grpc_types::metadata::{MetadataType, MetadataValue};
     use std::collections::HashMap as StdHashMap;
 
     #[test]
     fn test_compute_store_key_id_empty_vector() {
         let array: Vec<f32> = vec![];
-        let store_key: StoreKeyId = (&StoreKey(array)).into();
+        let store_key: StoreKeyId = (&StoreKey { key: array }).into();
         assert_eq!(
             store_key,
             StoreKeyId("af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262".into())
@@ -708,7 +708,7 @@ mod tests {
     #[test]
     fn test_compute_store_key_id_single_element_array() {
         let array = vec![1.23];
-        let store_key: StoreKeyId = (&StoreKey(array)).into();
+        let store_key: StoreKeyId = (&StoreKey { key: array }).into();
         assert_eq!(
             store_key,
             StoreKeyId("ae69ac20168542c9058847862a41c0f24ecd5a935dfabb640bed7d591dd48ae8".into())
@@ -718,7 +718,7 @@ mod tests {
     #[test]
     fn test_compute_store_key_id_multiple_elements_array() {
         let array = vec![1.22, 2.11, 3.22, 3.11];
-        let store_key: StoreKeyId = (&StoreKey(array)).into();
+        let store_key: StoreKeyId = (&StoreKey { key: array }).into();
         assert_eq!(
             store_key,
             StoreKeyId("c8d293fab65705ee27956818a9b02139fa002b71e4cd416fea055344a907db67".into())
@@ -726,7 +726,7 @@ mod tests {
     }
 
     fn create_store_handler_no_loom(
-        predicates: Vec<MetadataKey>,
+        predicates: Vec<String>,
         even_dimensions: Option<usize>,
         odd_dimensions: Option<usize>,
     ) -> Arc<StoreHandler> {
@@ -742,7 +742,9 @@ mod tests {
                     ("Odd", odd_dimensions.unwrap_or(3))
                 };
                 shared_handler.create_store(
-                    StoreName(store_name.to_string()),
+                    StoreName {
+                        value: store_name.to_string(),
+                    },
                     NonZeroUsize::new(size).unwrap(),
                     predicates,
                     StdHashSet::new(),
@@ -758,7 +760,7 @@ mod tests {
     }
 
     fn create_store_handler(
-        predicates: Vec<MetadataKey>,
+        predicates: Vec<String>,
     ) -> (
         Arc<StoreHandler>,
         Vec<Result<(), ServerError>>,
@@ -772,7 +774,9 @@ mod tests {
             let handle = std::thread::spawn(move || {
                 let (store_name, size) = if i % 2 == 0 { ("Even", 5) } else { ("Odd", 3) };
                 shared_handler.create_store(
-                    StoreName(store_name.to_string()),
+                    StoreName {
+                        value: store_name.to_string(),
+                    },
                     NonZeroUsize::new(size).unwrap(),
                     predicates,
                     StdHashSet::new(),
@@ -795,12 +799,14 @@ mod tests {
         assert_eq!(oks.len(), 2);
         assert_eq!(
             errs,
-            vec![Err(ServerError::StoreAlreadyExists(StoreName(
-                "Even".to_string()
-            )))]
+            vec![Err(ServerError::StoreAlreadyExists(StoreName {
+                value: "Even".to_string()
+            }))]
         );
         // test out a store that does not exist
-        let fake_store = StoreName("Random".to_string());
+        let fake_store = StoreName {
+            value: "Random".to_string(),
+        };
         assert_eq!(
             handler.get(&fake_store).unwrap_err(),
             ServerError::StoreNotFound(fake_store)
@@ -810,8 +816,12 @@ mod tests {
     #[test]
     fn test_create_and_set_in_store_fails() {
         let (handler, _oks, _errs) = create_store_handler(vec![]);
-        let even_store = StoreName("Even".into());
-        let fake_store = StoreName("Fake".into());
+        let even_store = StoreName {
+            value: "Even".into(),
+        };
+        let fake_store = StoreName {
+            value: "Fake".into(),
+        };
         // set in nonexistent store should fail
         assert_eq!(
             handler.set_in_store(&fake_store, vec![]).unwrap_err(),
@@ -823,11 +833,22 @@ mod tests {
                 .set_in_store(
                     &even_store,
                     vec![(
-                        StoreKey(vec![0.33, 0.44, 0.5]),
-                        StdHashMap::from_iter(vec![(
-                            MetadataKey::new("author".into()),
-                            MetadataValue::RawString("Vincent".into()),
-                        ),])
+                        StoreKey {
+                            key: vec![0.33, 0.44, 0.5]
+                        },
+                        StoreValue {
+                            value: StdHashMap::from_iter(vec![(
+                                "author".to_string(),
+                                MetadataValue {
+                                    r#type: MetadataType::RawString.into(),
+                                    value: Some(
+                                        grpc_types::metadata::metadata_value::Value::RawString(
+                                            "Vincent".to_string()
+                                        )
+                                    )
+                                },
+                            ),])
+                        }
                     ),]
                 )
                 .unwrap_err(),
@@ -841,17 +862,30 @@ mod tests {
     #[test]
     fn test_create_and_set_in_store_passes() {
         let (handler, _oks, _errs) = create_store_handler(vec![]);
-        let odd_store = StoreName("Odd".into());
+        let odd_store = StoreName {
+            value: "Odd".into(),
+        };
         let input_arr = vec![0.1, 0.2, 0.3];
         let ret = handler
             .set_in_store(
                 &odd_store,
                 vec![(
-                    StoreKey(input_arr.clone()),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("author".into()),
-                        MetadataValue::RawString("Lex Luthor".into()),
-                    )]),
+                    StoreKey {
+                        key: input_arr.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "author".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Lex Luthor".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
@@ -866,11 +900,22 @@ mod tests {
             .set_in_store(
                 &odd_store,
                 vec![(
-                    StoreKey(input_arr.clone()),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("author".into()),
-                        MetadataValue::RawString("Clark Kent".into()),
-                    )]),
+                    StoreKey {
+                        key: input_arr.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "author".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Clark Kent".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
@@ -885,9 +930,10 @@ mod tests {
 
     #[test]
     fn test_add_index_in_store() {
-        let handler =
-            create_store_handler_no_loom(vec![MetadataKey::new("author".into())], None, None);
-        let even_store = StoreName("Even".into());
+        let handler = create_store_handler_no_loom(vec!["author".to_string()], None, None);
+        let even_store = StoreName {
+            value: "Even".to_string(),
+        };
         let input_arr_1 = vec![0.1, 0.2, 0.3, 0.0, 0.0];
         let input_arr_2 = vec![0.2, 0.3, 0.4, 0.0, 0.0];
         let input_arr_3 = vec![0.3, 0.4, 0.4, 0.0, 0.0];
@@ -895,17 +941,35 @@ mod tests {
             .set_in_store(
                 &even_store,
                 vec![(
-                    StoreKey(input_arr_1.clone()),
-                    StdHashMap::from_iter(vec![
-                        (
-                            MetadataKey::new("author".into()),
-                            MetadataValue::RawString("Lex Luthor".into()),
-                        ),
-                        (
-                            MetadataKey::new("planet".into()),
-                            MetadataValue::RawString("earth".into()),
-                        ),
-                    ]),
+                    StoreKey {
+                        key: input_arr_1.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![
+                            (
+                                "author".to_string(),
+                                MetadataValue {
+                                    r#type: MetadataType::RawString.into(),
+                                    value: Some(
+                                        grpc_types::metadata::metadata_value::Value::RawString(
+                                            "Lex Luthor".to_string(),
+                                        ),
+                                    ),
+                                },
+                            ),
+                            (
+                                "planet".to_string(),
+                                MetadataValue {
+                                    r#type: MetadataType::RawString.into(),
+                                    value: Some(
+                                        grpc_types::metadata::metadata_value::Value::RawString(
+                                            "earth".to_string(),
+                                        ),
+                                    ),
+                                },
+                            ),
+                        ]),
+                    },
                 )],
             )
             .unwrap();

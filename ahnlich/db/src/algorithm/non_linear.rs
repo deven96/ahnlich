@@ -4,8 +4,8 @@ use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_similarity::utils::VecF32Ordered;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_types::keyval::StoreKey;
-use ahnlich_types::similarity::NonLinearAlgorithm;
 use flurry::HashMap as ConcurrentHashMap;
+use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use serde::Deserialize;
@@ -30,7 +30,7 @@ impl NonLinearAlgorithmWithIndex {
     #[tracing::instrument]
     pub(crate) fn create(algorithm: NonLinearAlgorithm, dimension: NonZeroUsize) -> Self {
         match algorithm {
-            NonLinearAlgorithm::KDTree => NonLinearAlgorithmWithIndex::KDTree(
+            NonLinearAlgorithm::KdTree => NonLinearAlgorithmWithIndex::KDTree(
                 KDTree::new(dimension, dimension)
                     .expect("Impossible dimension happened during initalization of kdtree"),
             ),

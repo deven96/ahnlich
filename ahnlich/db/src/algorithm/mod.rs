@@ -8,7 +8,7 @@ use std::num::NonZeroUsize;
 
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::similarity::Algorithm;
-use ahnlich_types::similarity::NonLinearAlgorithm;
+use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
 use heap::HeapOrder;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -33,7 +33,7 @@ impl From<Algorithm> for AlgorithmByType {
             Algorithm::DotProductSimilarity => {
                 AlgorithmByType::Linear(LinearAlgorithm::DotProductSimilarity)
             }
-            Algorithm::KDTree => AlgorithmByType::NonLinear(NonLinearAlgorithm::KDTree),
+            Algorithm::KDTree => AlgorithmByType::NonLinear(NonLinearAlgorithm::KdTree),
         }
     }
 }

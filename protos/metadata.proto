@@ -3,18 +3,16 @@ syntax = "proto3";
 package metadata;
 
 enum MetadataType {
-
-    RAW_STRING = 0;
-    IMAGE = 1;
+  RAW_STRING = 0;
+  IMAGE = 1;
 }
 
+// FIXME: change to a oneOf but with custom values
 message MetadataValue {
-    MetadataType type = 1;
+  MetadataType type = 1;
 
-    oneof value {
-        string raw_string = 2;
-        bytes image = 3;
-    }
-
-
+  oneof value {
+    string raw_string = 2;
+    bytes image = 3;
+  }
 }

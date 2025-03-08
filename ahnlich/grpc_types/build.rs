@@ -78,6 +78,14 @@ fn main() -> Result<()> {
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
         .type_attribute(
+            "keyval.StoreName",
+            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, Ord, PartialOrd)]",
+        )
+        .type_attribute(
+            "db.server.StoreInfo",
+            "#[derive(Hash, Eq, Ord, PartialOrd)]",
+        )
+        .type_attribute(
             "metadata.MetadataValue.value",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )

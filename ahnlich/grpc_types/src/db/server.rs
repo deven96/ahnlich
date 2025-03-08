@@ -86,7 +86,7 @@ pub mod server_response {
         CreateIndex(super::CreateIndex),
     }
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Hash, Eq, Ord, PartialOrd, Clone, PartialEq, ::prost::Message)]
 pub struct StoreInfo {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,

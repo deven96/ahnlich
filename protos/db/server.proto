@@ -63,6 +63,7 @@ message ServerResponse {
     CreateIndex create_index = 10;
   }
 }
+// FIXME: move to shared folder
 
 message StoreInfo {
   string name = 1;

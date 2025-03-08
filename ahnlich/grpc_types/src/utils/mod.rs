@@ -5,6 +5,7 @@ use crate::algorithm::algorithms::Algorithm;
 use crate::metadata::metadata_value::Value;
 use crate::metadata::{MetadataType, MetadataValue};
 use crate::predicates::{Equals, In, NotEquals, NotIn, OrCondition, Predicate};
+use crate::shared::info::StoreUpsert;
 use crate::{algorithm::nonlinear::NonLinearAlgorithm, db::query as db_query};
 use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::predicate::PredicateCondition;
@@ -310,4 +311,10 @@ pub fn add_trace_parent<T>(req: &mut tonic::Request<T>, tracing_id: Option<Strin
                 .expect("String keys should be valid ascii"),
         );
     };
+}
+
+impl StoreUpsert {
+    pub fn modified(&self) -> bool {
+        self.inserted + self.updated > 0
+    }
 }
