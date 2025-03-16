@@ -5,9 +5,9 @@ use ahnlich_types::{
 use grpc_types::{
     algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
     db::{
-        pipeline::db_query::Query,
+        pipeline::{db_query::Query, DbQuery, DbRequestPipeline, DbResponsePipeline},
         query::{
-            CreateNonLinearAlgorithmIndex, CreatePredIndex, DelKey, DelPred,
+            CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred,
             DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
             InfoServer, ListClients, ListStores, Ping, Set, StoreEntry,
         },
@@ -29,10 +29,94 @@ use crate::error::AhnlichError;
 #[derive(Debug, Clone)]
 pub struct DbPipeline {
     queries: Vec<Query>,
+    tracing_id: Option<String>,
     client: DbServiceClient<Channel>,
 }
-// TODO: implement DbPipeline
-impl DbPipeline {}
+
+impl DbPipeline {
+    pub async fn create_store(&mut self, params: CreateStore) {
+        self.queries.push(Query::CreateStore(params));
+    }
+
+    pub async fn create_pred_index(&mut self, params: CreatePredIndex) {
+        self.queries.push(Query::CreatePredIndex(params));
+    }
+
+    pub async fn create_non_linear_algorithm_index(
+        &mut self,
+        params: CreateNonLinearAlgorithmIndex,
+    ) {
+        self.queries
+            .push(Query::CreateNonLinearAlgorithmIndex(params));
+    }
+
+    pub async fn get_key(&mut self, params: GetKey) {
+        self.queries.push(Query::GetKey(params));
+    }
+
+    pub async fn get_pred(&mut self, params: GetPred) {
+        self.queries.push(Query::GetPred(params));
+    }
+
+    pub async fn get_sim_n(&mut self, params: GetSimN) {
+        self.queries.push(Query::GetSimN(params));
+    }
+
+    pub async fn set(&mut self, params: Set) {
+        self.queries.push(Query::Set(params));
+    }
+
+    pub async fn drop_pred_index(&mut self, params: DropPredIndex) {
+        self.queries.push(Query::DropPredIndex(params));
+    }
+
+    pub async fn drop_non_linear_algorithm_index(&mut self, params: DropNonLinearAlgorithmIndex) {
+        self.queries
+            .push(Query::DropNonLinearAlgorithmIndex(params));
+    }
+
+    pub async fn del_key(&mut self, params: DelKey) {
+        self.queries.push(Query::DelKey(params));
+    }
+
+    pub async fn drop_store(&mut self, params: DropStore) {
+        self.queries.push(Query::DropStore(params));
+    }
+
+    pub async fn del_pred(&mut self, params: DelPred) {
+        self.queries.push(Query::DelPred(params));
+    }
+
+    pub async fn info_server(&mut self) {
+        self.queries.push(Query::InfoServer(InfoServer {}));
+    }
+
+    pub async fn list_stores(&mut self) {
+        self.queries.push(Query::ListStores(ListStores {}));
+    }
+
+    pub async fn list_clients(&mut self) {
+        self.queries.push(Query::ListClients(ListClients {}));
+    }
+
+    pub async fn ping(&mut self) {
+        self.queries.push(Query::Ping(Ping {}));
+    }
+
+    pub async fn exec(mut self) -> Result<DbResponsePipeline, AhnlichError> {
+        let tracing_id = self.tracing_id.clone();
+        let mut req = tonic::Request::new(DbRequestPipeline {
+            queries: self
+                .queries
+                .into_iter()
+                .map(|q| DbQuery { query: Some(q) })
+                .collect(),
+        });
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.pipeline(req).await?.into_inner())
+    }
+}
+
 // GRPC Client for Ahnlich DB
 //
 // client needs &mut as it can only send one request in flight, hence is not thread safe to use,
@@ -315,10 +399,11 @@ impl DbClient {
 
     // Create list of instructions to execute in a pipeline loop
     // on the server end
-    pub fn pipeline(&self) -> DbPipeline {
+    pub fn pipeline(&self, tracing_id: Option<String>) -> DbPipeline {
         DbPipeline {
             queries: vec![],
             client: self.client.clone(),
+            tracing_id,
         }
     }
 }
@@ -343,7 +428,7 @@ mod test {
         db::server::GetSimNEntry, metadata::metadata_value::Value, similarity::Similarity,
     };
     use once_cell::sync::Lazy;
-    use utils::server::AhnlichServerUtils;
+    use utils::server::AhnlichServerUtilsV2;
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 
@@ -354,8 +439,7 @@ mod test {
             .expect("Could not initialize server");
         let address = server.local_addr().expect("Could not get local addr");
         tokio::spawn(async move {
-            // TODO: replace with server.start()
-            server.task_manager().spawn_blocking(server).await;
+            server.start().await;
         });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
