@@ -3,7 +3,7 @@ use std::time::Duration;
 use grpc_types::services::db_service::db_service_client::DbServiceClient;
 use once_cell::sync::Lazy;
 use tonic::transport::Channel;
-use utils::server::AhnlichServerUtils;
+use utils::server::AhnlichServerUtilsV2;
 
 use crate::{cli::ServerConfig, server::handler::Server};
 

@@ -1,8 +1,6 @@
-use super::task::ServerTask;
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
 use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
-use grpc_types::client::ConnectedClient;
 use grpc_types::keyval::{StoreEntry, StoreKey, StoreName};
 // use ahnlich_types::metadata::MetadataKey;
 use grpc_types::db::pipeline::db_query::Query;
@@ -18,17 +16,14 @@ use std::net::SocketAddr;
 use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use task_manager::BlockingTask;
 use task_manager::TaskManager;
-use task_manager::TaskState;
-use task_manager::{BlockingTask, Task};
-use tokio::io::BufReader;
-use tokio::net::TcpStream;
-use tokio::sync::Mutex;
+
 use tokio_util::sync::CancellationToken;
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::connection_layer::{trace_with_parent, RequestTrackerLayer};
-use utils::server::ServerUtilsConfig;
-use utils::server::{AhnlichServerUtils, ListenerStreamOrAddress};
+
+use utils::server::{AhnlichServerUtilsV2, ListenerStreamOrAddress, ServerUtilsConfig};
 use utils::{client::ClientHandler, persistence::Persistence};
 
 const SERVICE_NAME: &str = "ahnlich-db";
@@ -702,39 +697,7 @@ impl DbService for Server {
     }
 }
 
-#[async_trait::async_trait]
-impl Task for Server {
-    fn task_name(&self) -> String {
-        "db-listener".to_string()
-    }
-
-    async fn run(&self) -> TaskState {
-        match self.listener {
-            ListenerStreamOrAddress::ListenerStream(ref stream) => {
-                if let Ok((stream, connect_addr)) = stream.as_ref().accept().await {
-                    if let Some(connected_client) = self
-                        .client_handler
-                        .connect(stream.peer_addr().expect("Could not get peer addr"))
-                    {
-                        log::info!("Connecting to {}", connect_addr);
-                        let task = self.create_task(
-                            stream,
-                            self.listener
-                                .local_addr()
-                                .expect("Could not get server addr"),
-                            connected_client,
-                        );
-                        self.task_manager.spawn_task_loop(task).await;
-                    }
-                }
-                TaskState::Continue
-            }
-            _ => TaskState::Break,
-        }
-    }
-}
-
-impl AhnlichServerUtils for Server {
+impl AhnlichServerUtilsV2 for Server {
     type PersistenceTask = StoreHandler;
 
     fn config(&self) -> ServerUtilsConfig {
@@ -814,24 +777,24 @@ impl Server {
         Self::new_with_config(config).await
     }
 
-    fn create_task(
-        &self,
-        stream: TcpStream,
-        server_addr: SocketAddr,
-        connected_client: ConnectedClient,
-    ) -> ServerTask {
-        let reader = BufReader::new(stream);
-        // add client to client_handler
-        ServerTask {
-            reader: Arc::new(Mutex::new(reader)),
-            server_addr,
-            connected_client,
-            maximum_message_size: self.config.common.message_size as u64,
-            // "inexpensive" to clone handlers they can be passed around in an Arc
-            client_handler: self.client_handler.clone(),
-            store_handler: self.store_handler.clone(),
-        }
-    }
+    // fn create_task(
+    //     &self,
+    //     stream: TcpStream,
+    //     server_addr: SocketAddr,
+    //     connected_client: ConnectedClient,
+    // ) -> ServerTask {
+    //     let reader = BufReader::new(stream);
+    //     // add client to client_handler
+    //     ServerTask {
+    //         reader: Arc::new(Mutex::new(reader)),
+    //         server_addr,
+    //         connected_client,
+    //         maximum_message_size: self.config.common.message_size as u64,
+    //         // "inexpensive" to clone handlers they can be passed around in an Arc
+    //         client_handler: self.client_handler.clone(),
+    //         store_handler: self.store_handler.clone(),
+    //     }
+    // }
 }
 
 // TODO: next steps:
