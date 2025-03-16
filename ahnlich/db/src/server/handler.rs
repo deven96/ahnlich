@@ -1,22 +1,21 @@
 use super::task::ServerTask;
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
-use ahnlich_types::client::ConnectedClient;
-use ahnlich_types::keyval::{StoreKey, StoreName, StoreValue};
-use ahnlich_types::metadata::MetadataKey;
+use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
+use grpc_types::client::ConnectedClient;
+use grpc_types::keyval::{StoreEntry, StoreKey, StoreName};
+// use ahnlich_types::metadata::MetadataKey;
 use grpc_types::db::pipeline::db_query::Query;
 use grpc_types::db::server::GetSimNEntry;
 use grpc_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use grpc_types::shared::info::ErrorResponse;
-use grpc_types::utils::unwrap_predicate_condition;
+
+use grpc_types::db::{pipeline, query, server};
 use grpc_types::{client as grpc_types_client, utils as grpc_utils};
-use grpc_types::{
-    db::{pipeline, query, server},
-    keyval,
-};
 use std::future::Future;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
+use std::num::NonZeroUsize;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use task_manager::TaskManager;
@@ -55,13 +54,31 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateStore>,
     ) -> std::result::Result<tonic::Response<server::Unit>, tonic::Status> {
-        let create_store_params = grpc_utils::to_internal_create_store(request.into_inner());
+        let create_store_params = request.into_inner();
+        let dimensions = match NonZeroUsize::new(create_store_params.dimension as usize) {
+            Some(val) => val,
+            None => {
+                return Err(tonic::Status::invalid_argument(
+                    "dimension must be greater than 0",
+                ))
+            }
+        };
+        let non_linear_indices = create_store_params
+            .non_linear_indices
+            .into_iter()
+            .filter_map(|index| {
+                NonLinearAlgorithm::try_from(index).map_or(None, |converted| Some(converted))
+            })
+            .collect();
+
         self.store_handler
             .create_store(
-                create_store_params.store,
-                create_store_params.dimension,
+                StoreName {
+                    value: create_store_params.store,
+                },
+                dimensions,
                 create_store_params.create_predicates.into_iter().collect(),
-                create_store_params.non_linear_indices,
+                non_linear_indices,
                 create_store_params.error_if_exists,
             )
             .map(|_| tonic::Response::new(server::Unit {}))
@@ -77,14 +94,24 @@ impl DbService for Server {
         let keys = params
             .keys
             .into_iter()
-            .map(|key| StoreKey(key.key))
+            .map(|key| StoreKey { key: key.key })
             .collect();
 
-        let store_res = self
+        let entries: Vec<StoreEntry> = self
             .store_handler
-            .get_key_in_store(&StoreName(params.store), keys)?;
+            .get_key_in_store(
+                &StoreName {
+                    value: params.store,
+                },
+                keys,
+            )?
+            .into_iter()
+            .map(|(store_key, store_value)| StoreEntry {
+                key: Some(store_key),
+                value: Some(store_value),
+            })
+            .collect();
 
-        let entries = self.convert_get_results_to_gprc_types(store_res);
         Ok(tonic::Response::new(server::Get { entries }))
     }
 
@@ -95,13 +122,23 @@ impl DbService for Server {
     ) -> std::result::Result<tonic::Response<server::Get>, tonic::Status> {
         let params = request.into_inner();
 
-        let condition = grpc_utils::unwrap_predicate_condition(params.condition.map(Box::new))?;
+        let condition =
+            grpc_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
 
-        let get_res = self
+        let entries = self
             .store_handler
-            .get_pred_in_store(&ahnlich_types::keyval::StoreName(params.store), &condition)?;
-
-        let entries = self.convert_get_results_to_gprc_types(get_res);
+            .get_pred_in_store(
+                &StoreName {
+                    value: params.store,
+                },
+                &condition,
+            )?
+            .into_iter()
+            .map(|(store_key, store_value)| StoreEntry {
+                key: Some(store_key),
+                value: Some(store_value),
+            })
+            .collect();
 
         Ok(tonic::Response::new(server::Get { entries }))
     }
@@ -115,41 +152,30 @@ impl DbService for Server {
         let search_input =
             grpc_types::unwrap_or_invalid!(params.search_input, "search input is required");
 
-        let search_input = StoreKey(search_input.key);
+        let search_input = StoreKey {
+            key: search_input.key,
+        };
 
         let algorithm = grpc_types::algorithm::algorithms::Algorithm::try_from(params.algorithm)
             .map_err(|err| tonic::Status::invalid_argument(err.to_string()))?
             .into();
 
-        let condition = match params.condition {
-            Some(cond) => Some(unwrap_predicate_condition(Some(Box::new(cond)))?),
-            None => None,
-        };
-
-        let get_res = self.store_handler.get_sim_in_store(
-            &StoreName(params.store),
-            search_input,
-            grpc_utils::convert_to_nonzerousize(params.closest_n)?,
-            algorithm,
-            condition,
-        )?;
-
-        let (kv_entries, sim_entries): (Vec<_>, Vec<_>) = get_res
+        let entries = self
+            .store_handler
+            .get_sim_in_store(
+                &StoreName {
+                    value: params.store,
+                },
+                search_input,
+                grpc_utils::convert_to_nonzerousize(params.closest_n)?,
+                algorithm,
+                params.condition,
+            )?
             .into_iter()
-            .map(|(key, val, sim)| ((key, val), sim))
-            .unzip();
-
-        let entries = self.convert_get_results_to_gprc_types(kv_entries);
-        let entries = entries
-            .into_iter()
-            .zip(sim_entries)
-            .map(|(store_entry, s)| {
-                let sim = grpc_types::similarity::Similarity { value: s.0 };
-                GetSimNEntry {
-                    key: store_entry.key,
-                    value: store_entry.value,
-                    similarity: Some(sim),
-                }
+            .map(|(store_key, store_value, sim)| GetSimNEntry {
+                key: Some(store_key),
+                value: Some(store_value),
+                similarity: Some(sim),
             })
             .collect();
 
@@ -174,12 +200,15 @@ impl DbService for Server {
         let predicates = params
             .predicates
             .into_iter()
-            .map(MetadataKey::new)
+            // .map(MetadataKey::new)
             .collect();
 
-        let created = self
-            .store_handler
-            .create_pred_index(&StoreName(params.store), predicates)?;
+        let created = self.store_handler.create_pred_index(
+            &StoreName {
+                value: params.store,
+            },
+            predicates,
+        )?;
 
         Ok(tonic::Response::new(server::CreateIndex {
             created_indexes: created as u64,
@@ -202,9 +231,12 @@ impl DbService for Server {
             .map(|val| val.into())
             .collect();
 
-        let created = self
-            .store_handler
-            .create_non_linear_algorithm_index(&StoreName(params.store), non_linear_indices)?;
+        let created = self.store_handler.create_non_linear_algorithm_index(
+            &StoreName {
+                value: params.store,
+            },
+            non_linear_indices,
+        )?;
 
         Ok(tonic::Response::new(server::CreateIndex {
             created_indexes: created as u64,
@@ -221,11 +253,13 @@ impl DbService for Server {
         let predicates = params
             .predicates
             .into_iter()
-            .map(MetadataKey::new)
+            // .map(MetadataKey::new)
             .collect();
 
         let del = self.store_handler.drop_pred_index_in_store(
-            &StoreName(params.store),
+            &StoreName {
+                value: params.store,
+            },
             predicates,
             params.error_if_not_exists,
         )?;
@@ -252,7 +286,9 @@ impl DbService for Server {
             .collect();
 
         let del = self.store_handler.drop_non_linear_algorithm_index(
-            &StoreName(params.store),
+            &StoreName {
+                value: params.store,
+            },
             non_linear_indices,
             params.error_if_not_exists,
         )?;
@@ -272,11 +308,14 @@ impl DbService for Server {
         let keys = params
             .keys
             .into_iter()
-            .map(|key| StoreKey(key.key))
+            .map(|key| StoreKey { key: key.key })
             .collect();
-        let del = self
-            .store_handler
-            .del_key_in_store(&ahnlich_types::keyval::StoreName(params.store), keys)?;
+        let del = self.store_handler.del_key_in_store(
+            &StoreName {
+                value: params.store,
+            },
+            keys,
+        )?;
 
         Ok(tonic::Response::new(server::Del {
             deleted_count: del as u64,
@@ -290,11 +329,15 @@ impl DbService for Server {
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
         let params = request.into_inner();
 
-        let condition = grpc_utils::unwrap_predicate_condition(params.condition.map(Box::new))?;
+        let condition =
+            grpc_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
 
-        let del = self
-            .store_handler
-            .del_pred_in_store(&ahnlich_types::keyval::StoreName(params.store), &condition)?;
+        let del = self.store_handler.del_pred_in_store(
+            &StoreName {
+                value: params.store,
+            },
+            &condition,
+        )?;
 
         Ok(tonic::Response::new(server::Del {
             deleted_count: del as u64,
@@ -308,7 +351,9 @@ impl DbService for Server {
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
         let drop_store_params = request.into_inner();
         let dropped = self.store_handler.drop_store(
-            ahnlich_types::keyval::StoreName(drop_store_params.store),
+            StoreName {
+                value: drop_store_params.store,
+            },
             drop_store_params.error_if_not_exists,
         )?;
 
@@ -786,50 +831,6 @@ impl Server {
             client_handler: self.client_handler.clone(),
             store_handler: self.store_handler.clone(),
         }
-    }
-
-    fn convert_get_results_to_gprc_types(
-        &self,
-        values: impl IntoIterator<Item = (StoreKey, StoreValue)>,
-    ) -> Vec<keyval::StoreEntry> {
-        values
-            .into_iter()
-            .map(|(key, value)| {
-                let value = value
-                    .into_iter()
-                    .map(|(k, v)| {
-                        let str_key = k.to_string();
-                        let grpc_value = match v {
-                            ahnlich_types::metadata::MetadataValue::RawString(s) => {
-                                grpc_types::metadata::MetadataValue {
-                                    r#type: grpc_types::metadata::MetadataType::RawString.into(),
-                                    value: Some(
-                                        grpc_types::metadata::metadata_value::Value::RawString(s),
-                                    ),
-                                }
-                            }
-                            ahnlich_types::metadata::MetadataValue::Image(s) => {
-                                grpc_types::metadata::MetadataValue {
-                                    r#type: grpc_types::metadata::MetadataType::Image.into(),
-                                    value: Some(
-                                        grpc_types::metadata::metadata_value::Value::Image(s),
-                                    ),
-                                }
-                            }
-                        };
-                        (str_key, grpc_value)
-                    })
-                    .collect();
-
-                let store_key = keyval::StoreKey { key: key.0 };
-                let store_value = keyval::StoreValue { value };
-
-                keyval::StoreEntry {
-                    key: Some(store_key),
-                    value: Some(store_value),
-                }
-            })
-            .collect()
     }
 }
 

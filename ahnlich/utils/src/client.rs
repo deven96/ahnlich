@@ -1,5 +1,5 @@
-use ahnlich_types::client::ConnectedClient;
 use flurry::HashSet as ConcurrentHashSet;
+use grpc_types::client::ConnectedClient;
 use std::collections::HashSet as StdHashSet;
 use std::net::SocketAddr;
 use std::time::SystemTime;
@@ -34,7 +34,7 @@ impl ClientHandler {
         };
         let client = ConnectedClient {
             address: format!("{addr}"),
-            time_connected: SystemTime::now(),
+            time_connected: format!("{:?}", SystemTime::now()),
         };
         pinned.insert(client.clone());
         Some(client)

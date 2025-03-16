@@ -3,9 +3,9 @@ use super::FindSimilarN;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_similarity::utils::VecF32Ordered;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
-use ahnlich_types::keyval::StoreKey;
 use flurry::HashMap as ConcurrentHashMap;
 use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
+use grpc_types::keyval::StoreKey;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use serde::Deserialize;
@@ -71,15 +71,15 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
         } else {
             Some(
                 search_list
-                    .map(|key| VecF32Ordered(key.0.clone()))
+                    .map(|key| VecF32Ordered(key.key.clone()))
                     .collect(),
             )
         };
         self.get_inner()
-            .n_nearest(&search_vector.0, n, accept_list)
+            .n_nearest(&search_vector.key, n, accept_list)
             .expect("Index does not have the same size as reference_point")
             .into_par_iter()
-            .map(|(arr, sim)| (StoreKey(arr), sim))
+            .map(|(arr, sim)| (StoreKey { key: arr }, sim))
             .collect()
     }
 }
