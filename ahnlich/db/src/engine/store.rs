@@ -506,45 +506,50 @@ impl Store {
         predicate: &Predicate,
     ) -> Result<StdHashSet<StoreKeyId>, ServerError> {
         let store_val_pinned = self.id_to_value.pin();
-        let res = match predicate.kind {
+        let res = match &predicate.kind {
             Some(PredicateKind::Equals(predicates::Equals { key, value })) => store_val_pinned
+                .into_iter()
+                .filter(|(_, (_, store_value))| {
+                    let metadata_value = store_value.value.get(key);
+
+                    metadata_value.eq(&value.as_ref())
+                })
+                .map(|(k, _)| k.clone())
+                .collect(),
+            Some(PredicateKind::NotEquals(predicates::NotEquals { key, value })) => {
+                store_val_pinned
+                    .into_iter()
+                    .filter(|(_, (_, store_value))| {
+                        let metdata_value = store_value.value.get(key);
+                        !metdata_value.eq(&value.as_ref())
+                    })
+                    .map(|(k, _)| k.clone())
+                    .collect()
+            }
+            Some(PredicateKind::In(predicates::In { key, values })) => store_val_pinned
                 .into_iter()
                 .filter(|(_, (_, store_value))| {
                     store_value
                         .value
-                        .get(&key)
-                        .map(|v| v.eq(value))
+                        .get(key)
+                        .map(|v| values.contains(v))
                         .unwrap_or(false)
                 })
                 .map(|(k, _)| k.clone())
                 .collect(),
-            Predicate::NotEquals { key, value } => store_val_pinned
-                .into_iter()
-                .filter(|(_, (_, store_value))| {
-                    store_value.get(key).map(|v| !v.eq(value)).unwrap_or(true)
-                })
-                .map(|(k, _)| k.clone())
-                .collect(),
-            Predicate::In { key, value } => store_val_pinned
+            Some(PredicateKind::NotIn(predicates::NotIn { key, values })) => store_val_pinned
                 .into_iter()
                 .filter(|(_, (_, store_value))| {
                     store_value
+                        .value
                         .get(key)
-                        .map(|v| value.contains(v))
-                        .unwrap_or(false)
-                })
-                .map(|(k, _)| k.clone())
-                .collect(),
-            Predicate::NotIn { key, value } => store_val_pinned
-                .into_iter()
-                .filter(|(_, (_, store_value))| {
-                    store_value
-                        .get(key)
-                        .map(|v| !value.contains(v))
+                        .map(|v| !values.contains(v))
                         .unwrap_or(true)
                 })
                 .map(|(k, _)| k.clone())
                 .collect(),
+
+            None => unreachable!(),
         };
         Ok(res)
     }
