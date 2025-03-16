@@ -1,13 +1,13 @@
 use super::super::errors::ServerError;
 use super::store::Store;
 use super::store::StoreKeyId;
-use ahnlich_types::keyval::StoreValue;
-use ahnlich_types::metadata::MetadataKey;
-use ahnlich_types::metadata::MetadataValue;
-use ahnlich_types::predicate::Predicate;
-use ahnlich_types::predicate::PredicateCondition;
 use flurry::HashMap as ConcurrentHashMap;
 use flurry::HashSet as ConcurrentHashSet;
+use grpc_types::keyval::StoreValue;
+use grpc_types::metadata::MetadataValue;
+use grpc_types::predicates::{
+    predicate_condition::Kind as PredicateKind, Predicate, PredicateCondition,
+};
 use itertools::Itertools;
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelIterator;
@@ -44,14 +44,14 @@ use utils::parallel;
 /// pass in order to obtain keys that satisfy the condition
 type InnerPredicateIndexVal = ConcurrentHashSet<StoreKeyId>;
 type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, InnerPredicateIndexVal>;
-type InnerPredicateIndices = ConcurrentHashMap<MetadataKey, PredicateIndex>;
+type InnerPredicateIndices = ConcurrentHashMap<String, PredicateIndex>;
 
 /// Predicate indices are all the indexes referenced by their names
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct PredicateIndices {
     inner: InnerPredicateIndices,
     /// These are the index keys that are meant to generate predicate indexes
-    allowed_predicates: ConcurrentHashSet<MetadataKey>,
+    allowed_predicates: ConcurrentHashSet<String>,
 }
 
 impl PredicateIndices {
@@ -71,7 +71,7 @@ impl PredicateIndices {
     }
 
     #[tracing::instrument]
-    pub(super) fn init(allowed_predicates: Vec<MetadataKey>) -> Self {
+    pub(super) fn init(allowed_predicates: Vec<String>) -> Self {
         let created = ConcurrentHashSet::new();
         for key in allowed_predicates {
             created.insert(key, &created.guard());
@@ -84,7 +84,7 @@ impl PredicateIndices {
 
     /// returns the current predicates within predicate index
     #[tracing::instrument(skip(self))]
-    pub(super) fn current_predicates(&self) -> StdHashSet<MetadataKey> {
+    pub(super) fn current_predicates(&self) -> StdHashSet<String> {
         let allowed_predicates = self.allowed_predicates.pin();
         allowed_predicates.into_iter().cloned().collect()
     }
@@ -102,7 +102,7 @@ impl PredicateIndices {
     #[tracing::instrument(skip(self))]
     pub(super) fn remove_predicates(
         &self,
-        predicates: Vec<MetadataKey>,
+        predicates: Vec<String>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
         if predicates.is_empty() {
@@ -114,7 +114,7 @@ impl PredicateIndices {
         // first check all predicates
         if let (true, Some(non_existing_index)) = (
             error_if_not_exists,
-            predicates.iter().find(|a| !pinned_keys.contains(a)),
+            predicates.iter().find(|&a| !pinned_keys.contains(a)),
         ) {
             return Err(ServerError::PredicateNotFound(non_existing_index.clone()));
         }
@@ -136,7 +136,7 @@ impl PredicateIndices {
     #[tracing::instrument(skip(self))]
     pub(super) fn add_predicates(
         &self,
-        predicates: Vec<MetadataKey>,
+        predicates: Vec<String>,
         refresh_with_values: Option<Vec<(StoreKeyId, StoreValue)>>,
     ) {
         let pinned_keys = self.allowed_predicates.pin();
@@ -177,7 +177,7 @@ impl PredicateIndices {
         let iter = new
             .into_par_iter()
             .flat_map(|(store_key_id, store_value)| {
-                store_value.into_par_iter().map(move |(key, val)| {
+                store_value.value.into_par_iter().map(move |(key, val)| {
                     let allowed_keys = self.allowed_predicates.pin();
                     allowed_keys
                         .contains(&key)

@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 use crate::algorithm::algorithms::Algorithm;
 use crate::metadata::metadata_value::Value;
 use crate::metadata::{MetadataType, MetadataValue};
-use crate::predicates::{Equals, In, NotEquals, NotIn, OrCondition, Predicate};
+use crate::predicates::{AndCondition, Equals, In, NotEquals, NotIn, OrCondition, Predicate};
 use crate::shared::info::StoreUpsert;
 use crate::{algorithm::nonlinear::NonLinearAlgorithm, db::query as db_query};
 use ahnlich_types::metadata::MetadataKey;
@@ -316,5 +316,29 @@ pub fn add_trace_parent<T>(req: &mut tonic::Request<T>, tracing_id: Option<Strin
 impl StoreUpsert {
     pub fn modified(&self) -> bool {
         self.inserted + self.updated > 0
+    }
+}
+
+impl crate::predicates::PredicateCondition {
+    pub fn and(self, other: crate::predicates::PredicateCondition) -> Self {
+        Self {
+            kind: Some(crate::predicates::predicate_condition::Kind::And(Box::new(
+                AndCondition {
+                    left: Some(Box::new(self)),
+                    right: Some(Box::new(other)),
+                },
+            ))),
+        }
+    }
+
+    pub fn or(self, other: crate::predicates::PredicateCondition) -> Self {
+        Self {
+            kind: Some(crate::predicates::predicate_condition::Kind::Or(Box::new(
+                OrCondition {
+                    left: Some(Box::new(self)),
+                    right: Some(Box::new(other)),
+                },
+            ))),
+        }
     }
 }

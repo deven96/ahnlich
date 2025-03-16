@@ -1,5 +1,5 @@
 use super::LinearAlgorithm;
-use ahnlich_types::keyval::StoreKey;
+use grpc_types::keyval::StoreKey;
 use pulp::{Arch, Simd, WithSimd};
 use std::ops::Deref;
 
@@ -111,8 +111,8 @@ impl<'a> WithSimd for Magnitude<'a> {
 #[tracing::instrument(skip_all)]
 fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
     assert_eq!(
-        first.0.len(),
-        second.0.len(),
+        first.key.len(),
+        second.key.len(),
         "Vectors must have the same length!"
     );
 
@@ -120,8 +120,8 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
 
     let arch = Arch::new();
     let magnitude = arch.dispatch(Magnitude {
-        first: first.0.as_slice(),
-        second: second.0.as_slice(),
+        first: first.key.as_slice(),
+        second: second.key.as_slice(),
     });
 
     dot_product / magnitude
@@ -168,15 +168,15 @@ impl<'a> WithSimd for DotProduct<'a> {
 #[tracing::instrument(skip_all)]
 fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
     assert_eq!(
-        first.0.len(),
-        second.0.len(),
+        first.key.len(),
+        second.key.len(),
         "Vectors must have the same length!"
     );
 
     let arch = Arch::new();
     arch.dispatch(DotProduct {
-        first: first.0.as_slice(),
-        second: second.0.as_slice(),
+        first: first.key.as_slice(),
+        second: second.key.as_slice(),
     })
 }
 
@@ -240,16 +240,16 @@ impl<'a> WithSimd for EuclideanDistance<'a> {
 fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f32 {
     // Calculate the sum of squared differences for each dimension
     assert_eq!(
-        first.0.len(),
-        second.0.len(),
+        first.key.len(),
+        second.key.len(),
         "Vectors must have the same length!"
     );
 
     let arch = Arch::new();
 
     arch.dispatch(EuclideanDistance {
-        first: first.0.as_slice(),
-        second: second.0.as_slice(),
+        first: first.key.as_slice(),
+        second: second.key.as_slice(),
     })
 }
 
@@ -265,7 +265,7 @@ mod tests {
     fn euclidean_distance_comp(first: &StoreKey, second: &StoreKey) -> f32 {
         // Calculate the sum of squared differences for each dimension
         let mut sum_of_squared_differences = 0.0;
-        for (&coord1, &coord2) in first.0.iter().zip(second.0.iter()) {
+        for (&coord1, &coord2) in first.key.iter().zip(second.key.iter()) {
             let diff = coord1 - coord2;
             sum_of_squared_differences += diff * diff;
         }
@@ -276,9 +276,9 @@ mod tests {
 
     fn dot_product_comp(first: &StoreKey, second: &StoreKey) -> f32 {
         first
-            .0
+            .key
             .iter()
-            .zip(&second.0)
+            .zip(&second.key)
             .map(|(&x, &y)| x * y)
             .sum::<f32>()
     }
@@ -294,9 +294,9 @@ mod tests {
         let dot_product = dot_product(first, second);
 
         // the magnitude can be calculated using the arr.norm method.
-        let mag_first = &first.0.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
+        let mag_first = &first.key.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
 
-        let mag_second = &second.0.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
+        let mag_second = &second.key.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
 
         dot_product / (mag_first.sqrt() * mag_second.sqrt())
     }
@@ -320,7 +320,9 @@ mod tests {
         // Use Rayon to process the buffer in parallel
         buffer
             .par_chunks_exact(dimension)
-            .map(|chunk| StoreKey(chunk.to_owned()))
+            .map(|chunk| StoreKey {
+                key: chunk.to_owned(),
+            })
             .collect()
     }
 
@@ -359,8 +361,12 @@ mod tests {
 
     #[test]
     fn test_verify_dot_product_simd() {
-        let array_one = StoreKey(vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
-        let array_two = StoreKey(vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
+        let array_one = StoreKey {
+            key: vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1],
+        };
+        let array_two = StoreKey {
+            key: vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1],
+        };
 
         let scalar_dot_product = dot_product_comp(&array_one, &array_two);
         let simd_dot_product = dot_product(&array_one, &array_two);
@@ -403,8 +409,12 @@ mod tests {
 
     #[test]
     fn test_verify_simd_cosine_sim() {
-        let array_one = StoreKey(vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
-        let array_two = StoreKey(vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
+        let array_one = StoreKey {
+            key: vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1],
+        };
+        let array_two = StoreKey {
+            key: vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1],
+        };
 
         let scalar_cos_sim = cosine_similarity_comp(&array_one, &array_two);
         let simd_cos_sim = cosine_similarity(&array_one, &array_two);
@@ -414,8 +424,12 @@ mod tests {
 
     #[test]
     fn test_verify_euclidean_distance_simd() {
-        let array_one = StoreKey(vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1]);
-        let array_two = StoreKey(vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1]);
+        let array_one = StoreKey {
+            key: vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1],
+        };
+        let array_two = StoreKey {
+            key: vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1],
+        };
 
         let scalar_euclid = euclidean_distance_comp(&array_one, &array_two);
         let simd_euclid = euclidean_distance(&array_one, &array_two);

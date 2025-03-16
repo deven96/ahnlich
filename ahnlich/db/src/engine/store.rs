@@ -10,7 +10,9 @@ use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
 use grpc_types::db::server::StoreInfo;
 use grpc_types::keyval::StoreName;
 use grpc_types::keyval::{StoreKey, StoreValue};
-use grpc_types::predicates::{Predicate, PredicateCondition};
+use grpc_types::predicates::{
+    self, predicate::Kind as PredicateKind, Predicate, PredicateCondition,
+};
 use grpc_types::shared::info::StoreUpsert;
 use grpc_types::similarity::Similarity;
 use serde::Deserialize;
@@ -248,7 +250,7 @@ impl StoreHandler {
             .flat_map(|(store_key, similarity)| {
                 keys_to_value_map
                     .remove(&StoreKeyId::from(&store_key))
-                    .map(|value| (store_key, value.clone(), Similarity(similarity)))
+                    .map(|value| (store_key, value.clone(), Similarity { value: similarity }))
             })
             .collect())
     }
@@ -504,11 +506,15 @@ impl Store {
         predicate: &Predicate,
     ) -> Result<StdHashSet<StoreKeyId>, ServerError> {
         let store_val_pinned = self.id_to_value.pin();
-        let res = match predicate {
-            Predicate::Equals { key, value } => store_val_pinned
+        let res = match predicate.kind {
+            Some(PredicateKind::Equals(predicates::Equals { key, value })) => store_val_pinned
                 .into_iter()
                 .filter(|(_, (_, store_value))| {
-                    store_value.get(key).map(|v| v.eq(value)).unwrap_or(false)
+                    store_value
+                        .value
+                        .get(&key)
+                        .map(|v| v.eq(value))
+                        .unwrap_or(false)
                 })
                 .map(|(k, _)| k.clone())
                 .collect(),
@@ -687,12 +693,14 @@ impl Store {
 mod tests {
     use crate::tests::*;
     use pretty_assertions::assert_eq;
-    use serde_json::to_string;
     use std::num::NonZeroUsize;
 
     use super::*;
-    use ahnlich_types::predicate::Predicate;
     use grpc_types::metadata::{MetadataType, MetadataValue};
+    use grpc_types::predicates::{
+        self, predicate::Kind as PredicateKind,
+        predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
+    };
     use std::collections::HashMap as StdHashMap;
 
     #[test]
@@ -977,17 +985,35 @@ mod tests {
             .set_in_store(
                 &even_store,
                 vec![(
-                    StoreKey(input_arr_2.clone()),
-                    StdHashMap::from_iter(vec![
-                        (
-                            MetadataKey::new("author".into()),
-                            MetadataValue::RawString("Clark Kent".into()),
-                        ),
-                        (
-                            MetadataKey::new("planet".into()),
-                            MetadataValue::RawString("krypton".into()),
-                        ),
-                    ]),
+                    StoreKey {
+                        key: input_arr_2.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![
+                            (
+                                "author".to_string(),
+                                MetadataValue {
+                                    r#type: MetadataType::RawString.into(),
+                                    value: Some(
+                                        grpc_types::metadata::metadata_value::Value::RawString(
+                                            "Clark Kent Luthor".to_string(),
+                                        ),
+                                    ),
+                                },
+                            ),
+                            (
+                                "planet".to_string(),
+                                MetadataValue {
+                                    r#type: MetadataType::RawString.into(),
+                                    value: Some(
+                                        grpc_types::metadata::metadata_value::Value::RawString(
+                                            "krypton".to_string(),
+                                        ),
+                                    ),
+                                },
+                            ),
+                        ]),
+                    },
                 )],
             )
             .unwrap();
@@ -995,50 +1021,102 @@ mod tests {
             .set_in_store(
                 &even_store,
                 vec![(
-                    StoreKey(input_arr_3.clone()),
-                    StdHashMap::from_iter(vec![
-                        (
-                            MetadataKey::new("author".into()),
-                            MetadataValue::RawString("General Zod".into()),
-                        ),
-                        (
-                            MetadataKey::new("planet".into()),
-                            MetadataValue::RawString("krypton".into()),
-                        ),
-                    ]),
+                    StoreKey {
+                        key: input_arr_3.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![
+                            (
+                                "author".to_string(),
+                                MetadataValue {
+                                    r#type: MetadataType::RawString.into(),
+                                    value: Some(
+                                        grpc_types::metadata::metadata_value::Value::RawString(
+                                            "General Zof".to_string(),
+                                        ),
+                                    ),
+                                },
+                            ),
+                            (
+                                "planet".to_string(),
+                                MetadataValue {
+                                    r#type: MetadataType::RawString.into(),
+                                    value: Some(
+                                        grpc_types::metadata::metadata_value::Value::RawString(
+                                            "krypton".to_string(),
+                                        ),
+                                    ),
+                                },
+                            ),
+                        ]),
+                    },
                 )],
             )
             .unwrap();
-        let condition = &PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("author".into()),
-            value: MetadataValue::RawString("Lex Luthor".into()),
-        });
+
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "author".into(),
+                    value: Some(MetadataValue {
+                        r#type: MetadataType::RawString.into(),
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "Lex Luthor".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 1);
-        let condition = &PredicateCondition::Value(Predicate::NotEquals {
-            key: MetadataKey::new("author".into()),
-            value: MetadataValue::RawString("Lex Luthor".into()),
-        });
+
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                    key: "author".into(),
+                    value: Some(MetadataValue {
+                        r#type: MetadataType::RawString.into(),
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "Lex Luthor".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 2);
-        let condition = &PredicateCondition::Value(Predicate::NotEquals {
-            key: MetadataKey::new("author".into()),
-            value: MetadataValue::RawString("Lex Luthor".into()),
-        })
-        .or(PredicateCondition::Value(Predicate::NotEquals {
-            key: MetadataKey::new("planet".into()),
-            value: MetadataValue::RawString("earth".into()),
-        }));
+
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                    key: "author".into(),
+                    value: Some(MetadataValue {
+                        r#type: MetadataType::RawString.into(),
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "Lex Luthor".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        }
+        .or(PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                    key: "planet".into(),
+                    value: Some(MetadataValue {
+                        r#type: MetadataType::RawString.into(),
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "earth".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        });
         let res = handler.get_pred_in_store(&even_store, &condition);
         assert_eq!(res.unwrap().len(), 2);
         handler
-            .create_pred_index(
-                &even_store,
-                vec![
-                    MetadataKey::new("author".into()),
-                    MetadataKey::new("planet".into()),
-                ],
-            )
+            .create_pred_index(&even_store, vec!["author".into(), "planet".into()])
             .unwrap();
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 2);
@@ -1047,19 +1125,34 @@ mod tests {
     #[test]
     fn test_get_key_in_store() {
         let (handler, _oks, _errs) = create_store_handler(vec![]);
-        let odd_store = StoreName("Odd".into());
-        let fake_store = StoreName("Fakest".into());
+        let odd_store = StoreName {
+            value: "Odd".into(),
+        };
+        let fake_store = StoreName {
+            value: "Fakest".into(),
+        };
         let input_arr_1 = vec![0.1, 0.2, 0.3];
         let input_arr_2 = vec![0.2, 0.3, 0.4];
         handler
             .set_in_store(
                 &odd_store,
                 vec![(
-                    StoreKey(input_arr_1.clone()),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("author".into()),
-                        MetadataValue::RawString("Lex Luthor".into()),
-                    )]),
+                    StoreKey {
+                        key: input_arr_1.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "author".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Lex Luthor".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
@@ -1067,11 +1160,22 @@ mod tests {
             .set_in_store(
                 &odd_store,
                 vec![(
-                    StoreKey(input_arr_2.clone()),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("author".into()),
-                        MetadataValue::RawString("Clark Kent".into()),
-                    )]),
+                    StoreKey {
+                        key: input_arr_2.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "author".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Clark Kent".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
@@ -1082,44 +1186,58 @@ mod tests {
         let ret = handler
             .get_key_in_store(
                 &odd_store,
-                vec![StoreKey(input_arr_1), StoreKey(input_arr_2)],
+                vec![StoreKey { key: input_arr_1 }, StoreKey { key: input_arr_2 }],
             )
             .unwrap();
         assert_eq!(ret.len(), 2);
         assert_eq!(
-            ret[0]
-                .1
-                .get(&MetadataKey::new("author".into()))
-                .cloned()
-                .unwrap(),
-            MetadataValue::RawString("Lex Luthor".into())
+            ret[0].1.value.get("author".into()).cloned().unwrap(),
+            MetadataValue {
+                r#type: MetadataType::RawString.into(),
+                value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                    "Lex Luthor".to_string(),
+                ),),
+            },
         );
         assert_eq!(
-            ret[1]
-                .1
-                .get(&MetadataKey::new("author".into()))
-                .cloned()
-                .unwrap(),
-            MetadataValue::RawString("Clark Kent".into())
+            ret[1].1.value.get("author".into()).cloned().unwrap(),
+            MetadataValue {
+                r#type: MetadataType::RawString.into(),
+                value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                    "Clark Kent".to_string(),
+                ),),
+            },
         );
     }
 
     #[test]
     fn test_get_pred_in_store() {
-        let handler =
-            create_store_handler_no_loom(vec![MetadataKey::new("rank".into())], None, None);
-        let even_store = StoreName("Even".into());
+        let handler = create_store_handler_no_loom(vec!["rank".into()], None, None);
+        let even_store = StoreName {
+            value: "Even".into(),
+        };
         let input_arr_1 = vec![0.1, 0.2, 0.3, 0.4, 0.5];
         let input_arr_2 = vec![0.2, 0.3, 0.4, 0.5, 0.6];
         handler
             .set_in_store(
                 &even_store,
                 vec![(
-                    StoreKey(input_arr_1.clone()),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("rank".into()),
-                        MetadataValue::RawString("Joinin".into()),
-                    )]),
+                    StoreKey {
+                        key: input_arr_1.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "rank".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Joinin".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
@@ -1127,51 +1245,109 @@ mod tests {
             .set_in_store(
                 &even_store,
                 vec![(
-                    StoreKey(input_arr_2.clone()),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("rank".into()),
-                        MetadataValue::RawString("Genin".into()),
-                    )]),
+                    StoreKey {
+                        key: input_arr_2.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "rank".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Genin".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
-        let condition = &PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("rank".into()),
-            value: MetadataValue::RawString("Hokage".into()),
-        });
+
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "rank".into(),
+                    value: Some(MetadataValue {
+                        r#type: MetadataType::RawString.into(),
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "Hokage".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert!(res.is_empty());
-        let condition = &PredicateCondition::Value(Predicate::NotEquals {
-            key: MetadataKey::new("rank".into()),
-            value: MetadataValue::RawString("Hokage".into()),
-        });
+
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                    key: "rank".into(),
+                    value: Some(MetadataValue {
+                        r#type: MetadataType::RawString.into(),
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "Hokage".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 2);
-        let condition = &PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("rank".into()),
-            value: MetadataValue::RawString("Joinin".into()),
-        });
+
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "rank".into(),
+                    value: Some(MetadataValue {
+                        r#type: MetadataType::RawString.into(),
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "Joinin".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
         let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
         assert_eq!(res.len(), 1);
     }
 
     #[test]
     fn test_get_store_info() {
-        let handler =
-            create_store_handler_no_loom(vec![MetadataKey::new("rank".into())], None, None);
-        let odd_store = StoreName("Odd".into());
-        let even_store = StoreName("Even".into());
+        let handler = create_store_handler_no_loom(vec!["rank".into()], None, None);
+        let odd_store = StoreName {
+            value: "Odd".into(),
+        };
+        let even_store = StoreName {
+            value: "Even".into(),
+        };
         let input_arr_1 = vec![0.1, 0.2, 0.3];
         let input_arr_2 = vec![0.2, 0.3, 0.4];
         handler
             .set_in_store(
                 &odd_store,
                 vec![(
-                    StoreKey(input_arr_1.clone()),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("rank".into()),
-                        MetadataValue::RawString("Joinin".into()),
-                    )]),
+                    StoreKey {
+                        key: input_arr_1.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "rank".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Joinin".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
@@ -1179,11 +1355,22 @@ mod tests {
             .set_in_store(
                 &odd_store,
                 vec![(
-                    StoreKey(input_arr_2.clone()),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("rank".into()),
-                        MetadataValue::RawString("Genin".into()),
-                    )]),
+                    StoreKey {
+                        key: input_arr_2.clone(),
+                    },
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "rank".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Genin".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
@@ -1192,12 +1379,12 @@ mod tests {
             stores,
             StdHashSet::from_iter([
                 StoreInfo {
-                    name: odd_store,
+                    name: odd_store.value,
                     len: 2,
                     size_in_bytes: 2096,
                 },
                 StoreInfo {
-                    name: even_store,
+                    name: even_store.value,
                     len: 0,
                     size_in_bytes: 1744,
                 },
@@ -1214,20 +1401,31 @@ mod tests {
         let input_arr_3 = vectors.get(MOST_SIMILAR[2]).unwrap();
 
         let handler = create_store_handler_no_loom(
-            vec![MetadataKey::new("rank".into())],
-            Some(input_arr_1.0.len()),
-            Some(input_arr_1.0.len()),
+            vec!["rank".into()],
+            Some(input_arr_1.key.len()),
+            Some(input_arr_1.key.len()),
         );
-        let even_store = StoreName("Even".into());
+        let even_store = StoreName {
+            value: "Even".into(),
+        };
         handler
             .set_in_store(
                 &even_store,
                 vec![(
                     input_arr_1.clone(),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("rank".into()),
-                        MetadataValue::RawString("Chunin".into()),
-                    )]),
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "rank".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Chunin".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
@@ -1236,10 +1434,19 @@ mod tests {
                 &even_store,
                 vec![(
                     input_arr_2.clone(),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("rank".into()),
-                        MetadataValue::RawString("Chunin".into()),
-                    )]),
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "rank".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Chunin".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
@@ -1248,18 +1455,40 @@ mod tests {
                 &even_store,
                 vec![(
                     input_arr_3.clone(),
-                    StdHashMap::from_iter(vec![(
-                        MetadataKey::new("rank".into()),
-                        MetadataValue::RawString("Genin".into()),
-                    )]),
+                    StoreValue {
+                        value: StdHashMap::from_iter(vec![(
+                            "rank".to_string(),
+                            MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(
+                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                        "Genin".to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
                 )],
             )
             .unwrap();
-        let condition = &PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("rank".into()),
-            value: MetadataValue::RawString("Chunin".into()),
-        });
-        let search_input = StoreKey(vectors.get(SEACH_TEXT).unwrap().0.clone());
+
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "rank".into(),
+                    value: Some(MetadataValue {
+                        r#type: MetadataType::RawString.into(),
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "Chunin".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
+        let search_input = StoreKey {
+            key: vectors.get(SEACH_TEXT).unwrap().key.clone(),
+        };
         let algorithm = Algorithm::CosineSimilarity;
 
         let closest_n = NonZeroUsize::new(3).unwrap();
@@ -1287,10 +1516,20 @@ mod tests {
         assert_eq!(res.len(), 1);
         assert!(res[0].0 == *vectors.get(MOST_SIMILAR[0]).unwrap());
 
-        let condition = &PredicateCondition::Value(Predicate::NotEquals {
-            key: MetadataKey::new("rank".into()),
-            value: MetadataValue::RawString("Chunin".into()),
-        });
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                    key: "rank".into(),
+                    value: Some(MetadataValue {
+                        r#type: MetadataType::RawString.into(),
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "Chunin".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
         let closest_n = NonZeroUsize::new(3).unwrap();
         let res = handler
             .get_sim_in_store(
@@ -1305,15 +1544,22 @@ mod tests {
 
         // Add more items storekeys into the store for processing.
         //
-        let meta_data_key = MetadataKey::new("english".into());
+        let meta_data_key = "english".to_string();
         let store_values = vectors
             .iter()
             .filter(|(sentence, _)| SEACH_TEXT != *sentence)
             .map(|(sentence, store_key)| {
-                let value: StdHashMap<MetadataKey, MetadataValue> = StdHashMap::from_iter(vec![(
-                    meta_data_key.clone(),
-                    MetadataValue::RawString(sentence.into()),
-                )]);
+                let value = StoreValue {
+                    value: StdHashMap::from_iter(vec![(
+                        meta_data_key.clone(),
+                        MetadataValue {
+                            r#type: MetadataType::RawString.into(),
+                            value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                                sentence.into(),
+                            )),
+                        },
+                    )]),
+                };
                 (store_key.clone(), value)
             })
             .collect();
@@ -1331,16 +1577,31 @@ mod tests {
         assert_eq!(res.len(), 3);
 
         assert_eq!(
-            res[0].1.get(&meta_data_key).cloned().unwrap(),
-            MetadataValue::RawString(MOST_SIMILAR[0].into())
+            res[0].1.value.get(&meta_data_key).cloned().unwrap(),
+            MetadataValue {
+                r#type: MetadataType::RawString.into(),
+                value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                    MOST_SIMILAR[0].into()
+                )),
+            },
         );
         assert_eq!(
-            res[1].1.get(&meta_data_key).cloned().unwrap(),
-            MetadataValue::RawString(MOST_SIMILAR[1].into())
+            res[1].1.value.get(&meta_data_key).cloned().unwrap(),
+            MetadataValue {
+                r#type: MetadataType::RawString.into(),
+                value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                    MOST_SIMILAR[1].into()
+                )),
+            },
         );
         assert_eq!(
-            res[2].1.get(&meta_data_key).cloned().unwrap(),
-            MetadataValue::RawString(MOST_SIMILAR[2].into())
+            res[2].1.value.get(&meta_data_key).cloned().unwrap(),
+            MetadataValue {
+                r#type: MetadataType::RawString.into(),
+                value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                    MOST_SIMILAR[2].into()
+                )),
+            },
         );
     }
 }
