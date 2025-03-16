@@ -75,7 +75,7 @@ fn main() -> Result<()> {
         )
         .type_attribute(
             "metadata.MetadataValue",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
+            "#[derive(serde::Serialize, serde::Deserialize, PartialOrd, Ord, Hash, Eq)]",
         )
         .type_attribute(
             "keyval.StoreName",
@@ -87,7 +87,7 @@ fn main() -> Result<()> {
         )
         .type_attribute(
             "metadata.MetadataValue.value",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
+            "#[derive(serde::Serialize, serde::Deserialize, PartialOrd, Ord, Hash, Eq)]",
         )
         .compile_protos(&protofiles, &[proto_dir])
         .inspect_err(|err| println!("{}", err))

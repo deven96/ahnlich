@@ -342,3 +342,16 @@ impl crate::predicates::PredicateCondition {
         }
     }
 }
+
+impl crate::predicates::Predicate {
+    pub fn get_key(&self) -> &String {
+        match &self.kind {
+            Some(crate::predicates::predicate::Kind::Equals(Equals { key, .. })) => key,
+
+            Some(crate::predicates::predicate::Kind::NotEquals(NotEquals { key, .. })) => key,
+            Some(crate::predicates::predicate::Kind::In(In { key, .. })) => key,
+            Some(crate::predicates::predicate::Kind::NotIn(NotIn { key, .. })) => key,
+            None => unreachable!(),
+        }
+    }
+}
