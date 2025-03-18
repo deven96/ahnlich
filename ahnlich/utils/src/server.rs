@@ -24,55 +24,7 @@ pub struct ServerUtilsConfig<'a> {
 }
 
 #[async_trait]
-pub trait AhnlichServerUtils: Task + Sized + Send + Sync + 'static {
-    type PersistenceTask: AhnlichPersistenceUtils;
-
-    fn config(&self) -> ServerUtilsConfig;
-
-    fn store_handler(&self) -> &Arc<Self::PersistenceTask>;
-    fn write_flag(&self) -> Arc<AtomicBool> {
-        self.store_handler().write_flag()
-    }
-
-    fn cancellation_token(&self) -> CancellationToken;
-
-    fn task_manager(&self) -> Arc<TaskManager>;
-
-    /// Runs through several processes to start up the server
-    /// - Sets global allocator cap
-    /// - Spawns Persistence listeneer thread
-    /// - Accepts incoming connections to the listener and processes streams
-    /// - Listens for ctrl_c signal to trigger spawned tasks cancellation
-    /// - Cancellation triggers clean up of loggers and tracers
-    async fn start(self) -> IoResult<()> {
-        let service_name = self.config().service_name;
-        let global_allocator_cap = self.config().allocator_size;
-        GLOBAL_ALLOCATOR
-            .set_limit(global_allocator_cap)
-            .unwrap_or_else(|_| panic!("Could not set up {service_name} with allocator_size"));
-        log::debug!("Set max size for global allocator to: {global_allocator_cap}");
-        parallel::init_threadpool(self.config().threadpool_size);
-        let task_manager = self.task_manager();
-
-        if let Some(persist_location) = self.config().persist_location {
-            let persistence_task = Persistence::task(
-                self.write_flag(),
-                self.config().persistence_interval,
-                persist_location,
-                self.store_handler().get_snapshot(),
-            );
-            task_manager.spawn_task_loop(persistence_task).await;
-        };
-        task_manager.spawn_task_loop(self).await;
-        task_manager.wait().await;
-        tracer::shutdown_tracing();
-        log::info!("Shutdown complete");
-        Ok(())
-    }
-}
-
-#[async_trait]
-pub trait AhnlichServerUtilsV2: BlockingTask + Sized + Send + Sync + 'static {
+pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static {
     type PersistenceTask: AhnlichPersistenceUtils;
 
     fn config(&self) -> ServerUtilsConfig;
@@ -138,6 +90,7 @@ impl Clone for ListenerStreamOrAddress {
 }
 
 impl ListenerStreamOrAddress {
+    // new always creates a TcpListenerStream variant to be taken
     pub async fn new(addr: String) -> IoResult<Self> {
         Ok(ListenerStreamOrAddress::ListenerStream(
             TcpListenerStream::new(tokio::net::TcpListener::bind(addr).await?),

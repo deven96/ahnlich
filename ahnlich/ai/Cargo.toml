@@ -16,6 +16,8 @@ path = "src/main.rs"
 [dependencies]
 flurry.workspace = true
 tokio.workspace = true
+tonic.workspace = true
+prost.workspace = true
 serde.workspace = true
 ndarray.workspace = true
 image.workspace = true
@@ -25,6 +27,7 @@ async-trait.workspace = true
 utils = { path = "../utils", version = "*" }
 task-manager = { path = "../task-manager", version = "*" }
 ahnlich_types = { path = "../types", version = "*" }
+grpc_types = { path = "../grpc_types", version = "*" }
 tokio-util.workspace = true
 once_cell.workspace = true
 tracing.workspace = true

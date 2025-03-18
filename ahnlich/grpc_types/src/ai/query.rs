@@ -60,8 +60,8 @@ pub struct GetSimN {
     #[prost(message, optional, tag = "3")]
     pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
     /// Number of similar results to return
-    #[prost(uint32, tag = "4")]
-    pub closest_n: u32,
+    #[prost(uint64, tag = "4")]
+    pub closest_n: u64,
     /// Algorithm to use for similarity search
     #[prost(enumeration = "super::super::algorithm::algorithms::Algorithm", tag = "5")]
     pub algorithm: i32,

@@ -1,379 +1,507 @@
-use crate::conn::{AIConn, Connection};
+use grpc_types::{
+    ai::{
+        pipeline::{ai_query::Query, AiQuery, AiRequestPipeline, AiResponsePipeline},
+        query::{
+            CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
+            DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
+            InfoServer, ListClients, ListStores, Ping, PurgeStores, Set,
+        },
+        server::{
+            ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong, Set as SetResult,
+            StoreList, Unit,
+        },
+    },
+    services::ai_service::ai_service_client::AiServiceClient,
+    shared::info::ServerInfo,
+    utils::add_trace_parent,
+};
+use tonic::transport::Channel;
+
 use crate::error::AhnlichError;
-use crate::prelude::*;
-use ahnlich_types::query_builders::ai as ai_params;
-use deadpool::managed::Manager;
-use deadpool::managed::Metrics;
-use deadpool::managed::Object;
-use deadpool::managed::Pool;
-use deadpool::managed::RecycleError;
-use deadpool::managed::RecycleResult;
 
-/// TCP Connection manager to ahnlich db
-#[derive(Debug)]
-pub struct AIConnManager {
-    host: String,
-    port: u16,
+#[derive(Debug, Clone)]
+pub struct AiPipeline {
+    queries: Vec<Query>,
+    tracing_id: Option<String>,
+    client: AiServiceClient<Channel>,
 }
 
-impl AIConnManager {
-    pub fn new(host: String, port: u16) -> Self {
-        Self { host, port }
-    }
-}
-
-#[async_trait::async_trait]
-impl Manager for AIConnManager {
-    type Type = AIConn;
-    type Error = AhnlichError;
-
-    async fn create(&self) -> Result<AIConn, AhnlichError> {
-        AIConn::new(&self.host, self.port).await
+impl AiPipeline {
+    pub async fn create_store(&mut self, params: CreateStore) {
+        self.queries.push(Query::CreateStore(params));
     }
 
-    async fn recycle(&self, conn: &mut AIConn, _metrics: &Metrics) -> RecycleResult<AhnlichError> {
-        conn.is_conn_valid().await.map_err(RecycleError::Backend)
-    }
-}
-
-/// Allow executing multiple queries at once
-#[derive(Debug)]
-pub struct AIPipeline {
-    queries: AIServerQuery,
-    conn: Object<AIConnManager>,
-}
-
-impl AIPipeline {
-    pub fn new_from_queries_and_conn(queries: AIServerQuery, conn: Object<AIConnManager>) -> Self {
-        Self { queries, conn }
-    }
-    /// push create store command to pipeline
-    pub fn create_store(&mut self, params: ai_params::CreateStoreParams) {
-        self.queries.push(AIQuery::CreateStore {
-            store: params.store,
-            query_model: params.query_model,
-            index_model: params.index_model,
-            predicates: params.predicates,
-            non_linear_indices: params.non_linear_indices,
-            error_if_exists: params.error_if_exists,
-            store_original: params.store_original,
-        })
+    pub async fn create_pred_index(&mut self, params: CreatePredIndex) {
+        self.queries.push(Query::CreatePredIndex(params));
     }
 
-    /// Push get pred command to pipeline
-    pub fn get_pred(&mut self, params: ai_params::GetPredParams) {
-        self.queries.push(AIQuery::GetPred {
-            store: params.store,
-            condition: params.condition,
-        })
-    }
-
-    /// Push get sim n command to pipeline
-    pub fn get_sim_n(&mut self, params: ai_params::GetSimNParams) {
-        self.queries.push(AIQuery::GetSimN {
-            store: params.store,
-            search_input: params.search_input,
-            condition: params.condition,
-            closest_n: params.closest_n,
-            algorithm: params.algorithm,
-            preprocess_action: params.preprocess_action,
-            execution_provider: params.execution_provider,
-        })
-    }
-
-    /// push create pred index command to pipeline
-    pub fn create_pred_index(&mut self, params: ai_params::CreatePredIndexParams) {
-        self.queries.push(AIQuery::CreatePredIndex {
-            store: params.store,
-            predicates: params.predicates,
-        })
-    }
-
-    /// push create non linear index command to pipeline
-    pub fn create_non_linear_algorithm_index(
+    pub async fn create_non_linear_algorithm_index(
         &mut self,
-        params: ai_params::CreateNonLinearAlgorithmIndexParams,
+        params: CreateNonLinearAlgorithmIndex,
     ) {
-        self.queries.push(AIQuery::CreateNonLinearAlgorithmIndex {
-            store: params.store,
-            non_linear_indices: params.non_linear_indices,
-        })
+        self.queries
+            .push(Query::CreateNonLinearAlgorithmIndex(params));
     }
 
-    /// push drop pred index command to pipeline
-    pub fn drop_pred_index(&mut self, params: ai_params::DropPredIndexParams) {
-        self.queries.push(AIQuery::DropPredIndex {
-            store: params.store,
-            predicates: params.predicates,
-            error_if_not_exists: params.error_if_not_exists,
-        })
+    pub async fn get_key(&mut self, params: GetKey) {
+        self.queries.push(Query::GetKey(params));
     }
 
-    /// push set command to pipeline
-    pub fn set(&mut self, params: ai_params::SetParams) {
-        self.queries.push(AIQuery::Set {
-            store: params.store,
-            inputs: params.inputs,
-            preprocess_action: params.preprocess_action,
-            execution_provider: params.execution_provider,
-        })
+    pub async fn get_pred(&mut self, params: GetPred) {
+        self.queries.push(Query::GetPred(params));
     }
 
-    /// push del key command to pipeline
-    pub fn del_key(&mut self, params: ai_params::DelKeyParams) {
-        self.queries.push(AIQuery::DelKey {
-            store: params.store,
-            key: params.key,
-        })
+    pub async fn get_sim_n(&mut self, params: GetSimN) {
+        self.queries.push(Query::GetSimN(params));
     }
 
-    /// Push drop store command to pipeline
-    pub fn drop_store(&mut self, params: ai_params::DropStoreParams) {
-        self.queries.push(AIQuery::DropStore {
-            store: params.store,
-            error_if_not_exists: params.error_if_not_exists,
-        })
+    pub async fn set(&mut self, params: Set) {
+        self.queries.push(Query::Set(params));
     }
 
-    /// Push info server command to pipeline
-    pub fn info_server(&mut self) {
-        self.queries.push(AIQuery::InfoServer)
+    pub async fn drop_pred_index(&mut self, params: DropPredIndex) {
+        self.queries.push(Query::DropPredIndex(params));
     }
 
-    /// Push list stores command to pipeline
-    pub fn list_stores(&mut self) {
-        self.queries.push(AIQuery::ListStores)
+    pub async fn drop_non_linear_algorithm_index(&mut self, params: DropNonLinearAlgorithmIndex) {
+        self.queries
+            .push(Query::DropNonLinearAlgorithmIndex(params));
     }
 
-    /// Push purge stores command to pipeline
-    pub fn purge_stores(&mut self) {
-        self.queries.push(AIQuery::PurgeStores)
+    pub async fn del_key(&mut self, params: DelKey) {
+        self.queries.push(Query::DelKey(params));
     }
 
-    /// Push ping command to pipeline
-    pub fn ping(&mut self) {
-        self.queries.push(AIQuery::Ping)
+    pub async fn drop_store(&mut self, params: DropStore) {
+        self.queries.push(Query::DropStore(params));
     }
 
-    /// execute queries all at once and return ordered list of results matching the order in which
-    /// queries were pushed
-    pub async fn exec(mut self) -> Result<AIServerResult, AhnlichError> {
-        self.conn.send_query(self.queries).await
+    pub async fn info_server(&mut self) {
+        self.queries.push(Query::InfoServer(InfoServer {}));
+    }
+
+    pub async fn purge_stores(&mut self) {
+        self.queries.push(Query::PurgeStores(PurgeStores {}));
+    }
+
+    pub async fn list_stores(&mut self) {
+        self.queries.push(Query::ListStores(ListStores {}));
+    }
+
+    pub async fn list_clients(&mut self) {
+        self.queries.push(Query::ListClients(ListClients {}));
+    }
+
+    pub async fn ping(&mut self) {
+        self.queries.push(Query::Ping(Ping {}));
+    }
+
+    pub async fn exec(mut self) -> Result<AiResponsePipeline, AhnlichError> {
+        let tracing_id = self.tracing_id.clone();
+        let mut req = tonic::Request::new(AiRequestPipeline {
+            queries: self
+                .queries
+                .into_iter()
+                .map(|q| AiQuery { query: Some(q) })
+                .collect(),
+        });
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.pipeline(req).await?.into_inner())
     }
 }
 
-/// Client for Ahnlich AI using an instantiated deadpool pool
-#[derive(Debug)]
-pub struct AIClient {
-    pool: Pool<AIConnManager>,
+// GRPC Client for Ahnlich AI
+//
+// client needs &mut as it can only send one request in flight, hence is not thread safe to use,
+// however `Channel` makes use of `tower_buffer::Buffer` underneath and hence DBClient is cheap
+// to clone and is encouraged for use across multiple threads
+// https://docs.rs/tonic/latest/tonic/transport/struct.Channel.html#multiplexing-requests
+// So we clone client underneath with every call to create a threadsafe client
+#[derive(Debug, Clone)]
+pub struct AiClient {
+    client: AiServiceClient<Channel>,
 }
 
-impl AIClient {
-    pub async fn new(host: String, port: u16) -> Result<Self, AhnlichError> {
-        let manager = AIConnManager::new(host, port);
-        let pool = Pool::builder(manager).build()?;
-        Ok(Self { pool })
-    }
-
-    /// Create new ai client with custom deadpool pool
-    pub fn new_with_pool(pool: Pool<AIConnManager>) -> Self {
-        Self { pool }
-    }
-
-    /// Instantiate a new pipeline with a given capacity. Runs commands sequentially on
-    /// `pipeline.exec`
-    pub async fn pipeline(
-        &self,
-        capacity: usize,
-        tracing_id: Option<String>,
-    ) -> Result<AIPipeline, AhnlichError> {
-        Ok(AIPipeline::new_from_queries_and_conn(
-            AIServerQuery::with_capacity_and_tracing_id(capacity, tracing_id),
-            self.pool.get().await?,
-        ))
+impl AiClient {
+    pub async fn new(addr: String) -> Result<Self, AhnlichError> {
+        let addr = if !(addr.starts_with("https://") || addr.starts_with("http://")) {
+            format!("http://{addr}")
+        } else {
+            addr
+        };
+        let channel = Channel::from_shared(addr)?;
+        let client = AiServiceClient::connect(channel).await?;
+        Ok(Self { client })
     }
 
     pub async fn create_store(
         &self,
-        store_params: ai_params::CreateStoreParams,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::CreateStore {
-                store: store_params.store,
-                query_model: store_params.query_model,
-                index_model: store_params.index_model,
-                predicates: store_params.predicates,
-                non_linear_indices: store_params.non_linear_indices,
-                error_if_exists: store_params.error_if_exists,
-                store_original: store_params.store_original,
-            },
-            store_params.tracing_id,
-        )
-        .await
-    }
-
-    pub async fn get_pred(
-        &self,
-        params: ai_params::GetPredParams,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::GetPred {
-                store: params.store,
-                condition: params.condition,
-            },
-            params.tracing_id,
-        )
-        .await
-    }
-
-    pub async fn get_sim_n(
-        &self,
-        params: ai_params::GetSimNParams,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::GetSimN {
-                store: params.store,
-                search_input: params.search_input,
-                condition: params.condition,
-                closest_n: params.closest_n,
-                algorithm: params.algorithm,
-                preprocess_action: params.preprocess_action,
-                execution_provider: params.execution_provider,
-            },
-            params.tracing_id,
-        )
-        .await
+        params: CreateStore,
+        tracing_id: Option<String>,
+    ) -> Result<Unit, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().create_store(req).await?.into_inner())
     }
 
     pub async fn create_pred_index(
         &self,
-        params: ai_params::CreatePredIndexParams,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::CreatePredIndex {
-                store: params.store,
-                predicates: params.predicates,
-            },
-            params.tracing_id,
-        )
-        .await
+        params: CreatePredIndex,
+        tracing_id: Option<String>,
+    ) -> Result<CreateIndex, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self
+            .client
+            .clone()
+            .create_pred_index(req)
+            .await?
+            .into_inner())
     }
 
     pub async fn create_non_linear_algorithm_index(
         &self,
-        params: ai_params::CreateNonLinearAlgorithmIndexParams,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::CreateNonLinearAlgorithmIndex {
-                store: params.store,
-                non_linear_indices: params.non_linear_indices,
-            },
-            params.tracing_id,
-        )
-        .await
+        params: CreateNonLinearAlgorithmIndex,
+        tracing_id: Option<String>,
+    ) -> Result<CreateIndex, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self
+            .client
+            .clone()
+            .create_non_linear_algorithm_index(req)
+            .await?
+            .into_inner())
     }
 
-    pub async fn drop_pred_index(
+    pub async fn get_key(
         &self,
-        params: ai_params::DropPredIndexParams,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::DropPredIndex {
-                store: params.store,
-                predicates: params.predicates,
-                error_if_not_exists: params.error_if_not_exists,
-            },
-            params.tracing_id,
-        )
-        .await
+        params: GetKey,
+        tracing_id: Option<String>,
+    ) -> Result<Get, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().get_key(req).await?.into_inner())
+    }
+
+    pub async fn get_pred(
+        &self,
+        params: GetPred,
+        tracing_id: Option<String>,
+    ) -> Result<Get, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().get_pred(req).await?.into_inner())
+    }
+
+    pub async fn get_sim_n(
+        &self,
+        params: GetSimN,
+        tracing_id: Option<String>,
+    ) -> Result<GetSimNResult, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().get_sim_n(req).await?.into_inner())
     }
 
     pub async fn set(
         &self,
-        params: ai_params::SetParams,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::Set {
-                store: params.store,
-                inputs: params.inputs,
-                preprocess_action: params.preprocess_action,
-                execution_provider: params.execution_provider,
-            },
-            params.tracing_id,
-        )
-        .await
+        params: Set,
+        tracing_id: Option<String>,
+    ) -> Result<SetResult, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().set(req).await?.into_inner())
+    }
+
+    pub async fn drop_pred_index(
+        &self,
+        params: DropPredIndex,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().drop_pred_index(req).await?.into_inner())
+    }
+
+    pub async fn drop_non_linear_algorithm_index(
+        &self,
+        params: DropNonLinearAlgorithmIndex,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self
+            .client
+            .clone()
+            .drop_non_linear_algorithm_index(req)
+            .await?
+            .into_inner())
     }
 
     pub async fn del_key(
         &self,
-        params: ai_params::DelKeyParams,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::DelKey {
-                store: params.store,
-                key: params.key,
-            },
-            params.tracing_id,
-        )
-        .await
+        params: DelKey,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().del_key(req).await?.into_inner())
     }
 
     pub async fn drop_store(
         &self,
-        params: ai_params::DropStoreParams,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::DropStore {
-                store: params.store,
-                error_if_not_exists: params.error_if_not_exists,
-            },
-            params.tracing_id,
-        )
-        .await
+        params: DropStore,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().drop_store(req).await?.into_inner())
+    }
+    pub async fn list_clients(
+        &self,
+        tracing_id: Option<String>,
+    ) -> Result<ClientList, AhnlichError> {
+        let mut req = tonic::Request::new(ListClients {});
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().list_clients(req).await?.into_inner())
+    }
+
+    pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
+        let mut req = tonic::Request::new(ListStores {});
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().list_stores(req).await?.into_inner())
     }
 
     pub async fn info_server(
         &self,
         tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::InfoServer, tracing_id).await
-    }
-
-    pub async fn list_stores(
-        &self,
-        tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::ListStores, tracing_id).await
-    }
-
-    pub async fn purge_stores(
-        &self,
-        tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::PurgeStores, tracing_id).await
-    }
-
-    pub async fn ping(&self, tracing_id: Option<String>) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::Ping, tracing_id).await
-    }
-
-    async fn exec(
-        &self,
-        query: AIQuery,
-        tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        let mut conn = self.pool.get().await?;
-
-        let mut queries = AIServerQuery::with_capacity_and_tracing_id(1, tracing_id);
-        queries.push(query);
-
-        let res = conn
-            .send_query(queries)
+    ) -> Result<ServerInfo, AhnlichError> {
+        let mut req = tonic::Request::new(InfoServer {});
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self
+            .client
+            .clone()
+            .info_server(req)
             .await?
-            .pop()
-            .transpose()
-            .map_err(AhnlichError::AIProxyError)?;
-        res.ok_or(AhnlichError::EmptyResponse)
+            .into_inner()
+            .info
+            .expect("Server info should be Some"))
+    }
+
+    pub async fn purge_stores(&self, tracing_id: Option<String>) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(PurgeStores {});
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().purge_stores(req).await?.into_inner())
+    }
+
+    pub async fn ping(&self, tracing_id: Option<String>) -> Result<Pong, AhnlichError> {
+        let mut req = tonic::Request::new(Ping {});
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().ping(req).await?.into_inner())
+    }
+
+    // Create list of instructions to execute in a pipeline loop
+    // on the server end
+    pub fn pipeline(&self, tracing_id: Option<String>) -> AiPipeline {
+        AiPipeline {
+            queries: vec![],
+            client: self.client.clone(),
+            tracing_id,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::{
+        collections::{HashMap, HashSet},
+        time::Duration,
+    };
+
+    use super::*;
+    use ahnlich_db::{cli::ServerConfig, server::handler::Server};
+    use ahnlich_types::{
+        db::ServerResponse,
+        keyval::StoreKey,
+        metadata::MetadataKey,
+        predicate::{Predicate, PredicateCondition},
+        similarity::Algorithm,
+    };
+    use grpc_types::{
+        db::{
+            pipeline::{db_server_response::Response, DbServerResponse},
+            query::CreateStore,
+            server::{GetSimNEntry, StoreInfo},
+        },
+        metadata::metadata_value::Value,
+        shared::info::ErrorResponse,
+        similarity::Similarity,
+    };
+    use once_cell::sync::Lazy;
+    use utils::server::AhnlichServerUtils;
+
+    static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
+
+    #[tokio::test]
+    async fn test_grpc_create_store_with_pipeline() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+        tokio::spawn(async move {
+            server.start().await;
+        });
+        // Allow some time for the server to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let db_client = DbClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+        let mut pipeline = db_client.pipeline(None);
+        pipeline.create_store(CreateStore {
+            store: "Main".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        });
+        pipeline.create_store(CreateStore {
+            store: "Main".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        });
+        pipeline.create_store(CreateStore {
+            store: "Main".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: false,
+        });
+        pipeline.list_stores();
+
+        let expected = DbResponsePipeline {
+            responses: vec![
+                DbServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                DbServerResponse {
+                    response: Some(Response::Error(ErrorResponse {
+                        message: "Store Main already exists".to_string(),
+                        code: 20,
+                    })),
+                },
+                DbServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                DbServerResponse {
+                    response: Some(Response::StoreList(StoreList {
+                        stores: vec![StoreInfo {
+                            name: "Main".to_string(),
+                            len: 0,
+                            size_in_bytes: 1720,
+                        }],
+                    })),
+                },
+            ],
+        };
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res, expected);
+    }
+
+    #[tokio::test]
+    async fn test_grpc_get_sim_n() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+        tokio::spawn(async move {
+            server.start().await;
+        });
+        // Allow some time for the server to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let mut db_client = DbClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+
+        let create_store_params = db_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .dimension(3)
+            .create_predicates(HashSet::from_iter([MetadataKey::new("medal".into())]))
+            .build();
+
+        assert!(db_client.create_store(create_store_params).await.is_ok());
+
+        let set_key_params = db_params::SetParams::builder()
+            .store("Main".to_string())
+            .inputs(vec![
+                (
+                    StoreKey(vec![1.2, 1.3, 1.4]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("silver".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(vec![2.0, 2.1, 2.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("gold".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(vec![5.0, 5.1, 5.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("bronze".into()),
+                    )]),
+                ),
+            ])
+            .build();
+        assert!(db_client.set(set_key_params).await.is_ok());
+        // error due to dimension mismatch
+        let get_sim_n_params = db_params::GetSimNParams::builder()
+            .store("Main".to_string())
+            .search_input(StoreKey(vec![1.1, 2.0]))
+            .closest_n(2)
+            .algorithm(Algorithm::EuclideanDistance)
+            .build();
+        assert!(db_client.get_sim_n(get_sim_n_params).await.is_err());
+
+        let get_sim_n_params = db_params::GetSimNParams::builder()
+            .store("Main".to_string())
+            .search_input(StoreKey(vec![5.0, 2.1, 2.2]))
+            .closest_n(2)
+            .algorithm(Algorithm::CosineSimilarity)
+            .condition(Some(PredicateCondition::Value(Predicate::Equals {
+                key: MetadataKey::new("medal".into()),
+                value: MetadataValue::RawString("gold".into()),
+            })))
+            .build();
+
+        assert_eq!(
+            db_client.get_sim_n(get_sim_n_params).await.unwrap(),
+            GetSimNResult {
+                entries: vec![GetSimNEntry {
+                    key: Some(grpc_types::keyval::StoreKey {
+                        key: vec![2.0, 2.1, 2.2]
+                    }),
+                    value: Some(grpc_types::keyval::StoreValue {
+                        value: HashMap::from_iter([(
+                            "medal".into(),
+                            grpc_types::metadata::MetadataValue {
+                                r#type: MetadataType::RawString.into(),
+                                value: Some(Value::RawString("gold".into()))
+                            },
+                        )])
+                    }),
+                    similarity: Some(Similarity {
+                        value: 0.9036338825194858
+                    })
+                }]
+            }
+        );
     }
 }
 

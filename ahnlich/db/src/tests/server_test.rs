@@ -30,7 +30,7 @@ use std::time::SystemTime;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::time::{timeout, Duration};
-use utils::server::AhnlichServerUtilsV2;
+use utils::server::AhnlichServerUtils;
 
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 

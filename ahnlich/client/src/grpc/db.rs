@@ -1,9 +1,4 @@
-use ahnlich_types::{
-    metadata::MetadataValue,
-    query_builders::db::{self as db_params},
-};
 use grpc_types::{
-    algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
     db::{
         pipeline::{db_query::Query, DbQuery, DbRequestPipeline, DbResponsePipeline},
         query::{
@@ -16,11 +11,9 @@ use grpc_types::{
             StoreList, Unit,
         },
     },
-    keyval::StoreKey,
-    metadata::{MetadataType, MetadataValue as GrpcMetadataValue},
     services::db_service::db_service_client::DbServiceClient,
     shared::info::ServerInfo,
-    utils::{add_trace_parent, from_internal_create_store, to_grpc_predicate_condition},
+    utils::add_trace_parent,
 };
 use tonic::transport::Channel;
 
@@ -123,6 +116,7 @@ impl DbPipeline {
 // however `Channel` makes use of `tower_buffer::Buffer` underneath and hence DBClient is cheap
 // to clone and is encouraged for use across multiple threads
 // https://docs.rs/tonic/latest/tonic/transport/struct.Channel.html#multiplexing-requests
+// So we clone client underneath with every call to create a threadsafe client
 #[derive(Debug, Clone)]
 pub struct DbClient {
     client: DbServiceClient<Channel>,
@@ -141,231 +135,149 @@ impl DbClient {
     }
 
     pub async fn create_store(
-        &mut self,
-        params: db_params::CreateStoreParams,
+        &self,
+        params: CreateStore,
+        tracing_id: Option<String>,
     ) -> Result<Unit, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(from_internal_create_store(params));
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.create_store(req).await?.into_inner())
+        Ok(self.client.clone().create_store(req).await?.into_inner())
     }
 
     pub async fn create_pred_index(
-        &mut self,
-        params: db_params::CreatePredIndexParams,
+        &self,
+        params: CreatePredIndex,
+        tracing_id: Option<String>,
     ) -> Result<CreateIndex, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(CreatePredIndex {
-            store: params.store.0,
-            predicates: params
-                .predicates
-                .into_iter()
-                .map(|a| a.to_string())
-                .collect(),
-        });
-        add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.create_pred_index(req).await?.into_inner())
-    }
-
-    pub async fn create_non_linear_algorithm_index(
-        &mut self,
-        params: db_params::CreateNonLinearAlgorithmIndexParams,
-    ) -> Result<CreateIndex, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(CreateNonLinearAlgorithmIndex {
-            store: params.store.0,
-            non_linear_indices: params
-                .non_linear_indices
-                .into_iter()
-                .filter_map(|a| NonLinearAlgorithm::from(a).try_into().ok())
-                .collect(),
-        });
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
         Ok(self
             .client
+            .clone()
+            .create_pred_index(req)
+            .await?
+            .into_inner())
+    }
+
+    pub async fn create_non_linear_algorithm_index(
+        &self,
+        params: CreateNonLinearAlgorithmIndex,
+        tracing_id: Option<String>,
+    ) -> Result<CreateIndex, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self
+            .client
+            .clone()
             .create_non_linear_algorithm_index(req)
             .await?
             .into_inner())
     }
 
-    pub async fn get_key(&mut self, params: db_params::GetKeyParams) -> Result<Get, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(GetKey {
-            store: params.store.0,
-            keys: params
-                .keys
-                .into_iter()
-                .map(|key| StoreKey { key: key.0 })
-                .collect(),
-        });
+    pub async fn get_key(
+        &self,
+        params: GetKey,
+        tracing_id: Option<String>,
+    ) -> Result<Get, AhnlichError> {
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.get_key(req).await?.into_inner())
+        Ok(self.client.clone().get_key(req).await?.into_inner())
     }
 
     pub async fn get_pred(
-        &mut self,
-        params: db_params::GetPredParams,
+        &self,
+        params: GetPred,
+        tracing_id: Option<String>,
     ) -> Result<Get, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(GetPred {
-            store: params.store.0,
-            condition: to_grpc_predicate_condition(params.condition).map(|a| *a),
-        });
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.get_pred(req).await?.into_inner())
+        Ok(self.client.clone().get_pred(req).await?.into_inner())
     }
 
     pub async fn get_sim_n(
-        &mut self,
-        params: db_params::GetSimNParams,
+        &self,
+        params: GetSimN,
+        tracing_id: Option<String>,
     ) -> Result<GetSimNResult, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(GetSimN {
-            store: params.store.0,
-            search_input: Some(StoreKey {
-                key: params.search_input.0,
-            }),
-            closest_n: params.closest_n.get() as u64,
-            algorithm: Algorithm::from(params.algorithm)
-                .try_into()
-                .expect("Should convert algorithm"),
-            condition: params
-                .condition
-                .map(|cond| to_grpc_predicate_condition(cond).map(|a| *a))
-                .flatten(),
-        });
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.get_sim_n(req).await?.into_inner())
+        Ok(self.client.clone().get_sim_n(req).await?.into_inner())
     }
 
-    pub async fn set(&mut self, params: db_params::SetParams) -> Result<SetResult, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(Set {
-            store: params.store.0,
-            inputs: params
-                .inputs
-                .into_iter()
-                .map(|(k, v)| StoreEntry {
-                    key: Some(StoreKey { key: k.0 }),
-                    value: v
-                        .into_iter()
-                        .map(|(k, v)| {
-                            (
-                                k.to_string(),
-                                match v {
-                                    MetadataValue::RawString(text) => GrpcMetadataValue {
-                                        r#type: MetadataType::RawString.into(),
-                                        value: Some(
-                                            grpc_types::metadata::metadata_value::Value::RawString(
-                                                text,
-                                            ),
-                                        ),
-                                    },
-                                    MetadataValue::Image(bin) => GrpcMetadataValue {
-                                        r#type: MetadataType::Image.into(),
-                                        value: Some(
-                                            grpc_types::metadata::metadata_value::Value::Image(bin),
-                                        ),
-                                    },
-                                },
-                            )
-                        })
-                        .collect(),
-                })
-                .collect(),
-        });
+    pub async fn set(
+        &self,
+        params: Set,
+        tracing_id: Option<String>,
+    ) -> Result<SetResult, AhnlichError> {
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.set(req).await?.into_inner())
+        Ok(self.client.clone().set(req).await?.into_inner())
     }
 
     pub async fn drop_pred_index(
-        &mut self,
-        params: db_params::DropPredIndexParams,
+        &self,
+        params: DropPredIndex,
+        tracing_id: Option<String>,
     ) -> Result<Del, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(DropPredIndex {
-            store: params.store.0,
-            predicates: params
-                .predicates
-                .into_iter()
-                .map(|a| a.to_string())
-                .collect(),
-            error_if_not_exists: params.error_if_not_exists,
-        });
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.drop_pred_index(req).await?.into_inner())
+        Ok(self.client.clone().drop_pred_index(req).await?.into_inner())
     }
 
     pub async fn drop_non_linear_algorithm_index(
-        &mut self,
-        params: db_params::DropNonLinearAlgorithmIndexParams,
+        &self,
+        params: DropNonLinearAlgorithmIndex,
+        tracing_id: Option<String>,
     ) -> Result<Del, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(DropNonLinearAlgorithmIndex {
-            store: params.store.0,
-            non_linear_indices: params
-                .non_linear_indices
-                .into_iter()
-                .filter_map(|a| NonLinearAlgorithm::from(a).try_into().ok())
-                .collect(),
-            error_if_not_exists: params.error_if_not_exists,
-        });
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
         Ok(self
             .client
+            .clone()
             .drop_non_linear_algorithm_index(req)
             .await?
             .into_inner())
     }
 
-    pub async fn del_key(&mut self, params: db_params::DelKeyParams) -> Result<Del, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(DelKey {
-            store: params.store.0,
-            keys: params
-                .keys
-                .into_iter()
-                .map(|a| grpc_types::keyval::StoreKey { key: a.0 })
-                .collect(),
-        });
+    pub async fn del_key(
+        &self,
+        params: DelKey,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.del_key(req).await?.into_inner())
+        Ok(self.client.clone().del_key(req).await?.into_inner())
     }
 
     pub async fn drop_store(
-        &mut self,
-        params: db_params::DropStoreParams,
+        &self,
+        params: DropStore,
+        tracing_id: Option<String>,
     ) -> Result<Del, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(DropStore {
-            store: params.store.0,
-            error_if_not_exists: params.error_if_not_exists,
-        });
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.drop_store(req).await?.into_inner())
+        Ok(self.client.clone().drop_store(req).await?.into_inner())
     }
 
     pub async fn del_pred(
-        &mut self,
-        params: db_params::DelPredParams,
+        &self,
+        params: DelPred,
+        tracing_id: Option<String>,
     ) -> Result<Del, AhnlichError> {
-        let tracing_id = params.tracing_id.clone();
-        let mut req = tonic::Request::new(DelPred {
-            store: params.store.0,
-            condition: to_grpc_predicate_condition(params.condition).map(|a| *a),
-        });
+        let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.del_pred(req).await?.into_inner())
+        Ok(self.client.clone().del_pred(req).await?.into_inner())
     }
 
     pub async fn info_server(
-        &mut self,
+        &self,
         tracing_id: Option<String>,
     ) -> Result<ServerInfo, AhnlichError> {
         let mut req = tonic::Request::new(InfoServer {});
         add_trace_parent(&mut req, tracing_id);
         Ok(self
             .client
+            .clone()
             .info_server(req)
             .await?
             .into_inner()
@@ -373,28 +285,25 @@ impl DbClient {
             .expect("Server info should be Some"))
     }
 
-    pub async fn list_stores(
-        &mut self,
-        tracing_id: Option<String>,
-    ) -> Result<StoreList, AhnlichError> {
+    pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
         let mut req = tonic::Request::new(ListStores {});
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.list_stores(req).await?.into_inner())
+        Ok(self.client.clone().list_stores(req).await?.into_inner())
     }
 
     pub async fn list_clients(
-        &mut self,
+        &self,
         tracing_id: Option<String>,
     ) -> Result<ClientList, AhnlichError> {
         let mut req = tonic::Request::new(ListClients {});
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.list_clients(req).await?.into_inner())
+        Ok(self.client.clone().list_clients(req).await?.into_inner())
     }
 
-    pub async fn ping(&mut self, tracing_id: Option<String>) -> Result<Pong, AhnlichError> {
+    pub async fn ping(&self, tracing_id: Option<String>) -> Result<Pong, AhnlichError> {
         let mut req = tonic::Request::new(Ping {});
         add_trace_parent(&mut req, tracing_id);
-        Ok(self.client.ping(req).await?.into_inner())
+        Ok(self.client.clone().ping(req).await?.into_inner())
     }
 
     // Create list of instructions to execute in a pipeline loop
@@ -425,12 +334,86 @@ mod test {
         similarity::Algorithm,
     };
     use grpc_types::{
-        db::server::GetSimNEntry, metadata::metadata_value::Value, similarity::Similarity,
+        db::{
+            pipeline::{db_server_response::Response, DbServerResponse},
+            query::CreateStore,
+            server::{GetSimNEntry, StoreInfo},
+        },
+        metadata::metadata_value::Value,
+        shared::info::ErrorResponse,
+        similarity::Similarity,
     };
     use once_cell::sync::Lazy;
-    use utils::server::AhnlichServerUtilsV2;
+    use utils::server::AhnlichServerUtils;
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
+
+    #[tokio::test]
+    async fn test_grpc_create_store_with_pipeline() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+        tokio::spawn(async move {
+            server.start().await;
+        });
+        // Allow some time for the server to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let db_client = DbClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+        let mut pipeline = db_client.pipeline(None);
+        pipeline.create_store(CreateStore {
+            store: "Main".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        });
+        pipeline.create_store(CreateStore {
+            store: "Main".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        });
+        pipeline.create_store(CreateStore {
+            store: "Main".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: false,
+        });
+        pipeline.list_stores();
+
+        let expected = DbResponsePipeline {
+            responses: vec![
+                DbServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                DbServerResponse {
+                    response: Some(Response::Error(ErrorResponse {
+                        message: "Store Main already exists".to_string(),
+                        code: 20,
+                    })),
+                },
+                DbServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                DbServerResponse {
+                    response: Some(Response::StoreList(StoreList {
+                        stores: vec![StoreInfo {
+                            name: "Main".to_string(),
+                            len: 0,
+                            size_in_bytes: 1720,
+                        }],
+                    })),
+                },
+            ],
+        };
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res, expected);
+    }
 
     #[tokio::test]
     async fn test_grpc_get_sim_n() {
@@ -523,6 +506,274 @@ mod test {
                     })
                 }]
             }
+        );
+    }
+
+    #[tokio::test]
+    async fn test_simple_server_ping() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+        let host = address.ip();
+        let port = address.port();
+        let _ = tokio::spawn(async move { server.start().await });
+        // Allow some time for the server to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let db_client = DbClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        assert!(db_client.ping(None).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_simple_pipeline() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+        let host = address.ip();
+        let port = address.port();
+        tokio::spawn(async { server.start().await });
+        // Allow some time for the server to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let db_client = DbClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        let mut pipeline = db_client
+            .pipeline(3, None)
+            .await
+            .expect("Could not create pipeline");
+        pipeline.list_stores();
+        pipeline.ping();
+        let mut expected = ServerResult::with_capacity(2);
+        expected.push(Ok(ServerResponse::StoreList(HashSet::new())));
+        expected.push(Ok(ServerResponse::Pong));
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res, expected);
+    }
+
+    #[tokio::test]
+    async fn test_pool_commands_fail_if_server_not_exist() {
+        let host = "127.0.0.1";
+        let port = 1234;
+        let db_client = DbClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        assert!(db_client.ping(None).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_create_stores_with_pipeline() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+        let _ = tokio::spawn(async move { server.start().await });
+        // Allow some time for the server to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let host = address.ip();
+        let port = address.port();
+        let db_client = DbClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        let mut pipeline = db_client
+            .pipeline(4, None)
+            .await
+            .expect("Could not create pipeline");
+
+        let create_store_params = db_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .dimension(3)
+            .build();
+        let create_store_params_2 = db_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .dimension(3)
+            .build();
+
+        let create_store_params_no_error = db_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .dimension(3)
+            .error_if_exists(false)
+            .build();
+        pipeline.create_store(create_store_params);
+        pipeline.create_store(create_store_params_2);
+        pipeline.create_store(create_store_params_no_error);
+        pipeline.list_stores();
+        let mut expected = ServerResult::with_capacity(4);
+        expected.push(Ok(ServerResponse::Unit));
+        expected.push(Err("Store Main already exists".to_string()));
+        expected.push(Ok(ServerResponse::Unit));
+        expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
+            StoreInfo {
+                name: StoreName("Main".to_string()),
+                len: 0,
+                size_in_bytes: 1720,
+            },
+        ]))));
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res, expected);
+    }
+
+    #[tokio::test]
+    async fn test_del_key() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+        let _ = tokio::spawn(async move { server.start().await });
+        // Allow some time for the server to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let host = address.ip();
+        let port = address.port();
+        let db_client = DbClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+        let del_key_params = db_params::DelKeyParams::builder()
+            .store("Main".to_string())
+            .keys(vec![])
+            .build();
+        assert!(db_client.del_key(del_key_params).await.is_err());
+
+        let create_store_params = db_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .dimension(4)
+            .create_predicates(HashSet::from_iter([MetadataKey::new("role".into())]))
+            .non_linear_indices(HashSet::from_iter([NonLinearAlgorithm::KDTree]))
+            .build();
+
+        assert!(db_client.create_store(create_store_params).await.is_ok());
+        let del_key_params = db_params::DelKeyParams::builder()
+            .store("Main".to_string())
+            .keys(vec![StoreKey(vec![1.0, 1.1, 1.2, 1.3])])
+            .build();
+        assert_eq!(
+            db_client.del_key(del_key_params).await.unwrap(),
+            ServerResponse::Del(0)
+        );
+        let set_key_params = db_params::SetParams::builder()
+            .store("Main".to_string())
+            .inputs(vec![
+                (StoreKey(vec![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
+                (StoreKey(vec![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
+            ])
+            .build();
+        assert!(db_client.set(set_key_params).await.is_ok());
+        assert_eq!(
+            db_client.list_stores(None).await.unwrap(),
+            ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
+                name: StoreName("Main".to_string()),
+                len: 2,
+                size_in_bytes: 2016,
+            },]))
+        );
+        // error as different dimensions
+
+        let del_key_params = db_params::DelKeyParams::builder()
+            .store("Main".to_string())
+            .keys(vec![StoreKey(vec![1.0, 1.2])])
+            .build();
+        assert!(db_client.del_key(del_key_params).await.is_err());
+
+        let del_key_params = db_params::DelKeyParams::builder()
+            .store("Main".to_string())
+            .keys(vec![StoreKey(vec![1.0, 1.1, 1.2, 1.3])])
+            .build();
+
+        assert_eq!(
+            db_client.del_key(del_key_params).await.unwrap(),
+            ServerResponse::Del(1)
+        );
+        assert_eq!(
+            db_client.list_stores(None).await.unwrap(),
+            ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
+                name: StoreName("Main".to_string()),
+                len: 1,
+                size_in_bytes: 1904,
+            },]))
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_sim_n() {
+        let server = Server::new(&CONFIG)
+            .await
+            .expect("Could not initialize server");
+        let address = server.local_addr().expect("Could not get local addr");
+        let _ = tokio::spawn(async move { server.start().await });
+        // Allow some time for the server to start
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let host = address.ip();
+        let port = address.port();
+        let db_client = DbClient::new(host.to_string(), port)
+            .await
+            .expect("Could not initialize client");
+
+        let create_store_params = db_params::CreateStoreParams::builder()
+            .store("Main".to_string())
+            .dimension(3)
+            .create_predicates(HashSet::from_iter([MetadataKey::new("medal".into())]))
+            .build();
+
+        assert!(db_client.create_store(create_store_params).await.is_ok());
+
+        let set_key_params = db_params::SetParams::builder()
+            .store("Main".to_string())
+            .inputs(vec![
+                (
+                    StoreKey(vec![1.2, 1.3, 1.4]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("silver".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(vec![2.0, 2.1, 2.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("gold".into()),
+                    )]),
+                ),
+                (
+                    StoreKey(vec![5.0, 5.1, 5.2]),
+                    HashMap::from_iter([(
+                        MetadataKey::new("medal".into()),
+                        MetadataValue::RawString("bronze".into()),
+                    )]),
+                ),
+            ])
+            .build();
+        assert!(db_client.set(set_key_params).await.is_ok());
+        // error due to dimension mismatch
+        let get_sim_n_params = db_params::GetSimNParams::builder()
+            .store("Main".to_string())
+            .search_input(StoreKey(vec![1.1, 2.0]))
+            .closest_n(2)
+            .algorithm(Algorithm::EuclideanDistance)
+            .build();
+        assert!(db_client.get_sim_n(get_sim_n_params).await.is_err());
+
+        let get_sim_n_params = db_params::GetSimNParams::builder()
+            .store("Main".to_string())
+            .search_input(StoreKey(vec![5.0, 2.1, 2.2]))
+            .closest_n(2)
+            .algorithm(Algorithm::CosineSimilarity)
+            .condition(Some(PredicateCondition::Value(Predicate::Equals {
+                key: MetadataKey::new("medal".into()),
+                value: MetadataValue::RawString("gold".into()),
+            })))
+            .build();
+
+        assert_eq!(
+            db_client.get_sim_n(get_sim_n_params).await.unwrap(),
+            ServerResponse::GetSimN(vec![(
+                StoreKey(vec![2.0, 2.1, 2.2]),
+                HashMap::from_iter([(
+                    MetadataKey::new("medal".into()),
+                    MetadataValue::RawString("gold".into()),
+                )]),
+                Similarity(0.9036338825194858),
+            )])
         );
     }
 }

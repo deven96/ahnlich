@@ -23,7 +23,7 @@ use tokio_util::sync::CancellationToken;
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::connection_layer::{trace_with_parent, RequestTrackerLayer};
 
-use utils::server::{AhnlichServerUtilsV2, ListenerStreamOrAddress, ServerUtilsConfig};
+use utils::server::{AhnlichServerUtils, ListenerStreamOrAddress, ServerUtilsConfig};
 use utils::{client::ClientHandler, persistence::Persistence};
 
 const SERVICE_NAME: &str = "ahnlich-db";
@@ -37,11 +37,6 @@ pub struct Server {
     config: ServerConfig,
 }
 
-// maximum_message_size => DbServiceServer(server).max_decoding_message_size
-// maximum_clients => At this point yet to figure out but it might be manually implementing
-// Server/Interceptor as shown in https://chatgpt.com/share/67abdf0b-72a8-8008-b203-bc8e65b02495
-// maximum_concurrency_per_client => we just set this with `concurrency_limit_per_connection`.
-// for creating trace functions, we can add `trace_fn` and extract our header from `Request::header` and return the span
 #[tonic::async_trait]
 impl DbService for Server {
     #[tracing::instrument(skip_all)]
@@ -697,7 +692,7 @@ impl DbService for Server {
     }
 }
 
-impl AhnlichServerUtilsV2 for Server {
+impl AhnlichServerUtils for Server {
     type PersistenceTask = StoreHandler;
 
     fn config(&self) -> ServerUtilsConfig {
@@ -776,25 +771,6 @@ impl Server {
         );
         Self::new_with_config(config).await
     }
-
-    // fn create_task(
-    //     &self,
-    //     stream: TcpStream,
-    //     server_addr: SocketAddr,
-    //     connected_client: ConnectedClient,
-    // ) -> ServerTask {
-    //     let reader = BufReader::new(stream);
-    //     // add client to client_handler
-    //     ServerTask {
-    //         reader: Arc::new(Mutex::new(reader)),
-    //         server_addr,
-    //         connected_client,
-    //         maximum_message_size: self.config.common.message_size as u64,
-    //         // "inexpensive" to clone handlers they can be passed around in an Arc
-    //         client_handler: self.client_handler.clone(),
-    //         store_handler: self.store_handler.clone(),
-    //     }
-    // }
 }
 
 // TODO: next steps:

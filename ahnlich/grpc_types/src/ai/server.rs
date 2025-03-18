@@ -51,13 +51,13 @@ pub struct GetSimN {
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct Del {
-    #[prost(uint32, tag = "1")]
-    pub deleted_count: u32,
+    #[prost(uint64, tag = "1")]
+    pub deleted_count: u64,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct CreateIndex {
-    #[prost(uint32, tag = "1")]
-    pub created_indexes: u32,
+    #[prost(uint64, tag = "1")]
+    pub created_indexes: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AiStoreInfo {
@@ -67,6 +67,6 @@ pub struct AiStoreInfo {
     pub query_model: i32,
     #[prost(enumeration = "super::models::AiModel", tag = "3")]
     pub index_model: i32,
-    #[prost(uint32, tag = "4")]
-    pub embedding_size: u32,
+    #[prost(uint64, tag = "4")]
+    pub embedding_size: u64,
 }

@@ -7,7 +7,6 @@ enum MetadataType {
   IMAGE = 1;
 }
 
-// FIXME: change to a oneOf but with custom values
 message MetadataValue {
   MetadataType type = 1;
 

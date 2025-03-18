@@ -28,14 +28,14 @@ impl From<ServerError> for Status {
     fn from(input: ServerError) -> Status {
         let message = input.to_string();
         let code = match input {
-            ServerError::PredicateNotFound(_) => Code::NotFound,
-            ServerError::NonLinearIndexNotFound(_) => Code::NotFound,
             ServerError::StoreNotFound(_) => Code::NotFound,
             ServerError::StoreAlreadyExists(_) => Code::AlreadyExists,
             ServerError::StoreDimensionMismatch {
                 store_dimension: _,
                 input_dimension: _,
             } => Code::InvalidArgument,
+            ServerError::PredicateNotFound(_) => Code::NotFound,
+            ServerError::NonLinearIndexNotFound(_) => Code::NotFound,
             ServerError::Allocation(_) => Code::ResourceExhausted,
         };
         Status::new(code, message)

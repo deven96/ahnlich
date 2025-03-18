@@ -29,6 +29,7 @@ service AIService {
   /** Ancillary info methods **/
   rpc ListClients(ai.query.ListClients) returns (ai.server.ClientList);
   rpc ListStores(ai.query.ListStores) returns (ai.server.StoreList);
+  rpc InfoServer(ai.query.InfoServer) returns (ai.server.InfoServer);
   rpc PurgeStores(ai.query.PurgeStores) returns (ai.server.Del);
   rpc Ping(ai.query.Ping) returns (ai.server.Pong);
 

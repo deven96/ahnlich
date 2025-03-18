@@ -429,6 +429,30 @@ pub mod ai_service_client {
                 .insert(GrpcMethod::new("services.ai_service.AIService", "ListStores"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn info_server(
+            &mut self,
+            request: impl tonic::IntoRequest<super::super::super::ai::query::InfoServer>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::ai::server::InfoServer>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/services.ai_service.AIService/InfoServer",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("services.ai_service.AIService", "InfoServer"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn purge_stores(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::ai::query::PurgeStores>,
@@ -617,6 +641,13 @@ pub mod ai_service_server {
             request: tonic::Request<super::super::super::ai::query::ListStores>,
         ) -> std::result::Result<
             tonic::Response<super::super::super::ai::server::StoreList>,
+            tonic::Status,
+        >;
+        async fn info_server(
+            &self,
+            request: tonic::Request<super::super::super::ai::query::InfoServer>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::ai::server::InfoServer>,
             tonic::Status,
         >;
         async fn purge_stores(
@@ -1330,6 +1361,54 @@ pub mod ai_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListStoresSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/services.ai_service.AIService/InfoServer" => {
+                    #[allow(non_camel_case_types)]
+                    struct InfoServerSvc<T: AiService>(pub Arc<T>);
+                    impl<
+                        T: AiService,
+                    > tonic::server::UnaryService<
+                        super::super::super::ai::query::InfoServer,
+                    > for InfoServerSvc<T> {
+                        type Response = super::super::super::ai::server::InfoServer;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::super::ai::query::InfoServer,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AiService>::info_server(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = InfoServerSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

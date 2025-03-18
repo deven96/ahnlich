@@ -90,6 +90,10 @@ fn main() -> Result<()> {
             "#[derive(serde::Serialize, serde::Deserialize, PartialOrd, Ord, Hash, Eq)]",
         )
         .type_attribute(
+            "ai.models.AIModel",
+            "#[derive(serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
             "client.ConnectedClient",
             "#[derive(PartialOrd, Ord, Hash, Eq)]",
         )

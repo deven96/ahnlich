@@ -1,3 +1,4 @@
+//! FIXME: Fix documentation for rust client
 //! A rust client for talking to ahnlich DB and AI
 //!
 //! Ships primarily the db, ai, error submodules
@@ -120,9 +121,6 @@
 //!
 //! let results = pipeline.exec().await.unwrap();
 //! ```
-pub mod ai;
-pub mod conn;
-pub mod db;
 pub mod error;
 pub mod grpc;
 pub mod prelude;

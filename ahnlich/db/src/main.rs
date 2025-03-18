@@ -1,7 +1,7 @@
 use clap::Parser;
 
 use std::error::Error;
-use utils::{cli::validate_persistence, server::AhnlichServerUtilsV2};
+use utils::{cli::validate_persistence, server::AhnlichServerUtils};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

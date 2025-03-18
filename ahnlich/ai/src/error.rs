@@ -5,6 +5,7 @@ use ahnlich_types::{
 use fallible_collections::TryReserveError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
+use tonic::{Code, Status};
 
 use crate::engine::ai::models::InputAction;
 
@@ -14,9 +15,6 @@ pub enum AIProxyError {
     StoreNotFound(StoreName),
     #[error("Store {0} already exists")]
     StoreAlreadyExists(StoreName),
-
-    #[error("Proxy Errored with {0} ")]
-    StandardError(String),
 
     #[error("Proxy Errored with {0} ")]
     DatabaseClientError(String),
@@ -54,12 +52,8 @@ pub enum AIProxyError {
         image_dimensions: (usize, usize),
         expected_dimensions: (usize, usize),
     },
-    #[error("Error initializing text embedding")]
-    TextEmbeddingInitError(String),
     #[error("API Builder Error: {0}")]
     APIBuilderError(String),
-    #[error("Tokenizer initialization error {0}")]
-    TokenizerInitError(String),
     #[error("ORT Error {0}")]
     ORTError(String),
     #[error("Used [{preprocess_action}] for [{input_type}] type")]
@@ -68,17 +62,14 @@ pub enum AIProxyError {
         preprocess_action: PreprocessAction,
     },
 
+    #[error("Unknown enum value {0}")]
+    UnknownEnumValue(#[from] prost::error::UnknownEnumValue),
+
     #[error("index_model or query_model not selected or loaded during aiproxy startup")]
     AIModelNotInitialized,
 
     #[error("index_model or query_model [{model_name}] not supported")]
     AIModelNotSupported { model_name: String },
-
-    #[error("Invalid operation [{operation}] on model [{model_name}]")]
-    AIModelInvalidOperation {
-        operation: String,
-        model_name: String,
-    },
 
     #[error("Vector normalization error: [{message}]")]
     VectorNormalizationError { message: String },
@@ -164,5 +155,43 @@ impl From<TryReserveError> for AIProxyError {
 impl From<ort::Error> for AIProxyError {
     fn from(input: ort::Error) -> Self {
         Self::ORTError(input.to_string())
+    }
+}
+
+impl From<AIProxyError> for Status {
+    fn from(input: AIProxyError) -> Status {
+        let message = input.to_string();
+        let code = match input {
+            AIProxyError::StoreNotFound(_) => Code::NotFound,
+            AIProxyError::StoreAlreadyExists(_) => Code::AlreadyExists,
+            AIProxyError::DatabaseClientError(_)
+            | AIProxyError::UnexpectedDBResponse(_)
+            | AIProxyError::DelKeyError => Code::FailedPrecondition,
+            AIProxyError::ReservedError(_)
+            | AIProxyError::StoreTypeMismatchError {
+                action: _,
+                index_model_type: _,
+                storeinput_type: _,
+            }
+            | AIProxyError::ImageDimensionsMismatchError {
+                image_dimensions: _,
+                expected_dimensions: _,
+            }
+            | AIProxyError::DimensionsMismatchError {
+                index_model_dim: _,
+                query_model_dim: _,
+            }
+            | AIProxyError::PreprocessingMismatchError {
+                input_type: _,
+                preprocess_action: _,
+            }
+            | AIProxyError::UnknownEnumValue(_) => Code::InvalidArgument,
+            AIProxyError::TokenExceededError {
+                max_token_size: _,
+                input_token_size: _,
+            } => Code::OutOfRange,
+            _others => Code::Internal,
+        };
+        Status::new(code, message)
     }
 }

@@ -1,6 +1,6 @@
-use ahnlich_types::ai::AIModel;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use dirs::home_dir;
+use grpc_types::ai::models::AiModel;
 use std::fmt;
 use strum::VariantArray;
 
@@ -74,6 +74,10 @@ pub struct AIProxyConfig {
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_host.clone())]
     pub db_host: String,
 
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_https.clone())]
+    pub db_https: bool,
+
     /// Ahnlich Database port
     #[arg(long, default_value_t =
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_port.clone())]
@@ -144,6 +148,7 @@ impl Default for AIProxyConfig {
         Self {
             port: 1370,
             db_host: String::from("127.0.0.1"),
+            db_https: false,
             db_port: 1369,
             db_client_pool_size: 10,
             supported_models: vec![
@@ -217,30 +222,30 @@ impl fmt::Display for SupportedModels {
     }
 }
 
-impl From<&AIModel> for SupportedModels {
-    fn from(value: &AIModel) -> Self {
+impl From<&AiModel> for SupportedModels {
+    fn from(value: &AiModel) -> Self {
         match value {
-            AIModel::AllMiniLML6V2 => SupportedModels::AllMiniLML6V2,
-            AIModel::AllMiniLML12V2 => SupportedModels::AllMiniLML12V2,
-            AIModel::BGEBaseEnV15 => SupportedModels::BGEBaseEnV15,
-            AIModel::BGELargeEnV15 => SupportedModels::BGELargeEnV15,
-            AIModel::Resnet50 => SupportedModels::Resnet50,
-            AIModel::ClipVitB32Image => SupportedModels::ClipVitB32Image,
-            AIModel::ClipVitB32Text => SupportedModels::ClipVitB32Text,
+            AiModel::AllMiniLmL6V2 => SupportedModels::AllMiniLML6V2,
+            AiModel::AllMiniLmL12V2 => SupportedModels::AllMiniLML12V2,
+            AiModel::BgeBaseEnV15 => SupportedModels::BGEBaseEnV15,
+            AiModel::BgeLargeEnV15 => SupportedModels::BGELargeEnV15,
+            AiModel::Resnet50 => SupportedModels::Resnet50,
+            AiModel::ClipVitB32Image => SupportedModels::ClipVitB32Image,
+            AiModel::ClipVitB32Text => SupportedModels::ClipVitB32Text,
         }
     }
 }
 
-impl From<&SupportedModels> for AIModel {
+impl From<&SupportedModels> for AiModel {
     fn from(value: &SupportedModels) -> Self {
         match value {
-            SupportedModels::AllMiniLML6V2 => AIModel::AllMiniLML6V2,
-            SupportedModels::AllMiniLML12V2 => AIModel::AllMiniLML12V2,
-            SupportedModels::BGEBaseEnV15 => AIModel::BGEBaseEnV15,
-            SupportedModels::BGELargeEnV15 => AIModel::BGELargeEnV15,
-            SupportedModels::Resnet50 => AIModel::Resnet50,
-            SupportedModels::ClipVitB32Image => AIModel::ClipVitB32Image,
-            SupportedModels::ClipVitB32Text => AIModel::ClipVitB32Text,
+            SupportedModels::AllMiniLML6V2 => AiModel::AllMiniLmL6V2,
+            SupportedModels::AllMiniLML12V2 => AiModel::AllMiniLmL12V2,
+            SupportedModels::BGEBaseEnV15 => AiModel::BgeBaseEnV15,
+            SupportedModels::BGELargeEnV15 => AiModel::BgeLargeEnV15,
+            SupportedModels::Resnet50 => AiModel::Resnet50,
+            SupportedModels::ClipVitB32Image => AiModel::ClipVitB32Image,
+            SupportedModels::ClipVitB32Text => AiModel::ClipVitB32Text,
         }
     }
 }

@@ -51,6 +51,7 @@ strum = { version = "0.26", features = ["derive"] }
 tonic = "0.12.3"
 tokio-stream = "0.1.17"
 http = "1.2.0"
+prost = "0.13"
 
 [profile.release]
 lto = true

@@ -43,7 +43,7 @@ message GetSimN {
     string store = 1; // Name of the store
     keyval.StoreInput search_input = 2; // Input data to search (can be a string or image)
     optional predicates.PredicateCondition condition = 3; // Optional: filters results by predicate condition
-    uint32 closest_n = 4; // Number of similar results to return
+    uint64 closest_n = 4; // Number of similar results to return
     algorithm.algorithms.Algorithm algorithm = 5; // Algorithm to use for similarity search
     ai.preprocess.PreprocessAction preprocess_action = 6; // Preprocessing actions to apply to input before querying
     optional ai.execution_provider.ExecutionProvider execution_provider = 7; // Optional execution provider for specific optimizations

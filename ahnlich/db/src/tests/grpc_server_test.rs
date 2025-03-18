@@ -3,7 +3,7 @@ use std::time::Duration;
 use grpc_types::services::db_service::db_service_client::DbServiceClient;
 use once_cell::sync::Lazy;
 use tonic::transport::Channel;
-use utils::server::AhnlichServerUtilsV2;
+use utils::server::AhnlichServerUtils;
 
 use crate::{cli::ServerConfig, server::handler::Server};
 
@@ -26,6 +26,11 @@ async fn test_grpc_ping_test() {
 
     let mut client = DbServiceClient::connect(channel).await.expect("Failure");
 
+    // maximum_message_size => DbServiceServer(server).max_decoding_message_size
+    // maximum_clients => At this point yet to figure out but it might be manually implementing
+    // Server/Interceptor as shown in https://chatgpt.com/share/67abdf0b-72a8-8008-b203-bc8e65b02495
+    // maximum_concurrency_per_client => we just set this with `concurrency_limit_per_connection`.
+    // for creating trace functions, we can add `trace_fn` and extract our header from `Request::header` and return the span
     let response = client
         .ping(tonic::Request::new(grpc_types::db::query::Ping {}))
         .await
