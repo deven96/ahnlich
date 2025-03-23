@@ -1,8 +1,8 @@
-use ahnlich_types::{
-    ai::{AIStoreInputType, PreprocessAction},
+use fallible_collections::TryReserveError;
+use grpc_types::{
+    ai::{models::AiStoreInputType, preprocess::PreprocessAction},
     keyval::StoreName,
 };
-use fallible_collections::TryReserveError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 use tonic::{Code, Status};
@@ -11,10 +11,13 @@ use crate::engine::ai::models::InputAction;
 
 #[derive(Error, Clone, Debug, PartialEq, Eq)]
 pub enum AIProxyError {
-    #[error("Store {0} not found")]
+    #[error("Store {0:?} not found")]
     StoreNotFound(StoreName),
-    #[error("Store {0} already exists")]
+    #[error("Store {0:?} already exists")]
     StoreAlreadyExists(StoreName),
+
+    #[error("{0} input not specified")]
+    InputNotSpecified(String),
 
     #[error("Proxy Errored with {0} ")]
     DatabaseClientError(String),
@@ -22,11 +25,11 @@ pub enum AIProxyError {
     ReservedError(String),
     #[error("Unexpected DB Response {0} ")]
     UnexpectedDBResponse(String),
-    #[error("Cannot {action} Input. Store expects [{index_model_type}], input type [{storeinput_type}] was provided")]
+    #[error("Cannot {action} Input. Store expects [{index_model_type:?}], input type [{storeinput_type:?}] was provided")]
     StoreTypeMismatchError {
         action: InputAction,
-        index_model_type: AIStoreInputType,
-        storeinput_type: AIStoreInputType,
+        index_model_type: AiStoreInputType,
+        storeinput_type: AiStoreInputType,
     },
 
     #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}].")]
@@ -56,14 +59,14 @@ pub enum AIProxyError {
     APIBuilderError(String),
     #[error("ORT Error {0}")]
     ORTError(String),
-    #[error("Used [{preprocess_action}] for [{input_type}] type")]
+    #[error("Used [{preprocess_action:?}] for [{input_type:?}] type")]
     PreprocessingMismatchError {
-        input_type: AIStoreInputType,
+        input_type: AiStoreInputType,
         preprocess_action: PreprocessAction,
     },
 
     #[error("Unknown enum value {0}")]
-    UnknownEnumValue(#[from] prost::error::UnknownEnumValue),
+    UnknownEnumValue(#[from] prost::UnknownEnumValue),
 
     #[error("index_model or query_model not selected or loaded during aiproxy startup")]
     AIModelNotInitialized,
@@ -185,7 +188,8 @@ impl From<AIProxyError> for Status {
                 input_type: _,
                 preprocess_action: _,
             }
-            | AIProxyError::UnknownEnumValue(_) => Code::InvalidArgument,
+            | AIProxyError::UnknownEnumValue(_)
+            | AIProxyError::InputNotSpecified(_) => Code::InvalidArgument,
             AIProxyError::TokenExceededError {
                 max_token_size: _,
                 input_token_size: _,

@@ -10,7 +10,7 @@ use grpc_types::ai::models::AiModel;
 use grpc_types::ai::models::AiStoreInputType;
 use grpc_types::ai::preprocess::PreprocessAction;
 use grpc_types::ai::server::AiStoreInfo;
-use grpc_types::db::query::StoreEntry;
+use grpc_types::ai::server::GetEntry;
 use grpc_types::keyval::StoreEntry;
 use grpc_types::keyval::StoreInput;
 use grpc_types::keyval::StoreKey;
@@ -136,10 +136,10 @@ impl AIStoreHandler {
                     SupportedModels::from(&store.index_model).to_model_details();
 
                 AiStoreInfo {
-                    name: store_name.clone(),
+                    name: store_name.value.clone(),
                     query_model: store.query_model.into(),
                     index_model: store.index_model.into(),
-                    embedding_size: model.embedding_size.into(),
+                    embedding_size: model.embedding_size.get() as u64,
                 }
             })
             .collect()
@@ -168,7 +168,9 @@ impl AIStoreHandler {
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
 
         let metadata_value: MetadataValue = store_input.clone().into();
-        store_value.insert(metadata_key.clone(), metadata_value);
+        store_value
+            .value
+            .insert(metadata_key.to_string(), metadata_value);
         return Ok((store_input, store_value));
     }
 
@@ -208,7 +210,9 @@ impl AIStoreHandler {
         let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let mut delete_hashset = StdHashSet::new();
         for (store_input, mut store_value) in inputs {
-            let store_input_type: AiStoreInputType = (&store_input).into();
+            let store_input_type: AiStoreInputType = (&store_input)
+                .try_into()
+                .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
             let index_model_repr: ModelDetails =
                 SupportedModels::from(&index_model).to_model_details();
             if store_input_type != index_model_repr.input_type() {
@@ -220,11 +224,13 @@ impl AIStoreHandler {
             }
             if store_original {
                 let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-                if store_value.contains_key(metadata_key) {
+                if store_value.value.contains_key(metadata_key) {
                     return Err(AIProxyError::ReservedError(metadata_key.to_string()));
                 }
                 let metadata_value: MetadataValue = store_input.clone().into();
-                store_value.insert(metadata_key.clone(), metadata_value.clone());
+                store_value
+                    .value
+                    .insert(metadata_key.to_string(), metadata_value.clone());
                 delete_hashset.insert(metadata_value);
             }
             output.try_push((store_input, store_value))?;
@@ -262,9 +268,33 @@ impl AIStoreHandler {
             .await?;
 
         let output = std::iter::zip(store_keys.into_iter(), store_values.into_iter())
-            .map(|(k, v)| StoreEntry { key: k, value: v })
+            .map(|(k, v)| StoreEntry {
+                key: Some(k),
+                value: Some(v),
+            })
             .collect();
         Ok((output, delete_hashset))
+    }
+
+    #[tracing::instrument(skip(self, input), fields(input_len=input.len()))]
+    pub(crate) fn db_store_entry_to_store_get_key(&self, input: Vec<StoreEntry>) -> Vec<GetEntry> {
+        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
+
+        input
+            .into_par_iter()
+            .flat_map(|store_entry| {
+                if let Some(mut value) = store_entry.value {
+                    let store_input = value.value.remove(metadata_key).map(|val| val.into());
+                    if let Some(input) = store_input {
+                        return Some(GetEntry {
+                            key: Some(input),
+                            value: Some(value),
+                        });
+                    }
+                }
+                None
+            })
+            .collect()
     }
 
     /// Converts (storekey, storevalue) into (storeinput, storevalue)
@@ -279,7 +309,7 @@ impl AIStoreHandler {
         output
             .into_par_iter()
             .map(|(_, mut store_value)| {
-                let store_input = store_value.remove(metadata_key).map(|val| val.into());
+                let store_input = store_value.value.remove(metadata_key).map(|val| val.into());
                 (store_input, store_value)
             })
             .collect()

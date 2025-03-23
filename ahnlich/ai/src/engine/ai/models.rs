@@ -3,8 +3,6 @@ use crate::engine::ai::providers::ort::ORTProvider;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
-use ahnlich_types::ai::ExecutionProvider;
-use ahnlich_types::{ai::AIStoreInputType, keyval::StoreKey};
 use fast_image_resize::images::Image;
 use fast_image_resize::images::ImageRef;
 use fast_image_resize::FilterType;
@@ -12,6 +10,9 @@ use fast_image_resize::PixelType;
 use fast_image_resize::ResizeAlg;
 use fast_image_resize::ResizeOptions;
 use fast_image_resize::Resizer;
+use grpc_types::ai::execution_provider::ExecutionProvider;
+use grpc_types::ai::models::AiStoreInputType;
+use grpc_types::keyval::StoreKey;
 use image::imageops;
 use image::ImageReader;
 use image::RgbImage;
@@ -144,10 +145,10 @@ impl SupportedModels {
 
 impl ModelDetails {
     #[tracing::instrument(skip(self))]
-    pub fn input_type(&self) -> AIStoreInputType {
+    pub fn input_type(&self) -> AiStoreInputType {
         match self.model_type {
-            ModelType::Text { .. } => AIStoreInputType::RawString,
-            ModelType::Image { .. } => AIStoreInputType::Image,
+            ModelType::Text { .. } => AiStoreInputType::RawString,
+            ModelType::Image { .. } => AiStoreInputType::Image,
         }
     }
 
@@ -180,7 +181,7 @@ impl ModelDetails {
 
 impl Model {
     #[tracing::instrument(skip(self))]
-    pub fn input_type(&self) -> AIStoreInputType {
+    pub fn input_type(&self) -> AiStoreInputType {
         self.model_details.input_type()
     }
 
@@ -226,11 +227,11 @@ impl Model {
     }
 }
 
-impl From<&Model> for AIStoreInputType {
+impl From<&Model> for AiStoreInputType {
     fn from(value: &Model) -> Self {
         match value.model_details.model_type {
-            ModelType::Text { .. } => AIStoreInputType::RawString,
-            ModelType::Image { .. } => AIStoreInputType::Image,
+            ModelType::Text { .. } => AiStoreInputType::RawString,
+            ModelType::Image { .. } => AiStoreInputType::Image,
         }
     }
 }
@@ -385,11 +386,11 @@ impl ImageArray {
     }
 }
 
-impl From<&ModelInput> for AIStoreInputType {
-    fn from(value: &ModelInput) -> AIStoreInputType {
+impl From<&ModelInput> for AiStoreInputType {
+    fn from(value: &ModelInput) -> AiStoreInputType {
         match value {
-            ModelInput::Texts(_) => AIStoreInputType::RawString,
-            ModelInput::Images(_) => AIStoreInputType::Image,
+            ModelInput::Texts(_) => AiStoreInputType::RawString,
+            ModelInput::Images(_) => AiStoreInputType::Image,
         }
     }
 }

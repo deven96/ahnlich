@@ -13,14 +13,7 @@ message StoreKey {
     repeated float key = 1;
 }
 
-enum StoreInputType {
-    RawString = 0;
-    Image = 1;
-}
-
 message StoreInput {
-    StoreInputType type = 1;
-
     oneof value {
         string raw_string = 2;
         bytes image = 3;
@@ -29,13 +22,12 @@ message StoreInput {
 
 }
 
+// A single entry for a store containing a key and its associated metadata values.
 message StoreEntry {
     StoreKey key = 1;
     StoreValue value = 2;
 }
 
-
 message StoreValue {
     map<string, metadata.MetadataValue> value = 1;
-
 }

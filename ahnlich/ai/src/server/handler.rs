@@ -7,7 +7,6 @@ use crate::engine::store::AIStoreHandler;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use ahnlich_types::client::ConnectedClient;
 use grpc_types::ai::models::AiModel;
 use grpc_types::ai::pipeline::ai_query::Query;
 use grpc_types::ai::pipeline::ai_server_response;
@@ -32,7 +31,6 @@ use grpc_types::ai::query::Ping;
 use grpc_types::ai::query::PurgeStores;
 use grpc_types::ai::query::Set;
 use grpc_types::ai::server;
-use grpc_types::ai::server::AiStoreInfo;
 use grpc_types::ai::server::ClientList;
 use grpc_types::ai::server::CreateIndex;
 use grpc_types::ai::server::Del;
@@ -48,6 +46,7 @@ use grpc_types::db::query::CreateStore as DbCreateStore;
 use grpc_types::db::query::DelPred;
 use grpc_types::db::query::DropNonLinearAlgorithmIndex as DbDropNonLinearAlgorithmIndex;
 use grpc_types::db::query::DropPredIndex as DbDropPredIndex;
+use grpc_types::db::query::GetPred as DbGetPred;
 use grpc_types::db::query::GetSimN as DbGetSimN;
 use grpc_types::db::server::Set as DbSet;
 use grpc_types::keyval::StoreName;
@@ -69,14 +68,8 @@ use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use task_manager::BlockingTask;
-use task_manager::Task;
 use task_manager::TaskManager;
-use task_manager::TaskState;
-use tokio::io::BufReader;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
-use tonic::Status;
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::client::ClientHandler;
 use utils::connection_layer::trace_with_parent;
@@ -87,7 +80,6 @@ use utils::server::ListenerStreamOrAddress;
 use utils::server::ServerUtilsConfig;
 
 use ahnlich_client_rs::grpc::db::DbClient;
-use deadpool::managed::Pool;
 
 const SERVICE_NAME: &str = "ahnlich-ai";
 
@@ -173,22 +165,38 @@ impl AiService for AIProxyServer {
         if params.store_original {
             predicates.push(default_metadata_key.to_string());
         }
-        let ai_model: AiModel = params.index_model.into();
-        let model: ModelDetails = SupportedModels::from(&ai_model).to_model_details();
+        let index_model: AiModel = params
+            .index_model
+            .try_into()
+            .map_err(|_| AIProxyError::InputNotSpecified("Index model".to_string()))?;
+        let query_model: AiModel = params
+            .query_model
+            .try_into()
+            .map_err(|_| AIProxyError::InputNotSpecified("Query model".to_string()))?;
+        let model: ModelDetails = SupportedModels::from(&index_model).to_model_details();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let _ = self
             .db_client
             .create_store(
                 DbCreateStore {
-                    store: params.store,
-                    dimension: model.embedding_size.into(),
-                    create_predicates: params.predicates,
+                    store: params.store.clone(),
+                    dimension: model.embedding_size.get() as u32,
+                    create_predicates: predicates,
                     non_linear_indices: params.non_linear_indices,
                     error_if_exists: params.error_if_exists,
                 },
                 parent_id,
             )
             .await?;
+        let _ = self.store_handler.create_store(
+            StoreName {
+                value: params.store,
+            },
+            query_model,
+            index_model,
+            params.error_if_exists,
+            params.store_original,
+        )?;
         Ok(tonic::Response::new(Unit {}))
     }
 
@@ -243,10 +251,33 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<Get>, tonic::Status> {
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self.db_client.get_key(params, parent_id).await?;
-        Ok(tonic::Response::new(Get {
-            entries: res.entries,
-        }))
+        let values = params
+            .keys
+            .into_par_iter()
+            .map(|entry| entry.into())
+            .collect();
+        let condition = Some(PredicateCondition {
+            kind: Some(Kind::Value(Predicate {
+                kind: Some(PredicateKind::In(In {
+                    key: AHNLICH_AI_RESERVED_META_KEY.to_string(),
+                    values,
+                })),
+            })),
+        });
+        let res = self
+            .db_client
+            .get_pred(
+                DbGetPred {
+                    store: params.store,
+                    condition,
+                },
+                parent_id,
+            )
+            .await?;
+        let entries = self
+            .store_handler
+            .db_store_entry_to_store_get_key(res.entries);
+        Ok(tonic::Response::new(Get { entries }))
     }
 
     #[tracing::instrument(skip_all)]
@@ -256,10 +287,20 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<Get>, tonic::Status> {
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self.db_client.get_pred(params, parent_id).await?;
-        Ok(tonic::Response::new(Get {
-            entries: res.entries,
-        }))
+        let res = self
+            .db_client
+            .get_pred(
+                DbGetPred {
+                    store: params.store,
+                    condition: params.condition,
+                },
+                parent_id,
+            )
+            .await?;
+        let entries = self
+            .store_handler
+            .db_store_entry_to_store_get_key(res.entries);
+        Ok(tonic::Response::new(Get { entries }))
     }
 
     #[tracing::instrument(skip_all)]
@@ -268,13 +309,16 @@ impl AiService for AIProxyServer {
         request: tonic::Request<GetSimN>,
     ) -> Result<tonic::Response<server::GetSimN>, tonic::Status> {
         let params = request.into_inner();
+        let search_input = params
+            .search_input
+            .ok_or_else(|| AIProxyError::InputNotSpecified("Search".to_string()))?;
         let search_input = self
             .store_handler
             .get_ndarray_repr_for_store(
                 &StoreName {
-                    value: params.store,
+                    value: params.store.clone(),
                 },
-                params.search_input,
+                search_input,
                 &self.model_manager,
                 TryInto::<PreprocessAction>::try_into(params.preprocess_action)
                     .map_err(AIProxyError::from)?,
@@ -298,7 +342,7 @@ impl AiService for AIProxyServer {
             .into_par_iter()
             .flat_map(|entry| {
                 if let (Some(key), Some(value), Some(similarity)) =
-                    (entry.key, entry, value, entry.similarity)
+                    (entry.key, entry.value, entry.similarity)
                 {
                     Some(((key, value), similarity))
                 } else {
@@ -311,10 +355,10 @@ impl AiService for AIProxyServer {
             .store_key_val_to_store_input_val(store_key_input)
             .into_par_iter()
             .zip(similarities.into_par_iter())
-            .map(|((key, val), similarity)| server::GetSimNEntry {
+            .map(|((key, value), similarity)| server::GetSimNEntry {
                 key,
-                value,
-                similarity,
+                value: Some(value),
+                similarity: Some(similarity),
             })
             .collect();
         Ok(tonic::Response::new(server::GetSimN { entries }))
@@ -434,13 +478,16 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<Del>, tonic::Status> {
         let params = request.into_inner();
         let store_original = self.store_handler.store_original(StoreName {
-            value: params.store,
+            value: params.store.clone(),
         })?;
         if !store_original {
             return Err(AIProxyError::DelKeyError.into());
         } else {
             let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
-            let metadata_value: MetadataValue = params.key.into();
+            let key = params
+                .key
+                .ok_or_else(|| AIProxyError::InputNotSpecified("Del key".to_string()))?;
+            let metadata_value: MetadataValue = key.into();
             let del_pred_params = DelPred {
                 store: params.store,
                 condition: Some(PredicateCondition {
@@ -530,7 +577,9 @@ impl AiService for AIProxyServer {
 
             match pipeline_query {
                 Query::Ping(params) => match self.ping(tonic::Request::new(params)).await {
-                    Ok(res) => response_vec.push(Pong(res.into_inner())),
+                    Ok(res) => {
+                        response_vec.push(ai_server_response::Response::Pong(res.into_inner()))
+                    }
                     Err(err) => {
                         response_vec.push(ai_server_response::Response::Error(ErrorResponse {
                             message: err.message().to_string(),

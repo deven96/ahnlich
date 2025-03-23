@@ -13,8 +13,6 @@ pub struct StoreKey {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StoreInput {
-    #[prost(enumeration = "StoreInputType", tag = "1")]
-    pub r#type: i32,
     #[prost(oneof = "store_input::Value", tags = "2, 3")]
     pub value: ::core::option::Option<store_input::Value>,
 }
@@ -28,6 +26,7 @@ pub mod store_input {
         Image(::prost::alloc::vec::Vec<u8>),
     }
 }
+/// A single entry for a store containing a key and its associated metadata values.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StoreEntry {
     #[prost(message, optional, tag = "1")]
@@ -43,30 +42,4 @@ pub struct StoreValue {
         ::prost::alloc::string::String,
         super::metadata::MetadataValue,
     >,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum StoreInputType {
-    RawString = 0,
-    Image = 1,
-}
-impl StoreInputType {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::RawString => "RawString",
-            Self::Image => "Image",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "RawString" => Some(Self::RawString),
-            "Image" => Some(Self::Image),
-            _ => None,
-        }
-    }
 }

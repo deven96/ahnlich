@@ -59,6 +59,7 @@ pub struct CreateIndex {
     #[prost(uint64, tag = "1")]
     pub created_indexes: u64,
 }
+#[derive(Eq, PartialOrd, Ord, Hash)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AiStoreInfo {
     #[prost(string, tag = "1")]

@@ -7,7 +7,6 @@ use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::{io::Result as IoResult, sync::Arc};
 use task_manager::BlockingTask;
-use task_manager::Task;
 use task_manager::TaskManager;
 use tokio_stream::wrappers::TcpListenerStream;
 use tokio_util::sync::CancellationToken;

@@ -11,9 +11,12 @@ use crate::engine::ai::providers::processors::imagearray_to_ndarray::ImageArrayT
 use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
 use crate::engine::ai::providers::ModelProviders;
 use crate::error::AIProxyError;
-use ahnlich_types::ai::{AIModel, ExecutionProvider, PreprocessAction};
-use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
+use grpc_types::ai::execution_provider::ExecutionProvider;
+use grpc_types::ai::models::AiModel;
+use grpc_types::ai::preprocess::PreprocessAction;
+use grpc_types::keyval::store_input::Value;
+use grpc_types::keyval::{StoreInput, StoreKey};
 use moka::future::Cache;
 use ndarray::{Array, Ix4};
 use rayon::prelude::*;
@@ -91,23 +94,27 @@ impl ModelThread {
                 model_name: self.model.model_name(),
                 message: "Input is empty".to_string(),
             })?;
-        match sample {
-            StoreInput::RawString(_) => {
+        let sample_type = sample
+            .value
+            .as_ref()
+            .ok_or_else(|| AIProxyError::InputNotSpecified("Store input value".to_string()))?;
+        match sample_type {
+            Value::RawString(_) => {
                 let inputs: Vec<String> = inputs
                     .into_par_iter()
-                    .filter_map(|input| match input {
-                        StoreInput::RawString(string) => Some(string),
+                    .filter_map(|input| match input.value {
+                        Some(Value::RawString(string)) => Some(string),
                         _ => None,
                     })
                     .collect();
                 let output = self.preprocess_raw_string(inputs, process_action)?;
                 Ok(ModelInput::Texts(output))
             }
-            StoreInput::Image(_) => {
+            Value::Image(_) => {
                 let inputs = inputs
                     .into_par_iter()
-                    .filter_map(|input| match input {
-                        StoreInput::Image(image_bytes) => {
+                    .filter_map(|input| match input.value {
+                        Some(Value::Image(image_bytes)) => {
                             Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
                         }
                         _ => None,
@@ -280,7 +287,7 @@ impl ModelManager {
     #[tracing::instrument(skip(self, inputs))]
     pub async fn handle_request(
         &self,
-        model: &AIModel,
+        model: &AiModel,
         inputs: Vec<StoreInput>,
         preprocess_action: PreprocessAction,
         action_type: InputAction,

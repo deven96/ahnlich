@@ -94,6 +94,10 @@ fn main() -> Result<()> {
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
         .type_attribute(
+            "ai.server.AIStoreInfo",
+            "#[derive(Eq, PartialOrd, Ord, Hash)]",
+        )
+        .type_attribute(
             "client.ConnectedClient",
             "#[derive(PartialOrd, Ord, Hash, Eq)]",
         )

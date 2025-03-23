@@ -176,18 +176,5 @@ pub struct Set {
     pub store: ::prost::alloc::string::String,
     /// The key-value entries to set in the store.
     #[prost(message, repeated, tag = "2")]
-    pub inputs: ::prost::alloc::vec::Vec<StoreEntry>,
-}
-/// A single entry for a store containing a key and its associated metadata values.
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct StoreEntry {
-    /// The key for the entry.
-    #[prost(message, optional, tag = "1")]
-    pub key: ::core::option::Option<super::super::keyval::StoreKey>,
-    /// The metadata associated with the key.
-    #[prost(map = "string, message", tag = "2")]
-    pub value: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        super::super::metadata::MetadataValue,
-    >,
+    pub inputs: ::prost::alloc::vec::Vec<super::super::keyval::StoreEntry>,
 }

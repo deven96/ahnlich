@@ -774,13 +774,11 @@ impl Server {
 }
 
 // TODO: next steps:
-// - implement ai service for ai
-// - implement blocking task for ai server
-// - swap out tcp listener for TcpListenerStream
-// - rewrite the clients(rust, python) by wrapping around the grpc clients.
-// - Everywhere we see tracing, we insert it into the header
-// - Remove ahnlich_types, keeping the internal types we'd need
-// - rename grpc types to types
+// - Complete the todo!() left in DB and grpc utils
+// - Remove ahnlich_types
+// - rename grpc types to ahnlich_types
+// - Fix DSL and CLI
+// - Run tests and fix all types (alhamdullahi)
 
 #[async_trait::async_trait]
 impl BlockingTask for Server {

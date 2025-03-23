@@ -8,7 +8,6 @@ members = [
   "similarity",
   "task-manager",
   "tracer", 
-  "typegen",
   "types",
   "utils", "grpc_types",
 ]

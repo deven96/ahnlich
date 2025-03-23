@@ -3,8 +3,6 @@ syntax = "proto3";
 package version;
 
 // Currently ahnlich uses the major versions to interact with clients provided they match.
-// FIXME: Remove completely as we no longer need it. If the query gets deserialized by the server 
-// then that in itself is news that we are compatible enough
 message Version {
     uint32 major = 1;
     uint32 minor = 2;

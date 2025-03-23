@@ -4,7 +4,7 @@ use grpc_types::{
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred,
             DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
-            InfoServer, ListClients, ListStores, Ping, Set, StoreEntry,
+            InfoServer, ListClients, ListStores, Ping, Set,
         },
         server::{
             ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong, Set as SetResult,
@@ -27,72 +27,69 @@ pub struct DbPipeline {
 }
 
 impl DbPipeline {
-    pub async fn create_store(&mut self, params: CreateStore) {
+    pub fn create_store(&mut self, params: CreateStore) {
         self.queries.push(Query::CreateStore(params));
     }
 
-    pub async fn create_pred_index(&mut self, params: CreatePredIndex) {
+    pub fn create_pred_index(&mut self, params: CreatePredIndex) {
         self.queries.push(Query::CreatePredIndex(params));
     }
 
-    pub async fn create_non_linear_algorithm_index(
-        &mut self,
-        params: CreateNonLinearAlgorithmIndex,
-    ) {
+    pub fn create_non_linear_algorithm_index(&mut self, params: CreateNonLinearAlgorithmIndex) {
         self.queries
             .push(Query::CreateNonLinearAlgorithmIndex(params));
     }
 
-    pub async fn get_key(&mut self, params: GetKey) {
+    pub fn get_key(&mut self, params: GetKey) {
         self.queries.push(Query::GetKey(params));
     }
 
-    pub async fn get_pred(&mut self, params: GetPred) {
+    pub fn get_pred(&mut self, params: GetPred) {
         self.queries.push(Query::GetPred(params));
     }
 
-    pub async fn get_sim_n(&mut self, params: GetSimN) {
+    pub fn get_sim_n(&mut self, params: GetSimN) {
         self.queries.push(Query::GetSimN(params));
     }
 
-    pub async fn set(&mut self, params: Set) {
+    pub fn set(&mut self, params: Set) {
         self.queries.push(Query::Set(params));
     }
 
-    pub async fn drop_pred_index(&mut self, params: DropPredIndex) {
+    pub fn drop_pred_index(&mut self, params: DropPredIndex) {
         self.queries.push(Query::DropPredIndex(params));
     }
 
-    pub async fn drop_non_linear_algorithm_index(&mut self, params: DropNonLinearAlgorithmIndex) {
+    pub fn drop_non_linear_algorithm_index(&mut self, params: DropNonLinearAlgorithmIndex) {
         self.queries
             .push(Query::DropNonLinearAlgorithmIndex(params));
     }
 
-    pub async fn del_key(&mut self, params: DelKey) {
+    pub fn del_key(&mut self, params: DelKey) {
         self.queries.push(Query::DelKey(params));
     }
 
-    pub async fn drop_store(&mut self, params: DropStore) {
+    pub fn drop_store(&mut self, params: DropStore) {
         self.queries.push(Query::DropStore(params));
     }
 
-    pub async fn del_pred(&mut self, params: DelPred) {
+    pub fn del_pred(&mut self, params: DelPred) {
         self.queries.push(Query::DelPred(params));
     }
 
-    pub async fn info_server(&mut self) {
+    pub fn info_server(&mut self) {
         self.queries.push(Query::InfoServer(InfoServer {}));
     }
 
-    pub async fn list_stores(&mut self) {
+    pub fn list_stores(&mut self) {
         self.queries.push(Query::ListStores(ListStores {}));
     }
 
-    pub async fn list_clients(&mut self) {
+    pub fn list_clients(&mut self) {
         self.queries.push(Query::ListClients(ListClients {}));
     }
 
-    pub async fn ping(&mut self) {
+    pub fn ping(&mut self) {
         self.queries.push(Query::Ping(Ping {}));
     }
 

@@ -38,9 +38,6 @@ check: ## cargo check
 test: ## cargo test
 	cargo nextest run --no-capture
 
-generate-specs: ## generate type specs 
-	cargo run --bin typegen generate
-
 grpc-update-clients: grpc-update-rust grpc-update-python ## updates client generated code after proto change
 	@echo "Updated clients"
 
