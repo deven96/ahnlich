@@ -701,7 +701,7 @@ mod tests {
     use std::num::NonZeroUsize;
 
     use super::*;
-    use grpc_types::metadata::{MetadataType, MetadataValue};
+    use grpc_types::metadata::MetadataValue;
     use grpc_types::predicates::{
         self, predicate::Kind as PredicateKind,
         predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
@@ -853,7 +853,6 @@ mod tests {
                             value: StdHashMap::from_iter(vec![(
                                 "author".to_string(),
                                 MetadataValue {
-                                    r#type: MetadataType::RawString.into(),
                                     value: Some(
                                         grpc_types::metadata::metadata_value::Value::RawString(
                                             "Vincent".to_string()
@@ -890,7 +889,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "author".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Lex Luthor".to_string(),
@@ -920,7 +918,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "author".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Clark Kent".to_string(),
@@ -962,7 +959,6 @@ mod tests {
                             (
                                 "author".to_string(),
                                 MetadataValue {
-                                    r#type: MetadataType::RawString.into(),
                                     value: Some(
                                         grpc_types::metadata::metadata_value::Value::RawString(
                                             "Lex Luthor".to_string(),
@@ -973,7 +969,6 @@ mod tests {
                             (
                                 "planet".to_string(),
                                 MetadataValue {
-                                    r#type: MetadataType::RawString.into(),
                                     value: Some(
                                         grpc_types::metadata::metadata_value::Value::RawString(
                                             "earth".to_string(),
@@ -998,7 +993,6 @@ mod tests {
                             (
                                 "author".to_string(),
                                 MetadataValue {
-                                    r#type: MetadataType::RawString.into(),
                                     value: Some(
                                         grpc_types::metadata::metadata_value::Value::RawString(
                                             "Clark Kent Luthor".to_string(),
@@ -1009,7 +1003,6 @@ mod tests {
                             (
                                 "planet".to_string(),
                                 MetadataValue {
-                                    r#type: MetadataType::RawString.into(),
                                     value: Some(
                                         grpc_types::metadata::metadata_value::Value::RawString(
                                             "krypton".to_string(),
@@ -1034,7 +1027,6 @@ mod tests {
                             (
                                 "author".to_string(),
                                 MetadataValue {
-                                    r#type: MetadataType::RawString.into(),
                                     value: Some(
                                         grpc_types::metadata::metadata_value::Value::RawString(
                                             "General Zof".to_string(),
@@ -1045,7 +1037,6 @@ mod tests {
                             (
                                 "planet".to_string(),
                                 MetadataValue {
-                                    r#type: MetadataType::RawString.into(),
                                     value: Some(
                                         grpc_types::metadata::metadata_value::Value::RawString(
                                             "krypton".to_string(),
@@ -1064,7 +1055,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "author".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Lex Luthor".to_string(),
                         )),
@@ -1080,7 +1070,6 @@ mod tests {
                 kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
                     key: "author".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Lex Luthor".to_string(),
                         )),
@@ -1097,7 +1086,6 @@ mod tests {
                 kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
                     key: "author".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Lex Luthor".to_string(),
                         )),
@@ -1110,7 +1098,6 @@ mod tests {
                 kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
                     key: "planet".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "earth".to_string(),
                         )),
@@ -1149,7 +1136,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "author".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Lex Luthor".to_string(),
@@ -1172,7 +1158,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "author".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Clark Kent".to_string(),
@@ -1198,7 +1183,6 @@ mod tests {
         assert_eq!(
             ret[0].1.value.get("author".into()).cloned().unwrap(),
             MetadataValue {
-                r#type: MetadataType::RawString.into(),
                 value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                     "Lex Luthor".to_string(),
                 ),),
@@ -1207,7 +1191,6 @@ mod tests {
         assert_eq!(
             ret[1].1.value.get("author".into()).cloned().unwrap(),
             MetadataValue {
-                r#type: MetadataType::RawString.into(),
                 value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                     "Clark Kent".to_string(),
                 ),),
@@ -1234,7 +1217,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "rank".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Joinin".to_string(),
@@ -1257,7 +1239,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "rank".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Genin".to_string(),
@@ -1275,7 +1256,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "rank".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Hokage".to_string(),
                         )),
@@ -1292,7 +1272,6 @@ mod tests {
                 kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
                     key: "rank".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Hokage".to_string(),
                         )),
@@ -1309,7 +1288,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "rank".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Joinin".to_string(),
                         )),
@@ -1344,7 +1322,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "rank".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Joinin".to_string(),
@@ -1367,7 +1344,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "rank".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Genin".to_string(),
@@ -1422,7 +1398,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "rank".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Chunin".to_string(),
@@ -1443,7 +1418,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "rank".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Chunin".to_string(),
@@ -1464,7 +1438,6 @@ mod tests {
                         value: StdHashMap::from_iter(vec![(
                             "rank".to_string(),
                             MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Genin".to_string(),
@@ -1482,7 +1455,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "rank".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Chunin".to_string(),
                         )),
@@ -1526,7 +1498,6 @@ mod tests {
                 kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
                     key: "rank".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Chunin".to_string(),
                         )),
@@ -1558,7 +1529,6 @@ mod tests {
                     value: StdHashMap::from_iter(vec![(
                         meta_data_key.clone(),
                         MetadataValue {
-                            r#type: MetadataType::RawString.into(),
                             value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                                 sentence.into(),
                             )),
@@ -1584,7 +1554,6 @@ mod tests {
         assert_eq!(
             res[0].1.value.get(&meta_data_key).cloned().unwrap(),
             MetadataValue {
-                r#type: MetadataType::RawString.into(),
                 value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                     MOST_SIMILAR[0].into()
                 )),
@@ -1593,7 +1562,6 @@ mod tests {
         assert_eq!(
             res[1].1.value.get(&meta_data_key).cloned().unwrap(),
             MetadataValue {
-                r#type: MetadataType::RawString.into(),
                 value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                     MOST_SIMILAR[1].into()
                 )),
@@ -1602,7 +1570,6 @@ mod tests {
         assert_eq!(
             res[2].1.value.get(&meta_data_key).cloned().unwrap(),
             MetadataValue {
-                r#type: MetadataType::RawString.into(),
                 value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                     MOST_SIMILAR[2].into()
                 )),

@@ -798,7 +798,6 @@ impl Server {
 }
 
 // TODO: next steps:
-// - Complete the todo!() left in DB and grpc utils
 // - Remove ahnlich_types
 // - rename grpc types to ahnlich_types
 // - Fix DSL and CLI

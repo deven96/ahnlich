@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use crate::ai::models::AiStoreInputType;
 use crate::keyval::store_input::Value;
 use crate::keyval::StoreInput;
-use crate::metadata::{MetadataType, MetadataValue};
+use crate::metadata::MetadataValue;
 use crate::predicates::{AndCondition, Equals, In, NotEquals, NotIn, OrCondition};
 use crate::shared::info::StoreUpsert;
 
@@ -13,12 +13,10 @@ impl TryFrom<StoreInput> for MetadataValue {
         let inner = input.value.ok_or_else(|| "Conversion failed".to_string())?;
         match inner {
             Value::Image(binary) => Ok(MetadataValue {
-                r#type: MetadataType::Image.into(),
                 value: Some(crate::metadata::metadata_value::Value::Image(binary)),
             }),
 
             Value::RawString(text) => Ok(MetadataValue {
-                r#type: MetadataType::RawString.into(),
                 value: Some(crate::metadata::metadata_value::Value::RawString(text)),
             }),
         }

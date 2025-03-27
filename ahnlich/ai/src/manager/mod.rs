@@ -357,7 +357,7 @@ mod tests {
             SupportedModels::AllMiniLML6V2,
             SupportedModels::AllMiniLML12V2,
         ];
-        let sample_ai_model = AIModel::AllMiniLML6V2;
+        let sample_ai_model = AiModel::AllMiniLmL6V2;
         let sample_supported_model: SupportedModels = (&sample_ai_model).into();
 
         let task_manager = Arc::new(TaskManager::new());
@@ -372,7 +372,9 @@ mod tests {
 
         let evicted_model = model_manager.models.get(&sample_supported_model).await;
 
-        let inputs = vec![StoreInput::RawString(String::from("Hello"))];
+        let inputs = vec![StoreInput {
+            value: Some(Value::RawString(String::from("Hello"))),
+        }];
         let action = PreprocessAction::ModelPreprocessing;
         let _ = model_manager
             .handle_request(&sample_ai_model, inputs, action, InputAction::Query, None)

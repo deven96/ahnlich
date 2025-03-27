@@ -493,7 +493,6 @@ mod test {
                         value: HashMap::from_iter([(
                             "medal".into(),
                             grpc_types::metadata::MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(Value::RawString("gold".into()))
                             },
                         )])

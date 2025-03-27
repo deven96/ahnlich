@@ -408,7 +408,6 @@ impl PredicateIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use grpc_types::metadata::MetadataType;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap as StdHashMap;
     use std::num::NonZeroUsize;
@@ -420,7 +419,6 @@ mod tests {
                 (
                     "name".into(),
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "David".to_string(),
                         )),
@@ -429,7 +427,6 @@ mod tests {
                 (
                     "country".into(),
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Nigeria".to_string(),
                         )),
@@ -438,7 +435,6 @@ mod tests {
                 (
                     "state".into(),
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Markudi".to_string(),
                         )),
@@ -454,7 +450,6 @@ mod tests {
                 (
                     "name".into(),
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "David".to_string(),
                         )),
@@ -463,7 +458,6 @@ mod tests {
                 (
                     "country".into(),
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "USA".to_string(),
                         )),
@@ -472,7 +466,6 @@ mod tests {
                 (
                     "state".into(),
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Washington".to_string(),
                         )),
@@ -488,7 +481,6 @@ mod tests {
                 (
                     "name".into(),
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Diretnan".to_string(),
                         )),
@@ -497,7 +489,6 @@ mod tests {
                 (
                     "country".into(),
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Nigeria".to_string(),
                         )),
@@ -506,7 +497,6 @@ mod tests {
                 (
                     "state".into(),
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Plateau".to_string(),
                         )),
@@ -549,7 +539,6 @@ mod tests {
                 let key = if i % 2 == 0 { "Even" } else { "Odd" };
                 shared_data.add(vec![(
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             key.into(),
                         )),
@@ -573,7 +562,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "name".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "David".to_string(),
                         )),
@@ -620,7 +608,6 @@ mod tests {
                 kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
                     key: "age".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "14".to_string(),
                         )),
@@ -643,7 +630,6 @@ mod tests {
                 kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
                     key: "country".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Nigeria".to_string(),
                         )),
@@ -664,7 +650,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "country".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Nigeria".to_string(),
                         )),
@@ -686,7 +671,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "state".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Washington".to_string(),
                         )),
@@ -699,7 +683,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "age".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "14".to_string(),
                         )),
@@ -722,7 +705,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "country".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Nigeria".to_string(),
                         )),
@@ -735,7 +717,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "state".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Plateau".to_string(),
                         )),
@@ -758,7 +739,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "name".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "David".to_string(),
                         )),
@@ -771,7 +751,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "name".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Diretnan".to_string(),
                         )),
@@ -797,7 +776,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "country".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "USA".to_string(),
                         )),
@@ -824,7 +802,6 @@ mod tests {
                         kind: Some(PredicateKind::Equals(predicates::Equals {
                             key: "country".into(),
                             value: Some(MetadataValue {
-                                r#type: MetadataType::RawString.into(),
                                 value: Some(
                                     grpc_types::metadata::metadata_value::Value::RawString(
                                         "Nigeria".to_string(),
@@ -843,7 +820,6 @@ mod tests {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "country".into(),
                     value: Some(MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "USA".to_string(),
                         )),
@@ -870,7 +846,6 @@ mod tests {
                 .0
                 .pin()
                 .get(&MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "Even".to_string(),
                     )),
@@ -884,7 +859,6 @@ mod tests {
                 .0
                 .pin()
                 .get(&MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "Odd".to_string(),
                     )),
@@ -899,7 +873,6 @@ mod tests {
                 .0
                 .pin()
                 .get(&MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "Even".to_string(),
                     )),
@@ -913,7 +886,6 @@ mod tests {
                 .0
                 .pin()
                 .get(&MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "Odd".to_string(),
                     )),
@@ -931,7 +903,6 @@ mod tests {
             kind: Some(PredicateKind::Equals(predicates::Equals {
                 key: "".into(),
                 value: Some(MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "Even".to_string(),
                     )),
@@ -943,7 +914,6 @@ mod tests {
             kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
                 key: "".into(),
                 value: Some(MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "Even".to_string(),
                     )),
@@ -955,7 +925,6 @@ mod tests {
             kind: Some(PredicateKind::Equals(predicates::Equals {
                 key: "".into(),
                 value: Some(MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "Odd".to_string(),
                     )),
@@ -969,13 +938,11 @@ mod tests {
                 key: "".into(),
                 values: vec![
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Odd".to_string(),
                         )),
                     },
                     MetadataValue {
-                        r#type: MetadataType::RawString.into(),
                         value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                             "Even".to_string(),
                         )),
@@ -990,7 +957,6 @@ mod tests {
             kind: Some(PredicateKind::NotIn(predicates::NotIn {
                 key: "".into(),
                 values: vec![MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "Odd".to_string(),
                     )),
@@ -1004,7 +970,6 @@ mod tests {
             kind: Some(PredicateKind::NotIn(predicates::NotIn {
                 key: "".into(),
                 values: vec![MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "Even".to_string(),
                     )),
@@ -1018,7 +983,6 @@ mod tests {
             kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
                 key: "".into(),
                 value: Some(MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "Odd".to_string(),
                     )),
@@ -1032,7 +996,6 @@ mod tests {
             kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
                 key: "".into(),
                 value: Some(MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "NotExits".to_string(),
                     )),
@@ -1045,7 +1008,6 @@ mod tests {
             kind: Some(PredicateKind::Equals(predicates::Equals {
                 key: "".into(),
                 value: Some(MetadataValue {
-                    r#type: MetadataType::RawString.into(),
                     value: Some(grpc_types::metadata::metadata_value::Value::RawString(
                         "NotExits".to_string(),
                     )),
