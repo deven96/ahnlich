@@ -167,7 +167,11 @@ impl AIStoreHandler {
     ) -> Result<(StoreInput, StoreValue), AIProxyError> {
         let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
 
-        let metadata_value: MetadataValue = store_input.clone().into();
+        let metadata_value: MetadataValue = store_input
+            .clone()
+            .try_into()
+            .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
+
         store_value
             .value
             .insert(metadata_key.to_string(), metadata_value);
@@ -227,7 +231,12 @@ impl AIStoreHandler {
                 if store_value.value.contains_key(metadata_key) {
                     return Err(AIProxyError::ReservedError(metadata_key.to_string()));
                 }
-                let metadata_value: MetadataValue = store_input.clone().into();
+
+                let metadata_value: MetadataValue =
+                    store_input.clone().try_into().map_err(|_| {
+                        AIProxyError::InputNotSpecified("Store Input Value".to_string())
+                    })?;
+
                 store_value
                     .value
                     .insert(metadata_key.to_string(), metadata_value.clone());
@@ -284,8 +293,8 @@ impl AIStoreHandler {
             .into_par_iter()
             .flat_map(|store_entry| {
                 if let Some(mut value) = store_entry.value {
-                    let store_input = value.value.remove(metadata_key).map(|val| val.into());
-                    if let Some(input) = store_input {
+                    let store_input = value.value.remove(metadata_key).map(|val| val.try_into());
+                    if let Some(Ok(input)) = store_input {
                         return Some(GetEntry {
                             key: Some(input),
                             value: Some(value),
@@ -309,8 +318,16 @@ impl AIStoreHandler {
         output
             .into_par_iter()
             .map(|(_, mut store_value)| {
-                let store_input = store_value.value.remove(metadata_key).map(|val| val.into());
-                (store_input, store_value)
+                // NOTE: verify the logic here
+                let store_input = store_value
+                    .value
+                    .remove(metadata_key)
+                    .map(|val| val.try_into().ok());
+
+                match store_input {
+                    Some(entry) => (entry, store_value),
+                    None => (None, store_value),
+                }
             })
             .collect()
     }

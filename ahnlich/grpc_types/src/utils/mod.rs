@@ -3,19 +3,40 @@ use std::num::NonZeroUsize;
 use crate::ai::models::AiStoreInputType;
 use crate::keyval::store_input::Value;
 use crate::keyval::StoreInput;
-use crate::metadata::MetadataValue;
+use crate::metadata::{MetadataType, MetadataValue};
 use crate::predicates::{AndCondition, Equals, In, NotEquals, NotIn, OrCondition};
 use crate::shared::info::StoreUpsert;
 
-impl From<StoreInput> for MetadataValue {
-    fn from(input: StoreInput) -> Self {
-        todo!()
+impl TryFrom<StoreInput> for MetadataValue {
+    type Error = String;
+    fn try_from(input: StoreInput) -> Result<Self, Self::Error> {
+        let inner = input.value.ok_or_else(|| "Conversion failed".to_string())?;
+        match inner {
+            Value::Image(binary) => Ok(MetadataValue {
+                r#type: MetadataType::Image.into(),
+                value: Some(crate::metadata::metadata_value::Value::Image(binary)),
+            }),
+
+            Value::RawString(text) => Ok(MetadataValue {
+                r#type: MetadataType::RawString.into(),
+                value: Some(crate::metadata::metadata_value::Value::RawString(text)),
+            }),
+        }
     }
 }
 
-impl From<MetadataValue> for StoreInput {
-    fn from(input: MetadataValue) -> Self {
-        todo!()
+impl TryFrom<MetadataValue> for StoreInput {
+    type Error = String;
+    fn try_from(input: MetadataValue) -> Result<Self, Self::Error> {
+        let inner = input.value.ok_or_else(|| "Conversion failed".to_string())?;
+        match inner {
+            crate::metadata::metadata_value::Value::Image(binary) => Ok(StoreInput {
+                value: Some(Value::Image(binary)),
+            }),
+            crate::metadata::metadata_value::Value::RawString(text) => Ok(StoreInput {
+                value: Some(Value::RawString(text)),
+            }),
+        }
     }
 }
 

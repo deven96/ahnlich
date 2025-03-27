@@ -1,15 +1,16 @@
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
 use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
-use grpc_types::keyval::{StoreEntry, StoreKey, StoreName};
-// use ahnlich_types::metadata::MetadataKey;
 use grpc_types::db::pipeline::db_query::Query;
 use grpc_types::db::server::GetSimNEntry;
+use grpc_types::keyval::{StoreEntry, StoreKey, StoreName, StoreValue};
 use grpc_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use grpc_types::shared::info::ErrorResponse;
 
 use grpc_types::db::{pipeline, query, server};
 use grpc_types::{client as grpc_types_client, utils as grpc_utils};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use std::collections::HashMap;
 use std::future::Future;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
@@ -413,9 +414,32 @@ impl DbService for Server {
     #[tracing::instrument(skip_all)]
     async fn set(
         &self,
-        _request: tonic::Request<query::Set>,
+        request: tonic::Request<query::Set>,
     ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
-        todo!()
+        let params = request.into_inner();
+        let inputs = params
+            .inputs
+            .into_par_iter()
+            .filter_map(|entry| match (entry.key, entry.value) {
+                (Some(key), Some(value)) => Some((key, value)),
+                (Some(key), None) => Some((
+                    key,
+                    StoreValue {
+                        value: HashMap::new(),
+                    },
+                )),
+                _ => None,
+            })
+            .collect();
+
+        let set = self.store_handler.set_in_store(
+            &StoreName {
+                value: params.store,
+            },
+            inputs,
+        )?;
+
+        Ok(tonic::Response::new(server::Set { upsert: Some(set) }))
     }
 
     #[tracing::instrument(skip_all)]

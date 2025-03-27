@@ -254,7 +254,7 @@ impl AiService for AIProxyServer {
         let values = params
             .keys
             .into_par_iter()
-            .map(|entry| entry.into())
+            .filter_map(|entry| entry.try_into().ok())
             .collect();
         let condition = Some(PredicateCondition {
             kind: Some(Kind::Value(Predicate {
@@ -487,7 +487,11 @@ impl AiService for AIProxyServer {
             let key = params
                 .key
                 .ok_or_else(|| AIProxyError::InputNotSpecified("Del key".to_string()))?;
-            let metadata_value: MetadataValue = key.into();
+
+            let metadata_value: MetadataValue = key
+                .try_into()
+                .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
+
             let del_pred_params = DelPred {
                 store: params.store,
                 condition: Some(PredicateCondition {
