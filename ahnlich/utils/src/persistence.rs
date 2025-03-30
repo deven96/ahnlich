@@ -97,6 +97,7 @@ impl<T: Serialize + DeserializeOwned> Persistence<T> {
         persist_location: &std::path::PathBuf,
         persist_object: T,
     ) -> Self {
+        tracing::error!("starting persistence....");
         let _ = OpenOptions::new()
             .append(true)
             .create(true)

@@ -397,7 +397,7 @@ impl DbService for Server {
     ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
         let version = env!("CARGO_PKG_VERSION").to_string();
         let server_info = grpc_types::shared::info::ServerInfo {
-            address: format!("{:?}", self.listener.local_addr()),
+            address: format!("{:?}", self.listener.local_addr()?),
             version,
             r#type: grpc_types::server_types::ServerType::Database.into(),
             limit: GLOBAL_ALLOCATOR.limit() as u64,
@@ -802,7 +802,7 @@ impl Server {
 // - rename grpc types to ahnlich_types
 // - Fix DSL and CLI
 // - Run tests and fix all types (alhamdullahi)
-
+// - Complete DB tests. Address all fixmes, commented out tests and Todos
 #[async_trait::async_trait]
 impl BlockingTask for Server {
     fn task_name(&self) -> String {
