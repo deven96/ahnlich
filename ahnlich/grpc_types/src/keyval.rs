@@ -14,7 +14,7 @@ pub struct StoreName {
     #[prost(string, tag = "1")]
     pub value: ::prost::alloc::string::String,
 }
-#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message)]
+#[derive(serde::Serialize, Clone, PartialEq, ::prost::Message)]
 pub struct StoreKey {
     #[prost(float, repeated, tag = "1")]
     pub key: ::prost::alloc::vec::Vec<f32>,

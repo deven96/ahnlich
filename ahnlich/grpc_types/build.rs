@@ -65,10 +65,7 @@ fn main() -> Result<()> {
             "algorithm.nonlinear.NonLinearAlgorithm",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
-        .type_attribute(
-            "keyval.StoreKey",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
-        )
+        .type_attribute("keyval.StoreKey", "#[derive(serde::Serialize)]")
         .type_attribute(
             "keyval.StoreValue",
             "#[derive(serde::Serialize, serde::Deserialize)]",

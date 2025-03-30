@@ -122,3 +122,13 @@ impl crate::predicates::Predicate {
         }
     }
 }
+
+impl<'de> serde::Deserialize<'de> for crate::keyval::StoreKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let vec = Vec::<f32>::deserialize(deserializer)?;
+        Ok(crate::keyval::StoreKey { key: vec })
+    }
+}
