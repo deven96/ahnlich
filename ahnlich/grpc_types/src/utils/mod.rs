@@ -132,3 +132,12 @@ impl<'de> serde::Deserialize<'de> for crate::keyval::StoreKey {
         Ok(crate::keyval::StoreKey { key: vec })
     }
 }
+
+impl serde::Serialize for crate::keyval::StoreKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.key.serialize(serializer)
+    }
+}

@@ -752,6 +752,8 @@ impl Server {
         let client_handler = Arc::new(ClientHandler::new(config.common.maximum_clients));
         let mut store_handler = StoreHandler::new(write_flag.clone());
         if let Some(persist_location) = &config.common.persist_location {
+            log::error!("got persistence location {persist_location:?}");
+
             match Persistence::load_snapshot(persist_location) {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");

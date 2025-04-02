@@ -65,7 +65,6 @@ fn main() -> Result<()> {
             "algorithm.nonlinear.NonLinearAlgorithm",
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
-        .type_attribute("keyval.StoreKey", "#[derive(serde::Serialize)]")
         .type_attribute(
             "keyval.StoreValue",
             "#[derive(serde::Serialize, serde::Deserialize)]",
@@ -78,6 +77,7 @@ fn main() -> Result<()> {
             "keyval.StoreName",
             "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, Ord, PartialOrd)]",
         )
+        .type_attribute("keyval.StoreName", "#[serde(transparent)]")
         .type_attribute(
             "db.server.StoreInfo",
             "#[derive(Hash, Eq, Ord, PartialOrd)]",

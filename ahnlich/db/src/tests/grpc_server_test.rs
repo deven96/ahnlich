@@ -49,9 +49,7 @@ async fn test_grpc_ping_test() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
 
@@ -86,9 +84,7 @@ async fn test_server_client_info() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
 
@@ -112,9 +108,7 @@ async fn test_simple_stores_list() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
 
@@ -138,9 +132,7 @@ async fn test_create_stores() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
 
@@ -223,9 +215,7 @@ async fn test_del_pred() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
 
@@ -482,9 +472,7 @@ async fn test_del_key() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_secs(3)).await;
@@ -670,9 +658,7 @@ async fn test_server_with_persistence() {
     let write_flag = server.write_flag();
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_secs(3)).await;
@@ -862,9 +848,7 @@ async fn test_server_with_persistence() {
     let write_flag = server.write_flag();
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     // Verify persistence file exists and is not empty
     // let file_metadata = std::fs::metadata(&*PERSISTENCE_FILE).unwrap();
@@ -924,12 +908,16 @@ async fn test_server_with_persistence() {
         .await
         .expect("Failed to execute pipeline");
 
+    let already_exists_error = ServerError::StoreAlreadyExists(StoreName {
+        value: "Main".into(),
+    });
+
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
                 grpc_types::shared::info::ErrorResponse {
-                    message: "Store Main already exists".to_string(),
-                    code: 6, // StoreAlreadyExists
+                    message: already_exists_error.to_string(),
+                    code: 6,
                 },
             )),
         },
@@ -976,9 +964,7 @@ async fn test_set_in_store() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_secs(3)).await;
@@ -1153,9 +1139,7 @@ async fn test_remove_non_linear_indices() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_secs(3)).await;
@@ -1397,9 +1381,7 @@ async fn test_get_sim_n_non_linear() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_secs(3)).await;
@@ -1599,9 +1581,7 @@ async fn test_get_sim_n() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_secs(3)).await;
@@ -1963,9 +1943,7 @@ async fn test_get_pred() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_secs(3)).await;
@@ -2181,9 +2159,7 @@ async fn test_get_key() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let socket_addr = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", socket_addr);
     tokio::time::sleep(Duration::from_secs(3)).await;
@@ -2422,9 +2398,7 @@ async fn test_create_pred_index() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_secs(3)).await;
@@ -2815,9 +2789,7 @@ async fn test_drop_pred_index() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_secs(3)).await;
@@ -2933,9 +2905,7 @@ async fn test_drop_stores() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
     let address = server.local_addr().expect("Could not get local addr");
 
-    tokio::spawn(async move {
-        server.task_manager().spawn_blocking(server).await;
-    });
+    tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_secs(3)).await;

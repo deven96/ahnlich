@@ -278,20 +278,23 @@ mod custom_metadata_map {
     where
         S: Serializer,
     {
-        let vec: Vec<(MetadataValue, InnerPredicateIndexVal)> = map
+        let hash_map: HashMap<MetadataValue, InnerPredicateIndexVal> = map
             .iter(&map.guard())
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
-        vec.serialize(serializer)
+        hash_map.serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<InnerPredicateIndex, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let vec: Vec<(MetadataValue, InnerPredicateIndexVal)> = Vec::deserialize(deserializer)?;
+        let hashmap: HashMap<MetadataValue, InnerPredicateIndexVal> =
+            HashMap::deserialize(deserializer)?;
+
+        // let vec: Vec<(MetadataValue, InnerPredicateIndexVal)> = Vec::deserialize(deserializer)?;
         let map = ConcurrentHashMap::new();
-        for (k, v) in vec {
+        for (k, v) in hashmap {
             map.insert(k, v, &map.guard());
         }
         Ok(map)

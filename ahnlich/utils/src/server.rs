@@ -3,6 +3,7 @@ use crate::parallel;
 use crate::persistence::AhnlichPersistenceUtils;
 use crate::persistence::Persistence;
 use async_trait::async_trait;
+use std::fmt::Debug;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::{io::Result as IoResult, sync::Arc};
@@ -23,7 +24,7 @@ pub struct ServerUtilsConfig<'a> {
 }
 
 #[async_trait]
-pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static {
+pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Debug {
     type PersistenceTask: AhnlichPersistenceUtils;
 
     fn config(&self) -> ServerUtilsConfig;
