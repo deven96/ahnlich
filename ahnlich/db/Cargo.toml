@@ -41,7 +41,6 @@ fallible_collections.workspace = true
 pulp = "0.21.4"
 grpc_types = { path = "../grpc_types", version = "*" }
 tonic.workspace = true
-tokio-stream.workspace = true
 
 [dev-dependencies]
 futures.workspace = true

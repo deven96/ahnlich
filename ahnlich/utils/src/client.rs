@@ -25,11 +25,7 @@ impl ClientHandler {
         let pinned = self.clients.pin();
         log::debug!("Current client len {}", pinned.len());
         if self.is_maxed_out() {
-            log::error!(
-                "Maximum clients count {} reached or exceeded with {}",
-                pinned.len(),
-                self.maximum_clients
-            );
+            log::error!("Maximum clients count {} reached or exceeded", pinned.len());
             return None;
         };
         let client = ConnectedClient {

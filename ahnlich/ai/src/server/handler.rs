@@ -73,7 +73,6 @@ use tokio_util::sync::CancellationToken;
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::client::ClientHandler;
 use utils::connection_layer::trace_with_parent;
-use utils::connection_layer::RequestTrackerLayer;
 use utils::persistence::Persistence;
 use utils::server::AhnlichServerUtils;
 use utils::server::ListenerStreamOrAddress;
@@ -83,7 +82,7 @@ use ahnlich_client_rs::grpc::db::DbClient;
 
 const SERVICE_NAME: &str = "ahnlich-ai";
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct AIProxyServer {
     listener: ListenerStreamOrAddress,
     config: AIProxyConfig,
@@ -111,7 +110,6 @@ impl BlockingTask for AIProxyServer {
             log::error!("listener must be of type listener stream");
             panic!("listener must be of type listener stream")
         };
-        let request_tracker = RequestTrackerLayer::new(Arc::clone(&self.client_handler));
         let max_message_size = self.config.common.message_size;
         self.listener = ListenerStreamOrAddress::Address(
             listener_stream
@@ -123,7 +121,6 @@ impl BlockingTask for AIProxyServer {
         let db_service = AiServiceServer::new(self).max_decoding_message_size(max_message_size);
 
         let _ = tonic::transport::Server::builder()
-            .layer(request_tracker)
             .trace_fn(trace_with_parent)
             .add_service(db_service)
             .serve_with_incoming_shutdown(listener_stream, shutdown_signal)
@@ -843,9 +840,12 @@ impl AIProxyServer {
             &config.common.otel_endpoint,
             &config.common.log_level,
         );
-        let listener =
-            ListenerStreamOrAddress::new(format!("{}:{}", &config.common.host, &config.port))
-                .await?;
+        let client_handler = Arc::new(ClientHandler::new(config.common.maximum_clients));
+        let listener = ListenerStreamOrAddress::new(
+            format!("{}:{}", &config.common.host, &config.port),
+            client_handler.clone(),
+        )
+        .await?;
         let write_flag = Arc::new(AtomicBool::new(false));
         let db_client = Self::build_db_client(&config).await;
         let mut store_handler =
@@ -863,7 +863,6 @@ impl AIProxyServer {
                 }
             }
         };
-        let client_handler = Arc::new(ClientHandler::new(config.common.maximum_clients));
         let task_manager = Arc::new(TaskManager::new());
         let mut models: Vec<Model> = Vec::with_capacity(config.supported_models.len());
         for supported_model in &config.supported_models {

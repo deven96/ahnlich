@@ -94,10 +94,7 @@ fn main() -> Result<()> {
             "ai.server.AIStoreInfo",
             "#[derive(Eq, PartialOrd, Ord, Hash)]",
         )
-        .type_attribute(
-            "client.ConnectedClient",
-            "#[derive(PartialOrd, Ord, Hash, Eq)]",
-        )
+        .type_attribute("client.ConnectedClient", "#[derive(PartialOrd, Ord, Eq)]")
         .compile_protos(&protofiles, &[proto_dir])
         .inspect_err(|err| println!("{}", err))
         .expect("failed");

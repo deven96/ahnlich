@@ -22,14 +22,14 @@ use task_manager::TaskManager;
 
 use tokio_util::sync::CancellationToken;
 use utils::allocator::GLOBAL_ALLOCATOR;
-use utils::connection_layer::{trace_with_parent, RequestTrackerLayer};
+use utils::connection_layer::trace_with_parent;
 
 use utils::server::{AhnlichServerUtils, ListenerStreamOrAddress, ServerUtilsConfig};
 use utils::{client::ClientHandler, persistence::Persistence};
 
 const SERVICE_NAME: &str = "ahnlich-db";
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Server {
     listener: ListenerStreamOrAddress,
     store_handler: Arc<StoreHandler>,
@@ -745,15 +745,15 @@ impl AhnlichServerUtils for Server {
 impl Server {
     /// creates a server while injecting a shutdown_token
     pub async fn new_with_config(config: &ServerConfig) -> IoResult<Self> {
-        let listener =
-            ListenerStreamOrAddress::new(format!("{}:{}", &config.common.host, &config.port))
-                .await?;
-        let write_flag = Arc::new(AtomicBool::new(false));
         let client_handler = Arc::new(ClientHandler::new(config.common.maximum_clients));
+        let listener = ListenerStreamOrAddress::new(
+            format!("{}:{}", &config.common.host, &config.port),
+            client_handler.clone(),
+        )
+        .await?;
+        let write_flag = Arc::new(AtomicBool::new(false));
         let mut store_handler = StoreHandler::new(write_flag.clone());
         if let Some(persist_location) = &config.common.persist_location {
-            log::error!("got persistence location {persist_location:?}");
-
             match Persistence::load_snapshot(persist_location) {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");
@@ -822,7 +822,6 @@ impl BlockingTask for Server {
             log::error!("listener must be of type listener stream");
             panic!("listener must be of type listener stream")
         };
-        let request_tracker = RequestTrackerLayer::new(Arc::clone(&self.client_handler));
         let max_message_size = self.config.common.message_size;
         self.listener = ListenerStreamOrAddress::Address(
             listener_stream
@@ -834,7 +833,6 @@ impl BlockingTask for Server {
         let db_service = DbServiceServer::new(self).max_decoding_message_size(max_message_size);
 
         let _ = tonic::transport::Server::builder()
-            .layer(request_tracker)
             .trace_fn(trace_with_parent)
             .add_service(db_service)
             .serve_with_incoming_shutdown(listener_stream, shutdown_signal)

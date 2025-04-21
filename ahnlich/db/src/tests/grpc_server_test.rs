@@ -53,16 +53,11 @@ async fn test_grpc_ping_test() {
 
     let address = format!("http://{}", address);
 
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Faild to get channel");
 
     let mut client = DbServiceClient::connect(channel).await.expect("Failure");
 
-    // maximum_message_size => DbServiceServer(server).max_decoding_message_size
-    // maximum_clients => At this point yet to figure out but it might be manually implementing
-    // Server/Interceptor as shown in https://chatgpt.com/share/67abdf0b-72a8-8008-b203-bc8e65b02495
-    // maximum_concurrency_per_client => we just set this with `concurrency_limit_per_connection`.
-    // for creating trace functions, we can add `trace_fn` and extract our header from `Request::header` and return the span
     let response = client
         .ping(tonic::Request::new(grpc_types::db::query::Ping {}))
         .await
@@ -75,10 +70,53 @@ async fn test_grpc_ping_test() {
 
 #[tokio::test]
 async fn test_maximum_client_restriction_works() {
-    todo!()
+    let server = Server::new(&CONFIG_WITH_MAX_CLIENTS)
+        .await
+        .expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address.clone()).expect("Faild to get channel");
+    let mut first_client = DbServiceClient::connect(channel).await.expect("Failure");
+    let channel = Channel::from_shared(address.clone()).expect("Faild to get channel");
+    let mut second_client = DbServiceClient::connect(channel).await.expect("Failure");
+    let response = second_client
+        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .await
+        .expect("Failed to list clients");
+    assert_eq!(response.into_inner().clients.len(), 2);
+    let response = first_client
+        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .await
+        .expect("Failed to list clients");
+
+    assert_eq!(response.into_inner().clients.len(), 2);
+    let channel = Channel::from_shared(address.clone()).expect("Faild to get channel");
+    let mut third_client = DbServiceClient::connect(channel).await.expect("Failure");
+    third_client
+        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .await
+        .expect_err("third client failed to error with a max of 2");
+    let response = second_client
+        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .await
+        .expect("Failed to list clients");
+    assert_eq!(response.into_inner().clients.len(), 2);
+    drop(first_client);
+    let channel = Channel::from_shared(address.clone()).expect("Faild to get channel");
+    let mut fourth_client = DbServiceClient::connect(channel).await.expect("Failure");
+    let response = fourth_client
+        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .await
+        .expect("Failed to list clients");
+    // The third client never connected so we expect only 2
+    assert_eq!(response.into_inner().clients.len(), 2);
 }
 
-// FIXME: failing: check out dbclient connection with_origin
 #[tokio::test]
 async fn test_server_client_info() {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
@@ -88,19 +126,27 @@ async fn test_server_client_info() {
 
     let address = format!("http://{}", address);
 
-    tokio::time::sleep(Duration::from_secs(3)).await;
-    let channel = Channel::from_shared(address).expect("Faild to get channel");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address.clone()).expect("Faild to get channel");
 
-    let mut client = DbServiceClient::connect(channel).await.expect("Failure");
+    let mut first_client = DbServiceClient::connect(channel).await.expect("Failure");
 
-    let response = client
+    let channel = Channel::from_shared(address.clone()).expect("Faild to get channel");
+    let second_client = DbServiceClient::connect(channel).await.expect("Failure");
+
+    let response = first_client
         .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
         .await
         .expect("Failed to list clients");
 
-    let expected = db_response_types::ClientList { clients: vec![] };
-    println!("Response: {response:?}");
-    assert_eq!(expected, response.into_inner());
+    assert_eq!(response.into_inner().clients.len(), 2);
+    drop(second_client);
+
+    let response = first_client
+        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .await
+        .expect("Failed to list clients");
+    assert_eq!(response.into_inner().clients.len(), 1);
 }
 
 #[tokio::test]
@@ -112,7 +158,7 @@ async fn test_simple_stores_list() {
 
     let address = format!("http://{}", address);
 
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Faild to get channel");
 
     let mut client = DbServiceClient::connect(channel).await.expect("Failure");
@@ -136,7 +182,7 @@ async fn test_create_stores() {
 
     let address = format!("http://{}", address);
 
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Faild to get channel");
 
     let mut client = DbServiceClient::connect(channel).await.expect("Failure");
@@ -219,7 +265,7 @@ async fn test_del_pred() {
 
     let address = format!("http://{}", address);
 
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Faild to get channel");
 
     let mut client = DbServiceClient::connect(channel).await.expect("Failure");
@@ -475,7 +521,7 @@ async fn test_del_key() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -661,7 +707,7 @@ async fn test_server_with_persistence() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -839,7 +885,7 @@ async fn test_server_with_persistence() {
     assert!(write_flag.load(Ordering::SeqCst));
 
     // Wait for persistence
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
 
     // Second server instance
     let server = Server::new(&CONFIG_WITH_PERSISTENCE)
@@ -865,7 +911,7 @@ async fn test_server_with_persistence() {
     assert!(file_metadata.len() > 0, "The persistence file is empty");
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(200)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -967,7 +1013,7 @@ async fn test_set_in_store() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -1142,7 +1188,7 @@ async fn test_remove_non_linear_indices() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -1384,7 +1430,7 @@ async fn test_get_sim_n_non_linear() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -1584,7 +1630,7 @@ async fn test_get_sim_n() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -1946,7 +1992,7 @@ async fn test_get_pred() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -2162,7 +2208,7 @@ async fn test_get_key() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", socket_addr);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -2401,7 +2447,7 @@ async fn test_create_pred_index() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -2792,7 +2838,7 @@ async fn test_drop_pred_index() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await
@@ -2908,7 +2954,7 @@ async fn test_drop_stores() {
     tokio::spawn(async move { server.start().await });
 
     let address = format!("http://{}", address);
-    tokio::time::sleep(Duration::from_secs(3)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
     let channel = Channel::from_shared(address).expect("Failed to get channel");
     let mut client = DbServiceClient::connect(channel)
         .await

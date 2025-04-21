@@ -1,6 +1,8 @@
+use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
 
 use crate::ai::models::AiStoreInputType;
+use crate::client::ConnectedClient;
 use crate::keyval::store_input::Value;
 use crate::keyval::StoreInput;
 use crate::metadata::MetadataValue;
@@ -139,5 +141,16 @@ impl serde::Serialize for crate::keyval::StoreKey {
         S: serde::Serializer,
     {
         self.key.serialize(serializer)
+    }
+}
+
+// NOTE: ConnectedClient should be unique purely by address assuming we are not doing any TCP magic
+// to allow port reuse
+impl Hash for ConnectedClient {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
+        self.address.hash(state)
     }
 }

@@ -12,8 +12,6 @@ pub struct ConnectedClient {
     pub time_connected: SystemTime,
 }
 
-// NOTE: ConnectedClient should be unique purely by address assuming we are not doing any TCP magic
-// to allow port reuse
 impl Hash for ConnectedClient {
     fn hash<H>(&self, state: &mut H)
     where
