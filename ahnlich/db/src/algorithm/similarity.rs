@@ -70,7 +70,7 @@ impl WithSimd for Magnitude<'_> {
 }
 
 ///
-/// ## COSINE SIMILARITY
+/// COSINE SIMILARITY
 /// Cosine similiarity is the cosine of the angles between vectors.
 /// It tries to find how close or similar two vector points are.
 /// It is scalent invarient meaning it is unaffected by the length of the vectors.
@@ -104,10 +104,7 @@ impl WithSimd for Magnitude<'_> {
 ///
 ///  An Implementation for most similar items would be a MaxHeap.
 ///  We are looking the closest number to one meaning Max
-///  The smaller the distance between two points, denotes higher
-///                                  similarity
-///
-
+///  The smaller the distance between two points, denotes higher similarity.
 #[tracing::instrument(skip_all)]
 fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
     assert_eq!(
@@ -128,7 +125,7 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
 }
 
 ///
-/// ## DOT PRODUCT
+/// DOT PRODUCT
 /// The dot product or scalar product is an algebraic operation that takes two equal-length
 /// sequences of numbers (usually coordinate vectors), and returns a single number.
 ///
@@ -180,7 +177,7 @@ fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
 }
 
 ///  
-///  ## EUCLIDEAN DISTANCE
+///  EUCLIDEAN DISTANCE
 ///     - d(p,q)= sqrt { (p-q)^2 }
 ///
 ///  Euclidean distance is the square root of the sum of squared differences between corresponding

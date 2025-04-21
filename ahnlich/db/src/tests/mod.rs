@@ -1,5 +1,4 @@
 mod grpc_server_test;
-mod server_test;
 
 use grpc_types::keyval::StoreKey;
 use std::collections::HashMap;

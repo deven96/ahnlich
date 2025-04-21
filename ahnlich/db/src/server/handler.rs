@@ -57,9 +57,7 @@ impl DbService for Server {
         let non_linear_indices = create_store_params
             .non_linear_indices
             .into_iter()
-            .filter_map(|index| {
-                NonLinearAlgorithm::try_from(index).map_or(None, |converted| Some(converted))
-            })
+            .filter_map(|index| NonLinearAlgorithm::try_from(index).ok())
             .collect();
 
         self.store_handler
@@ -148,8 +146,7 @@ impl DbService for Server {
         };
 
         let algorithm = grpc_types::algorithm::algorithms::Algorithm::try_from(params.algorithm)
-            .map_err(|err| tonic::Status::invalid_argument(err.to_string()))?
-            .into();
+            .map_err(|err| tonic::Status::invalid_argument(err.to_string()))?;
 
         let entries = self
             .store_handler
@@ -219,7 +216,6 @@ impl DbService for Server {
             .filter_map(|val| {
                 grpc_types::algorithm::nonlinear::NonLinearAlgorithm::try_from(val).ok()
             })
-            .map(|val| val.into())
             .collect();
 
         let created = self.store_handler.create_non_linear_algorithm_index(
@@ -273,7 +269,6 @@ impl DbService for Server {
             .filter_map(|val| {
                 grpc_types::algorithm::nonlinear::NonLinearAlgorithm::try_from(val).ok()
             })
-            .map(|val| val.into())
             .collect();
 
         let del = self.store_handler.drop_non_linear_algorithm_index(
@@ -382,8 +377,8 @@ impl DbService for Server {
             .into_iter()
             .map(|store| server::StoreInfo {
                 name: store.name.to_string(),
-                len: store.len as u64,
-                size_in_bytes: store.size_in_bytes as u64,
+                len: store.len,
+                size_in_bytes: store.size_in_bytes,
             })
             .collect();
 

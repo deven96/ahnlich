@@ -165,8 +165,6 @@ impl AIStoreHandler {
         mut store_value: StoreValue,
         preprocess_action: &PreprocessAction,
     ) -> Result<(StoreInput, StoreValue), AIProxyError> {
-        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-
         let metadata_value: MetadataValue = store_input
             .clone()
             .try_into()
@@ -174,7 +172,7 @@ impl AIStoreHandler {
 
         store_value
             .value
-            .insert(metadata_key.to_string(), metadata_value);
+            .insert(AHNLICH_AI_RESERVED_META_KEY.to_string(), metadata_value);
         return Ok((store_input, store_value));
     }
 
@@ -227,9 +225,10 @@ impl AIStoreHandler {
                 });
             }
             if store_original {
-                let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-                if store_value.value.contains_key(metadata_key) {
-                    return Err(AIProxyError::ReservedError(metadata_key.to_string()));
+                if store_value.value.contains_key(AHNLICH_AI_RESERVED_META_KEY) {
+                    return Err(AIProxyError::ReservedError(
+                        AHNLICH_AI_RESERVED_META_KEY.to_string(),
+                    ));
                 }
 
                 let metadata_value: MetadataValue =
@@ -237,9 +236,10 @@ impl AIStoreHandler {
                         AIProxyError::InputNotSpecified("Store Input Value".to_string())
                     })?;
 
-                store_value
-                    .value
-                    .insert(metadata_key.to_string(), metadata_value.clone());
+                store_value.value.insert(
+                    AHNLICH_AI_RESERVED_META_KEY.to_string(),
+                    metadata_value.clone(),
+                );
                 delete_hashset.insert(metadata_value);
             }
             output.try_push((store_input, store_value))?;
@@ -287,13 +287,14 @@ impl AIStoreHandler {
 
     #[tracing::instrument(skip(self, input), fields(input_len=input.len()))]
     pub(crate) fn db_store_entry_to_store_get_key(&self, input: Vec<StoreEntry>) -> Vec<GetEntry> {
-        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-
         input
             .into_par_iter()
             .flat_map(|store_entry| {
                 if let Some(mut value) = store_entry.value {
-                    let store_input = value.value.remove(metadata_key).map(|val| val.try_into());
+                    let store_input = value
+                        .value
+                        .remove(AHNLICH_AI_RESERVED_META_KEY)
+                        .map(|val| val.try_into());
                     if let Some(Ok(input)) = store_input {
                         return Some(GetEntry {
                             key: Some(input),
@@ -313,15 +314,13 @@ impl AIStoreHandler {
         &self,
         output: Vec<(StoreKey, StoreValue)>,
     ) -> Vec<(Option<StoreInput>, StoreValue)> {
-        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-
         output
             .into_par_iter()
             .map(|(_, mut store_value)| {
                 // NOTE: verify the logic here
                 let store_input = store_value
                     .value
-                    .remove(metadata_key)
+                    .remove(AHNLICH_AI_RESERVED_META_KEY)
                     .map(|val| val.try_into().ok());
 
                 match store_input {

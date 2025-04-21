@@ -44,7 +44,7 @@ impl TryFrom<&StoreInput> for AiStoreInputType {
     type Error = ();
 
     fn try_from(value: &StoreInput) -> Result<Self, Self::Error> {
-        let value = value.value.as_ref().ok_or_else(|| ())?;
+        let value = value.value.as_ref().ok_or(())?;
         Ok(match value {
             Value::RawString(_) => Self::RawString,
             Value::Image(_) => Self::Image,

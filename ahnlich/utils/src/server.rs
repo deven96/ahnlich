@@ -216,7 +216,7 @@ impl ListenerStreamOrAddress {
     pub fn local_addr(&self) -> IoResult<SocketAddr> {
         match &self {
             Self::ListenerStream(stream) => stream.as_ref().local_addr(),
-            Self::Address(addr) => Ok(addr.clone()),
+            Self::Address(addr) => Ok(*addr),
         }
     }
 }

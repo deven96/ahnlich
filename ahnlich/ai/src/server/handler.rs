@@ -157,10 +157,9 @@ impl AiService for AIProxyServer {
         request: tonic::Request<CreateStore>,
     ) -> Result<tonic::Response<Unit>, tonic::Status> {
         let params = request.into_inner();
-        let default_metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
         let mut predicates = params.predicates;
         if params.store_original {
-            predicates.push(default_metadata_key.to_string());
+            predicates.push(AHNLICH_AI_RESERVED_META_KEY.to_string());
         }
         let index_model: AiModel = params
             .index_model
@@ -388,13 +387,12 @@ impl AiService for AIProxyServer {
             .await?;
         let mut pipeline = self.db_client.pipeline(parent_id);
         if let Some(del_hashset) = delete_hashset {
-            let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
             let delete_condition = DelPred {
                 store: params.store.clone(),
                 condition: Some(PredicateCondition {
                     kind: Some(Kind::Value(Predicate {
                         kind: Some(PredicateKind::In(In {
-                            key: default_metadatakey.to_string(),
+                            key: AHNLICH_AI_RESERVED_META_KEY.to_string(),
                             values: del_hashset.into_iter().collect(),
                         })),
                     })),
@@ -426,8 +424,9 @@ impl AiService for AIProxyServer {
         request: tonic::Request<DropPredIndex>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
         let mut params = request.into_inner();
-        let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
-        params.predicates.retain(|val| val != default_metadatakey);
+        params
+            .predicates
+            .retain(|val| val != AHNLICH_AI_RESERVED_META_KEY);
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let res = self
             .db_client
@@ -480,7 +479,6 @@ impl AiService for AIProxyServer {
         if !store_original {
             return Err(AIProxyError::DelKeyError.into());
         } else {
-            let default_metadatakey = &*AHNLICH_AI_RESERVED_META_KEY;
             let key = params
                 .key
                 .ok_or_else(|| AIProxyError::InputNotSpecified("Del key".to_string()))?;
@@ -494,7 +492,7 @@ impl AiService for AIProxyServer {
                 condition: Some(PredicateCondition {
                     kind: Some(Kind::Value(Predicate {
                         kind: Some(PredicateKind::In(In {
-                            key: default_metadatakey.to_string(),
+                            key: AHNLICH_AI_RESERVED_META_KEY.to_string(),
                             values: vec![metadata_value],
                         })),
                     })),

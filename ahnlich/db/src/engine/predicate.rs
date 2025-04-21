@@ -236,8 +236,8 @@ impl PredicateIndices {
                 kind: Some(PredicateConditionKind::And(cond)),
             } => {
                 if let (Some(first), Some(second)) = (&cond.left, &cond.right) {
-                    let first_result = self.matches(&first, store)?;
-                    let second_result = self.matches(&second, store)?;
+                    let first_result = self.matches(first, store)?;
+                    let second_result = self.matches(second, store)?;
                     // Get intersection of both conditions
                     Ok(first_result.intersection(&second_result).cloned().collect())
                 } else {
@@ -248,8 +248,8 @@ impl PredicateIndices {
                 kind: Some(PredicateConditionKind::Or(cond)),
             } => {
                 if let (Some(first), Some(second)) = (&cond.left, &cond.right) {
-                    let first_result = self.matches(&first, store)?;
-                    let second_result = self.matches(&second, store)?;
+                    let first_result = self.matches(first, store)?;
+                    let second_result = self.matches(second, store)?;
                     // Get union of both conditions
                     Ok(first_result.union(&second_result).cloned().collect())
                 } else {
@@ -384,7 +384,7 @@ impl PredicateIndex {
                 kind: Some(PredicateKind::NotEquals(predicates::NotEquals { value, .. })),
             } => pinned
                 .iter()
-                .filter(|(key, _)| value.as_ref().map_or(true, |v| *key != v))
+                .filter(|(key, _)| value.as_ref() != Some(*key))
                 .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
                 .collect(),
             Predicate {
