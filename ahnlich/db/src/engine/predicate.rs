@@ -1,8 +1,6 @@
 use super::super::errors::ServerError;
 use super::store::Store;
 use super::store::StoreKeyId;
-use flurry::HashMap as ConcurrentHashMap;
-use flurry::HashSet as ConcurrentHashSet;
 use grpc_types::keyval::StoreValue;
 use grpc_types::metadata::MetadataValue;
 use grpc_types::predicates::{
@@ -10,6 +8,8 @@ use grpc_types::predicates::{
     Predicate, PredicateCondition,
 };
 use itertools::Itertools;
+use papaya::HashMap as ConcurrentHashMap;
+use papaya::HashSet as ConcurrentHashSet;
 use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -374,7 +374,7 @@ impl PredicateIndex {
             Predicate {
                 kind: Some(PredicateKind::Equals(predicates::Equals { value, .. })),
             } => {
-                if let Some(Some(set)) = value.as_ref().map(|v| pinned.get(&v)) {
+                if let Some(Some(set)) = value.as_ref().map(|v| pinned.get(v)) {
                     set.pin().iter().cloned().collect::<StdHashSet<_>>()
                 } else {
                     StdHashSet::new()

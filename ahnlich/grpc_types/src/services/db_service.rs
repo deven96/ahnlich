@@ -6,10 +6,10 @@ pub mod db_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     #[derive(Debug, Clone)]
     pub struct DbServiceClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -53,9 +53,8 @@ pub mod db_service_client {
                     <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
                 >,
             >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             DbServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -98,49 +97,38 @@ pub mod db_service_client {
             tonic::Response<super::super::super::db::server::Unit>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/CreateStore",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/CreateStore");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("services.db_service.DBService", "CreateStore"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.db_service.DBService",
+                "CreateStore",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn create_pred_index(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::super::db::query::CreatePredIndex,
-            >,
+            request: impl tonic::IntoRequest<super::super::super::db::query::CreatePredIndex>,
         ) -> std::result::Result<
             tonic::Response<super::super::super::db::server::CreateIndex>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/services.db_service.DBService/CreatePredIndex",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("services.db_service.DBService", "CreatePredIndex"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.db_service.DBService",
+                "CreatePredIndex",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn create_non_linear_algorithm_index(
@@ -152,48 +140,32 @@ pub mod db_service_client {
             tonic::Response<super::super::super::db::server::CreateIndex>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/services.db_service.DBService/CreateNonLinearAlgorithmIndex",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "services.db_service.DBService",
-                        "CreateNonLinearAlgorithmIndex",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.db_service.DBService",
+                "CreateNonLinearAlgorithmIndex",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// * Read methods *
         pub async fn get_key(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::db::query::GetKey>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Get>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Get>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/GetKey",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/GetKey");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("services.db_service.DBService", "GetKey"));
@@ -202,22 +174,14 @@ pub mod db_service_client {
         pub async fn get_pred(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::db::query::GetPred>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Get>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Get>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/GetPred",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/GetPred");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("services.db_service.DBService", "GetPred"));
@@ -230,18 +194,12 @@ pub mod db_service_client {
             tonic::Response<super::super::super::db::server::GetSimN>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/GetSimN",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/GetSimN");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("services.db_service.DBService", "GetSimN"));
@@ -251,22 +209,13 @@ pub mod db_service_client {
         pub async fn set(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::db::query::Set>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Set>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Set>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/Set",
-            );
+            let path = http::uri::PathAndQuery::from_static("/services.db_service.DBService/Set");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("services.db_service.DBService", "Set"));
@@ -275,30 +224,21 @@ pub mod db_service_client {
         /// * Delete methods *
         pub async fn drop_pred_index(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::super::db::query::DropPredIndex,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Del>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            request: impl tonic::IntoRequest<super::super::super::db::query::DropPredIndex>,
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Del>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/services.db_service.DBService/DropPredIndex",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("services.db_service.DBService", "DropPredIndex"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.db_service.DBService",
+                "DropPredIndex",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn drop_non_linear_algorithm_index(
@@ -306,51 +246,33 @@ pub mod db_service_client {
             request: impl tonic::IntoRequest<
                 super::super::super::db::query::DropNonLinearAlgorithmIndex,
             >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Del>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Del>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/services.db_service.DBService/DropNonLinearAlgorithmIndex",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "services.db_service.DBService",
-                        "DropNonLinearAlgorithmIndex",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.db_service.DBService",
+                "DropNonLinearAlgorithmIndex",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn del_key(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::db::query::DelKey>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Del>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Del>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/DelKey",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/DelKey");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("services.db_service.DBService", "DelKey"));
@@ -359,22 +281,14 @@ pub mod db_service_client {
         pub async fn del_pred(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::db::query::DelPred>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Del>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Del>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/DelPred",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/DelPred");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("services.db_service.DBService", "DelPred"));
@@ -383,25 +297,19 @@ pub mod db_service_client {
         pub async fn drop_store(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::db::query::DropStore>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Del>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Del>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/DropStore",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/DropStore");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("services.db_service.DBService", "DropStore"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.db_service.DBService",
+                "DropStore",
+            ));
             self.inner.unary(req, path, codec).await
         }
         /// * Ancillary info methods *
@@ -412,21 +320,17 @@ pub mod db_service_client {
             tonic::Response<super::super::super::db::server::ClientList>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/ListClients",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/ListClients");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("services.db_service.DBService", "ListClients"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.db_service.DBService",
+                "ListClients",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn list_stores(
@@ -436,21 +340,17 @@ pub mod db_service_client {
             tonic::Response<super::super::super::db::server::StoreList>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/ListStores",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/ListStores");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("services.db_service.DBService", "ListStores"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.db_service.DBService",
+                "ListStores",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn info_server(
@@ -460,21 +360,17 @@ pub mod db_service_client {
             tonic::Response<super::super::super::db::server::InfoServer>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/InfoServer",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/InfoServer");
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("services.db_service.DBService", "InfoServer"));
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.db_service.DBService",
+                "InfoServer",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn ping(
@@ -484,18 +380,11 @@ pub mod db_service_client {
             tonic::Response<super::super::super::db::server::Pong>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/Ping",
-            );
+            let path = http::uri::PathAndQuery::from_static("/services.db_service.DBService/Ping");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("services.db_service.DBService", "Ping"));
@@ -504,25 +393,17 @@ pub mod db_service_client {
         /// * Pipeline method for all methods *
         pub async fn pipeline(
             &mut self,
-            request: impl tonic::IntoRequest<
-                super::super::super::db::pipeline::DbRequestPipeline,
-            >,
+            request: impl tonic::IntoRequest<super::super::super::db::pipeline::DbRequestPipeline>,
         ) -> std::result::Result<
             tonic::Response<super::super::super::db::pipeline::DbResponsePipeline>,
             tonic::Status,
         > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/services.db_service.DBService/Pipeline",
-            );
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/Pipeline");
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("services.db_service.DBService", "Pipeline"));
@@ -537,7 +418,7 @@ pub mod db_service_server {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with DbServiceServer.
@@ -560,9 +441,7 @@ pub mod db_service_server {
         >;
         async fn create_non_linear_algorithm_index(
             &self,
-            request: tonic::Request<
-                super::super::super::db::query::CreateNonLinearAlgorithmIndex,
-            >,
+            request: tonic::Request<super::super::super::db::query::CreateNonLinearAlgorithmIndex>,
         ) -> std::result::Result<
             tonic::Response<super::super::super::db::server::CreateIndex>,
             tonic::Status,
@@ -571,17 +450,11 @@ pub mod db_service_server {
         async fn get_key(
             &self,
             request: tonic::Request<super::super::super::db::query::GetKey>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Get>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Get>, tonic::Status>;
         async fn get_pred(
             &self,
             request: tonic::Request<super::super::super::db::query::GetPred>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Get>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Get>, tonic::Status>;
         async fn get_sim_n(
             &self,
             request: tonic::Request<super::super::super::db::query::GetSimN>,
@@ -593,48 +466,28 @@ pub mod db_service_server {
         async fn set(
             &self,
             request: tonic::Request<super::super::super::db::query::Set>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Set>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Set>, tonic::Status>;
         /// * Delete methods *
         async fn drop_pred_index(
             &self,
             request: tonic::Request<super::super::super::db::query::DropPredIndex>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Del>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Del>, tonic::Status>;
         async fn drop_non_linear_algorithm_index(
             &self,
-            request: tonic::Request<
-                super::super::super::db::query::DropNonLinearAlgorithmIndex,
-            >,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Del>,
-            tonic::Status,
-        >;
+            request: tonic::Request<super::super::super::db::query::DropNonLinearAlgorithmIndex>,
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Del>, tonic::Status>;
         async fn del_key(
             &self,
             request: tonic::Request<super::super::super::db::query::DelKey>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Del>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Del>, tonic::Status>;
         async fn del_pred(
             &self,
             request: tonic::Request<super::super::super::db::query::DelPred>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Del>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Del>, tonic::Status>;
         async fn drop_store(
             &self,
             request: tonic::Request<super::super::super::db::query::DropStore>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::super::db::server::Del>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::super::super::db::server::Del>, tonic::Status>;
         /// * Ancillary info methods *
         async fn list_clients(
             &self,
@@ -694,10 +547,7 @@ pub mod db_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -752,21 +602,15 @@ pub mod db_service_server {
                 "/services.db_service.DBService/CreateStore" => {
                     #[allow(non_camel_case_types)]
                     struct CreateStoreSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::CreateStore,
-                    > for CreateStoreSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::CreateStore>
+                        for CreateStoreSvc<T>
+                    {
                         type Response = super::super::super::db::server::Unit;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::CreateStore,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::CreateStore>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
@@ -800,16 +644,12 @@ pub mod db_service_server {
                 "/services.db_service.DBService/CreatePredIndex" => {
                     #[allow(non_camel_case_types)]
                     struct CreatePredIndexSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::CreatePredIndex,
-                    > for CreatePredIndexSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::CreatePredIndex>
+                        for CreatePredIndexSvc<T>
+                    {
                         type Response = super::super::super::db::server::CreateIndex;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<
@@ -848,16 +688,13 @@ pub mod db_service_server {
                 "/services.db_service.DBService/CreateNonLinearAlgorithmIndex" => {
                     #[allow(non_camel_case_types)]
                     struct CreateNonLinearAlgorithmIndexSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::CreateNonLinearAlgorithmIndex,
-                    > for CreateNonLinearAlgorithmIndexSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<
+                            super::super::super::db::query::CreateNonLinearAlgorithmIndex,
+                        > for CreateNonLinearAlgorithmIndexSvc<T>
+                    {
                         type Response = super::super::super::db::server::CreateIndex;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<
@@ -866,10 +703,7 @@ pub mod db_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as DbService>::create_non_linear_algorithm_index(
-                                        &inner,
-                                        request,
-                                    )
+                                <T as DbService>::create_non_linear_algorithm_index(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -900,25 +734,19 @@ pub mod db_service_server {
                 "/services.db_service.DBService/GetKey" => {
                     #[allow(non_camel_case_types)]
                     struct GetKeySvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<super::super::super::db::query::GetKey>
-                    for GetKeySvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::GetKey>
+                        for GetKeySvc<T>
+                    {
                         type Response = super::super::super::db::server::Get;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::GetKey,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::GetKey>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::get_key(&inner, request).await
-                            };
+                            let fut =
+                                async move { <T as DbService>::get_key(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -947,26 +775,19 @@ pub mod db_service_server {
                 "/services.db_service.DBService/GetPred" => {
                     #[allow(non_camel_case_types)]
                     struct GetPredSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::GetPred,
-                    > for GetPredSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::GetPred>
+                        for GetPredSvc<T>
+                    {
                         type Response = super::super::super::db::server::Get;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::GetPred,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::GetPred>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::get_pred(&inner, request).await
-                            };
+                            let fut =
+                                async move { <T as DbService>::get_pred(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -995,26 +816,19 @@ pub mod db_service_server {
                 "/services.db_service.DBService/GetSimN" => {
                     #[allow(non_camel_case_types)]
                     struct GetSimNSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::GetSimN,
-                    > for GetSimNSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::GetSimN>
+                        for GetSimNSvc<T>
+                    {
                         type Response = super::super::super::db::server::GetSimN;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::GetSimN,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::GetSimN>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::get_sim_n(&inner, request).await
-                            };
+                            let fut =
+                                async move { <T as DbService>::get_sim_n(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -1043,23 +857,18 @@ pub mod db_service_server {
                 "/services.db_service.DBService/Set" => {
                     #[allow(non_camel_case_types)]
                     struct SetSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<super::super::super::db::query::Set>
-                    for SetSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::Set>
+                        for SetSvc<T>
+                    {
                         type Response = super::super::super::db::server::Set;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::super::super::db::query::Set>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::set(&inner, request).await
-                            };
+                            let fut = async move { <T as DbService>::set(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -1088,21 +897,15 @@ pub mod db_service_server {
                 "/services.db_service.DBService/DropPredIndex" => {
                     #[allow(non_camel_case_types)]
                     struct DropPredIndexSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::DropPredIndex,
-                    > for DropPredIndexSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::DropPredIndex>
+                        for DropPredIndexSvc<T>
+                    {
                         type Response = super::super::super::db::server::Del;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::DropPredIndex,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::DropPredIndex>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
@@ -1136,16 +939,13 @@ pub mod db_service_server {
                 "/services.db_service.DBService/DropNonLinearAlgorithmIndex" => {
                     #[allow(non_camel_case_types)]
                     struct DropNonLinearAlgorithmIndexSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::DropNonLinearAlgorithmIndex,
-                    > for DropNonLinearAlgorithmIndexSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<
+                            super::super::super::db::query::DropNonLinearAlgorithmIndex,
+                        > for DropNonLinearAlgorithmIndexSvc<T>
+                    {
                         type Response = super::super::super::db::server::Del;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<
@@ -1154,10 +954,7 @@ pub mod db_service_server {
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as DbService>::drop_non_linear_algorithm_index(
-                                        &inner,
-                                        request,
-                                    )
+                                <T as DbService>::drop_non_linear_algorithm_index(&inner, request)
                                     .await
                             };
                             Box::pin(fut)
@@ -1188,25 +985,19 @@ pub mod db_service_server {
                 "/services.db_service.DBService/DelKey" => {
                     #[allow(non_camel_case_types)]
                     struct DelKeySvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<super::super::super::db::query::DelKey>
-                    for DelKeySvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::DelKey>
+                        for DelKeySvc<T>
+                    {
                         type Response = super::super::super::db::server::Del;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::DelKey,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::DelKey>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::del_key(&inner, request).await
-                            };
+                            let fut =
+                                async move { <T as DbService>::del_key(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -1235,26 +1026,19 @@ pub mod db_service_server {
                 "/services.db_service.DBService/DelPred" => {
                     #[allow(non_camel_case_types)]
                     struct DelPredSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::DelPred,
-                    > for DelPredSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::DelPred>
+                        for DelPredSvc<T>
+                    {
                         type Response = super::super::super::db::server::Del;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::DelPred,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::DelPred>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::del_pred(&inner, request).await
-                            };
+                            let fut =
+                                async move { <T as DbService>::del_pred(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -1283,26 +1067,19 @@ pub mod db_service_server {
                 "/services.db_service.DBService/DropStore" => {
                     #[allow(non_camel_case_types)]
                     struct DropStoreSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::DropStore,
-                    > for DropStoreSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::DropStore>
+                        for DropStoreSvc<T>
+                    {
                         type Response = super::super::super::db::server::Del;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::DropStore,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::DropStore>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::drop_store(&inner, request).await
-                            };
+                            let fut =
+                                async move { <T as DbService>::drop_store(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -1331,21 +1108,15 @@ pub mod db_service_server {
                 "/services.db_service.DBService/ListClients" => {
                     #[allow(non_camel_case_types)]
                     struct ListClientsSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::ListClients,
-                    > for ListClientsSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::ListClients>
+                        for ListClientsSvc<T>
+                    {
                         type Response = super::super::super::db::server::ClientList;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::ListClients,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::ListClients>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
@@ -1379,26 +1150,19 @@ pub mod db_service_server {
                 "/services.db_service.DBService/ListStores" => {
                     #[allow(non_camel_case_types)]
                     struct ListStoresSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::ListStores,
-                    > for ListStoresSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::ListStores>
+                        for ListStoresSvc<T>
+                    {
                         type Response = super::super::super::db::server::StoreList;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::ListStores,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::ListStores>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::list_stores(&inner, request).await
-                            };
+                            let fut =
+                                async move { <T as DbService>::list_stores(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -1427,26 +1191,19 @@ pub mod db_service_server {
                 "/services.db_service.DBService/InfoServer" => {
                     #[allow(non_camel_case_types)]
                     struct InfoServerSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::query::InfoServer,
-                    > for InfoServerSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::InfoServer>
+                        for InfoServerSvc<T>
+                    {
                         type Response = super::super::super::db::server::InfoServer;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::super::super::db::query::InfoServer,
-                            >,
+                            request: tonic::Request<super::super::super::db::query::InfoServer>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::info_server(&inner, request).await
-                            };
+                            let fut =
+                                async move { <T as DbService>::info_server(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -1475,23 +1232,18 @@ pub mod db_service_server {
                 "/services.db_service.DBService/Ping" => {
                     #[allow(non_camel_case_types)]
                     struct PingSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<super::super::super::db::query::Ping>
-                    for PingSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::Ping>
+                        for PingSvc<T>
+                    {
                         type Response = super::super::super::db::server::Pong;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::super::super::db::query::Ping>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::ping(&inner, request).await
-                            };
+                            let fut = async move { <T as DbService>::ping(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -1520,16 +1272,13 @@ pub mod db_service_server {
                 "/services.db_service.DBService/Pipeline" => {
                     #[allow(non_camel_case_types)]
                     struct PipelineSvc<T: DbService>(pub Arc<T>);
-                    impl<
-                        T: DbService,
-                    > tonic::server::UnaryService<
-                        super::super::super::db::pipeline::DbRequestPipeline,
-                    > for PipelineSvc<T> {
+                    impl<T: DbService>
+                        tonic::server::UnaryService<
+                            super::super::super::db::pipeline::DbRequestPipeline,
+                        > for PipelineSvc<T>
+                    {
                         type Response = super::super::super::db::pipeline::DbResponsePipeline;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<
@@ -1537,9 +1286,8 @@ pub mod db_service_server {
                             >,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as DbService>::pipeline(&inner, request).await
-                            };
+                            let fut =
+                                async move { <T as DbService>::pipeline(&inner, request).await };
                             Box::pin(fut)
                         }
                     }
@@ -1565,23 +1313,19 @@ pub mod db_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        let mut response = http::Response::new(empty_body());
-                        let headers = response.headers_mut();
-                        headers
-                            .insert(
-                                tonic::Status::GRPC_STATUS,
-                                (tonic::Code::Unimplemented as i32).into(),
-                            );
-                        headers
-                            .insert(
-                                http::header::CONTENT_TYPE,
-                                tonic::metadata::GRPC_CONTENT_TYPE,
-                            );
-                        Ok(response)
-                    })
-                }
+                _ => Box::pin(async move {
+                    let mut response = http::Response::new(empty_body());
+                    let headers = response.headers_mut();
+                    headers.insert(
+                        tonic::Status::GRPC_STATUS,
+                        (tonic::Code::Unimplemented as i32).into(),
+                    );
+                    headers.insert(
+                        http::header::CONTENT_TYPE,
+                        tonic::metadata::GRPC_CONTENT_TYPE,
+                    );
+                    Ok(response)
+                }),
             }
         }
     }

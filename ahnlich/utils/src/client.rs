@@ -1,5 +1,5 @@
-use flurry::HashSet as ConcurrentHashSet;
 use grpc_types::client::ConnectedClient;
+use papaya::HashSet as ConcurrentHashSet;
 use std::collections::HashSet as StdHashSet;
 use std::net::SocketAddr;
 use std::time::SystemTime;

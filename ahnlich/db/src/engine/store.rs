@@ -4,7 +4,6 @@ use rayon::prelude::*;
 use super::super::algorithm::non_linear::NonLinearAlgorithmIndices;
 use super::super::algorithm::{AlgorithmByType, FindSimilarN};
 use super::predicate::PredicateIndices;
-use flurry::HashMap as ConcurrentHashMap;
 use grpc_types::algorithm::algorithms::Algorithm;
 use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
 use grpc_types::db::server::StoreInfo;
@@ -15,6 +14,7 @@ use grpc_types::predicates::{
 };
 use grpc_types::shared::info::StoreUpsert;
 use grpc_types::similarity::Similarity;
+use papaya::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap as StdHashMap;
@@ -1362,12 +1362,12 @@ mod tests {
                 StoreInfo {
                     name: odd_store.value,
                     len: 2,
-                    size_in_bytes: 2096,
+                    size_in_bytes: 1432,
                 },
                 StoreInfo {
                     name: even_store.value,
                     len: 0,
-                    size_in_bytes: 1744,
+                    size_in_bytes: 1080,
                 },
             ])
         )

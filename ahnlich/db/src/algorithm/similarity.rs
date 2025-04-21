@@ -32,7 +32,7 @@ struct Magnitude<'a> {
     second: &'a [f32],
 }
 
-impl<'a> WithSimd for Magnitude<'a> {
+impl WithSimd for Magnitude<'_> {
     type Output = f32;
 
     #[inline(always)]
@@ -134,13 +134,12 @@ fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
 ///
 /// An Implementation for most similar items would be a MaxHeap.
 /// The larger the dot product between two vectors, the more similar
-
 struct DotProduct<'a> {
     first: &'a [f32],
     second: &'a [f32],
 }
 
-impl<'a> WithSimd for DotProduct<'a> {
+impl WithSimd for DotProduct<'_> {
     type Output = f32;
 
     #[inline(always)]
@@ -199,17 +198,15 @@ fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
 ///  An Implementation for most similar items would be a MinHeap, The smaller the distance between
 ///  two points, denotes higher similarity
 ///
-
 struct EuclideanDistance<'a> {
     first: &'a [f32],
     second: &'a [f32],
 }
 
-impl<'a> WithSimd for EuclideanDistance<'a> {
+impl WithSimd for EuclideanDistance<'_> {
     type Output = f32;
 
     #[inline(always)]
-
     fn with_simd<S: Simd>(self, simd: S) -> Self::Output {
         let (first_head, first_tail) = S::as_simd_f32s(self.first);
         let (second_head, second_tail) = S::as_simd_f32s(self.second);

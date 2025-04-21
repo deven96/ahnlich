@@ -18,5 +18,5 @@ pub(crate) fn init_threadpool(num_threads: usize) {
 pub fn chunk_size(input_length: usize) -> usize {
     let num_threads = rayon::current_num_threads();
     let minimum_factor = std::cmp::min(input_length, num_threads);
-    (input_length + minimum_factor - 1) / minimum_factor
+    input_length.div_ceil(minimum_factor)
 }

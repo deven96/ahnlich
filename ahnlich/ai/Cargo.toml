@@ -14,7 +14,6 @@ name = "ahnlich-ai"
 path = "src/main.rs"
 
 [dependencies]
-flurry.workspace = true
 tokio.workspace = true
 tonic.workspace = true
 prost.workspace = true
@@ -54,6 +53,7 @@ futures.workspace = true
 tiktoken-rs = "0.5.9"
 itertools.workspace = true
 tokenizers = { version = "0.20.1", features = ["hf-hub"] }
+papaya.workspace = true
 
 [features]
 # ORT Execution providers

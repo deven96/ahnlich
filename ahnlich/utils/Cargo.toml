@@ -10,7 +10,6 @@ tracing.workspace = true
 tracing-opentelemetry.workspace = true
 opentelemetry.workspace = true
 tracer = { path = "../tracer", version = "*" }
-flurry.workspace = true
 tokio.workspace = true
 thiserror.workspace = true
 serde.workspace = true
@@ -24,6 +23,7 @@ fallible_collections.workspace = true
 rayon.workspace = true
 clap.workspace = true
 futures.workspace = true
+papaya.workspace = true
 tower = "0.5.2"
 pin-project = "1"
 tower-layer = "0.3.3"

@@ -30,7 +30,7 @@ fn main() -> Result<()> {
     let protofiles: Vec<PathBuf> = WalkDir::new(proto_dir.clone())
         .into_iter()
         .filter_map(|a| a.ok())
-        .filter(|entry| entry.path().extension().map_or(false, |ext| ext == "proto"))
+        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "proto"))
         .map(|a| a.path().to_path_buf())
         .collect();
     let out_dir = "src/";
@@ -38,7 +38,7 @@ fn main() -> Result<()> {
     if let Ok(entries) = std::fs::read_dir(out_dir) {
         for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
-            if path.file_name().map_or(false, |name| name != "utils") {
+            if path.file_name().is_some_and(|name| name != "utils") {
                 if path.is_dir() {
                     std::fs::remove_dir_all(&path).expect("Failed to remove directory");
                 } else {
@@ -109,8 +109,8 @@ fn restructure_generated_code(out_dir: &PathBuf, file: &mut std::fs::File) {
         .into_iter()
         .filter_map(|a| a.ok())
         .filter(|entry| {
-            entry.path().extension().map_or(false, |ext| ext == "rs")
-                && entry.path().parent().map_or(true, |parent| {
+            entry.path().extension().is_some_and(|ext| ext == "rs")
+                && entry.path().parent().is_none_or(|parent| {
                     parent.file_name().expect("Failed to get filename") != "utils"
                 })
         })
