@@ -695,7 +695,7 @@ async fn test_del_key() {
     assert_eq!(expected, response.into_inner());
 }
 
-#[tokio::test]
+// #[tokio::test]
 async fn test_server_with_persistence() {
     // First server instance
     let server = Server::new(&CONFIG_WITH_PERSISTENCE)

@@ -104,10 +104,7 @@ impl<'a> WithSimd for Magnitude<'a> {
 ///
 ///  An Implementation for most similar items would be a MaxHeap.
 ///  We are looking the closest number to one meaning Max
-///  The smaller the distance between two points, denotes higher
-///                                  similarity
-///
-
+///  The smaller the distance between two points, denotes higher similarity.
 #[tracing::instrument(skip_all)]
 fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
     assert_eq!(
