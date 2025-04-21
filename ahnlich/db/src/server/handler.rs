@@ -794,12 +794,6 @@ impl Server {
     }
 }
 
-// TODO: next steps:
-// - Remove ahnlich_types
-// - rename grpc types to ahnlich_types
-// - Fix DSL and CLI
-// - Run tests and fix all types (alhamdullahi)
-// - Complete DB tests. Address all fixmes, commented out tests and Todos
 #[async_trait::async_trait]
 impl BlockingTask for Server {
     fn task_name(&self) -> String {
