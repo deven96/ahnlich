@@ -54,7 +54,10 @@ pub struct CreateIndex {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ServerResponse {
-    #[prost(oneof = "server_response::Response", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10")]
+    #[prost(
+        oneof = "server_response::Response",
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+    )]
     pub response: ::core::option::Option<server_response::Response>,
 }
 /// Nested message and enum types in `ServerResponse`.
@@ -83,8 +86,7 @@ pub mod server_response {
         CreateIndex(super::CreateIndex),
     }
 }
-#[derive(Hash, Eq, Ord, PartialOrd)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Hash, Eq, Ord, PartialOrd, Clone, PartialEq, ::prost::Message)]
 pub struct StoreInfo {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,

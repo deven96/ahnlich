@@ -1,2 +1,2 @@
-pub mod nonlinear;
 pub mod algorithms;
+pub mod nonlinear;

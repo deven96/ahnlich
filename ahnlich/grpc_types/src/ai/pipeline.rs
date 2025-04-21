@@ -20,9 +20,7 @@ pub mod ai_query {
         #[prost(message, tag = "4")]
         CreatePredIndex(super::super::query::CreatePredIndex),
         #[prost(message, tag = "5")]
-        CreateNonLinearAlgorithmIndex(
-            super::super::query::CreateNonLinearAlgorithmIndex,
-        ),
+        CreateNonLinearAlgorithmIndex(super::super::query::CreateNonLinearAlgorithmIndex),
         #[prost(message, tag = "6")]
         DropPredIndex(super::super::query::DropPredIndex),
         #[prost(message, tag = "7")]

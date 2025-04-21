@@ -63,7 +63,10 @@ pub struct GetSimN {
     #[prost(uint64, tag = "4")]
     pub closest_n: u64,
     /// Algorithm to use for similarity search
-    #[prost(enumeration = "super::super::algorithm::algorithms::Algorithm", tag = "5")]
+    #[prost(
+        enumeration = "super::super::algorithm::algorithms::Algorithm",
+        tag = "5"
+    )]
     pub algorithm: i32,
     /// Preprocessing actions to apply to input before querying
     #[prost(enumeration = "super::preprocess::PreprocessAction", tag = "6")]

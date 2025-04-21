@@ -34,12 +34,9 @@ pub struct StoreEntry {
     #[prost(message, optional, tag = "2")]
     pub value: ::core::option::Option<StoreValue>,
 }
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message)]
 pub struct StoreValue {
     #[prost(map = "string, message", tag = "1")]
-    pub value: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        super::metadata::MetadataValue,
-    >,
+    pub value:
+        ::std::collections::HashMap<::prost::alloc::string::String, super::metadata::MetadataValue>,
 }
