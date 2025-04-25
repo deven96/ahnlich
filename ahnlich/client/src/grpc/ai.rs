@@ -321,13 +321,6 @@ mod test {
 
     use super::*;
     use ahnlich_db::{cli::ServerConfig, server::handler::Server};
-    use ahnlich_types::{
-        db::ServerResponse,
-        keyval::StoreKey,
-        metadata::MetadataKey,
-        predicate::{Predicate, PredicateCondition},
-        similarity::Algorithm,
-    };
     use grpc_types::{
         db::{
             pipeline::{db_server_response::Response, DbServerResponse},
