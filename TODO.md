@@ -1,6 +1,6 @@
 ## GRPC rewrite TODOs
 
-- [ ] Fixing FIXMEs in DB test
+- [x] Fixing FIXMEs in DB test
 - [ ] Fixing AI tests to use new grpc methods
 - [ ] Fixing ahnlich client tests to use new grpc methods
 - [ ] Fixing ahnlich client README documentation that still references creating connection pools and TCP stuff
