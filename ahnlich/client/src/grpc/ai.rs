@@ -27,72 +27,69 @@ pub struct AiPipeline {
 }
 
 impl AiPipeline {
-    pub async fn create_store(&mut self, params: CreateStore) {
+    pub fn create_store(&mut self, params: CreateStore) {
         self.queries.push(Query::CreateStore(params));
     }
 
-    pub async fn create_pred_index(&mut self, params: CreatePredIndex) {
+    pub fn create_pred_index(&mut self, params: CreatePredIndex) {
         self.queries.push(Query::CreatePredIndex(params));
     }
 
-    pub async fn create_non_linear_algorithm_index(
-        &mut self,
-        params: CreateNonLinearAlgorithmIndex,
-    ) {
+    pub fn create_non_linear_algorithm_index(&mut self, params: CreateNonLinearAlgorithmIndex) {
         self.queries
             .push(Query::CreateNonLinearAlgorithmIndex(params));
     }
 
-    pub async fn get_key(&mut self, params: GetKey) {
+    pub fn get_key(&mut self, params: GetKey) {
         self.queries.push(Query::GetKey(params));
     }
 
-    pub async fn get_pred(&mut self, params: GetPred) {
+    pub fn get_pred(&mut self, params: GetPred) {
         self.queries.push(Query::GetPred(params));
     }
 
-    pub async fn get_sim_n(&mut self, params: GetSimN) {
+    pub fn get_sim_n(&mut self, params: GetSimN) {
         self.queries.push(Query::GetSimN(params));
     }
 
-    pub async fn set(&mut self, params: Set) {
+    pub fn set(&mut self, params: Set) {
         self.queries.push(Query::Set(params));
     }
 
-    pub async fn drop_pred_index(&mut self, params: DropPredIndex) {
+    pub fn drop_pred_index(&mut self, params: DropPredIndex) {
         self.queries.push(Query::DropPredIndex(params));
     }
 
-    pub async fn drop_non_linear_algorithm_index(&mut self, params: DropNonLinearAlgorithmIndex) {
+    pub fn drop_non_linear_algorithm_index(&mut self, params: DropNonLinearAlgorithmIndex) {
         self.queries
             .push(Query::DropNonLinearAlgorithmIndex(params));
     }
 
-    pub async fn del_key(&mut self, params: DelKey) {
+    pub fn del_key(&mut self, params: DelKey) {
         self.queries.push(Query::DelKey(params));
     }
 
-    pub async fn drop_store(&mut self, params: DropStore) {
+    pub fn drop_store(&mut self, params: DropStore) {
         self.queries.push(Query::DropStore(params));
     }
 
-    pub async fn info_server(&mut self) {
+    pub fn info_server(&mut self) {
         self.queries.push(Query::InfoServer(InfoServer {}));
     }
 
-    pub async fn purge_stores(&mut self) {
+    pub fn purge_stores(&mut self) {
         self.queries.push(Query::PurgeStores(PurgeStores {}));
     }
 
-    pub async fn list_stores(&mut self) {
+    pub fn list_stores(&mut self) {
         self.queries.push(Query::ListStores(ListStores {}));
     }
 
-    pub async fn list_clients(&mut self) {
+    pub fn list_clients(&mut self) {
         self.queries.push(Query::ListClients(ListClients {}));
     }
 
-    pub async fn ping(&mut self) {
+    pub fn ping(&mut self) {
         self.queries.push(Query::Ping(Ping {}));
     }
 
@@ -314,191 +311,7 @@ impl AiClient {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        collections::{HashMap, HashSet},
-        time::Duration,
-    };
 
-    use super::*;
-    use ahnlich_db::{cli::ServerConfig, server::handler::Server};
-    use grpc_types::{
-        db::{
-            pipeline::{db_server_response::Response, DbServerResponse},
-            query::CreateStore,
-            server::{GetSimNEntry, StoreInfo},
-        },
-        metadata::metadata_value::Value,
-        shared::info::ErrorResponse,
-        similarity::Similarity,
-    };
-    use once_cell::sync::Lazy;
-    use utils::server::AhnlichServerUtils;
-
-    static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
-
-    #[tokio::test]
-    async fn test_grpc_create_store_with_pipeline() {
-        let server = Server::new(&CONFIG)
-            .await
-            .expect("Could not initialize server");
-        let address = server.local_addr().expect("Could not get local addr");
-        tokio::spawn(async move {
-            server.start().await;
-        });
-        // Allow some time for the server to start
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        let db_client = DbClient::new(address.to_string())
-            .await
-            .expect("Could not initialize client");
-        let mut pipeline = db_client.pipeline(None);
-        pipeline.create_store(CreateStore {
-            store: "Main".to_string(),
-            dimension: 3,
-            create_predicates: vec![],
-            non_linear_indices: vec![],
-            error_if_exists: true,
-        });
-        pipeline.create_store(CreateStore {
-            store: "Main".to_string(),
-            dimension: 3,
-            create_predicates: vec![],
-            non_linear_indices: vec![],
-            error_if_exists: true,
-        });
-        pipeline.create_store(CreateStore {
-            store: "Main".to_string(),
-            dimension: 3,
-            create_predicates: vec![],
-            non_linear_indices: vec![],
-            error_if_exists: false,
-        });
-        pipeline.list_stores();
-
-        let expected = DbResponsePipeline {
-            responses: vec![
-                DbServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                DbServerResponse {
-                    response: Some(Response::Error(ErrorResponse {
-                        message: "Store Main already exists".to_string(),
-                        code: 20,
-                    })),
-                },
-                DbServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                DbServerResponse {
-                    response: Some(Response::StoreList(StoreList {
-                        stores: vec![StoreInfo {
-                            name: "Main".to_string(),
-                            len: 0,
-                            size_in_bytes: 1720,
-                        }],
-                    })),
-                },
-            ],
-        };
-        let res = pipeline.exec().await.expect("Could not execute pipeline");
-        assert_eq!(res, expected);
-    }
-
-    #[tokio::test]
-    async fn test_grpc_get_sim_n() {
-        let server = Server::new(&CONFIG)
-            .await
-            .expect("Could not initialize server");
-        let address = server.local_addr().expect("Could not get local addr");
-        tokio::spawn(async move {
-            server.start().await;
-        });
-        // Allow some time for the server to start
-        tokio::time::sleep(Duration::from_millis(100)).await;
-        let mut db_client = DbClient::new(address.to_string())
-            .await
-            .expect("Could not initialize client");
-
-        let create_store_params = db_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .dimension(3)
-            .create_predicates(HashSet::from_iter([MetadataKey::new("medal".into())]))
-            .build();
-
-        assert!(db_client.create_store(create_store_params).await.is_ok());
-
-        let set_key_params = db_params::SetParams::builder()
-            .store("Main".to_string())
-            .inputs(vec![
-                (
-                    StoreKey(vec![1.2, 1.3, 1.4]),
-                    HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
-                        MetadataValue::RawString("silver".into()),
-                    )]),
-                ),
-                (
-                    StoreKey(vec![2.0, 2.1, 2.2]),
-                    HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
-                        MetadataValue::RawString("gold".into()),
-                    )]),
-                ),
-                (
-                    StoreKey(vec![5.0, 5.1, 5.2]),
-                    HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
-                        MetadataValue::RawString("bronze".into()),
-                    )]),
-                ),
-            ])
-            .build();
-        assert!(db_client.set(set_key_params).await.is_ok());
-        // error due to dimension mismatch
-        let get_sim_n_params = db_params::GetSimNParams::builder()
-            .store("Main".to_string())
-            .search_input(StoreKey(vec![1.1, 2.0]))
-            .closest_n(2)
-            .algorithm(Algorithm::EuclideanDistance)
-            .build();
-        assert!(db_client.get_sim_n(get_sim_n_params).await.is_err());
-
-        let get_sim_n_params = db_params::GetSimNParams::builder()
-            .store("Main".to_string())
-            .search_input(StoreKey(vec![5.0, 2.1, 2.2]))
-            .closest_n(2)
-            .algorithm(Algorithm::CosineSimilarity)
-            .condition(Some(PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("medal".into()),
-                value: MetadataValue::RawString("gold".into()),
-            })))
-            .build();
-
-        assert_eq!(
-            db_client.get_sim_n(get_sim_n_params).await.unwrap(),
-            GetSimNResult {
-                entries: vec![GetSimNEntry {
-                    key: Some(grpc_types::keyval::StoreKey {
-                        key: vec![2.0, 2.1, 2.2]
-                    }),
-                    value: Some(grpc_types::keyval::StoreValue {
-                        value: HashMap::from_iter([(
-                            "medal".into(),
-                            grpc_types::metadata::MetadataValue {
-                                value: Some(Value::RawString("gold".into()))
-                            },
-                        )])
-                    }),
-                    similarity: Some(Similarity {
-                        value: 0.9036338825194858
-                    })
-                }]
-            }
-        );
-    }
-}
-
-#[cfg(test)]
-mod tests {
     use super::*;
     use ahnlich_ai_proxy::cli::server::SupportedModels;
     use ahnlich_ai_proxy::cli::AIProxyConfig;
@@ -506,13 +319,28 @@ mod tests {
     use ahnlich_ai_proxy::server::handler::AIProxyServer;
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
+    use grpc_types::ai::models::AiModel;
+    use grpc_types::ai::pipeline::AiServerResponse;
+    use grpc_types::ai::preprocess::PreprocessAction;
+    use grpc_types::ai::query::StoreEntry;
+    use grpc_types::ai::server::{AiStoreInfo, GetEntry};
+    use grpc_types::keyval::store_input::Value;
+    use grpc_types::keyval::{StoreInput, StoreValue};
+    use grpc_types::metadata::{metadata_value::Value as MValue, MetadataValue};
+    use grpc_types::shared::info::{ErrorResponse, StoreUpsert};
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
-    use std::collections::HashSet;
     use std::net::SocketAddr;
     use tokio::time::Duration;
     use utils::server::AhnlichServerUtils;
+
+    use grpc_types::{ai::pipeline::ai_server_response::Response, keyval::StoreName};
+
+    use grpc_types::predicates::{
+        self, predicate::Kind as PredicateKind,
+        predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
+    };
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
     static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
@@ -547,9 +375,7 @@ mod tests {
     #[tokio::test]
     async fn test_ai_client_ping() {
         let address = provision_test_servers().await;
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
         assert!(ai_client.ping(None).await.is_ok());
@@ -558,20 +384,30 @@ mod tests {
     #[tokio::test]
     async fn test_ai_client_simple_pipeline() {
         let address = provision_test_servers().await;
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
-        let mut pipeline = ai_client
-            .pipeline(3, None)
-            .await
-            .expect("Could not create pipeline");
+        let mut pipeline = ai_client.pipeline(None);
         pipeline.list_stores();
         pipeline.ping();
-        let mut expected = AIServerResult::with_capacity(2);
-        expected.push(Ok(AIServerResponse::StoreList(HashSet::new())));
-        expected.push(Ok(AIServerResponse::Pong));
+
+        let expected = AiResponsePipeline {
+            responses: vec![
+                AiServerResponse {
+                    response: Some(Response::Error(ErrorResponse {
+                        message: "Store Main already exists".to_string(),
+                        code: 20,
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::StoreList(StoreList { stores: vec![] })),
+                },
+            ],
+        };
+
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
     }
@@ -580,7 +416,7 @@ mod tests {
     async fn test_pool_commands_fail_if_server_not_exist() {
         let host = "127.0.0.1";
         let port = 1234;
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(format!("{host}:{port}"))
             .await
             .expect("Could not initialize client");
         assert!(ai_client.ping(None).await.is_err());
@@ -589,67 +425,100 @@ mod tests {
     #[tokio::test]
     async fn test_create_stores_with_pipeline() {
         let address = provision_test_servers().await;
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
 
-        let mut pipeline = ai_client
-            .pipeline(4, None)
-            .await
-            .expect("Could not create pipeline");
-        let create_store_params = ai_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .index_model(AIModel::AllMiniLML6V2)
-            .query_model(AIModel::AllMiniLML6V2)
-            .build();
+        let mut pipeline = ai_client.pipeline(None);
 
-        let create_store_params_2 = ai_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .index_model(AIModel::AllMiniLML6V2)
-            .query_model(AIModel::AllMiniLML6V2)
-            .build();
+        let create_store_params = CreateStore {
+            store: "Main".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
 
-        let create_store_params_no_error = ai_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .index_model(AIModel::AllMiniLML6V2)
-            .query_model(AIModel::AllMiniLML6V2)
-            .error_if_exists(false)
-            .build();
+        let create_store_params_2 = CreateStore {
+            store: "Main".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+
+        let create_store_params_no_error = CreateStore {
+            store: "Main".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: false,
+            store_original: true,
+        };
+
         pipeline.create_store(create_store_params);
         pipeline.create_store(create_store_params_2);
         pipeline.create_store(create_store_params_no_error);
 
-        let create_store_params = ai_params::CreateStoreParams::builder()
-            .store("Less".to_string())
-            .index_model(AIModel::AllMiniLML6V2)
-            .query_model(AIModel::AllMiniLML6V2)
-            .build();
+        let create_store_params = CreateStore {
+            store: "Less".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
 
         pipeline.create_store(create_store_params);
         pipeline.list_stores();
-        let mut expected = AIServerResult::with_capacity(5);
-        expected.push(Ok(AIServerResponse::Unit));
-        expected.push(Err("Store Main already exists".to_string()));
-        expected.push(Ok(AIServerResponse::Unit));
-        expected.push(Ok(AIServerResponse::Unit));
+
         let ai_model: ModelDetails =
-            SupportedModels::from(&AIModel::AllMiniLML6V2).to_model_details();
-        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-            AIStoreInfo {
-                name: StoreName("Main".to_string()),
-                embedding_size: ai_model.embedding_size.into(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-            },
-            AIStoreInfo {
-                name: StoreName("Less".to_string()),
-                embedding_size: ai_model.embedding_size.into(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-            },
-        ]))));
+            SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
+
+        let expected = AiResponsePipeline {
+            responses: vec![
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::Error(ErrorResponse {
+                        message: "Store Main already exists".to_string(),
+                        code: 20,
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::StoreList(StoreList {
+                        stores: vec![
+                            AiStoreInfo {
+                                name: "Main".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                            AiStoreInfo {
+                                name: "Less".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                        ],
+                    })),
+                },
+            ],
+        };
+
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
     }
@@ -657,114 +526,159 @@ mod tests {
     #[tokio::test]
     async fn test_del_key() {
         let address = provision_test_servers().await;
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
-        let store_name = StoreName("Main".to_string());
 
-        let create_store_params = ai_params::CreateStoreParams::builder()
-            .store(store_name.clone().to_string())
-            .index_model(AIModel::AllMiniLML6V2)
-            .query_model(AIModel::AllMiniLML6V2)
-            .build();
+        let create_store_params = CreateStore {
+            store: "Main".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
 
-        assert!(ai_client.create_store(create_store_params).await.is_ok());
+        assert!(ai_client
+            .create_store(create_store_params, None)
+            .await
+            .is_ok());
 
-        let set_params = ai_params::SetParams::builder()
-            .store(store_name.clone().to_string())
-            .inputs(vec![
-                (StoreInput::RawString("Adidas Yeezy".into()), HashMap::new()),
-                (
-                    StoreInput::RawString("Nike Air Jordans".into()),
-                    HashMap::new(),
-                ),
-            ])
-            .preprocess_action(PreprocessAction::NoPreprocessing)
-            .build();
+        let set_params = Set {
+            store: "Main".to_string(),
+            execution_provider: None,
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            inputs: vec![
+                StoreEntry {
+                    key: Some(StoreInput {
+                        value: Some(Value::RawString("Adidas Yeezy".into())),
+                    }),
+                    value: HashMap::new(),
+                },
+                StoreEntry {
+                    key: Some(StoreInput {
+                        value: Some(Value::RawString("Nike Air Jordans".into())),
+                    }),
+                    value: HashMap::new(),
+                },
+            ],
+        };
 
-        assert!(ai_client.set(set_params).await.is_ok());
+        assert!(ai_client.set(set_params, None).await.is_ok());
 
-        let delete_key = ai_params::DelKeyParams::builder()
-            .store(store_name.to_string())
-            .key(StoreInput::RawString("Adidas Yeezy".into()))
-            .build();
+        let delete_key = DelKey {
+            store: "Main".to_string(),
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Adidas Yeezy".into())),
+            }),
+        };
+
         assert_eq!(
-            ai_client.del_key(delete_key).await.unwrap(),
-            AIServerResponse::Del(1)
-        )
+            ai_client.del_key(delete_key, None).await.unwrap(),
+            Del { deleted_count: 1 }
+        );
     }
 
     #[tokio::test]
     async fn test_destroy_purge_stores_with_pipeline() {
         let address = provision_test_servers().await;
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
 
-        let mut pipeline = ai_client
-            .pipeline(4, None)
-            .await
-            .expect("Could not create pipeline");
+        let mut pipeline = ai_client.pipeline(None);
 
-        let create_store_params = ai_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .index_model(AIModel::AllMiniLML6V2)
-            .query_model(AIModel::AllMiniLML6V2)
-            .build();
+        let create_store_params = CreateStore {
+            store: "Main".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
         pipeline.create_store(create_store_params);
-        let create_store_params_2 = ai_params::CreateStoreParams::builder()
-            .store("Main2".to_string())
-            .index_model(AIModel::AllMiniLML6V2)
-            .query_model(AIModel::AllMiniLML6V2)
-            .build();
+
+        let create_store_params_2 = CreateStore {
+            store: "Main2".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
         pipeline.create_store(create_store_params_2);
 
-        let create_store_params_3 = ai_params::CreateStoreParams::builder()
-            .store("Less".to_string())
-            .index_model(AIModel::AllMiniLML6V2)
-            .query_model(AIModel::AllMiniLML6V2)
-            .build();
+        let create_store_params_3 = CreateStore {
+            store: "Less".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
 
         pipeline.create_store(create_store_params_3);
         pipeline.list_stores();
-        let drop_store_params = ai_params::DropStoreParams::builder()
-            .store("Less".to_string())
-            .build();
+
+        let drop_store_params = DropStore {
+            store: "Less".into(),
+            error_if_not_exists: true,
+        };
+
         pipeline.drop_store(drop_store_params);
         pipeline.purge_stores();
-        let mut expected = AIServerResult::with_capacity(6);
-        expected.push(Ok(AIServerResponse::Unit));
-        expected.push(Ok(AIServerResponse::Unit));
-        expected.push(Ok(AIServerResponse::Unit));
 
         let ai_model: ModelDetails =
-            SupportedModels::from(&AIModel::AllMiniLML6V2).to_model_details();
-        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-            AIStoreInfo {
-                name: StoreName("Main".to_string()),
-                embedding_size: ai_model.embedding_size.into(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-            },
-            AIStoreInfo {
-                name: StoreName("Main2".to_string()),
-                embedding_size: ai_model.embedding_size.into(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-            },
-            AIStoreInfo {
-                name: StoreName("Less".to_string()),
-                embedding_size: ai_model.embedding_size.into(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-            },
-        ]))));
-        expected.push(Ok(AIServerResponse::Del(1)));
-        expected.push(Ok(AIServerResponse::Del(2)));
+            SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
+
+        let expected = AiResponsePipeline {
+            responses: vec![
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::StoreList(StoreList {
+                        stores: vec![
+                            AiStoreInfo {
+                                name: "Main".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                            AiStoreInfo {
+                                name: "Main2".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                            AiStoreInfo {
+                                name: "Less".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                        ],
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Del(Del { deleted_count: 1 })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Del(Del { deleted_count: 2 })),
+                },
+            ],
+        };
+
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
     }
@@ -773,125 +687,167 @@ mod tests {
     async fn test_ai_client_get_pred() {
         let address = provision_test_servers().await;
 
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
 
-        let store_name = StoreName(String::from("Deven Kicks"));
-        let matching_metadatakey = MetadataKey::new("Brand".to_owned());
-        let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+        let store_name = StoreName {
+            value: String::from("Deven Kicks"),
+        };
 
-        let nike_store_value =
-            StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-        let adidas_store_value = StoreValue::from_iter([(
-            matching_metadatakey.clone(),
-            MetadataValue::RawString("Adidas".to_owned()),
-        )]);
+        let matching_metadatakey = "Brand".to_owned();
+        let matching_metadatavalue = MetadataValue {
+            value: Some(MValue::RawString("Nike".into())),
+        };
+
+        let nike_store_value = StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                matching_metadatavalue.clone(),
+            )]),
+        };
+
+        let adidas_store_value = StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                MetadataValue {
+                    value: Some(MValue::RawString("Adidas".into())),
+                },
+            )]),
+        };
+
         let store_data = vec![
-            (
-                StoreInput::RawString(String::from("Air Force 1 Retro Boost")),
-                nike_store_value.clone(),
-            ),
-            (
-                StoreInput::RawString(String::from("Jordan")),
-                nike_store_value.clone(),
-            ),
-            (
-                StoreInput::RawString(String::from("Yeezy")),
-                adidas_store_value.clone(),
-            ),
+            StoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("Air Force 1 Retro Boost".into())),
+                }),
+                value: nike_store_value.clone().value,
+            },
+            StoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("Jordan".into())),
+                }),
+                value: nike_store_value.clone().value,
+            },
+            StoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("Yeezy".into())),
+                }),
+                value: adidas_store_value.clone().value,
+            },
         ];
 
-        let mut pipeline = ai_client
-            .pipeline(6, None)
-            .await
-            .expect("Could not create pipeline");
+        let mut pipeline = ai_client.pipeline(None);
 
-        let create_store_params = ai_params::CreateStoreParams::builder()
-            .store(store_name.clone().to_string())
-            .index_model(AIModel::AllMiniLML6V2)
-            .query_model(AIModel::AllMiniLML6V2)
-            .build();
+        let create_store_params = CreateStore {
+            store: store_name.value.clone(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
 
         pipeline.create_store(create_store_params);
         pipeline.list_stores();
-        let create_pred_index_params = ai_params::CreatePredIndexParams::builder()
-            .store(store_name.clone().to_string())
-            .predicates(HashSet::from_iter([
-                MetadataKey::new("Brand".to_string()),
-                MetadataKey::new("Vintage".to_string()),
-            ]))
-            .build();
+
+        let create_pred_index_params = CreatePredIndex {
+            store: store_name.value.clone(),
+            predicates: vec!["Brand".into(), "Vintage".into()],
+        };
+
         pipeline.create_pred_index(create_pred_index_params);
 
-        let set_params = ai_params::SetParams::builder()
-            .store(store_name.clone().to_string())
-            .inputs(store_data)
-            .preprocess_action(PreprocessAction::NoPreprocessing)
-            .build();
+        let set_params = Set {
+            store: store_name.value.clone(),
+            inputs: store_data,
+            execution_provider: None,
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+        };
         pipeline.set(set_params);
 
-        let drop_pred_params = ai_params::DropPredIndexParams::builder()
-            .store(store_name.clone().to_string())
-            .predicates(HashSet::from_iter([MetadataKey::new(
-                "Vintage".to_string(),
-            )]))
-            .build();
+        let drop_pred_params = DropPredIndex {
+            store: store_name.value.clone(),
+            predicates: vec!["Vintage".to_string()],
+            error_if_not_exists: true,
+        };
 
         pipeline.drop_pred_index(drop_pred_params);
         let res = pipeline.exec().await.expect("Could not execute pipeline");
 
-        let mut expected = AIServerResult::with_capacity(6);
-
-        expected.push(Ok(AIServerResponse::Unit));
         let ai_model: ModelDetails =
-            SupportedModels::from(&AIModel::AllMiniLML6V2).to_model_details();
-        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-            AIStoreInfo {
-                name: store_name.clone(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
+            SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
 
-                embedding_size: ai_model.embedding_size.into(),
-            },
-        ]))));
-        expected.push(Ok(AIServerResponse::CreateIndex(2)));
-        expected.push(Ok(AIServerResponse::Set(StoreUpsert {
-            inserted: 3,
-            updated: 0,
-        })));
-        expected.push(Ok(AIServerResponse::Del(1)));
+        let expected = AiResponsePipeline {
+            responses: vec![
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::StoreList(StoreList {
+                        stores: vec![AiStoreInfo {
+                            name: store_name.value.clone(),
+                            embedding_size: ai_model.embedding_size.get() as u64,
+                            query_model: AiModel::AllMiniLmL6V2 as i32,
+                            index_model: AiModel::AllMiniLmL6V2 as i32,
+                        }],
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::CreateIndex(CreateIndex { created_indexes: 2 })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Set(SetResult {
+                        upsert: Some(StoreUpsert {
+                            inserted: 3,
+                            updated: 0,
+                        }),
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Del(Del { deleted_count: 1 })),
+                },
+            ],
+        };
 
         assert_eq!(res, expected);
 
-        let get_pred_params = ai_params::GetPredParams::builder()
-            .store(store_name.to_string())
-            .condition(PredicateCondition::Value(Predicate::Equals {
-                key: matching_metadatakey,
-                value: matching_metadatavalue,
-            }))
-            .build();
+        let condition = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: matching_metadatakey,
+                    value: Some(matching_metadatavalue),
+                })),
+            })),
+        };
 
-        let response = ai_client.get_pred(get_pred_params).await.unwrap();
+        let get_pred_params = GetPred {
+            store: store_name.value,
+            condition: Some(condition),
+        };
 
-        let expected = vec![
-            (
-                Some(StoreInput::RawString(String::from(
-                    "Air Force 1 Retro Boost",
-                ))),
-                nike_store_value.clone(),
-            ),
-            (
-                Some(StoreInput::RawString(String::from("Jordan"))),
-                nike_store_value.clone(),
-            ),
-        ];
-        if let AIServerResponse::Get(get_pred_result) = response {
-            for item in get_pred_result {
-                assert!(expected.contains(&item) == true);
-            }
+        let response = ai_client.get_pred(get_pred_params, None).await.unwrap();
+
+        let expected = Get {
+            entries: vec![
+                GetEntry {
+                    key: Some(StoreInput {
+                        value: Some(Value::RawString("Air Force 1 Retro Boost".into())),
+                    }),
+                    value: Some(nike_store_value.clone()),
+                },
+                GetEntry {
+                    key: Some(StoreInput {
+                        value: Some(Value::RawString("Jordan".into())),
+                    }),
+                    value: Some(nike_store_value.clone()),
+                },
+            ],
+        };
+
+        for item in response.entries {
+            assert!(expected.entries.contains(&item) == true)
         }
     }
 
@@ -899,111 +855,172 @@ mod tests {
     async fn test_ai_client_actions_on_binary_store() {
         let address = provision_test_servers().await;
 
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
 
-        let store_name = StoreName(String::from("Deven Image Store"));
-        let matching_metadatakey = MetadataKey::new("Name".to_owned());
-        let matching_metadatavalue = MetadataValue::RawString("Daniel".to_owned());
+        let store_name = StoreName {
+            value: String::from("Deven Image Store"),
+        };
+        let matching_metadatakey = "Name".to_owned();
 
-        let store_value_1 =
-            StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-        let store_value_2 = StoreValue::from_iter([(
-            matching_metadatakey.clone(),
-            MetadataValue::RawString("Deven".to_owned()),
-        )]);
+        let matching_metadatavalue = MetadataValue {
+            value: Some(MValue::RawString("Daniel".into())),
+        };
+
+        let store_value_1 = StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                matching_metadatavalue.clone(),
+            )]),
+        };
+        let store_value_2 = StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                MetadataValue {
+                    value: Some(MValue::RawString("Deven".into())),
+                },
+            )]),
+        };
+
         let store_data = vec![
-            (
-                StoreInput::Image(include_bytes!("../../ai/src/tests/images/dog.jpg").to_vec()),
-                StoreValue::from_iter([(
+            StoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(
+                        include_bytes!("../../../ai/src/tests/images/dog.jpg").to_vec(),
+                    )),
+                }),
+                value: HashMap::from_iter([(
                     matching_metadatakey.clone(),
-                    MetadataValue::RawString("Greatness".to_owned()),
+                    MetadataValue {
+                        value: Some(MValue::RawString("Greatness".into())),
+                    },
                 )]),
-            ),
-            (
-                StoreInput::Image(include_bytes!("../../ai/src/tests/images/test.webp").to_vec()),
-                store_value_2.clone(),
-            ),
-            (
-                StoreInput::Image(include_bytes!("../../ai/src/tests/images/cat.png").to_vec()),
-                store_value_1.clone(),
-            ),
+            },
+            StoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(
+                        include_bytes!("../../../ai/src/tests/images/test.webp").to_vec(),
+                    )),
+                }),
+                value: store_value_2.clone().value,
+            },
+            StoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(
+                        include_bytes!("../../../ai/src/tests/images/cat.png").to_vec(),
+                    )),
+                }),
+                value: store_value_1.clone().value,
+            },
         ];
 
-        let mut pipeline = ai_client
-            .pipeline(7, None)
-            .await
-            .expect("Could not create pipeline");
+        let mut pipeline = ai_client.pipeline(None);
 
-        let create_store_params = ai_params::CreateStoreParams::builder()
-            .store(store_name.clone().to_string())
-            .index_model(AIModel::Resnet50)
-            .query_model(AIModel::Resnet50)
-            .build();
+        let create_store_params = CreateStore {
+            store: store_name.value.clone(),
+            index_model: AiModel::Resnet50 as i32,
+            query_model: AiModel::Resnet50 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
 
         pipeline.create_store(create_store_params);
         pipeline.list_stores();
-        let create_pred_index_params = ai_params::CreatePredIndexParams::builder()
-            .store(store_name.clone().to_string())
-            .predicates(HashSet::from_iter([
-                MetadataKey::new("Name".to_string()),
-                MetadataKey::new("Age".to_string()),
-            ]))
-            .build();
+
+        let create_pred_index_params = CreatePredIndex {
+            store: store_name.value.clone(),
+            predicates: vec!["Name".into(), "Age".into()],
+        };
+
         pipeline.create_pred_index(create_pred_index_params);
-        let set_params = ai_params::SetParams::builder()
-            .store(store_name.clone().to_string())
-            .inputs(store_data)
-            .preprocess_action(PreprocessAction::NoPreprocessing)
-            .build();
+
+        let set_params = Set {
+            store: store_name.value.clone(),
+            inputs: store_data,
+            execution_provider: None,
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+        };
+
         pipeline.set(set_params);
 
-        let drop_pred_index_params = ai_params::DropPredIndexParams::builder()
-            .store(store_name.clone().to_string())
-            .predicates(HashSet::from_iter([MetadataKey::new("Age".to_string())]))
-            .build();
+        let drop_pred_index_params = DropPredIndex {
+            store: store_name.value.clone(),
+            predicates: vec!["Age".to_string()],
+            error_if_not_exists: true,
+        };
+
         pipeline.drop_pred_index(drop_pred_index_params);
 
-        let get_pred_params = ai_params::GetPredParams::builder()
-            .store(store_name.clone().to_string())
-            .condition(PredicateCondition::Value(Predicate::Equals {
-                key: matching_metadatakey.clone(),
-                value: matching_metadatavalue,
-            }))
-            .build();
+        let condition = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: matching_metadatakey,
+                    value: Some(matching_metadatavalue),
+                })),
+            })),
+        };
+
+        let get_pred_params = GetPred {
+            store: store_name.value.clone(),
+            condition: Some(condition),
+        };
+
         pipeline.get_pred(get_pred_params);
 
         pipeline.purge_stores();
 
-        let mut expected = AIServerResult::with_capacity(7);
-
-        expected.push(Ok(AIServerResponse::Unit));
         let resnet_model: ModelDetails =
-            SupportedModels::from(&AIModel::Resnet50).to_model_details();
-        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-            AIStoreInfo {
-                name: store_name,
-                query_model: AIModel::Resnet50,
-                index_model: AIModel::Resnet50,
-                embedding_size: resnet_model.embedding_size.into(),
-            },
-        ]))));
-        expected.push(Ok(AIServerResponse::CreateIndex(2)));
-        expected.push(Ok(AIServerResponse::Set(StoreUpsert {
-            inserted: 3,
-            updated: 0,
-        })));
-        expected.push(Ok(AIServerResponse::Del(1)));
-        expected.push(Ok(AIServerResponse::Get(vec![(
-            Some(StoreInput::Image(
-                include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
-            )),
-            store_value_1.clone(),
-        )])));
-        expected.push(Ok(AIServerResponse::Del(1)));
+            SupportedModels::from(&AiModel::Resnet50).to_model_details();
+
+        let expected = AiResponsePipeline {
+            responses: vec![
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::StoreList(StoreList {
+                        stores: vec![AiStoreInfo {
+                            name: store_name.value.clone(),
+                            embedding_size: resnet_model.embedding_size.get() as u64,
+                            query_model: AiModel::Resnet50 as i32,
+                            index_model: AiModel::Resnet50 as i32,
+                        }],
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::CreateIndex(CreateIndex { created_indexes: 2 })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Set(SetResult {
+                        upsert: Some(StoreUpsert {
+                            inserted: 3,
+                            updated: 0,
+                        }),
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Del(Del { deleted_count: 1 })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Get(Get {
+                        entries: vec![GetEntry {
+                            key: Some(StoreInput {
+                                value: Some(Value::Image(
+                                    include_bytes!("../../../ai/src/tests/images/cat.png").to_vec(),
+                                )),
+                            }),
+                            value: Some(store_value_1.clone()),
+                        }],
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Del(Del { deleted_count: 1 })),
+                },
+            ],
+        };
 
         let res = pipeline.exec().await.expect("Could not execute pipeline");
 
