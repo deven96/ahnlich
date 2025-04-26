@@ -342,7 +342,7 @@ mod test {
         predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
     };
 
-    static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
+    static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
     static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
         let mut ai_proxy = AIProxyConfig::default().os_select_port();
         ai_proxy.db_port = CONFIG.port.clone();
