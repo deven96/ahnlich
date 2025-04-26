@@ -1,11 +1,9 @@
-use std::collections::HashSet;
-
-use ahnlich_types::{keyval::StoreName, metadata::MetadataKey, similarity::NonLinearAlgorithm};
+use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
 use pest::iterators::Pair;
 
 use crate::{algorithm::to_non_linear, error::DslError, parser::Rule};
 
-pub(crate) fn parse_drop_store(statement: Pair<Rule>) -> Result<(StoreName, bool), DslError> {
+pub(crate) fn parse_drop_store(statement: Pair<Rule>) -> Result<(String, bool), DslError> {
     match statement.as_rule() {
         Rule::drop_store => {
             let start_pos = statement.as_span().start_pos().pos();
@@ -14,7 +12,8 @@ pub(crate) fn parse_drop_store(statement: Pair<Rule>) -> Result<(StoreName, bool
             let store = inner_pairs
                 .next()
                 .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                .as_str();
+                .as_str()
+                .to_string();
             let if_exists = match inner_pairs.next() {
                 None => false,
                 Some(p) => {
@@ -26,7 +25,7 @@ pub(crate) fn parse_drop_store(statement: Pair<Rule>) -> Result<(StoreName, bool
                     true
                 }
             };
-            Ok((StoreName(store.to_string()), !if_exists))
+            Ok((store, !if_exists))
         }
         e => Err(DslError::UnsupportedRule(e)),
     }
@@ -34,7 +33,7 @@ pub(crate) fn parse_drop_store(statement: Pair<Rule>) -> Result<(StoreName, bool
 
 pub(crate) fn parse_drop_non_linear_algorithm_index(
     statement: Pair<Rule>,
-) -> Result<(StoreName, bool, HashSet<NonLinearAlgorithm>), DslError> {
+) -> Result<(String, bool, Vec<NonLinearAlgorithm>), DslError> {
     match statement.as_rule() {
         Rule::drop_non_linear_algorithm_index => {
             let start_pos = statement.as_span().start_pos().pos();
@@ -53,12 +52,13 @@ pub(crate) fn parse_drop_non_linear_algorithm_index(
             let store = inner_pairs
                 .next()
                 .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                .as_str();
+                .as_str()
+                .to_string();
             let non_linear_indices = index_names_pair
                 .into_inner()
                 .flat_map(|index_pair| to_non_linear(index_pair.as_str()))
                 .collect();
-            Ok((StoreName(store.to_string()), !if_exists, non_linear_indices))
+            Ok((store, !if_exists, non_linear_indices))
         }
         e => Err(DslError::UnsupportedRule(e)),
     }
@@ -66,7 +66,7 @@ pub(crate) fn parse_drop_non_linear_algorithm_index(
 
 pub(crate) fn parse_drop_pred_index(
     statement: Pair<Rule>,
-) -> Result<(StoreName, HashSet<MetadataKey>, bool), DslError> {
+) -> Result<(String, Vec<String>, bool), DslError> {
     match statement.as_rule() {
         Rule::drop_pred_index => {
             let start_pos = statement.as_span().start_pos().pos();
@@ -85,12 +85,13 @@ pub(crate) fn parse_drop_pred_index(
             let store = inner_pairs
                 .next()
                 .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                .as_str();
+                .as_str()
+                .to_string();
             let predicates = index_names_pair
                 .into_inner()
-                .map(|index_pair| MetadataKey::new(index_pair.as_str().to_string()))
+                .map(|index_pair| index_pair.as_str().to_string())
                 .collect();
-            Ok((StoreName(store.to_string()), predicates, !if_exists))
+            Ok((store, predicates, !if_exists))
         }
         e => Err(DslError::UnsupportedRule(e)),
     }
@@ -98,7 +99,7 @@ pub(crate) fn parse_drop_pred_index(
 
 pub(crate) fn parse_create_non_linear_algorithm_index(
     statement: Pair<Rule>,
-) -> Result<(StoreName, HashSet<NonLinearAlgorithm>), DslError> {
+) -> Result<(String, Vec<NonLinearAlgorithm>), DslError> {
     match statement.as_rule() {
         Rule::create_non_linear_algorithm_index => {
             let start_pos = statement.as_span().start_pos().pos();
@@ -114,8 +115,9 @@ pub(crate) fn parse_create_non_linear_algorithm_index(
             let store = inner_pairs
                 .next()
                 .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                .as_str();
-            Ok((StoreName(store.to_string()), non_linear_indices))
+                .as_str()
+                .to_string();
+            Ok((store, non_linear_indices))
         }
         e => Err(DslError::UnsupportedRule(e)),
     }
@@ -123,7 +125,7 @@ pub(crate) fn parse_create_non_linear_algorithm_index(
 
 pub(crate) fn parse_create_pred_index(
     statement: Pair<Rule>,
-) -> Result<(StoreName, HashSet<MetadataKey>), DslError> {
+) -> Result<(String, Vec<String>), DslError> {
     match statement.as_rule() {
         Rule::create_pred_index => {
             let start_pos = statement.as_span().start_pos().pos();
@@ -134,13 +136,14 @@ pub(crate) fn parse_create_pred_index(
                 .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
             let predicates = index_name_pairs
                 .into_inner()
-                .map(|index_pair| MetadataKey::new(index_pair.as_str().to_string()))
+                .map(|index_pair| index_pair.as_str().to_string())
                 .collect();
             let store = inner_pairs
                 .next()
                 .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                .as_str();
-            Ok((StoreName(store.to_string()), predicates))
+                .as_str()
+                .to_string();
+            Ok((store, predicates))
         }
         e => Err(DslError::UnsupportedRule(e)),
     }

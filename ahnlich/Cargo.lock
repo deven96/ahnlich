@@ -1052,7 +1052,7 @@ dependencies = [
 name = "dsl"
 version = "0.1.0"
 dependencies = [
- "ahnlich_types",
+ "grpc_types",
  "hex",
  "pest",
  "pest_derive",

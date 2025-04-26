@@ -1,9 +1,12 @@
 use crate::error::DslError;
 use crate::metadata::{parse_metadata_value, parse_metadata_values};
 use crate::parser::Rule;
-use ahnlich_types::metadata::MetadataKey;
-use ahnlich_types::predicate::Predicate;
-use ahnlich_types::predicate::PredicateCondition;
+use grpc_types::metadata::MetadataValue;
+use grpc_types::predicates::predicate::Kind as PredicateKind;
+use grpc_types::predicates::predicate_condition::Kind;
+use grpc_types::predicates::{
+    AndCondition, Equals, In, NotEquals, NotIn, OrCondition, Predicate, PredicateCondition,
+};
 use pest::iterators::Pair;
 
 pub(crate) fn parse_predicate_expression(pair: Pair<Rule>) -> Result<PredicateCondition, DslError> {
@@ -11,7 +14,9 @@ pub(crate) fn parse_predicate_expression(pair: Pair<Rule>) -> Result<PredicateCo
         Rule::simple_expression => {
             // Parse the simple expression into a Predicate
             let predicate = parse_simple_expression(pair)?;
-            Ok(PredicateCondition::Value(predicate))
+            Ok(PredicateCondition {
+                kind: Some(Kind::Value(predicate)),
+            })
         }
         Rule::compound_expression => {
             let start_pos = pair.as_span().start_pos().pos();
@@ -34,10 +39,18 @@ pub(crate) fn parse_predicate_expression(pair: Pair<Rule>) -> Result<PredicateCo
                 )?;
 
                 result = match operator {
-                    Rule::and => {
-                        PredicateCondition::And(Box::new(result), Box::new(next_condition))
-                    }
-                    Rule::or => PredicateCondition::Or(Box::new(result), Box::new(next_condition)),
+                    Rule::and => PredicateCondition {
+                        kind: Some(Kind::And(Box::new(AndCondition {
+                            left: Some(Box::new(result)),
+                            right: Some(Box::new(next_condition)),
+                        }))),
+                    },
+                    Rule::or => PredicateCondition {
+                        kind: Some(Kind::Or(Box::new(OrCondition {
+                            left: Some(Box::new(result)),
+                            right: Some(Box::new(next_condition)),
+                        }))),
+                    },
                     _ => return Err(DslError::UnexpectedSpan((start_pos, end_pos))),
                 };
             }
@@ -79,35 +92,47 @@ fn parse_simple_expression(pair: Pair<Rule>) -> Result<Predicate, DslError> {
         .next()
         .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
 
-    let metadata_key = MetadataKey::new(key.to_string());
+    let metadata_key = key.to_string();
 
     match operator.as_rule() {
         Rule::equals => {
             let metadata_value = parse_metadata_value(value)?;
-            Ok(Predicate::Equals {
-                key: metadata_key,
-                value: metadata_value,
+            Ok(Predicate {
+                kind: Some(PredicateKind::Equals(Equals {
+                    key: metadata_key,
+                    value: Some(MetadataValue {
+                        value: Some(metadata_value),
+                    }),
+                })),
             })
         }
         Rule::in_op => {
-            let value = parse_metadata_values(value)?;
-            Ok(Predicate::In {
-                key: metadata_key,
-                value,
+            let values = parse_metadata_values(value)?;
+            Ok(Predicate {
+                kind: Some(PredicateKind::In(In {
+                    key: metadata_key,
+                    values,
+                })),
             })
         }
         Rule::not_equals => {
             let metadata_value = parse_metadata_value(value)?;
-            Ok(Predicate::NotEquals {
-                key: metadata_key,
-                value: metadata_value,
+            Ok(Predicate {
+                kind: Some(PredicateKind::NotEquals(NotEquals {
+                    key: metadata_key,
+                    value: Some(MetadataValue {
+                        value: Some(metadata_value),
+                    }),
+                })),
             })
         }
         Rule::not_in => {
             let value = parse_metadata_values(value)?;
-            Ok(Predicate::NotIn {
-                key: metadata_key,
-                value,
+            Ok(Predicate {
+                kind: Some(PredicateKind::NotIn(NotIn {
+                    key: metadata_key,
+                    values: value.into_iter().collect(),
+                })),
             })
         }
         _ => Err(DslError::UnexpectedSpan((start_pos, end_pos))),
@@ -119,7 +144,9 @@ fn parse_predicate_condition(pair: Pair<Rule>) -> Result<PredicateCondition, Dsl
         Rule::simple_expression => {
             // Parse the simple expression into a Predicate
             let predicate = parse_simple_expression(pair)?;
-            Ok(PredicateCondition::Value(predicate))
+            Ok(PredicateCondition {
+                kind: Some(Kind::Value(predicate)),
+            })
         }
         Rule::compound_expression => {
             let start_pos = pair.as_span().start_pos().pos();
@@ -143,10 +170,18 @@ fn parse_predicate_condition(pair: Pair<Rule>) -> Result<PredicateCondition, Dsl
                 )?;
 
                 result = match operator {
-                    Rule::and => {
-                        PredicateCondition::And(Box::new(result), Box::new(next_condition))
-                    }
-                    Rule::or => PredicateCondition::Or(Box::new(result), Box::new(next_condition)),
+                    Rule::and => PredicateCondition {
+                        kind: Some(Kind::And(Box::new(AndCondition {
+                            left: Some(Box::new(result)),
+                            right: Some(Box::new(next_condition)),
+                        }))),
+                    },
+                    Rule::or => PredicateCondition {
+                        kind: Some(Kind::Or(Box::new(OrCondition {
+                            left: Some(Box::new(result)),
+                            right: Some(Box::new(next_condition)),
+                        }))),
+                    },
                     _ => return Err(DslError::UnexpectedSpan((start_pos, end_pos))),
                 };
             }
