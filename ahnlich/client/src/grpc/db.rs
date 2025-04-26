@@ -358,7 +358,7 @@ mod test {
             .expect("Could not initialize server");
         let address = server.local_addr().expect("Could not get local addr");
         tokio::spawn(async move {
-            server.start().await;
+            server.start().await.expect("Failed to start db server");
         });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -425,7 +425,7 @@ mod test {
             .expect("Could not initialize server");
         let address = server.local_addr().expect("Could not get local addr");
         tokio::spawn(async move {
-            server.start().await;
+            server.start().await.expect("Failed to start db server");
         });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
