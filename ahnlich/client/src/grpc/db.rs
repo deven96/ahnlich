@@ -769,7 +769,7 @@ mod test {
                 stores: vec![StoreInfo {
                     name: "Main".to_string(),
                     len: 2,
-                    size_in_bytes: 2016,
+                    size_in_bytes: 1356,
                 }]
             }
         );

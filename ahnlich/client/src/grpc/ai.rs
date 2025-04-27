@@ -394,16 +394,10 @@ mod test {
         let expected = AiResponsePipeline {
             responses: vec![
                 AiServerResponse {
-                    response: Some(Response::Error(ErrorResponse {
-                        message: "Store Main already exists".to_string(),
-                        code: 20,
-                    })),
-                },
-                AiServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                AiServerResponse {
                     response: Some(Response::StoreList(StoreList { stores: vec![] })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Pong(Pong {})),
                 },
             ],
         };
@@ -489,7 +483,7 @@ mod test {
                 AiServerResponse {
                     response: Some(Response::Error(ErrorResponse {
                         message: "Store Main already exists".to_string(),
-                        code: 20,
+                        code: 6,
                     })),
                 },
                 AiServerResponse {
@@ -650,12 +644,6 @@ mod test {
                     response: Some(Response::StoreList(StoreList {
                         stores: vec![
                             AiStoreInfo {
-                                name: "Main".to_string(),
-                                embedding_size: ai_model.embedding_size.get() as u64,
-                                query_model: AiModel::AllMiniLmL6V2 as i32,
-                                index_model: AiModel::AllMiniLmL6V2 as i32,
-                            },
-                            AiStoreInfo {
                                 name: "Main2".to_string(),
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
@@ -663,6 +651,12 @@ mod test {
                             },
                             AiStoreInfo {
                                 name: "Less".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                            AiStoreInfo {
+                                name: "Main".to_string(),
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
                                 index_model: AiModel::AllMiniLmL6V2 as i32,
