@@ -496,10 +496,8 @@ mod tests {
     async fn test_pool_commands_fail_if_server_not_exist() {
         let host = "127.0.0.1";
         let port = 1234;
-        let db_client = DbClient::new(host.to_string(), port)
-            .await
-            .expect("Could not initialize client");
-        assert!(db_client.ping(None).await.is_err());
+        let db_client = DbClient::new(host.to_string(), port).await;
+        assert!(db_client.is_err());
     }
 
     #[tokio::test]

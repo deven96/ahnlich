@@ -13,11 +13,10 @@ pub enum AhnlichError {
 
 impl From<AhnlichError> for Status {
     fn from(input: AhnlichError) -> Status {
-        let message = input.to_string();
-        let code = match input {
-            AhnlichError::Tonic(_) => Code::Internal,
-            AhnlichError::InvalidURI(_) => Code::InvalidArgument,
-            AhnlichError::ServerError(a) => a.code(),
+        let (code, message) = match input {
+            AhnlichError::Tonic(err) => (Code::Internal, err.to_string()),
+            AhnlichError::InvalidURI(_) => (Code::InvalidArgument, input.to_string()),
+            AhnlichError::ServerError(a) => (a.code(), a.message().to_string()),
         };
         Status::new(code, message)
     }
