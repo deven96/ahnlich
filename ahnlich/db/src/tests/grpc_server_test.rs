@@ -2420,7 +2420,7 @@ async fn test_get_key() {
     let response = client
         .info_server(tonic::Request::new(grpc_types::db::query::InfoServer {}))
         .await
-        .expect("Failed to ping");
+        .expect("Failed call info server");
 
     let info_response = response.into_inner().info.unwrap();
 
