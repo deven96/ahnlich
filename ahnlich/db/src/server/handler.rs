@@ -9,6 +9,7 @@ use ahnlich_types::shared::info::ErrorResponse;
 
 use ahnlich_types::db::{pipeline, query, server};
 use ahnlich_types::{client as types_client, utils as types_utils};
+use itertools::Itertools;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::future::Future;
@@ -380,6 +381,7 @@ impl DbService for Server {
                 len: store.len,
                 size_in_bytes: store.size_in_bytes,
             })
+            .sorted()
             .collect();
 
         Ok(tonic::Response::new(server::StoreList { stores }))

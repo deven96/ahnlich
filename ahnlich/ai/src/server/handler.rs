@@ -60,6 +60,7 @@ use ahnlich_types::predicates::PredicateCondition;
 use ahnlich_types::services::ai_service::ai_service_server::AiService;
 use ahnlich_types::services::ai_service::ai_service_server::AiServiceServer;
 use ahnlich_types::shared::info::ErrorResponse;
+use itertools::Itertools;
 use rayon::prelude::*;
 use std::error::Error;
 use std::future::Future;
@@ -539,7 +540,12 @@ impl AiService for AIProxyServer {
         _request: tonic::Request<ListStores>,
     ) -> Result<tonic::Response<StoreList>, tonic::Status> {
         Ok(tonic::Response::new(server::StoreList {
-            stores: self.store_handler.list_stores().into_iter().collect(),
+            stores: self
+                .store_handler
+                .list_stores()
+                .into_iter()
+                .sorted()
+                .collect(),
         }))
     }
 

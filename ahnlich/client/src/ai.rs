@@ -503,13 +503,13 @@ mod test {
                     response: Some(Response::StoreList(StoreList {
                         stores: vec![
                             AiStoreInfo {
-                                name: "Main".to_string(),
+                                name: "Less".to_string(),
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
                                 index_model: AiModel::AllMiniLmL6V2 as i32,
                             },
                             AiStoreInfo {
-                                name: "Less".to_string(),
+                                name: "Main".to_string(),
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
                                 index_model: AiModel::AllMiniLmL6V2 as i32,
@@ -600,7 +600,7 @@ mod test {
         let mut pipeline = ai_client.pipeline(None);
 
         let create_store_params = CreateStore {
-            store: "Main".to_string(),
+            store: "Less".to_string(),
             index_model: AiModel::AllMiniLmL6V2 as i32,
             query_model: AiModel::AllMiniLmL6V2 as i32,
             predicates: vec![],
@@ -611,7 +611,7 @@ mod test {
         pipeline.create_store(create_store_params);
 
         let create_store_params_2 = CreateStore {
-            store: "Main2".to_string(),
+            store: "Main".to_string(),
             index_model: AiModel::AllMiniLmL6V2 as i32,
             query_model: AiModel::AllMiniLmL6V2 as i32,
             predicates: vec![],
@@ -622,7 +622,7 @@ mod test {
         pipeline.create_store(create_store_params_2);
 
         let create_store_params_3 = CreateStore {
-            store: "Less".to_string(),
+            store: "Main2".to_string(),
             index_model: AiModel::AllMiniLmL6V2 as i32,
             query_model: AiModel::AllMiniLmL6V2 as i32,
             predicates: vec![],
@@ -660,12 +660,6 @@ mod test {
                     response: Some(Response::StoreList(StoreList {
                         stores: vec![
                             AiStoreInfo {
-                                name: "Main2".to_string(),
-                                embedding_size: ai_model.embedding_size.get() as u64,
-                                query_model: AiModel::AllMiniLmL6V2 as i32,
-                                index_model: AiModel::AllMiniLmL6V2 as i32,
-                            },
-                            AiStoreInfo {
                                 name: "Less".to_string(),
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
@@ -673,6 +667,12 @@ mod test {
                             },
                             AiStoreInfo {
                                 name: "Main".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                            AiStoreInfo {
+                                name: "Main2".to_string(),
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
                                 index_model: AiModel::AllMiniLmL6V2 as i32,
