@@ -291,16 +291,16 @@ impl AIStoreHandler {
             .into_par_iter()
             .flat_map(|store_entry| {
                 if let Some(mut value) = store_entry.value {
-                    let store_input = value
+                    let key = value
                         .value
                         .remove(AHNLICH_AI_RESERVED_META_KEY)
-                        .map(|val| val.try_into());
-                    if let Some(Ok(input)) = store_input {
-                        return Some(GetEntry {
-                            key: Some(input),
-                            value: Some(value),
-                        });
-                    }
+                        .map(|val| StoreInput::try_from(val).ok())
+                        .flatten();
+
+                    return Some(GetEntry {
+                        key,
+                        value: Some(value),
+                    });
                 }
                 None
             })
