@@ -4,12 +4,15 @@ use std::{
     io::{self, Read, Write},
 };
 
-use ahnlich_client_rs::{ai::AIClient, builders::ai as ai_params};
+use ahnlich_client_rs::ai::AiClient;
 use ahnlich_types::{
-    ai::{AIModel, AIServerResponse},
-    keyval::{StoreInput, StoreName},
-    metadata::{MetadataKey, MetadataValue},
+    ai::query::{CreateStore, GetSimN, Set},
+    algorithm::algorithms::Algorithm,
+    keyval::{store_input::Value, StoreInput},
 };
+
+use ahnlich_types::metadata::{metadata_value::Value as MValue, MetadataValue};
+
 use clap::{Parser, Subcommand};
 use tokio;
 
@@ -36,23 +39,43 @@ async fn main() {
     match cli.command {
         Commands::Index => {
             println!("Running in 'index' mode");
-            // You can put your indexing logic here.
             index_mode().await;
         }
         Commands::Query => {
             println!("Running in 'query' mode");
-            // You can put your querying logic here.
             query_mode().await;
         }
     }
 }
 
+async fn create_client() -> AiClient {
+    AiClient::new("http://127.0.0.1:1370".to_string())
+        .await
+        .expect("Failed to create AI Client")
+}
+
 async fn index_mode() {
     println!("Indexing data from images");
-    let ai_client = AIClient::new("127.0.0.1".to_string(), 1370)
+    let client = create_client().await;
+    let storename = "image-search".to_string();
+
+    // Create store
+    let create_store = CreateStore {
+        store: storename.clone(),
+        index_model: ahnlich_types::ai::models::AiModel::ClipVitB32Image.into(),
+        query_model: ahnlich_types::ai::models::AiModel::ClipVitB32Text.into(),
+        predicates: vec![],
+        non_linear_indices: vec![],
+        error_if_exists: false,
+        store_original: true,
+    };
+
+    client
+        .create_store(create_store, None)
         .await
-        .expect("Could not initialize client");
-    let storename = StoreName("image-search".to_string());
+        .expect("Could not create store");
+
+    // Prepare inputs
     let mut inputs = Vec::new();
     for entry in fs::read_dir("./images").expect("Could not read images sub-dir") {
         let path = entry.unwrap().path();
@@ -61,86 +84,90 @@ async fn index_mode() {
             let mut contents = Vec::new();
             file.read_to_end(&mut contents)
                 .expect("Could not read file contents");
-            inputs.push((
-                StoreInput::Image(contents),
-                HashMap::from_iter([(
-                    MetadataKey::new("filename".to_string()),
-                    MetadataValue::RawString(format!("{:?}", path)),
+
+            inputs.push(ahnlich_types::ai::query::StoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(contents)),
+                }),
+                value: HashMap::from_iter([(
+                    "filename".to_string(),
+                    MetadataValue {
+                        value: Some(MValue::RawString(format!("{:?}", path))),
+                    },
                 )]),
-            ));
+            });
         }
     }
-    let create_store_params = ai_params::CreateStoreParams::builder()
-        .store(storename.clone().to_string())
-        .index_model(AIModel::ClipVitB32Text)
-        .query_model(AIModel::ClipVitB32Image)
-        .error_if_exists(false)
-        .build();
-    ai_client
-        .create_store(create_store_params)
-        .await
-        .expect("Could not create store");
-    let set_params = ai_params::SetParams::builder()
-        .store(storename.to_string())
-        .inputs(inputs)
-        .build();
-    let res = ai_client
-        .set(set_params)
-        .await
-        .expect("Could not set in store");
+
+    // Set data
+    let set = Set {
+        store: storename,
+        inputs,
+        preprocess_action: ahnlich_types::ai::preprocess::PreprocessAction::ModelPreprocessing
+            .into(),
+        execution_provider: None,
+    };
+
+    let res = client.set(set, None).await.expect("Could not set in store");
+
     println!("Indexing complete! {:?}", res);
 }
 
 async fn query_mode() {
-    let ai_client = AIClient::new("127.0.0.1".to_string(), 1370)
-        .await
-        .expect("Could not initialize client");
-    let storename = StoreName("image-search".to_string());
+    let client = create_client().await;
+    let storename = "image-search".to_string();
+
     loop {
         let mut input = String::new();
         print!("Enter some text: ");
-        io::stdout().flush().expect("Could not flush output"); // Ensure the prompt is displayed immediately
+        io::stdout().flush().expect("Could not flush output");
 
         io::stdin()
             .read_line(&mut input)
             .expect("Failed to read input");
 
-        // Remove the trailing newline character (if needed)
         let input = input.trim();
 
-        let get_sim_n_params = ai_params::GetSimNParams::builder()
-            .store(storename.clone().to_string())
-            .search_input(StoreInput::RawString(input.to_string()))
-            .build();
+        let get_sim_n = GetSimN {
+            store: storename.clone(),
+            search_input: Some(StoreInput {
+                value: Some(Value::RawString(input.to_string())),
+            }),
+            condition: None,
+            closest_n: 1,
+            algorithm: Algorithm::DotProductSimilarity.into(),
+            preprocess_action: ahnlich_types::ai::preprocess::PreprocessAction::NoPreprocessing
+                .into(),
+            execution_provider: None,
+        };
 
-        let res = ai_client
-            .get_sim_n(get_sim_n_params)
+        let res = client
+            .get_sim_n(get_sim_n, None)
             .await
-            .expect("Could not set in store");
-        if let AIServerResponse::GetSimN(inner) = res {
-            match inner.as_slice() {
-                [(Some(StoreInput::Image(image_bytes)), metadata, _)] => {
-                    let img =
-                        image::load_from_memory(&image_bytes).expect("Could not load image bytes");
-                    println!(
-                        "Query results: [Closest match '{:?}']",
-                        metadata
-                            .get(&MetadataKey::new("filename".to_string()))
-                            .unwrap()
-                    );
-                    let conf = viuer::Config {
-                        absolute_offset: false,
-                        ..Default::default()
-                    };
+            .expect("Could not query store");
 
-                    viuer::print(&img, &conf).unwrap();
+        let entries = res.entries;
+
+        if let Some(entry) = entries.first() {
+            if let Some(StoreInput {
+                value: Some(Value::Image(image_bytes)),
+            }) = &entry.key
+            {
+                let img =
+                    image::load_from_memory(&image_bytes).expect("Could not load image bytes");
+
+                if let Some(filename) = entry.value.as_ref().and_then(|v| v.value.get("filename")) {
+                    if let Some(MValue::RawString(filename)) = &filename.value {
+                        println!("Query results: [Closest match '{}']", filename);
+                    }
                 }
-                _ => {
-                    println!("Unexpected response!")
-                }
+
+                let conf = viuer::Config {
+                    absolute_offset: false,
+                    ..Default::default()
+                };
+                viuer::print(&img, &conf).unwrap();
             }
-        } else {
-            println!("Unexpected error!")
         }
     }
 }

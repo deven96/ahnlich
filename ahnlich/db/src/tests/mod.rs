@@ -1,4 +1,4 @@
-mod grpc_server_test;
+mod server_tests;
 
 use ahnlich_types::keyval::StoreKey;
 use std::collections::HashMap;
