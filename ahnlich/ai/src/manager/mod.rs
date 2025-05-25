@@ -11,12 +11,12 @@ use crate::engine::ai::providers::processors::imagearray_to_ndarray::ImageArrayT
 use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
 use crate::engine::ai::providers::ModelProviders;
 use crate::error::AIProxyError;
+use ahnlich_types::ai::execution_provider::ExecutionProvider;
+use ahnlich_types::ai::models::AiModel;
+use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::keyval::store_input::Value;
+use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
-use grpc_types::ai::execution_provider::ExecutionProvider;
-use grpc_types::ai::models::AiModel;
-use grpc_types::ai::preprocess::PreprocessAction;
-use grpc_types::keyval::store_input::Value;
-use grpc_types::keyval::{StoreInput, StoreKey};
 use moka::future::Cache;
 use ndarray::{Array, Ix4};
 use rayon::prelude::*;

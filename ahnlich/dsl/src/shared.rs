@@ -1,4 +1,4 @@
-use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use pest::iterators::Pair;
 
 use crate::{algorithm::to_non_linear, error::DslError, parser::Rule};

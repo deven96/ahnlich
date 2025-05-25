@@ -14,12 +14,12 @@ use crate::{
     server::handler::AIProxyServer,
 };
 
-use grpc_types::algorithm::algorithms::Algorithm;
-use grpc_types::{
+use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_types::{
     ai::server::GetSimNEntry,
     metadata::{metadata_value::Value as MValue, MetadataValue},
 };
-use grpc_types::{
+use ahnlich_types::{
     ai::{
         models::AiModel,
         pipeline::{self as ai_pipeline, ai_query::Query},
@@ -31,7 +31,7 @@ use grpc_types::{
     services::ai_service::ai_service_client::AiServiceClient,
     shared::info::StoreUpsert,
 };
-use grpc_types::{
+use ahnlich_types::{
     predicates::{
         self, predicate::Kind as PredicateKind,
         predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
@@ -98,7 +98,7 @@ async fn test_simple_ai_proxy_ping() {
     let mut client = AiServiceClient::connect(channel).await.expect("Failure");
 
     let response = client
-        .ping(tonic::Request::new(grpc_types::ai::query::Ping {}))
+        .ping(tonic::Request::new(ahnlich_types::ai::query::Ping {}))
         .await
         .expect("Failed to ping");
 
@@ -119,7 +119,7 @@ async fn test_ai_proxy_create_store_success() {
     let mut client = AiServiceClient::connect(channel).await.expect("Failure");
 
     let store_name = "Sample Store".to_string();
-    let create_store = grpc_types::ai::query::CreateStore {
+    let create_store = ahnlich_types::ai::query::CreateStore {
         store: store_name.clone(),
         query_model: AiModel::AllMiniLmL6V2.into(),
         index_model: AiModel::AllMiniLmL6V2.into(),
@@ -137,7 +137,7 @@ async fn test_ai_proxy_create_store_success() {
     assert_eq!(expected, response.into_inner());
 
     // list stores to verify it's present.
-    let message = grpc_types::ai::query::ListStores {};
+    let message = ahnlich_types::ai::query::ListStores {};
     let response = client
         .list_stores(tonic::Request::new(message))
         .await
@@ -209,7 +209,7 @@ async fn test_ai_store_get_key_works() {
         .await
         .expect("Failed to send pipeline request");
 
-    let message = grpc_types::ai::query::GetKey {
+    let message = ahnlich_types::ai::query::GetKey {
         store: store_name.value.clone(),
         keys: vec![store_entry_input.clone()],
     };
@@ -327,7 +327,7 @@ async fn test_ai_store_no_original() {
         })),
     };
 
-    let get_pred_message = grpc_types::ai::query::GetPred {
+    let get_pred_message = ahnlich_types::ai::query::GetPred {
         store: store_name,
         condition: Some(condition),
     };
@@ -340,7 +340,7 @@ async fn test_ai_store_no_original() {
 
     println!("res .... {:?}", response);
 
-    let expected = grpc_types::ai::server::Get {
+    let expected = ahnlich_types::ai::server::Get {
         entries: vec![
             GetEntry {
                 key: None,
@@ -446,7 +446,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
         })),
     };
 
-    let get_pred_message = grpc_types::ai::query::GetPred {
+    let get_pred_message = ahnlich_types::ai::query::GetPred {
         store: store_name.clone(),
         condition: Some(condition),
     };
@@ -565,7 +565,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         .expect("Failed to send pipeline request");
 
     // Test GetSimN
-    let get_sim_n_message = grpc_types::ai::query::GetSimN {
+    let get_sim_n_message = ahnlich_types::ai::query::GetSimN {
         store: store_name.clone(),
         search_input: Some(StoreInput {
             value: Some(Value::RawString("Yeezy".into())),
@@ -1271,7 +1271,7 @@ async fn test_ai_proxy_binary_store_actions() {
                 })),
             },
             ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::Error(grpc_types::shared::info::ErrorResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Error(ahnlich_types::shared::info::ErrorResponse {
                     message: "Image Dimensions [(547, 821)] does not match the expected model dimensions [(224, 224)]".to_string(),
                     code: 3,
                 })),
@@ -1377,7 +1377,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
                 response: Some(ai_pipeline::ai_server_response::Response::Unit(ai_response_types::Unit {})),
             },
             ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::Error(grpc_types::shared::info::ErrorResponse  {
+                response: Some(ai_pipeline::ai_server_response::Response::Error(ahnlich_types::shared::info::ErrorResponse  {
                     message: "Cannot index Input. Store expects [RawString], input type [Image] was provided".to_string(),
                     code: 3,
                 })),
@@ -1442,7 +1442,7 @@ async fn test_ai_proxy_create_store_errors_unsupported_models() {
     let expected = ai_pipeline::AiResponsePipeline {
         responses: vec![ai_pipeline::AiServerResponse {
             response: Some(ai_pipeline::ai_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: AIProxyError::AIModelNotInitialized.to_string(),
                     code: 13,
                 },
@@ -1497,7 +1497,7 @@ async fn test_ai_proxy_embedding_size_mismatch_error() {
     let expected = ai_pipeline::AiResponsePipeline {
         responses: vec![ai_pipeline::AiServerResponse {
             response: Some(ai_pipeline::ai_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: error_message.to_string(),
                     code: 3,
                 },

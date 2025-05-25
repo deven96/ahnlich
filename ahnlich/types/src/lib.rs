@@ -1,17 +1,13 @@
 pub mod ai;
-pub mod bincode;
+pub mod algorithm;
 pub mod client;
 pub mod db;
 pub mod keyval;
 pub mod metadata;
-pub mod predicate;
-pub mod query_builders;
+pub mod predicates;
+pub mod server_types;
+pub mod services;
+pub mod shared;
 pub mod similarity;
+pub mod utils;
 pub mod version;
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ServerType {
-    Database,
-    AI,
-}

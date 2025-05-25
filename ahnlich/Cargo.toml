@@ -9,7 +9,7 @@ members = [
   "task-manager",
   "tracer", 
   "utils",
-  "grpc_types",
+  "types",
 ]
 resolver = "2"
 

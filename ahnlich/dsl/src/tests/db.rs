@@ -1,5 +1,5 @@
 use crate::error::DslError;
-use grpc_types::{
+use ahnlich_types::{
     algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
     db::{
         pipeline::db_query::Query as DBQuery,

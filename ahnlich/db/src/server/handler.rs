@@ -1,14 +1,14 @@
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
-use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
-use grpc_types::db::pipeline::db_query::Query;
-use grpc_types::db::server::GetSimNEntry;
-use grpc_types::keyval::{StoreEntry, StoreKey, StoreName, StoreValue};
-use grpc_types::services::db_service::db_service_server::{DbService, DbServiceServer};
-use grpc_types::shared::info::ErrorResponse;
+use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::db::pipeline::db_query::Query;
+use ahnlich_types::db::server::GetSimNEntry;
+use ahnlich_types::keyval::{StoreEntry, StoreKey, StoreName, StoreValue};
+use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
+use ahnlich_types::shared::info::ErrorResponse;
 
-use grpc_types::db::{pipeline, query, server};
-use grpc_types::{client as grpc_types_client, utils as grpc_utils};
+use ahnlich_types::db::{pipeline, query, server};
+use ahnlich_types::{client as grpc_types_client, utils as grpc_utils};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::future::Future;
@@ -112,7 +112,7 @@ impl DbService for Server {
         let params = request.into_inner();
 
         let condition =
-            grpc_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
+            ahnlich_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
 
         let entries = self
             .store_handler
@@ -139,13 +139,13 @@ impl DbService for Server {
     ) -> std::result::Result<tonic::Response<server::GetSimN>, tonic::Status> {
         let params = request.into_inner();
         let search_input =
-            grpc_types::unwrap_or_invalid!(params.search_input, "search input is required");
+            ahnlich_types::unwrap_or_invalid!(params.search_input, "search input is required");
 
         let search_input = StoreKey {
             key: search_input.key,
         };
 
-        let algorithm = grpc_types::algorithm::algorithms::Algorithm::try_from(params.algorithm)
+        let algorithm = ahnlich_types::algorithm::algorithms::Algorithm::try_from(params.algorithm)
             .map_err(|err| tonic::Status::invalid_argument(err.to_string()))?;
 
         let entries = self
@@ -214,7 +214,7 @@ impl DbService for Server {
             .non_linear_indices
             .into_iter()
             .filter_map(|val| {
-                grpc_types::algorithm::nonlinear::NonLinearAlgorithm::try_from(val).ok()
+                ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm::try_from(val).ok()
             })
             .collect();
 
@@ -267,7 +267,7 @@ impl DbService for Server {
             .non_linear_indices
             .into_iter()
             .filter_map(|val| {
-                grpc_types::algorithm::nonlinear::NonLinearAlgorithm::try_from(val).ok()
+                ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm::try_from(val).ok()
             })
             .collect();
 
@@ -316,7 +316,7 @@ impl DbService for Server {
         let params = request.into_inner();
 
         let condition =
-            grpc_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
+            ahnlich_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
 
         let del = self.store_handler.del_pred_in_store(
             &StoreName {
@@ -391,10 +391,10 @@ impl DbService for Server {
         _request: tonic::Request<query::InfoServer>,
     ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
         let version = env!("CARGO_PKG_VERSION").to_string();
-        let server_info = grpc_types::shared::info::ServerInfo {
+        let server_info = ahnlich_types::shared::info::ServerInfo {
             address: format!("{:?}", self.listener.local_addr()?),
             version,
-            r#type: grpc_types::server_types::ServerType::Database.into(),
+            r#type: ahnlich_types::server_types::ServerType::Database.into(),
             limit: GLOBAL_ALLOCATOR.limit() as u64,
             remaining: GLOBAL_ALLOCATOR.remaining() as u64,
         };
@@ -447,7 +447,7 @@ impl DbService for Server {
 
         for pipeline_query in params.queries {
             let pipeline_query =
-                grpc_types::unwrap_or_invalid!(pipeline_query.query, "query is required");
+                ahnlich_types::unwrap_or_invalid!(pipeline_query.query, "query is required");
 
             match pipeline_query {
                 Query::Ping(params) => match self.ping(tonic::Request::new(params)).await {

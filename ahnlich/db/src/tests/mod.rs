@@ -1,6 +1,6 @@
 mod grpc_server_test;
 
-use grpc_types::keyval::StoreKey;
+use ahnlich_types::keyval::StoreKey;
 use std::collections::HashMap;
 
 pub fn word_to_vector() -> HashMap<String, StoreKey> {

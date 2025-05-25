@@ -1,5 +1,5 @@
 use crate::parser::Rule;
-use grpc_types::keyval::StoreKey;
+use ahnlich_types::keyval::StoreKey;
 use pest::iterators::Pair;
 
 pub(crate) fn parse_multi_f32_array(f32_arrays_pair: Pair<Rule>) -> Vec<StoreKey> {

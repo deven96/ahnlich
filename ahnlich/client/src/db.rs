@@ -1,4 +1,4 @@
-use grpc_types::{
+use ahnlich_types::{
     db::{
         pipeline::{db_query::Query, DbQuery, DbRequestPipeline, DbResponsePipeline},
         query::{
@@ -321,7 +321,7 @@ mod test {
 
     use super::*;
     use ahnlich_db::{cli::ServerConfig, errors::ServerError, server::handler::Server};
-    use grpc_types::{
+    use ahnlich_types::{
         algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
         db::{
             pipeline::{db_server_response::Response, DbServerResponse},
@@ -334,12 +334,12 @@ mod test {
         similarity::Similarity,
     };
 
-    use grpc_types::predicates::{
+    use ahnlich_types::predicates::{
         self, predicate::Kind as PredicateKind,
         predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
     };
 
-    use grpc_types::{
+    use ahnlich_types::{
         db::{
             pipeline::{self as db_pipeline},
             server as db_response_types,
@@ -514,7 +514,7 @@ mod test {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "medal".into(),
                     value: Some(MetadataValue {
-                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
                             "gold".to_string(),
                         )),
                     }),
@@ -536,13 +536,13 @@ mod test {
             db_client.get_sim_n(get_sim_n_params, None).await.unwrap(),
             GetSimNResult {
                 entries: vec![GetSimNEntry {
-                    key: Some(grpc_types::keyval::StoreKey {
+                    key: Some(ahnlich_types::keyval::StoreKey {
                         key: vec![2.0, 2.1, 2.2]
                     }),
-                    value: Some(grpc_types::keyval::StoreValue {
+                    value: Some(ahnlich_types::keyval::StoreValue {
                         value: HashMap::from_iter([(
                             "medal".into(),
-                            grpc_types::metadata::MetadataValue {
+                            ahnlich_types::metadata::MetadataValue {
                                 value: Some(Value::RawString("gold".into()))
                             },
                         )])
@@ -666,7 +666,7 @@ mod test {
             },
             db_pipeline::DbServerResponse {
                 response: Some(db_pipeline::db_server_response::Response::Error(
-                    grpc_types::shared::info::ErrorResponse {
+                    ahnlich_types::shared::info::ErrorResponse {
                         message: error_response.to_string(),
                         code: 6,
                     },
@@ -905,7 +905,7 @@ mod test {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: "medal".into(),
                     value: Some(MetadataValue {
-                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
                             "gold".to_string(),
                         )),
                     }),
@@ -927,13 +927,13 @@ mod test {
             db_client.get_sim_n(get_sim_n_params, None).await.unwrap(),
             GetSimNResult {
                 entries: vec![GetSimNEntry {
-                    key: Some(grpc_types::keyval::StoreKey {
+                    key: Some(ahnlich_types::keyval::StoreKey {
                         key: vec![2.0, 2.1, 2.2]
                     }),
-                    value: Some(grpc_types::keyval::StoreValue {
+                    value: Some(ahnlich_types::keyval::StoreValue {
                         value: HashMap::from_iter([(
                             "medal".into(),
-                            grpc_types::metadata::MetadataValue {
+                            ahnlich_types::metadata::MetadataValue {
                                 value: Some(Value::RawString("gold".into()))
                             },
                         )])

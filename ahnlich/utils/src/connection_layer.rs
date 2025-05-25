@@ -1,4 +1,4 @@
-use grpc_types::utils::TRACE_HEADER;
+use ahnlich_types::utils::TRACE_HEADER;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 pub fn trace_with_parent(req: &http::Request<()>) -> tracing::Span {

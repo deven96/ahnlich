@@ -1,5 +1,5 @@
 use super::LinearAlgorithm;
-use grpc_types::keyval::StoreKey;
+use ahnlich_types::keyval::StoreKey;
 use pulp::{Arch, Simd, WithSimd};
 use std::ops::Deref;
 

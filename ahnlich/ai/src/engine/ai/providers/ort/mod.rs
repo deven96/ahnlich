@@ -5,10 +5,10 @@ use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{ImageArray, InputAction, ModelInput};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
+use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
+use ahnlich_types::keyval::StoreKey;
 use executor::ExecutorWithSessionCache;
 use fallible_collections::FallibleVec;
-use grpc_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
-use grpc_types::keyval::StoreKey;
 use hf_hub::{api::sync::ApiBuilder, Cache};
 use itertools::Itertools;
 use ort::{

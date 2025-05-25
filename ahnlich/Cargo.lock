@@ -40,7 +40,6 @@ dependencies = [
  "db",
  "deadpool",
  "fallible_collections",
- "grpc_types",
  "http 1.2.0",
  "ndarray",
  "once_cell",
@@ -67,13 +66,13 @@ dependencies = [
 name = "ahnlich_types"
 version = "0.0.0"
 dependencies = [
- "bincode",
- "fallible_collections",
- "image",
- "once_cell",
+ "prost 0.13.4",
+ "prost-build",
+ "prost-types",
  "serde",
- "thiserror",
- "typed-builder",
+ "tonic 0.12.3",
+ "tonic-build",
+ "walkdir",
 ]
 
 [[package]]
@@ -90,6 +89,7 @@ name = "ai"
 version = "0.0.0"
 dependencies = [
  "ahnlich_client_rs",
+ "ahnlich_types",
  "async-trait",
  "clap 4.5.21",
  "db",
@@ -98,7 +98,6 @@ dependencies = [
  "fallible_collections",
  "fast_image_resize",
  "futures",
- "grpc_types",
  "hf-hub",
  "image",
  "itertools 0.10.5",
@@ -907,6 +906,7 @@ name = "db"
 version = "0.0.0"
 dependencies = [
  "ahnlich_similarity",
+ "ahnlich_types",
  "async-trait",
  "bincode",
  "blake3",
@@ -915,7 +915,6 @@ dependencies = [
  "fallible_collections",
  "fastrand 1.9.0",
  "futures",
- "grpc_types",
  "itertools 0.10.5",
  "log",
  "ndarray",
@@ -1050,7 +1049,7 @@ dependencies = [
 name = "dsl"
 version = "0.1.0"
 dependencies = [
- "grpc_types",
+ "ahnlich_types",
  "hex",
  "pest",
  "pest_derive",
@@ -1391,20 +1390,6 @@ name = "glob"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
-
-[[package]]
-name = "grpc_types"
-version = "0.0.0"
-dependencies = [
- "ahnlich_types",
- "prost 0.13.4",
- "prost-build",
- "prost-types",
- "serde",
- "tonic 0.12.3",
- "tonic-build",
- "walkdir",
-]
 
 [[package]]
 name = "h2"
@@ -4081,26 +4066,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
-name = "typed-builder"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e14ed59dc8b7b26cacb2a92bad2e8b1f098806063898ab42a3bd121d7d45e75"
-dependencies = [
- "typed-builder-macro",
-]
-
-[[package]]
-name = "typed-builder-macro"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "560b82d656506509d43abe30e0ba64c56b1953ab3d4fe7ba5902747a7a3cedd5"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4216,7 +4181,6 @@ dependencies = [
  "clap 4.5.21",
  "fallible_collections",
  "futures",
- "grpc_types",
  "http 1.2.0",
  "hyper 1.6.0",
  "log",

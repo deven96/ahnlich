@@ -1,5 +1,5 @@
-use grpc_types::algorithm::algorithms::Algorithm;
-use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 
 use crate::error::DslError;
 

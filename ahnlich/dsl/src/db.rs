@@ -10,7 +10,7 @@ use crate::{
         parse_drop_non_linear_algorithm_index, parse_drop_pred_index, parse_drop_store,
     },
 };
-use grpc_types::db::{
+use ahnlich_types::db::{
     pipeline::db_query::Query as DBQuery,
     query::{
         CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,

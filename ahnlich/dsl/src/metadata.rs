@@ -1,7 +1,7 @@
 use crate::array::parse_f32_array;
 use crate::error::DslError;
 use crate::parser::Rule;
-use grpc_types::{
+use ahnlich_types::{
     ai::query::StoreEntry,
     keyval::{store_input, StoreEntry as KvStoreEntry, StoreInput, StoreValue},
     metadata::{metadata_value::Value, MetadataValue},

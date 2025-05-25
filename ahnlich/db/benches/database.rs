@@ -1,9 +1,9 @@
 use ahnlich_db::engine::store::StoreHandler;
+use ahnlich_types::algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm};
+use ahnlich_types::keyval::StoreKey;
+use ahnlich_types::keyval::StoreName;
+use ahnlich_types::keyval::StoreValue;
 use criterion::{criterion_group, criterion_main, Criterion};
-use grpc_types::algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm};
-use grpc_types::keyval::StoreKey;
-use grpc_types::keyval::StoreName;
-use grpc_types::keyval::StoreValue;
 
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSlice;

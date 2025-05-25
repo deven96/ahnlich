@@ -1,5 +1,5 @@
 use crate::error::DslError;
-use grpc_types::{
+use ahnlich_types::{
     ai::{
         execution_provider::ExecutionProvider,
         models::AiModel,

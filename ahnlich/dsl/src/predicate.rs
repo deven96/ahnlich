@@ -1,10 +1,10 @@
 use crate::error::DslError;
 use crate::metadata::{parse_metadata_value, parse_metadata_values};
 use crate::parser::Rule;
-use grpc_types::metadata::MetadataValue;
-use grpc_types::predicates::predicate::Kind as PredicateKind;
-use grpc_types::predicates::predicate_condition::Kind;
-use grpc_types::predicates::{
+use ahnlich_types::metadata::MetadataValue;
+use ahnlich_types::predicates::predicate::Kind as PredicateKind;
+use ahnlich_types::predicates::predicate_condition::Kind;
+use ahnlich_types::predicates::{
     AndCondition, Equals, In, NotEquals, NotIn, OrCondition, Predicate, PredicateCondition,
 };
 use pest::iterators::Pair;

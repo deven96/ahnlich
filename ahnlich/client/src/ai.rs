@@ -1,4 +1,4 @@
-use grpc_types::{
+use ahnlich_types::{
     ai::{
         pipeline::{ai_query::Query, AiQuery, AiRequestPipeline, AiResponsePipeline},
         query::{
@@ -321,15 +321,15 @@ mod test {
 
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
-    use grpc_types::ai::models::AiModel;
-    use grpc_types::ai::pipeline::AiServerResponse;
-    use grpc_types::ai::preprocess::PreprocessAction;
-    use grpc_types::ai::query::StoreEntry;
-    use grpc_types::ai::server::{AiStoreInfo, GetEntry};
-    use grpc_types::keyval::store_input::Value;
-    use grpc_types::keyval::{StoreInput, StoreValue};
-    use grpc_types::metadata::{metadata_value::Value as MValue, MetadataValue};
-    use grpc_types::shared::info::{ErrorResponse, StoreUpsert};
+    use ahnlich_types::ai::models::AiModel;
+    use ahnlich_types::ai::pipeline::AiServerResponse;
+    use ahnlich_types::ai::preprocess::PreprocessAction;
+    use ahnlich_types::ai::query::StoreEntry;
+    use ahnlich_types::ai::server::{AiStoreInfo, GetEntry};
+    use ahnlich_types::keyval::store_input::Value;
+    use ahnlich_types::keyval::{StoreInput, StoreValue};
+    use ahnlich_types::metadata::{metadata_value::Value as MValue, MetadataValue};
+    use ahnlich_types::shared::info::{ErrorResponse, StoreUpsert};
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
@@ -337,9 +337,9 @@ mod test {
     use tokio::time::Duration;
     use utils::server::AhnlichServerUtils;
 
-    use grpc_types::{ai::pipeline::ai_server_response::Response, keyval::StoreName};
+    use ahnlich_types::{ai::pipeline::ai_server_response::Response, keyval::StoreName};
 
-    use grpc_types::predicates::{
+    use ahnlich_types::predicates::{
         self, predicate::Kind as PredicateKind,
         predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
     };

@@ -7,59 +7,59 @@ use crate::engine::store::AIStoreHandler;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use grpc_types::ai::models::AiModel;
-use grpc_types::ai::pipeline::ai_query::Query;
-use grpc_types::ai::pipeline::ai_server_response;
-use grpc_types::ai::pipeline::AiRequestPipeline;
-use grpc_types::ai::pipeline::AiResponsePipeline;
-use grpc_types::ai::pipeline::AiServerResponse;
-use grpc_types::ai::preprocess::PreprocessAction;
-use grpc_types::ai::query::CreateNonLinearAlgorithmIndex;
-use grpc_types::ai::query::CreatePredIndex;
-use grpc_types::ai::query::CreateStore;
-use grpc_types::ai::query::DelKey;
-use grpc_types::ai::query::DropNonLinearAlgorithmIndex;
-use grpc_types::ai::query::DropPredIndex;
-use grpc_types::ai::query::DropStore;
-use grpc_types::ai::query::GetKey;
-use grpc_types::ai::query::GetPred;
-use grpc_types::ai::query::GetSimN;
-use grpc_types::ai::query::InfoServer;
-use grpc_types::ai::query::ListClients;
-use grpc_types::ai::query::ListStores;
-use grpc_types::ai::query::Ping;
-use grpc_types::ai::query::PurgeStores;
-use grpc_types::ai::query::Set;
-use grpc_types::ai::server;
-use grpc_types::ai::server::ClientList;
-use grpc_types::ai::server::CreateIndex;
-use grpc_types::ai::server::Del;
-use grpc_types::ai::server::Get;
-use grpc_types::ai::server::Pong;
-use grpc_types::ai::server::StoreList;
-use grpc_types::ai::server::Unit;
-use grpc_types::db::pipeline::db_server_response::Response as DbResponse;
-use grpc_types::db::pipeline::DbServerResponse;
-use grpc_types::db::query::CreateNonLinearAlgorithmIndex as DbCreateNonLinearAlgorithmIndex;
-use grpc_types::db::query::CreatePredIndex as DbCreatePredIndex;
-use grpc_types::db::query::CreateStore as DbCreateStore;
-use grpc_types::db::query::DelPred;
-use grpc_types::db::query::DropNonLinearAlgorithmIndex as DbDropNonLinearAlgorithmIndex;
-use grpc_types::db::query::DropPredIndex as DbDropPredIndex;
-use grpc_types::db::query::GetPred as DbGetPred;
-use grpc_types::db::query::GetSimN as DbGetSimN;
-use grpc_types::db::server::Set as DbSet;
-use grpc_types::keyval::StoreName;
-use grpc_types::keyval::StoreValue;
-use grpc_types::metadata::MetadataValue;
-use grpc_types::predicates::predicate::Kind as PredicateKind;
-use grpc_types::predicates::predicate_condition::Kind;
-use grpc_types::predicates::In;
-use grpc_types::predicates::Predicate;
-use grpc_types::predicates::PredicateCondition;
-use grpc_types::services::ai_service::ai_service_server::AiService;
-use grpc_types::services::ai_service::ai_service_server::AiServiceServer;
-use grpc_types::shared::info::ErrorResponse;
+use ahnlich_types::ai::models::AiModel;
+use ahnlich_types::ai::pipeline::ai_query::Query;
+use ahnlich_types::ai::pipeline::ai_server_response;
+use ahnlich_types::ai::pipeline::AiRequestPipeline;
+use ahnlich_types::ai::pipeline::AiResponsePipeline;
+use ahnlich_types::ai::pipeline::AiServerResponse;
+use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::ai::query::CreateNonLinearAlgorithmIndex;
+use ahnlich_types::ai::query::CreatePredIndex;
+use ahnlich_types::ai::query::CreateStore;
+use ahnlich_types::ai::query::DelKey;
+use ahnlich_types::ai::query::DropNonLinearAlgorithmIndex;
+use ahnlich_types::ai::query::DropPredIndex;
+use ahnlich_types::ai::query::DropStore;
+use ahnlich_types::ai::query::GetKey;
+use ahnlich_types::ai::query::GetPred;
+use ahnlich_types::ai::query::GetSimN;
+use ahnlich_types::ai::query::InfoServer;
+use ahnlich_types::ai::query::ListClients;
+use ahnlich_types::ai::query::ListStores;
+use ahnlich_types::ai::query::Ping;
+use ahnlich_types::ai::query::PurgeStores;
+use ahnlich_types::ai::query::Set;
+use ahnlich_types::ai::server;
+use ahnlich_types::ai::server::ClientList;
+use ahnlich_types::ai::server::CreateIndex;
+use ahnlich_types::ai::server::Del;
+use ahnlich_types::ai::server::Get;
+use ahnlich_types::ai::server::Pong;
+use ahnlich_types::ai::server::StoreList;
+use ahnlich_types::ai::server::Unit;
+use ahnlich_types::db::pipeline::db_server_response::Response as DbResponse;
+use ahnlich_types::db::pipeline::DbServerResponse;
+use ahnlich_types::db::query::CreateNonLinearAlgorithmIndex as DbCreateNonLinearAlgorithmIndex;
+use ahnlich_types::db::query::CreatePredIndex as DbCreatePredIndex;
+use ahnlich_types::db::query::CreateStore as DbCreateStore;
+use ahnlich_types::db::query::DelPred;
+use ahnlich_types::db::query::DropNonLinearAlgorithmIndex as DbDropNonLinearAlgorithmIndex;
+use ahnlich_types::db::query::DropPredIndex as DbDropPredIndex;
+use ahnlich_types::db::query::GetPred as DbGetPred;
+use ahnlich_types::db::query::GetSimN as DbGetSimN;
+use ahnlich_types::db::server::Set as DbSet;
+use ahnlich_types::keyval::StoreName;
+use ahnlich_types::keyval::StoreValue;
+use ahnlich_types::metadata::MetadataValue;
+use ahnlich_types::predicates::predicate::Kind as PredicateKind;
+use ahnlich_types::predicates::predicate_condition::Kind;
+use ahnlich_types::predicates::In;
+use ahnlich_types::predicates::Predicate;
+use ahnlich_types::predicates::PredicateCondition;
+use ahnlich_types::services::ai_service::ai_service_server::AiService;
+use ahnlich_types::services::ai_service::ai_service_server::AiServiceServer;
+use ahnlich_types::shared::info::ErrorResponse;
 use rayon::prelude::*;
 use std::error::Error;
 use std::future::Future;
@@ -136,10 +136,10 @@ impl AiService for AIProxyServer {
         _request: tonic::Request<InfoServer>,
     ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
         let version = env!("CARGO_PKG_VERSION").to_string();
-        let server_info = grpc_types::shared::info::ServerInfo {
+        let server_info = ahnlich_types::shared::info::ServerInfo {
             address: format!("{:?}", self.listener.local_addr()),
             version,
-            r#type: grpc_types::server_types::ServerType::Ai.into(),
+            r#type: ahnlich_types::server_types::ServerType::Ai.into(),
             limit: GLOBAL_ALLOCATOR.limit() as u64,
             remaining: GLOBAL_ALLOCATOR.remaining() as u64,
         };
@@ -400,7 +400,7 @@ impl AiService for AIProxyServer {
             };
             pipeline.del_pred(delete_condition);
         }
-        let set_params = grpc_types::db::query::Set {
+        let set_params = ahnlich_types::db::query::Set {
             store: params.store,
             inputs: db_inputs,
         };
@@ -572,7 +572,7 @@ impl AiService for AIProxyServer {
 
         for pipeline_query in params.queries {
             let pipeline_query =
-                grpc_types::unwrap_or_invalid!(pipeline_query.query, "query is required");
+                ahnlich_types::unwrap_or_invalid!(pipeline_query.query, "query is required");
 
             match pipeline_query {
                 Query::Ping(params) => match self.ping(tonic::Request::new(params)).await {

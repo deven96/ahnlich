@@ -1,17 +1,17 @@
 use crate::server::handler::Server;
 use crate::{cli::ServerConfig, errors::ServerError};
-use grpc_types::algorithm::algorithms::Algorithm;
-use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
-use grpc_types::keyval::{StoreEntry, StoreKey, StoreValue};
-use grpc_types::metadata::metadata_value::Value as MetadataValueEnum;
-use grpc_types::metadata::MetadataValue;
-use grpc_types::predicates::{
+use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::keyval::{StoreEntry, StoreKey, StoreValue};
+use ahnlich_types::metadata::metadata_value::Value as MetadataValueEnum;
+use ahnlich_types::metadata::MetadataValue;
+use ahnlich_types::predicates::{
     self, predicate::Kind as PredicateKind, predicate_condition::Kind as PredicateConditionKind,
     Predicate, PredicateCondition,
 };
-use grpc_types::server_types::ServerType;
-use grpc_types::shared::info::StoreUpsert;
-use grpc_types::similarity::Similarity;
+use ahnlich_types::server_types::ServerType;
+use ahnlich_types::shared::info::StoreUpsert;
+use ahnlich_types::similarity::Similarity;
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use std::collections::HashMap;
@@ -20,7 +20,7 @@ use std::sync::atomic::Ordering;
 use tokio::time::Duration;
 use utils::server::AhnlichServerUtils;
 
-use grpc_types::{
+use ahnlich_types::{
     db::{
         pipeline::{self as db_pipeline, db_query::Query},
         query as db_query_types, server as db_response_types,
@@ -60,7 +60,7 @@ async fn test_grpc_ping_test() {
     let mut client = DbServiceClient::connect(channel).await.expect("Failure");
 
     let response = client
-        .ping(tonic::Request::new(grpc_types::db::query::Ping {}))
+        .ping(tonic::Request::new(ahnlich_types::db::query::Ping {}))
         .await
         .expect("Failed to ping");
 
@@ -86,12 +86,16 @@ async fn test_maximum_client_restriction_works() {
     let channel = Channel::from_shared(address.clone()).expect("Faild to get channel");
     let mut second_client = DbServiceClient::connect(channel).await.expect("Failure");
     let response = second_client
-        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .list_clients(tonic::Request::new(
+            ahnlich_types::db::query::ListClients {},
+        ))
         .await
         .expect("Failed to list clients");
     assert_eq!(response.into_inner().clients.len(), 2);
     let response = first_client
-        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .list_clients(tonic::Request::new(
+            ahnlich_types::db::query::ListClients {},
+        ))
         .await
         .expect("Failed to list clients");
 
@@ -99,11 +103,15 @@ async fn test_maximum_client_restriction_works() {
     let channel = Channel::from_shared(address.clone()).expect("Faild to get channel");
     let mut third_client = DbServiceClient::connect(channel).await.expect("Failure");
     third_client
-        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .list_clients(tonic::Request::new(
+            ahnlich_types::db::query::ListClients {},
+        ))
         .await
         .expect_err("third client failed to error with a max of 2");
     let response = second_client
-        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .list_clients(tonic::Request::new(
+            ahnlich_types::db::query::ListClients {},
+        ))
         .await
         .expect("Failed to list clients");
     assert_eq!(response.into_inner().clients.len(), 2);
@@ -111,7 +119,9 @@ async fn test_maximum_client_restriction_works() {
     let channel = Channel::from_shared(address.clone()).expect("Faild to get channel");
     let mut fourth_client = DbServiceClient::connect(channel).await.expect("Failure");
     let response = fourth_client
-        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .list_clients(tonic::Request::new(
+            ahnlich_types::db::query::ListClients {},
+        ))
         .await
         .expect("Failed to list clients");
     // The third client never connected so we expect only 2
@@ -136,7 +146,9 @@ async fn test_server_client_info() {
     let second_client = DbServiceClient::connect(channel).await.expect("Failure");
 
     let response = first_client
-        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .list_clients(tonic::Request::new(
+            ahnlich_types::db::query::ListClients {},
+        ))
         .await
         .expect("Failed to list clients");
 
@@ -144,7 +156,9 @@ async fn test_server_client_info() {
     drop(second_client);
 
     let response = first_client
-        .list_clients(tonic::Request::new(grpc_types::db::query::ListClients {}))
+        .list_clients(tonic::Request::new(
+            ahnlich_types::db::query::ListClients {},
+        ))
         .await
         .expect("Failed to list clients");
     assert_eq!(response.into_inner().clients.len(), 1);
@@ -165,7 +179,7 @@ async fn test_simple_stores_list() {
     let mut client = DbServiceClient::connect(channel).await.expect("Failure");
 
     let response = client
-        .list_stores(tonic::Request::new(grpc_types::db::query::ListStores {}))
+        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {}))
         .await
         .expect("Failed to get store's list");
 
@@ -231,7 +245,7 @@ async fn test_create_stores() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: error_response.to_string(),
                     code: 6,
                 },
@@ -281,7 +295,7 @@ async fn test_del_pred() {
                             key: "planet".into(),
                             value: Some(MetadataValue {
                                 value: Some(
-                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
                                         "earth".to_string(),
                                     ),
                                 ),
@@ -311,7 +325,7 @@ async fn test_del_pred() {
                             key: "planet".into(),
                             value: Some(MetadataValue {
                                 value: Some(
-                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
                                         "earth".to_string(),
                                     ),
                                 ),
@@ -329,7 +343,7 @@ async fn test_del_pred() {
                         key: Some(StoreKey {
                             key: vec![1.4, 1.5],
                         }),
-                        value: Some(grpc_types::keyval::StoreValue {
+                        value: Some(ahnlich_types::keyval::StoreValue {
                             value: HashMap::from_iter([(
                                 "planet".into(),
                                 MetadataValue {
@@ -342,7 +356,7 @@ async fn test_del_pred() {
                         key: Some(StoreKey {
                             key: vec![1.6, 1.7],
                         }),
-                        value: Some(grpc_types::keyval::StoreValue {
+                        value: Some(ahnlich_types::keyval::StoreValue {
                             value: HashMap::from_iter([(
                                 "planet".into(),
                                 MetadataValue {
@@ -366,7 +380,7 @@ async fn test_del_pred() {
                             key: "planet".into(),
                             value: Some(MetadataValue {
                                 value: Some(
-                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
                                         "mars".to_string(),
                                     ),
                                 ),
@@ -398,7 +412,7 @@ async fn test_del_pred() {
                             key: "planet".into(),
                             value: Some(MetadataValue {
                                 value: Some(
-                                    grpc_types::metadata::metadata_value::Value::RawString(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
                                         "mars".to_string(),
                                     ),
                                 ),
@@ -427,7 +441,7 @@ async fn test_del_pred() {
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: error_response.to_string(),
                     code: 5,
                 },
@@ -626,7 +640,7 @@ async fn test_del_key() {
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: store_not_found_err.to_string(),
                     code: 5,
                 },
@@ -665,7 +679,7 @@ async fn test_del_key() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: dimensions_mismatch_err.to_string(),
                     code: 3,
                 },
@@ -815,7 +829,7 @@ async fn test_server_with_persistence() {
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: store_not_found_err.to_string(),
                     code: 5,
                 },
@@ -854,7 +868,7 @@ async fn test_server_with_persistence() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: dimensions_mismatch_err.to_string(),
                     code: 3, // DimensionMismatch
                 },
@@ -962,7 +976,7 @@ async fn test_server_with_persistence() {
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: already_exists_error.to_string(),
                     code: 6,
                 },
@@ -1121,7 +1135,7 @@ async fn test_set_in_store() {
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: store_not_found_err.to_string(),
                     code: 5,
                 },
@@ -1144,7 +1158,7 @@ async fn test_set_in_store() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: dimensions_mismatch_err.to_string(),
                     code: 3,
                 },
@@ -1389,7 +1403,7 @@ async fn test_remove_non_linear_indices() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: non_linear_index_err.to_string(),
                     code: 5,
                 },
@@ -1397,7 +1411,7 @@ async fn test_remove_non_linear_indices() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: non_linear_index_err.to_string(),
                     code: 5,
                 },
@@ -1820,7 +1834,7 @@ async fn test_get_sim_n() {
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: store_not_found_err.to_string(),
                     code: 5,
                 },
@@ -1843,7 +1857,7 @@ async fn test_get_sim_n() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: non_linear_index_err.to_string(),
                     code: 5,
                 },
@@ -1851,7 +1865,7 @@ async fn test_get_sim_n() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: dimensions_mismatch_err.to_string(),
                     code: 3,
                 },
@@ -2127,7 +2141,7 @@ async fn test_get_pred() {
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: store_not_found_err.to_string(),
                     code: 5,
                 },
@@ -2339,7 +2353,7 @@ async fn test_get_key() {
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: store_not_found_err.to_string(),
                     code: 5,
                 },
@@ -2362,7 +2376,7 @@ async fn test_get_key() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: dimensions_mismatch_err.to_string(),
                     code: 3,
                 },
@@ -2418,7 +2432,7 @@ async fn test_get_key() {
     assert_eq!(expected, response.into_inner());
 
     let response = client
-        .info_server(tonic::Request::new(grpc_types::db::query::InfoServer {}))
+        .info_server(tonic::Request::new(ahnlich_types::db::query::InfoServer {}))
         .await
         .expect("Failed call info server");
 
@@ -2631,7 +2645,7 @@ async fn test_create_pred_index() {
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: store_not_found_err.to_string(),
                     code: 5,
                 },
@@ -2898,7 +2912,7 @@ async fn test_drop_pred_index() {
     let expected_responses = vec![
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: store_not_found_err.to_string(),
                     code: 5,
                 },
@@ -2916,7 +2930,7 @@ async fn test_drop_pred_index() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: predicate_not_found_err.to_string(),
                     code: 5,
                 },
@@ -3032,7 +3046,7 @@ async fn test_drop_stores() {
         },
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Error(
-                grpc_types::shared::info::ErrorResponse {
+                ahnlich_types::shared::info::ErrorResponse {
                     message: store_not_found_err.to_string(),
                     code: 5,
                 },

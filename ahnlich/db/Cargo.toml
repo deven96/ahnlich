@@ -38,7 +38,7 @@ log.workspace = true
 fallible_collections.workspace = true
 pulp = "0.21.4"
 papaya.workspace = true
-grpc_types = { path = "../grpc_types", version = "*" }
+ahnlich_types = { path = "../types", version = "*"  }
 tonic.workspace = true
 
 [dev-dependencies]

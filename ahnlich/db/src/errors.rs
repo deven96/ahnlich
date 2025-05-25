@@ -1,7 +1,7 @@
-use grpc_types::keyval::StoreName;
+use ahnlich_types::keyval::StoreName;
 
+use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use fallible_collections::TryReserveError;
-use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
 use thiserror::Error;
 use tonic::{Code, Status};
 

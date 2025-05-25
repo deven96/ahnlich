@@ -6,9 +6,9 @@ use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::num::NonZeroUsize;
 
-use grpc_types::algorithm::algorithms::Algorithm;
-use grpc_types::algorithm::nonlinear::NonLinearAlgorithm;
-use grpc_types::keyval::StoreKey;
+use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::keyval::StoreKey;
 use heap::HeapOrder;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;

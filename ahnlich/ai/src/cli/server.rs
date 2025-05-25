@@ -1,6 +1,6 @@
+use ahnlich_types::ai::models::AiModel;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use dirs::home_dir;
-use grpc_types::ai::models::AiModel;
 use std::fmt;
 use strum::VariantArray;
 

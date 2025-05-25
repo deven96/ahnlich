@@ -1,8 +1,8 @@
-use fallible_collections::TryReserveError;
-use grpc_types::{
+use ahnlich_types::{
     ai::{models::AiStoreInputType, preprocess::PreprocessAction},
     keyval::StoreName,
 };
+use fallible_collections::TryReserveError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 use tonic::{Code, Status};

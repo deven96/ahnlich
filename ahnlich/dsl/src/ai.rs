@@ -9,7 +9,7 @@ use crate::{
         parse_drop_non_linear_algorithm_index, parse_drop_pred_index, parse_drop_store,
     },
 };
-use grpc_types::ai::{
+use ahnlich_types::ai::{
     execution_provider::ExecutionProvider,
     models::AiModel,
     pipeline::ai_query::Query as AiQuery,

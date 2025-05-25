@@ -25,7 +25,7 @@ thiserror.workspace = true
 async-trait.workspace = true
 utils = { path = "../utils", version = "*" }
 task-manager = { path = "../task-manager", version = "*" }
-grpc_types = { path = "../grpc_types", version = "*" }
+ahnlich_types = { path = "../types", version = "*"  }
 tokio-util.workspace = true
 once_cell.workspace = true
 tracing.workspace = true

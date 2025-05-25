@@ -1,3 +1,3 @@
-pub use grpc_types::keyval::*;
-pub use grpc_types::metadata::*;
-pub use grpc_types::similarity::*;
+pub use ahnlich_types::keyval::*;
+pub use ahnlich_types::metadata::*;
+pub use ahnlich_types::similarity::*;
