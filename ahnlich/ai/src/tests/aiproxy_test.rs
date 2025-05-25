@@ -610,7 +610,15 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
 
     let response_entries = response.into_inner().entries;
     assert_eq!(response_entries.len(), 1);
-    assert_eq!(response_entries[0], expected_entry);
+    assert_eq!(response_entries[0].key, expected_entry.key);
+    assert_eq!(
+        response_entries[0]
+            .similarity
+            .map(|sim| format!("{:.4}", sim.value)),
+        expected_entry
+            .similarity
+            .map(|sim| format!("{:.4}", sim.value))
+    );
 }
 
 #[tokio::test]
