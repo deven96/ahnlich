@@ -316,7 +316,9 @@ mod test {
     use ahnlich_ai_proxy::cli::server::SupportedModels;
     use ahnlich_ai_proxy::cli::AIProxyConfig;
     use ahnlich_ai_proxy::engine::ai::models::ModelDetails;
+    use ahnlich_ai_proxy::error::AIProxyError;
     use ahnlich_ai_proxy::server::handler::AIProxyServer;
+
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
     use grpc_types::ai::models::AiModel;
@@ -410,10 +412,8 @@ mod test {
     async fn test_pool_commands_fail_if_server_not_exist() {
         let host = "127.0.0.1";
         let port = 1234;
-        let ai_client = AiClient::new(format!("{host}:{port}"))
-            .await
-            .expect("Could not initialize client");
-        assert!(ai_client.ping(None).await.is_err());
+        let ai_client = AiClient::new(format!("{host}:{port}")).await;
+        assert!(ai_client.is_err());
     }
 
     #[tokio::test]
@@ -474,6 +474,9 @@ mod test {
 
         let ai_model: ModelDetails =
             SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
+        let already_exists_error = AIProxyError::StoreAlreadyExists(StoreName {
+            value: "Main".into(),
+        });
 
         let expected = AiResponsePipeline {
             responses: vec![
@@ -482,7 +485,7 @@ mod test {
                 },
                 AiServerResponse {
                     response: Some(Response::Error(ErrorResponse {
-                        message: "Store Main already exists".to_string(),
+                        message: already_exists_error.to_string(),
                         code: 6,
                     })),
                 },
@@ -514,7 +517,16 @@ mod test {
         };
 
         let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res.responses.len(), expected.responses.len());
         assert_eq!(res, expected);
+
+        for expected_entry in expected.responses {
+            assert!(
+                res.responses.contains(&expected_entry),
+                "Missing entry: {:?}",
+                expected_entry
+            );
+        }
     }
 
     #[tokio::test]
