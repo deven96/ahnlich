@@ -49,6 +49,11 @@ jobs:
         make format
         make clippy
 
+    - name: Build and Format Rust Example
+      working-directory: ../examples/rust/image-search
+      run: |
+        cargo b && cargo fmt
+
     - name: Run Test
       working-directory: ./ahnlich
       run: |
