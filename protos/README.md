@@ -58,7 +58,7 @@ protoc --proto_path=. --go_out=./gen --go-grpc_out=./gen *.proto
 
 ### Rust: Automatic Generation
 
-In `grpc_types`, cargo automatically compiles the .proto files via the `tonic` and `prost` crate,  generating the rust equivalent.
+In `types`, cargo automatically compiles the .proto files via the `tonic` and `prost` crate,  generating the rust equivalent.
 
 
 

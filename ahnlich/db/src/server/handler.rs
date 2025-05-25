@@ -8,7 +8,7 @@ use ahnlich_types::services::db_service::db_service_server::{DbService, DbServic
 use ahnlich_types::shared::info::ErrorResponse;
 
 use ahnlich_types::db::{pipeline, query, server};
-use ahnlich_types::{client as grpc_types_client, utils as grpc_utils};
+use ahnlich_types::{client as types_client, utils as types_utils};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::future::Future;
@@ -155,7 +155,7 @@ impl DbService for Server {
                     value: params.store,
                 },
                 search_input,
-                grpc_utils::convert_to_nonzerousize(params.closest_n)?,
+                types_utils::convert_to_nonzerousize(params.closest_n)?,
                 algorithm,
                 params.condition,
             )?
@@ -357,7 +357,7 @@ impl DbService for Server {
             .client_handler
             .list()
             .into_iter()
-            .map(|client| grpc_types_client::ConnectedClient {
+            .map(|client| types_client::ConnectedClient {
                 address: client.address,
                 time_connected: format!("{:?}", client.time_connected),
             })

@@ -48,7 +48,7 @@ grpc-update-python: ## updates python generated code after proto change
 		&& poetry run black .
 
 grpc-update-rust: ## updates python generated code after proto change
-	@cargo build -p grpc_types
+	@cargo build -p ahnlich_types
 	@make format
 
 run-db: ## Run ahnlich_db bin 
