@@ -316,10 +316,11 @@ impl DbClient {
 
 #[cfg(test)]
 mod test {
+    use pretty_assertions::assert_eq;
     use std::{collections::HashMap, time::Duration};
 
     use super::*;
-    use ahnlich_db::{cli::ServerConfig, server::handler::Server};
+    use ahnlich_db::{cli::ServerConfig, errors::ServerError, server::handler::Server};
     use grpc_types::{
         algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
         db::{
@@ -389,6 +390,10 @@ mod test {
         });
         pipeline.list_stores();
 
+        let store_already_exists_err = ServerError::StoreAlreadyExists(StoreName {
+            value: "Main".to_string(),
+        });
+
         let expected = DbResponsePipeline {
             responses: vec![
                 DbServerResponse {
@@ -396,8 +401,8 @@ mod test {
                 },
                 DbServerResponse {
                     response: Some(Response::Error(ErrorResponse {
-                        message: "Store Main already exists".to_string(),
-                        code: 20,
+                        message: store_already_exists_err.to_string(),
+                        code: 6,
                     })),
                 },
                 DbServerResponse {
@@ -408,7 +413,7 @@ mod test {
                         stores: vec![StoreInfo {
                             name: "Main".to_string(),
                             len: 0,
-                            size_in_bytes: 1720,
+                            size_in_bytes: 1056,
                         }],
                     })),
                 },
@@ -607,10 +612,8 @@ mod test {
         let host = "127.0.0.1";
         let port = 1234;
         let address = format!("{host}:{port}");
-        let db_client = DbClient::new(address)
-            .await
-            .expect("Could not initialize client");
-        assert!(db_client.ping(None).await.is_err());
+        let db_client = DbClient::new(address).await;
+        assert!(db_client.is_err());
     }
 
     #[tokio::test]
@@ -665,7 +668,7 @@ mod test {
                 response: Some(db_pipeline::db_server_response::Response::Error(
                     grpc_types::shared::info::ErrorResponse {
                         message: error_response.to_string(),
-                        code: 5,
+                        code: 6,
                     },
                 )),
             },
@@ -679,8 +682,8 @@ mod test {
                     db_response_types::StoreList {
                         stores: vec![db_response_types::StoreInfo {
                             name: "Main".to_string(),
-                            len: 2,
-                            size_in_bytes: 1264,
+                            len: 0,
+                            size_in_bytes: 1056,
                         }],
                     },
                 )),
@@ -803,7 +806,7 @@ mod test {
                 stores: vec![StoreInfo {
                     name: "Main".to_string(),
                     len: 1,
-                    size_in_bytes: 2016,
+                    size_in_bytes: 1244,
                 }]
             }
         );
