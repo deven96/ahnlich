@@ -316,30 +316,37 @@ impl DbClient {
 
 #[cfg(test)]
 mod test {
-    use std::{
-        collections::{HashMap, HashSet},
-        time::Duration,
-    };
+    use pretty_assertions::assert_eq;
+    use std::{collections::HashMap, time::Duration};
 
     use super::*;
-    use ahnlich_db::{cli::ServerConfig, server::handler::Server};
-    use ahnlich_types::{
-        db::ServerResponse,
-        keyval::StoreKey,
-        metadata::MetadataKey,
-        predicate::{Predicate, PredicateCondition},
-        similarity::Algorithm,
-    };
+    use ahnlich_db::{cli::ServerConfig, errors::ServerError, server::handler::Server};
     use grpc_types::{
+        algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
         db::{
             pipeline::{db_server_response::Response, DbServerResponse},
             query::CreateStore,
             server::{GetSimNEntry, StoreInfo},
         },
-        metadata::metadata_value::Value,
+        keyval::{StoreEntry, StoreKey, StoreValue},
+        metadata::{metadata_value::Value, MetadataValue},
         shared::info::ErrorResponse,
         similarity::Similarity,
     };
+
+    use grpc_types::predicates::{
+        self, predicate::Kind as PredicateKind,
+        predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
+    };
+
+    use grpc_types::{
+        db::{
+            pipeline::{self as db_pipeline},
+            server as db_response_types,
+        },
+        keyval::StoreName,
+    };
+
     use once_cell::sync::Lazy;
     use utils::server::AhnlichServerUtils;
 
@@ -352,7 +359,7 @@ mod test {
             .expect("Could not initialize server");
         let address = server.local_addr().expect("Could not get local addr");
         tokio::spawn(async move {
-            server.start().await;
+            server.start().await.expect("Failed to start db server");
         });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -383,6 +390,10 @@ mod test {
         });
         pipeline.list_stores();
 
+        let store_already_exists_err = ServerError::StoreAlreadyExists(StoreName {
+            value: "Main".to_string(),
+        });
+
         let expected = DbResponsePipeline {
             responses: vec![
                 DbServerResponse {
@@ -390,8 +401,8 @@ mod test {
                 },
                 DbServerResponse {
                     response: Some(Response::Error(ErrorResponse {
-                        message: "Store Main already exists".to_string(),
-                        code: 20,
+                        message: store_already_exists_err.to_string(),
+                        code: 6,
                     })),
                 },
                 DbServerResponse {
@@ -402,7 +413,7 @@ mod test {
                         stores: vec![StoreInfo {
                             name: "Main".to_string(),
                             len: 0,
-                            size_in_bytes: 1720,
+                            size_in_bytes: 1056,
                         }],
                     })),
                 },
@@ -419,71 +430,110 @@ mod test {
             .expect("Could not initialize server");
         let address = server.local_addr().expect("Could not get local addr");
         tokio::spawn(async move {
-            server.start().await;
+            server.start().await.expect("Failed to start db server");
         });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let mut db_client = DbClient::new(address.to_string())
+        let db_client = DbClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
 
-        let create_store_params = db_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .dimension(3)
-            .create_predicates(HashSet::from_iter([MetadataKey::new("medal".into())]))
-            .build();
+        let create_store_params = CreateStore {
+            store: "Main".to_string(),
+            create_predicates: vec!["medal".to_string()],
+            dimension: 3,
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        };
 
-        assert!(db_client.create_store(create_store_params).await.is_ok());
+        assert!(db_client
+            .create_store(create_store_params, None)
+            .await
+            .is_ok());
 
-        let set_key_params = db_params::SetParams::builder()
-            .store("Main".to_string())
-            .inputs(vec![
-                (
-                    StoreKey(vec![1.2, 1.3, 1.4]),
-                    HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
-                        MetadataValue::RawString("silver".into()),
-                    )]),
-                ),
-                (
-                    StoreKey(vec![2.0, 2.1, 2.2]),
-                    HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
-                        MetadataValue::RawString("gold".into()),
-                    )]),
-                ),
-                (
-                    StoreKey(vec![5.0, 5.1, 5.2]),
-                    HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
-                        MetadataValue::RawString("bronze".into()),
-                    )]),
-                ),
-            ])
-            .build();
-        assert!(db_client.set(set_key_params).await.is_ok());
+        let set_key_params = Set {
+            store: "Main".to_string(),
+            inputs: vec![
+                StoreEntry {
+                    key: Some(StoreKey {
+                        key: vec![1.2, 1.3, 1.4],
+                    }),
+                    value: Some(StoreValue {
+                        value: HashMap::from_iter([(
+                            "medal".into(),
+                            MetadataValue {
+                                value: Some(Value::RawString("silver".into())),
+                            },
+                        )]),
+                    }),
+                },
+                StoreEntry {
+                    key: Some(StoreKey {
+                        key: vec![2.0, 2.1, 2.2],
+                    }),
+                    value: Some(StoreValue {
+                        value: HashMap::from_iter([(
+                            "medal".into(),
+                            MetadataValue {
+                                value: Some(Value::RawString("gold".into())),
+                            },
+                        )]),
+                    }),
+                },
+                StoreEntry {
+                    key: Some(StoreKey {
+                        key: vec![5.0, 5.1, 5.2],
+                    }),
+                    value: Some(StoreValue {
+                        value: HashMap::from_iter([(
+                            "medal".into(),
+                            MetadataValue {
+                                value: Some(Value::RawString("bronze".into())),
+                            },
+                        )]),
+                    }),
+                },
+            ],
+        };
+
+        assert!(db_client.set(set_key_params, None).await.is_ok());
         // error due to dimension mismatch
-        let get_sim_n_params = db_params::GetSimNParams::builder()
-            .store("Main".to_string())
-            .search_input(StoreKey(vec![1.1, 2.0]))
-            .closest_n(2)
-            .algorithm(Algorithm::EuclideanDistance)
-            .build();
-        assert!(db_client.get_sim_n(get_sim_n_params).await.is_err());
+        let get_sim_n_params = GetSimN {
+            store: "Main".to_string(),
+            search_input: Some(StoreKey {
+                key: vec![1.1, 2.0],
+            }),
+            closest_n: 2,
+            algorithm: Algorithm::EuclideanDistance as i32,
+            condition: None,
+        };
+        assert!(db_client.get_sim_n(get_sim_n_params, None).await.is_err());
 
-        let get_sim_n_params = db_params::GetSimNParams::builder()
-            .store("Main".to_string())
-            .search_input(StoreKey(vec![5.0, 2.1, 2.2]))
-            .closest_n(2)
-            .algorithm(Algorithm::CosineSimilarity)
-            .condition(Some(PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("medal".into()),
-                value: MetadataValue::RawString("gold".into()),
-            })))
-            .build();
+        let condition = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "medal".into(),
+                    value: Some(MetadataValue {
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "gold".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
+        let get_sim_n_params = GetSimN {
+            store: "Main".to_string(),
+            search_input: Some(StoreKey {
+                key: vec![5.0, 2.1, 2.2],
+            }),
+            closest_n: 2,
+            algorithm: Algorithm::CosineSimilarity as i32,
+            condition: Some(condition),
+        };
 
         assert_eq!(
-            db_client.get_sim_n(get_sim_n_params).await.unwrap(),
+            db_client.get_sim_n(get_sim_n_params, None).await.unwrap(),
             GetSimNResult {
                 entries: vec![GetSimNEntry {
                     key: Some(grpc_types::keyval::StoreKey {
@@ -511,12 +561,10 @@ mod test {
             .await
             .expect("Could not initialize server");
         let address = server.local_addr().expect("Could not get local addr");
-        let host = address.ip();
-        let port = address.port();
         let _ = tokio::spawn(async move { server.start().await });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let db_client = DbClient::new(host.to_string(), port)
+        let db_client = DbClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
         assert!(db_client.ping(None).await.is_ok());
@@ -528,23 +576,33 @@ mod test {
             .await
             .expect("Could not initialize server");
         let address = server.local_addr().expect("Could not get local addr");
-        let host = address.ip();
-        let port = address.port();
         tokio::spawn(async { server.start().await });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let db_client = DbClient::new(host.to_string(), port)
+        let db_client = DbClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
-        let mut pipeline = db_client
-            .pipeline(3, None)
-            .await
-            .expect("Could not create pipeline");
+        let mut pipeline = db_client.pipeline(None);
         pipeline.list_stores();
         pipeline.ping();
-        let mut expected = ServerResult::with_capacity(2);
-        expected.push(Ok(ServerResponse::StoreList(HashSet::new())));
-        expected.push(Ok(ServerResponse::Pong));
+
+        let expected = vec![
+            db_pipeline::DbServerResponse {
+                response: Some(db_pipeline::db_server_response::Response::StoreList(
+                    db_response_types::StoreList { stores: vec![] },
+                )),
+            },
+            db_pipeline::DbServerResponse {
+                response: Some(db_pipeline::db_server_response::Response::Pong(
+                    db_response_types::Pong {},
+                )),
+            },
+        ];
+
+        let expected = db_pipeline::DbResponsePipeline {
+            responses: expected,
+        };
+
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
     }
@@ -553,10 +611,9 @@ mod test {
     async fn test_pool_commands_fail_if_server_not_exist() {
         let host = "127.0.0.1";
         let port = 1234;
-        let db_client = DbClient::new(host.to_string(), port)
-            .await
-            .expect("Could not initialize client");
-        assert!(db_client.ping(None).await.is_err());
+        let address = format!("{host}:{port}");
+        let db_client = DbClient::new(address).await;
+        assert!(db_client.is_err());
     }
 
     #[tokio::test]
@@ -568,45 +625,75 @@ mod test {
         let _ = tokio::spawn(async move { server.start().await });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let host = address.ip();
-        let port = address.port();
-        let db_client = DbClient::new(host.to_string(), port)
+        let db_client = DbClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
-        let mut pipeline = db_client
-            .pipeline(4, None)
-            .await
-            .expect("Could not create pipeline");
 
-        let create_store_params = db_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .dimension(3)
-            .build();
-        let create_store_params_2 = db_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .dimension(3)
-            .build();
+        let mut pipeline = db_client.pipeline(None);
 
-        let create_store_params_no_error = db_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .dimension(3)
-            .error_if_exists(false)
-            .build();
-        pipeline.create_store(create_store_params);
-        pipeline.create_store(create_store_params_2);
-        pipeline.create_store(create_store_params_no_error);
+        pipeline.create_store(CreateStore {
+            store: "Main".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        });
+        pipeline.create_store(CreateStore {
+            store: "Main".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        });
+        pipeline.create_store(CreateStore {
+            store: "Main".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: false,
+        });
         pipeline.list_stores();
-        let mut expected = ServerResult::with_capacity(4);
-        expected.push(Ok(ServerResponse::Unit));
-        expected.push(Err("Store Main already exists".to_string()));
-        expected.push(Ok(ServerResponse::Unit));
-        expected.push(Ok(ServerResponse::StoreList(HashSet::from_iter([
-            StoreInfo {
-                name: StoreName("Main".to_string()),
-                len: 0,
-                size_in_bytes: 1720,
+
+        let error_response = ahnlich_db::errors::ServerError::StoreAlreadyExists(StoreName {
+            value: "Main".to_string(),
+        });
+
+        let expected = vec![
+            db_pipeline::DbServerResponse {
+                response: Some(db_pipeline::db_server_response::Response::Unit(
+                    db_response_types::Unit {},
+                )),
             },
-        ]))));
+            db_pipeline::DbServerResponse {
+                response: Some(db_pipeline::db_server_response::Response::Error(
+                    grpc_types::shared::info::ErrorResponse {
+                        message: error_response.to_string(),
+                        code: 6,
+                    },
+                )),
+            },
+            db_pipeline::DbServerResponse {
+                response: Some(db_pipeline::db_server_response::Response::Unit(
+                    db_response_types::Unit {},
+                )),
+            },
+            db_pipeline::DbServerResponse {
+                response: Some(db_pipeline::db_server_response::Response::StoreList(
+                    db_response_types::StoreList {
+                        stores: vec![db_response_types::StoreInfo {
+                            name: "Main".to_string(),
+                            len: 0,
+                            size_in_bytes: 1056,
+                        }],
+                    },
+                )),
+            },
+        ];
+
+        let expected = db_pipeline::DbResponsePipeline {
+            responses: expected,
+        };
+
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
     }
@@ -620,73 +707,108 @@ mod test {
         let _ = tokio::spawn(async move { server.start().await });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let host = address.ip();
-        let port = address.port();
-        let db_client = DbClient::new(host.to_string(), port)
+        let db_client = DbClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
-        let del_key_params = db_params::DelKeyParams::builder()
-            .store("Main".to_string())
-            .keys(vec![])
-            .build();
-        assert!(db_client.del_key(del_key_params).await.is_err());
 
-        let create_store_params = db_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .dimension(4)
-            .create_predicates(HashSet::from_iter([MetadataKey::new("role".into())]))
-            .non_linear_indices(HashSet::from_iter([NonLinearAlgorithm::KDTree]))
-            .build();
+        let del_key_params = DelKey {
+            store: "Main".to_string(),
+            keys: vec![],
+        };
+        assert!(db_client.del_key(del_key_params, None).await.is_err());
 
-        assert!(db_client.create_store(create_store_params).await.is_ok());
-        let del_key_params = db_params::DelKeyParams::builder()
-            .store("Main".to_string())
-            .keys(vec![StoreKey(vec![1.0, 1.1, 1.2, 1.3])])
-            .build();
+        let create_store_params = CreateStore {
+            store: "Main".to_string(),
+            create_predicates: vec!["role".to_string()],
+            dimension: 4,
+            non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+            error_if_exists: true,
+        };
+
+        assert!(db_client
+            .create_store(create_store_params, None)
+            .await
+            .is_ok());
+
+        let del_key_params = DelKey {
+            store: "Main".to_string(),
+            keys: vec![StoreKey {
+                key: vec![1.0, 1.1, 1.2, 1.3],
+            }],
+        };
+
         assert_eq!(
-            db_client.del_key(del_key_params).await.unwrap(),
-            ServerResponse::Del(0)
+            db_client.del_key(del_key_params, None).await.unwrap(),
+            db_response_types::Del { deleted_count: 0 },
         );
-        let set_key_params = db_params::SetParams::builder()
-            .store("Main".to_string())
-            .inputs(vec![
-                (StoreKey(vec![1.0, 1.1, 1.2, 1.3]), HashMap::new()),
-                (StoreKey(vec![1.1, 1.2, 1.3, 1.4]), HashMap::new()),
-            ])
-            .build();
-        assert!(db_client.set(set_key_params).await.is_ok());
+
+        let set_key_params = Set {
+            store: "Main".to_string(),
+            inputs: vec![
+                StoreEntry {
+                    key: Some(StoreKey {
+                        key: vec![1.0, 1.1, 1.2, 1.3],
+                    }),
+                    value: Some(StoreValue {
+                        value: HashMap::new(),
+                    }),
+                },
+                StoreEntry {
+                    key: Some(StoreKey {
+                        key: vec![1.1, 1.2, 1.3, 1.4],
+                    }),
+                    value: Some(StoreValue {
+                        value: HashMap::new(),
+                    }),
+                },
+            ],
+        };
+
+        assert!(db_client.set(set_key_params, None).await.is_ok());
+
         assert_eq!(
             db_client.list_stores(None).await.unwrap(),
-            ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
-                name: StoreName("Main".to_string()),
-                len: 2,
-                size_in_bytes: 2016,
-            },]))
+            db_response_types::StoreList {
+                stores: vec![StoreInfo {
+                    name: "Main".to_string(),
+                    len: 2,
+                    size_in_bytes: 1356,
+                }]
+            }
         );
+
         // error as different dimensions
 
-        let del_key_params = db_params::DelKeyParams::builder()
-            .store("Main".to_string())
-            .keys(vec![StoreKey(vec![1.0, 1.2])])
-            .build();
-        assert!(db_client.del_key(del_key_params).await.is_err());
+        let del_key_params = DelKey {
+            store: "Main".to_string(),
+            keys: vec![StoreKey {
+                key: vec![1.0, 1.1],
+            }],
+        };
 
-        let del_key_params = db_params::DelKeyParams::builder()
-            .store("Main".to_string())
-            .keys(vec![StoreKey(vec![1.0, 1.1, 1.2, 1.3])])
-            .build();
+        assert!(db_client.del_key(del_key_params, None).await.is_err());
+
+        let del_key_params = DelKey {
+            store: "Main".to_string(),
+            keys: vec![StoreKey {
+                key: vec![1.0, 1.1, 1.2, 1.3],
+            }],
+        };
 
         assert_eq!(
-            db_client.del_key(del_key_params).await.unwrap(),
-            ServerResponse::Del(1)
+            db_client.del_key(del_key_params, None).await.unwrap(),
+            db_response_types::Del { deleted_count: 1 },
         );
+
         assert_eq!(
             db_client.list_stores(None).await.unwrap(),
-            ServerResponse::StoreList(HashSet::from_iter([StoreInfo {
-                name: StoreName("Main".to_string()),
-                len: 1,
-                size_in_bytes: 1904,
-            },]))
+            db_response_types::StoreList {
+                stores: vec![StoreInfo {
+                    name: "Main".to_string(),
+                    len: 1,
+                    size_in_bytes: 1244,
+                }]
+            }
         );
     }
 
@@ -699,77 +821,128 @@ mod test {
         let _ = tokio::spawn(async move { server.start().await });
         // Allow some time for the server to start
         tokio::time::sleep(Duration::from_millis(100)).await;
-        let host = address.ip();
-        let port = address.port();
-        let db_client = DbClient::new(host.to_string(), port)
+        let db_client = DbClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
 
-        let create_store_params = db_params::CreateStoreParams::builder()
-            .store("Main".to_string())
-            .dimension(3)
-            .create_predicates(HashSet::from_iter([MetadataKey::new("medal".into())]))
-            .build();
+        let create_store_params = CreateStore {
+            store: "Main".to_string(),
+            create_predicates: vec!["medal".to_string()],
+            dimension: 3,
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        };
 
-        assert!(db_client.create_store(create_store_params).await.is_ok());
+        assert!(db_client
+            .create_store(create_store_params, None)
+            .await
+            .is_ok());
 
-        let set_key_params = db_params::SetParams::builder()
-            .store("Main".to_string())
-            .inputs(vec![
-                (
-                    StoreKey(vec![1.2, 1.3, 1.4]),
-                    HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
-                        MetadataValue::RawString("silver".into()),
-                    )]),
-                ),
-                (
-                    StoreKey(vec![2.0, 2.1, 2.2]),
-                    HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
-                        MetadataValue::RawString("gold".into()),
-                    )]),
-                ),
-                (
-                    StoreKey(vec![5.0, 5.1, 5.2]),
-                    HashMap::from_iter([(
-                        MetadataKey::new("medal".into()),
-                        MetadataValue::RawString("bronze".into()),
-                    )]),
-                ),
-            ])
-            .build();
-        assert!(db_client.set(set_key_params).await.is_ok());
+        let set_key_params = Set {
+            store: "Main".to_string(),
+            inputs: vec![
+                StoreEntry {
+                    key: Some(StoreKey {
+                        key: vec![1.2, 1.3, 1.4],
+                    }),
+                    value: Some(StoreValue {
+                        value: HashMap::from_iter([(
+                            "medal".into(),
+                            MetadataValue {
+                                value: Some(Value::RawString("silver".into())),
+                            },
+                        )]),
+                    }),
+                },
+                StoreEntry {
+                    key: Some(StoreKey {
+                        key: vec![2.0, 2.1, 2.2],
+                    }),
+
+                    value: Some(StoreValue {
+                        value: HashMap::from_iter([(
+                            "medal".into(),
+                            MetadataValue {
+                                value: Some(Value::RawString("gold".into())),
+                            },
+                        )]),
+                    }),
+                },
+                StoreEntry {
+                    key: Some(StoreKey {
+                        key: vec![5.0, 5.1, 5.2],
+                    }),
+
+                    value: Some(StoreValue {
+                        value: HashMap::from_iter([(
+                            "medal".into(),
+                            MetadataValue {
+                                value: Some(Value::RawString("bronze".into())),
+                            },
+                        )]),
+                    }),
+                },
+            ],
+        };
+
+        assert!(db_client.set(set_key_params, None).await.is_ok());
+
         // error due to dimension mismatch
-        let get_sim_n_params = db_params::GetSimNParams::builder()
-            .store("Main".to_string())
-            .search_input(StoreKey(vec![1.1, 2.0]))
-            .closest_n(2)
-            .algorithm(Algorithm::EuclideanDistance)
-            .build();
-        assert!(db_client.get_sim_n(get_sim_n_params).await.is_err());
 
-        let get_sim_n_params = db_params::GetSimNParams::builder()
-            .store("Main".to_string())
-            .search_input(StoreKey(vec![5.0, 2.1, 2.2]))
-            .closest_n(2)
-            .algorithm(Algorithm::CosineSimilarity)
-            .condition(Some(PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("medal".into()),
-                value: MetadataValue::RawString("gold".into()),
-            })))
-            .build();
+        let get_sim_n_params = GetSimN {
+            store: "Main".to_string(),
+            search_input: Some(StoreKey {
+                key: vec![1.1, 2.0],
+            }),
+            closest_n: 2,
+            algorithm: Algorithm::EuclideanDistance as i32,
+            condition: None,
+        };
+        assert!(db_client.get_sim_n(get_sim_n_params, None).await.is_err());
+
+        let condition = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "medal".into(),
+                    value: Some(MetadataValue {
+                        value: Some(grpc_types::metadata::metadata_value::Value::RawString(
+                            "gold".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
+        let get_sim_n_params = GetSimN {
+            store: "Main".to_string(),
+            search_input: Some(StoreKey {
+                key: vec![5.0, 2.1, 2.2],
+            }),
+            closest_n: 2,
+            algorithm: Algorithm::CosineSimilarity as i32,
+            condition: Some(condition),
+        };
 
         assert_eq!(
-            db_client.get_sim_n(get_sim_n_params).await.unwrap(),
-            ServerResponse::GetSimN(vec![(
-                StoreKey(vec![2.0, 2.1, 2.2]),
-                HashMap::from_iter([(
-                    MetadataKey::new("medal".into()),
-                    MetadataValue::RawString("gold".into()),
-                )]),
-                Similarity(0.9036338825194858),
-            )])
+            db_client.get_sim_n(get_sim_n_params, None).await.unwrap(),
+            GetSimNResult {
+                entries: vec![GetSimNEntry {
+                    key: Some(grpc_types::keyval::StoreKey {
+                        key: vec![2.0, 2.1, 2.2]
+                    }),
+                    value: Some(grpc_types::keyval::StoreValue {
+                        value: HashMap::from_iter([(
+                            "medal".into(),
+                            grpc_types::metadata::MetadataValue {
+                                value: Some(Value::RawString("gold".into()))
+                            },
+                        )])
+                    }),
+                    similarity: Some(Similarity {
+                        value: 0.9036338825194858
+                    })
+                }]
+            }
         );
     }
 }

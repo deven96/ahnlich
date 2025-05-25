@@ -9,6 +9,7 @@ use grpc_types::predicates::{
     self, predicate::Kind as PredicateKind, predicate_condition::Kind as PredicateConditionKind,
     Predicate, PredicateCondition,
 };
+use grpc_types::server_types::ServerType;
 use grpc_types::shared::info::StoreUpsert;
 use grpc_types::similarity::Similarity;
 use once_cell::sync::Lazy;
@@ -2315,11 +2316,6 @@ async fn test_get_key() {
                 ],
             })),
         },
-        // Get server info
-        //FIXME: commented out until allocator size and limit is looked into
-        // db_pipeline::DbQuery {
-        //     query: Some(Query::InfoServer(db_query_types::InfoServer {})),
-        // },
     ];
 
     let pipelined_request = db_pipeline::DbRequestPipeline { queries };
@@ -2413,22 +2409,6 @@ async fn test_get_key() {
                 },
             )),
         },
-        //FIXME: fix info server allocator size issues
-        // db_pipeline::DbServerResponse {
-        //     response: Some(db_pipeline::db_server_response::Response::InfoServer(
-        //         db_response_types::InfoServer {
-        //             info: Some(ServerInfo {
-        //                 address: socket_addr.to_string(),
-        //                 // Fixme: version??
-        //                 version: env!("CARGO_PKG_VERSION").to_string(),
-        //                 r#type: ServerType::Database as i32,
-        //                 // Fixme: allocator size??
-        //                 limit: CONFIG.common.allocator_size as u64,
-        //                 remaining: 18446744073709240426,
-        //             }),
-        //         },
-        //     )),
-        // },
     ];
 
     let expected = db_pipeline::DbResponsePipeline {
@@ -2436,6 +2416,17 @@ async fn test_get_key() {
     };
 
     assert_eq!(expected, response.into_inner());
+
+    let response = client
+        .info_server(tonic::Request::new(grpc_types::db::query::InfoServer {}))
+        .await
+        .expect("Failed call info server");
+
+    let info_response = response.into_inner().info.unwrap();
+
+    assert_eq!(info_response.address, socket_addr.to_string());
+    assert_eq!(info_response.version, env!("CARGO_PKG_VERSION").to_string());
+    assert_eq!(info_response.r#type, ServerType::Database as i32);
 }
 
 #[tokio::test]
