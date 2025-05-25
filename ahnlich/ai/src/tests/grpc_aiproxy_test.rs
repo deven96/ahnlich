@@ -5,19 +5,20 @@ use utils::server::AhnlichServerUtils;
 
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
-use std::{
-    collections::{HashMap, HashSet},
-    net::SocketAddr,
-    num::NonZeroUsize,
-    sync::atomic::Ordering,
-};
+use std::{collections::HashMap, net::SocketAddr, sync::atomic::Ordering};
 
 use crate::{
     cli::{server::SupportedModels, AIProxyConfig},
     engine::ai::models::ModelDetails,
+    error::AIProxyError,
     server::handler::AIProxyServer,
 };
 
+use grpc_types::algorithm::algorithms::Algorithm;
+use grpc_types::{
+    ai::server::GetSimNEntry,
+    metadata::{metadata_value::Value as MValue, MetadataValue},
+};
 use grpc_types::{
     ai::{
         models::AiModel,
@@ -31,13 +32,6 @@ use grpc_types::{
     shared::info::StoreUpsert,
 };
 use grpc_types::{
-    ai::{pipeline::ai_server_response, server::GetSimNEntry},
-    metadata::{metadata_value::Value as MValue, MetadataValue},
-};
-use grpc_types::{
-    algorithm::algorithms::Algorithm, metadata::metadata_value::Value as MetadataValueEnum,
-};
-use grpc_types::{
     predicates::{
         self, predicate::Kind as PredicateKind,
         predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
@@ -46,9 +40,7 @@ use grpc_types::{
 };
 
 use std::path::PathBuf;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpStream;
-use tokio::time::{timeout, Duration};
+use tokio::time::Duration;
 use tonic::transport::Channel;
 
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
@@ -1281,7 +1273,7 @@ async fn test_ai_proxy_binary_store_actions() {
             ai_pipeline::AiServerResponse {
                 response: Some(ai_pipeline::ai_server_response::Response::Error(grpc_types::shared::info::ErrorResponse {
                     message: "Image Dimensions [(547, 821)] does not match the expected model dimensions [(224, 224)]".to_string(),
-                    code: 3, // Assuming code 3 for dimension mismatch
+                    code: 3,
                 })),
             },
             ai_pipeline::AiServerResponse {
@@ -1301,6 +1293,216 @@ async fn test_ai_proxy_binary_store_actions() {
                 response: Some(ai_pipeline::ai_server_response::Response::Del(ai_response_types::Del { deleted_count: 1 })),
             },
         ],
+    };
+
+    assert_eq!(response.into_inner(), expected);
+}
+
+#[tokio::test]
+async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
+    let address = provision_test_servers().await;
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let store_name = "Deven Mixed Store210u01".to_string();
+    let matching_metadatakey = "Brand".to_string();
+    let matching_metadatavalue = MetadataValue {
+        value: Some(MValue::RawString("Nike".into())),
+    };
+
+    let store_value_1 = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
+    };
+
+    let store_data = vec![
+        StoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45])),
+            }),
+            value: store_value_1.clone().value,
+        },
+        StoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Buster Matthews is the name".into())),
+            }),
+            value: HashMap::from_iter([(
+                "Description".to_string(),
+                MetadataValue {
+                    value: Some(MValue::RawString("20 year old line backer".into())),
+                },
+            )]),
+        },
+    ];
+
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::PurgeStores(ai_query_types::PurgeStores {})),
+        },
+    ];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Unit(ai_response_types::Unit {})),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Error(grpc_types::shared::info::ErrorResponse  {
+                    message: "Cannot index Input. Store expects [RawString], input type [Image] was provided".to_string(),
+                    code: 3,
+                })),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Del(ai_response_types::Del { deleted_count: 1 })),
+            },
+        ],
+    };
+
+    assert_eq!(response.into_inner(), expected);
+}
+
+#[tokio::test]
+async fn test_ai_proxy_create_store_errors_unsupported_models() {
+    // Setup server with limited models
+    let server = Server::new(&CONFIG)
+        .await
+        .expect("Could not initialize server");
+    let db_port = server.local_addr().unwrap().port();
+    let mut config = AI_CONFIG_LIMITED_MODELS.clone();
+    config.db_port = db_port;
+
+    let ai_server = AIProxyServer::new(config)
+        .await
+        .expect("Could not initialize ai proxy");
+
+    let address = ai_server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { server.start().await });
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    // Create gRPC client
+    let channel = Channel::from_shared(format!("http://{}", address))
+        .expect("Failed to create channel")
+        .connect()
+        .await
+        .expect("Failed to connect");
+    let mut client = AiServiceClient::new(channel);
+
+    let store_name = "Error Handling Store".to_string();
+
+    // Create pipeline request
+    let queries = vec![ai_pipeline::AiQuery {
+        query: Some(Query::CreateStore(ai_query_types::CreateStore {
+            store: store_name.clone(),
+            query_model: AiModel::AllMiniLmL12V2.into(),
+            index_model: AiModel::AllMiniLmL6V2.into(),
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        })),
+    }];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![ai_pipeline::AiServerResponse {
+            response: Some(ai_pipeline::ai_server_response::Response::Error(
+                grpc_types::shared::info::ErrorResponse {
+                    message: AIProxyError::AIModelNotInitialized.to_string(),
+                    code: 13,
+                },
+            )),
+        }],
+    };
+
+    assert_eq!(response.into_inner(), expected);
+}
+
+#[tokio::test]
+async fn test_ai_proxy_embedding_size_mismatch_error() {
+    let address = provision_test_servers().await;
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let store_name = "Deven Mixed Store210u01".to_string();
+
+    let lml12_model: ModelDetails =
+        SupportedModels::from(&AiModel::AllMiniLmL12V2).to_model_details();
+    let bge_model: ModelDetails = SupportedModels::from(&AiModel::BgeBaseEnV15).to_model_details();
+
+    // Create pipeline request
+    let queries = vec![ai_pipeline::AiQuery {
+        query: Some(Query::CreateStore(ai_query_types::CreateStore {
+            store: store_name.clone(),
+            query_model: AiModel::AllMiniLmL6V2.into(),
+            index_model: AiModel::BgeBaseEnV15.into(),
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        })),
+    }];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    let error_message = AIProxyError::DimensionsMismatchError {
+        index_model_dim: bge_model.embedding_size.into(),
+        query_model_dim: lml12_model.embedding_size.into(),
+    };
+
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![ai_pipeline::AiServerResponse {
+            response: Some(ai_pipeline::ai_server_response::Response::Error(
+                grpc_types::shared::info::ErrorResponse {
+                    message: error_message.to_string(),
+                    code: 3,
+                },
+            )),
+        }],
     };
 
     assert_eq!(response.into_inner(), expected);
