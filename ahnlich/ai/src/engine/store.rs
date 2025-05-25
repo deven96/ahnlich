@@ -294,8 +294,7 @@ impl AIStoreHandler {
                     let key = value
                         .value
                         .remove(AHNLICH_AI_RESERVED_META_KEY)
-                        .map(|val| StoreInput::try_from(val).ok())
-                        .flatten();
+                        .and_then(|val| StoreInput::try_from(val).ok());
 
                     return Some(GetEntry {
                         key,

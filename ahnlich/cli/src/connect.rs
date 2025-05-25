@@ -29,7 +29,7 @@ impl AgentClient {
         } else {
             host.to_string()
         };
-        let port = port.unwrap_or_else(|| match agent {
+        let port = port.unwrap_or(match agent {
             Agent::AI => 1370,
             Agent::DB => 1369,
         });
@@ -68,8 +68,8 @@ impl AgentClient {
                 let server_type =
                     ServerType::try_from(server_info.r#type).expect("Failed to get server type");
                 match server_type {
-                    ServerType::Ai => return Ok(true),
-                    ServerType::Database => return Ok(false),
+                    ServerType::Ai => Ok(true),
+                    ServerType::Database => Ok(false),
                 }
             }
             Self::DB(client) => {
@@ -82,8 +82,8 @@ impl AgentClient {
                     ServerType::try_from(server_info.r#type).expect("Failed to get server type");
 
                 match server_type {
-                    ServerType::Ai => return Ok(false),
-                    ServerType::Database => return Ok(true),
+                    ServerType::Ai => Ok(false),
+                    ServerType::Database => Ok(true),
                 }
             }
         }
