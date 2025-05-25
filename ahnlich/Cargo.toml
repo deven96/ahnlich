@@ -8,8 +8,8 @@ members = [
   "similarity",
   "task-manager",
   "tracer", 
-  "types",
-  "utils", "grpc_types",
+  "utils",
+  "grpc_types",
 ]
 resolver = "2"
 

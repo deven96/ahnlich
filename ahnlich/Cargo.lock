@@ -90,7 +90,6 @@ name = "ai"
 version = "0.0.0"
 dependencies = [
  "ahnlich_client_rs",
- "ahnlich_types",
  "async-trait",
  "clap 4.5.21",
  "db",

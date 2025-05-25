@@ -78,7 +78,7 @@ use utils::server::AhnlichServerUtils;
 use utils::server::ListenerStreamOrAddress;
 use utils::server::ServerUtilsConfig;
 
-use ahnlich_client_rs::grpc::db::DbClient;
+use ahnlich_client_rs::db::DbClient;
 
 const SERVICE_NAME: &str = "ahnlich-ai";
 

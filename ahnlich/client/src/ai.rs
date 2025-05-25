@@ -893,7 +893,7 @@ mod test {
             StoreEntry {
                 key: Some(StoreInput {
                     value: Some(Value::Image(
-                        include_bytes!("../../../ai/src/tests/images/dog.jpg").to_vec(),
+                        include_bytes!("../../ai/src/tests/images/dog.jpg").to_vec(),
                     )),
                 }),
                 value: HashMap::from_iter([(
@@ -906,7 +906,7 @@ mod test {
             StoreEntry {
                 key: Some(StoreInput {
                     value: Some(Value::Image(
-                        include_bytes!("../../../ai/src/tests/images/test.webp").to_vec(),
+                        include_bytes!("../../ai/src/tests/images/test.webp").to_vec(),
                     )),
                 }),
                 value: store_value_2.clone().value,
@@ -914,7 +914,7 @@ mod test {
             StoreEntry {
                 key: Some(StoreInput {
                     value: Some(Value::Image(
-                        include_bytes!("../../../ai/src/tests/images/cat.png").to_vec(),
+                        include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
                     )),
                 }),
                 value: store_value_1.clone().value,
@@ -1015,7 +1015,7 @@ mod test {
                         entries: vec![GetEntry {
                             key: Some(StoreInput {
                                 value: Some(Value::Image(
-                                    include_bytes!("../../../ai/src/tests/images/cat.png").to_vec(),
+                                    include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
                                 )),
                             }),
                             value: Some(store_value_1.clone()),
