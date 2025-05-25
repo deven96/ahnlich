@@ -31,7 +31,6 @@ once_cell.workspace = true
 tracing.workspace = true
 tracer = { path = "../tracer", version = "*" }
 ahnlich_client_rs = { path = "../client", version = "*" }
-deadpool.workspace = true
 nonzero_ext = "0.3.0"
 serde_json.workspace = true
 termcolor = "1.4.1"

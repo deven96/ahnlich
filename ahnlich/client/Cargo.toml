@@ -21,7 +21,6 @@ once_cell.workspace = true
 bincode.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
-deadpool.workspace = true
 tonic.workspace = true
 http.workspace = true
 fallible_collections.workspace = true

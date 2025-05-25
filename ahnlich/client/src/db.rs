@@ -105,6 +105,10 @@ impl DbPipeline {
         add_trace_parent(&mut req, tracing_id);
         Ok(self.client.pipeline(req).await?.into_inner())
     }
+
+    pub fn set_queries(&mut self, queries: Vec<Query>) {
+        self.queries = queries
+    }
 }
 
 // GRPC Client for Ahnlich DB

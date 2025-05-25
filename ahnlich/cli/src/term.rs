@@ -8,7 +8,7 @@ use crossterm::{
 };
 use std::io::{self, stdout, Stdout, Write};
 
-use crate::{connect::AgentPool, history::HistoryManager};
+use crate::{connect::AgentClient, history::HistoryManager};
 
 #[derive(Debug)]
 enum SpecialEntry {
@@ -45,12 +45,12 @@ enum LineResult {
 }
 
 pub struct Term {
-    client_pool: AgentPool,
+    client: AgentClient,
 }
 
 impl Term {
-    pub fn new(client_pool: AgentPool) -> Self {
-        Self { client_pool }
+    pub fn new(client: AgentClient) -> Self {
+        Self { client }
     }
 
     fn read_char(&self) -> io::Result<Entry> {
@@ -85,7 +85,7 @@ impl Term {
             terminal::Clear(terminal::ClearType::All),
             cursor::MoveTo(0, 0),
             SetForegroundColor(Color::White),
-            Print(format!("Welcome To Ahnlich {}\n\n", self.client_pool)),
+            Print(format!("Welcome To Ahnlich {}\n\n", self.client)),
             SetForegroundColor(Color::White),
         )?;
         stdout.flush()?;
@@ -110,7 +110,7 @@ impl Term {
                 let trimmed_ex = ex.trim_end_matches(matches);
 
                 if self
-                    .client_pool
+                    .client
                     .commands()
                     .contains(&(trimmed_ex.to_lowercase().as_str()))
                 {
@@ -277,7 +277,7 @@ impl Term {
                 LineResult::Command(input) => match input.as_str() {
                     "quit" | "exit" | "exit()" => break,
                     command => {
-                        let response = self.client_pool.parse_queries(command).await;
+                        let response = self.client.parse_queries(command).await;
 
                         match response {
                             Ok(success) => {

@@ -3,7 +3,7 @@ members = [
   "ai",
   "db",
   "dsl",
-  # "cli",
+  "cli",
   "client",
   "similarity",
   "task-manager",
@@ -39,7 +39,6 @@ tokio = { version = "1.37.0", features = [
 tokio-util = { version = "0.7.11", features = ["rt"] }
 rand = "0.8"
 rayon = "1.10"
-deadpool = { version = "0.10", features = ["rt_tokio_1"]}
 opentelemetry =  { version = "0.23.0", features = ["trace"] }
 tracing-opentelemetry = "0.24.0"
 log = "0.4"
