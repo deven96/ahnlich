@@ -892,12 +892,14 @@ async fn test_ai_proxy_test_with_persistence() {
     let db_port = server.local_addr().unwrap().port();
     ai_proxy_config.db_port = db_port;
 
-    let ai_server = AIProxyServer::new(ai_proxy_config)
+    let ai_server = AIProxyServer::new(ai_proxy_config.clone())
         .await
         .expect("Could not initialize ai proxy");
 
     let address = ai_server.local_addr().expect("Could not get local addr");
     let _ = tokio::spawn(async move { server.start().await });
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
     let write_flag = ai_server.write_flag();
 
     // Start up ai proxy
@@ -981,9 +983,7 @@ async fn test_ai_proxy_test_with_persistence() {
     tokio::time::sleep(Duration::from_millis(500)).await;
 
     // Start new server with persisted data
-    let persisted_server = AIProxyServer::new(AI_CONFIG_WITH_PERSISTENCE.clone())
-        .await
-        .unwrap();
+    let persisted_server = AIProxyServer::new(ai_proxy_config).await.unwrap();
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
