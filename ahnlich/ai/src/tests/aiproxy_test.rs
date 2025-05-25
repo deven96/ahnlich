@@ -154,6 +154,7 @@ async fn test_ai_proxy_create_store_success() {
     let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
     let mut expected = AIServerResult::with_capacity(1);
     let ai_model: ModelDetails = SupportedModels::from(&AIModel::AllMiniLML6V2).to_model_details();
+
     expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
         AIStoreInfo {
             name: store_name.clone(),

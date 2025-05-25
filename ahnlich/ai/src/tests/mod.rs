@@ -1,1 +1,2 @@
-mod aiproxy_test;
+// mod aiproxy_test;
+mod grpc_aiproxy_test;

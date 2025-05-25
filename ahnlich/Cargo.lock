@@ -908,7 +908,6 @@ name = "db"
 version = "0.0.0"
 dependencies = [
  "ahnlich_similarity",
- "ahnlich_types",
  "async-trait",
  "bincode",
  "blake3",
