@@ -2346,7 +2346,7 @@ async fn test_get_key() {
 
     let dimensions_mismatch_err = ServerError::StoreDimensionMismatch {
         store_dimension: 2,
-        input_dimension: 3,
+        input_dimension: 4,
     };
 
     // Build expected responses
