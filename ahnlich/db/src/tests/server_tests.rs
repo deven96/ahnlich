@@ -2291,7 +2291,7 @@ async fn test_get_key() {
                         key: vec![0.2, 0.3, 0.4],
                     },
                     StoreKey {
-                        key: vec![0.2, 0.3, 0.4, 0.6],
+                        key: vec![0.2, 0.3, 0.4],
                     },
                     StoreKey {
                         key: vec![0.4, 0.6],
@@ -2346,7 +2346,7 @@ async fn test_get_key() {
 
     let dimensions_mismatch_err = ServerError::StoreDimensionMismatch {
         store_dimension: 2,
-        input_dimension: 4,
+        input_dimension: 3,
     };
 
     // Build expected responses
