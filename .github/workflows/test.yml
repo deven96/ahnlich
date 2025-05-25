@@ -50,7 +50,7 @@ jobs:
         make clippy
 
     - name: Build and Format Rust Example
-      working-directory: ../examples/rust/image-search
+      working-directory: ./examples/rust/image-search
       run: |
         cargo b && cargo fmt
 
