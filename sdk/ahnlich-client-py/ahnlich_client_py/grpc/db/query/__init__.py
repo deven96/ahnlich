@@ -4,12 +4,11 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import List
 
 import betterproto
 
 from ... import keyval as __keyval__
-from ... import metadata as __metadata__
 from ... import predicates as __predicates__
 from ...algorithm import algorithms as __algorithm_algorithms__
 from ...algorithm import nonlinear as __algorithm_nonlinear__
@@ -185,16 +184,4 @@ class Set(betterproto.Message):
     """
 
     store: str = betterproto.string_field(1)
-    inputs: List["StoreEntry"] = betterproto.message_field(2)
-
-
-@dataclass(eq=False, repr=False)
-class StoreEntry(betterproto.Message):
-    """
-    A single entry for a store containing a key and its associated metadata values.
-    """
-
-    key: "__keyval__.StoreKey" = betterproto.message_field(1)
-    value: Dict[str, "__metadata__.MetadataValue"] = betterproto.map_field(
-        2, betterproto.TYPE_STRING, betterproto.TYPE_MESSAGE
-    )
+    inputs: List["__keyval__.StoreEntry"] = betterproto.message_field(2)

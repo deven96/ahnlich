@@ -38,6 +38,40 @@ class DbServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def create_pred_index(
+        self,
+        db_query_create_pred_index: "__db_query__.CreatePredIndex",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__db_server__.CreateIndex":
+        return await self._unary_unary(
+            "/services.db_service.DBService/CreatePredIndex",
+            db_query_create_pred_index,
+            __db_server__.CreateIndex,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
+    async def create_non_linear_algorithm_index(
+        self,
+        db_query_create_non_linear_algorithm_index: "__db_query__.CreateNonLinearAlgorithmIndex",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__db_server__.CreateIndex":
+        return await self._unary_unary(
+            "/services.db_service.DBService/CreateNonLinearAlgorithmIndex",
+            db_query_create_non_linear_algorithm_index,
+            __db_server__.CreateIndex,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def get_key(
         self,
         db_query_get_key: "__db_query__.GetKey",
@@ -89,52 +123,18 @@ class DbServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
-    async def ping(
+    async def set(
         self,
-        db_query_ping: "__db_query__.Ping",
+        db_query_set: "__db_query__.Set",
         *,
         timeout: Optional[float] = None,
         deadline: Optional["Deadline"] = None,
         metadata: Optional["MetadataLike"] = None
-    ) -> "__db_server__.Pong":
+    ) -> "__db_server__.Set":
         return await self._unary_unary(
-            "/services.db_service.DBService/Ping",
-            db_query_ping,
-            __db_server__.Pong,
-            timeout=timeout,
-            deadline=deadline,
-            metadata=metadata,
-        )
-
-    async def create_pred_index(
-        self,
-        db_query_create_pred_index: "__db_query__.CreatePredIndex",
-        *,
-        timeout: Optional[float] = None,
-        deadline: Optional["Deadline"] = None,
-        metadata: Optional["MetadataLike"] = None
-    ) -> "__db_server__.CreateIndex":
-        return await self._unary_unary(
-            "/services.db_service.DBService/CreatePredIndex",
-            db_query_create_pred_index,
-            __db_server__.CreateIndex,
-            timeout=timeout,
-            deadline=deadline,
-            metadata=metadata,
-        )
-
-    async def create_non_linear_algorithm_index(
-        self,
-        db_query_create_non_linear_algorithm_index: "__db_query__.CreateNonLinearAlgorithmIndex",
-        *,
-        timeout: Optional[float] = None,
-        deadline: Optional["Deadline"] = None,
-        metadata: Optional["MetadataLike"] = None
-    ) -> "__db_server__.CreateIndex":
-        return await self._unary_unary(
-            "/services.db_service.DBService/CreateNonLinearAlgorithmIndex",
-            db_query_create_non_linear_algorithm_index,
-            __db_server__.CreateIndex,
+            "/services.db_service.DBService/Set",
+            db_query_set,
+            __db_server__.Set,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -276,18 +276,18 @@ class DbServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
-    async def set(
+    async def ping(
         self,
-        db_query_set: "__db_query__.Set",
+        db_query_ping: "__db_query__.Ping",
         *,
         timeout: Optional[float] = None,
         deadline: Optional["Deadline"] = None,
         metadata: Optional["MetadataLike"] = None
-    ) -> "__db_server__.Set":
+    ) -> "__db_server__.Pong":
         return await self._unary_unary(
-            "/services.db_service.DBService/Set",
-            db_query_set,
-            __db_server__.Set,
+            "/services.db_service.DBService/Ping",
+            db_query_ping,
+            __db_server__.Pong,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -312,10 +312,20 @@ class DbServiceStub(betterproto.ServiceStub):
 
 
 class DbServiceBase(ServiceBase):
-
     async def create_store(
         self, db_query_create_store: "__db_query__.CreateStore"
     ) -> "__db_server__.Unit":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def create_pred_index(
+        self, db_query_create_pred_index: "__db_query__.CreatePredIndex"
+    ) -> "__db_server__.CreateIndex":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def create_non_linear_algorithm_index(
+        self,
+        db_query_create_non_linear_algorithm_index: "__db_query__.CreateNonLinearAlgorithmIndex",
+    ) -> "__db_server__.CreateIndex":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def get_key(
@@ -333,18 +343,7 @@ class DbServiceBase(ServiceBase):
     ) -> "__db_server__.GetSimN":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
-    async def ping(self, db_query_ping: "__db_query__.Ping") -> "__db_server__.Pong":
-        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
-
-    async def create_pred_index(
-        self, db_query_create_pred_index: "__db_query__.CreatePredIndex"
-    ) -> "__db_server__.CreateIndex":
-        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
-
-    async def create_non_linear_algorithm_index(
-        self,
-        db_query_create_non_linear_algorithm_index: "__db_query__.CreateNonLinearAlgorithmIndex",
-    ) -> "__db_server__.CreateIndex":
+    async def set(self, db_query_set: "__db_query__.Set") -> "__db_server__.Set":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def drop_pred_index(
@@ -388,7 +387,7 @@ class DbServiceBase(ServiceBase):
     ) -> "__db_server__.InfoServer":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
-    async def set(self, db_query_set: "__db_query__.Set") -> "__db_server__.Set":
+    async def ping(self, db_query_ping: "__db_query__.Ping") -> "__db_server__.Pong":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def pipeline(
@@ -402,6 +401,22 @@ class DbServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.create_store(request)
+        await stream.send_message(response)
+
+    async def __rpc_create_pred_index(
+        self,
+        stream: "grpclib.server.Stream[__db_query__.CreatePredIndex, __db_server__.CreateIndex]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.create_pred_index(request)
+        await stream.send_message(response)
+
+    async def __rpc_create_non_linear_algorithm_index(
+        self,
+        stream: "grpclib.server.Stream[__db_query__.CreateNonLinearAlgorithmIndex, __db_server__.CreateIndex]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.create_non_linear_algorithm_index(request)
         await stream.send_message(response)
 
     async def __rpc_get_key(
@@ -426,27 +441,11 @@ class DbServiceBase(ServiceBase):
         response = await self.get_sim_n(request)
         await stream.send_message(response)
 
-    async def __rpc_ping(
-        self, stream: "grpclib.server.Stream[__db_query__.Ping, __db_server__.Pong]"
+    async def __rpc_set(
+        self, stream: "grpclib.server.Stream[__db_query__.Set, __db_server__.Set]"
     ) -> None:
         request = await stream.recv_message()
-        response = await self.ping(request)
-        await stream.send_message(response)
-
-    async def __rpc_create_pred_index(
-        self,
-        stream: "grpclib.server.Stream[__db_query__.CreatePredIndex, __db_server__.CreateIndex]",
-    ) -> None:
-        request = await stream.recv_message()
-        response = await self.create_pred_index(request)
-        await stream.send_message(response)
-
-    async def __rpc_create_non_linear_algorithm_index(
-        self,
-        stream: "grpclib.server.Stream[__db_query__.CreateNonLinearAlgorithmIndex, __db_server__.CreateIndex]",
-    ) -> None:
-        request = await stream.recv_message()
-        response = await self.create_non_linear_algorithm_index(request)
+        response = await self.set(request)
         await stream.send_message(response)
 
     async def __rpc_drop_pred_index(
@@ -510,11 +509,11 @@ class DbServiceBase(ServiceBase):
         response = await self.info_server(request)
         await stream.send_message(response)
 
-    async def __rpc_set(
-        self, stream: "grpclib.server.Stream[__db_query__.Set, __db_server__.Set]"
+    async def __rpc_ping(
+        self, stream: "grpclib.server.Stream[__db_query__.Ping, __db_server__.Pong]"
     ) -> None:
         request = await stream.recv_message()
-        response = await self.set(request)
+        response = await self.ping(request)
         await stream.send_message(response)
 
     async def __rpc_pipeline(
@@ -532,6 +531,18 @@ class DbServiceBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __db_query__.CreateStore,
                 __db_server__.Unit,
+            ),
+            "/services.db_service.DBService/CreatePredIndex": grpclib.const.Handler(
+                self.__rpc_create_pred_index,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __db_query__.CreatePredIndex,
+                __db_server__.CreateIndex,
+            ),
+            "/services.db_service.DBService/CreateNonLinearAlgorithmIndex": grpclib.const.Handler(
+                self.__rpc_create_non_linear_algorithm_index,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __db_query__.CreateNonLinearAlgorithmIndex,
+                __db_server__.CreateIndex,
             ),
             "/services.db_service.DBService/GetKey": grpclib.const.Handler(
                 self.__rpc_get_key,
@@ -551,23 +562,11 @@ class DbServiceBase(ServiceBase):
                 __db_query__.GetSimN,
                 __db_server__.GetSimN,
             ),
-            "/services.db_service.DBService/Ping": grpclib.const.Handler(
-                self.__rpc_ping,
+            "/services.db_service.DBService/Set": grpclib.const.Handler(
+                self.__rpc_set,
                 grpclib.const.Cardinality.UNARY_UNARY,
-                __db_query__.Ping,
-                __db_server__.Pong,
-            ),
-            "/services.db_service.DBService/CreatePredIndex": grpclib.const.Handler(
-                self.__rpc_create_pred_index,
-                grpclib.const.Cardinality.UNARY_UNARY,
-                __db_query__.CreatePredIndex,
-                __db_server__.CreateIndex,
-            ),
-            "/services.db_service.DBService/CreateNonLinearAlgorithmIndex": grpclib.const.Handler(
-                self.__rpc_create_non_linear_algorithm_index,
-                grpclib.const.Cardinality.UNARY_UNARY,
-                __db_query__.CreateNonLinearAlgorithmIndex,
-                __db_server__.CreateIndex,
+                __db_query__.Set,
+                __db_server__.Set,
             ),
             "/services.db_service.DBService/DropPredIndex": grpclib.const.Handler(
                 self.__rpc_drop_pred_index,
@@ -617,11 +616,11 @@ class DbServiceBase(ServiceBase):
                 __db_query__.InfoServer,
                 __db_server__.InfoServer,
             ),
-            "/services.db_service.DBService/Set": grpclib.const.Handler(
-                self.__rpc_set,
+            "/services.db_service.DBService/Ping": grpclib.const.Handler(
+                self.__rpc_ping,
                 grpclib.const.Cardinality.UNARY_UNARY,
-                __db_query__.Set,
-                __db_server__.Set,
+                __db_query__.Ping,
+                __db_server__.Pong,
             ),
             "/services.db_service.DBService/Pipeline": grpclib.const.Handler(
                 self.__rpc_pipeline,

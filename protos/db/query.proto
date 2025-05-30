@@ -5,7 +5,6 @@ package db.query;
 import "algorithm/algorithm.proto";
 import "algorithm/nonlinear.proto";
 import "keyval.proto";
-import "metadata.proto";
 import "predicate.proto";
 
 // ===================

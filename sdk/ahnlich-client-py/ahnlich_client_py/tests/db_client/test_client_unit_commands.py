@@ -1,80 +1,57 @@
-from ahnlich_client_py import clients
-from ahnlich_client_py.internals import db_response
+import pytest
+from grpclib.client import Channel
+
+from ahnlich_client_py.grpc import db, server_types
+from ahnlich_client_py.grpc.services import db_service
 
 
-def test_client_sends_ping_to_db_success(module_scopped_ahnlich_db):
+@pytest.mark.asyncio
+async def test_client_sends_ping_to_db_success(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
-    db_client = clients.AhnlichDBClient(address="127.0.0.1", port=port)
+    channel = Channel(host="127.0.0.1", port=port)
+    service = db_service.DbServiceStub(channel)
     try:
-        response: db_response.ServerResult = db_client.ping()
-        assert len(response.results) == 1
-        assert response.results[0] == db_response.Result__Ok(
-            db_response.ServerResponse__Pong()
-        )
-
-    except Exception as e:
-        print(f"Exception: {e}")
-        db_client.cleanup()
-        raise e
+        response = await service.ping(db.query.Ping())
+        assert response == db.server.Pong()
     finally:
-        db_client.cleanup()
+        channel.close()
 
 
-def test_client_sends_list_clients_to_db_success(module_scopped_ahnlich_db):
+@pytest.mark.asyncio
+async def test_client_sends_list_clients_to_db_success(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
-    db_client = clients.AhnlichDBClient(address="127.0.0.1", port=port)
+    channel = Channel(host="127.0.0.1", port=port)
+    service = db_service.DbServiceStub(channel)
     try:
-        response: db_response.ServerResult = db_client.list_clients()
-        assert len(response.results) == 1
-    except Exception as e:
-        print(f"Exception: {e}")
-        db_client.cleanup()
-        raise e
+        response = await service.list_clients(db.query.ListClients())
+        print(f"Connected clients: {response}")
+        assert len(response.clients) == 1
     finally:
-        db_client.cleanup()
+        channel.close()
 
 
-def test_client_sends_info_server_to_db_success(module_scopped_ahnlich_db):
+@pytest.mark.asyncio
+async def test_client_sends_info_server_to_db_success(module_scopped_ahnlich_db):
     port = module_scopped_ahnlich_db
-
-    db_client = clients.AhnlichDBClient(address="127.0.0.1", port=port)
-
+    channel = Channel(host="127.0.0.1", port=port)
+    service = db_service.DbServiceStub(channel)
     try:
-        response: db_response.ServerResult = db_client.info_server()
-        assert len(response.results) == 1
-        info_server: db_response.ServerInfo = response.results[0].value
-        assert info_server.value.version == db_client.message_protocol.version
-        assert info_server.value.type == db_response.ServerType__Database()
-    except Exception as e:
-        print(f"Exception: {e}")
-        db_client.cleanup()
-        raise e
+        response = await service.info_server(db.query.InfoServer())
+        assert response.info.version == "0.0.0"
+        assert response.info.type == server_types.ServerType.Database
     finally:
-        db_client.cleanup()
+        channel.close()
 
 
-def test_client_sends_list_stores_to_fresh_database_succeeds(module_scopped_ahnlich_db):
+@pytest.mark.asyncio
+async def test_client_sends_list_stores_to_fresh_database_succeeds(
+    module_scopped_ahnlich_db,
+):
     port = module_scopped_ahnlich_db
-
-    db_client = clients.AhnlichDBClient(address="127.0.0.1", port=port)
+    channel = Channel(host="127.0.0.1", port=port)
+    service = db_service.DbServiceStub(channel)
     try:
-        response: db_response.ServerResult = db_client.list_stores()
-        assert response.results[0] == db_response.Result__Ok(
-            db_response.ServerResponse__StoreList([])
-        )
-    except Exception as e:
-        print(f"Exception: {e}")
-        db_client.cleanup()
-        raise e
+        response = await service.list_stores(db.query.ListStores())
+        assert response == db.server.StoreList(stores=[])
     finally:
-        db_client.cleanup()
-
-
-def test_client_works_using_protocol_in_context(module_scopped_ahnlich_db):
-    port = module_scopped_ahnlich_db
-    db_client = clients.AhnlichDBClient(address="127.0.0.1", port=port)
-    with clients.AhnlichDBClient(address="127.0.0.1", port=port) as db_client:
-        response: db_response.ServerResult = db_client.list_stores()
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__StoreList([])
-    )
+        channel.close()

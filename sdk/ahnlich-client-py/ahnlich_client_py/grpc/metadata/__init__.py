@@ -8,13 +8,7 @@ from dataclasses import dataclass
 import betterproto
 
 
-class MetadataType(betterproto.Enum):
-    RAW_STRING = 0
-    IMAGE = 1
-
-
 @dataclass(eq=False, repr=False)
 class MetadataValue(betterproto.Message):
-    type: "MetadataType" = betterproto.enum_field(1)
     raw_string: str = betterproto.string_field(2, group="value")
     image: bytes = betterproto.bytes_field(3, group="value")

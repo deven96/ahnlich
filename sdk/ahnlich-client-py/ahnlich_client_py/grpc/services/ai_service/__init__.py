@@ -38,6 +38,40 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def create_pred_index(
+        self,
+        ai_query_create_pred_index: "__ai_query__.CreatePredIndex",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__ai_server__.CreateIndex":
+        return await self._unary_unary(
+            "/services.ai_service.AIService/CreatePredIndex",
+            ai_query_create_pred_index,
+            __ai_server__.CreateIndex,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
+    async def create_non_linear_algorithm_index(
+        self,
+        ai_query_create_non_linear_algorithm_index: "__ai_query__.CreateNonLinearAlgorithmIndex",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__ai_server__.CreateIndex":
+        return await self._unary_unary(
+            "/services.ai_service.AIService/CreateNonLinearAlgorithmIndex",
+            ai_query_create_non_linear_algorithm_index,
+            __ai_server__.CreateIndex,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def get_key(
         self,
         ai_query_get_key: "__ai_query__.GetKey",
@@ -89,52 +123,18 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
-    async def ping(
+    async def set(
         self,
-        ai_query_ping: "__ai_query__.Ping",
+        ai_query_set: "__ai_query__.Set",
         *,
         timeout: Optional[float] = None,
         deadline: Optional["Deadline"] = None,
         metadata: Optional["MetadataLike"] = None
-    ) -> "__ai_server__.Pong":
+    ) -> "__ai_server__.Set":
         return await self._unary_unary(
-            "/services.ai_service.AIService/Ping",
-            ai_query_ping,
-            __ai_server__.Pong,
-            timeout=timeout,
-            deadline=deadline,
-            metadata=metadata,
-        )
-
-    async def create_pred_index(
-        self,
-        ai_query_create_pred_index: "__ai_query__.CreatePredIndex",
-        *,
-        timeout: Optional[float] = None,
-        deadline: Optional["Deadline"] = None,
-        metadata: Optional["MetadataLike"] = None
-    ) -> "__ai_server__.CreateIndex":
-        return await self._unary_unary(
-            "/services.ai_service.AIService/CreatePredIndex",
-            ai_query_create_pred_index,
-            __ai_server__.CreateIndex,
-            timeout=timeout,
-            deadline=deadline,
-            metadata=metadata,
-        )
-
-    async def create_non_linear_algorithm_index(
-        self,
-        ai_query_create_non_linear_algorithm_index: "__ai_query__.CreateNonLinearAlgorithmIndex",
-        *,
-        timeout: Optional[float] = None,
-        deadline: Optional["Deadline"] = None,
-        metadata: Optional["MetadataLike"] = None
-    ) -> "__ai_server__.CreateIndex":
-        return await self._unary_unary(
-            "/services.ai_service.AIService/CreateNonLinearAlgorithmIndex",
-            ai_query_create_non_linear_algorithm_index,
-            __ai_server__.CreateIndex,
+            "/services.ai_service.AIService/Set",
+            ai_query_set,
+            __ai_server__.Set,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -242,6 +242,23 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def info_server(
+        self,
+        ai_query_info_server: "__ai_query__.InfoServer",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__ai_server__.InfoServer":
+        return await self._unary_unary(
+            "/services.ai_service.AIService/InfoServer",
+            ai_query_info_server,
+            __ai_server__.InfoServer,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def purge_stores(
         self,
         ai_query_purge_stores: "__ai_query__.PurgeStores",
@@ -259,18 +276,18 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
-    async def set(
+    async def ping(
         self,
-        ai_query_set: "__ai_query__.Set",
+        ai_query_ping: "__ai_query__.Ping",
         *,
         timeout: Optional[float] = None,
         deadline: Optional["Deadline"] = None,
         metadata: Optional["MetadataLike"] = None
-    ) -> "__ai_server__.Set":
+    ) -> "__ai_server__.Pong":
         return await self._unary_unary(
-            "/services.ai_service.AIService/Set",
-            ai_query_set,
-            __ai_server__.Set,
+            "/services.ai_service.AIService/Ping",
+            ai_query_ping,
+            __ai_server__.Pong,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -295,10 +312,20 @@ class AiServiceStub(betterproto.ServiceStub):
 
 
 class AiServiceBase(ServiceBase):
-
     async def create_store(
         self, ai_query_create_store: "__ai_query__.CreateStore"
     ) -> "__ai_server__.Unit":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def create_pred_index(
+        self, ai_query_create_pred_index: "__ai_query__.CreatePredIndex"
+    ) -> "__ai_server__.CreateIndex":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def create_non_linear_algorithm_index(
+        self,
+        ai_query_create_non_linear_algorithm_index: "__ai_query__.CreateNonLinearAlgorithmIndex",
+    ) -> "__ai_server__.CreateIndex":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def get_key(
@@ -316,18 +343,7 @@ class AiServiceBase(ServiceBase):
     ) -> "__ai_server__.GetSimN":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
-    async def ping(self, ai_query_ping: "__ai_query__.Ping") -> "__ai_server__.Pong":
-        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
-
-    async def create_pred_index(
-        self, ai_query_create_pred_index: "__ai_query__.CreatePredIndex"
-    ) -> "__ai_server__.CreateIndex":
-        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
-
-    async def create_non_linear_algorithm_index(
-        self,
-        ai_query_create_non_linear_algorithm_index: "__ai_query__.CreateNonLinearAlgorithmIndex",
-    ) -> "__ai_server__.CreateIndex":
+    async def set(self, ai_query_set: "__ai_query__.Set") -> "__ai_server__.Set":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def drop_pred_index(
@@ -361,12 +377,17 @@ class AiServiceBase(ServiceBase):
     ) -> "__ai_server__.StoreList":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def info_server(
+        self, ai_query_info_server: "__ai_query__.InfoServer"
+    ) -> "__ai_server__.InfoServer":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def purge_stores(
         self, ai_query_purge_stores: "__ai_query__.PurgeStores"
     ) -> "__ai_server__.Del":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
-    async def set(self, ai_query_set: "__ai_query__.Set") -> "__ai_server__.Set":
+    async def ping(self, ai_query_ping: "__ai_query__.Ping") -> "__ai_server__.Pong":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def pipeline(
@@ -380,6 +401,22 @@ class AiServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.create_store(request)
+        await stream.send_message(response)
+
+    async def __rpc_create_pred_index(
+        self,
+        stream: "grpclib.server.Stream[__ai_query__.CreatePredIndex, __ai_server__.CreateIndex]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.create_pred_index(request)
+        await stream.send_message(response)
+
+    async def __rpc_create_non_linear_algorithm_index(
+        self,
+        stream: "grpclib.server.Stream[__ai_query__.CreateNonLinearAlgorithmIndex, __ai_server__.CreateIndex]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.create_non_linear_algorithm_index(request)
         await stream.send_message(response)
 
     async def __rpc_get_key(
@@ -404,27 +441,11 @@ class AiServiceBase(ServiceBase):
         response = await self.get_sim_n(request)
         await stream.send_message(response)
 
-    async def __rpc_ping(
-        self, stream: "grpclib.server.Stream[__ai_query__.Ping, __ai_server__.Pong]"
+    async def __rpc_set(
+        self, stream: "grpclib.server.Stream[__ai_query__.Set, __ai_server__.Set]"
     ) -> None:
         request = await stream.recv_message()
-        response = await self.ping(request)
-        await stream.send_message(response)
-
-    async def __rpc_create_pred_index(
-        self,
-        stream: "grpclib.server.Stream[__ai_query__.CreatePredIndex, __ai_server__.CreateIndex]",
-    ) -> None:
-        request = await stream.recv_message()
-        response = await self.create_pred_index(request)
-        await stream.send_message(response)
-
-    async def __rpc_create_non_linear_algorithm_index(
-        self,
-        stream: "grpclib.server.Stream[__ai_query__.CreateNonLinearAlgorithmIndex, __ai_server__.CreateIndex]",
-    ) -> None:
-        request = await stream.recv_message()
-        response = await self.create_non_linear_algorithm_index(request)
+        response = await self.set(request)
         await stream.send_message(response)
 
     async def __rpc_drop_pred_index(
@@ -473,6 +494,14 @@ class AiServiceBase(ServiceBase):
         response = await self.list_stores(request)
         await stream.send_message(response)
 
+    async def __rpc_info_server(
+        self,
+        stream: "grpclib.server.Stream[__ai_query__.InfoServer, __ai_server__.InfoServer]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.info_server(request)
+        await stream.send_message(response)
+
     async def __rpc_purge_stores(
         self,
         stream: "grpclib.server.Stream[__ai_query__.PurgeStores, __ai_server__.Del]",
@@ -481,11 +510,11 @@ class AiServiceBase(ServiceBase):
         response = await self.purge_stores(request)
         await stream.send_message(response)
 
-    async def __rpc_set(
-        self, stream: "grpclib.server.Stream[__ai_query__.Set, __ai_server__.Set]"
+    async def __rpc_ping(
+        self, stream: "grpclib.server.Stream[__ai_query__.Ping, __ai_server__.Pong]"
     ) -> None:
         request = await stream.recv_message()
-        response = await self.set(request)
+        response = await self.ping(request)
         await stream.send_message(response)
 
     async def __rpc_pipeline(
@@ -503,6 +532,18 @@ class AiServiceBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __ai_query__.CreateStore,
                 __ai_server__.Unit,
+            ),
+            "/services.ai_service.AIService/CreatePredIndex": grpclib.const.Handler(
+                self.__rpc_create_pred_index,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __ai_query__.CreatePredIndex,
+                __ai_server__.CreateIndex,
+            ),
+            "/services.ai_service.AIService/CreateNonLinearAlgorithmIndex": grpclib.const.Handler(
+                self.__rpc_create_non_linear_algorithm_index,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __ai_query__.CreateNonLinearAlgorithmIndex,
+                __ai_server__.CreateIndex,
             ),
             "/services.ai_service.AIService/GetKey": grpclib.const.Handler(
                 self.__rpc_get_key,
@@ -522,23 +563,11 @@ class AiServiceBase(ServiceBase):
                 __ai_query__.GetSimN,
                 __ai_server__.GetSimN,
             ),
-            "/services.ai_service.AIService/Ping": grpclib.const.Handler(
-                self.__rpc_ping,
+            "/services.ai_service.AIService/Set": grpclib.const.Handler(
+                self.__rpc_set,
                 grpclib.const.Cardinality.UNARY_UNARY,
-                __ai_query__.Ping,
-                __ai_server__.Pong,
-            ),
-            "/services.ai_service.AIService/CreatePredIndex": grpclib.const.Handler(
-                self.__rpc_create_pred_index,
-                grpclib.const.Cardinality.UNARY_UNARY,
-                __ai_query__.CreatePredIndex,
-                __ai_server__.CreateIndex,
-            ),
-            "/services.ai_service.AIService/CreateNonLinearAlgorithmIndex": grpclib.const.Handler(
-                self.__rpc_create_non_linear_algorithm_index,
-                grpclib.const.Cardinality.UNARY_UNARY,
-                __ai_query__.CreateNonLinearAlgorithmIndex,
-                __ai_server__.CreateIndex,
+                __ai_query__.Set,
+                __ai_server__.Set,
             ),
             "/services.ai_service.AIService/DropPredIndex": grpclib.const.Handler(
                 self.__rpc_drop_pred_index,
@@ -576,17 +605,23 @@ class AiServiceBase(ServiceBase):
                 __ai_query__.ListStores,
                 __ai_server__.StoreList,
             ),
+            "/services.ai_service.AIService/InfoServer": grpclib.const.Handler(
+                self.__rpc_info_server,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __ai_query__.InfoServer,
+                __ai_server__.InfoServer,
+            ),
             "/services.ai_service.AIService/PurgeStores": grpclib.const.Handler(
                 self.__rpc_purge_stores,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __ai_query__.PurgeStores,
                 __ai_server__.Del,
             ),
-            "/services.ai_service.AIService/Set": grpclib.const.Handler(
-                self.__rpc_set,
+            "/services.ai_service.AIService/Ping": grpclib.const.Handler(
+                self.__rpc_ping,
                 grpclib.const.Cardinality.UNARY_UNARY,
-                __ai_query__.Set,
-                __ai_server__.Set,
+                __ai_query__.Ping,
+                __ai_server__.Pong,
             ),
             "/services.ai_service.AIService/Pipeline": grpclib.const.Handler(
                 self.__rpc_pipeline,

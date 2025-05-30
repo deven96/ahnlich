@@ -70,12 +70,12 @@ class GetSimN(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class Del(betterproto.Message):
-    deleted_count: int = betterproto.uint32_field(1)
+    deleted_count: int = betterproto.uint64_field(1)
 
 
 @dataclass(eq=False, repr=False)
 class CreateIndex(betterproto.Message):
-    created_indexes: int = betterproto.uint32_field(1)
+    created_indexes: int = betterproto.uint64_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -83,4 +83,4 @@ class AiStoreInfo(betterproto.Message):
     name: str = betterproto.string_field(1)
     query_model: "_models__.AiModel" = betterproto.enum_field(2)
     index_model: "_models__.AiModel" = betterproto.enum_field(3)
-    embedding_size: int = betterproto.uint32_field(4)
+    embedding_size: int = betterproto.uint64_field(4)

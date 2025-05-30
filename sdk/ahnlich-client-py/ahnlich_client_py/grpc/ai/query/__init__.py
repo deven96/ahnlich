@@ -62,7 +62,7 @@ class GetSimN(betterproto.Message):
     condition: Optional["__predicates__.PredicateCondition"] = (
         betterproto.message_field(3, optional=True)
     )
-    closest_n: int = betterproto.uint32_field(4)
+    closest_n: int = betterproto.uint64_field(4)
     algorithm: "__algorithm_algorithms__.Algorithm" = betterproto.enum_field(5)
     preprocess_action: "_preprocess__.PreprocessAction" = betterproto.enum_field(6)
     execution_provider: Optional["_execution_provider__.ExecutionProvider"] = (

@@ -413,7 +413,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_pool_commands_fail_if_server_not_exist() {
+    async fn test_ai_client_init_fail_if_server_not_exist() {
         let host = "127.0.0.1";
         let port = 1234;
         let ai_client = AiClient::new(format!("{host}:{port}")).await;

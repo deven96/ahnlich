@@ -21,10 +21,9 @@ generate_from_protos = "build:generate_from_protos"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-numpy = "^1.26.4"
 toml = "^0.10.2"
+grpclib = ">=0.4.1,<0.5.0"
 bump2version = "^1.0.1"
-generic-connection-pool = "^0.7.0"
 pytest-asyncio = "^0.24.0"
 
 [tool.poetry.group.dev.dependencies]

@@ -1,3 +1,4 @@
+import asyncio
 import os
 import random
 import signal
@@ -7,8 +8,7 @@ import time
 
 import pytest
 
-from ahnlich_client_py import clients, config, db_query
-from ahnlich_client_py.libs import create_store_key
+from ahnlich_client_py import config
 
 
 def is_port_occupied(port, host="127.0.0.1") -> bool:
@@ -16,30 +16,6 @@ def is_port_occupied(port, host="127.0.0.1") -> bool:
         sock.settimeout(1)
         result = sock.connect_ex((host, port))
         return result == 0
-
-
-@pytest.fixture(scope="module")
-def db_client():
-    host = os.environ.get("AHNLICH_DB_HOST", "127.0.0.1")
-    port = int(os.environ.get("AHNLICH_DB_PORT", 1369))
-    timeout_sec = float(os.environ.get("AHNLICH_DB_CLIENT_TIMEOUT", 5.0))
-    conn = clients.AhnlichDBClient(
-        address=host, port=port, connect_timeout_sec=timeout_sec
-    )
-    yield conn
-    conn.cleanup()
-
-
-@pytest.fixture(scope="module")
-def ai_client():
-    host = os.environ.get("AHNLICH_AI_HOST", "127.0.0.1")
-    port = int(os.environ.get("AHNLICH_AI_PORT", 8000))
-    timeout_sec = float(os.environ.get("AHNLICH_AI_CLIENT_TIMEOUT", 5.0))
-    conn = clients.AhnlichAIClient(
-        address=host, port=port, connect_timeout_sec=timeout_sec
-    )
-    yield conn
-    conn.cleanup()
 
 
 @pytest.fixture
@@ -80,17 +56,6 @@ def module_scopped_ahnlich_db():
     os.kill(process.pid, signal.SIGINT)
     # wait for process to clean up
     process.wait(5)
-
-
-@pytest.fixture
-def store_key():
-    sample_array = [1.0, 2.0, 3.0, 4.0, 5.0]
-    return create_store_key(sample_array)
-
-
-@pytest.fixture
-def store_value():
-    return dict(job=db_query.MetadataValue__RawString("sorcerer"))
 
 
 @pytest.fixture

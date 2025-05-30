@@ -11,11 +11,6 @@ import betterproto
 from .. import metadata as _metadata__
 
 
-class StoreInputType(betterproto.Enum):
-    RawString = 0
-    Image = 1
-
-
 @dataclass(eq=False, repr=False)
 class StoreName(betterproto.Message):
     value: str = betterproto.string_field(1)
@@ -28,13 +23,16 @@ class StoreKey(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class StoreInput(betterproto.Message):
-    type: "StoreInputType" = betterproto.enum_field(1)
     raw_string: str = betterproto.string_field(2, group="value")
     image: bytes = betterproto.bytes_field(3, group="value")
 
 
 @dataclass(eq=False, repr=False)
 class StoreEntry(betterproto.Message):
+    """
+    A single entry for a store containing a key and its associated metadata values.
+    """
+
     key: "StoreKey" = betterproto.message_field(1)
     value: "StoreValue" = betterproto.message_field(2)
 

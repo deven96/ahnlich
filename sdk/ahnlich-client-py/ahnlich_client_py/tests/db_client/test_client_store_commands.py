@@ -1,513 +1,612 @@
-import typing
+import grpclib
+import pytest
+from grpclib.client import Channel
+from grpclib.exceptions import GRPCError
 
-from ahnlich_client_py.clients import AhnlichDBClient
-from ahnlich_client_py.internals import db_query, db_response
-from ahnlich_client_py.libs import create_store_key
+from ahnlich_client_py.grpc import keyval, metadata, predicates
+from ahnlich_client_py.grpc.algorithm.algorithms import Algorithm
+from ahnlich_client_py.grpc.db import pipeline
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc.db import server as db_server
+from ahnlich_client_py.grpc.services import db_service
 
+# Test data setup
 store_payload_no_predicates = {
-    "store_name": "Diretnan Station",
+    "store": "Diretnan Station",
     "dimension": 5,
     "error_if_exists": True,
 }
 
 store_payload_with_predicates = {
-    "store_name": "Diretnan Predication",
+    "store": "Diretnan Predication",
     "dimension": 5,
     "error_if_exists": True,
     "create_predicates": ["is_tyrannical", "rank"],
 }
 
 
-def test_client_sends_create_stores_succeeds(spin_up_ahnlich_db):
-    port = spin_up_ahnlich_db
-
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
+@pytest.mark.asyncio
+async def test_client_sends_create_stores_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
     try:
-        response: db_response.ServerResult = db_client.create_store(
-            **store_payload_no_predicates
-        )
-    except Exception as e:
-        print(f"Exception: {e}")
+        request = db_query.CreateStore(**store_payload_no_predicates)
+        response = await client.create_store(request)
+        assert isinstance(response, db_server.Unit)
     finally:
-        db_client.cleanup()
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Unit()
-    )
+        channel.close()
 
 
-def test_client_sends_list_stores_on_existing_database_succeeds(spin_up_ahnlich_db):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
+@pytest.mark.asyncio
+async def test_client_sends_list_stores_on_existing_database_succeeds(
+    spin_up_ahnlich_db,
+):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
     try:
-        _ = db_client.create_store(**store_payload_no_predicates)
-        response: db_response.ServerResult = db_client.list_stores()
-    except Exception as e:
-        print(f"Exception: {e}")
+        # Create store first
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
+
+        # List stores
+        list_request = db_query.ListStores()
+        response = await client.list_stores(list_request)
+        assert len(response.stores) == 1
+        assert response.stores[0].name == store_payload_no_predicates["store"]
     finally:
-        db_client.cleanup()
-    store_list: db_response.ServerResponse__StoreList = response.results[0].value
-    store_info: db_response.StoreInfo = store_list.value[0]
-    assert store_info.name == store_payload_no_predicates["store_name"]
-    assert isinstance(response.results[0], db_response.Result__Ok)
+        channel.close()
 
 
-def test_client_sends_create_stores_with_predicates_succeeds(module_scopped_ahnlich_db):
-    port = module_scopped_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
+@pytest.mark.asyncio
+async def test_client_sends_create_stores_with_predicates_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
     try:
-        response: db_response.ServerResult = db_client.create_store(
-            **store_payload_with_predicates
-        )
-    except Exception as e:
-        print(f"Exception: {e}")
+        request = db_query.CreateStore(**store_payload_with_predicates)
+        response = await client.create_store(request)
+        assert isinstance(response, db_server.Unit)
     finally:
-        db_client.cleanup()
-
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Unit()
-    )
+        channel.close()
 
 
-def test_client_list_stores_finds_created_store_with_predicate(spin_up_ahnlich_db):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
+@pytest.mark.asyncio
+async def test_client_list_stores_finds_created_store_with_predicate(
+    spin_up_ahnlich_db,
+):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
     try:
-        _ = db_client.create_store(**store_payload_with_predicates)
-        response: db_response.ServerResult = db_client.list_stores()
-    except Exception as e:
-        print(f"Exception: {e}")
+        # Create store with predicates
+        create_request = db_query.CreateStore(**store_payload_with_predicates)
+        await client.create_store(create_request)
+
+        # List stores
+        list_request = db_query.ListStores()
+        response = await client.list_stores(list_request)
+        assert len(response.stores) == 1
+        assert response.stores[0].name == store_payload_with_predicates["store"]
     finally:
-        db_client.cleanup()
-    assert isinstance(response.results[0], db_response.Result__Ok)
-
-    store_lists: db_response.ServerResponse__StoreList = response.results[0].value
-    assert len(store_lists.value) == 1
-    store_info: db_response.StoreInfo = store_lists.value[0]
-    queried_store_names = []
-    for store_info in store_lists.value:
-        queried_store_names.append(store_info.name)
-    assert store_payload_with_predicates["store_name"] in queried_store_names
+        channel.close()
 
 
-def test_client_set_in_store_succeeds(spin_up_ahnlich_db, store_key, store_value):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-    store_key_2 = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
-
-    # prepare data
-    store_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "inputs": [
-            (store_key, store_value),
-            (store_key_2, {"rank": db_query.MetadataValue__RawString("chunin")}),
-        ],
-    }
-    # process data
+@pytest.mark.asyncio
+async def test_client_set_in_store_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
     try:
-        _ = db_client.create_store(**store_payload_no_predicates)
-        response: db_response.ServerResult = db_client.set(**store_data)
-    except Exception as e:
-        print(f"Exception: {e}")
-    finally:
-        db_client.cleanup()
+        # Create store
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
 
-    assert isinstance(response.results[0], db_response.Result__Ok)
-
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Set(db_response.StoreUpsert(inserted=2, updated=0))
-    )
-
-
-def test_client_set_in_store_succeeds_with_binary(spin_up_ahnlich_db):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-    store_key = create_store_key(data=[1.0, 4.0, 3.0, 3.9, 4.9])
-
-    # prepare data
-    store_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "inputs": [
-            (
-                store_key,
-                {"image": db_query.MetadataValue__Image(value=[2, 2, 3, 4, 5, 6, 7])},
+        # Prepare set request
+        store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
+        store_key_2 = keyval.StoreKey(key=[5.0, 3.0, 4.0, 3.9, 4.9])
+        entries = [
+            keyval.StoreEntry(
+                key=store_key,
+                value=keyval.StoreValue(
+                    value={"job": metadata.MetadataValue(raw_string="sorcerer")}
+                ),
             ),
-        ],
-    }
-    # process data
-    try:
-        _ = db_client.create_store(**store_payload_no_predicates)
-        response: db_response.ServerResult = db_client.set(**store_data)
-    except Exception as e:
-        print(f"Exception: {e}")
-    finally:
-        db_client.cleanup()
-
-    assert isinstance(response.results[0], db_response.Result__Ok)
-
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__Set(db_response.StoreUpsert(inserted=1, updated=0))
-    )
-
-
-def test_client_get_key_succeeds(module_scopped_ahnlich_db, store_key, store_value):
-    port = module_scopped_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-
-    # prepare data
-    get_key_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "keys": [store_key],
-    }
-    store_key_2 = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
-    # process data
-    try:
-        builder = db_client.pipeline()
-        builder.create_store(**store_payload_no_predicates)
-        builder.set(
-            store_name=store_payload_no_predicates["store_name"],
-            inputs=[
-                (store_key, store_value),
-                (store_key_2, {"job": db_query.MetadataValue__RawString("Assassin")}),
-            ],
+            keyval.StoreEntry(
+                key=store_key_2,
+                value=keyval.StoreValue(
+                    value={"rank": metadata.MetadataValue(raw_string="chunin")}
+                ),
+            ),
+        ]
+        set_request = db_query.Set(
+            store=store_payload_no_predicates["store"], inputs=entries
         )
-        _ = builder.exec()
-        response: db_response.ServerResult = db_client.get_key(**get_key_data)
-    except Exception as e:
-        print(f"Exception: {e}")
+
+        # Execute set
+        response = await client.set(set_request)
+        assert response.upsert.inserted == 2
+        assert response.upsert.updated == 0
     finally:
-        db_client.cleanup()
-    assert isinstance(response.results[0], db_response.Result__Ok)
-    expected_result = [(store_key, store_value)]
-    actual_response = response.results[0].value.value
-    assert len(actual_response) == len(expected_result)
-    assert actual_response[0][0] == store_key
+        channel.close()
 
 
-# def test_client_get_by_predicate_succeeds_with_no_index_in_store(spin_up_ahnlich_db):
-#     port = spin_up_ahnlich_db
-#     db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-
-#     # prepare data
-#     get_predicate_data = {
-#         "store_name": store_payload_no_predicates["store_name"],
-#         "condition": db_query.PredicateCondition__Value(
-#             db_query.Predicate__Equals(
-#                 key="job", value=db_query.MetadataValue__RawString("sorcerer")
-#             )
-#         ),
-#     }
-#     # process data
-#     try:
-#         response: db_response.ServerResult = db_client.get_by_predicate(
-#             **get_predicate_data
-#         )
-#     finally:
-#         db_client.cleanup()
-#     assert isinstance(response.results[0], db_response.Result__Ok)
-
-
-def test_client_create_pred_index_succeeds(spin_up_ahnlich_db):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-
-    create_pred_index_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "predicates": ["job", "rank"],
-    }
+@pytest.mark.asyncio
+async def test_client_set_in_store_succeeds_with_binary(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
     try:
-        _ = db_client.create_store(**store_payload_no_predicates)
-        response: db_response.ServerResult = db_client.create_pred_index(
-            **create_pred_index_data
-        )
-    except Exception as e:
-        print(f"Exception: {e}")
-    finally:
-        db_client.cleanup()
-    assert response.results[0] == db_response.Result__Ok(
-        db_response.ServerResponse__CreateIndex(2)
-    )
+        # Create store
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
 
-
-def test_client_get_by_predicate_succeeds(spin_up_ahnlich_db, store_key, store_value):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-
-    # prepare data
-    get_predicate_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "condition": db_query.PredicateCondition__Value(
-            db_query.Predicate__Equals(
-                key="job", value=db_query.MetadataValue__RawString(value="sorcerer")
+        # Prepare binary data
+        store_key = keyval.StoreKey(key=[1.0, 4.0, 3.0, 3.9, 4.9])
+        entries = [
+            keyval.StoreEntry(
+                key=store_key,
+                value=keyval.StoreValue(
+                    value={
+                        "image": metadata.MetadataValue(
+                            image=bytes([2, 2, 3, 4, 5, 6, 7])
+                        )
+                    }
+                ),
             )
-        ),
-    }
-    # process data
-    try:
-        builder = db_client.pipeline()
-        builder.create_store(**store_payload_no_predicates)
-        builder.set(
-            store_name=store_payload_no_predicates["store_name"],
-            inputs=[
-                (store_key, store_value),
-            ],
+        ]
+        set_request = db_query.Set(
+            store=store_payload_no_predicates["store"], inputs=entries
         )
-        _ = builder.exec()
 
-        response: db_response.ServerResult = db_client.get_by_predicate(
-            **get_predicate_data
-        )
-    except Exception as e:
-        print(f"Exception: {e}")
+        # Execute set
+        response = await client.set(set_request)
+        assert response.upsert.inserted == 1
     finally:
-        db_client.cleanup()
-    assert isinstance(response.results[0], db_response.Result__Ok)
-    expected_result = [(store_key, store_value)]
-    actual_response = response.results[0].value.value
-    assert len(actual_response) == len(expected_result)
-    assert actual_response[0][0] == store_key
+        channel.close()
 
 
-def assert_store_value(
-    store_value_1: typing.Dict[str, db_query.MetadataValue],
-    store_value_2: typing.Dict[str, db_query.MetadataValue],
-):
-    for key_1, key_2 in zip(store_value_1.keys(), store_value_2.keys()):
-        assert key_1 == key_2
-        assert store_value_1[key_1].value == store_value_2[key_2].value
-
-
-def test_client_get_sim_n_succeeds(spin_up_ahnlich_db, store_key, store_value):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-
-    # closest to 1.0,2.0,3.0,4.0,5.0
-    search_input = create_store_key(data=[1.0, 2.0, 3.0, 3.9, 4.9])
-    store_key_2 = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
-
-    # prepare data
-    get_sim_n_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "closest_n": 1,
-        "search_input": search_input,
-        "algorithm": db_query.Algorithm__CosineSimilarity(),
-    }
-
-    # prepare data
-    store_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "inputs": [
-            (store_key, store_value),
-            (store_key_2, {"job": db_query.MetadataValue__RawString("assassin")}),
-        ],
-    }
-    # process data
+@pytest.mark.asyncio
+async def test_client_get_key_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
     try:
-        builder = db_client.pipeline()
-        builder.create_store(**store_payload_no_predicates)
-        builder.set(**store_data)
-        _ = builder.exec()
-        response: db_response.ServerResult = db_client.get_sim_n(**get_sim_n_data)
+        # Create store
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
 
-    except Exception as e:
-        print(f"Exception: {e}")
+        # Insert data
+        store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
+        store_key_2 = keyval.StoreKey(key=[5.0, 3.0, 4.0, 3.9, 4.9])
+        entries = [
+            keyval.StoreEntry(
+                key=store_key,
+                value=keyval.StoreValue(
+                    value={"job": metadata.MetadataValue(raw_string="sorcerer")}
+                ),
+            ),
+            keyval.StoreEntry(
+                key=store_key_2,
+                value=keyval.StoreValue(
+                    value={"job": metadata.MetadataValue(raw_string="Assassin")}
+                ),
+            ),
+        ]
+        await client.set(
+            db_query.Set(store=store_payload_no_predicates["store"], inputs=entries)
+        )
+
+        # Get key
+        get_request = db_query.GetKey(
+            store=store_payload_no_predicates["store"], keys=[store_key]
+        )
+        response = await client.get_key(get_request)
+        assert len(response.entries) == 1
+        assert response.entries[0].key == store_key
     finally:
-        db_client.cleanup()
-    actual_results: db_response.ServerResponse__GetSimN = response.results[
-        0
-    ].value.value
-
-    expected_results = [
-        store_key,
-        store_value,
-        0.9999504,
-    ]
-    assert len(actual_results) == 1
-    assert_store_value(actual_results[0][1], expected_results[1])
-    assert str(expected_results[2]) in str(actual_results[0]).lower()
+        channel.close()
 
 
-def test_client_drop_pred_index_succeeds(spin_up_ahnlich_db):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-
-    create_pred_index_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "predicates": ["to_drop"],
-    }
-    drop_pred_index_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "predicates": ["to_drop"],
-        "error_if_not_exists": True,
-    }
+@pytest.mark.asyncio
+async def test_client_create_pred_index_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
     try:
-        _ = db_client.create_store(**store_payload_no_predicates)
-        response: db_response.ServerResult = db_client.create_pred_index(
-            **create_pred_index_data
+        # Create store first
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
+
+        # Create index
+        index_request = db_query.CreatePredIndex(
+            store=store_payload_no_predicates["store"], predicates=["job", "rank"]
         )
-        drop_response: db_response.ServerResult = db_client.drop_pred_index(
-            **drop_pred_index_data
-        )
-        assert response.results[0] == db_response.Result__Ok(
-            db_response.ServerResponse__CreateIndex(1)
-        )
-        assert drop_response.results[0] == db_response.Result__Ok(
-            db_response.ServerResponse__Del(1)
-        )
-    except Exception as e:
-        print(f"Exception: {e}")
-        db_client.cleanup()
-        raise e
+        response = await client.create_pred_index(index_request)
+        assert response.created_indexes == 2
     finally:
-        db_client.cleanup()
+        channel.close()
 
 
-def test_client_delete_predicate_succeeds(spin_up_ahnlich_db, store_key, store_value):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
+@pytest.mark.asyncio
+async def test_client_get_by_predicate_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Setup store with data
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
 
-    delete_predicate_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "condition": db_query.PredicateCondition__Value(
-            db_query.Predicate__Equals(
-                key="rank", value=db_query.MetadataValue__RawString("chunin")
+        store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
+        entries = [
+            keyval.StoreEntry(
+                key=store_key,
+                value=keyval.StoreValue(
+                    value={"job": metadata.MetadataValue(raw_string="sorcerer")}
+                ),
             )
-        ),
-    }
-    store_key_2 = create_store_key(data=[5.0, 3.0, 4.0, 3.9, 4.9])
-    # prepare data
-    store_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "inputs": [
-            (store_key, store_value),
-            (store_key_2, {"rank": db_query.MetadataValue__RawString("chunin")}),
-        ],
-    }
-
-    try:
-        builder = db_client.pipeline()
-
-        builder.create_store(**store_payload_no_predicates)
-        builder.create_pred_index(
-            store_payload_no_predicates["store_name"], predicates=["rank"]
+        ]
+        await client.set(
+            db_query.Set(store=store_payload_no_predicates["store"], inputs=entries)
         )
-        builder.set(**store_data)
-        _ = builder.exec()
 
-        response: db_response.ServerResult = db_client.delete_predicate(
-            **delete_predicate_data
+        # Create predicate index
+        await client.create_pred_index(
+            db_query.CreatePredIndex(
+                store=store_payload_no_predicates["store"], predicates=["job"]
+            )
         )
-        assert response.results[0] == db_response.Result__Ok(
-            db_response.ServerResponse__Del(1)
+
+        # Query by predicate
+        condition = predicates.PredicateCondition(
+            value=predicates.Predicate(
+                equals=predicates.Equals(
+                    key="job", value=metadata.MetadataValue(raw_string="sorcerer")
+                )
+            )
         )
-    except Exception as e:
-        print(f"Exception: {e}")
-        db_client.cleanup()
-        raise e
+        pred_request = db_query.GetPred(
+            store=store_payload_no_predicates["store"], condition=condition
+        )
+        response = await client.get_pred(pred_request)
+        assert len(response.entries) == 1
+        assert response.entries[0].key == store_key
     finally:
-        db_client.cleanup()
+        channel.close()
 
 
-def test_client_delete_key_succeeds(spin_up_ahnlich_db, store_key, store_value):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-
-    delete_key_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "keys": [store_key],
-    }
-    store_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "inputs": [(store_key, store_value)],
-    }
-
+@pytest.mark.asyncio
+async def test_client_get_sim_n_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
     try:
-        builder = db_client.pipeline()
-        builder.create_store(**store_payload_no_predicates)
-        builder.set(**store_data)
-        _ = builder.exec()
-        response: db_response.ServerResult = db_client.delete_key(**delete_key_data)
-        assert response.results[0] == db_response.Result__Ok(
-            db_response.ServerResponse__Del(1)
+        # Setup store with data
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
+
+        search_input = keyval.StoreKey(key=[1.0, 2.0, 3.0, 3.9, 4.9])
+        store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
+        store_key_2 = keyval.StoreKey(key=[5.0, 3.0, 4.0, 3.9, 4.9])
+
+        entries = [
+            keyval.StoreEntry(
+                key=store_key,
+                value=keyval.StoreValue(
+                    value={"job": metadata.MetadataValue(raw_string="sorcerer")}
+                ),
+            ),
+            keyval.StoreEntry(
+                key=store_key_2,
+                value=keyval.StoreValue(
+                    value={"job": metadata.MetadataValue(raw_string="assassin")}
+                ),
+            ),
+        ]
+        await client.set(
+            db_query.Set(store=store_payload_no_predicates["store"], inputs=entries)
         )
-    except Exception as e:
-        print(f"Exception: {e}")
-        db_client.cleanup()
-        raise e
-    finally:
-        db_client.cleanup()
 
-
-def test_client_drop_store_succeeds(spin_up_ahnlich_db):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-
-    drop_store_data = {
-        "store_name": store_payload_no_predicates["store_name"],
-        "error_if_not_exists": True,
-    }
-
-    try:
-        builder = db_client.pipeline()
-        builder.create_store(**store_payload_no_predicates)
-        builder.exec()
-        response: db_response.ServerResult = db_client.drop_store(**drop_store_data)
-
-        assert response.results[0] == db_response.Result__Ok(
-            db_response.ServerResponse__Del(1)
+        # Similarity search
+        sim_request = db_query.GetSimN(
+            store=store_payload_no_predicates["store"],
+            search_input=search_input,
+            closest_n=1,
+            algorithm=Algorithm.CosineSimilarity,
         )
-    except Exception as e:
-        print(f"Exception: {e}")
-        db_client.cleanup()
-        raise e
+        response = await client.get_sim_n(sim_request)
+        assert len(response.entries) == 1
+        assert abs(response.entries[0].similarity.value - 0.999) < 0.001
     finally:
-        db_client.cleanup()
+        channel.close()
 
 
-def test_client_drop_store_fails_no_store(spin_up_ahnlich_db):
-    port = spin_up_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-    store_name = store_payload_no_predicates["store_name"]
-    drop_store_data = {
-        "store_name": store_name,
-        "error_if_not_exists": True,
-    }
-
+@pytest.mark.asyncio
+async def test_client_drop_pred_index_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
     try:
-        response: db_response.ServerResult = db_client.drop_store(**drop_store_data)
-        assert response.results[0] == db_response.Result__Err(
-            value=f"Store {store_name} not found"
+        # Setup store and index
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
+
+        await client.create_pred_index(
+            db_query.CreatePredIndex(
+                store=store_payload_no_predicates["store"], predicates=["to_drop"]
+            )
         )
-    except Exception as e:
-        print(f"Exception: {e}")
-        db_client.cleanup()
-        raise e
-    finally:
-        db_client.cleanup()
 
-
-def test_client_list_stores_reflects_dropped_store(
-    module_scopped_ahnlich_db,
-):
-    port = module_scopped_ahnlich_db
-    db_client = AhnlichDBClient(address="127.0.0.1", port=port)
-    try:
-        builder = db_client.pipeline()
-        builder.create_store(**store_payload_no_predicates)
-        builder.create_store(**store_payload_with_predicates)
-        builder.drop_store(
-            store_name=store_payload_no_predicates["store_name"],
+        # Drop index
+        drop_request = db_query.DropPredIndex(
+            store=store_payload_no_predicates["store"],
+            predicates=["to_drop"],
             error_if_not_exists=True,
         )
-        builder.exec()
-        response: db_response.ServerResult = db_client.list_stores()
-        store_list: db_response.ServerResponse__StoreList = response.results[0].value
-        assert len(store_list.value) == 1
-        store_info: db_response.StoreInfo = store_list.value[0]
-        assert store_info.name == store_payload_with_predicates["store_name"]
-        assert isinstance(response.results[0], db_response.Result__Ok)
-    except Exception as e:
-        print(f"Exception: {e}")
-        db_client.cleanup()
-        raise e
+        response = await client.drop_pred_index(drop_request)
+        assert response.deleted_count == 1
     finally:
-        db_client.cleanup()
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_delete_predicate_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Setup store with data and index
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
+
+        await client.create_pred_index(
+            db_query.CreatePredIndex(
+                store=store_payload_no_predicates["store"], predicates=["rank"]
+            )
+        )
+
+        store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
+        store_key_2 = keyval.StoreKey(key=[5.0, 3.0, 4.0, 3.9, 4.9])
+        entries = [
+            keyval.StoreEntry(
+                key=store_key,
+                value=keyval.StoreValue(
+                    value={"job": metadata.MetadataValue(raw_string="sorcerer")}
+                ),
+            ),
+            keyval.StoreEntry(
+                key=store_key_2,
+                value=keyval.StoreValue(
+                    value={"rank": metadata.MetadataValue(raw_string="chunin")}
+                ),
+            ),
+        ]
+        await client.set(
+            db_query.Set(store=store_payload_no_predicates["store"], inputs=entries)
+        )
+
+        # Delete by predicate
+        condition = predicates.PredicateCondition(
+            value=predicates.Predicate(
+                equals=predicates.Equals(
+                    key="rank", value=metadata.MetadataValue(raw_string="chunin")
+                )
+            )
+        )
+        del_request = db_query.DelPred(
+            store=store_payload_no_predicates["store"], condition=condition
+        )
+        response = await client.del_pred(del_request)
+        assert response.deleted_count == 1
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_delete_key_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Create store
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
+
+        # Insert data
+        store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
+        entries = [
+            keyval.StoreEntry(
+                key=store_key,
+                value=keyval.StoreValue(
+                    value={"job": metadata.MetadataValue(raw_string="sorcerer")}
+                ),
+            )
+        ]
+        await client.set(
+            db_query.Set(store=store_payload_no_predicates["store"], inputs=entries)
+        )
+
+        # Delete by key
+        del_request = db_query.DelKey(
+            store=store_payload_no_predicates["store"], keys=[store_key]
+        )
+        response = await client.del_key(del_request)
+        assert response.deleted_count == 1
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_drop_store_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Create store first
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
+
+        # Drop store
+        drop_request = db_query.DropStore(
+            store=store_payload_no_predicates["store"], error_if_not_exists=True
+        )
+        response = await client.drop_store(drop_request)
+        assert response.deleted_count == 1
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_drop_store_fails_no_store(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        store_name = store_payload_no_predicates["store"]
+        drop_request = db_query.DropStore(store=store_name, error_if_not_exists=True)
+
+        with pytest.raises(GRPCError) as exc_info:
+            await client.drop_store(drop_request)
+        assert exc_info.value.status == grpclib.Status.NOT_FOUND
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_list_stores_reflects_dropped_store(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Create two stores
+        await client.create_store(db_query.CreateStore(**store_payload_no_predicates))
+        await client.create_store(db_query.CreateStore(**store_payload_with_predicates))
+
+        # Drop one store
+        await client.drop_store(
+            db_query.DropStore(
+                store=store_payload_no_predicates["store"], error_if_not_exists=True
+            )
+        )
+
+        # Verify only one remains
+        response = await client.list_stores(db_query.ListStores())
+        assert len(response.stores) == 1
+        assert response.stores[0].name == store_payload_with_predicates["store"]
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_db_pipeline_create_and_query(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Create pipeline request
+        pipeline_request = pipeline.DbRequestPipeline(
+            queries=[
+                pipeline.DbQuery(
+                    create_store=db_query.CreateStore(
+                        store="PipelineTestStore", dimension=5, error_if_exists=True
+                    )
+                ),
+                pipeline.DbQuery(
+                    set=db_query.Set(
+                        store="PipelineTestStore",
+                        inputs=[
+                            keyval.StoreEntry(
+                                key=keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0]),
+                                value=keyval.StoreValue(
+                                    value={
+                                        "name": metadata.MetadataValue(
+                                            raw_string="TestItem"
+                                        )
+                                    }
+                                ),
+                            )
+                        ],
+                    )
+                ),
+                pipeline.DbQuery(
+                    get_key=db_query.GetKey(
+                        store="PipelineTestStore",
+                        keys=[keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])],
+                    )
+                ),
+            ]
+        )
+
+        response = await client.pipeline(pipeline_request)
+        assert len(response.responses) == 3
+        assert isinstance(response.responses[0].unit, db_server.Unit)
+        assert isinstance(response.responses[1].set, db_server.Set)
+        assert isinstance(response.responses[2].get, db_server.Get)
+        assert len(response.responses[2].get.entries) == 1
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_db_pipeline_bulk_operations(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Create bulk operations pipeline
+        keys = [keyval.StoreKey(key=[float(i)] * 5) for i in range(1, 6)]
+        pipeline_request = pipeline.DbRequestPipeline(
+            queries=[
+                pipeline.DbQuery(
+                    create_store=db_query.CreateStore(
+                        store="BulkOpsStore", dimension=5, error_if_exists=True
+                    )
+                ),
+                pipeline.DbQuery(
+                    set=db_query.Set(
+                        store="BulkOpsStore",
+                        inputs=[
+                            keyval.StoreEntry(
+                                key=key,
+                                value=keyval.StoreValue(
+                                    value={
+                                        "value": metadata.MetadataValue(
+                                            raw_string=f"Item{i+1}"
+                                        )
+                                    }
+                                ),
+                            )
+                            for i, key in enumerate(keys)
+                        ],
+                    )
+                ),
+                pipeline.DbQuery(list_stores=db_query.ListStores()),
+                pipeline.DbQuery(
+                    del_key=db_query.DelKey(
+                        store="BulkOpsStore", keys=keys[:2]  # Delete first two items
+                    )
+                ),
+            ]
+        )
+
+        response = await client.pipeline(pipeline_request)
+        assert len(response.responses) == 4
+        assert response.responses[1].set.upsert.inserted == 5
+        assert len(response.responses[2].store_list.stores) == 1
+        assert response.responses[3].del_.deleted_count == 2
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_db_pipeline_mixed_success_and_error(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Create pipeline with one valid and one invalid operation
+        pipeline_request = pipeline.DbRequestPipeline(
+            queries=[
+                pipeline.DbQuery(
+                    create_store=db_query.CreateStore(
+                        store="MixedResultStore", dimension=5, error_if_exists=True
+                    )
+                ),
+                pipeline.DbQuery(
+                    get_key=db_query.GetKey(
+                        store="NonExistentStore",
+                        keys=[keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])],
+                    )
+                ),
+            ]
+        )
+
+        response = await client.pipeline(pipeline_request)
+        assert len(response.responses) == 2
+        assert response.responses[0].unit is not None
+        assert response.responses[1].error is not None
+    finally:
+        channel.close()

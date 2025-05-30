@@ -3,20 +3,16 @@
 - [x] Fixing FIXMEs in DB test
 - [ ] Fixing AI tests to use new grpc methods
 - [x] Fixing ahnlich client tests to use new grpc methods
-- [ ] Fixing ahnlich client README documentation that still references creating connection pools and TCP stuff
+- [x] Fixing ahnlich client README documentation that still references creating connection pools and TCP stuff
 - [X] Fixing DSL to use grpc methods
 - [x] Renaming grpc_types to ahnlich_types
-- [ ] Fixing CLI to use grpc methods
+- [x] Fixing CLI to use grpc methods
 - [ ] Starting Python rewrite to use new grpc methods
 
 
-
-### REWRITE NOTES:
- - Client DB tests are flaky:
-    ```rust
-    thread 'grpc::db::test::test_simple_pipeline' panicked at /Users/davidonuh/Sandbox/rust/ahnlich/ahnlich/utils/src/server.rs:68:33:
-    Could not set up ahnlich-db with allocator_size
-
-    thread 'grpc::db::test::test_simple_pipeline' panicked at client/src/grpc/db.rs:584:14:
-    Could not initialize client: Tonic(tonic::transport::Error(Transport, ConnectError(ConnectError("tcp connect error", Os { code: 61, kind: ConnectionRefused, message: "Connection refused" }))))
-    ```
+## Python Rewrite
+- [ ] Create a blocking client that wraps around betterproto async client
+- [ ] Create CI step that checks that `grpc-update-client` does not produce any diffs so that our clients are always up to date.
+- [X] Update tests.
+- [ ] Fix Demo embed and demo tracing.
+- [ ] Migrate README to reflect grpc client.
