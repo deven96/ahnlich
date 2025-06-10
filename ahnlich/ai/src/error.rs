@@ -93,8 +93,8 @@ pub enum AIProxyError {
     CenterCropError { message: String },
 
     // TODO: Add SendError from mpsc::Sender into this variant
-    #[error("Error sending request to model thread")]
-    AIModelThreadSendError,
+    #[error("Error sending request to model thread: [{message}]")]
+    AIModelThreadSendError { message: String },
 
     #[error("Error receiving response from model thread")]
     AIModelRecvError(#[from] RecvError),

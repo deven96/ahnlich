@@ -62,10 +62,10 @@ macro_rules! unwrap_or_invalid {
     };
 }
 
-pub fn convert_to_nonzerousize(val: u64) -> Result<NonZeroUsize, tonic::Status> {
+pub fn convert_to_nonzerousize(val: u64) -> Result<NonZeroUsize, String> {
     match NonZeroUsize::try_from(val as usize) {
         Ok(value) => Ok(value),
-        Err(_) => Err(tonic::Status::invalid_argument("Must be nonzero value")),
+        Err(_) => Err("Must be nonzero value".into()),
     }
 }
 

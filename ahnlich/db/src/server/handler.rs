@@ -156,7 +156,8 @@ impl DbService for Server {
                     value: params.store,
                 },
                 search_input,
-                types_utils::convert_to_nonzerousize(params.closest_n)?,
+                types_utils::convert_to_nonzerousize(params.closest_n)
+                    .map_err(tonic::Status::invalid_argument)?,
                 algorithm,
                 params.condition,
             )?
@@ -755,10 +756,7 @@ impl Server {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");
                     if config.common.fail_on_startup_if_persist_load_fails {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
-                            e.to_string(),
-                        ));
+                        return Err(std::io::Error::other(e.to_string()));
                     }
                 }
                 Ok(snapshot) => {

@@ -314,14 +314,16 @@ impl ModelManager {
             trace_span: tracing::Span::current(),
         };
         // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
-        if sender.send(request).await.is_ok() {
-            response_rx
-                .await
-                .map_err(|e| e.into())
-                .and_then(|inner| inner)
-        } else {
-            return Err(AIProxyError::AIModelThreadSendError);
-        }
+        sender
+            .send(request)
+            .await
+            .map_err(|a| AIProxyError::AIModelThreadSendError {
+                message: a.to_string(),
+            })?;
+        response_rx
+            .await
+            .map_err(|e| e.into())
+            .and_then(|inner| inner)
     }
 }
 

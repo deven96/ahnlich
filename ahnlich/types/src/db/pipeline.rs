@@ -22,9 +22,7 @@ pub mod db_query {
         #[prost(message, tag = "5")]
         CreatePredIndex(super::super::query::CreatePredIndex),
         #[prost(message, tag = "6")]
-        CreateNonLinearAlgorithmIndex(
-            super::super::query::CreateNonLinearAlgorithmIndex,
-        ),
+        CreateNonLinearAlgorithmIndex(super::super::query::CreateNonLinearAlgorithmIndex),
         #[prost(message, tag = "7")]
         DropPredIndex(super::super::query::DropPredIndex),
         #[prost(message, tag = "8")]
