@@ -579,9 +579,9 @@ mod test {
 
         let delete_key = DelKey {
             store: "Main".to_string(),
-            key: Some(StoreInput {
+            keys: vec![StoreInput {
                 value: Some(Value::RawString("Adidas Yeezy".into())),
-            }),
+            }],
         };
 
         assert_eq!(

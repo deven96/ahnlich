@@ -81,7 +81,7 @@ message DelKey {
     // Deletes a key-value pair from the store, matching the given key
     // Updates indices non-blocking after deletion
     string store = 1; // Store name
-    keyval.StoreInput key = 2; // Key to delete (type depends on the store model)
+    repeated keyval.StoreInput keys = 2; // Key to delete (type depends on the store model)
 }
 
 message DropStore {

@@ -203,7 +203,7 @@ async def test_ai_client_del_key(spin_up_ahnlich_ai):
         response = await client.del_key(
             ai_query.DelKey(
                 store=ai_store_payload_with_predicates["store"],
-                key=keyval.StoreInput(raw_string="Yeezey"),
+                keys=[keyval.StoreInput(raw_string="Yeezey")],
             )
         )
 

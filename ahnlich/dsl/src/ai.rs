@@ -273,19 +273,14 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                 let key = inner_pairs
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
-                let mut key = parse_store_inputs(key)?;
+                let keys = parse_store_inputs(key)?;
 
                 let store = inner_pairs
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
-                AiQuery::DelKey(DelKey {
-                    store,
-                    // TODO: Fix inconsistencies with protocol delkey, this should take in a
-                    // Vec<StoreInput> and not a single store input
-                    key: Some(key.remove(0)),
-                })
+                AiQuery::DelKey(DelKey { store, keys })
             }
             Rule::create_non_linear_algorithm_index => {
                 let (store, non_linear_indices) =

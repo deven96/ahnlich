@@ -126,7 +126,7 @@ class DelKey(betterproto.Message):
      Updates indices non-blocking after deletion
     """
 
-    key: "__keyval__.StoreInput" = betterproto.message_field(2)
+    keys: List["__keyval__.StoreInput"] = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)

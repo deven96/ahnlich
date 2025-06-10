@@ -148,8 +148,8 @@ pub struct DelKey {
     #[prost(string, tag = "1")]
     pub store: ::prost::alloc::string::String,
     /// Key to delete (type depends on the store model)
-    #[prost(message, optional, tag = "2")]
-    pub key: ::core::option::Option<super::super::keyval::StoreInput>,
+    #[prost(message, repeated, tag = "2")]
+    pub keys: ::prost::alloc::vec::Vec<super::super::keyval::StoreInput>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DropStore {

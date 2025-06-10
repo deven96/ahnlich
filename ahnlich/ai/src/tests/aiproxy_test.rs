@@ -834,9 +834,9 @@ async fn test_ai_proxy_del_key_drop_store() {
         ai_pipeline::AiQuery {
             query: Some(Query::DelKey(ai_query_types::DelKey {
                 store: store_name.clone(),
-                key: Some(StoreInput {
+                keys: vec![StoreInput {
                     value: Some(Value::RawString("Jordan 3".into())),
-                }),
+                }],
             })),
         },
         ai_pipeline::AiQuery {

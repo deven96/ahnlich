@@ -390,14 +390,21 @@ fn test_del_key_parse() {
         panic!("Unexpected error pattern found")
     };
     assert_eq!((start, end), (0, 35));
-    let input = r#"DELKEY ([hi this is store input], [this does not get parsed yet]) in 1234"#;
+    let input = r#"DELKEY ([hi this is store input], [this should now get parsed too]) in 1234"#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::DelKey(DelKey {
             store: "1234".to_string(),
-            key: Some(StoreInput {
-                value: Some(StoreValue::RawString("hi this is store input".to_string()))
-            }),
+            keys: vec![
+                StoreInput {
+                    value: Some(StoreValue::RawString("hi this is store input".to_string()))
+                },
+                StoreInput {
+                    value: Some(StoreValue::RawString(
+                        "this should now get parsed too".to_string()
+                    ))
+                },
+            ],
         })]
     );
 }

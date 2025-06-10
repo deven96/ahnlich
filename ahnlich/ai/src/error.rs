@@ -92,7 +92,6 @@ pub enum AIProxyError {
     #[error("Center crop error: [{message}]")]
     CenterCropError { message: String },
 
-    // TODO: Add SendError from mpsc::Sender into this variant
     #[error("Error sending request to model thread: [{message}]")]
     AIModelThreadSendError { message: String },
 

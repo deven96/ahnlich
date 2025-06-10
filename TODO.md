@@ -12,7 +12,7 @@
 
 ## Python Rewrite
 - [ ] Create a blocking client that wraps around betterproto async client
-- [ ] Create CI step that checks that `grpc-update-client` does not produce any diffs so that our clients are always up to date.
+- [X] Create CI step that checks that `grpc-update-client` does not produce any diffs so that our clients are always up to date.
 - [X] Update tests.
 - [ ] Fix Demo embed and demo tracing.
 - [ ] Migrate README to reflect grpc client.

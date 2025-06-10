@@ -480,12 +480,12 @@ impl AiService for AIProxyServer {
         if !store_original {
             return Err(AIProxyError::DelKeyError.into());
         } else {
-            let key = params
-                .key
-                .ok_or_else(|| AIProxyError::InputNotSpecified("Del key".to_string()))?;
+            let key = params.keys;
 
-            let metadata_value: MetadataValue = key
-                .try_into()
+            let values = key
+                .into_iter()
+                .map(|a| a.try_into())
+                .collect::<Result<Vec<MetadataValue>, _>>()
                 .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
 
             let del_pred_params = DelPred {
@@ -494,7 +494,7 @@ impl AiService for AIProxyServer {
                     kind: Some(Kind::Value(Predicate {
                         kind: Some(PredicateKind::In(In {
                             key: AHNLICH_AI_RESERVED_META_KEY.to_string(),
-                            values: vec![metadata_value],
+                            values,
                         })),
                     })),
                 }),
