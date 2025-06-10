@@ -53,9 +53,9 @@ jobs:
       working-directory: ./ahnlich
       run: |
         make grpc-update-rust
-        if [[ -n "$(git status --porcelain)" ]]; then
+        if [[ -n "$(git status . --porcelain)" ]]; then
           echo "::error::Running 'make grpc-update-rust' caused changes, Please check that rust client is up to date"
-          git --no-pager diff
+          git --no-pager diff .
           exit 1
         fi
 
@@ -121,9 +121,9 @@ jobs:
       working-directory: ./ahnlich
       run: |
         make grpc-update-python
-        if [[ -n "$(git status --porcelain)" ]]; then
+        if [[ -n "$(git status ../sdk/ahnlich-client-py --porcelain)" ]]; then
           echo "::error::Running 'make grpc-update-python' caused changes, Please check that python client is up to date"
-          git --no-pager diff
+          git --no-pager diff ../sdk/ahnlich-client-py
           exit 1
         fi
     
