@@ -73,9 +73,13 @@ The ahnlich client has some noteworthy modules that should provide some context
 
 ## Server Response
 
-All query types have an associating server response, all which can be found
+All db query types have an associating server response, all which can be found
 ```py
-from ahnlich_client_py import server_response
+from ahnlich_client_py.grpc.db import server
+```
+For AI Server
+```py
+from ahnlich_client_py.grpc.ai import server
 ```
 
 ## Initialization
@@ -87,7 +91,7 @@ from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import db_service
 
 
-channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+channel = Channel(host="127.0.0.1", port=1369)
     client = db_service.DbServiceStub(channel)
 ```
 
@@ -103,7 +107,7 @@ from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
 # Initialize client
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     db_client = DbServiceStub(channel)
     
     # Prepare tracing metadata
@@ -126,7 +130,7 @@ from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     response = await client.info_server(db_query.InfoServer())
     # response contains server version and type
@@ -141,7 +145,7 @@ from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     response = await client.list_clients(db_query.ListClients())
     print(f"Connected clients: {[c.id for c in response.clients]}")
@@ -154,7 +158,7 @@ from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     tracing_id = "00-80e1afed08e019fc1110464cfa66635c-7a085853722dc6d2-01"
     response = await client.list_stores(
@@ -171,7 +175,7 @@ from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     response = await client.create_store(
         db_query.CreateStore(
@@ -199,7 +203,7 @@ from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc import keyval, metadata
 from ahnlich_client_py.grpc.db import query as db_query
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     store_key = keyval.StoreKey(key=[5.0, 3.0, 4.0, 3.9, 4.9])
@@ -223,7 +227,7 @@ from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     response = await client.drop_store(
@@ -245,7 +249,7 @@ from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc.shared.algorithm import Algorithm
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     search_key = keyval.StoreKey(key=[...])  # Your query vector
@@ -272,7 +276,7 @@ from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     lookup_key = keyval.StoreKey(key=[...])  # Your lookup vector
@@ -296,7 +300,7 @@ from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc import predicates, metadata
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     condition = predicates.PredicateCondition(
@@ -323,7 +327,7 @@ from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     response = await client.create_pred_index(
@@ -341,7 +345,7 @@ from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     response = await client.drop_pred_index(
@@ -361,7 +365,7 @@ from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc.algorithm.algorithms import NonLinearAlgorithm
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     response = await client.create_non_linear_algorithm_index(
@@ -380,7 +384,7 @@ from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc.algorithm.algorithms import NonLinearAlgorithm
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     response = await client.drop_non_linear_algorithm_index(
@@ -401,7 +405,7 @@ from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc import keyval
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     store_key = keyval.StoreKey(key=[5.0, 3.0, 4.0, 3.9, 4.9])
@@ -422,7 +426,7 @@ from ahnlich_client_py.grpc.services import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc import predicates, metadata
 
-async with Channel(host="127.0.0.1", port=1370) as channel:
+async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
     
     condition = predicates.PredicateCondition(
@@ -653,37 +657,37 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
     )
 ```
 
-### Create Non Linear Algorithm Index ?
+### Create Non Linear Algorithm Index
 ```py
 from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
-from ahnlich_client_py.grpc.ai.models import NonLinearAlgorithm
+from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
     client = AiServiceStub(channel)
     response = await client.create_non_linear_index(
         ai_query.CreateNonLinearIndex(
             store="test store",
-            algorithms=[NonLinearAlgorithm.KD_TREE],
+            algorithms=[NonLinearAlgorithm.KDTree],
             error_if_exists=True
         )
     )
 ```
 
-### Drop Non Linear Algorithm Index ?
+### Drop Non Linear Algorithm Index
 ```py
 from grpclib.client import Channel
 from ahnlich_client_py.grpc.services import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
-from ahnlich_client_py.grpc.ai.models import NonLinearAlgorithm
+from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
     client = AiServiceStub(channel)
     response = await client.drop_non_linear_index(
         ai_query.DropNonLinearIndex(
             store="test store",
-            algorithms=[NonLinearAlgorithm.KD_TREE],
+            algorithms=[NonLinearAlgorithm.KDTree],
             error_if_not_exists=True
         )
     )
@@ -751,23 +755,6 @@ response: server_response.ServerResult = client.exec()
 *Sample applies to the AIclient*
 
 
-## Client As Context Manager
-
-The DB and AI client class can be used as a context manager hereby closing the connection pool automatically upon context end.
-
-
-```py
-from ahnlich_client_py import AhnlichDBClient
-
-
- with client.AhnlichDBClient(address="127.0.0.1", port=port) as db_client:
-    response: server_response.ServerResult = db_client.ping()
-
-```
-However, closing the connection pool can be done by calling `cleanup()` on the client.
-
-
-
 ## Deploy to Artifactory
 
 Replace the contents of `MSG_TAG` file with your new tag message
@@ -794,15 +781,24 @@ When Your PR is made, changes in the client version file would trigger a release
 Example: 
 Value
 ```py
-condition = db_query.PredicateCondition__Value(
-                db_query.Predicate__Equals(key="job", value=db_query.MetadataValue__RawString(value="sorcerer"))
+condition = predicates.PredicateCondition(
+            value=predicates.Predicate(
+                equals=predicates.Equals(
+                    key="job", value=metadata.MetadataValue(raw_string="sorcerer")
+                )
+            )
         )
 ```
 Metadatavalue can also be a binary(list of u8s)
 
 ```py
-condition = db_query.PredicateCondition__Value(
-                db_query.Predicate__Equals(key="image_data", value=db_query.MetadataValue__Image(value=[2,2,3,4,5,6,7]))
+
+condition = predicates.PredicateCondition(
+            value=predicates.Predicate(
+                equals=predicates.Equals(
+                    key="rank", value=metadata.MetadataValue(image=[2,2,3,4,5,6,7])
+                )
+            )
         )
 ```
 
@@ -812,17 +808,27 @@ AND
 
 
 ```py
-# And[tuples[predicate_conditions]]
-condition = db_query.PredicateCondition__AND(
-    (
-        db_query.PredicateCondition__Value(
-                db_query.Predicate__Equals(key="job", db_query.MetadataValue__RawString(value="sorcerer"))
+
+condition = predicates.PredicateCondition(
+    and_=predicates.AndCondition(
+        left=predicates.PredicateCondition(
+            value=predicates.Predicate(
+                equals=predicates.Equals(
+                    key="job",
+                    value=metadata.MetadataValue(raw_string="sorcerer")
+                )
+            )
         ),
-        db_query.PredicateCondition__Value(
-                db_query.Predicate__Equals(key="rank", value=db_query.MetadataValue__RawString(value="chunin"))
+        right=predicates.PredicateCondition(
+            value=predicates.Predicate(
+                equals=predicates.Equals(
+                    key="rank",
+                    value=metadata.MetadataValue(raw_string="chunin")
+                )
+            )
         )
     )
-    )
+)
 
 ```
 
@@ -836,6 +842,7 @@ condition = db_query.PredicateCondition__AND(
 | Version| Description           |
 | -------|:-------------:|
 | 0.0.0 | Base Python clients (Async and Sync) to connect to ahnlich db and AI, with connection pooling and Bincode serialization and deserialization |
+| 1.0.0 | Rewrite Underlying communication using GRPC |
 
 
 
