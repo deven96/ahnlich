@@ -24,10 +24,10 @@ use ahnlich_types::{
         models::AiModel,
         pipeline::{self as ai_pipeline, ai_query::Query},
         preprocess::PreprocessAction,
-        query::{self as ai_query_types, StoreEntry},
+        query::{self as ai_query_types},
         server::{self as ai_response_types, AiStoreInfo, GetEntry},
     },
-    keyval::{store_input::Value, StoreInput, StoreName, StoreValue},
+    keyval::{store_input::Value, AiStoreEntry, StoreInput, StoreName, StoreValue},
     services::ai_service::ai_service_client::AiServiceClient,
     shared::info::StoreUpsert,
 };
@@ -175,9 +175,11 @@ async fn test_ai_store_get_key_works() {
         value: Some(Value::RawString(String::from("Jordan 3"))),
     };
 
-    let inputs = vec![StoreEntry {
+    let inputs = vec![AiStoreEntry {
         key: Some(store_entry_input.clone()),
-        value: HashMap::new(),
+        value: Some(StoreValue {
+            value: HashMap::new(),
+        }),
     }];
 
     let queries = vec![
@@ -284,23 +286,23 @@ async fn test_ai_store_no_original() {
     };
 
     let store_data = vec![
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::RawString("Jordan 3".into())),
             }),
-            value: nike_store_value.clone().value,
+            value: Some(nike_store_value.clone()),
         },
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::RawString("Air Force 1".into())),
             }),
-            value: nike_store_value.clone().value,
+            value: Some(nike_store_value.clone()),
         },
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::RawString("Yeezy".into())),
             }),
-            value: adidas_store_value.clone().value,
+            value: Some(adidas_store_value),
         },
     ];
 
@@ -405,23 +407,23 @@ async fn test_ai_proxy_get_pred_succeeds() {
     };
 
     let store_data = vec![
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::RawString("Jordan 3".into())),
             }),
-            value: nike_store_value.clone().value,
+            value: Some(nike_store_value.clone()),
         },
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::RawString("Air Force 1".into())),
             }),
-            value: nike_store_value.clone().value,
+            value: Some(nike_store_value.clone()),
         },
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::RawString("Yeezy".into())),
             }),
-            value: adidas_store_value.clone().value,
+            value: Some(adidas_store_value.clone()),
         },
     ];
 
@@ -533,23 +535,23 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
     };
 
     let store_data = vec![
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::RawString("Jordan 3".into())),
             }),
-            value: nike_store_value.clone().value,
+            value: Some(nike_store_value.clone()),
         },
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::RawString("Air Force 1".into())),
             }),
-            value: nike_store_value.clone().value,
+            value: Some(nike_store_value.clone()),
         },
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::RawString("Yeezy".into())),
             }),
-            value: adidas_store_value.clone().value,
+            value: Some(adidas_store_value.clone()),
         },
     ];
 
@@ -642,11 +644,11 @@ async fn test_ai_proxy_create_drop_pred_index() {
         value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
     };
 
-    let store_data = vec![StoreEntry {
+    let store_data = vec![AiStoreEntry {
         key: Some(StoreInput {
             value: Some(Value::RawString("Jordan 3".into())),
         }),
-        value: nike_store_value.clone().value,
+        value: Some(nike_store_value.clone()),
     }];
 
     let condition = PredicateCondition {
@@ -783,11 +785,11 @@ async fn test_ai_proxy_del_key_drop_store() {
         value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
     };
 
-    let store_data = vec![StoreEntry {
+    let store_data = vec![AiStoreEntry {
         key: Some(StoreInput {
             value: Some(Value::RawString("Jordan 3".into())),
         }),
-        value: nike_store_value.clone().value,
+        value: Some(nike_store_value.clone()),
     }];
 
     let condition = PredicateCondition {
@@ -1155,41 +1157,45 @@ async fn test_ai_proxy_binary_store_actions() {
     };
 
     let store_data = vec![
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::Image(include_bytes!("./images/dog.jpg").to_vec())),
             }),
-            value: store_value_1.clone().value,
+            value: Some(store_value_1.clone()),
         },
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::Image(include_bytes!("./images/test.webp").to_vec())),
             }),
-            value: store_value_2.clone().value,
+            value: Some(store_value_2.clone()),
         },
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::Image(include_bytes!("./images/cat.png").to_vec())),
             }),
-            value: HashMap::from_iter([(
-                matching_metadatakey.clone(),
-                MetadataValue {
-                    value: Some(MValue::RawString("Daniel".into())),
-                },
-            )]),
+            value: Some(StoreValue {
+                value: HashMap::from_iter([(
+                    matching_metadatakey.clone(),
+                    MetadataValue {
+                        value: Some(MValue::RawString("Daniel".into())),
+                    },
+                )]),
+            }),
         },
     ];
 
-    let oversize_data = vec![StoreEntry {
+    let oversize_data = vec![AiStoreEntry {
         key: Some(StoreInput {
             value: Some(Value::Image(include_bytes!("./images/large.webp").to_vec())),
         }),
-        value: HashMap::from_iter([(
-            matching_metadatakey.clone(),
-            MetadataValue {
-                value: Some(MValue::RawString("Oversized".into())),
-            },
-        )]),
+        value: Some(StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                MetadataValue {
+                    value: Some(MValue::RawString("Oversized".into())),
+                },
+            )]),
+        }),
     }];
 
     let condition = PredicateCondition {
@@ -1341,22 +1347,24 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
     };
 
     let store_data = vec![
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45])),
             }),
-            value: store_value_1.clone().value,
+            value: Some(store_value_1.clone()),
         },
-        StoreEntry {
+        AiStoreEntry {
             key: Some(StoreInput {
                 value: Some(Value::RawString("Buster Matthews is the name".into())),
             }),
-            value: HashMap::from_iter([(
-                "Description".to_string(),
-                MetadataValue {
-                    value: Some(MValue::RawString("20 year old line backer".into())),
-                },
-            )]),
+            value: Some(StoreValue {
+                value: HashMap::from_iter([(
+                    "Description".to_string(),
+                    MetadataValue {
+                        value: Some(MValue::RawString("20 year old line backer".into())),
+                    },
+                )]),
+            }),
         },
     ];
 

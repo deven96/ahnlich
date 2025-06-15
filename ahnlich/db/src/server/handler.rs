@@ -3,7 +3,7 @@ use crate::engine::store::StoreHandler;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::db::pipeline::db_query::Query;
 use ahnlich_types::db::server::GetSimNEntry;
-use ahnlich_types::keyval::{StoreEntry, StoreKey, StoreName, StoreValue};
+use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName, StoreValue};
 use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use ahnlich_types::shared::info::ErrorResponse;
 
@@ -87,7 +87,7 @@ impl DbService for Server {
             .map(|key| StoreKey { key: key.key })
             .collect();
 
-        let entries: Vec<StoreEntry> = self
+        let entries: Vec<DbStoreEntry> = self
             .store_handler
             .get_key_in_store(
                 &StoreName {
@@ -96,7 +96,7 @@ impl DbService for Server {
                 keys,
             )?
             .into_iter()
-            .map(|(store_key, store_value)| StoreEntry {
+            .map(|(store_key, store_value)| DbStoreEntry {
                 key: Some(store_key),
                 value: Some(store_value),
             })
@@ -124,7 +124,7 @@ impl DbService for Server {
                 &condition,
             )?
             .into_iter()
-            .map(|(store_key, store_value)| StoreEntry {
+            .map(|(store_key, store_value)| DbStoreEntry {
                 key: Some(store_key),
                 value: Some(store_value),
             })

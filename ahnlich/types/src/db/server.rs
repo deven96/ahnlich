@@ -26,7 +26,7 @@ pub struct Set {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Get {
     #[prost(message, repeated, tag = "1")]
-    pub entries: ::prost::alloc::vec::Vec<super::super::keyval::StoreEntry>,
+    pub entries: ::prost::alloc::vec::Vec<super::super::keyval::DbStoreEntry>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetSimNEntry {

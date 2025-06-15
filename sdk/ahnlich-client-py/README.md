@@ -214,7 +214,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
     response = await client.set(
         db_query.Set(
             store="test store",
-            inputs=[keyval.StoreEntry(key=store_key, value=store_value)]
+            inputs=[keyval.DbStoreEntry(key=store_key, value=store_value)]
         )
     )
     # response contains upsert counts (inserted, updated)
@@ -531,13 +531,17 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
         ai_query.Set(
             store="test store",
             inputs=[
-                ai_query.StoreEntry(
+                keyval.AiStoreEntry(
                     key=keyval.StoreInput(raw_string="Jordan One"),
-                    value={"brand": metadata.MetadataValue(raw_string="Nike")}
+                    value=keyval.StoreValue(
+                        value={"brand": metadata.MetadataValue(raw_string="Nike")}
+                    ),
                 ),
-                ai_query.StoreEntry(
+                keyval.AiStoreEntry(
                     key=keyval.StoreInput(raw_string="Yeezey"),
-                    value={"brand": metadata.MetadataValue(raw_string="Adidas")}
+                    value=keyval.StoreValue(
+                        value={"brand": metadata.MetadataValue(raw_string="Adidas")}
+                    ),
                 )
             ],
             preprocess_action=preprocess.PreprocessAction.NoPreprocessing

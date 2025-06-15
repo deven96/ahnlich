@@ -102,13 +102,13 @@ async def test_client_set_in_store_succeeds(spin_up_ahnlich_db):
         store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
         store_key_2 = keyval.StoreKey(key=[5.0, 3.0, 4.0, 3.9, 4.9])
         entries = [
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key,
                 value=keyval.StoreValue(
                     value={"job": metadata.MetadataValue(raw_string="sorcerer")}
                 ),
             ),
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key_2,
                 value=keyval.StoreValue(
                     value={"rank": metadata.MetadataValue(raw_string="chunin")}
@@ -139,7 +139,7 @@ async def test_client_set_in_store_succeeds_with_binary(spin_up_ahnlich_db):
         # Prepare binary data
         store_key = keyval.StoreKey(key=[1.0, 4.0, 3.0, 3.9, 4.9])
         entries = [
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key,
                 value=keyval.StoreValue(
                     value={
@@ -174,13 +174,13 @@ async def test_client_get_key_succeeds(spin_up_ahnlich_db):
         store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
         store_key_2 = keyval.StoreKey(key=[5.0, 3.0, 4.0, 3.9, 4.9])
         entries = [
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key,
                 value=keyval.StoreValue(
                     value={"job": metadata.MetadataValue(raw_string="sorcerer")}
                 ),
             ),
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key_2,
                 value=keyval.StoreValue(
                     value={"job": metadata.MetadataValue(raw_string="Assassin")}
@@ -232,7 +232,7 @@ async def test_client_get_by_predicate_succeeds(spin_up_ahnlich_db):
 
         store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
         entries = [
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key,
                 value=keyval.StoreValue(
                     value={"job": metadata.MetadataValue(raw_string="sorcerer")}
@@ -282,13 +282,13 @@ async def test_client_get_sim_n_succeeds(spin_up_ahnlich_db):
         store_key_2 = keyval.StoreKey(key=[5.0, 3.0, 4.0, 3.9, 4.9])
 
         entries = [
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key,
                 value=keyval.StoreValue(
                     value={"job": metadata.MetadataValue(raw_string="sorcerer")}
                 ),
             ),
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key_2,
                 value=keyval.StoreValue(
                     value={"job": metadata.MetadataValue(raw_string="assassin")}
@@ -358,13 +358,13 @@ async def test_client_delete_predicate_succeeds(spin_up_ahnlich_db):
         store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
         store_key_2 = keyval.StoreKey(key=[5.0, 3.0, 4.0, 3.9, 4.9])
         entries = [
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key,
                 value=keyval.StoreValue(
                     value={"job": metadata.MetadataValue(raw_string="sorcerer")}
                 ),
             ),
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key_2,
                 value=keyval.StoreValue(
                     value={"rank": metadata.MetadataValue(raw_string="chunin")}
@@ -404,7 +404,7 @@ async def test_client_delete_key_succeeds(spin_up_ahnlich_db):
         # Insert data
         store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0])
         entries = [
-            keyval.StoreEntry(
+            keyval.DbStoreEntry(
                 key=store_key,
                 value=keyval.StoreValue(
                     value={"job": metadata.MetadataValue(raw_string="sorcerer")}
@@ -500,7 +500,7 @@ async def test_db_pipeline_create_and_query(spin_up_ahnlich_db):
                     set=db_query.Set(
                         store="PipelineTestStore",
                         inputs=[
-                            keyval.StoreEntry(
+                            keyval.DbStoreEntry(
                                 key=keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0, 5.0]),
                                 value=keyval.StoreValue(
                                     value={
@@ -550,7 +550,7 @@ async def test_db_pipeline_bulk_operations(spin_up_ahnlich_db):
                     set=db_query.Set(
                         store="BulkOpsStore",
                         inputs=[
-                            keyval.StoreEntry(
+                            keyval.DbStoreEntry(
                                 key=key,
                                 value=keyval.StoreValue(
                                     value={

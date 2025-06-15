@@ -70,13 +70,17 @@ async def test_ai_client_get_pred(spin_up_ahnlich_ai):
 
         # Insert data
         entries = [
-            ai_query.StoreEntry(
+            keyval.AiStoreEntry(
                 key=keyval.StoreInput(raw_string="Jordan One"),
-                value={"brand": metadata.MetadataValue(raw_string="Nike")},
+                value=keyval.StoreValue(
+                    value={"brand": metadata.MetadataValue(raw_string="Nike")}
+                ),
             ),
-            ai_query.StoreEntry(
+            keyval.AiStoreEntry(
                 key=keyval.StoreInput(raw_string="Yeezey"),
-                value={"brand": metadata.MetadataValue(raw_string="Adidas")},
+                value=keyval.StoreValue(
+                    value={"brand": metadata.MetadataValue(raw_string="Adidas")}
+                ),
             ),
         ]
         await client.set(
@@ -182,13 +186,17 @@ async def test_ai_client_del_key(spin_up_ahnlich_ai):
         )
 
         entries = [
-            ai_query.StoreEntry(
+            keyval.AiStoreEntry(
                 key=keyval.StoreInput(raw_string="Jordan One"),
-                value={"brand": metadata.MetadataValue(raw_string="Nike")},
+                value=keyval.StoreValue(
+                    value={"brand": metadata.MetadataValue(raw_string="Nike")}
+                ),
             ),
-            ai_query.StoreEntry(
+            keyval.AiStoreEntry(
                 key=keyval.StoreInput(raw_string="Yeezey"),
-                value={"brand": metadata.MetadataValue(raw_string="Adidas")},
+                value=keyval.StoreValue(
+                    value={"brand": metadata.MetadataValue(raw_string="Adidas")}
+                ),
             ),
         ]
         await client.set(
@@ -223,9 +231,9 @@ async def test_ai_client_get_key(spin_up_ahnlich_ai):
         )
 
         entries = [
-            ai_query.StoreEntry(
+            keyval.AiStoreEntry(
                 key=keyval.StoreInput(raw_string="Jordan One"),
-                value={},
+                value=keyval.StoreValue(value={}),
             )
         ]
         await client.set(
@@ -325,13 +333,15 @@ async def test_ai_pipeline_multiple_operations(spin_up_ahnlich_ai):
                     set=ai_query.Set(
                         store=ai_store_payload_with_predicates["store"],
                         inputs=[
-                            ai_query.StoreEntry(
+                            keyval.AiStoreEntry(
                                 key=keyval.StoreInput(raw_string="Product1"),
-                                value={
-                                    "category": metadata.MetadataValue(
-                                        raw_string="Electronics"
-                                    )
-                                },
+                                value=keyval.StoreValue(
+                                    value={
+                                        "category": metadata.MetadataValue(
+                                            raw_string="Electronics"
+                                        )
+                                    }
+                                ),
                             )
                         ],
                         preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
@@ -367,13 +377,15 @@ async def test_ai_pipeline_with_error(spin_up_ahnlich_ai):
                     set=ai_query.Set(
                         store="nonexistent_store",
                         inputs=[
-                            ai_query.StoreEntry(
+                            keyval.AiStoreEntry(
                                 key=keyval.StoreInput(raw_string="Product1"),
-                                value={
-                                    "category": metadata.MetadataValue(
-                                        raw_string="Electronics"
-                                    )
-                                },
+                                value=keyval.StoreValue(
+                                    value={
+                                        "category": metadata.MetadataValue(
+                                            raw_string="Electronics"
+                                        )
+                                    }
+                                ),
                             )
                         ],
                     )

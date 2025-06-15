@@ -332,7 +332,7 @@ mod test {
             query::CreateStore,
             server::{GetSimNEntry, StoreInfo},
         },
-        keyval::{StoreEntry, StoreKey, StoreValue},
+        keyval::{DbStoreEntry, StoreKey, StoreValue},
         metadata::{metadata_value::Value, MetadataValue},
         shared::info::ErrorResponse,
         similarity::Similarity,
@@ -458,7 +458,7 @@ mod test {
         let set_key_params = Set {
             store: "Main".to_string(),
             inputs: vec![
-                StoreEntry {
+                DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![1.2, 1.3, 1.4],
                     }),
@@ -471,7 +471,7 @@ mod test {
                         )]),
                     }),
                 },
-                StoreEntry {
+                DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![2.0, 2.1, 2.2],
                     }),
@@ -484,7 +484,7 @@ mod test {
                         )]),
                     }),
                 },
-                StoreEntry {
+                DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![5.0, 5.1, 5.2],
                     }),
@@ -749,7 +749,7 @@ mod test {
         let set_key_params = Set {
             store: "Main".to_string(),
             inputs: vec![
-                StoreEntry {
+                DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![1.0, 1.1, 1.2, 1.3],
                     }),
@@ -757,7 +757,7 @@ mod test {
                         value: HashMap::new(),
                     }),
                 },
-                StoreEntry {
+                DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![1.1, 1.2, 1.3, 1.4],
                     }),
@@ -845,7 +845,7 @@ mod test {
         let set_key_params = Set {
             store: "Main".to_string(),
             inputs: vec![
-                StoreEntry {
+                DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![1.2, 1.3, 1.4],
                     }),
@@ -858,7 +858,7 @@ mod test {
                         )]),
                     }),
                 },
-                StoreEntry {
+                DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![2.0, 2.1, 2.2],
                     }),
@@ -872,7 +872,7 @@ mod test {
                         )]),
                     }),
                 },
-                StoreEntry {
+                DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![5.0, 5.1, 5.2],
                     }),

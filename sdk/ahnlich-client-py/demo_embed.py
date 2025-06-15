@@ -68,9 +68,11 @@ class Text2TextDemo:
         ]
 
         entries = [
-            ai_query.StoreEntry(
+            keyval.AiStoreEntry(
                 key=keyval.StoreInput(raw_string=snippet),
-                value={"sport": metadata.MetadataValue(raw_string=sport)},
+                value=keyval.StoreValue(
+                    value={"sport": metadata.MetadataValue(raw_string=sport)}
+                ),
             )
             for snippet, sport in snippets_and_sports
         ]
@@ -140,9 +142,13 @@ class VeryShortText2TextDemo:
         ]
 
         entries = [
-            ai_query.StoreEntry(
+            keyval.AiStoreEntry(
                 key=keyval.StoreInput(raw_string=snippet),
-                value={"citizenship": metadata.MetadataValue(raw_string=citizenship)},
+                value=keyval.StoreValue(
+                    value={
+                        "citizenship": metadata.MetadataValue(raw_string=citizenship)
+                    }
+                ),
             )
             for snippet, citizenship in snippets_and_citizenship
         ]
@@ -251,9 +257,11 @@ class Text2ImageDemo:
         # Process images and create store_inputs
 
         entries = [
-            ai_query.StoreEntry(
+            keyval.AiStoreEntry(
                 key=keyval.StoreInput(image=url_to_buffer(url)),
-                value={"brand": metadata.MetadataValue(raw_string=name)},
+                value=keyval.StoreValue(
+                    value={"brand": metadata.MetadataValue(raw_string=name)}
+                ),
             )
             for url, name in image_urls_and_athletes
         ]
@@ -335,9 +343,11 @@ class Image2ImageDemo:
         ]
 
         entries = [
-            ai_query.StoreEntry(
+            keyval.AiStoreEntry(
                 key=keyval.StoreInput(image=url_to_buffer(url)),
-                value={"label": metadata.MetadataValue(raw_string=label)},
+                value=keyval.StoreValue(
+                    value={"label": metadata.MetadataValue(raw_string=label)}
+                ),
             )
             for url, label in image_urls_and_labels
         ]

@@ -46,7 +46,7 @@ class Set(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class Get(betterproto.Message):
-    entries: List["__keyval__.StoreEntry"] = betterproto.message_field(1)
+    entries: List["__keyval__.DbStoreEntry"] = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)

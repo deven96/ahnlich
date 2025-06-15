@@ -184,4 +184,4 @@ class Set(betterproto.Message):
     """
 
     store: str = betterproto.string_field(1)
-    inputs: List["__keyval__.StoreEntry"] = betterproto.message_field(2)
+    inputs: List["__keyval__.DbStoreEntry"] = betterproto.message_field(2)

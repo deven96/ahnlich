@@ -2,8 +2,7 @@ use crate::array::parse_f32_array;
 use crate::error::DslError;
 use crate::parser::Rule;
 use ahnlich_types::{
-    ai::query::StoreEntry,
-    keyval::{store_input, StoreEntry as KvStoreEntry, StoreInput, StoreValue},
+    keyval::{store_input, AiStoreEntry, DbStoreEntry, StoreInput, StoreValue},
     metadata::{metadata_value::Value, MetadataValue},
 };
 use pest::iterators::Pair;
@@ -62,7 +61,7 @@ pub(crate) fn parse_metadata_values(pair: Pair<Rule>) -> Result<Vec<MetadataValu
     Ok(values)
 }
 
-fn parse_into_store_key_and_value(pair: Pair<Rule>) -> Result<KvStoreEntry, DslError> {
+fn parse_into_store_key_and_value(pair: Pair<Rule>) -> Result<DbStoreEntry, DslError> {
     let start_pos = pair.as_span().start_pos().pos();
     let end_pos = pair.as_span().end_pos().pos();
 
@@ -91,7 +90,7 @@ fn parse_into_store_key_and_value(pair: Pair<Rule>) -> Result<KvStoreEntry, DslE
         )?;
         store_value_map.insert(key, MetadataValue { value: Some(value) });
     }
-    Ok(KvStoreEntry {
+    Ok(DbStoreEntry {
         key: Some(f32_array),
         value: Some(StoreValue {
             value: store_value_map,
@@ -140,13 +139,13 @@ fn parse_into_store_input_and_value(
 
 pub(crate) fn parse_store_inputs_to_store_value(
     pair: Pair<Rule>,
-) -> Result<Vec<StoreEntry>, DslError> {
+) -> Result<Vec<AiStoreEntry>, DslError> {
     let mut values = vec![];
     for value_pair in pair.into_inner() {
         let (key, value) = parse_into_store_input_and_value(value_pair)?;
-        values.push(StoreEntry {
+        values.push(AiStoreEntry {
             key: Some(key),
-            value: value.value,
+            value: Some(StoreValue { value: value.value }),
         });
     }
     Ok(values)
@@ -154,7 +153,7 @@ pub(crate) fn parse_store_inputs_to_store_value(
 
 pub(crate) fn parse_store_keys_to_store_value(
     pair: Pair<Rule>,
-) -> Result<Vec<KvStoreEntry>, DslError> {
+) -> Result<Vec<DbStoreEntry>, DslError> {
     let mut values = vec![];
     for value_pair in pair.into_inner() {
         values.push(parse_into_store_key_and_value(value_pair)?);

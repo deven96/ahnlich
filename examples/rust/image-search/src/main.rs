@@ -8,7 +8,7 @@ use ahnlich_client_rs::ai::AiClient;
 use ahnlich_types::{
     ai::query::{CreateStore, GetSimN, Set},
     algorithm::algorithms::Algorithm,
-    keyval::{store_input::Value, StoreInput},
+    keyval::{store_input::Value, AiStoreEntry, StoreInput, StoreValue},
 };
 
 use ahnlich_types::metadata::{metadata_value::Value as MValue, MetadataValue};
@@ -85,16 +85,18 @@ async fn index_mode() {
             file.read_to_end(&mut contents)
                 .expect("Could not read file contents");
 
-            inputs.push(ahnlich_types::ai::query::StoreEntry {
+            inputs.push(AiStoreEntry {
                 key: Some(StoreInput {
                     value: Some(Value::Image(contents)),
                 }),
-                value: HashMap::from_iter([(
-                    "filename".to_string(),
-                    MetadataValue {
-                        value: Some(MValue::RawString(format!("{:?}", path))),
-                    },
-                )]),
+                value: Some(StoreValue {
+                    value: HashMap::from_iter([(
+                        "filename".to_string(),
+                        MetadataValue {
+                            value: Some(MValue::RawString(format!("{:?}", path))),
+                        },
+                    )]),
+                }),
             });
         }
     }

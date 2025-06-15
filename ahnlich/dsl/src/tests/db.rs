@@ -9,7 +9,7 @@ use ahnlich_types::{
             InfoServer, ListClients, ListStores, Ping, Set,
         },
     },
-    keyval::{StoreEntry, StoreKey, StoreValue},
+    keyval::{DbStoreEntry, StoreKey, StoreValue},
     metadata::{metadata_value::Value, MetadataValue},
     predicates::{
         predicate::Kind as PredicateKind, predicate_condition::Kind, Equals, In, NotEquals, NotIn,
@@ -335,7 +335,7 @@ fn test_set_in_store_parse() {
         vec![DBQuery::Set(Set {
             store: "geo".to_string(),
             inputs: vec![
-                StoreEntry {
+                DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![1.0, 2.0, 3.0]
                     }),
@@ -356,7 +356,7 @@ fn test_set_in_store_parse() {
                         ])
                     })
                 },
-                StoreEntry {
+                DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![3.2, 4.5, 9.4]
                     }),

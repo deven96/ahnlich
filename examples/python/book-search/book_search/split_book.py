@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 from ebooklib import epub
 
 from ahnlich_client_py.grpc import keyval, metadata
-from ahnlich_client_py.grpc.ai import query as ai_query
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 EPUB_FILE = BASE_DIR / "book_search" / "animal_farm.epub"
@@ -28,7 +27,7 @@ def split_into_chapters(book):
             text = p.text.strip().replace("\n", "")
             if text:
                 paragraphs.append(
-                    ai_query.StoreEntry(
+                    keyval.AiStoreEntry(
                         key=keyval.StoreInput(raw_string=text),
                         value={
                                 "chapter": metadata.MetadataValue(
@@ -44,6 +43,6 @@ def split_into_chapters(book):
     return paragraphs
 
 
-def get_book() -> list[keyval.StoreEntry]:
+def get_book() -> list[keyval.AiStoreEntry]:
     book = load_epub(EPUB_FILE)
     return split_into_chapters(book)

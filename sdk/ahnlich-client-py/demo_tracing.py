@@ -37,7 +37,9 @@ def generate_store_inputs(n, text_len):
     return [
         (
             keyval.StoreInput(raw_string=generate_string(text_len)),
-            {"brand": metadata.MetadataValue(raw_string="Nike")},
+            keyval.StoreValue(
+                value={"brand": metadata.MetadataValue(raw_string="Nike")}
+            ),
         )
         for _ in range(n)
     ]
@@ -71,7 +73,7 @@ class AhnlichTracingDemo:
 
     async def run(self):
         entries = [
-            ai_query.StoreEntry(key=input_, value=value)
+            keyval.AiStoreEntry(key=input_, value=value)
             for input_, value in generate_store_inputs(100, 16)
         ]
 

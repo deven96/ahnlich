@@ -199,7 +199,7 @@ pub struct Set {
     pub store: ::prost::alloc::string::String,
     /// List of entries to set
     #[prost(message, repeated, tag = "2")]
-    pub inputs: ::prost::alloc::vec::Vec<StoreEntry>,
+    pub inputs: ::prost::alloc::vec::Vec<super::super::keyval::AiStoreEntry>,
     /// Preprocessing action to apply to inputs before setting
     #[prost(enumeration = "super::preprocess::PreprocessAction", tag = "3")]
     pub preprocess_action: i32,
@@ -210,18 +210,4 @@ pub struct Set {
         tag = "4"
     )]
     pub execution_provider: ::core::option::Option<i32>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct StoreEntry {
-    /// A single entry in the store
-    ///
-    /// Key of the entry
-    #[prost(message, optional, tag = "1")]
-    pub key: ::core::option::Option<super::super::keyval::StoreInput>,
-    /// Metadata associated with the key
-    #[prost(map = "string, message", tag = "2")]
-    pub value: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        super::super::metadata::MetadataValue,
-    >,
 }

@@ -179,5 +179,5 @@ pub struct Set {
     pub store: ::prost::alloc::string::String,
     /// The key-value entries to set in the store.
     #[prost(message, repeated, tag = "2")]
-    pub inputs: ::prost::alloc::vec::Vec<super::super::keyval::StoreEntry>,
+    pub inputs: ::prost::alloc::vec::Vec<super::super::keyval::DbStoreEntry>,
 }

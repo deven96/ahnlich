@@ -22,9 +22,15 @@ message StoreInput {
 
 }
 
-// A single entry for a store containing a key and its associated metadata values.
-message StoreEntry {
+// A single entry for a store containing embedding key and its associated metadata values.
+message DbStoreEntry {
     StoreKey key = 1;
+    StoreValue value = 2;
+}
+
+// A single entry for a store containing raw key and its associated metadata values.
+message AiStoreEntry {
+    StoreInput key = 1;
     StoreValue value = 2;
 }
 

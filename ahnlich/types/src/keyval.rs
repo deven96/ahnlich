@@ -26,11 +26,19 @@ pub mod store_input {
         Image(::prost::alloc::vec::Vec<u8>),
     }
 }
-/// A single entry for a store containing a key and its associated metadata values.
+/// A single entry for a store containing embedding key and its associated metadata values.
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct StoreEntry {
+pub struct DbStoreEntry {
     #[prost(message, optional, tag = "1")]
     pub key: ::core::option::Option<StoreKey>,
+    #[prost(message, optional, tag = "2")]
+    pub value: ::core::option::Option<StoreValue>,
+}
+/// A single entry for a store containing raw key and its associated metadata values.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AiStoreEntry {
+    #[prost(message, optional, tag = "1")]
+    pub key: ::core::option::Option<StoreInput>,
     #[prost(message, optional, tag = "2")]
     pub value: ::core::option::Option<StoreValue>,
 }

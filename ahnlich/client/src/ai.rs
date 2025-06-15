@@ -328,10 +328,9 @@ mod test {
     use ahnlich_types::ai::models::AiModel;
     use ahnlich_types::ai::pipeline::AiServerResponse;
     use ahnlich_types::ai::preprocess::PreprocessAction;
-    use ahnlich_types::ai::query::StoreEntry;
     use ahnlich_types::ai::server::{AiStoreInfo, GetEntry};
     use ahnlich_types::keyval::store_input::Value;
-    use ahnlich_types::keyval::{StoreInput, StoreValue};
+    use ahnlich_types::keyval::{AiStoreEntry, StoreInput, StoreValue};
     use ahnlich_types::metadata::{metadata_value::Value as MValue, MetadataValue};
     use ahnlich_types::shared::info::{ErrorResponse, StoreUpsert};
     use once_cell::sync::Lazy;
@@ -560,17 +559,21 @@ mod test {
             execution_provider: None,
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
             inputs: vec![
-                StoreEntry {
+                AiStoreEntry {
                     key: Some(StoreInput {
                         value: Some(Value::RawString("Adidas Yeezy".into())),
                     }),
-                    value: HashMap::new(),
+                    value: Some(StoreValue {
+                        value: HashMap::new(),
+                    }),
                 },
-                StoreEntry {
+                AiStoreEntry {
                     key: Some(StoreInput {
                         value: Some(Value::RawString("Nike Air Jordans".into())),
                     }),
-                    value: HashMap::new(),
+                    value: Some(StoreValue {
+                        value: HashMap::new(),
+                    }),
                 },
             ],
         };
@@ -727,23 +730,23 @@ mod test {
         };
 
         let store_data = vec![
-            StoreEntry {
+            AiStoreEntry {
                 key: Some(StoreInput {
                     value: Some(Value::RawString("Air Force 1 Retro Boost".into())),
                 }),
-                value: nike_store_value.clone().value,
+                value: Some(nike_store_value.clone()),
             },
-            StoreEntry {
+            AiStoreEntry {
                 key: Some(StoreInput {
                     value: Some(Value::RawString("Jordan".into())),
                 }),
-                value: nike_store_value.clone().value,
+                value: Some(nike_store_value.clone()),
             },
-            StoreEntry {
+            AiStoreEntry {
                 key: Some(StoreInput {
                     value: Some(Value::RawString("Yeezy".into())),
                 }),
-                value: adidas_store_value.clone().value,
+                value: Some(adidas_store_value.clone()),
             },
         ];
 
@@ -894,34 +897,36 @@ mod test {
         };
 
         let store_data = vec![
-            StoreEntry {
+            AiStoreEntry {
                 key: Some(StoreInput {
                     value: Some(Value::Image(
                         include_bytes!("../../ai/src/tests/images/dog.jpg").to_vec(),
                     )),
                 }),
-                value: HashMap::from_iter([(
-                    matching_metadatakey.clone(),
-                    MetadataValue {
-                        value: Some(MValue::RawString("Greatness".into())),
-                    },
-                )]),
+                value: Some(StoreValue {
+                    value: HashMap::from_iter([(
+                        matching_metadatakey.clone(),
+                        MetadataValue {
+                            value: Some(MValue::RawString("Greatness".into())),
+                        },
+                    )]),
+                }),
             },
-            StoreEntry {
+            AiStoreEntry {
                 key: Some(StoreInput {
                     value: Some(Value::Image(
                         include_bytes!("../../ai/src/tests/images/test.webp").to_vec(),
                     )),
                 }),
-                value: store_value_2.clone().value,
+                value: Some(store_value_2.clone()),
             },
-            StoreEntry {
+            AiStoreEntry {
                 key: Some(StoreInput {
                     value: Some(Value::Image(
                         include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
                     )),
                 }),
-                value: store_value_1.clone().value,
+                value: Some(store_value_1.clone()),
             },
         ];
 

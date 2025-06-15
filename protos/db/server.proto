@@ -28,7 +28,7 @@ message Set {
 }
 
 message Get {
-  repeated keyval.StoreEntry entries = 1;
+  repeated keyval.DbStoreEntry entries = 1;
 }
 
 message GetSimNEntry {
@@ -63,7 +63,6 @@ message ServerResponse {
     CreateIndex create_index = 10;
   }
 }
-// FIXME: move to shared folder
 
 message StoreInfo {
   string name = 1;

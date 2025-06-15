@@ -28,12 +28,22 @@ class StoreInput(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class StoreEntry(betterproto.Message):
+class DbStoreEntry(betterproto.Message):
     """
-    A single entry for a store containing a key and its associated metadata values.
+    A single entry for a store containing embedding key and its associated metadata values.
     """
 
     key: "StoreKey" = betterproto.message_field(1)
+    value: "StoreValue" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class AiStoreEntry(betterproto.Message):
+    """
+    A single entry for a store containing raw key and its associated metadata values.
+    """
+
+    key: "StoreInput" = betterproto.message_field(1)
     value: "StoreValue" = betterproto.message_field(2)
 
 

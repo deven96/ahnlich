@@ -2,7 +2,7 @@ use crate::server::handler::Server;
 use crate::{cli::ServerConfig, errors::ServerError};
 use ahnlich_types::algorithm::algorithms::Algorithm;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
-use ahnlich_types::keyval::{StoreEntry, StoreKey, StoreValue};
+use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreValue};
 use ahnlich_types::metadata::metadata_value::Value as MetadataValueEnum;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicates::{
@@ -339,7 +339,7 @@ async fn test_del_pred() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.4, 1.5],
                         }),
@@ -352,7 +352,7 @@ async fn test_del_pred() {
                             )]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.6, 1.7],
                         }),
@@ -486,7 +486,7 @@ async fn test_del_pred() {
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Get(
                 db_response_types::Get {
-                    entries: vec![StoreEntry {
+                    entries: vec![DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.6, 1.7],
                         }),
@@ -575,7 +575,7 @@ async fn test_del_key() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.0, 1.1, 1.2, 1.3],
                         }),
@@ -583,7 +583,7 @@ async fn test_del_key() {
                             value: HashMap::new(),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.1, 1.2, 1.3, 1.4],
                         }),
@@ -761,7 +761,7 @@ async fn test_server_with_persistence() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.0, 1.1, 1.2, 1.3],
                         }),
@@ -769,7 +769,7 @@ async fn test_server_with_persistence() {
                             value: HashMap::new(),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.1, 1.2, 1.3, 1.4],
                         }),
@@ -990,7 +990,7 @@ async fn test_server_with_persistence() {
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Get(
                 db_response_types::Get {
-                    entries: vec![StoreEntry {
+                    entries: vec![DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.1, 1.2, 1.3, 1.4],
                         }),
@@ -1057,7 +1057,7 @@ async fn test_set_in_store() {
         db_pipeline::DbQuery {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
-                inputs: vec![StoreEntry {
+                inputs: vec![DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![1.23, 1.0, 0.2],
                     }),
@@ -1071,7 +1071,7 @@ async fn test_set_in_store() {
         db_pipeline::DbQuery {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
-                inputs: vec![StoreEntry {
+                inputs: vec![DbStoreEntry {
                     key: Some(StoreKey {
                         key: vec![2.1], // 1 dimension vs store's 3
                     }),
@@ -1086,7 +1086,7 @@ async fn test_set_in_store() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.23, 1.0, 0.2],
                         }),
@@ -1099,7 +1099,7 @@ async fn test_set_in_store() {
                             )]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![0.03, 5.1, 3.23],
                         }),
@@ -1226,7 +1226,7 @@ async fn test_remove_non_linear_indices() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.2, 1.3, 1.4],
                         }),
@@ -1239,7 +1239,7 @@ async fn test_remove_non_linear_indices() {
                             )]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![2.0, 2.1, 2.2],
                         }),
@@ -1252,7 +1252,7 @@ async fn test_remove_non_linear_indices() {
                             )]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![5.0, 5.1, 5.2],
                         }),
@@ -1468,7 +1468,7 @@ async fn test_get_sim_n_non_linear() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.2, 1.3, 1.4],
                         }),
@@ -1481,7 +1481,7 @@ async fn test_get_sim_n_non_linear() {
                             )]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![2.0, 2.1, 2.2],
                         }),
@@ -1494,7 +1494,7 @@ async fn test_get_sim_n_non_linear() {
                             )]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![5.0, 5.1, 5.2],
                         }),
@@ -1678,7 +1678,7 @@ async fn test_get_sim_n() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.2, 1.3, 1.4],
                         }),
@@ -1691,7 +1691,7 @@ async fn test_get_sim_n() {
                             )]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![2.0, 2.1, 2.2],
                         }),
@@ -1704,7 +1704,7 @@ async fn test_get_sim_n() {
                             )]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![5.0, 5.1, 5.2],
                         }),
@@ -2046,7 +2046,7 @@ async fn test_get_pred() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.2, 1.3, 1.4],
                         }),
@@ -2059,7 +2059,7 @@ async fn test_get_pred() {
                             )]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.3, 1.4, 1.5],
                         }),
@@ -2170,7 +2170,7 @@ async fn test_get_pred() {
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Get(
                 db_response_types::Get {
-                    entries: vec![StoreEntry {
+                    entries: vec![DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.3, 1.4, 1.5],
                         }),
@@ -2189,7 +2189,7 @@ async fn test_get_pred() {
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Get(
                 db_response_types::Get {
-                    entries: vec![StoreEntry {
+                    entries: vec![DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.2, 1.3, 1.4],
                         }),
@@ -2253,7 +2253,7 @@ async fn test_get_key() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.0, 0.2],
                         }),
@@ -2266,7 +2266,7 @@ async fn test_get_key() {
                             )]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.2, 0.3],
                         }),
@@ -2391,7 +2391,7 @@ async fn test_get_key() {
             response: Some(db_pipeline::db_server_response::Response::Get(
                 db_response_types::Get {
                     entries: vec![
-                        StoreEntry {
+                        DbStoreEntry {
                             key: Some(StoreKey {
                                 key: vec![1.2, 0.3],
                             }),
@@ -2404,7 +2404,7 @@ async fn test_get_key() {
                                 )]),
                             }),
                         },
-                        StoreEntry {
+                        DbStoreEntry {
                             key: Some(StoreKey {
                                 key: vec![1.0, 0.2],
                             }),
@@ -2482,7 +2482,7 @@ async fn test_create_pred_index() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.4, 1.5],
                         }),
@@ -2507,7 +2507,7 @@ async fn test_create_pred_index() {
                             ]),
                         }),
                     },
-                    StoreEntry {
+                    DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.6, 1.7],
                         }),
@@ -2674,7 +2674,7 @@ async fn test_create_pred_index() {
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Get(
                 db_response_types::Get {
-                    entries: vec![StoreEntry {
+                    entries: vec![DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.6, 1.7],
                         }),
@@ -2703,7 +2703,7 @@ async fn test_create_pred_index() {
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Get(
                 db_response_types::Get {
-                    entries: vec![StoreEntry {
+                    entries: vec![DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.4, 1.5],
                         }),
@@ -2734,7 +2734,7 @@ async fn test_create_pred_index() {
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Get(
                 db_response_types::Get {
-                    entries: vec![StoreEntry {
+                    entries: vec![DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.6, 1.7],
                         }),
@@ -2763,7 +2763,7 @@ async fn test_create_pred_index() {
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Get(
                 db_response_types::Get {
-                    entries: vec![StoreEntry {
+                    entries: vec![DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.6, 1.7],
                         }),
@@ -2797,7 +2797,7 @@ async fn test_create_pred_index() {
         db_pipeline::DbServerResponse {
             response: Some(db_pipeline::db_server_response::Response::Get(
                 db_response_types::Get {
-                    entries: vec![StoreEntry {
+                    entries: vec![DbStoreEntry {
                         key: Some(StoreKey {
                             key: vec![1.4, 1.5],
                         }),

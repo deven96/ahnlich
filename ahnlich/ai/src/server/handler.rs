@@ -378,7 +378,16 @@ impl AiService for AIProxyServer {
                 params
                     .inputs
                     .into_par_iter()
-                    .flat_map(|a| a.key.map(|b| (b, StoreValue { value: a.value })))
+                    .flat_map(|a| {
+                        a.key.map(|b| {
+                            (
+                                b,
+                                StoreValue {
+                                    value: a.value.map(|val| val.value).unwrap_or_default(),
+                                },
+                            )
+                        })
+                    })
                     .collect(),
                 model_manager,
                 TryInto::<PreprocessAction>::try_into(params.preprocess_action)

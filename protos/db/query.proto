@@ -111,5 +111,5 @@ message Ping {}
 // Validation is done for each vector before updating the store.
 message Set {
   string store = 1; // The name of the store.
-  repeated keyval.StoreEntry inputs = 2; // The key-value entries to set in the store.
+  repeated keyval.DbStoreEntry inputs = 2; // The key-value entries to set in the store.
 }

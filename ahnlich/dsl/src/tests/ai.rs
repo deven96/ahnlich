@@ -8,11 +8,13 @@ use ahnlich_types::{
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
             DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetPred, GetSimN, InfoServer,
-            ListStores, Ping, PurgeStores, Set, StoreEntry,
+            ListStores, Ping, PurgeStores, Set,
         },
     },
     algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
-    keyval::{store_input::Value as StoreValue, StoreInput},
+    keyval::{
+        store_input::Value as StoreValue, AiStoreEntry, StoreInput, StoreValue as KvStoreValue,
+    },
     metadata::{metadata_value::Value, MetadataValue},
     predicates::{
         predicate::Kind as PredicateKind, predicate_condition::Kind, Equals, In, NotEquals, NotIn,
@@ -427,47 +429,51 @@ fn test_set_in_store_parse() {
         vec![AiQuery::Set(Set {
             store: "geo".to_string(),
             inputs: vec![
-                StoreEntry {
+                AiStoreEntry {
                     key: Some(StoreInput {
                         value: Some(StoreValue::RawString(
                             "This is the life of Haks paragraphed".to_string()
                         ))
                     }),
-                    value: HashMap::from_iter([
-                        (
-                            "name".to_string(),
-                            MetadataValue {
-                                value: Some(Value::RawString("Haks".to_string()))
-                            }
-                        ),
-                        (
-                            "category".to_string(),
-                            MetadataValue {
-                                value: Some(Value::RawString("dev".to_string()))
-                            }
-                        ),
-                    ])
+                    value: Some(KvStoreValue {
+                        value: HashMap::from_iter([
+                            (
+                                "name".to_string(),
+                                MetadataValue {
+                                    value: Some(Value::RawString("Haks".to_string()))
+                                }
+                            ),
+                            (
+                                "category".to_string(),
+                                MetadataValue {
+                                    value: Some(Value::RawString("dev".to_string()))
+                                }
+                            ),
+                        ])
+                    }),
                 },
-                StoreEntry {
+                AiStoreEntry {
                     key: Some(StoreInput {
                         value: Some(StoreValue::RawString(
                             "This is the life of Deven paragraphed".to_string()
                         ))
                     }),
-                    value: HashMap::from_iter([
-                        (
-                            "name".to_string(),
-                            MetadataValue {
-                                value: Some(Value::RawString("Deven".to_string()))
-                            }
-                        ),
-                        (
-                            "category".to_string(),
-                            MetadataValue {
-                                value: Some(Value::RawString("dev".to_string()))
-                            }
-                        ),
-                    ])
+                    value: Some(KvStoreValue {
+                        value: HashMap::from_iter([
+                            (
+                                "name".to_string(),
+                                MetadataValue {
+                                    value: Some(Value::RawString("Deven".to_string()))
+                                }
+                            ),
+                            (
+                                "category".to_string(),
+                                MetadataValue {
+                                    value: Some(Value::RawString("dev".to_string()))
+                                }
+                            ),
+                        ])
+                    })
                 }
             ],
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
@@ -480,47 +486,51 @@ fn test_set_in_store_parse() {
         vec![AiQuery::Set(Set {
             store: "geo".to_string(),
             inputs: vec![
-                StoreEntry {
+                AiStoreEntry {
                     key: Some(StoreInput {
                         value: Some(StoreValue::RawString(
                             "This is the life of Haks paragraphed".to_string()
                         ))
                     }),
-                    value: HashMap::from_iter([
-                        (
-                            "name".to_string(),
-                            MetadataValue {
-                                value: Some(Value::RawString("Haks".to_string()))
-                            }
-                        ),
-                        (
-                            "category".to_string(),
-                            MetadataValue {
-                                value: Some(Value::RawString("dev".to_string()))
-                            }
-                        ),
-                    ])
+                    value: Some(KvStoreValue {
+                        value: HashMap::from_iter([
+                            (
+                                "name".to_string(),
+                                MetadataValue {
+                                    value: Some(Value::RawString("Haks".to_string()))
+                                }
+                            ),
+                            (
+                                "category".to_string(),
+                                MetadataValue {
+                                    value: Some(Value::RawString("dev".to_string()))
+                                }
+                            ),
+                        ])
+                    })
                 },
-                StoreEntry {
+                AiStoreEntry {
                     key: Some(StoreInput {
                         value: Some(StoreValue::RawString(
                             "This is the life of Deven paragraphed".to_string()
                         ))
                     }),
-                    value: HashMap::from_iter([
-                        (
-                            "name".to_string(),
-                            MetadataValue {
-                                value: Some(Value::RawString("Deven".to_string()))
-                            }
-                        ),
-                        (
-                            "category".to_string(),
-                            MetadataValue {
-                                value: Some(Value::RawString("dev".to_string()))
-                            }
-                        ),
-                    ])
+                    value: Some(KvStoreValue {
+                        value: HashMap::from_iter([
+                            (
+                                "name".to_string(),
+                                MetadataValue {
+                                    value: Some(Value::RawString("Deven".to_string()))
+                                }
+                            ),
+                            (
+                                "category".to_string(),
+                                MetadataValue {
+                                    value: Some(Value::RawString("dev".to_string()))
+                                }
+                            ),
+                        ])
+                    })
                 }
             ],
             preprocess_action: PreprocessAction::NoPreprocessing as i32,

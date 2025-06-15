@@ -9,7 +9,7 @@ use ahnlich_types::ai::models::AiStoreInputType;
 use ahnlich_types::ai::preprocess::PreprocessAction;
 use ahnlich_types::ai::server::AiStoreInfo;
 use ahnlich_types::ai::server::GetEntry;
-use ahnlich_types::keyval::StoreEntry;
+use ahnlich_types::keyval::DbStoreEntry;
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
@@ -40,7 +40,7 @@ pub struct AIStoreHandler {
 
 pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
 
-type StoreSetResponse = (Vec<StoreEntry>, Option<StdHashSet<MetadataValue>>);
+type StoreSetResponse = (Vec<DbStoreEntry>, Option<StdHashSet<MetadataValue>>);
 type StoreValidateResponse = (
     Vec<(StoreInput, StoreValue)>,
     Option<StdHashSet<MetadataValue>>,
@@ -277,7 +277,7 @@ impl AIStoreHandler {
             .await?;
 
         let output = std::iter::zip(store_keys.into_iter(), store_values.into_iter())
-            .map(|(k, v)| StoreEntry {
+            .map(|(k, v)| DbStoreEntry {
                 key: Some(k),
                 value: Some(v),
             })
@@ -286,7 +286,10 @@ impl AIStoreHandler {
     }
 
     #[tracing::instrument(skip(self, input), fields(input_len=input.len()))]
-    pub(crate) fn db_store_entry_to_store_get_key(&self, input: Vec<StoreEntry>) -> Vec<GetEntry> {
+    pub(crate) fn db_store_entry_to_store_get_key(
+        &self,
+        input: Vec<DbStoreEntry>,
+    ) -> Vec<GetEntry> {
         input
             .into_par_iter()
             .flat_map(|store_entry| {
