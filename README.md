@@ -172,8 +172,8 @@ services:
 
 ### Execution Providers (Ahnlich AI)
 
-`CUDA`: Only supports >= CUDAv12 and might need to `sudo apt install libcudnn9-dev-cuda-12`
-`CoreML (Apple)`: Not advised for NLP models due to often large dimensionality.
+- `CUDA`: Only supports >= CUDAv12 and might need to `sudo apt install libcudnn9-dev-cuda-12`
+- `CoreML (Apple)`: Not advised for NLP models due to often large dimensionality.
 
 ### Contributing
 
