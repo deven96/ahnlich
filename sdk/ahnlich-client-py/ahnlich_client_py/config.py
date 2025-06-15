@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 HEADER = b"AHNLICH;"
+TRACE_HEADER: str = "ahnlich-trace-id"
 BUFFER_SIZE = 1024
 PACKAGE_NAME = "ahnlich-client-py"
 BASE_DIR = Path(__file__).resolve().parent.parent

@@ -1,8 +1,9 @@
+import asyncio
 import io
 import os
 from urllib.request import urlopen
 
-from ahnlich_client_py.grpc.ai.execution_provider import ExecutionProvider
+from grpclib.client import Channel
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
@@ -10,19 +11,18 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from PIL import Image
 
-import asyncio
-from grpclib.client import Channel
-
+from ahnlich_client_py import TRACE_HEADER
 from ahnlich_client_py.grpc import keyval, metadata
-from ahnlich_client_py.grpc.algorithm.algorithms import Algorithm
-from ahnlich_client_py.grpc.ai import query as ai_query, preprocess, pipeline
+from ahnlich_client_py.grpc.ai import pipeline, preprocess
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc.ai.execution_provider import ExecutionProvider
 from ahnlich_client_py.grpc.ai.models import AiModel
+from ahnlich_client_py.grpc.algorithm.algorithms import Algorithm
 from ahnlich_client_py.grpc.services import ai_service
 
 
-# TODO: pass tracing ID to request and use a pipeline request
 class Text2TextDemo:
-    def __init__(self):
+    def __init__(self, span_id: str | None = None):
         self.query_model = AiModel.ALL_MINI_LM_L6_V2
         self.index_model = AiModel.ALL_MINI_LM_L6_V2
         self.store_name = "The Sports Press Club"
@@ -30,24 +30,14 @@ class Text2TextDemo:
 
         self.channel = Channel(host="127.0.0.1", port=1370)
         self.client = ai_service.AiServiceStub(self.channel)
+        self.metadata: dict[str, str] | None = (
+            {TRACE_HEADER: span_id} if span_id else None
+        )
 
     async def close(self):
         self.channel.close()
 
     async def insert(self):
-        # Step 1: Create store
-        await self.client.create_store(
-            ai_query.CreateStore(
-                store=self.store_name,
-                query_model=self.query_model,
-                index_model=self.index_model,
-                predicates=self.predicates,
-                error_if_exists=True,
-                store_original=True,
-            )
-        )
-
-        # Step 2: Prepare input entries
         snippets_and_sports = [
             (
                 "Manchester City secures a thrilling 2-1 victory over Liverpool in the Premier League, "
@@ -85,14 +75,28 @@ class Text2TextDemo:
             for snippet, sport in snippets_and_sports
         ]
 
-        # Step 3: Set entries
-        await self.client.set(
-            ai_query.Set(
-                store=self.store_name,
-                inputs=entries,
-                preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
-            )
+        pipeline_request = pipeline.AiRequestPipeline(
+            queries=[
+                pipeline.AiQuery(
+                    create_store=ai_query.CreateStore(
+                        store=self.store_name,
+                        query_model=self.query_model,
+                        index_model=self.index_model,
+                        predicates=self.predicates,
+                        error_if_exists=True,
+                        store_original=True,
+                    )
+                ),
+                pipeline.AiQuery(
+                    set=ai_query.Set(
+                        store=self.store_name,
+                        inputs=entries,
+                        preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+                    )
+                ),
+            ]
         )
+        return await self.client.pipeline(pipeline_request, metadata=self.metadata)
 
     async def query(self):
         # Step 4: Run similarity query
@@ -104,13 +108,14 @@ class Text2TextDemo:
                 ),
                 closest_n=3,
                 algorithm=Algorithm.CosineSimilarity,
-            )
+            ),
+            metadata=self.metadata,
         )
         return response
 
 
 class VeryShortText2TextDemo:
-    def __init__(self):
+    def __init__(self, span_id: str | None = None):
         self.query_model = AiModel.CLIP_VIT_B32_TEXT
         self.index_model = AiModel.CLIP_VIT_B32_TEXT
         self.store_name = "The Literary Collection"
@@ -118,24 +123,14 @@ class VeryShortText2TextDemo:
 
         self.channel = Channel(host="127.0.0.1", port=1370)
         self.client = ai_service.AiServiceStub(self.channel)
+        self.metadata: dict[str, str] | None = (
+            {TRACE_HEADER: span_id} if span_id else None
+        )
 
     async def close(self):
         self.channel.close()
 
     async def insert(self):
-        # Step 1: Create store
-        await self.client.create_store(
-            ai_query.CreateStore(
-                store=self.store_name,
-                query_model=self.query_model,
-                index_model=self.index_model,
-                predicates=self.predicates,
-                error_if_exists=True,
-                store_original=True,
-            )
-        )
-
-        # Step 2: Insert entries
         snippets_and_citizenship = [
             ("1984", "English"),
             ("Things Fall Apart", "Nigerian"),
@@ -152,27 +147,44 @@ class VeryShortText2TextDemo:
             for snippet, citizenship in snippets_and_citizenship
         ]
 
-        await self.client.set(
-            ai_query.Set(
-                store=self.store_name,
-                inputs=entries,
-                preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
-            )
+        pipeline_request = pipeline.AiRequestPipeline(
+            queries=[
+                pipeline.AiQuery(
+                    create_store=ai_query.CreateStore(
+                        store=self.store_name,
+                        query_model=self.query_model,
+                        index_model=self.index_model,
+                        predicates=self.predicates,
+                        error_if_exists=True,
+                        store_original=True,
+                    )
+                ),
+                pipeline.AiQuery(
+                    set=ai_query.Set(
+                        store=self.store_name,
+                        inputs=entries,
+                        preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+                    )
+                ),
+            ]
         )
+        return await self.client.pipeline(pipeline_request, metadata=self.metadata)
 
     async def query(self):
+
         response = await self.client.get_sim_n(
             ai_query.GetSimN(
                 store=self.store_name,
                 search_input=keyval.StoreInput(raw_string="Chinua Achebe"),
                 closest_n=3,
                 algorithm=Algorithm.CosineSimilarity,
-            )
+            ),
+            metadata=self.metadata,
         )
         return response
 
 
-def url_to_buffer(url):
+def url_to_buffer(url) -> bytes:
     """
     Converts an image URL or local file path to a buffer value.
     :param url: URL or file path of the image.
@@ -188,34 +200,27 @@ def url_to_buffer(url):
     buffer = io.BytesIO()
     image.save(buffer, format=image.format)
     buffer.seek(0)  # Reset the buffer pointer to the beginning
-    return buffer
+    return buffer.getvalue()
 
 
 class Text2ImageDemo:
-    def __init__(self):
+    def __init__(self, span_id: str | None = None):
         self.query_model = AiModel.CLIP_VIT_B32_TEXT
         self.index_model = AiModel.CLIP_VIT_B32_IMAGE
         self.store_name = "The Sports Image Collection"
         self.predicates = ["athlete"]
 
-    async def setup(self):
         self.channel = Channel(host="127.0.0.1", port=1370)
         self.client = ai_service.AiServiceStub(self.channel)
+
+        self.metadata: dict[str, str] | None = (
+            {TRACE_HEADER: span_id} if span_id else None
+        )
 
     async def close(self):
         self.channel.close()
 
     async def insert(self):
-        await self.client.create_store(
-            ai_query.CreateStore(
-                store=self.store_name,
-                query_model=self.query_model,
-                index_model=self.index_model,
-                predicates=self.predicates,
-                store_original=False,
-                error_if_exists=True,
-            )
-        )
 
         image_urls_and_athletes = [
             [
@@ -253,13 +258,28 @@ class Text2ImageDemo:
             for url, name in image_urls_and_athletes
         ]
 
-        await self.client.set(
-            ai_query.Set(
-                store=self.store_name,
-                inputs=entries,
-                preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
-            )
+        pipeline_request = pipeline.AiRequestPipeline(
+            queries=[
+                pipeline.AiQuery(
+                    create_store=ai_query.CreateStore(
+                        store=self.store_name,
+                        query_model=self.query_model,
+                        index_model=self.index_model,
+                        predicates=self.predicates,
+                        store_original=False,
+                        error_if_exists=True,
+                    )
+                ),
+                pipeline.AiQuery(
+                    set=ai_query.Set(
+                        store=self.store_name,
+                        inputs=entries,
+                        preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+                    )
+                ),
+            ]
         )
+        return await self.client.pipeline(pipeline_request, metadata=self.metadata)
 
     async def query(self):
         response = await self.client.get_sim_n(
@@ -268,36 +288,28 @@ class Text2ImageDemo:
                 search_input=keyval.StoreInput(raw_string="United States vs England"),
                 closest_n=3,
                 algorithm=Algorithm.CosineSimilarity,
-            )
+            ),
+            metadata=self.metadata,
         )
         return response
 
 
 class Image2ImageDemo:
-    def __init__(self, span_id):
+    def __init__(self, span_id: str | None):
         self.query_model = AiModel.CLIP_VIT_B32_IMAGE
         self.index_model = AiModel.CLIP_VIT_B32_IMAGE
         self.store_name = "The Jordan or Not Jordan Collection"
         self.predicates = ["label"]
-        self.trace_id = span_id  # Used as tracing_id in requests
-
         self.channel = Channel(host="127.0.0.1", port=1370)
         self.client = ai_service.AiServiceStub(self.channel)
+        self.metadata: dict[str, str] | None = (
+            {TRACE_HEADER: span_id} if span_id else None
+        )
 
     async def close(self):
         self.channel.close()
 
     async def insert(self):
-        await self.client.create_store(
-            ai_query.CreateStore(
-                store=self.store_name,
-                query_model=self.query_model,
-                index_model=self.index_model,
-                predicates=self.predicates,
-                store_original=False,
-                error_if_exists=True,
-            )
-        )
 
         image_urls_and_labels = [
             (
@@ -330,14 +342,29 @@ class Image2ImageDemo:
             for url, label in image_urls_and_labels
         ]
 
-        await self.client.set(
-            ai_query.Set(
-                store=self.store_name,
-                inputs=entries,
-                preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
-                execution_provider=ExecutionProvider.CUDA,
-            )
+        pipeline_request = pipeline.AiRequestPipeline(
+            queries=[
+                pipeline.AiQuery(
+                    create_store=ai_query.CreateStore(
+                        store=self.store_name,
+                        query_model=self.query_model,
+                        index_model=self.index_model,
+                        predicates=self.predicates,
+                        store_original=False,
+                        error_if_exists=True,
+                    )
+                ),
+                pipeline.AiQuery(
+                    set=ai_query.Set(
+                        store=self.store_name,
+                        inputs=entries,
+                        preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+                        execution_provider=ExecutionProvider.CUDA,
+                    )
+                ),
+            ]
         )
+        return await self.client.pipeline(pipeline_request, metadata=self.metadata)
 
     async def query(self):
         # Query with an image
@@ -352,7 +379,8 @@ class Image2ImageDemo:
                 search_input=keyval.StoreInput(image=image_bytes),
                 closest_n=3,
                 algorithm=Algorithm.CosineSimilarity,
-            )
+            ),
+            metadata=self.metadata,
         )
 
         return response
@@ -395,6 +423,7 @@ async def run_with_tracing():
         demo = Image2ImageDemo(trace_parent_id)
         result = await demo.insert()
         print(result)
+        await demo.close()
 
 
 if __name__ == "__main__":
