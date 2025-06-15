@@ -8,7 +8,7 @@ readme = "README.md"
 
 [tool.poetry.scripts]
 insertbook = "insert_book:main"
-searchphrase = "search_actions:search_phrase"
+searchphrase = "search_actions:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"

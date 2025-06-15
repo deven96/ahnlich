@@ -1,62 +1,63 @@
 import asyncio
+
 from functools import partial
 
-from ahnlich_client_py.clients.non_blocking import AhnlichAIClient
-from ahnlich_client_py.config import AhnlichPoolSettings
-from ahnlich_client_py.internals import ai_query
+from grpclib.client import Channel
+
+from ahnlich_client_py.grpc import keyval, metadata
+from ahnlich_client_py.grpc.ai import query as ai_query, preprocess
+from ahnlich_client_py.grpc.ai.models import AiModel
+from ahnlich_client_py.grpc.services import ai_service
 
 from book_search.split_book import get_book
 
-ai_store_payload_with_predicates = {
-    "store_name": "book",
-    "query_model": ai_query.AIModel__BGEBaseEnV15(),
-    "index_model": ai_query.AIModel__BGEBaseEnV15(),
-    "predicates": ["chapter", "paragraph"],
-    "error_if_exists": False,
-}
+STORE_NAME = "book"
+PREDICATES = ["chapter", "paragraph"]
+
+CREATE_STORE_REQUEST = ai_query.CreateStore(
+    store=STORE_NAME,
+    query_model=AiModel.BGE_BASE_EN_V15,
+    index_model=AiModel.BGE_BASE_EN_V15,
+    predicates=PREDICATES,
+    error_if_exists=False,
+    store_original=True,
+)
 
 
-async def set_client(ai_client, inputs):
-    response = await ai_client.set(
-        store_name=ai_store_payload_with_predicates["store_name"],
-        inputs=inputs,
-        preprocess_action=ai_query.PreprocessAction__NoPreprocessing(),
+async def set_batch(client: ai_service.AiServiceStub, entries):
+    request = ai_query.Set(
+        store=STORE_NAME,
+        inputs=entries,
+        preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
     )
-
+    response = await client.set(request)
     print(response)
 
 
 async def create_tasks():
     store_inputs = get_book()
     return [
-        partial(set_client, inputs=store_inputs[i : i + 10])
+        partial(set_batch, entries=store_inputs[i : i + 10])
         for i in range(0, len(store_inputs), 10)
     ]
 
 
-async def run_insert_text(ai_client):
-    await ai_client.drop_store(
-        store_name=ai_store_payload_with_predicates["store_name"],
-        error_if_not_exists=False,
-    )
-    await ai_client.create_store(**ai_store_payload_with_predicates)
-
-    task_definitions = await create_tasks()
-    tasks = [asyncio.create_task(task(ai_client)) for task in task_definitions]
-
-    await asyncio.gather(*tasks)
-
-
 async def insert_book():
-    pool_setting = AhnlichPoolSettings()
-    pool_setting.max_pool_size = 35
-    ai_client = AhnlichAIClient(
-        address="127.0.0.1",
-        port=1370,
-        connect_timeout_sec=600,
-        pool_settings=pool_setting,
-    )
-    await run_insert_text(ai_client=ai_client)
+    channel = Channel(host="127.0.0.1", port=1370)
+    client = ai_service.AiServiceStub(channel)
+
+    try:
+        await client.drop_store(
+            ai_query.DropStore(store=STORE_NAME, error_if_not_exists=False)
+        )
+        await client.create_store(CREATE_STORE_REQUEST)
+
+        task_definitions = await create_tasks()
+
+        tasks = [asyncio.create_task(task(client=client)) for task in task_definitions]
+        await asyncio.gather(*tasks)
+    finally:
+        channel.close()
 
 
 loop = asyncio.get_event_loop()
