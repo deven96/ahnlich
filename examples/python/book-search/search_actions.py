@@ -32,18 +32,16 @@ async def run_get_simn_text(
         channel.close()
 
 
-# TODO: fix issue with response, is it that only paragraph is returned with alot of special chars?
 async def search_phrase(span_id: str | None = None):
     input_query = input("Please enter the phrase: ")
     entries = await run_get_simn_text(input_query, span_id)
 
     for entry in entries:
-        print(entry.value)
-        # chapter = entry.value.value["chapter"].raw_string
-        # paragraph = entry.value.value["paragraph"].raw_string
+        chapter = entry.value.value["chapter"].raw_string
+        paragraph = entry.value.value["paragraph"].raw_string
         content = entry.key.raw_string
-        # print(f"Chapter {chapter}")
-        # print(f"Paragraph {paragraph}")
+        print(f"Chapter {chapter}")
+        print(f"Paragraph {paragraph}")
         print(content)
         print("\n")
 
