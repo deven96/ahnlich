@@ -18,7 +18,7 @@ To insert run
   * ![insertion gif](insertbook.gif)
 
 To search run  
-```poetry run searchbook```
+```poetry run searchphrase```
 
 - Query text is provided
   * `BGEBaseEnV15` is used to generated embeddings for the query text

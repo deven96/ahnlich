@@ -9,7 +9,7 @@ pub(crate) fn init_threadpool(num_threads: usize) {
         ThreadPoolBuilder::new()
             .num_threads(num_threads)
             .build_global()
-            .expect("Cannot build server threadpool");
+            .ok();
     });
 }
 

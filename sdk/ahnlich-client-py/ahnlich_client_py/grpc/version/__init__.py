@@ -12,8 +12,6 @@ import betterproto
 class Version(betterproto.Message):
     """
     Currently ahnlich uses the major versions to interact with clients provided they match.
-     FIXME: Remove completely as we no longer need it. If the query gets deserialized by the server
-     then that in itself is news that we are compatible enough
     """
 
     major: int = betterproto.uint32_field(1)

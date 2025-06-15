@@ -5,7 +5,6 @@ package db.query;
 import "algorithm/algorithm.proto";
 import "algorithm/nonlinear.proto";
 import "keyval.proto";
-import "metadata.proto";
 import "predicate.proto";
 
 // ===================
@@ -112,11 +111,5 @@ message Ping {}
 // Validation is done for each vector before updating the store.
 message Set {
   string store = 1; // The name of the store.
-  repeated StoreEntry inputs = 2; // The key-value entries to set in the store.
-}
-
-// A single entry for a store containing a key and its associated metadata values.
-message StoreEntry {
-  keyval.StoreKey key = 1; // The key for the entry.
-  map<string, metadata.MetadataValue> value = 2; // The metadata associated with the key.
+  repeated keyval.DbStoreEntry inputs = 2; // The key-value entries to set in the store.
 }

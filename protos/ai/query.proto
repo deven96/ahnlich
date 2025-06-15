@@ -6,7 +6,6 @@ import "ai/models.proto";
 import "ai/execution_provider.proto";
 import "ai/preprocess.proto";
 import "keyval.proto"; 
-import "metadata.proto";
 import "algorithm/algorithm.proto";
 import "algorithm/nonlinear.proto";
 import "predicate.proto";
@@ -43,7 +42,7 @@ message GetSimN {
     string store = 1; // Name of the store
     keyval.StoreInput search_input = 2; // Input data to search (can be a string or image)
     optional predicates.PredicateCondition condition = 3; // Optional: filters results by predicate condition
-    uint32 closest_n = 4; // Number of similar results to return
+    uint64 closest_n = 4; // Number of similar results to return
     algorithm.algorithms.Algorithm algorithm = 5; // Algorithm to use for similarity search
     ai.preprocess.PreprocessAction preprocess_action = 6; // Preprocessing actions to apply to input before querying
     optional ai.execution_provider.ExecutionProvider execution_provider = 7; // Optional execution provider for specific optimizations
@@ -81,7 +80,7 @@ message DelKey {
     // Deletes a key-value pair from the store, matching the given key
     // Updates indices non-blocking after deletion
     string store = 1; // Store name
-    keyval.StoreInput key = 2; // Key to delete (type depends on the store model)
+    repeated keyval.StoreInput keys = 2; // Key to delete (type depends on the store model)
 }
 
 message DropStore {
@@ -121,14 +120,7 @@ message Set {
     // Sets a list of entries in the store
     // Each entry corresponds to a key-value pair and is validated before insertion
     string store = 1; // Store name
-    repeated StoreEntry inputs = 2; // List of entries to set
+    repeated keyval.AiStoreEntry inputs = 2; // List of entries to set
     ai.preprocess.PreprocessAction preprocess_action = 3; // Preprocessing action to apply to inputs before setting
     optional ai.execution_provider.ExecutionProvider execution_provider = 4; // Optional execution provider for optimizations
-}
-
-message StoreEntry {
-    // A single entry in the store
-    keyval.StoreInput key = 1; // Key of the entry
-    map<string, metadata.MetadataValue> value = 2; // Metadata associated with the key
-    // MetadataKey is a string used as the key in the value map
 }

@@ -4,12 +4,11 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import betterproto
 
 from ... import keyval as __keyval__
-from ... import metadata as __metadata__
 from ... import predicates as __predicates__
 from ...algorithm import algorithms as __algorithm_algorithms__
 from ...algorithm import nonlinear as __algorithm_nonlinear__
@@ -62,7 +61,7 @@ class GetSimN(betterproto.Message):
     condition: Optional["__predicates__.PredicateCondition"] = (
         betterproto.message_field(3, optional=True)
     )
-    closest_n: int = betterproto.uint32_field(4)
+    closest_n: int = betterproto.uint64_field(4)
     algorithm: "__algorithm_algorithms__.Algorithm" = betterproto.enum_field(5)
     preprocess_action: "_preprocess__.PreprocessAction" = betterproto.enum_field(6)
     execution_provider: Optional["_execution_provider__.ExecutionProvider"] = (
@@ -126,7 +125,7 @@ class DelKey(betterproto.Message):
      Updates indices non-blocking after deletion
     """
 
-    key: "__keyval__.StoreInput" = betterproto.message_field(2)
+    keys: List["__keyval__.StoreInput"] = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -183,18 +182,8 @@ class Set(betterproto.Message):
      Each entry corresponds to a key-value pair and is validated before insertion
     """
 
-    inputs: List["StoreEntry"] = betterproto.message_field(2)
+    inputs: List["__keyval__.AiStoreEntry"] = betterproto.message_field(2)
     preprocess_action: "_preprocess__.PreprocessAction" = betterproto.enum_field(3)
     execution_provider: Optional["_execution_provider__.ExecutionProvider"] = (
         betterproto.enum_field(4, optional=True)
-    )
-
-
-@dataclass(eq=False, repr=False)
-class StoreEntry(betterproto.Message):
-    key: "__keyval__.StoreInput" = betterproto.message_field(1)
-    """A single entry in the store"""
-
-    value: Dict[str, "__metadata__.MetadataValue"] = betterproto.map_field(
-        2, betterproto.TYPE_STRING, betterproto.TYPE_MESSAGE
     )

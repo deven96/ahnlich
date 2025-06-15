@@ -15,13 +15,14 @@ maintenance = { status = "actively-developed" }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ahnlich_types = { path = "../types", version = "0.0.0" }
+ahnlich_types = { path = "../types", version = "*"  }
 thiserror.workspace = true
 once_cell.workspace = true
 bincode.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
-deadpool.workspace = true
+tonic.workspace = true
+http.workspace = true
 fallible_collections.workspace = true
 
 [dev-dependencies]

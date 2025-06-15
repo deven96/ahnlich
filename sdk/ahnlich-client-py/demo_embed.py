@@ -1,7 +1,9 @@
+import asyncio
 import io
 import os
 from urllib.request import urlopen
 
+from grpclib.client import Channel
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
@@ -9,29 +11,33 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from PIL import Image
 
-from ahnlich_client_py.clients import AhnlichAIClient
-from ahnlich_client_py.internals import ai_query
+from ahnlich_client_py import TRACE_HEADER
+from ahnlich_client_py.grpc import keyval, metadata
+from ahnlich_client_py.grpc.ai import pipeline, preprocess
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc.ai.execution_provider import ExecutionProvider
+from ahnlich_client_py.grpc.ai.models import AiModel
+from ahnlich_client_py.grpc.algorithm.algorithms import Algorithm
+from ahnlich_client_py.grpc.services import ai_service
 
 
 class Text2TextDemo:
-    def __init__(self):
-        ai_client = AhnlichAIClient(
-            address="127.0.0.1", port=1370, connect_timeout_sec=30
-        )
-        self.query_model = ai_query.AIModel__AllMiniLML6V2()
-        self.index_model = ai_query.AIModel__AllMiniLML6V2()
+    def __init__(self, span_id: str | None = None):
+        self.query_model = AiModel.ALL_MINI_LM_L6_V2
+        self.index_model = AiModel.ALL_MINI_LM_L6_V2
         self.store_name = "The Sports Press Club"
-        self.builder = ai_client.pipeline()
-        predicates = ["sport"]
-        self.builder.create_store(
-            store_name=self.store_name,
-            query_model=self.query_model,
-            index_model=self.index_model,
-            predicates=predicates,
+        self.predicates = ["sport"]
+
+        self.channel = Channel(host="127.0.0.1", port=1370)
+        self.client = ai_service.AiServiceStub(self.channel)
+        self.metadata: dict[str, str] | None = (
+            {TRACE_HEADER: span_id} if span_id else None
         )
 
-    def insert(self):
-        # Initial list of tuples (snippet, sport)
+    async def close(self):
+        self.channel.close()
+
+    async def insert(self):
         snippets_and_sports = [
             (
                 "Manchester City secures a thrilling 2-1 victory over Liverpool in the Premier League, "
@@ -61,51 +67,72 @@ class Text2TextDemo:
             ),
         ]
 
-        store_inputs = [
-            (
-                ai_query.StoreInput__RawString(snippet),
-                {"sport": ai_query.MetadataValue__RawString(sport)},
+        entries = [
+            keyval.AiStoreEntry(
+                key=keyval.StoreInput(raw_string=snippet),
+                value=keyval.StoreValue(
+                    value={"sport": metadata.MetadataValue(raw_string=sport)}
+                ),
             )
             for snippet, sport in snippets_and_sports
         ]
 
-        self.builder.set(
-            store_name=self.store_name,
-            inputs=store_inputs,
-            preprocess_action=ai_query.PreprocessAction__ModelPreprocessing(),
+        pipeline_request = pipeline.AiRequestPipeline(
+            queries=[
+                pipeline.AiQuery(
+                    create_store=ai_query.CreateStore(
+                        store=self.store_name,
+                        query_model=self.query_model,
+                        index_model=self.index_model,
+                        predicates=self.predicates,
+                        error_if_exists=True,
+                        store_original=True,
+                    )
+                ),
+                pipeline.AiQuery(
+                    set=ai_query.Set(
+                        store=self.store_name,
+                        inputs=entries,
+                        preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+                    )
+                ),
+            ]
         )
-        return self.builder.exec()
+        return await self.client.pipeline(pipeline_request, metadata=self.metadata)
 
-    def query(self):
-        search_input = "News events where athletes broke a record"
-        self.builder.get_sim_n(
-            store_name=self.store_name,
-            search_input=ai_query.StoreInput__RawString(search_input),
-            closest_n=3,
-            algorithm=ai_query.Algorithm__CosineSimilarity(),
+    async def query(self):
+        # Step 4: Run similarity query
+        response = await self.client.get_sim_n(
+            ai_query.GetSimN(
+                store=self.store_name,
+                search_input=keyval.StoreInput(
+                    raw_string="News events where athletes broke a record"
+                ),
+                closest_n=3,
+                algorithm=Algorithm.CosineSimilarity,
+            ),
+            metadata=self.metadata,
         )
-        return self.builder.exec()
+        return response
 
 
 class VeryShortText2TextDemo:
-    def __init__(self):
-        ai_client = AhnlichAIClient(
-            address="127.0.0.1", port=1370, connect_timeout_sec=30
-        )
-        self.query_model = ai_query.AIModel__ClipVitB32Text()
-        self.index_model = ai_query.AIModel__ClipVitB32Text()
+    def __init__(self, span_id: str | None = None):
+        self.query_model = AiModel.CLIP_VIT_B32_TEXT
+        self.index_model = AiModel.CLIP_VIT_B32_TEXT
         self.store_name = "The Literary Collection"
-        self.builder = ai_client.pipeline()
-        predicates = ["citizenship"]
-        self.builder.create_store(
-            store_name=self.store_name,
-            query_model=self.query_model,
-            index_model=self.index_model,
-            predicates=predicates,
+        self.predicates = ["citizenship"]
+
+        self.channel = Channel(host="127.0.0.1", port=1370)
+        self.client = ai_service.AiServiceStub(self.channel)
+        self.metadata: dict[str, str] | None = (
+            {TRACE_HEADER: span_id} if span_id else None
         )
 
-    def insert(self):
-        # Initial list of tuples (snippet, writer's citizenship)
+    async def close(self):
+        self.channel.close()
+
+    async def insert(self):
         snippets_and_citizenship = [
             ("1984", "English"),
             ("Things Fall Apart", "Nigerian"),
@@ -114,34 +141,56 @@ class VeryShortText2TextDemo:
             ("Man's Search for Meaning", "Austrian"),
         ]
 
-        # Create store_inputs using a list comprehension
-        store_inputs = [
-            (
-                ai_query.StoreInput__RawString(snippet),
-                {"citizenship": ai_query.MetadataValue__RawString(citizenship)},
+        entries = [
+            keyval.AiStoreEntry(
+                key=keyval.StoreInput(raw_string=snippet),
+                value=keyval.StoreValue(
+                    value={
+                        "citizenship": metadata.MetadataValue(raw_string=citizenship)
+                    }
+                ),
             )
             for snippet, citizenship in snippets_and_citizenship
         ]
 
-        self.builder.set(
-            store_name=self.store_name,
-            inputs=store_inputs,
-            preprocess_action=ai_query.PreprocessAction__ModelPreprocessing(),
+        pipeline_request = pipeline.AiRequestPipeline(
+            queries=[
+                pipeline.AiQuery(
+                    create_store=ai_query.CreateStore(
+                        store=self.store_name,
+                        query_model=self.query_model,
+                        index_model=self.index_model,
+                        predicates=self.predicates,
+                        error_if_exists=True,
+                        store_original=True,
+                    )
+                ),
+                pipeline.AiQuery(
+                    set=ai_query.Set(
+                        store=self.store_name,
+                        inputs=entries,
+                        preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+                    )
+                ),
+            ]
         )
-        return self.builder.exec()
+        return await self.client.pipeline(pipeline_request, metadata=self.metadata)
 
-    def query(self):
-        search_input = "Chinua Achebe"
-        self.builder.get_sim_n(
-            store_name=self.store_name,
-            search_input=ai_query.StoreInput__RawString(search_input),
-            closest_n=3,
-            algorithm=ai_query.Algorithm__CosineSimilarity(),
+    async def query(self):
+
+        response = await self.client.get_sim_n(
+            ai_query.GetSimN(
+                store=self.store_name,
+                search_input=keyval.StoreInput(raw_string="Chinua Achebe"),
+                closest_n=3,
+                algorithm=Algorithm.CosineSimilarity,
+            ),
+            metadata=self.metadata,
         )
-        return self.builder.exec()
+        return response
 
 
-def url_to_buffer(url):
+def url_to_buffer(url) -> bytes:
     """
     Converts an image URL or local file path to a buffer value.
     :param url: URL or file path of the image.
@@ -157,101 +206,119 @@ def url_to_buffer(url):
     buffer = io.BytesIO()
     image.save(buffer, format=image.format)
     buffer.seek(0)  # Reset the buffer pointer to the beginning
-    return buffer
+    return buffer.getvalue()
 
 
 class Text2ImageDemo:
-    def __init__(self):
-        ai_client = AhnlichAIClient(
-            address="127.0.0.1", port=1370, connect_timeout_sec=30
-        )
-        self.query_model = ai_query.AIModel__ClipVitB32Text()
-        self.index_model = ai_query.AIModel__ClipVitB32Image()
+    def __init__(self, span_id: str | None = None):
+        self.query_model = AiModel.CLIP_VIT_B32_TEXT
+        self.index_model = AiModel.CLIP_VIT_B32_IMAGE
         self.store_name = "The Sports Image Collection"
-        self.builder = ai_client.pipeline()
-        predicates = ["athlete"]
-        self.builder.create_store(
-            store_name=self.store_name,
-            query_model=self.query_model,
-            index_model=self.index_model,
-            predicates=predicates,
-            store_original=False,
+        self.predicates = ["athlete"]
+
+        self.channel = Channel(host="127.0.0.1", port=1370)
+        self.client = ai_service.AiServiceStub(self.channel)
+
+        self.metadata: dict[str, str] | None = (
+            {TRACE_HEADER: span_id} if span_id else None
         )
 
-    def insert(self):
-        # Initial list of tuples (image URL, athlete name)
+    async def close(self):
+        self.channel.close()
+
+    async def insert(self):
+
         image_urls_and_athletes = [
-            (
-                "https://imageio.forbes.com/specials-images/imageserve/632357fbf1cebc1639065099/Roger-Federer-celebrated"
-                "-after-beating-Lorenzo-Sonego-at-Wimbledon-last-year-/1960x0.jpg?format=jpg&width=960",
-                "Roger Federer",
-            ),
-            (
-                "https://www.silverarrows.net/wp-content/uploads/2020/05/Lewis-Hamilton-Japan.jpg",
-                "Lewis Hamilton",
-            ),
-            (
-                "https://img.20mn.fr/B2Dto_H3RveJTzabY4IR2yk/1444x920_andreja-laski-of-team-slovenia-and-clarisse-agbegnenou"
-                "-team-france-compete-during-the-women-63-kg-semifinal-of-table-b-contest-on-day-four-of-the-olympic-games-"
-                "paris-2024-at-champs-de-mars-arena-03vulaurent-d2317-credit-laurent-vu-sipa-2407301738",
-                "Clarisse Agbegnenou",
-            ),
-            (
-                "https://c8.alamy.com/comp/R1YEE4/london-uk-15th-november-2018-jadon-sancho-of-england-is-tackled-by-"
-                "christian-pulisic-of-usa-during-the-international-friendly-match-between-england-and-usa-at-wembley-"
-                "stadium-on-november-15th-2018-in-london-england-photo-by-matt-bradshawphcimages-credit-phc-imagesalamy-live-news-R1YEE4.jpg",
-                "Christian Pulisic and Sancho",
-            ),
+            [
+                (
+                    "https://imageio.forbes.com/specials-images/imageserve/632357fbf1cebc1639065099/Roger-Federer-celebrated"
+                    "-after-beating-Lorenzo-Sonego-at-Wimbledon-last-year-/1960x0.jpg?format=jpg&width=960",
+                    "Roger Federer",
+                ),
+                (
+                    "https://www.silverarrows.net/wp-content/uploads/2020/05/Lewis-Hamilton-Japan.jpg",
+                    "Lewis Hamilton",
+                ),
+                (
+                    "https://img.20mn.fr/B2Dto_H3RveJTzabY4IR2yk/1444x920_andreja-laski-of-team-slovenia-and-clarisse-agbegnenou"
+                    "-team-france-compete-during-the-women-63-kg-semifinal-of-table-b-contest-on-day-four-of-the-olympic-games-"
+                    "paris-2024-at-champs-de-mars-arena-03vulaurent-d2317-credit-laurent-vu-sipa-2407301738",
+                    "Clarisse Agbegnenou",
+                ),
+                (
+                    "https://c8.alamy.com/comp/R1YEE4/london-uk-15th-november-2018-jadon-sancho-of-england-is-tackled-by-"
+                    "christian-pulisic-of-usa-during-the-international-friendly-match-between-england-and-usa-at-wembley-"
+                    "stadium-on-november-15th-2018-in-london-england-photo-by-matt-bradshawphcimages-credit-phc-imagesalamy-live-news-R1YEE4.jpg",
+                    "Christian Pulisic and Sancho",
+                ),
+            ],
         ]
 
         # Process images and create store_inputs
-        store_inputs = [
-            (
-                ai_query.StoreInput__Image(url_to_buffer(url).getvalue()),
-                {"brand": ai_query.MetadataValue__RawString(athlete)},
+
+        entries = [
+            keyval.AiStoreEntry(
+                key=keyval.StoreInput(image=url_to_buffer(url)),
+                value=keyval.StoreValue(
+                    value={"brand": metadata.MetadataValue(raw_string=name)}
+                ),
             )
-            for url, athlete in image_urls_and_athletes
+            for url, name in image_urls_and_athletes
         ]
 
-        # Set the store inputs
-        self.builder.set(
-            store_name=self.store_name,
-            inputs=store_inputs,
-            preprocess_action=ai_query.PreprocessAction__ModelPreprocessing(),
+        pipeline_request = pipeline.AiRequestPipeline(
+            queries=[
+                pipeline.AiQuery(
+                    create_store=ai_query.CreateStore(
+                        store=self.store_name,
+                        query_model=self.query_model,
+                        index_model=self.index_model,
+                        predicates=self.predicates,
+                        store_original=False,
+                        error_if_exists=True,
+                    )
+                ),
+                pipeline.AiQuery(
+                    set=ai_query.Set(
+                        store=self.store_name,
+                        inputs=entries,
+                        preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+                    )
+                ),
+            ]
         )
-        return self.builder.exec()
+        return await self.client.pipeline(pipeline_request, metadata=self.metadata)
 
-    def query(self):
-        search_input = "United States vs England"
-        self.builder.get_sim_n(
-            store_name=self.store_name,
-            search_input=ai_query.StoreInput__RawString(search_input),
-            closest_n=3,
-            algorithm=ai_query.Algorithm__CosineSimilarity(),
+    async def query(self):
+        response = await self.client.get_sim_n(
+            ai_query.GetSimN(
+                store=self.store_name,
+                search_input=keyval.StoreInput(raw_string="United States vs England"),
+                closest_n=3,
+                algorithm=Algorithm.CosineSimilarity,
+            ),
+            metadata=self.metadata,
         )
-        return self.builder.exec()
+        return response
 
 
 class Image2ImageDemo:
-    def __init__(self, span_id):
-        ai_client = AhnlichAIClient(
-            address="127.0.0.1", port=1370, connect_timeout_sec=30
-        )
-        self.query_model = ai_query.AIModel__ClipVitB32Image()
-        self.index_model = ai_query.AIModel__ClipVitB32Image()
+    def __init__(self, span_id: str | None):
+        self.query_model = AiModel.CLIP_VIT_B32_IMAGE
+        self.index_model = AiModel.CLIP_VIT_B32_IMAGE
         self.store_name = "The Jordan or Not Jordan Collection"
-        self.builder = ai_client.pipeline(span_id)
-        predicates = ["label"]
-        self.builder.create_store(
-            store_name=self.store_name,
-            query_model=self.query_model,
-            index_model=self.index_model,
-            predicates=predicates,
-            store_original=False,
+        self.predicates = ["label"]
+        self.channel = Channel(host="127.0.0.1", port=1370)
+        self.client = ai_service.AiServiceStub(self.channel)
+        self.metadata: dict[str, str] | None = (
+            {TRACE_HEADER: span_id} if span_id else None
         )
 
-    def insert(self):
-        # Initial list of tuples (image URL, image label)
+    async def close(self):
+        self.channel.close()
+
+    async def insert(self):
+
         image_urls_and_labels = [
             (
                 "https://cdn.britannica.com/96/195196-050-3909D5BD/Michael-Jordan-1988.jpg",
@@ -275,38 +342,58 @@ class Image2ImageDemo:
             ),
         ]
 
-        # Process images and create store_inputs
-        store_inputs = [
-            (
-                ai_query.StoreInput__Image(url_to_buffer(url).getvalue()),
-                {"label": ai_query.MetadataValue__RawString(label)},
+        entries = [
+            keyval.AiStoreEntry(
+                key=keyval.StoreInput(image=url_to_buffer(url)),
+                value=keyval.StoreValue(
+                    value={"label": metadata.MetadataValue(raw_string=label)}
+                ),
             )
             for url, label in image_urls_and_labels
         ]
 
-        # Set the store inputs
-        self.builder.set(
-            store_name=self.store_name,
-            inputs=store_inputs,
-            preprocess_action=ai_query.PreprocessAction__ModelPreprocessing(),
-            execution_provider=ai_query.ExecutionProvider__CUDA(),
+        pipeline_request = pipeline.AiRequestPipeline(
+            queries=[
+                pipeline.AiQuery(
+                    create_store=ai_query.CreateStore(
+                        store=self.store_name,
+                        query_model=self.query_model,
+                        index_model=self.index_model,
+                        predicates=self.predicates,
+                        store_original=False,
+                        error_if_exists=True,
+                    )
+                ),
+                pipeline.AiQuery(
+                    set=ai_query.Set(
+                        store=self.store_name,
+                        inputs=entries,
+                        preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+                        execution_provider=ExecutionProvider.CUDA,
+                    )
+                ),
+            ]
         )
-        return self.builder.exec()
+        return await self.client.pipeline(pipeline_request, metadata=self.metadata)
 
-    def query(self):
+    async def query(self):
         # Query with an image
         query_url = (
             "https://i.pinimg.com/564x/9d/76/c8/9d76c8229b7528643d69636c1a9a428d.jpg"
         )
-        buffer = url_to_buffer(query_url)
+        image_bytes = url_to_buffer(query_url)
 
-        self.builder.get_sim_n(
-            store_name=self.store_name,
-            search_input=ai_query.StoreInput__Image(buffer.getvalue()),
-            closest_n=3,
-            algorithm=ai_query.Algorithm__CosineSimilarity(),
+        response = await self.client.get_sim_n(
+            ai_query.GetSimN(
+                store=self.store_name,
+                search_input=keyval.StoreInput(image=image_bytes),
+                closest_n=3,
+                algorithm=Algorithm.CosineSimilarity,
+            ),
+            metadata=self.metadata,
         )
-        return self.builder.exec()
+
+        return response
 
 
 def setup_tracing():
@@ -331,7 +418,7 @@ def setup_tracing():
     return trace_obj
 
 
-def run_with_tracing():
+async def run_with_tracing():
     print("[INFO] Running tracing")
     with setup_tracing().start_as_current_span("info_span") as span:
         span.set_attribute("data-application", "ahnlich_client_py")
@@ -344,9 +431,10 @@ def run_with_tracing():
             span_context.trace_id, span_context.span_id, span_context.trace_flags
         )
         demo = Image2ImageDemo(trace_parent_id)
-        a = demo.insert()
-        print(a)
+        result = await demo.insert()
+        print(result)
+        await demo.close()
 
 
 if __name__ == "__main__":
-    run_with_tracing()
+    asyncio.get_event_loop().run_until_complete(run_with_tracing())

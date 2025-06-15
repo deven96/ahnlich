@@ -11,7 +11,10 @@ use crate::engine::ai::providers::processors::imagearray_to_ndarray::ImageArrayT
 use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
 use crate::engine::ai::providers::ModelProviders;
 use crate::error::AIProxyError;
-use ahnlich_types::ai::{AIModel, ExecutionProvider, PreprocessAction};
+use ahnlich_types::ai::execution_provider::ExecutionProvider;
+use ahnlich_types::ai::models::AiModel;
+use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::keyval::store_input::Value;
 use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
 use moka::future::Cache;
@@ -91,23 +94,27 @@ impl ModelThread {
                 model_name: self.model.model_name(),
                 message: "Input is empty".to_string(),
             })?;
-        match sample {
-            StoreInput::RawString(_) => {
+        let sample_type = sample
+            .value
+            .as_ref()
+            .ok_or_else(|| AIProxyError::InputNotSpecified("Store input value".to_string()))?;
+        match sample_type {
+            Value::RawString(_) => {
                 let inputs: Vec<String> = inputs
                     .into_par_iter()
-                    .filter_map(|input| match input {
-                        StoreInput::RawString(string) => Some(string),
+                    .filter_map(|input| match input.value {
+                        Some(Value::RawString(string)) => Some(string),
                         _ => None,
                     })
                     .collect();
                 let output = self.preprocess_raw_string(inputs, process_action)?;
                 Ok(ModelInput::Texts(output))
             }
-            StoreInput::Image(_) => {
+            Value::Image(_) => {
                 let inputs = inputs
                     .into_par_iter()
-                    .filter_map(|input| match input {
-                        StoreInput::Image(image_bytes) => {
+                    .filter_map(|input| match input.value {
+                        Some(Value::Image(image_bytes)) => {
                             Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
                         }
                         _ => None,
@@ -280,7 +287,7 @@ impl ModelManager {
     #[tracing::instrument(skip(self, inputs))]
     pub async fn handle_request(
         &self,
-        model: &AIModel,
+        model: &AiModel,
         inputs: Vec<StoreInput>,
         preprocess_action: PreprocessAction,
         action_type: InputAction,
@@ -307,14 +314,16 @@ impl ModelManager {
             trace_span: tracing::Span::current(),
         };
         // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
-        if sender.send(request).await.is_ok() {
-            response_rx
-                .await
-                .map_err(|e| e.into())
-                .and_then(|inner| inner)
-        } else {
-            return Err(AIProxyError::AIModelThreadSendError);
-        }
+        sender
+            .send(request)
+            .await
+            .map_err(|a| AIProxyError::AIModelThreadSendError {
+                message: a.to_string(),
+            })?;
+        response_rx
+            .await
+            .map_err(|e| e.into())
+            .and_then(|inner| inner)
     }
 }
 
@@ -350,7 +359,7 @@ mod tests {
             SupportedModels::AllMiniLML6V2,
             SupportedModels::AllMiniLML12V2,
         ];
-        let sample_ai_model = AIModel::AllMiniLML6V2;
+        let sample_ai_model = AiModel::AllMiniLmL6V2;
         let sample_supported_model: SupportedModels = (&sample_ai_model).into();
 
         let task_manager = Arc::new(TaskManager::new());
@@ -365,7 +374,9 @@ mod tests {
 
         let evicted_model = model_manager.models.get(&sample_supported_model).await;
 
-        let inputs = vec![StoreInput::RawString(String::from("Hello"))];
+        let inputs = vec![StoreInput {
+            value: Some(Value::RawString(String::from("Hello"))),
+        }];
         let action = PreprocessAction::ModelPreprocessing;
         let _ = model_manager
             .handle_request(&sample_ai_model, inputs, action, InputAction::Query, None)

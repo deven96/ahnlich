@@ -38,9 +38,6 @@ check: ## cargo check
 test: ## cargo test
 	cargo nextest run --no-capture
 
-generate-specs: ## generate type specs 
-	cargo run --bin typegen generate
-
 grpc-update-clients: grpc-update-rust grpc-update-python ## updates client generated code after proto change
 	@echo "Updated clients"
 
@@ -51,7 +48,7 @@ grpc-update-python: ## updates python generated code after proto change
 		&& poetry run black .
 
 grpc-update-rust: ## updates python generated code after proto change
-	@cargo build -p grpc_types
+	@cargo build -p ahnlich_types
 	@make format
 
 run-db: ## Run ahnlich_db bin 

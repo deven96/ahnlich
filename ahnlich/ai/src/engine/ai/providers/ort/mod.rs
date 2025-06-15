@@ -5,7 +5,8 @@ use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{ImageArray, InputAction, ModelInput};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
-use ahnlich_types::ai::ExecutionProvider as AIExecutionProvider;
+use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
+use ahnlich_types::keyval::StoreKey;
 use executor::ExecutorWithSessionCache;
 use fallible_collections::FallibleVec;
 use hf_hub::{api::sync::ApiBuilder, Cache};
@@ -26,7 +27,6 @@ use crate::engine::ai::providers::processors::postprocessor::{
 use crate::engine::ai::providers::processors::preprocessor::{
     ORTImagePreprocessor, ORTPreprocessor, ORTTextPreprocessor,
 };
-use ahnlich_types::keyval::StoreKey;
 use ndarray::{Array, Axis, Ix2, Ix4};
 use std::convert::TryFrom;
 use std::default::Default;
@@ -55,10 +55,10 @@ pub(crate) enum InnerAIExecutionProvider {
 impl From<AIExecutionProvider> for InnerAIExecutionProvider {
     fn from(entry: AIExecutionProvider) -> Self {
         match entry {
-            AIExecutionProvider::TensorRT => InnerAIExecutionProvider::TensorRT,
-            AIExecutionProvider::CUDA => InnerAIExecutionProvider::CUDA,
-            AIExecutionProvider::DirectML => InnerAIExecutionProvider::DirectML,
-            AIExecutionProvider::CoreML => InnerAIExecutionProvider::CoreML,
+            AIExecutionProvider::TensorRt => InnerAIExecutionProvider::TensorRT,
+            AIExecutionProvider::Cuda => InnerAIExecutionProvider::CUDA,
+            AIExecutionProvider::DirectMl => InnerAIExecutionProvider::DirectML,
+            AIExecutionProvider::CoreMl => InnerAIExecutionProvider::CoreML,
         }
     }
 }
@@ -482,7 +482,9 @@ impl ProviderTrait for ORTProvider {
                     let new_store_keys: Vec<StoreKey> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()
-                        .map(|embedding| StoreKey(embedding.to_vec()))
+                        .map(|embedding| StoreKey {
+                            key: embedding.to_vec(),
+                        })
                         .collect();
                     store_keys.extend(new_store_keys);
                 }
@@ -502,7 +504,9 @@ impl ProviderTrait for ORTProvider {
                     let new_store_keys: Vec<StoreKey> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()
-                        .map(|embedding| StoreKey(embedding.to_vec()))
+                        .map(|embedding| StoreKey {
+                            key: embedding.to_vec(),
+                        })
                         .collect();
                     store_keys.extend(new_store_keys);
                 }

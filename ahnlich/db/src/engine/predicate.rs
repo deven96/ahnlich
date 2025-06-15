@@ -2,10 +2,11 @@ use super::super::errors::ServerError;
 use super::store::Store;
 use super::store::StoreKeyId;
 use ahnlich_types::keyval::StoreValue;
-use ahnlich_types::metadata::MetadataKey;
 use ahnlich_types::metadata::MetadataValue;
-use ahnlich_types::predicate::Predicate;
-use ahnlich_types::predicate::PredicateCondition;
+use ahnlich_types::predicates::{
+    self, predicate::Kind as PredicateKind, predicate_condition::Kind as PredicateConditionKind,
+    Predicate, PredicateCondition,
+};
 use itertools::Itertools;
 use papaya::HashMap as ConcurrentHashMap;
 use papaya::HashSet as ConcurrentHashSet;
@@ -44,14 +45,14 @@ use utils::parallel;
 /// pass in order to obtain keys that satisfy the condition
 type InnerPredicateIndexVal = ConcurrentHashSet<StoreKeyId>;
 type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, InnerPredicateIndexVal>;
-type InnerPredicateIndices = ConcurrentHashMap<MetadataKey, PredicateIndex>;
+type InnerPredicateIndices = ConcurrentHashMap<String, PredicateIndex>;
 
 /// Predicate indices are all the indexes referenced by their names
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct PredicateIndices {
     inner: InnerPredicateIndices,
     /// These are the index keys that are meant to generate predicate indexes
-    allowed_predicates: ConcurrentHashSet<MetadataKey>,
+    allowed_predicates: ConcurrentHashSet<String>,
 }
 
 impl PredicateIndices {
@@ -71,7 +72,7 @@ impl PredicateIndices {
     }
 
     #[tracing::instrument]
-    pub(super) fn init(allowed_predicates: Vec<MetadataKey>) -> Self {
+    pub(super) fn init(allowed_predicates: Vec<String>) -> Self {
         let created = ConcurrentHashSet::new();
         for key in allowed_predicates {
             created.insert(key, &created.guard());
@@ -84,7 +85,7 @@ impl PredicateIndices {
 
     /// returns the current predicates within predicate index
     #[tracing::instrument(skip(self))]
-    pub(super) fn current_predicates(&self) -> StdHashSet<MetadataKey> {
+    pub(super) fn current_predicates(&self) -> StdHashSet<String> {
         let allowed_predicates = self.allowed_predicates.pin();
         allowed_predicates.into_iter().cloned().collect()
     }
@@ -102,7 +103,7 @@ impl PredicateIndices {
     #[tracing::instrument(skip(self))]
     pub(super) fn remove_predicates(
         &self,
-        predicates: Vec<MetadataKey>,
+        predicates: Vec<String>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
         if predicates.is_empty() {
@@ -114,7 +115,7 @@ impl PredicateIndices {
         // first check all predicates
         if let (true, Some(non_existing_index)) = (
             error_if_not_exists,
-            predicates.iter().find(|a| !pinned_keys.contains(*a)),
+            predicates.iter().find(|&a| !pinned_keys.contains(a)),
         ) {
             return Err(ServerError::PredicateNotFound(non_existing_index.clone()));
         }
@@ -136,7 +137,7 @@ impl PredicateIndices {
     #[tracing::instrument(skip(self))]
     pub(super) fn add_predicates(
         &self,
-        predicates: Vec<MetadataKey>,
+        predicates: Vec<String>,
         refresh_with_values: Option<Vec<(StoreKeyId, StoreValue)>>,
     ) {
         let pinned_keys = self.allowed_predicates.pin();
@@ -158,6 +159,7 @@ impl PredicateIndices {
                     .iter()
                     .flat_map(|(store_key_id, store_value)| {
                         store_value
+                            .value
                             .iter()
                             .filter(|(key, _)| **key == new_predicate)
                             .map(|(_, val)| (val.clone(), store_key_id.clone()))
@@ -177,7 +179,7 @@ impl PredicateIndices {
         let iter = new
             .into_par_iter()
             .flat_map(|(store_key_id, store_value)| {
-                store_value.into_par_iter().map(move |(key, val)| {
+                store_value.value.into_par_iter().map(move |(key, val)| {
                     let allowed_keys = self.allowed_predicates.pin();
                     allowed_keys
                         .contains(&key)
@@ -217,7 +219,10 @@ impl PredicateIndices {
         store: &Store,
     ) -> Result<StdHashSet<StoreKeyId>, ServerError> {
         match condition {
-            PredicateCondition::Value(main_predicate) => {
+            // PredicateCondition::Value(main_predicate)
+            PredicateCondition {
+                kind: Some(PredicateConditionKind::Value(main_predicate)),
+            } => {
                 let predicate_values = self.inner.pin();
                 let key = main_predicate.get_key();
                 if let Some(predicate) = predicate_values.get(key) {
@@ -226,17 +231,34 @@ impl PredicateIndices {
                 }
                 store.get_match_without_predicate(main_predicate)
             }
-            PredicateCondition::And(first, second) => {
-                let first_result = self.matches(first, store)?;
-                let second_result = self.matches(second, store)?;
-                // Get intersection of both conditions
-                Ok(first_result.intersection(&second_result).cloned().collect())
+
+            PredicateCondition {
+                kind: Some(PredicateConditionKind::And(cond)),
+            } => {
+                if let (Some(first), Some(second)) = (&cond.left, &cond.right) {
+                    let first_result = self.matches(first, store)?;
+                    let second_result = self.matches(second, store)?;
+                    // Get intersection of both conditions
+                    Ok(first_result.intersection(&second_result).cloned().collect())
+                } else {
+                    unreachable!()
+                }
             }
-            PredicateCondition::Or(first, second) => {
-                let first_result = self.matches(first, store)?;
-                let second_result = self.matches(second, store)?;
-                // Get union of both conditions
-                Ok(first_result.union(&second_result).cloned().collect())
+            PredicateCondition {
+                kind: Some(PredicateConditionKind::Or(cond)),
+            } => {
+                if let (Some(first), Some(second)) = (&cond.left, &cond.right) {
+                    let first_result = self.matches(first, store)?;
+                    let second_result = self.matches(second, store)?;
+                    // Get union of both conditions
+                    Ok(first_result.union(&second_result).cloned().collect())
+                } else {
+                    unreachable!()
+                }
+            }
+
+            PredicateCondition { kind: None } => {
+                unreachable!()
             }
         }
     }
@@ -256,20 +278,23 @@ mod custom_metadata_map {
     where
         S: Serializer,
     {
-        let vec: Vec<(MetadataValue, InnerPredicateIndexVal)> = map
+        let hash_map: HashMap<MetadataValue, InnerPredicateIndexVal> = map
             .iter(&map.guard())
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
-        vec.serialize(serializer)
+        hash_map.serialize(serializer)
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<InnerPredicateIndex, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let vec: Vec<(MetadataValue, InnerPredicateIndexVal)> = Vec::deserialize(deserializer)?;
+        let hashmap: HashMap<MetadataValue, InnerPredicateIndexVal> =
+            HashMap::deserialize(deserializer)?;
+
+        // let vec: Vec<(MetadataValue, InnerPredicateIndexVal)> = Vec::deserialize(deserializer)?;
         let map = ConcurrentHashMap::new();
-        for (k, v) in vec {
+        for (k, v) in hashmap {
             map.insert(k, v, &map.guard());
         }
         Ok(map)
@@ -346,28 +371,39 @@ impl PredicateIndex {
         let pinned = self.0.pin();
 
         match predicate {
-            Predicate::Equals { value, .. } => {
-                if let Some(set) = pinned.get(value) {
+            Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals { value, .. })),
+            } => {
+                if let Some(Some(set)) = value.as_ref().map(|v| pinned.get(v)) {
                     set.pin().iter().cloned().collect::<StdHashSet<_>>()
                 } else {
                     StdHashSet::new()
                 }
             }
-            Predicate::NotEquals { value, .. } => pinned
+            Predicate {
+                kind: Some(PredicateKind::NotEquals(predicates::NotEquals { value, .. })),
+            } => pinned
                 .iter()
-                .filter(|(key, _)| **key != *value)
+                .filter(|(key, _)| value.as_ref() != Some(*key))
                 .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
                 .collect(),
-            Predicate::In { value, .. } => pinned
+            Predicate {
+                kind: Some(PredicateKind::In(predicates::In { values, .. })),
+            } => pinned
                 .iter()
-                .filter(|(key, _)| value.contains(key))
+                .filter(|(key, _)| values.contains(key))
                 .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
                 .collect(),
-            Predicate::NotIn { value, .. } => pinned
+
+            Predicate {
+                kind: Some(PredicateKind::NotIn(predicates::NotIn { values, .. })),
+            } => pinned
                 .iter()
-                .filter(|(key, _)| !value.contains(key))
+                .filter(|(key, _)| !values.contains(key))
                 .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
                 .collect(),
+
+            Predicate { kind: None } => unreachable!(),
         }
     }
 }
@@ -381,59 +417,99 @@ mod tests {
     use std::sync::Arc;
 
     fn store_value_0() -> StoreValue {
-        StdHashMap::from_iter(vec![
-            (
-                MetadataKey::new("name".into()),
-                MetadataValue::RawString("David".into()),
-            ),
-            (
-                MetadataKey::new("country".into()),
-                MetadataValue::RawString("Nigeria".into()),
-            ),
-            (
-                MetadataKey::new("state".into()),
-                MetadataValue::RawString("Markudi".into()),
-            ),
-        ])
+        StoreValue {
+            value: StdHashMap::from_iter(vec![
+                (
+                    "name".into(),
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "David".to_string(),
+                        )),
+                    },
+                ),
+                (
+                    "country".into(),
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Nigeria".to_string(),
+                        )),
+                    },
+                ),
+                (
+                    "state".into(),
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Markudi".to_string(),
+                        )),
+                    },
+                ),
+            ]),
+        }
     }
 
     fn store_value_1() -> StoreValue {
-        StdHashMap::from_iter(vec![
-            (
-                MetadataKey::new("name".into()),
-                MetadataValue::RawString("David".into()),
-            ),
-            (
-                MetadataKey::new("country".into()),
-                MetadataValue::RawString("USA".into()),
-            ),
-            (
-                MetadataKey::new("state".into()),
-                MetadataValue::RawString("Washington".into()),
-            ),
-        ])
+        StoreValue {
+            value: StdHashMap::from_iter(vec![
+                (
+                    "name".into(),
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "David".to_string(),
+                        )),
+                    },
+                ),
+                (
+                    "country".into(),
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "USA".to_string(),
+                        )),
+                    },
+                ),
+                (
+                    "state".into(),
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Washington".to_string(),
+                        )),
+                    },
+                ),
+            ]),
+        }
     }
 
     fn store_value_2() -> StoreValue {
-        StdHashMap::from_iter(vec![
-            (
-                MetadataKey::new("name".into()),
-                MetadataValue::RawString("Diretnan".into()),
-            ),
-            (
-                MetadataKey::new("country".into()),
-                MetadataValue::RawString("Nigeria".into()),
-            ),
-            (
-                MetadataKey::new("state".into()),
-                MetadataValue::RawString("Plateau".into()),
-            ),
-        ])
+        StoreValue {
+            value: StdHashMap::from_iter(vec![
+                (
+                    "name".into(),
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Diretnan".to_string(),
+                        )),
+                    },
+                ),
+                (
+                    "country".into(),
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Nigeria".to_string(),
+                        )),
+                    },
+                ),
+                (
+                    "state".into(),
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Plateau".to_string(),
+                        )),
+                    },
+                ),
+            ]),
+        }
     }
 
-    fn create_shared_predicate_indices(
-        allowed_predicates: Vec<MetadataKey>,
-    ) -> Arc<PredicateIndices> {
+    fn create_shared_predicate_indices(allowed_predicates: Vec<String>) -> Arc<PredicateIndices> {
         let shared_pred = Arc::new(PredicateIndices::init(allowed_predicates));
         let handles = (0..4).map(|i| {
             let shared_data = shared_pred.clone();
@@ -442,7 +518,9 @@ mod tests {
                     0 => store_value_0(),
                     1 => store_value_1(),
                     2 => store_value_2(),
-                    _ => StdHashMap::new(),
+                    _ => StoreValue {
+                        value: StdHashMap::new(),
+                    },
                 };
                 let store_key: StoreKeyId = format!("{i}").into();
                 let data = vec![(store_key, values)];
@@ -463,7 +541,11 @@ mod tests {
             let handle = std::thread::spawn(move || {
                 let key = if i % 2 == 0 { "Even" } else { "Odd" };
                 shared_data.add(vec![(
-                    MetadataValue::RawString(key.into()),
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            key.into(),
+                        )),
+                    },
                     format!("{i}").into(),
                 )]);
             });
@@ -477,33 +559,38 @@ mod tests {
 
     #[test]
     fn test_add_index_to_predicate_after() {
-        let shared_pred = create_shared_predicate_indices(vec![MetadataKey::new("country".into())]);
+        let shared_pred = create_shared_predicate_indices(vec!["country".into()]);
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "name".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "David".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
         let result = shared_pred.matches(
-            &PredicateCondition::Value(Predicate::Equals {
-                key: MetadataKey::new("name".into()),
-                value: MetadataValue::RawString("David".into()),
-            }),
+            &condition,
             &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
         );
         // We don't have an index but it should use original store and return empty
         assert!(result.unwrap().is_empty());
         shared_pred.add_predicates(
-            vec![
-                MetadataKey::new("country".into()),
-                MetadataKey::new("name".into()),
-            ],
+            vec!["country".into(), "name".into()],
             Some(vec![
                 ("0".into(), store_value_0()),
                 ("1".into(), store_value_1()),
                 ("2".into(), store_value_2()),
             ]),
         );
+
         let result = shared_pred
             .matches(
-                &PredicateCondition::Value(Predicate::Equals {
-                    key: MetadataKey::new("name".into()),
-                    value: MetadataValue::RawString("David".into()),
-                }),
+                condition,
                 &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
@@ -514,51 +601,99 @@ mod tests {
     #[test]
     fn test_predicate_indices_matches() {
         let shared_pred = create_shared_predicate_indices(vec![
-            MetadataKey::new("country".into()),
-            MetadataKey::new("name".into()),
-            MetadataKey::new("state".into()),
-            MetadataKey::new("age".into()),
+            "country".into(),
+            "name".into(),
+            "state".into(),
+            "age".into(),
         ]);
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                    key: "age".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "14".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
         let result = shared_pred
             .matches(
-                &PredicateCondition::Value(Predicate::NotEquals {
-                    key: MetadataKey::new("age".into()),
-                    value: MetadataValue::RawString("14".into()),
-                }),
+                condition,
                 &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         // There are no entries where age is 14
         assert!(result.is_empty());
+
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                    key: "country".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Nigeria".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
         let result = shared_pred
             .matches(
-                &PredicateCondition::Value(Predicate::NotEquals {
-                    key: MetadataKey::new("country".into()),
-                    value: MetadataValue::RawString("Nigeria".into()),
-                }),
+                condition,
                 &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         // only person 1 is not from Nigeria
         assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        let condition = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "country".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Nigeria".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+
         let result = shared_pred
             .matches(
-                &PredicateCondition::Value(Predicate::Equals {
-                    key: MetadataKey::new("country".into()),
-                    value: MetadataValue::RawString("Nigeria".into()),
-                }),
+                condition,
                 &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         assert_eq!(result, StdHashSet::from_iter(["0".into(), "2".into()]),);
-        let check = PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("state".into()),
-            value: MetadataValue::RawString("Washington".into()),
-        })
-        .or(PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("age".into()),
-            value: MetadataValue::RawString("14".into()),
-        }));
+
+        let check = &PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "state".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Washington".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        }
+        .or(PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "age".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "14".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        });
+
         let result = shared_pred
             .matches(
                 &check,
@@ -567,14 +702,32 @@ mod tests {
             .unwrap();
         // only person 1 is from Washington
         assert_eq!(result, StdHashSet::from_iter(["1".into()]));
-        let check = PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("country".into()),
-            value: MetadataValue::RawString("Nigeria".into()),
-        })
-        .and(PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("state".into()),
-            value: MetadataValue::RawString("Plateau".into()),
-        }));
+
+        let check = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "country".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Nigeria".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        }
+        .and(PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "state".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Plateau".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        });
+
         let result = shared_pred
             .matches(
                 &check,
@@ -583,14 +736,32 @@ mod tests {
             .unwrap();
         // only person 1 is fulfills all
         assert_eq!(result, StdHashSet::from_iter(["2".into()]));
-        let check = PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("name".into()),
-            value: MetadataValue::RawString("David".into()),
-        })
-        .or(PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("name".into()),
-            value: MetadataValue::RawString("Diretnan".into()),
-        }));
+
+        let check = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "name".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "David".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        }
+        .or(PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "name".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Diretnan".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        });
+
         let result = shared_pred
             .matches(
                 &check,
@@ -602,10 +773,19 @@ mod tests {
             result,
             StdHashSet::from_iter(["2".into(), "0".into(), "1".into(),]),
         );
-        let check = check.and(PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("country".into()),
-            value: MetadataValue::RawString("USA".into()),
-        }));
+
+        let check = check.and(PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "country".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "USA".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        });
         let result = shared_pred
             .matches(
                 &check,
@@ -617,20 +797,39 @@ mod tests {
         // remove all Nigerians from the predicate and check that conditions working before no
         // longer work and those working before still work
         shared_pred.remove_store_keys(&["0".into(), "2".into()]);
+
         let result = shared_pred
             .matches(
-                &PredicateCondition::Value(Predicate::Equals {
-                    key: MetadataKey::new("country".into()),
-                    value: MetadataValue::RawString("Nigeria".into()),
-                }),
+                &PredicateCondition {
+                    kind: Some(PredicateConditionKind::Value(Predicate {
+                        kind: Some(PredicateKind::Equals(predicates::Equals {
+                            key: "country".into(),
+                            value: Some(MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        "Nigeria".to_string(),
+                                    ),
+                                ),
+                            }),
+                        })),
+                    })),
+                },
                 &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
         assert!(result.is_empty());
-        let check = check.and(PredicateCondition::Value(Predicate::Equals {
-            key: MetadataKey::new("country".into()),
-            value: MetadataValue::RawString("USA".into()),
-        }));
+        let check = check.and(PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "country".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "USA".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        });
         let result = shared_pred
             .matches(
                 &check,
@@ -649,7 +848,11 @@ mod tests {
             shared_pred
                 .0
                 .pin()
-                .get(&MetadataValue::RawString("Even".into()))
+                .get(&MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Even".to_string(),
+                    )),
+                })
                 .unwrap()
                 .len(),
             2
@@ -658,7 +861,11 @@ mod tests {
             shared_pred
                 .0
                 .pin()
-                .get(&MetadataValue::RawString("Odd".into()))
+                .get(&MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Odd".to_string(),
+                    )),
+                })
                 .unwrap()
                 .len(),
             2
@@ -668,7 +875,11 @@ mod tests {
             shared_pred
                 .0
                 .pin()
-                .get(&MetadataValue::RawString("Even".into()))
+                .get(&MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Even".to_string(),
+                    )),
+                })
                 .unwrap()
                 .len(),
             1
@@ -677,7 +888,11 @@ mod tests {
             shared_pred
                 .0
                 .pin()
-                .get(&MetadataValue::RawString("Odd".into()))
+                .get(&MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Odd".to_string(),
+                    )),
+                })
                 .unwrap()
                 .len(),
             1
@@ -687,89 +902,121 @@ mod tests {
     #[test]
     fn test_matches_works_on_predicate_index() {
         let shared_pred = create_shared_predicate();
-        assert_eq!(
-            shared_pred
-                .matches(&Predicate::Equals {
-                    key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::RawString("Even".into())
-                })
-                .len(),
-            2
-        );
-        assert_eq!(
-            shared_pred
-                .matches(&Predicate::NotEquals {
-                    key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::RawString("Even".into())
-                })
-                .len(),
-            2
-        );
-        assert_eq!(
-            shared_pred
-                .matches(&Predicate::Equals {
-                    key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::RawString("Odd".into())
-                })
-                .len(),
-            2
-        );
-        assert_eq!(
-            shared_pred
-                .matches(&Predicate::In {
-                    key: MetadataKey::new("".to_string()),
-                    value: StdHashSet::from_iter([
-                        MetadataValue::RawString("Odd".into()),
-                        MetadataValue::RawString("Even".into())
-                    ])
-                })
-                .len(),
-            4
-        );
-        assert_eq!(
-            shared_pred
-                .matches(&Predicate::NotIn {
-                    key: MetadataKey::new("".to_string()),
-                    value: StdHashSet::from_iter([MetadataValue::RawString("Odd".into()),])
-                })
-                .len(),
-            2
-        );
-        assert_eq!(
-            shared_pred
-                .matches(&Predicate::NotIn {
-                    key: MetadataKey::new("".to_string()),
-                    value: StdHashSet::from_iter([MetadataValue::RawString("Even".into()),])
-                })
-                .len(),
-            2
-        );
-        assert_eq!(
-            shared_pred
-                .matches(&Predicate::NotEquals {
-                    key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::RawString("Odd".into())
-                })
-                .len(),
-            2
-        );
-        assert_eq!(
-            shared_pred
-                .matches(&Predicate::NotEquals {
-                    key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::RawString("NotExists".into())
-                })
-                .len(),
-            4
-        );
-        assert_eq!(
-            shared_pred
-                .matches(&Predicate::Equals {
-                    key: MetadataKey::new("".to_string()),
-                    value: MetadataValue::RawString("NotExists".into())
-                })
-                .len(),
-            0
-        );
+        let predicate = Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "".into(),
+                value: Some(MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Even".to_string(),
+                    )),
+                }),
+            })),
+        };
+        assert_eq!(shared_pred.matches(&predicate).len(), 2);
+        let predicate = Predicate {
+            kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                key: "".into(),
+                value: Some(MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Even".to_string(),
+                    )),
+                }),
+            })),
+        };
+        assert_eq!(shared_pred.matches(&predicate).len(), 2);
+        let predicate = Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "".into(),
+                value: Some(MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Odd".to_string(),
+                    )),
+                }),
+            })),
+        };
+
+        assert_eq!(shared_pred.matches(&predicate).len(), 2);
+        let predicate = Predicate {
+            kind: Some(PredicateKind::In(predicates::In {
+                key: "".into(),
+                values: vec![
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Odd".to_string(),
+                        )),
+                    },
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Even".to_string(),
+                        )),
+                    },
+                ],
+            })),
+        };
+
+        assert_eq!(shared_pred.matches(&predicate).len(), 4);
+
+        let predicate = Predicate {
+            kind: Some(PredicateKind::NotIn(predicates::NotIn {
+                key: "".into(),
+                values: vec![MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Odd".to_string(),
+                    )),
+                }],
+            })),
+        };
+
+        assert_eq!(shared_pred.matches(&predicate).len(), 2);
+
+        let predicate = Predicate {
+            kind: Some(PredicateKind::NotIn(predicates::NotIn {
+                key: "".into(),
+                values: vec![MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Even".to_string(),
+                    )),
+                }],
+            })),
+        };
+
+        assert_eq!(shared_pred.matches(&predicate).len(), 2);
+
+        let predicate = Predicate {
+            kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                key: "".into(),
+                value: Some(MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Odd".to_string(),
+                    )),
+                }),
+            })),
+        };
+
+        assert_eq!(shared_pred.matches(&predicate).len(), 2);
+
+        let predicate = Predicate {
+            kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                key: "".into(),
+                value: Some(MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "NotExits".to_string(),
+                    )),
+                }),
+            })),
+        };
+
+        assert_eq!(shared_pred.matches(&predicate).len(), 4);
+        let predicate = Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "".into(),
+                value: Some(MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "NotExits".to_string(),
+                    )),
+                }),
+            })),
+        };
+        assert_eq!(shared_pred.matches(&predicate).len(), 0);
     }
 }

@@ -13,14 +13,7 @@ message StoreKey {
     repeated float key = 1;
 }
 
-enum StoreInputType {
-    RawString = 0;
-    Image = 1;
-}
-
 message StoreInput {
-    StoreInputType type = 1;
-
     oneof value {
         string raw_string = 2;
         bytes image = 3;
@@ -29,13 +22,18 @@ message StoreInput {
 
 }
 
-message StoreEntry {
+// A single entry for a store containing embedding key and its associated metadata values.
+message DbStoreEntry {
     StoreKey key = 1;
     StoreValue value = 2;
 }
 
+// A single entry for a store containing raw key and its associated metadata values.
+message AiStoreEntry {
+    StoreInput key = 1;
+    StoreValue value = 2;
+}
 
 message StoreValue {
     map<string, metadata.MetadataValue> value = 1;
-
 }

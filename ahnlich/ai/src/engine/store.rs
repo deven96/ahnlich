@@ -3,9 +3,13 @@ use crate::engine::ai::models::InputAction;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use crate::AHNLICH_AI_RESERVED_META_KEY;
-use ahnlich_types::ai::{
-    AIModel, AIStoreInfo, AIStoreInputType, ExecutionProvider, PreprocessAction,
-};
+use ahnlich_types::ai::execution_provider::ExecutionProvider;
+use ahnlich_types::ai::models::AiModel;
+use ahnlich_types::ai::models::AiStoreInputType;
+use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::ai::server::AiStoreInfo;
+use ahnlich_types::ai::server::GetEntry;
+use ahnlich_types::keyval::DbStoreEntry;
 use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
@@ -36,10 +40,7 @@ pub struct AIStoreHandler {
 
 pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
 
-type StoreSetResponse = (
-    Vec<(StoreKey, StoreValue)>,
-    Option<StdHashSet<MetadataValue>>,
-);
+type StoreSetResponse = (Vec<DbStoreEntry>, Option<StdHashSet<MetadataValue>>);
 type StoreValidateResponse = (
     Vec<(StoreInput, StoreValue)>,
     Option<StdHashSet<MetadataValue>>,
@@ -83,8 +84,8 @@ impl AIStoreHandler {
     pub(crate) fn create_store(
         &self,
         store_name: StoreName,
-        query_model: AIModel,
-        index_model: AIModel,
+        query_model: AiModel,
+        index_model: AiModel,
         error_if_exists: bool,
         store_original: bool,
     ) -> Result<(), AIProxyError> {
@@ -127,18 +128,18 @@ impl AIStoreHandler {
 
     /// matches LISTSTORES - to return statistics of all stores
     #[tracing::instrument(skip(self))]
-    pub(crate) fn list_stores(&self) -> StdHashSet<AIStoreInfo> {
+    pub(crate) fn list_stores(&self) -> StdHashSet<AiStoreInfo> {
         self.stores
             .iter(&self.stores.guard())
             .map(|(store_name, store)| {
                 let model: ModelDetails =
                     SupportedModels::from(&store.index_model).to_model_details();
 
-                AIStoreInfo {
-                    name: store_name.clone(),
-                    query_model: store.query_model,
-                    index_model: store.index_model,
-                    embedding_size: model.embedding_size.into(),
+                AiStoreInfo {
+                    name: store_name.value.clone(),
+                    query_model: store.query_model.into(),
+                    index_model: store.index_model.into(),
+                    embedding_size: model.embedding_size.get() as u64,
                 }
             })
             .collect()
@@ -164,10 +165,14 @@ impl AIStoreHandler {
         mut store_value: StoreValue,
         preprocess_action: &PreprocessAction,
     ) -> Result<(StoreInput, StoreValue), AIProxyError> {
-        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
+        let metadata_value: MetadataValue = store_input
+            .clone()
+            .try_into()
+            .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
 
-        let metadata_value: MetadataValue = store_input.clone().into();
-        store_value.insert(metadata_key.clone(), metadata_value);
+        store_value
+            .value
+            .insert(AHNLICH_AI_RESERVED_META_KEY.to_string(), metadata_value);
         return Ok((store_input, store_value));
     }
 
@@ -200,14 +205,16 @@ impl AIStoreHandler {
 
     #[tracing::instrument(skip(inputs))]
     pub(crate) fn preprocess_store_input(
-        index_model: AIModel,
+        index_model: AiModel,
         inputs: Vec<(StoreInput, StoreValue)>,
         store_original: bool,
     ) -> Result<StoreValidateResponse, AIProxyError> {
         let mut output: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let mut delete_hashset = StdHashSet::new();
         for (store_input, mut store_value) in inputs {
-            let store_input_type: AIStoreInputType = (&store_input).into();
+            let store_input_type: AiStoreInputType = (&store_input)
+                .try_into()
+                .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
             let index_model_repr: ModelDetails =
                 SupportedModels::from(&index_model).to_model_details();
             if store_input_type != index_model_repr.input_type() {
@@ -218,12 +225,21 @@ impl AIStoreHandler {
                 });
             }
             if store_original {
-                let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-                if store_value.contains_key(metadata_key) {
-                    return Err(AIProxyError::ReservedError(metadata_key.to_string()));
+                if store_value.value.contains_key(AHNLICH_AI_RESERVED_META_KEY) {
+                    return Err(AIProxyError::ReservedError(
+                        AHNLICH_AI_RESERVED_META_KEY.to_string(),
+                    ));
                 }
-                let metadata_value: MetadataValue = store_input.clone().into();
-                store_value.insert(metadata_key.clone(), metadata_value.clone());
+
+                let metadata_value: MetadataValue =
+                    store_input.clone().try_into().map_err(|_| {
+                        AIProxyError::InputNotSpecified("Store Input Value".to_string())
+                    })?;
+
+                store_value.value.insert(
+                    AHNLICH_AI_RESERVED_META_KEY.to_string(),
+                    metadata_value.clone(),
+                );
                 delete_hashset.insert(metadata_value);
             }
             output.try_push((store_input, store_value))?;
@@ -260,8 +276,37 @@ impl AIStoreHandler {
             )
             .await?;
 
-        let output = std::iter::zip(store_keys.into_iter(), store_values.into_iter()).collect();
+        let output = std::iter::zip(store_keys.into_iter(), store_values.into_iter())
+            .map(|(k, v)| DbStoreEntry {
+                key: Some(k),
+                value: Some(v),
+            })
+            .collect();
         Ok((output, delete_hashset))
+    }
+
+    #[tracing::instrument(skip(self, input), fields(input_len=input.len()))]
+    pub(crate) fn db_store_entry_to_store_get_key(
+        &self,
+        input: Vec<DbStoreEntry>,
+    ) -> Vec<GetEntry> {
+        input
+            .into_par_iter()
+            .flat_map(|store_entry| {
+                if let Some(mut value) = store_entry.value {
+                    let key = value
+                        .value
+                        .remove(AHNLICH_AI_RESERVED_META_KEY)
+                        .and_then(|val| StoreInput::try_from(val).ok());
+
+                    return Some(GetEntry {
+                        key,
+                        value: Some(value),
+                    });
+                }
+                None
+            })
+            .collect()
     }
 
     /// Converts (storekey, storevalue) into (storeinput, storevalue)
@@ -271,13 +316,19 @@ impl AIStoreHandler {
         &self,
         output: Vec<(StoreKey, StoreValue)>,
     ) -> Vec<(Option<StoreInput>, StoreValue)> {
-        let metadata_key = &*AHNLICH_AI_RESERVED_META_KEY;
-
         output
             .into_par_iter()
             .map(|(_, mut store_value)| {
-                let store_input = store_value.remove(metadata_key).map(|val| val.into());
-                (store_input, store_value)
+                // NOTE: verify the logic here
+                let store_input = store_value
+                    .value
+                    .remove(AHNLICH_AI_RESERVED_META_KEY)
+                    .map(|val| val.try_into().ok());
+
+                match store_input {
+                    Some(entry) => (entry, store_value),
+                    None => (None, store_value),
+                }
             })
             .collect()
     }
@@ -346,16 +397,16 @@ impl AIStoreHandler {
 pub struct AIStore {
     name: StoreName,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
-    query_model: AIModel,
-    index_model: AIModel,
+    query_model: AiModel,
+    index_model: AiModel,
     store_original: bool,
 }
 
 impl AIStore {
     pub(super) fn create(
         store_name: StoreName,
-        query_model: AIModel,
-        index_model: AIModel,
+        query_model: AiModel,
+        index_model: AiModel,
         store_original: bool,
     ) -> Self {
         Self {

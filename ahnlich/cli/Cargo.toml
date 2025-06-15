@@ -20,7 +20,7 @@ dsl = { path = "../dsl", version = "*" }
 thiserror.workspace = true
 tokio.workspace = true
 ahnlich_client_rs = { path = "../client", version = "*" }
-deadpool.workspace = true
-ahnlich_types = { path = "../types", version = "*" }
+ahnlich_types = { path = "../types", version = "*"  }
 serde_json.workspace = true
 serde.workspace = true
+tonic.workspace = true

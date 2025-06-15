@@ -8,9 +8,6 @@ import "client.proto";
 import "similarity.proto";
 import "shared/info.proto";
 
-// TODO storeupsert and serverinfo needs to be imported from db
-
-
 message Unit {}
 
 message Pong {}
@@ -51,11 +48,11 @@ message GetSimN {
 }
 
 message Del {
-    uint32 deleted_count = 1;
+    uint64 deleted_count = 1;
 }
 
 message CreateIndex {
-    uint32 created_indexes = 1;
+    uint64 created_indexes = 1;
 }
 
 
@@ -64,7 +61,7 @@ message AIStoreInfo {
     string name = 1;
     ai.models.AIModel query_model = 2;
     ai.models.AIModel index_model = 3;
-    uint32 embedding_size = 4;
+    uint64 embedding_size = 4;
 }
 
 

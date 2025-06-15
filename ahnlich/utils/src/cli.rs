@@ -32,7 +32,7 @@ pub struct CommandLineConfig {
     pub persistence_interval: u64,
 
     /// sets size(in bytes) for global allocator used
-    /// Defaults to 1 Gi (1 * 1024 * 1024 * 1024)
+    /// Defaults to 10 Gi (10 * 1024 * 1024 * 1024)
     /// Would throw a memory allocation error and stopping the server
     #[arg(long, value_parser = validate_allocator_size,
         default_value_t = DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).allocator_size.clone()
@@ -78,9 +78,8 @@ impl Default for CommandLineConfig {
             persist_location: None,
             fail_on_startup_if_persist_load_fails: false,
             persistence_interval: 1000 * 60 * 5,
-            allocator_size: 1_073_741_824,
+            allocator_size: 10_073_741_824,
             message_size: 10_048_576,
-
             enable_tracing: false,
             otel_endpoint: None,
             log_level: String::from("info,hf_hub=warn"),

@@ -131,4 +131,4 @@ Deadline Or Timeouts: It’s unclear at the moment if we need to add timeouts or
 
 ### Proposed Protobuf Implementation of Ahnlich Types:
 
-The proposed types implementation are in the [protos](../../protos/) with the rust implementation in [grpc_types](../../ahnlich/grpc_types/) crate.
+The proposed types implementation are in the [protos](../../protos/) with the rust implementation in [ahnlich_types](../../ahnlich/types/) crate.

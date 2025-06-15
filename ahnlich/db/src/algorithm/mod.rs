@@ -6,9 +6,9 @@ use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::num::NonZeroUsize;
 
+use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::keyval::StoreKey;
-use ahnlich_types::similarity::Algorithm;
-use ahnlich_types::similarity::NonLinearAlgorithm;
 use heap::HeapOrder;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -33,7 +33,7 @@ impl From<Algorithm> for AlgorithmByType {
             Algorithm::DotProductSimilarity => {
                 AlgorithmByType::Linear(LinearAlgorithm::DotProductSimilarity)
             }
-            Algorithm::KDTree => AlgorithmByType::NonLinear(NonLinearAlgorithm::KDTree),
+            Algorithm::KdTree => AlgorithmByType::NonLinear(NonLinearAlgorithm::KdTree),
         }
     }
 }

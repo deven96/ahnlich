@@ -4,7 +4,7 @@ pub mod processors;
 use crate::engine::ai::models::{InputAction, ModelInput};
 use crate::engine::ai::providers::ort::ORTProvider;
 use crate::error::AIProxyError;
-use ahnlich_types::ai::ExecutionProvider;
+use ahnlich_types::ai::execution_provider::ExecutionProvider;
 use ahnlich_types::keyval::StoreKey;
 
 pub enum ModelProviders {

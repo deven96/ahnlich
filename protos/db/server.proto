@@ -28,7 +28,7 @@ message Set {
 }
 
 message Get {
-  repeated keyval.StoreEntry entries = 1;
+  repeated keyval.DbStoreEntry entries = 1;
 }
 
 message GetSimNEntry {

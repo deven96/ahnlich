@@ -1,17 +1,17 @@
 from pathlib import Path
 
 import ebooklib
-from ahnlich_client_py.internals import ai_query
 from bs4 import BeautifulSoup
 from ebooklib import epub
 
+from ahnlich_client_py.grpc import keyval, metadata
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+EPUB_FILE = BASE_DIR / "book_search" / "animal_farm.epub"
 
 
-def load_epub(file_path):
-
-    book = epub.read_epub(file_path)
-    return book
+def load_epub(file_path: Path) -> epub.EpubBook:
+    return epub.read_epub(str(file_path))
 
 
 def split_into_chapters(book):
@@ -27,15 +27,15 @@ def split_into_chapters(book):
             text = p.text.strip().replace("\n", "")
             if text:
                 paragraphs.append(
-                    (
-                        ai_query.StoreInput__RawString(text),
-                        {
-                            "chapter": ai_query.MetadataValue__RawString(
-                                f"{chapter_num}"
-                            ),
-                            "paragraph": ai_query.MetadataValue__RawString(
-                                f"{paragraph_num}"
-                            ),
+                    keyval.AiStoreEntry(
+                        key=keyval.StoreInput(raw_string=text),
+                        value={
+                                "chapter": metadata.MetadataValue(
+                                    raw_string=f"{chapter_num}"
+                                ),
+                                "paragraph": metadata.MetadataValue(
+                                    raw_string=f"{paragraph_num}"
+                                ),
                         },
                     )
                 )
@@ -43,12 +43,6 @@ def split_into_chapters(book):
     return paragraphs
 
 
-def process_epub(file_path):
-    book = load_epub(file_path)
-    chapters = split_into_chapters(book)
-    return chapters
-
-
-def get_book():
-    result = process_epub(f"{BASE_DIR}/book_search/animal_farm.epub")
-    return result
+def get_book() -> list[keyval.AiStoreEntry]:
+    book = load_epub(EPUB_FILE)
+    return split_into_chapters(book)
