@@ -1,0 +1,9 @@
+
+syntax = "proto3";
+
+package ai.preprocess;
+
+enum PreprocessAction {
+    NoPreprocessing = 0;
+    ModelPreprocessing = 1;
+}

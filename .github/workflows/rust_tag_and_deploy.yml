@@ -66,10 +66,15 @@ jobs:
       - name: Get Cargo toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.78.0
+          toolchain: 1.87.0
+
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v3
 
       - name: Deploy using tag
         working-directory: ./ahnlich
         run: |
-          cargo publish -p ahnlich_types --dry-run --token '${{secrets.CARGO_TOKEN}}'
-          cargo publish -p ahnlich_client_rs --dry-run --token '${{secrets.CARGO_TOKEN}}'
+          cargo publish -p ahnlich_types --token '${{secrets.CARGO_TOKEN}}'
+          # Removing dev dependencies as those use * and are only locally available
+          sed -i '/^\[dev-dependencies\]/,/^\[/{//!d; /^\[dev-dependencies\]/s/.*/ /}' client/Cargo.toml
+          cargo publish --allow-dirty -p ahnlich_client_rs --token '${{secrets.CARGO_TOKEN}}'

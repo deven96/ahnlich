@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package db.server;
+
+import "client.proto";
+import "keyval.proto";
+import "shared/info.proto";
+import "similarity.proto";
+
+message Unit {}
+
+message Pong {}
+
+message ClientList {
+  repeated client.ConnectedClient clients = 1;
+}
+
+message StoreList {
+  repeated StoreInfo stores = 1;
+}
+
+message InfoServer {
+  shared.info.ServerInfo info = 1;
+}
+
+message Set {
+  shared.info.StoreUpsert upsert = 1;
+}
+
+message Get {
+  repeated keyval.DbStoreEntry entries = 1;
+}
+
+message GetSimNEntry {
+  keyval.StoreKey key = 1;
+  keyval.StoreValue value = 2;
+  similarity.Similarity similarity = 3;
+}
+
+message GetSimN {
+  repeated GetSimNEntry entries = 1;
+}
+
+message Del {
+  uint64 deleted_count = 1;
+}
+
+message CreateIndex {
+  uint64 created_indexes = 1;
+}
+
+message ServerResponse {
+  oneof response {
+    Unit unit = 1;
+    Pong pong = 2;
+    ClientList client_list = 3;
+    StoreList store_list = 4;
+    InfoServer info_server = 5;
+    Set set = 6;
+    Get get = 7;
+    GetSimN get_sim_n = 8;
+    Del del = 9;
+    CreateIndex create_index = 10;
+  }
+}
+
+message StoreInfo {
+  string name = 1;
+  uint64 len = 2;
+  uint64 size_in_bytes = 3;
+}

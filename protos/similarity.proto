@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package similarity;
+
+
+message Similarity {
+    float value = 1;
+}

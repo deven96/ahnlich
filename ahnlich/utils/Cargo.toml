@@ -1,16 +1,15 @@
 [package]
 name = "utils"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
 [dependencies]
-ahnlich_types = { path = "../types", version = "*" }
+ahnlich_types = { path = "../types", version = "*"  }
 task-manager = { path = "../task-manager", version = "*" }
 tracing.workspace = true
 tracing-opentelemetry.workspace = true
 opentelemetry.workspace = true
 tracer = { path = "../tracer", version = "*" }
-flurry.workspace = true
 tokio.workspace = true
 thiserror.workspace = true
 serde.workspace = true
@@ -24,3 +23,10 @@ fallible_collections.workspace = true
 rayon.workspace = true
 clap.workspace = true
 futures.workspace = true
+papaya.workspace = true
+tower = "0.5.2"
+pin-project = "1"
+tower-layer = "0.3.3"
+tonic.workspace = true
+http.workspace = true
+hyper = { version = "1", features = ["full"] }

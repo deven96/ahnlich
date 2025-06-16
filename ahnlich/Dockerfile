@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.78.0 AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.81.0 AS chef
 WORKDIR /app
 RUN apt update && apt install lld clang -y
 FROM chef AS planner
@@ -20,7 +20,7 @@ COPY . /app/
 
 # Build our project
 RUN cargo build --release --bin ${AHNLICH_BIN}
-RUN cargo build --release --bin ahnlich_cli
+RUN cargo build --release --bin ahnlich-cli
 
 
 FROM debian:bookworm-slim AS runtime
@@ -38,7 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 
 
 COPY --from=builder /app/target/release/${AHNLICH_BIN} /usr/local/bin/
-COPY --from=builder /app/target/release/ahnlich_cli /usr/local/bin/
+COPY --from=builder /app/target/release/ahnlich-cli /usr/local/bin/
 
 ENV AHNLICH_BIN=${AHNLICH_BIN}
 

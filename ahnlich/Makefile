@@ -38,8 +38,18 @@ check: ## cargo check
 test: ## cargo test
 	cargo nextest run --no-capture
 
-generate-specs: ## generate type specs 
-	cargo run --bin typegen generate
+grpc-update-clients: grpc-update-rust grpc-update-python ## updates client generated code after proto change
+	@echo "Updated clients"
+
+grpc-update-python: ## updates python generated code after proto change
+	@cd ../sdk/ahnlich-client-py/ \
+		&& poetry run generate_from_protos \
+		&& poetry run isort . \
+		&& poetry run black .
+
+grpc-update-rust: ## updates python generated code after proto change
+	@cargo build -p ahnlich_types
+	@make format
 
 run-db: ## Run ahnlich_db bin 
 	cargo run --bin ahnlich-db run
@@ -48,10 +58,20 @@ run-db-tracing: ## Run ahnlich_db bin with  tracing enabled
 	cargo run --bin ahnlich-db run --enable-tracing
 
 run-ai: ## Run ahnlich_ai bin with default supported models
-	cargo run --bin ahnlich-ai run --supported-models all-minilm-l6-v2,resnet-50
+	cargo run --bin ahnlich-ai run --supported-models all-minilm-l6-v2,resnet-50,bge-base-en-v1.5,clip-vit-b32-text,clip-vit-b32-image
+
+run-ai-coreml: ## Run ahnlich_ai bin with coreML and tracing on mac-os
+	RUST_LOG='ort=debug' \
+	cargo run --features coreml \
+		--bin ahnlich-ai run \
+		--supported-models all-minilm-l6-v2,resnet-50,bge-base-en-v1.5,clip-vit-b32-text,clip-vit-b32-image \
+		--enable-tracing
 
 run-ai-tracing: ## Run ahnlich_ai bin with default supported models and tracing_enabled
-	cargo run --bin ahnlich-ai run --supported-models all-minilm-l6-v2,resnet-50 --enable-tracing
+	RUST_LOG='ort=debug' \
+					 cargo run --bin ahnlich-ai run \
+					 --supported-models all-minilm-l6-v2,resnet-50,bge-base-en-v1.5,clip-vit-b32-text,clip-vit-b32-image \
+					 --enable-tracing
 
 
 bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, minor, major.
@@ -66,6 +86,10 @@ bump-protocol-version: ## Bump project versions. Rules for bumpversion: patch, m
 	@echo "Bumping ahnlich ai version because of changed protocol with rule $(BUMP_RULE)"
 	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(AHNLICH_AI_NAME)
 	@echo "Ahnlich AI version bumped to $(BUMP_RULE)"
+
+	@echo "Bumping Rust client version with rule $(BUMP_RULE)"
+	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(RUST_CLIENT_NAME)
+	@echo "Rust client version bumped to $(BUMP_RULE)"
 
 	@echo "Bumping Python project version with rule $(BUMP_RULE)"
 	@cd $(PYTHON_PROJECT_DIR) && poetry run bumpversion --component Protocol --bump-type $(BUMP_RULE)

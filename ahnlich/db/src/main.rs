@@ -15,6 +15,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 )?;
             }
             let server = ahnlich_db::server::handler::Server::new(config).await?;
+
             server.start().await?;
         }
     }

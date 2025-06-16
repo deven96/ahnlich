@@ -1,59 +1,58 @@
-from ahnlich_client_py import clients
-from ahnlich_client_py.internals import ai_response
+import pytest
+from grpclib.client import Channel
+
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc.ai import server as ai_server
+from ahnlich_client_py.grpc.server_types import ServerType
+from ahnlich_client_py.grpc.services import ai_service
 
 
-def test_client_sends_ping_to_aiproxy_success(module_scopped_ahnlich_ai):
-    port = module_scopped_ahnlich_ai
-    ai_client = clients.AhnlichAIClient(address="127.0.0.1", port=port)
+@pytest.mark.asyncio
+async def test_client_sends_ping_to_aiproxy_success(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
     try:
-        response: ai_response.AIServerResult = ai_client.ping()
-        assert len(response.results) == 1
-        assert response.results[0] == ai_response.Result__Ok(
-            ai_response.AIServerResponse__Pong()
-        )
-    except Exception as e:
-        print(f"Exception: {e}")
+        response = await client.ping(ai_query.Ping())
+        assert isinstance(response, ai_server.Pong)
     finally:
-        ai_client.cleanup()
+        channel.close()
 
 
-def test_client_sends_info_server_to_aiproxy_success(module_scopped_ahnlich_ai):
-    port = module_scopped_ahnlich_ai
-    ai_client = clients.AhnlichAIClient(address="127.0.0.1", port=port)
+@pytest.mark.asyncio
+async def test_client_sends_info_server_to_aiproxy_success(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
     try:
-        response: ai_response.AIServerResult = ai_client.info_server()
-        assert len(response.results) == 1
-
-        info_server: ai_response.ServerInfo = response.results[0].value
-        assert (
-            info_server.value.version.major == ai_client.message_protocol.version.major
-        )
-        assert info_server.value.type == ai_response.ServerType__AI()
-
-    except Exception as e:
-        print(f"Exception: {e}")
+        response = await client.info_server(ai_query.InfoServer())
+        assert isinstance(response.info.version, str)
+        assert response.info.type == ServerType.AI
     finally:
-        ai_client.cleanup()
+        channel.close()
 
 
-def test_client_sends_list_stores_to_fresh_aiproxy_succeeds(module_scopped_ahnlich_ai):
-    port = module_scopped_ahnlich_ai
-    ai_client = clients.AhnlichAIClient(address="127.0.0.1", port=port)
+@pytest.mark.asyncio
+async def test_client_sends_list_stores_to_fresh_aiproxy_succeeds(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
     try:
-        response: ai_response.AIServerResult = ai_client.list_stores()
-        assert response.results[0] == ai_response.Result__Ok(
-            ai_response.AIServerResponse__StoreList([])
-        )
-    except Exception as e:
-        print(f"Exception: {e}")
+        response = await client.list_stores(ai_query.ListStores())
+        assert len(response.stores) == 0
     finally:
-        ai_client.cleanup()
+        channel.close()
 
 
-def test_client_works_using_protocol_in_context(module_scopped_ahnlich_ai):
-    port = module_scopped_ahnlich_ai
-    with clients.AhnlichAIClient(address="127.0.0.1", port=port) as ai_client:
-        response: ai_response.AIServerResult = ai_client.list_stores()
-    assert response.results[0] == ai_response.Result__Ok(
-        ai_response.AIServerResponse__StoreList([])
-    )
+@pytest.mark.asyncio
+async def test_client_works_using_context_manager(spin_up_ahnlich_ai):
+    async with Channel(host="127.0.0.1", port=spin_up_ahnlich_ai) as channel:
+        client = ai_service.AiServiceStub(channel)
+        response = await client.list_stores(ai_query.ListStores())
+        assert len(response.stores) == 0
+
+
+@pytest.mark.asyncio
+async def test_client_works_using_context_manager(spin_up_ahnlich_ai):
+    async with Channel(host="127.0.0.1", port=spin_up_ahnlich_ai) as channel:
+        client = ai_service.AiServiceStub(channel)
+        response = await client.list_stores(ai_query.ListStores())
+        assert isinstance(response, ai_server.StoreList)
+        assert len(response.stores) == 0

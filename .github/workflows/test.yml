@@ -29,6 +29,9 @@ jobs:
     - name: Set up cargo and rustup tools
       run: |
         which cargo-nextest || cargo install cargo-nextest
+
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v3
     
     - name: Cache Docker images.
       uses: ScribeMD/docker-cache@0.5.0
@@ -46,6 +49,21 @@ jobs:
         make format
         make clippy
 
+    - name: Check Rust Client is up to date
+      working-directory: ./ahnlich
+      run: |
+        make grpc-update-rust
+        if [[ -n "$(git status . --porcelain)" ]]; then
+          echo "::error::Running 'make grpc-update-rust' caused changes, Please check that rust client is up to date"
+          git --no-pager diff .
+          exit 1
+        fi
+
+    - name: Build and Format Rust Example
+      working-directory: ./examples/rust/image-search
+      run: |
+        cargo b && cargo fmt
+
     - name: Run Test
       working-directory: ./ahnlich
       run: |
@@ -61,7 +79,6 @@ jobs:
 
   run-python-tests:
     if: always()
-    # needs: ["run-rust-tests"]
     runs-on: ubuntu-latest
 
     steps:
@@ -75,6 +92,7 @@ jobs:
         poetry-version: 1.7.0
     - name: View poetry --help
       run: poetry --help
+
     - name: Cache using poetry lock
       uses: actions/cache@v4
       with:
@@ -91,10 +109,23 @@ jobs:
         poetry run isort . -c --profile black; echo $?
         poetry run black . --check; echo $?
 
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v3
+
     - name: Complie Binaries
       working-directory: ./ahnlich
       run: |
         cargo build
+
+    - name: Check Python Client is up to date
+      working-directory: ./ahnlich
+      run: |
+        make grpc-update-python
+        if [[ -n "$(git status ../sdk/ahnlich-client-py --porcelain)" ]]; then
+          echo "::error::Running 'make grpc-update-python' caused changes, Please check that python client is up to date"
+          git --no-pager diff ../sdk/ahnlich-client-py
+          exit 1
+        fi
     
     - name: Run Python Client Tests
       working-directory: ./sdk/ahnlich-client-py

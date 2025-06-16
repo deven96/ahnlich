@@ -1,5 +1,5 @@
 use ahnlich_types::client::ConnectedClient;
-use flurry::HashSet as ConcurrentHashSet;
+use papaya::HashSet as ConcurrentHashSet;
 use std::collections::HashSet as StdHashSet;
 use std::net::SocketAddr;
 use std::time::SystemTime;
@@ -25,16 +25,12 @@ impl ClientHandler {
         let pinned = self.clients.pin();
         log::debug!("Current client len {}", pinned.len());
         if self.is_maxed_out() {
-            log::error!(
-                "Maximum clients count {} reached or exceeded with {}",
-                pinned.len(),
-                self.maximum_clients
-            );
+            log::error!("Maximum clients count {} reached or exceeded", pinned.len());
             return None;
         };
         let client = ConnectedClient {
             address: format!("{addr}"),
-            time_connected: SystemTime::now(),
+            time_connected: format!("{:?}", SystemTime::now()),
         };
         pinned.insert(client.clone());
         Some(client)

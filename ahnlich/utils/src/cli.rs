@@ -1,5 +1,4 @@
 use clap::{ArgAction, Args};
-use std::os::unix::fs::MetadataExt;
 use std::sync::OnceLock;
 
 static DEFAULT_CONFIG: OnceLock<CommandLineConfig> = OnceLock::new();
@@ -33,7 +32,7 @@ pub struct CommandLineConfig {
     pub persistence_interval: u64,
 
     /// sets size(in bytes) for global allocator used
-    /// Defaults to 1 Gi (1 * 1024 * 1024 * 1024)
+    /// Defaults to 10 Gi (10 * 1024 * 1024 * 1024)
     /// Would throw a memory allocation error and stopping the server
     #[arg(long, value_parser = validate_allocator_size,
         default_value_t = DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).allocator_size.clone()
@@ -79,12 +78,11 @@ impl Default for CommandLineConfig {
             persist_location: None,
             fail_on_startup_if_persist_load_fails: false,
             persistence_interval: 1000 * 60 * 5,
-            allocator_size: 1_073_741_824,
-            message_size: 1_048_576,
-
+            allocator_size: 10_073_741_824,
+            message_size: 10_048_576,
             enable_tracing: false,
             otel_endpoint: None,
-            log_level: String::from("info"),
+            log_level: String::from("info,hf_hub=warn"),
             maximum_clients: 1000,
             threadpool_size: 16,
         }
@@ -112,7 +110,7 @@ pub fn validate_persistence(
         let path = path_file.as_path();
         if path.is_file() {
             let file_metadata = std::fs::metadata(path).map_err(|err| err.to_string())?;
-            if (allocated_size / file_metadata.size() as usize) < 2 {
+            if (allocated_size / file_metadata.len() as usize) < 2 {
                 return Err(
                     "Allocated memory should be more than two times your persistence_file size"
                         .to_string(),

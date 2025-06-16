@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package metadata;
+
+message MetadataValue {
+  oneof value {
+    string raw_string = 2;
+    bytes image = 3;
+  }
+}

@@ -1,26 +1,36 @@
 use super::super::errors::ServerError;
 use super::FindSimilarN;
 use ahnlich_similarity::kdtree::KDTree;
-use ahnlich_similarity::utils::Array1F32Ordered;
+use ahnlich_similarity::utils::VecF32Ordered;
+use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
+use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::keyval::StoreKey;
-use ahnlich_types::similarity::NonLinearAlgorithm;
-use flurry::HashMap as ConcurrentHashMap;
-use ndarray::Array1;
+use papaya::HashMap as ConcurrentHashMap;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 
+// Maintain an enum even though we have a trait as we want to know size
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum NonLinearAlgorithmWithIndex {
     KDTree(KDTree),
 }
+
 impl NonLinearAlgorithmWithIndex {
+    fn get_inner(&self) -> &impl NonLinearAlgorithmWithIndexImpl {
+        match self {
+            Self::KDTree(kdtree) => kdtree,
+        }
+    }
+
     #[tracing::instrument]
     pub(crate) fn create(algorithm: NonLinearAlgorithm, dimension: NonZeroUsize) -> Self {
         match algorithm {
-            NonLinearAlgorithm::KDTree => NonLinearAlgorithmWithIndex::KDTree(
+            NonLinearAlgorithm::KdTree => NonLinearAlgorithmWithIndex::KDTree(
                 KDTree::new(dimension, dimension)
                     .expect("Impossible dimension happened during initalization of kdtree"),
             ),
@@ -28,32 +38,22 @@ impl NonLinearAlgorithmWithIndex {
     }
 
     #[tracing::instrument(skip_all)]
-    fn insert(&self, new: &[Array1<f32>]) {
-        match self {
-            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
-                kdtree
-                    .insert_multi(new.to_vec())
-                    .expect("Impossible dimension happened during insert of kdtree");
-            }
-        }
+    fn insert(&self, new: &[Vec<f32>]) {
+        self.get_inner()
+            .insert(new.to_vec())
+            .expect("Error inserting into index");
     }
 
     #[tracing::instrument(skip_all)]
-    fn delete(&self, new: &[Array1<f32>]) {
-        match self {
-            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
-                kdtree
-                    .delete_multi(new)
-                    .expect("Impossible dimension happened during delete of kdtree");
-            }
-        }
+    fn delete(&self, del: &[Vec<f32>]) {
+        self.get_inner()
+            .delete(del)
+            .expect("Error deleting from index");
     }
 
     #[tracing::instrument(skip_all)]
     fn size(&self) -> usize {
-        match &self {
-            Self::KDTree(kdtree) => kdtree.size(),
-        }
+        self.get_inner().size()
     }
 }
 
@@ -62,7 +62,7 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &StoreKey,
-        search_list: impl Iterator<Item = &'a StoreKey>,
+        search_list: impl ParallelIterator<Item = &'a StoreKey>,
         used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKey, f32)> {
@@ -71,21 +71,16 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
         } else {
             Some(
                 search_list
-                    .map(|key| Array1F32Ordered(key.0.clone()))
+                    .map(|key| VecF32Ordered(key.key.clone()))
                     .collect(),
             )
         };
-        match self {
-            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
-                kdtree
-                    .n_nearest(&search_vector.0, n, accept_list)
-                    // we expect that algorithm shapes have already been confirmed before hand
-                    .expect("KDTree does not have the same size as reference_point")
-                    .into_iter()
-                    .map(|(arr, sim)| (StoreKey(arr), sim))
-                    .collect()
-            }
-        }
+        self.get_inner()
+            .n_nearest(&search_vector.key, n, accept_list)
+            .expect("Index does not have the same size as reference_point")
+            .into_par_iter()
+            .map(|(arr, sim)| (StoreKey { key: arr }, sim))
+            .collect()
     }
 }
 
@@ -121,7 +116,7 @@ impl NonLinearAlgorithmIndices {
     pub fn insert_indices(
         &self,
         indices: HashSet<NonLinearAlgorithm>,
-        values: &[Array1<f32>],
+        values: &[Vec<f32>],
         dimension: NonZeroUsize,
     ) {
         let pinned = self.algorithm_to_index.pin();
@@ -141,7 +136,7 @@ impl NonLinearAlgorithmIndices {
         let pinned = self.algorithm_to_index.pin();
         if let (true, Some(non_existing_index)) = (
             error_if_not_exists,
-            indices.iter().find(|a| !pinned.contains_key(a)),
+            indices.iter().find(|a| !pinned.contains_key(*a)),
         ) {
             return Err(ServerError::NonLinearIndexNotFound(*non_existing_index));
         }
@@ -156,7 +151,7 @@ impl NonLinearAlgorithmIndices {
 
     /// insert new entries into the non linear algorithm indices
     #[tracing::instrument(skip_all)]
-    pub(crate) fn insert(&self, new: Vec<Array1<f32>>) {
+    pub(crate) fn insert(&self, new: Vec<Vec<f32>>) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {
             algo.insert(&new);
@@ -165,7 +160,7 @@ impl NonLinearAlgorithmIndices {
 
     /// delete old entries from the non linear algorithm indices
     #[tracing::instrument(skip_all)]
-    pub(crate) fn delete(&self, old: &[Array1<f32>]) {
+    pub(crate) fn delete(&self, old: &[Vec<f32>]) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {
             algo.delete(old);

@@ -1,414 +1,338 @@
-use crate::conn::{AIConn, Connection};
+use ahnlich_types::{
+    ai::{
+        pipeline::{ai_query::Query, AiQuery, AiRequestPipeline, AiResponsePipeline},
+        query::{
+            CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
+            DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
+            InfoServer, ListClients, ListStores, Ping, PurgeStores, Set,
+        },
+        server::{
+            ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong, Set as SetResult,
+            StoreList, Unit,
+        },
+    },
+    services::ai_service::ai_service_client::AiServiceClient,
+    shared::info::ServerInfo,
+    utils::add_trace_parent,
+};
+use tonic::transport::Channel;
+
 use crate::error::AhnlichError;
-use crate::prelude::*;
-use deadpool::managed::Manager;
-use deadpool::managed::Metrics;
-use deadpool::managed::Object;
-use deadpool::managed::Pool;
-use deadpool::managed::RecycleError;
-use deadpool::managed::RecycleResult;
-use std::collections::HashSet;
-use std::num::NonZeroUsize;
 
-/// TCP Connection manager to ahnlich db
-#[derive(Debug)]
-pub struct AIConnManager {
-    host: String,
-    port: u16,
+#[derive(Debug, Clone)]
+pub struct AiPipeline {
+    queries: Vec<Query>,
+    tracing_id: Option<String>,
+    client: AiServiceClient<Channel>,
 }
 
-impl AIConnManager {
-    pub fn new(host: String, port: u16) -> Self {
-        Self { host, port }
-    }
-}
-
-#[async_trait::async_trait]
-impl Manager for AIConnManager {
-    type Type = AIConn;
-    type Error = AhnlichError;
-
-    async fn create(&self) -> Result<AIConn, AhnlichError> {
-        AIConn::new(&self.host, self.port).await
+impl AiPipeline {
+    pub fn create_store(&mut self, params: CreateStore) {
+        self.queries.push(Query::CreateStore(params));
     }
 
-    async fn recycle(&self, conn: &mut AIConn, _metrics: &Metrics) -> RecycleResult<AhnlichError> {
-        conn.is_conn_valid().await.map_err(RecycleError::Backend)
-    }
-}
-
-/// Allow executing multiple queries at once
-#[derive(Debug)]
-pub struct AIPipeline {
-    queries: AIServerQuery,
-    conn: Object<AIConnManager>,
-}
-
-impl AIPipeline {
-    pub fn new_from_queries_and_conn(queries: AIServerQuery, conn: Object<AIConnManager>) -> Self {
-        Self { queries, conn }
-    }
-    /// push create store command to pipeline
-    #[allow(clippy::too_many_arguments)]
-    pub fn create_store(
-        &mut self,
-        store: StoreName,
-        query_model: AIModel,
-        index_model: AIModel,
-        predicates: HashSet<MetadataKey>,
-        non_linear_indices: HashSet<NonLinearAlgorithm>,
-        error_if_exists: bool,
-        store_original: bool,
-    ) {
-        self.queries.push(AIQuery::CreateStore {
-            store,
-            query_model,
-            index_model,
-            predicates,
-            non_linear_indices,
-            error_if_exists,
-            store_original,
-        })
+    pub fn create_pred_index(&mut self, params: CreatePredIndex) {
+        self.queries.push(Query::CreatePredIndex(params));
     }
 
-    /// Push get pred command to pipeline
-    pub fn get_pred(&mut self, store: StoreName, condition: PredicateCondition) {
-        self.queries.push(AIQuery::GetPred { store, condition })
-    }
-
-    /// Push get sim n command to pipeline
-    pub fn get_sim_n(
-        &mut self,
-        store: StoreName,
-        search_input: StoreInput,
-        condition: Option<PredicateCondition>,
-        closest_n: NonZeroUsize,
-        algorithm: Algorithm,
-    ) {
-        self.queries.push(AIQuery::GetSimN {
-            store,
-            search_input,
-            condition,
-            closest_n,
-            algorithm,
-        })
-    }
-
-    /// push create pred index command to pipeline
-    pub fn create_pred_index(&mut self, store: StoreName, predicates: HashSet<MetadataKey>) {
+    pub fn create_non_linear_algorithm_index(&mut self, params: CreateNonLinearAlgorithmIndex) {
         self.queries
-            .push(AIQuery::CreatePredIndex { store, predicates })
+            .push(Query::CreateNonLinearAlgorithmIndex(params));
     }
 
-    /// push create non linear index command to pipeline
-    pub fn create_non_linear_algorithm_index(
-        &mut self,
-        store: StoreName,
-        non_linear_indices: HashSet<NonLinearAlgorithm>,
-    ) {
-        self.queries.push(AIQuery::CreateNonLinearAlgorithmIndex {
-            store,
-            non_linear_indices,
-        })
+    pub fn get_key(&mut self, params: GetKey) {
+        self.queries.push(Query::GetKey(params));
     }
 
-    /// push drop pred index command to pipeline
-    pub fn drop_pred_index(
-        &mut self,
-        store: StoreName,
-        predicates: HashSet<MetadataKey>,
-        error_if_not_exists: bool,
-    ) {
-        self.queries.push(AIQuery::DropPredIndex {
-            store,
-            predicates,
-            error_if_not_exists,
-        })
+    pub fn get_pred(&mut self, params: GetPred) {
+        self.queries.push(Query::GetPred(params));
     }
 
-    /// push set command to pipeline
-    pub fn set(
-        &mut self,
-        store: StoreName,
-        inputs: Vec<(StoreInput, StoreValue)>,
-        preprocess_action: PreprocessAction,
-    ) {
-        self.queries.push(AIQuery::Set {
-            store,
-            inputs,
-            preprocess_action,
-        })
+    pub fn get_sim_n(&mut self, params: GetSimN) {
+        self.queries.push(Query::GetSimN(params));
     }
 
-    /// push del key command to pipeline
-    pub fn del_key(&mut self, store: StoreName, key: StoreInput) {
-        self.queries.push(AIQuery::DelKey { store, key })
+    pub fn set(&mut self, params: Set) {
+        self.queries.push(Query::Set(params));
     }
 
-    /// Push drop store command to pipeline
-    pub fn drop_store(&mut self, store: StoreName, error_if_not_exists: bool) {
-        self.queries.push(AIQuery::DropStore {
-            store,
-            error_if_not_exists,
-        })
+    pub fn drop_pred_index(&mut self, params: DropPredIndex) {
+        self.queries.push(Query::DropPredIndex(params));
     }
 
-    /// Push info server command to pipeline
+    pub fn drop_non_linear_algorithm_index(&mut self, params: DropNonLinearAlgorithmIndex) {
+        self.queries
+            .push(Query::DropNonLinearAlgorithmIndex(params));
+    }
+
+    pub fn del_key(&mut self, params: DelKey) {
+        self.queries.push(Query::DelKey(params));
+    }
+
+    pub fn drop_store(&mut self, params: DropStore) {
+        self.queries.push(Query::DropStore(params));
+    }
+
     pub fn info_server(&mut self) {
-        self.queries.push(AIQuery::InfoServer)
+        self.queries.push(Query::InfoServer(InfoServer {}));
     }
 
-    /// Push list stores command to pipeline
-    pub fn list_stores(&mut self) {
-        self.queries.push(AIQuery::ListStores)
-    }
-
-    /// Push purge stores command to pipeline
     pub fn purge_stores(&mut self) {
-        self.queries.push(AIQuery::PurgeStores)
+        self.queries.push(Query::PurgeStores(PurgeStores {}));
     }
 
-    /// Push ping command to pipeline
+    pub fn list_stores(&mut self) {
+        self.queries.push(Query::ListStores(ListStores {}));
+    }
+
+    pub fn list_clients(&mut self) {
+        self.queries.push(Query::ListClients(ListClients {}));
+    }
+
     pub fn ping(&mut self) {
-        self.queries.push(AIQuery::Ping)
+        self.queries.push(Query::Ping(Ping {}));
     }
 
-    /// execute queries all at once and return ordered list of results matching the order in which
-    /// queries were pushed
-    pub async fn exec(mut self) -> Result<AIServerResult, AhnlichError> {
-        self.conn.send_query(self.queries).await
+    pub async fn exec(mut self) -> Result<AiResponsePipeline, AhnlichError> {
+        let tracing_id = self.tracing_id.clone();
+        let mut req = tonic::Request::new(AiRequestPipeline {
+            queries: self
+                .queries
+                .into_iter()
+                .map(|q| AiQuery { query: Some(q) })
+                .collect(),
+        });
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.pipeline(req).await?.into_inner())
+    }
+
+    pub fn set_queries(&mut self, queries: Vec<Query>) {
+        self.queries = queries
     }
 }
 
-/// Client for Ahnlich AI using an instantiated deadpool pool
-#[derive(Debug)]
-pub struct AIClient {
-    pool: Pool<AIConnManager>,
+// GRPC Client for Ahnlich AI
+//
+// client needs &mut as it can only send one request in flight, hence is not thread safe to use,
+// however `Channel` makes use of `tower_buffer::Buffer` underneath and hence DBClient is cheap
+// to clone and is encouraged for use across multiple threads
+// https://docs.rs/tonic/latest/tonic/transport/struct.Channel.html#multiplexing-requests
+// So we clone client underneath with every call to create a threadsafe client
+#[derive(Debug, Clone)]
+pub struct AiClient {
+    client: AiServiceClient<Channel>,
 }
 
-impl AIClient {
-    pub async fn new(host: String, port: u16) -> Result<Self, AhnlichError> {
-        let manager = AIConnManager::new(host, port);
-        let pool = Pool::builder(manager).build()?;
-        Ok(Self { pool })
+impl AiClient {
+    pub async fn new(addr: String) -> Result<Self, AhnlichError> {
+        let addr = if !(addr.starts_with("https://") || addr.starts_with("http://")) {
+            format!("http://{addr}")
+        } else {
+            addr
+        };
+        let channel = Channel::from_shared(addr)?;
+        let client = AiServiceClient::connect(channel).await?;
+        Ok(Self { client })
     }
 
-    /// Create new ai client with custom deadpool pool
-    pub fn new_with_pool(pool: Pool<AIConnManager>) -> Self {
-        Self { pool }
-    }
-
-    /// Instantiate a new pipeline with a given capacity. Runs commands sequentially on
-    /// `pipeline.exec`
-    pub async fn pipeline(
-        &self,
-        capacity: usize,
-        tracing_id: Option<String>,
-    ) -> Result<AIPipeline, AhnlichError> {
-        Ok(AIPipeline::new_from_queries_and_conn(
-            AIServerQuery::with_capacity_and_tracing_id(capacity, tracing_id),
-            self.pool.get().await?,
-        ))
-    }
-
-    #[allow(clippy::too_many_arguments)]
     pub async fn create_store(
         &self,
-        store: StoreName,
-        query_model: AIModel,
-        index_model: AIModel,
-        predicates: HashSet<MetadataKey>,
-        non_linear_indices: HashSet<NonLinearAlgorithm>,
-        error_if_exists: bool,
-        store_original: bool,
+        params: CreateStore,
         tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::CreateStore {
-                store,
-                query_model,
-                index_model,
-                predicates,
-                non_linear_indices,
-                error_if_exists,
-                store_original,
-            },
-            tracing_id,
-        )
-        .await
-    }
-
-    pub async fn get_pred(
-        &self,
-        store: StoreName,
-        condition: PredicateCondition,
-        tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::GetPred { store, condition }, tracing_id)
-            .await
-    }
-
-    pub async fn get_sim_n(
-        &self,
-        store: StoreName,
-        search_input: StoreInput,
-        condition: Option<PredicateCondition>,
-        closest_n: NonZeroUsize,
-        algorithm: Algorithm,
-        tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::GetSimN {
-                store,
-                search_input,
-                condition,
-                closest_n,
-                algorithm,
-            },
-            tracing_id,
-        )
-        .await
+    ) -> Result<Unit, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().create_store(req).await?.into_inner())
     }
 
     pub async fn create_pred_index(
         &self,
-        store: StoreName,
-        predicates: HashSet<MetadataKey>,
+        params: CreatePredIndex,
         tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::CreatePredIndex { store, predicates }, tracing_id)
-            .await
+    ) -> Result<CreateIndex, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self
+            .client
+            .clone()
+            .create_pred_index(req)
+            .await?
+            .into_inner())
     }
 
     pub async fn create_non_linear_algorithm_index(
         &self,
-        store: StoreName,
-        non_linear_indices: HashSet<NonLinearAlgorithm>,
+        params: CreateNonLinearAlgorithmIndex,
         tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::CreateNonLinearAlgorithmIndex {
-                store,
-                non_linear_indices,
-            },
-            tracing_id,
-        )
-        .await
+    ) -> Result<CreateIndex, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self
+            .client
+            .clone()
+            .create_non_linear_algorithm_index(req)
+            .await?
+            .into_inner())
     }
 
-    pub async fn drop_pred_index(
+    pub async fn get_key(
         &self,
-        store: StoreName,
-        predicates: HashSet<MetadataKey>,
-        error_if_not_exists: bool,
+        params: GetKey,
         tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::DropPredIndex {
-                store,
-                predicates,
-                error_if_not_exists,
-            },
-            tracing_id,
-        )
-        .await
+    ) -> Result<Get, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().get_key(req).await?.into_inner())
+    }
+
+    pub async fn get_pred(
+        &self,
+        params: GetPred,
+        tracing_id: Option<String>,
+    ) -> Result<Get, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().get_pred(req).await?.into_inner())
+    }
+
+    pub async fn get_sim_n(
+        &self,
+        params: GetSimN,
+        tracing_id: Option<String>,
+    ) -> Result<GetSimNResult, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().get_sim_n(req).await?.into_inner())
     }
 
     pub async fn set(
         &self,
-        store: StoreName,
-        inputs: Vec<(StoreInput, StoreValue)>,
-        preprocess_action: PreprocessAction,
+        params: Set,
         tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::Set {
-                store,
-                inputs,
-                preprocess_action,
-            },
-            tracing_id,
-        )
-        .await
+    ) -> Result<SetResult, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().set(req).await?.into_inner())
+    }
+
+    pub async fn drop_pred_index(
+        &self,
+        params: DropPredIndex,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().drop_pred_index(req).await?.into_inner())
+    }
+
+    pub async fn drop_non_linear_algorithm_index(
+        &self,
+        params: DropNonLinearAlgorithmIndex,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self
+            .client
+            .clone()
+            .drop_non_linear_algorithm_index(req)
+            .await?
+            .into_inner())
     }
 
     pub async fn del_key(
         &self,
-        store: StoreName,
-        key: StoreInput,
+        params: DelKey,
         tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::DelKey { store, key }, tracing_id).await
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().del_key(req).await?.into_inner())
     }
 
     pub async fn drop_store(
         &self,
-        store: StoreName,
-        error_if_not_exists: bool,
+        params: DropStore,
         tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(
-            AIQuery::DropStore {
-                store,
-                error_if_not_exists,
-            },
-            tracing_id,
-        )
-        .await
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().drop_store(req).await?.into_inner())
+    }
+    pub async fn list_clients(
+        &self,
+        tracing_id: Option<String>,
+    ) -> Result<ClientList, AhnlichError> {
+        let mut req = tonic::Request::new(ListClients {});
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().list_clients(req).await?.into_inner())
+    }
+
+    pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
+        let mut req = tonic::Request::new(ListStores {});
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().list_stores(req).await?.into_inner())
     }
 
     pub async fn info_server(
         &self,
         tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::InfoServer, tracing_id).await
-    }
-
-    pub async fn list_stores(
-        &self,
-        tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::ListStores, tracing_id).await
-    }
-
-    pub async fn purge_stores(
-        &self,
-        tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::PurgeStores, tracing_id).await
-    }
-
-    pub async fn ping(&self, tracing_id: Option<String>) -> Result<AIServerResponse, AhnlichError> {
-        self.exec(AIQuery::Ping, tracing_id).await
-    }
-
-    async fn exec(
-        &self,
-        query: AIQuery,
-        tracing_id: Option<String>,
-    ) -> Result<AIServerResponse, AhnlichError> {
-        let mut conn = self.pool.get().await?;
-
-        let mut queries = AIServerQuery::with_capacity_and_tracing_id(1, tracing_id);
-        queries.push(query);
-
-        let res = conn
-            .send_query(queries)
+    ) -> Result<ServerInfo, AhnlichError> {
+        let mut req = tonic::Request::new(InfoServer {});
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self
+            .client
+            .clone()
+            .info_server(req)
             .await?
-            .pop()
-            .transpose()
-            .map_err(AhnlichError::AIProxyError)?;
-        res.ok_or(AhnlichError::EmptyResponse)
+            .into_inner()
+            .info
+            .expect("Server info should be Some"))
+    }
+
+    pub async fn purge_stores(&self, tracing_id: Option<String>) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(PurgeStores {});
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().purge_stores(req).await?.into_inner())
+    }
+
+    pub async fn ping(&self, tracing_id: Option<String>) -> Result<Pong, AhnlichError> {
+        let mut req = tonic::Request::new(Ping {});
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self.client.clone().ping(req).await?.into_inner())
+    }
+
+    // Create list of instructions to execute in a pipeline loop
+    // on the server end
+    pub fn pipeline(&self, tracing_id: Option<String>) -> AiPipeline {
+        AiPipeline {
+            queries: vec![],
+            client: self.client.clone(),
+            tracing_id,
+        }
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
+
     use super::*;
+    use ahnlich_ai_proxy::cli::server::SupportedModels;
     use ahnlich_ai_proxy::cli::AIProxyConfig;
-    use ahnlich_ai_proxy::{engine::ai::models::Model, server::handler::AIProxyServer};
+    use ahnlich_ai_proxy::engine::ai::models::ModelDetails;
+    use ahnlich_ai_proxy::error::AIProxyError;
+    use ahnlich_ai_proxy::server::handler::AIProxyServer;
+
     use ahnlich_db::cli::ServerConfig;
     use ahnlich_db::server::handler::Server;
+    use ahnlich_types::ai::models::AiModel;
+    use ahnlich_types::ai::pipeline::AiServerResponse;
+    use ahnlich_types::ai::preprocess::PreprocessAction;
+    use ahnlich_types::ai::server::{AiStoreInfo, GetEntry};
+    use ahnlich_types::keyval::store_input::Value;
+    use ahnlich_types::keyval::{AiStoreEntry, StoreInput, StoreValue};
+    use ahnlich_types::metadata::{metadata_value::Value as MValue, MetadataValue};
+    use ahnlich_types::shared::info::{ErrorResponse, StoreUpsert};
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
@@ -416,7 +340,14 @@ mod tests {
     use tokio::time::Duration;
     use utils::server::AhnlichServerUtils;
 
-    static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default());
+    use ahnlich_types::{ai::pipeline::ai_server_response::Response, keyval::StoreName};
+
+    use ahnlich_types::predicates::{
+        self, predicate::Kind as PredicateKind,
+        predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
+    };
+
+    static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
     static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
         let mut ai_proxy = AIProxyConfig::default().os_select_port();
         ai_proxy.db_port = CONFIG.port.clone();
@@ -449,9 +380,7 @@ mod tests {
     #[tokio::test]
     async fn test_ai_client_ping() {
         let address = provision_test_servers().await;
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
         assert!(ai_client.ping(None).await.is_ok());
@@ -460,232 +389,309 @@ mod tests {
     #[tokio::test]
     async fn test_ai_client_simple_pipeline() {
         let address = provision_test_servers().await;
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
-        let mut pipeline = ai_client
-            .pipeline(3, None)
-            .await
-            .expect("Could not create pipeline");
+        let mut pipeline = ai_client.pipeline(None);
         pipeline.list_stores();
         pipeline.ping();
-        let mut expected = AIServerResult::with_capacity(2);
-        expected.push(Ok(AIServerResponse::StoreList(HashSet::new())));
-        expected.push(Ok(AIServerResponse::Pong));
+
+        let expected = AiResponsePipeline {
+            responses: vec![
+                AiServerResponse {
+                    response: Some(Response::StoreList(StoreList { stores: vec![] })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Pong(Pong {})),
+                },
+            ],
+        };
+
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
     }
 
     #[tokio::test]
-    async fn test_pool_commands_fail_if_server_not_exist() {
+    async fn test_ai_client_init_fail_if_server_not_exist() {
         let host = "127.0.0.1";
         let port = 1234;
-        let ai_client = AIClient::new(host.to_string(), port)
-            .await
-            .expect("Could not initialize client");
-        assert!(ai_client.ping(None).await.is_err());
+        let ai_client = AiClient::new(format!("{host}:{port}")).await;
+        assert!(ai_client.is_err());
     }
 
     #[tokio::test]
     async fn test_create_stores_with_pipeline() {
         let address = provision_test_servers().await;
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
 
-        let mut pipeline = ai_client
-            .pipeline(4, None)
-            .await
-            .expect("Could not create pipeline");
-        pipeline.create_store(
-            StoreName("Main".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Main".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Main".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            false,
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Less".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
+        let mut pipeline = ai_client.pipeline(None);
+
+        let create_store_params = CreateStore {
+            store: "Main".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+
+        let create_store_params_2 = CreateStore {
+            store: "Main".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+
+        let create_store_params_no_error = CreateStore {
+            store: "Main".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: false,
+            store_original: true,
+        };
+
+        pipeline.create_store(create_store_params);
+        pipeline.create_store(create_store_params_2);
+        pipeline.create_store(create_store_params_no_error);
+
+        let create_store_params = CreateStore {
+            store: "Less".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+
+        pipeline.create_store(create_store_params);
         pipeline.list_stores();
-        let mut expected = AIServerResult::with_capacity(5);
-        expected.push(Ok(AIServerResponse::Unit));
-        expected.push(Err("Store Main already exists".to_string()));
-        expected.push(Ok(AIServerResponse::Unit));
-        expected.push(Ok(AIServerResponse::Unit));
-        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
-        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-            AIStoreInfo {
-                name: StoreName("Main".to_string()),
-                embedding_size: ai_model.embedding_size.into(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-            },
-            AIStoreInfo {
-                name: StoreName("Less".to_string()),
-                embedding_size: ai_model.embedding_size.into(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-            },
-        ]))));
+
+        let ai_model: ModelDetails =
+            SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
+        let already_exists_error = AIProxyError::StoreAlreadyExists(StoreName {
+            value: "Main".into(),
+        });
+
+        let expected = AiResponsePipeline {
+            responses: vec![
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::Error(ErrorResponse {
+                        message: already_exists_error.to_string(),
+                        code: 6,
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::StoreList(StoreList {
+                        stores: vec![
+                            AiStoreInfo {
+                                name: "Less".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                            AiStoreInfo {
+                                name: "Main".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                        ],
+                    })),
+                },
+            ],
+        };
+
         let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res.responses.len(), expected.responses.len());
         assert_eq!(res, expected);
+
+        for expected_entry in expected.responses {
+            assert!(
+                res.responses.contains(&expected_entry),
+                "Missing entry: {:?}",
+                expected_entry
+            );
+        }
     }
 
     #[tokio::test]
     async fn test_del_key() {
         let address = provision_test_servers().await;
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
-        let store_name = StoreName("Main".to_string());
+
+        let create_store_params = CreateStore {
+            store: "Main".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
 
         assert!(ai_client
-            .create_store(
-                store_name.clone(),
-                AIModel::AllMiniLML6V2,
-                AIModel::AllMiniLML6V2,
-                HashSet::new(),
-                HashSet::new(),
-                true,
-                true,
-                None
-            )
+            .create_store(create_store_params, None)
             .await
             .is_ok());
 
-        assert!(ai_client
-            .set(
-                store_name.clone(),
-                vec![
-                    (StoreInput::RawString("Adidas Yeezy".into()), HashMap::new()),
-                    (
-                        StoreInput::RawString("Nike Air Jordans".into()),
-                        HashMap::new()
-                    ),
-                ],
-                PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
-                None
-            )
-            .await
-            .is_ok());
+        let set_params = Set {
+            store: "Main".to_string(),
+            execution_provider: None,
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            inputs: vec![
+                AiStoreEntry {
+                    key: Some(StoreInput {
+                        value: Some(Value::RawString("Adidas Yeezy".into())),
+                    }),
+                    value: Some(StoreValue {
+                        value: HashMap::new(),
+                    }),
+                },
+                AiStoreEntry {
+                    key: Some(StoreInput {
+                        value: Some(Value::RawString("Nike Air Jordans".into())),
+                    }),
+                    value: Some(StoreValue {
+                        value: HashMap::new(),
+                    }),
+                },
+            ],
+        };
+
+        assert!(ai_client.set(set_params, None).await.is_ok());
+
+        let delete_key = DelKey {
+            store: "Main".to_string(),
+            keys: vec![StoreInput {
+                value: Some(Value::RawString("Adidas Yeezy".into())),
+            }],
+        };
 
         assert_eq!(
-            ai_client
-                .del_key(
-                    store_name,
-                    StoreInput::RawString("Adidas Yeezy".into()),
-                    None
-                )
-                .await
-                .unwrap(),
-            AIServerResponse::Del(1)
-        )
+            ai_client.del_key(delete_key, None).await.unwrap(),
+            Del { deleted_count: 1 }
+        );
     }
 
     #[tokio::test]
     async fn test_destroy_purge_stores_with_pipeline() {
         let address = provision_test_servers().await;
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
 
-        let mut pipeline = ai_client
-            .pipeline(4, None)
-            .await
-            .expect("Could not create pipeline");
-        pipeline.create_store(
-            StoreName("Main".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Main2".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
-        pipeline.create_store(
-            StoreName("Less".to_string()),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
-        pipeline.list_stores();
-        pipeline.drop_store(StoreName("Less".to_string()), true);
-        pipeline.purge_stores();
-        let mut expected = AIServerResult::with_capacity(6);
-        expected.push(Ok(AIServerResponse::Unit));
-        expected.push(Ok(AIServerResponse::Unit));
-        expected.push(Ok(AIServerResponse::Unit));
+        let mut pipeline = ai_client.pipeline(None);
 
-        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
-        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-            AIStoreInfo {
-                name: StoreName("Main".to_string()),
-                embedding_size: ai_model.embedding_size.into(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-            },
-            AIStoreInfo {
-                name: StoreName("Main2".to_string()),
-                embedding_size: ai_model.embedding_size.into(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-            },
-            AIStoreInfo {
-                name: StoreName("Less".to_string()),
-                embedding_size: ai_model.embedding_size.into(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-            },
-        ]))));
-        expected.push(Ok(AIServerResponse::Del(1)));
-        expected.push(Ok(AIServerResponse::Del(2)));
+        let create_store_params = CreateStore {
+            store: "Less".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+        pipeline.create_store(create_store_params);
+
+        let create_store_params_2 = CreateStore {
+            store: "Main".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+        pipeline.create_store(create_store_params_2);
+
+        let create_store_params_3 = CreateStore {
+            store: "Main2".to_string(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+
+        pipeline.create_store(create_store_params_3);
+        pipeline.list_stores();
+
+        let drop_store_params = DropStore {
+            store: "Less".into(),
+            error_if_not_exists: true,
+        };
+
+        pipeline.drop_store(drop_store_params);
+        pipeline.purge_stores();
+
+        let ai_model: ModelDetails =
+            SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
+
+        let expected = AiResponsePipeline {
+            responses: vec![
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::StoreList(StoreList {
+                        stores: vec![
+                            AiStoreInfo {
+                                name: "Less".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                            AiStoreInfo {
+                                name: "Main".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                            AiStoreInfo {
+                                name: "Main2".to_string(),
+                                embedding_size: ai_model.embedding_size.get() as u64,
+                                query_model: AiModel::AllMiniLmL6V2 as i32,
+                                index_model: AiModel::AllMiniLmL6V2 as i32,
+                            },
+                        ],
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Del(Del { deleted_count: 1 })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Del(Del { deleted_count: 2 })),
+                },
+            ],
+        };
+
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
     }
@@ -694,122 +700,167 @@ mod tests {
     async fn test_ai_client_get_pred() {
         let address = provision_test_servers().await;
 
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
 
-        let store_name = StoreName(String::from("Deven Kicks"));
-        let matching_metadatakey = MetadataKey::new("Brand".to_owned());
-        let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+        let store_name = StoreName {
+            value: String::from("Deven Kicks"),
+        };
 
-        let nike_store_value =
-            StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-        let adidas_store_value = StoreValue::from_iter([(
-            matching_metadatakey.clone(),
-            MetadataValue::RawString("Adidas".to_owned()),
-        )]);
+        let matching_metadatakey = "Brand".to_owned();
+        let matching_metadatavalue = MetadataValue {
+            value: Some(MValue::RawString("Nike".into())),
+        };
+
+        let nike_store_value = StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                matching_metadatavalue.clone(),
+            )]),
+        };
+
+        let adidas_store_value = StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                MetadataValue {
+                    value: Some(MValue::RawString("Adidas".into())),
+                },
+            )]),
+        };
+
         let store_data = vec![
-            (
-                StoreInput::RawString(String::from("Air Force 1 Retro Boost")),
-                nike_store_value.clone(),
-            ),
-            (
-                StoreInput::RawString(String::from("Jordan")),
-                nike_store_value.clone(),
-            ),
-            (
-                StoreInput::RawString(String::from("Yeezy")),
-                adidas_store_value.clone(),
-            ),
+            AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("Air Force 1 Retro Boost".into())),
+                }),
+                value: Some(nike_store_value.clone()),
+            },
+            AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("Jordan".into())),
+                }),
+                value: Some(nike_store_value.clone()),
+            },
+            AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("Yeezy".into())),
+                }),
+                value: Some(adidas_store_value.clone()),
+            },
         ];
 
-        let mut pipeline = ai_client
-            .pipeline(6, None)
-            .await
-            .expect("Could not create pipeline");
+        let mut pipeline = ai_client.pipeline(None);
 
-        pipeline.create_store(
-            store_name.clone(),
-            AIModel::AllMiniLML6V2,
-            AIModel::AllMiniLML6V2,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
+        let create_store_params = CreateStore {
+            store: store_name.value.clone(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+
+        pipeline.create_store(create_store_params);
         pipeline.list_stores();
-        pipeline.create_pred_index(
-            store_name.clone(),
-            HashSet::from_iter([
-                MetadataKey::new("Brand".to_string()),
-                MetadataKey::new("Vintage".to_string()),
-            ]),
-        );
-        pipeline.set(
-            store_name.clone(),
-            store_data,
-            PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
-        );
 
-        pipeline.drop_pred_index(
-            store_name.clone(),
-            HashSet::from_iter([MetadataKey::new("Vintage".to_string())]),
-            true,
-        );
+        let create_pred_index_params = CreatePredIndex {
+            store: store_name.value.clone(),
+            predicates: vec!["Brand".into(), "Vintage".into()],
+        };
+
+        pipeline.create_pred_index(create_pred_index_params);
+
+        let set_params = Set {
+            store: store_name.value.clone(),
+            inputs: store_data,
+            execution_provider: None,
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+        };
+        pipeline.set(set_params);
+
+        let drop_pred_params = DropPredIndex {
+            store: store_name.value.clone(),
+            predicates: vec!["Vintage".to_string()],
+            error_if_not_exists: true,
+        };
+
+        pipeline.drop_pred_index(drop_pred_params);
         let res = pipeline.exec().await.expect("Could not execute pipeline");
 
-        let mut expected = AIServerResult::with_capacity(6);
+        let ai_model: ModelDetails =
+            SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
 
-        expected.push(Ok(AIServerResponse::Unit));
-        let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
-        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-            AIStoreInfo {
-                name: store_name.clone(),
-                query_model: AIModel::AllMiniLML6V2,
-                index_model: AIModel::AllMiniLML6V2,
-
-                embedding_size: ai_model.embedding_size.into(),
-            },
-        ]))));
-        expected.push(Ok(AIServerResponse::CreateIndex(2)));
-        expected.push(Ok(AIServerResponse::Set(StoreUpsert {
-            inserted: 3,
-            updated: 0,
-        })));
-        expected.push(Ok(AIServerResponse::Del(1)));
+        let expected = AiResponsePipeline {
+            responses: vec![
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::StoreList(StoreList {
+                        stores: vec![AiStoreInfo {
+                            name: store_name.value.clone(),
+                            embedding_size: ai_model.embedding_size.get() as u64,
+                            query_model: AiModel::AllMiniLmL6V2 as i32,
+                            index_model: AiModel::AllMiniLmL6V2 as i32,
+                        }],
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::CreateIndex(CreateIndex { created_indexes: 2 })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Set(SetResult {
+                        upsert: Some(StoreUpsert {
+                            inserted: 3,
+                            updated: 0,
+                        }),
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Del(Del { deleted_count: 1 })),
+                },
+            ],
+        };
 
         assert_eq!(res, expected);
 
-        let response = ai_client
-            .get_pred(
-                store_name,
-                PredicateCondition::Value(Predicate::Equals {
+        let condition = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
                     key: matching_metadatakey,
-                    value: matching_metadatavalue,
-                }),
-                None,
-            )
-            .await
-            .unwrap();
+                    value: Some(matching_metadatavalue),
+                })),
+            })),
+        };
 
-        let expected = vec![
-            (
-                Some(StoreInput::RawString(String::from(
-                    "Air Force 1 Retro Boost",
-                ))),
-                nike_store_value.clone(),
-            ),
-            (
-                Some(StoreInput::RawString(String::from("Jordan"))),
-                nike_store_value.clone(),
-            ),
-        ];
-        if let AIServerResponse::Get(get_pred_result) = response {
-            for item in get_pred_result {
-                assert!(expected.contains(&item) == true);
-            }
+        let get_pred_params = GetPred {
+            store: store_name.value,
+            condition: Some(condition),
+        };
+
+        let response = ai_client.get_pred(get_pred_params, None).await.unwrap();
+
+        let expected = Get {
+            entries: vec![
+                GetEntry {
+                    key: Some(StoreInput {
+                        value: Some(Value::RawString("Air Force 1 Retro Boost".into())),
+                    }),
+                    value: Some(nike_store_value.clone()),
+                },
+                GetEntry {
+                    key: Some(StoreInput {
+                        value: Some(Value::RawString("Jordan".into())),
+                    }),
+                    value: Some(nike_store_value.clone()),
+                },
+            ],
+        };
+
+        for item in response.entries {
+            assert!(expected.entries.contains(&item) == true)
         }
     }
 
@@ -817,108 +868,174 @@ mod tests {
     async fn test_ai_client_actions_on_binary_store() {
         let address = provision_test_servers().await;
 
-        let host = address.ip();
-        let port = address.port();
-        let ai_client = AIClient::new(host.to_string(), port)
+        let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
 
-        let store_name = StoreName(String::from("Deven Image Store"));
-        let matching_metadatakey = MetadataKey::new("Name".to_owned());
-        let matching_metadatavalue = MetadataValue::RawString("Daniel".to_owned());
+        let store_name = StoreName {
+            value: String::from("Deven Image Store"),
+        };
+        let matching_metadatakey = "Name".to_owned();
 
-        let store_value_1 =
-            StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-        let store_value_2 = StoreValue::from_iter([(
-            matching_metadatakey.clone(),
-            MetadataValue::RawString("Deven".to_owned()),
-        )]);
+        let matching_metadatavalue = MetadataValue {
+            value: Some(MValue::RawString("Daniel".into())),
+        };
+
+        let store_value_1 = StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                matching_metadatavalue.clone(),
+            )]),
+        };
+        let store_value_2 = StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                MetadataValue {
+                    value: Some(MValue::RawString("Deven".into())),
+                },
+            )]),
+        };
+
         let store_data = vec![
-            (
-                StoreInput::Image(include_bytes!("../../ai/src/tests/images/dog.jpg").to_vec()),
-                StoreValue::from_iter([(
-                    matching_metadatakey.clone(),
-                    MetadataValue::RawString("Greatness".to_owned()),
-                )]),
-            ),
-            (
-                StoreInput::Image(include_bytes!("../../ai/src/tests/images/test.webp").to_vec()),
-                store_value_2.clone(),
-            ),
-            (
-                StoreInput::Image(include_bytes!("../../ai/src/tests/images/cat.png").to_vec()),
-                store_value_1.clone(),
-            ),
+            AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(
+                        include_bytes!("../../ai/src/tests/images/dog.jpg").to_vec(),
+                    )),
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::from_iter([(
+                        matching_metadatakey.clone(),
+                        MetadataValue {
+                            value: Some(MValue::RawString("Greatness".into())),
+                        },
+                    )]),
+                }),
+            },
+            AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(
+                        include_bytes!("../../ai/src/tests/images/test.webp").to_vec(),
+                    )),
+                }),
+                value: Some(store_value_2.clone()),
+            },
+            AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(
+                        include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
+                    )),
+                }),
+                value: Some(store_value_1.clone()),
+            },
         ];
 
-        let mut pipeline = ai_client
-            .pipeline(7, None)
-            .await
-            .expect("Could not create pipeline");
+        let mut pipeline = ai_client.pipeline(None);
 
-        pipeline.create_store(
-            store_name.clone(),
-            AIModel::Resnet50,
-            AIModel::Resnet50,
-            HashSet::new(),
-            HashSet::new(),
-            true,
-            true,
-        );
+        let create_store_params = CreateStore {
+            store: store_name.value.clone(),
+            index_model: AiModel::Resnet50 as i32,
+            query_model: AiModel::Resnet50 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+
+        pipeline.create_store(create_store_params);
         pipeline.list_stores();
-        pipeline.create_pred_index(
-            store_name.clone(),
-            HashSet::from_iter([
-                MetadataKey::new("Name".to_string()),
-                MetadataKey::new("Age".to_string()),
-            ]),
-        );
-        pipeline.set(
-            store_name.clone(),
-            store_data,
-            PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
-        );
 
-        pipeline.drop_pred_index(
-            store_name.clone(),
-            HashSet::from_iter([MetadataKey::new("Age".to_string())]),
-            true,
-        );
-        pipeline.get_pred(
-            store_name.clone(),
-            PredicateCondition::Value(Predicate::Equals {
-                key: matching_metadatakey.clone(),
-                value: matching_metadatavalue,
-            }),
-        );
+        let create_pred_index_params = CreatePredIndex {
+            store: store_name.value.clone(),
+            predicates: vec!["Name".into(), "Age".into()],
+        };
+
+        pipeline.create_pred_index(create_pred_index_params);
+
+        let set_params = Set {
+            store: store_name.value.clone(),
+            inputs: store_data,
+            execution_provider: None,
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+        };
+
+        pipeline.set(set_params);
+
+        let drop_pred_index_params = DropPredIndex {
+            store: store_name.value.clone(),
+            predicates: vec!["Age".to_string()],
+            error_if_not_exists: true,
+        };
+
+        pipeline.drop_pred_index(drop_pred_index_params);
+
+        let condition = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: matching_metadatakey,
+                    value: Some(matching_metadatavalue),
+                })),
+            })),
+        };
+
+        let get_pred_params = GetPred {
+            store: store_name.value.clone(),
+            condition: Some(condition),
+        };
+
+        pipeline.get_pred(get_pred_params);
 
         pipeline.purge_stores();
 
-        let mut expected = AIServerResult::with_capacity(7);
+        let resnet_model: ModelDetails =
+            SupportedModels::from(&AiModel::Resnet50).to_model_details();
 
-        expected.push(Ok(AIServerResponse::Unit));
-        let resnet_model: Model = (&AIModel::Resnet50).into();
-        expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-            AIStoreInfo {
-                name: store_name,
-                query_model: AIModel::Resnet50,
-                index_model: AIModel::Resnet50,
-                embedding_size: resnet_model.embedding_size.into(),
-            },
-        ]))));
-        expected.push(Ok(AIServerResponse::CreateIndex(2)));
-        expected.push(Ok(AIServerResponse::Set(StoreUpsert {
-            inserted: 3,
-            updated: 0,
-        })));
-        expected.push(Ok(AIServerResponse::Del(1)));
-        expected.push(Ok(AIServerResponse::Get(vec![(
-            Some(StoreInput::Image(
-                include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
-            )),
-            store_value_1.clone(),
-        )])));
-        expected.push(Ok(AIServerResponse::Del(1)));
+        let expected = AiResponsePipeline {
+            responses: vec![
+                AiServerResponse {
+                    response: Some(Response::Unit(Unit {})),
+                },
+                AiServerResponse {
+                    response: Some(Response::StoreList(StoreList {
+                        stores: vec![AiStoreInfo {
+                            name: store_name.value.clone(),
+                            embedding_size: resnet_model.embedding_size.get() as u64,
+                            query_model: AiModel::Resnet50 as i32,
+                            index_model: AiModel::Resnet50 as i32,
+                        }],
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::CreateIndex(CreateIndex { created_indexes: 2 })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Set(SetResult {
+                        upsert: Some(StoreUpsert {
+                            inserted: 3,
+                            updated: 0,
+                        }),
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Del(Del { deleted_count: 1 })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Get(Get {
+                        entries: vec![GetEntry {
+                            key: Some(StoreInput {
+                                value: Some(Value::Image(
+                                    include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
+                                )),
+                            }),
+                            value: Some(store_value_1.clone()),
+                        }],
+                    })),
+                },
+                AiServerResponse {
+                    response: Some(Response::Del(Del { deleted_count: 1 })),
+                },
+            ],
+        };
 
         let res = pipeline.exec().await.expect("Could not execute pipeline");
 

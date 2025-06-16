@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package services.ai_service;
+
+import "ai/pipeline.proto";
+import "ai/query.proto";
+import "ai/server.proto";
+
+service AIService {
+  /** Create methods **/
+  rpc CreateStore(ai.query.CreateStore) returns (ai.server.Unit);
+  rpc CreatePredIndex(ai.query.CreatePredIndex) returns (ai.server.CreateIndex);
+  rpc CreateNonLinearAlgorithmIndex(ai.query.CreateNonLinearAlgorithmIndex) returns (ai.server.CreateIndex);
+
+  /** Read methods **/
+  rpc GetKey(ai.query.GetKey) returns (ai.server.Get);
+  rpc GetPred(ai.query.GetPred) returns (ai.server.Get);
+  rpc GetSimN(ai.query.GetSimN) returns (ai.server.GetSimN);
+
+  /** Update methods **/
+  rpc Set(ai.query.Set) returns (ai.server.Set);
+
+  /** Delete methods **/
+  rpc DropPredIndex(ai.query.DropPredIndex) returns (ai.server.Del);
+  rpc DropNonLinearAlgorithmIndex(ai.query.DropNonLinearAlgorithmIndex) returns (ai.server.Del);
+  rpc DelKey(ai.query.DelKey) returns (ai.server.Del);
+  rpc DropStore(ai.query.DropStore) returns (ai.server.Del);
+
+  /** Ancillary info methods **/
+  rpc ListClients(ai.query.ListClients) returns (ai.server.ClientList);
+  rpc ListStores(ai.query.ListStores) returns (ai.server.StoreList);
+  rpc InfoServer(ai.query.InfoServer) returns (ai.server.InfoServer);
+  rpc PurgeStores(ai.query.PurgeStores) returns (ai.server.Del);
+  rpc Ping(ai.query.Ping) returns (ai.server.Pong);
+
+  /** Pipeline method for all methods **/
+  rpc Pipeline(ai.pipeline.AIRequestPipeline) returns (ai.pipeline.AIResponsePipeline);
+}

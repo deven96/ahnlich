@@ -1,6 +1,6 @@
 [package]
 name = "db"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
 [[bin]]
@@ -16,7 +16,6 @@ bench = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-flurry.workspace = true
 serde.workspace = true
 blake3.workspace = true
 ndarray.workspace = true
@@ -25,7 +24,6 @@ itertools.workspace = true
 clap.workspace = true
 thiserror.workspace = true
 utils = { path = "../utils", version = "*" }
-ahnlich_types = { path = "../types", version = "*" }
 task-manager = { path = "../task-manager", version = "*" }
 ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
 tokio.workspace = true
@@ -38,7 +36,10 @@ async-trait.workspace = true
 rayon.workspace = true
 log.workspace = true
 fallible_collections.workspace = true
-
+pulp = "0.21.4"
+papaya.workspace = true
+ahnlich_types = { path = "../types", version = "*"  }
+tonic.workspace = true
 
 [dev-dependencies]
 futures.workspace = true
@@ -46,6 +47,7 @@ once_cell.workspace = true
 pretty_assertions.workspace = true
 criterion = "0.4"
 rand.workspace = true
+fastrand = "1.9"
 
 [[bench]]
 name = "database"

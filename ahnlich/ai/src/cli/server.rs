@@ -1,17 +1,32 @@
-use ahnlich_types::ai::AIModel;
+use ahnlich_types::ai::models::AiModel;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use dirs::home_dir;
 use std::fmt;
 use strum::VariantArray;
 
-use crate::engine::ai::models::{Model, ModelInfo};
+use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::sync::OnceLock;
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 use utils::cli::CommandLineConfig;
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Hash, Ord, ValueEnum, VariantArray)]
+#[derive(
+    Default,
+    Debug,
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Hash,
+    Ord,
+    ValueEnum,
+    VariantArray,
+    Serialize,
+    Deserialize,
+)]
 pub enum SupportedModels {
+    #[default]
     #[clap(name = "all-minilm-l6-v2")]
     AllMiniLML6V2,
     #[clap(name = "all-minilm-l12-v2")]
@@ -22,8 +37,10 @@ pub enum SupportedModels {
     BGELargeEnV15,
     #[clap(name = "resnet-50")]
     Resnet50,
-    #[clap(name = "clip-vit-b32")]
-    ClipVitB32,
+    #[clap(name = "clip-vit-b32-image")]
+    ClipVitB32Image,
+    #[clap(name = "clip-vit-b32-text")]
+    ClipVitB32Text,
 }
 
 #[derive(Parser)]
@@ -56,6 +73,10 @@ pub struct AIProxyConfig {
     #[arg(long, default_value_t =
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_host.clone())]
     pub db_host: String,
+
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_https.clone())]
+    pub db_https: bool,
 
     /// Ahnlich Database port
     #[arg(long, default_value_t =
@@ -127,14 +148,17 @@ impl Default for AIProxyConfig {
         Self {
             port: 1370,
             db_host: String::from("127.0.0.1"),
+            db_https: false,
             db_port: 1369,
             db_client_pool_size: 10,
             supported_models: vec![
                 SupportedModels::AllMiniLML6V2,
                 SupportedModels::AllMiniLML12V2,
-                SupportedModels::Resnet50,
-                SupportedModels::ClipVitB32,
                 SupportedModels::BGEBaseEnV15,
+                SupportedModels::BGELargeEnV15,
+                SupportedModels::ClipVitB32Text,
+                SupportedModels::Resnet50,
+                SupportedModels::ClipVitB32Image,
             ],
             model_cache_location: home_dir()
                 .map(|mut path| {
@@ -192,41 +216,37 @@ impl fmt::Display for SupportedModels {
             SupportedModels::BGEBaseEnV15 => write!(f, "BGEBase-En-v1.5"),
             SupportedModels::BGELargeEnV15 => write!(f, "BGELarge-En-v1.5"),
             SupportedModels::Resnet50 => write!(f, "Resnet-50"),
-            SupportedModels::ClipVitB32 => write!(f, "ClipVit-B32"),
+            SupportedModels::ClipVitB32Image => write!(f, "ClipVit-B32-Image"),
+            SupportedModels::ClipVitB32Text => write!(f, "ClipVit-B32-Text"),
         }
     }
 }
 
-impl From<&AIModel> for SupportedModels {
-    fn from(value: &AIModel) -> Self {
+impl From<&AiModel> for SupportedModels {
+    fn from(value: &AiModel) -> Self {
         match value {
-            AIModel::AllMiniLML6V2 => SupportedModels::AllMiniLML6V2,
-            AIModel::AllMiniLML12V2 => SupportedModels::AllMiniLML12V2,
-            AIModel::BGEBaseEnV15 => SupportedModels::BGEBaseEnV15,
-            AIModel::BGELargeEnV15 => SupportedModels::BGELargeEnV15,
-            AIModel::Resnet50 => SupportedModels::Resnet50,
-            AIModel::ClipVitB32 => SupportedModels::ClipVitB32,
+            AiModel::AllMiniLmL6V2 => SupportedModels::AllMiniLML6V2,
+            AiModel::AllMiniLmL12V2 => SupportedModels::AllMiniLML12V2,
+            AiModel::BgeBaseEnV15 => SupportedModels::BGEBaseEnV15,
+            AiModel::BgeLargeEnV15 => SupportedModels::BGELargeEnV15,
+            AiModel::Resnet50 => SupportedModels::Resnet50,
+            AiModel::ClipVitB32Image => SupportedModels::ClipVitB32Image,
+            AiModel::ClipVitB32Text => SupportedModels::ClipVitB32Text,
         }
     }
 }
 
-impl From<&SupportedModels> for AIModel {
+impl From<&SupportedModels> for AiModel {
     fn from(value: &SupportedModels) -> Self {
         match value {
-            SupportedModels::AllMiniLML6V2 => AIModel::AllMiniLML6V2,
-            SupportedModels::AllMiniLML12V2 => AIModel::AllMiniLML12V2,
-            SupportedModels::BGEBaseEnV15 => AIModel::BGEBaseEnV15,
-            SupportedModels::BGELargeEnV15 => AIModel::BGELargeEnV15,
-            SupportedModels::Resnet50 => AIModel::Resnet50,
-            SupportedModels::ClipVitB32 => AIModel::ClipVitB32,
+            SupportedModels::AllMiniLML6V2 => AiModel::AllMiniLmL6V2,
+            SupportedModels::AllMiniLML12V2 => AiModel::AllMiniLmL12V2,
+            SupportedModels::BGEBaseEnV15 => AiModel::BgeBaseEnV15,
+            SupportedModels::BGELargeEnV15 => AiModel::BgeLargeEnV15,
+            SupportedModels::Resnet50 => AiModel::Resnet50,
+            SupportedModels::ClipVitB32Image => AiModel::ClipVitB32Image,
+            SupportedModels::ClipVitB32Text => AiModel::ClipVitB32Text,
         }
-    }
-}
-
-impl From<&SupportedModels> for Model {
-    fn from(value: &SupportedModels) -> Self {
-        let ai_model: AIModel = value.into();
-        (&ai_model).into()
     }
 }
 
@@ -242,9 +262,7 @@ impl SupportedModelArgs {
         let mut output = String::new();
 
         for supported_model in SupportedModels::VARIANTS.iter() {
-            let aimodel: AIModel = supported_model.into();
-            let model: Model = (&aimodel).into();
-            output.push_str(format!("{}, ", model.model_name()).as_str())
+            output.push_str(format!("{}, ", supported_model).as_str())
         }
         output
     }
@@ -252,9 +270,8 @@ impl SupportedModelArgs {
         let mut output = vec![];
 
         for supported_model in self.names.iter() {
-            let aimodel: AIModel = supported_model.into();
-            let model: Model = (&aimodel).into();
-            output.push(ModelInfo::build(&model))
+            let model_details = supported_model.to_model_details();
+            output.push(model_details)
         }
         serde_json::to_string_pretty(&output)
             .expect("Failed Generate Supported Models Verbose Text")

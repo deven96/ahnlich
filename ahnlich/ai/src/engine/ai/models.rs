@@ -1,24 +1,36 @@
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::providers::fastembed::FastEmbedProvider;
 use crate::engine::ai::providers::ort::ORTProvider;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
-use ahnlich_types::{
-    ai::{AIModel, AIStoreInputType},
-    keyval::{StoreInput, StoreKey},
-};
-use image::{GenericImageView, ImageReader};
-use ndarray::{Array, Array1, Ix3};
+use ahnlich_types::ai::execution_provider::ExecutionProvider;
+use ahnlich_types::ai::models::AiStoreInputType;
+use ahnlich_types::keyval::StoreKey;
+use fast_image_resize::images::Image;
+use fast_image_resize::images::ImageRef;
+use fast_image_resize::FilterType;
+use fast_image_resize::PixelType;
+use fast_image_resize::ResizeAlg;
+use fast_image_resize::ResizeOptions;
+use fast_image_resize::Resizer;
+use image::imageops;
+use image::ImageReader;
+use image::RgbImage;
+use ndarray::{Array, Ix3};
+use ndarray::{ArrayView, Ix4};
 use nonzero_ext::nonzero;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::io::Cursor;
 use std::num::NonZeroUsize;
-use std::path::Path;
+use std::path::PathBuf;
 use strum::Display;
+use tokenizers::Encoding;
 
-#[derive(Display)]
+static CHANNELS: Lazy<u8> = Lazy::new(|| image::ColorType::Rgb8.channel_count());
+
+#[derive(Display, Debug, Serialize, Deserialize)]
 pub enum ModelType {
     Text {
         max_input_tokens: NonZeroUsize,
@@ -30,108 +42,113 @@ pub enum ModelType {
 }
 
 pub struct Model {
-    pub model_type: ModelType,
     pub provider: ModelProviders,
+    pub model_details: ModelDetails,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ModelDetails {
+    pub model_type: ModelType,
     pub description: String,
     pub supported_model: SupportedModels,
     pub embedding_size: NonZeroUsize,
 }
 
-impl From<&AIModel> for Model {
-    fn from(value: &AIModel) -> Self {
-        match value {
-            AIModel::AllMiniLML6V2 => Self {
+impl SupportedModels {
+    pub fn to_model_details(&self) -> ModelDetails {
+        match self {
+            SupportedModels::AllMiniLML6V2 => ModelDetails {
                 model_type: ModelType::Text {
                     max_input_tokens: nonzero!(256usize),
                 },
-                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
                 supported_model: SupportedModels::AllMiniLML6V2,
                 description: String::from("Sentence Transformer model, with 6 layers, version 2"),
                 embedding_size: nonzero!(384usize),
             },
-            AIModel::AllMiniLML12V2 => Self {
-                model_type: ModelType::Text {
-                    // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
-                    max_input_tokens: nonzero!(256usize),
-                },
-                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
-                supported_model: SupportedModels::AllMiniLML12V2,
-                description: String::from("Sentence Transformer model, with 12 layers, version 2."),
-                embedding_size: nonzero!(384usize),
+            SupportedModels::AllMiniLML12V2 => ModelDetails {
+                    model_type: ModelType::Text {
+                        // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
+                        max_input_tokens: nonzero!(256usize),
+                    },
+                    supported_model: SupportedModels::AllMiniLML12V2,
+                    description: String::from("Sentence Transformer model, with 12 layers, version 2."),
+                    embedding_size: nonzero!(384usize),
             },
-            AIModel::BGEBaseEnV15 => Self {
-                model_type: ModelType::Text {
-                    // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
-                    max_input_tokens: nonzero!(512usize),
-                },
-                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
-                supported_model: SupportedModels::BGEBaseEnV15,
-                description: String::from(
-                    "BAAI General Embedding model with English support, base scale, version 1.5.",
-                ),
-                embedding_size: nonzero!(768usize),
+            SupportedModels::BGEBaseEnV15 => ModelDetails {
+                    model_type: ModelType::Text {
+                        // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
+                        max_input_tokens: nonzero!(512usize),
+                    },
+                    supported_model: SupportedModels::BGEBaseEnV15,
+                    description: String::from(
+                        "BAAI General Embedding model with English support, base scale, version 1.5.",
+                    ),
+                    embedding_size: nonzero!(768usize),
             },
-            AIModel::BGELargeEnV15 => Self {
-                model_type: ModelType::Text {
-                    max_input_tokens: nonzero!(512usize),
-                },
-                provider: ModelProviders::FastEmbed(FastEmbedProvider::new()),
-                supported_model: SupportedModels::BGELargeEnV15,
-                description: String::from(
-                    "BAAI General Embedding model with English support, large scale, version 1.5.",
-                ),
-                embedding_size: nonzero!(1024usize),
+            SupportedModels::BGELargeEnV15 => ModelDetails {
+                    model_type: ModelType::Text {
+                        max_input_tokens: nonzero!(512usize),
+                    },
+                    supported_model: SupportedModels::BGELargeEnV15,
+                    description: String::from(
+                        "BAAI General Embedding model with English support, large scale, version 1.5.",
+                    ),
+                    embedding_size: nonzero!(1024usize),
             },
-            AIModel::Resnet50 => Self {
-                model_type: ModelType::Image {
-                    expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
-                },
-                provider: ModelProviders::ORT(ORTProvider::new()),
-                supported_model: SupportedModels::Resnet50,
-                description: String::from("Residual Networks model, with 50 layers."),
-                embedding_size: nonzero!(2048usize),
+            SupportedModels::Resnet50 => ModelDetails {
+                    model_type: ModelType::Image {
+                        expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
+                    },
+                    supported_model: SupportedModels::Resnet50,
+                    description: String::from("Residual Networks model, with 50 layers."),
+                    embedding_size: nonzero!(2048usize),
             },
-            AIModel::ClipVitB32 => Self {
-                model_type: ModelType::Image {
-                    expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
-                },
-                provider: ModelProviders::ORT(ORTProvider::new()),
-                supported_model: SupportedModels::ClipVitB32,
-                description: String::from(
-                    "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
-                ),
-                embedding_size: nonzero!(512usize),
+            SupportedModels::ClipVitB32Image => ModelDetails {
+                    model_type: ModelType::Image {
+                        expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
+                    },
+                    supported_model: SupportedModels::ClipVitB32Image,
+                    description: String::from(
+                        "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
+                    ),
+                    embedding_size: nonzero!(512usize),
             },
+            SupportedModels::ClipVitB32Text => ModelDetails {
+                    supported_model: SupportedModels::ClipVitB32Text,
+                    description: String::from(
+                        "Contrastive Language-Image Pre-Training Text transformer model, base scale. \
+                            Ideal for embedding very short text and using in combination with ClipVitB32Image",
+                    ),
+                    embedding_size: nonzero!(512usize),
+                    model_type: ModelType::Text {
+                        // Token size source: https://github.com/UKPLab/sentence-transformers/issues/1269
+                        max_input_tokens: nonzero!(77usize),
+                    },
+                },
         }
+    }
+
+    pub async fn to_concrete_model(&self, cache_location: PathBuf) -> Result<Model, AIProxyError> {
+        let model_details = self.to_model_details();
+        // can only be created with a cache location, this ties together the model public
+        // facing details as well as the provider
+        // if there are multiple providers, feel free to match here and override
+        let provider = ModelProviders::ORT(
+            ORTProvider::from_model_and_cache_location(self, cache_location).await?,
+        );
+        Ok(Model {
+            model_details,
+            provider,
+        })
     }
 }
 
-impl Model {
+impl ModelDetails {
     #[tracing::instrument(skip(self))]
-    pub fn input_type(&self) -> AIStoreInputType {
+    pub fn input_type(&self) -> AiStoreInputType {
         match self.model_type {
-            ModelType::Text { .. } => AIStoreInputType::RawString,
-            ModelType::Image { .. } => AIStoreInputType::Image,
-        }
-    }
-
-    // TODO: model ndarray values is based on length of string or vec, so for now make sure strings
-    // or vecs have different lengths
-    #[tracing::instrument(skip(self))]
-    pub fn model_ndarray(
-        &self,
-        storeinput: &ModelInput,
-        action_type: &InputAction,
-    ) -> Result<StoreKey, AIProxyError> {
-        match &self.provider {
-            ModelProviders::FastEmbed(provider) => {
-                let embedding = provider.run_inference(storeinput, action_type)?;
-                Ok(StoreKey(<Array1<f32>>::from(embedding)))
-            }
-            ModelProviders::ORT(provider) => {
-                let embedding = provider.run_inference(storeinput, action_type)?;
-                Ok(StoreKey(<Array1<f32>>::from(embedding)))
-            }
+            ModelType::Text { .. } => AiStoreInputType::RawString,
+            ModelType::Image { .. } => AiStoreInputType::Image,
         }
     }
 
@@ -144,6 +161,7 @@ impl Model {
             ModelType::Image { .. } => None,
         }
     }
+
     #[tracing::instrument(skip(self))]
     pub fn expected_image_dimensions(&self) -> Option<(NonZeroUsize, NonZeroUsize)> {
         match self.model_type {
@@ -154,78 +172,66 @@ impl Model {
             } => Some((width, height)),
         }
     }
+
     #[tracing::instrument(skip(self))]
     pub fn model_name(&self) -> String {
         self.supported_model.to_string()
     }
+}
 
-    pub fn setup_provider(&mut self, cache_location: &Path) {
-        let supported_model = self.supported_model;
-        match &mut self.provider {
-            ModelProviders::FastEmbed(provider) => {
-                provider.set_model(&supported_model);
-                provider.set_cache_location(cache_location);
-            }
-            ModelProviders::ORT(provider) => {
-                provider.set_model(&supported_model);
-                provider.set_cache_location(cache_location);
-            }
-        }
+impl Model {
+    #[tracing::instrument(skip(self))]
+    pub fn input_type(&self) -> AiStoreInputType {
+        self.model_details.input_type()
     }
 
-    pub fn load(&mut self) -> Result<(), AIProxyError> {
-        match &mut self.provider {
-            ModelProviders::FastEmbed(provider) => {
-                provider.load_model()?;
-            }
+    #[tracing::instrument(skip(self, modelinput))]
+    pub async fn model_ndarray(
+        &self,
+        modelinput: ModelInput,
+        action_type: &InputAction,
+        execution_provider: Option<ExecutionProvider>,
+    ) -> Result<Vec<StoreKey>, AIProxyError> {
+        let store_keys = match &self.provider {
             ModelProviders::ORT(provider) => {
-                provider.load_model()?;
+                provider
+                    .run_inference(modelinput, action_type, execution_provider)
+                    .await?
             }
-        }
-        Ok(())
+        };
+        Ok(store_keys)
     }
 
-    pub fn get(&self) -> Result<(), AIProxyError> {
+    #[tracing::instrument(skip(self))]
+    pub fn max_input_token(&self) -> Option<NonZeroUsize> {
+        self.model_details.max_input_token()
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub fn expected_image_dimensions(&self) -> Option<(NonZeroUsize, NonZeroUsize)> {
+        self.model_details.expected_image_dimensions()
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub fn model_name(&self) -> String {
+        self.model_details.model_name()
+    }
+
+    pub async fn get(&self) -> Result<(), AIProxyError> {
         match &self.provider {
-            ModelProviders::FastEmbed(provider) => {
-                provider.get_model()?;
-            }
             ModelProviders::ORT(provider) => {
-                provider.get_model()?;
+                provider.get_model().await?;
             }
         }
         Ok(())
     }
 }
 
-impl From<&Model> for AIStoreInputType {
+impl From<&Model> for AiStoreInputType {
     fn from(value: &Model) -> Self {
-        match value.model_type {
-            ModelType::Text { .. } => AIStoreInputType::RawString,
-            ModelType::Image { .. } => AIStoreInputType::Image,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct ModelInfo {
-    name: String,
-    input_type: AIStoreInputType,
-    embedding_size: NonZeroUsize,
-    max_input_tokens: Option<NonZeroUsize>,
-    expected_image_dimensions: Option<(NonZeroUsize, NonZeroUsize)>,
-    description: String,
-}
-
-impl ModelInfo {
-    pub(crate) fn build(model: &Model) -> Self {
-        Self {
-            name: model.model_name(),
-            input_type: model.input_type(),
-            embedding_size: model.embedding_size,
-            max_input_tokens: model.max_input_token(),
-            expected_image_dimensions: model.expected_image_dimensions(),
-            description: model.description.clone(),
+        match value.model_details.model_type {
+            ModelType::Text { .. } => AiStoreInputType::RawString,
+            ModelType::Image { .. } => AiStoreInputType::Image,
         }
     }
 }
@@ -247,26 +253,76 @@ impl fmt::Display for InputAction {
 
 #[derive(Debug)]
 pub enum ModelInput {
-    Text(String),
-    Image(ImageArray),
+    Texts(Vec<Encoding>),
+    Images(Array<f32, Ix4>),
 }
 
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug)]
+pub struct OnnxTransformResult {
+    array: Array<f32, Ix3>,
+}
+
+impl OnnxTransformResult {
+    pub fn view(&self) -> ArrayView<f32, Ix3> {
+        self.array.view()
+    }
+
+    pub fn image_dim(&self) -> (NonZeroUsize, NonZeroUsize) {
+        let shape = self.array.shape();
+        (
+            NonZeroUsize::new(shape[2]).expect("Array columns should be non zero"),
+            NonZeroUsize::new(shape[1]).expect("Array channels should be non zero"),
+        )
+    }
+}
+
+impl TryFrom<ImageArray> for OnnxTransformResult {
+    type Error = AIProxyError;
+
+    // Swapping axes from [rows, columns, channels] to [channels, rows, columns] for ONNX
+    #[tracing::instrument(skip_all)]
+    fn try_from(value: ImageArray) -> Result<Self, Self::Error> {
+        let image = value.image;
+        let mut array = Array::from_shape_vec(
+            (
+                image.height() as usize,
+                image.width() as usize,
+                *CHANNELS as usize,
+            ),
+            image.into_raw(),
+        )
+        .map_err(|e| AIProxyError::ImageArrayToNdArrayError {
+            message: format!("Error running onnx transform {e}"),
+        })?
+        .mapv(f32::from);
+        array.swap_axes(1, 2);
+        array.swap_axes(0, 1);
+        Ok(Self { array })
+    }
+}
+
+#[derive(Debug)]
 pub struct ImageArray {
-    array: Array<u8, Ix3>,
-    bytes: Vec<u8>,
+    image: RgbImage,
 }
 
-impl ImageArray {
-    pub fn try_new(bytes: Vec<u8>) -> Result<Self, AIProxyError> {
-        let img_reader = ImageReader::new(Cursor::new(&bytes))
+impl TryFrom<&[u8]> for ImageArray {
+    type Error = AIProxyError;
+
+    #[tracing::instrument(skip_all)]
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let img_reader = ImageReader::new(Cursor::new(value))
             .with_guessed_format()
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
 
-        let img = img_reader
+        // Always convert to RGB8 format
+        // https://github.com/Anush008/fastembed-rs/blob/cea92b6c8b877efda762393848d1c449a4eea126/src/image_embedding/utils.rs#L198
+        let image = img_reader
             .decode()
-            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
-        let (width, height) = img.dimensions();
+            .map_err(|_| AIProxyError::ImageBytesDecodeError)?
+            .into_rgb8();
+
+        let (width, height) = image.dimensions();
 
         if width == 0 || height == 0 {
             return Err(AIProxyError::ImageNonzeroDimensionError {
@@ -274,99 +330,67 @@ impl ImageArray {
                 height: height as usize,
             });
         }
-
-        let channels = img.color().channel_count();
-        let shape = (height as usize, width as usize, channels as usize);
-        let array = Array::from_shape_vec(shape, img.into_bytes())
-            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
-        Ok(ImageArray { array, bytes })
+        Ok(Self { image })
     }
+}
 
-    pub fn get_array(&self) -> &Array<u8, Ix3> {
-        &self.array
-    }
-
-    pub fn get_bytes(&self) -> &Vec<u8> {
-        &self.bytes
-    }
-
-    pub fn resize(&self, width: NonZeroUsize, height: NonZeroUsize) -> Result<Self, AIProxyError> {
-        let width = usize::from(width);
-        let height = usize::from(height);
-        let img_reader = ImageReader::new(Cursor::new(&self.bytes))
-            .with_guessed_format()
-            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
-        let img_format = img_reader
-            .format()
-            .ok_or(AIProxyError::ImageBytesDecodeError)?;
-        let original_img = img_reader
-            .decode()
-            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
-
-        let resized_img = original_img.resize_exact(
-            width as u32,
-            height as u32,
-            image::imageops::FilterType::Triangle,
+impl ImageArray {
+    fn array_view(&self) -> ArrayView<u8, Ix3> {
+        let shape = (
+            self.image.height() as usize,
+            self.image.width() as usize,
+            *CHANNELS as usize,
         );
-        let channels = resized_img.color().channel_count();
-        let shape = (height, width, channels as usize);
+        let raw_bytes = self.image.as_raw();
+        ArrayView::from_shape(shape, raw_bytes).expect("Image bytes decode error")
+    }
 
-        let mut buffer = Cursor::new(Vec::new());
-        resized_img
-            .write_to(&mut buffer, img_format)
-            .map_err(|_| AIProxyError::ImageResizeError)?;
+    #[tracing::instrument(skip(self))]
+    pub fn resize(
+        &mut self,
+        width: u32,
+        height: u32,
+        filter: Option<image::imageops::FilterType>,
+    ) -> Result<Self, AIProxyError> {
+        // Create container for data of destination image
+        let (width, height) = self.image.dimensions();
+        let mut dest_image = Image::new(width, height, PixelType::U8x3);
+        let mut resizer = Resizer::new();
+        resizer
+            .resize(
+                &ImageRef::new(width, height, self.image.as_raw(), PixelType::U8x3)
+                    .map_err(|e| AIProxyError::ImageResizeError(e.to_string()))?,
+                &mut dest_image,
+                &ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::CatmullRom)),
+            )
+            .map_err(|e| AIProxyError::ImageResizeError(e.to_string()))?;
+        let resized_img = RgbImage::from_raw(width, height, dest_image.into_vec())
+            .expect("Could not get image after resizing");
+        Ok(ImageArray { image: resized_img })
+    }
 
-        let flattened_pixels = resized_img.into_bytes();
-        let array = Array::from_shape_vec(shape, flattened_pixels)
-            .map_err(|_| AIProxyError::ImageResizeError)?;
-        let bytes = buffer.into_inner();
-        Ok(ImageArray { array, bytes })
+    #[tracing::instrument(skip(self))]
+    pub fn crop(&mut self, x: u32, y: u32, width: u32, height: u32) -> Result<Self, AIProxyError> {
+        let cropped_img = imageops::crop(&mut self.image, x, y, width, height).to_image();
+
+        Ok(ImageArray { image: cropped_img })
     }
 
     pub fn image_dim(&self) -> (NonZeroUsize, NonZeroUsize) {
-        let shape = self.array.shape();
+        let arr_view = self.array_view();
+        let shape = arr_view.shape();
         (
             NonZeroUsize::new(shape[1]).expect("Array columns should be non-zero"),
             NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero"),
-        ) // (width, height)
+        )
     }
 }
 
-impl Serialize for ImageArray {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_bytes(self.get_bytes())
-    }
-}
-
-impl<'de> Deserialize<'de> for ImageArray {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let bytes: Vec<u8> = Deserialize::deserialize(deserializer)?;
-        ImageArray::try_new(bytes).map_err(serde::de::Error::custom)
-    }
-}
-
-impl TryFrom<StoreInput> for ModelInput {
-    type Error = AIProxyError;
-
-    fn try_from(value: StoreInput) -> Result<Self, Self::Error> {
+impl From<&ModelInput> for AiStoreInputType {
+    fn from(value: &ModelInput) -> AiStoreInputType {
         match value {
-            StoreInput::RawString(s) => Ok(ModelInput::Text(s)),
-            StoreInput::Image(bytes) => Ok(ModelInput::Image(ImageArray::try_new(bytes)?)),
-        }
-    }
-}
-
-impl From<&ModelInput> for AIStoreInputType {
-    fn from(value: &ModelInput) -> AIStoreInputType {
-        match value {
-            ModelInput::Text(_) => AIStoreInputType::RawString,
-            ModelInput::Image(_) => AIStoreInputType::Image,
+            ModelInput::Texts(_) => AiStoreInputType::RawString,
+            ModelInput::Images(_) => AiStoreInputType::Image,
         }
     }
 }

@@ -21,4 +21,11 @@ target/
 # persistence file for test
 ahnlich.dat
 
+# docker-compose ignore
+ahnlich_ai_model_cache/
+data/
+
+# profiling file from ORT
+profiling.json*
+
 **/.idea/

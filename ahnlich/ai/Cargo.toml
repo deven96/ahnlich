@@ -1,6 +1,6 @@
 [package]
 name = "ai"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2021"
 
 # only used for rust client test and not to be released
@@ -14,8 +14,9 @@ name = "ahnlich-ai"
 path = "src/main.rs"
 
 [dependencies]
-flurry.workspace = true
 tokio.workspace = true
+tonic.workspace = true
+prost.workspace = true
 serde.workspace = true
 ndarray.workspace = true
 image.workspace = true
@@ -24,28 +25,44 @@ thiserror.workspace = true
 async-trait.workspace = true
 utils = { path = "../utils", version = "*" }
 task-manager = { path = "../task-manager", version = "*" }
-ahnlich_types = { path = "../types", version = "*" }
+ahnlich_types = { path = "../types", version = "*"  }
 tokio-util.workspace = true
 once_cell.workspace = true
 tracing.workspace = true
 tracer = { path = "../tracer", version = "*" }
 ahnlich_client_rs = { path = "../client", version = "*" }
-deadpool.workspace = true
 nonzero_ext = "0.3.0"
 serde_json.workspace = true
 termcolor = "1.4.1"
-strum = { version = "0.26", features = ["derive"] }
+strum.workspace = true
 log.workspace = true
 fallible_collections.workspace = true
 rayon.workspace = true
-fastembed = { version = "4.0.0", features = ["default"] }
 hf-hub = { version = "0.3", default-features = false }
 dirs = "5.0.1"
-ort = { version = "=2.0.0-rc.5", default-features = false }
-moka = { version = "0.12.8", features = ["future"] }
+ort = { version = "=2.0.0-rc.5", features = [
+  "ndarray",
+] }
+fast_image_resize = { version = "5.1.1", features = ["rayon"]}
+ort-sys = "=2.0.0-rc.8"
+moka = { version = "0.12.8", features = ["future", "sync"] }
 tracing-opentelemetry.workspace = true
 futures.workspace = true
 tiktoken-rs = "0.5.9"
+itertools.workspace = true
+tokenizers = { version = "0.20.1", features = ["hf-hub"] }
+papaya.workspace = true
+
+[features]
+# ORT Execution providers
+default = ["tensorrt", "cuda"]
+tensorrt = ["ort/tensorrt"]
+cuda = ["ort/cuda"]
+# activate only on apple devices
+coreml = ["ort/coreml"]
+# activate only on windows devices
+directml = ["ort/directml"]
+
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true

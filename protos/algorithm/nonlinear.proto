@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package algorithm.nonlinear;
+
+
+enum NonLinearAlgorithm {
+    KDTree = 0;
+
+}

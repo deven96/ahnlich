@@ -1,5 +1,6 @@
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::fmt::Debug;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::BufReader;
@@ -15,7 +16,7 @@ use tokio::time::sleep;
 use tokio::time::Duration;
 
 pub trait AhnlichPersistenceUtils {
-    type PersistenceObject: Serialize + DeserializeOwned + Send + Sync + 'static;
+    type PersistenceObject: Serialize + DeserializeOwned + Send + Sync + 'static + Debug;
 
     fn write_flag(&self) -> Arc<AtomicBool>;
 
@@ -45,7 +46,7 @@ pub struct Persistence<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: Sync + Serialize + DeserializeOwned> Task for Persistence<T> {
+impl<T: Sync + Serialize + DeserializeOwned + Debug> Task for Persistence<T> {
     fn task_name(&self) -> String {
         "persistence".to_string()
     }
@@ -71,7 +72,7 @@ impl<T: Sync + Serialize + DeserializeOwned> Task for Persistence<T> {
                 self.write_flag
                     .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst);
             if let Err(e) = serde_json::to_writer(&writer, &self.persist_object) {
-                log::error!("Error writing stores to temp file {e}");
+                log::error!("Error writing stores to temp file {e:?}");
             } else {
                 match std::fs::rename(temp_path, persist_location) {
                     Ok(_) => log::debug!("Persisted stores to disk"),

@@ -1,15 +1,23 @@
 [package]
 name = "ahnlich_types"
-version = "0.1.0"
+version = "0.0.0"
+authors = ["Diretnan Domnan <diretnandomnan@gmail.com>"]
+categories = ["database-implementations", "database", "web-programming"]
+keywords = ["ahnlich", "in-memory", "ai"]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license-file = "LICENSE"
+homepage = "https://github.com/deven96/ahnlich/ahnlich/types"
+repository = "https://github.com/deven96/ahnlich/ahnlich/types"
+description = "Types for using ahnlich_client_rs AI proxy and in-memory vector DB"
 
 [dependencies]
-image.workspace = true
-ndarray.workspace = true
+tonic.workspace = true
+prost.workspace = true
+prost-types = "0.13"
 serde.workspace = true
-bincode.workspace = true
-once_cell.workspace = true
-fallible_collections.workspace = true
-thiserror.workspace = true
+
+
+[build-dependencies]
+prost-build = "0.13.4"
+tonic-build = "0.12.3"
+walkdir = "2.5.0"

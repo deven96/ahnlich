@@ -1,34 +1,47 @@
 use ahnlich_db::cli::ServerConfig;
 use ahnlich_db::server::handler::Server;
-use ahnlich_types::{
-    ai::{
-        AIModel, AIQuery, AIServerQuery, AIServerResponse, AIServerResult, AIStoreInfo,
-        ImageAction, PreprocessAction, StringAction,
-    },
-    db::StoreUpsert,
-    keyval::{StoreInput, StoreName, StoreValue},
-    metadata::{MetadataKey, MetadataValue},
-    predicate::{Predicate, PredicateCondition},
-    similarity::Algorithm,
-};
+
 use utils::server::AhnlichServerUtils;
 
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
-use std::{collections::HashSet, num::NonZeroUsize, sync::atomic::Ordering};
+use std::{collections::HashMap, net::SocketAddr, sync::atomic::Ordering};
 
 use crate::{
     cli::{server::SupportedModels, AIProxyConfig},
-    engine::ai::models::Model,
+    engine::ai::models::ModelDetails,
     error::AIProxyError,
     server::handler::AIProxyServer,
 };
-use ahnlich_types::bincode::BinCodeSerAndDeser;
-use std::net::SocketAddr;
+
+use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_types::{
+    ai::server::GetSimNEntry,
+    metadata::{metadata_value::Value as MValue, MetadataValue},
+};
+use ahnlich_types::{
+    ai::{
+        models::AiModel,
+        pipeline::{self as ai_pipeline, ai_query::Query},
+        preprocess::PreprocessAction,
+        query::{self as ai_query_types},
+        server::{self as ai_response_types, AiStoreInfo, GetEntry},
+    },
+    keyval::{store_input::Value, AiStoreEntry, StoreInput, StoreName, StoreValue},
+    services::ai_service::ai_service_client::AiServiceClient,
+    shared::info::StoreUpsert,
+};
+use ahnlich_types::{
+    predicates::{
+        self, predicate::Kind as PredicateKind,
+        predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
+    },
+    similarity::Similarity,
+};
+
 use std::path::PathBuf;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::net::TcpStream;
-use tokio::time::{timeout, Duration};
+use tokio::time::Duration;
+use tonic::transport::Channel;
 
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| AIProxyConfig::default().os_select_port());
@@ -49,54 +62,13 @@ static AI_CONFIG_LIMITED_MODELS: Lazy<AIProxyConfig> = Lazy::new(|| {
         .set_supported_models(vec![SupportedModels::AllMiniLML6V2])
 });
 
-async fn get_server_response(
-    reader: &mut BufReader<TcpStream>,
-    query: AIServerQuery,
-) -> AIServerResult {
-    // Message to send
-    let serialized_message = query.serialize().unwrap();
-
-    // Send the message
-    reader.write_all(&serialized_message).await.unwrap();
-
-    // get length of response header
-    let mut header = [0u8; ahnlich_types::bincode::RESPONSE_HEADER_LEN];
-    timeout(Duration::from_secs(1), reader.read_exact(&mut header))
-        .await
-        .unwrap()
-        .unwrap();
-    let mut length_header = [0u8; ahnlich_types::bincode::LENGTH_HEADER_SIZE];
-    length_header.copy_from_slice(&header[13..=20]);
-
-    // read only the actual length size
-    let data_length = u64::from_le_bytes(length_header);
-    let mut response = vec![0u8; data_length as usize];
-
-    timeout(Duration::from_secs(1), reader.read_exact(&mut response))
-        .await
-        .unwrap()
-        .unwrap();
-
-    let response = AIServerResult::deserialize(&response).unwrap();
-
-    response
-}
-
-async fn query_server_assert_result(
-    reader: &mut BufReader<TcpStream>,
-    query: AIServerQuery,
-    expected_result: AIServerResult,
-) {
-    let response = get_server_response(reader, query).await;
-
-    assert_eq!(response, expected_result);
-}
-
 async fn provision_test_servers() -> SocketAddr {
-    let server = Server::new(&CONFIG)
-        .await
-        .expect("Could not initialize server");
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    // let db_address = server.local_addr().expect("Could not get local addr");
     let db_port = server.local_addr().unwrap().port();
+
+    tokio::spawn(async move { server.start().await });
+
     let mut config = AI_CONFIG.clone();
     config.db_port = db_port;
 
@@ -105,7 +77,7 @@ async fn provision_test_servers() -> SocketAddr {
         .expect("Could not initialize ai proxy");
 
     let ai_address = ai_server.local_addr().expect("Could not get local addr");
-    let _ = tokio::spawn(async move { server.start().await });
+
     // start up ai proxy
     let _ = tokio::spawn(async move { ai_server.start().await });
     // Allow some time for the servers to start
@@ -117,482 +89,824 @@ async fn provision_test_servers() -> SocketAddr {
 #[tokio::test]
 async fn test_simple_ai_proxy_ping() {
     let address = provision_test_servers().await;
-    let first_stream = TcpStream::connect(address).await.unwrap();
-    let message = AIServerQuery::from_queries(&[AIQuery::Ping]);
-    let mut expected = AIServerResult::with_capacity(1);
-    expected.push(Ok(AIServerResponse::Pong));
-    let mut reader = BufReader::new(first_stream);
-    query_server_assert_result(&mut reader, message, expected.clone()).await;
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    let response = client
+        .ping(tonic::Request::new(ahnlich_types::ai::query::Ping {}))
+        .await
+        .expect("Failed to ping");
+
+    let expected = ai_response_types::Pong {};
+    println!("Response: {response:?}");
+    assert_eq!(expected, response.into_inner());
 }
 
 #[tokio::test]
 async fn test_ai_proxy_create_store_success() {
     let address = provision_test_servers().await;
-    let first_stream = TcpStream::connect(address).await.unwrap();
-    let second_stream = TcpStream::connect(address).await.unwrap();
-    let store_name = StoreName(String::from("Sample Store"));
-    let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    let store_name = "Sample Store".to_string();
+    let create_store = ahnlich_types::ai::query::CreateStore {
         store: store_name.clone(),
-        query_model: AIModel::AllMiniLML6V2,
-        index_model: AIModel::AllMiniLML6V2,
-        predicates: HashSet::new(),
-        non_linear_indices: HashSet::new(),
+        query_model: AiModel::AllMiniLmL6V2.into(),
+        index_model: AiModel::AllMiniLmL6V2.into(),
+        predicates: vec![],
+        non_linear_indices: vec![],
         error_if_exists: true,
         store_original: true,
-    }]);
+    };
+    let response = client
+        .create_store(tonic::Request::new(create_store))
+        .await
+        .expect("Failed to Create Store");
 
-    let mut expected = AIServerResult::with_capacity(1);
-    expected.push(Ok(AIServerResponse::Unit));
-    let mut reader = BufReader::new(first_stream);
-    query_server_assert_result(&mut reader, message, expected.clone()).await;
+    let expected = ai_response_types::Unit {};
+    assert_eq!(expected, response.into_inner());
 
     // list stores to verify it's present.
-    let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
-    let mut expected = AIServerResult::with_capacity(1);
-    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
-    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-        AIStoreInfo {
-            name: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            embedding_size: ai_model.embedding_size.into(),
-        },
-    ]))));
-    let mut reader = BufReader::new(second_stream);
-    query_server_assert_result(&mut reader, message, expected.clone()).await;
+    let message = ahnlich_types::ai::query::ListStores {};
+    let response = client
+        .list_stores(tonic::Request::new(message))
+        .await
+        .expect("Failed to Create Store");
+
+    let ai_model: ModelDetails = SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
+
+    let expected = ai_response_types::StoreList {
+        stores: vec![AiStoreInfo {
+            name: store_name,
+            query_model: AiModel::AllMiniLmL6V2.into(),
+            index_model: AiModel::AllMiniLmL6V2.into(),
+            embedding_size: ai_model.embedding_size.get() as u64,
+        }],
+    };
+    assert_eq!(expected, response.into_inner());
 }
 
-// TODO: Same issues with random storekeys, changing the order of expected response
+#[tokio::test]
+async fn test_ai_store_get_key_works() {
+    let address = provision_test_servers().await;
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    let store_name = StoreName {
+        value: String::from("Deven Kicks"),
+    };
+
+    let store_entry_input = StoreInput {
+        value: Some(Value::RawString(String::from("Jordan 3"))),
+    };
+
+    let inputs = vec![AiStoreEntry {
+        key: Some(store_entry_input.clone()),
+        value: Some(StoreValue {
+            value: HashMap::new(),
+        }),
+    }];
+
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.value.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.value.clone(),
+                inputs,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+    ];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+
+    let _ = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    let message = ahnlich_types::ai::query::GetKey {
+        store: store_name.value.clone(),
+        keys: vec![store_entry_input.clone()],
+    };
+
+    let response = client
+        .get_key(tonic::Request::new(message))
+        .await
+        .expect("Failed to get key");
+
+    let expected = ai_response_types::Get {
+        entries: vec![GetEntry {
+            key: Some(store_entry_input),
+            value: Some(StoreValue {
+                value: HashMap::new(),
+            }),
+        }],
+    };
+
+    assert!(response.into_inner().entries.len() == expected.entries.len())
+}
+
+// TODO!
+#[tokio::test]
+async fn test_list_clients_works() {
+    //     let address = provision_test_servers().await;
+    // let _first_stream = TcpStream::connect(address).await.unwrap();
+    // let second_stream = TcpStream::connect(address).await.unwrap();
+    // let message = AIServerQuery::from_queries(&[AIQuery::ListClients]);
+    // let mut reader = BufReader::new(second_stream);
+    // let response = get_server_response(&mut reader, message).await;
+    // let inner = response.into_inner();
+
+    // // only two clients are connected
+    // match inner.as_slice() {
+    //     [Ok(AIServerResponse::ClientList(connected_clients))] => {
+    //         assert!(connected_clients.len() == 2)
+    //     }
+    //     a => {
+    //         assert!(false, "Unexpected result for client list {:?}", a);
+    //     }
+    // };
+}
+
 #[tokio::test]
 async fn test_ai_store_no_original() {
     let address = provision_test_servers().await;
-    let first_stream = TcpStream::connect(address).await.unwrap();
-    let second_stream = TcpStream::connect(address).await.unwrap();
-    let store_name = StoreName(String::from("Deven Kicks"));
-    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
-    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+    let address = format!("http://{}", address);
 
-    let nike_store_value =
-        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-    let adidas_store_value = StoreValue::from_iter([(
-        matching_metadatakey.clone(),
-        MetadataValue::RawString("Adidas".to_owned()),
-    )]);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let store_name = "Deven Kicks".to_string();
+    let matching_metadatakey = "Brand".to_string();
+    let matching_metadatavalue = MetadataValue {
+        value: Some(MValue::RawString("Nike".into())),
+    };
+
+    let nike_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
+    };
+
+    let adidas_store_value = StoreValue {
+        value: HashMap::from_iter([(
+            matching_metadatakey.clone(),
+            MetadataValue {
+                value: Some(MValue::RawString("Adidas".into())),
+            },
+        )]),
+    };
+
     let store_data = vec![
-        (
-            StoreInput::RawString(String::from("Jordan 3")),
-            nike_store_value.clone(),
-        ),
-        (
-            StoreInput::RawString(String::from("Air Force 1")),
-            nike_store_value.clone(),
-        ),
-        (
-            StoreInput::RawString(String::from("Yeezy")),
-            adidas_store_value.clone(),
-        ),
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Jordan 3".into())),
+            }),
+            value: Some(nike_store_value.clone()),
+        },
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Air Force 1".into())),
+            }),
+            value: Some(nike_store_value.clone()),
+        },
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Yeezy".into())),
+            }),
+            value: Some(adidas_store_value),
+        },
     ];
-    let message = AIServerQuery::from_queries(&[
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::from_iter([
-                matching_metadatakey.clone(),
-                MetadataKey::new("Original".to_owned()),
-            ]),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: false,
-        },
-        AIQuery::Set {
-            store: store_name.clone(),
-            inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
-        },
-    ]);
-    let mut reader = BufReader::new(first_stream);
 
-    let _ = get_server_response(&mut reader, message).await;
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![matching_metadatakey.clone(), "Original".to_string()],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: false,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+    ];
 
-    let message = AIServerQuery::from_queries(&[AIQuery::GetPred {
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let _ = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    // println!("res .... {:?}", res.into_inner());
+
+    // Test GetPred
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey,
+                value: Some(matching_metadatavalue),
+            })),
+        })),
+    };
+
+    let get_pred_message = ahnlich_types::ai::query::GetPred {
         store: store_name,
-        condition: PredicateCondition::Value(Predicate::Equals {
-            key: matching_metadatakey.clone(),
-            value: matching_metadatavalue,
-        }),
-    }]);
+        condition: Some(condition),
+    };
 
-    let mut expected = AIServerResult::with_capacity(1);
+    let response = client
+        .get_pred(tonic::Request::new(get_pred_message))
+        .await
+        .expect("Failed to get pred")
+        .into_inner();
 
-    expected.push(Ok(AIServerResponse::Get(vec![
-        (None, nike_store_value.clone()),
-        (None, nike_store_value.clone()),
-    ])));
+    println!("res .... {:?}", response);
 
-    let mut reader = BufReader::new(second_stream);
-    //query_server_assert_result(&mut reader, message, expected.clone()).await;
-    let response = get_server_response(&mut reader, message).await;
-    assert!(response.len() == expected.len())
+    let expected = ahnlich_types::ai::server::Get {
+        entries: vec![
+            GetEntry {
+                key: None,
+                value: Some(nike_store_value.clone()),
+            },
+            GetEntry {
+                key: None,
+                value: Some(nike_store_value.clone()),
+            },
+        ],
+    };
+
+    assert_eq!(response.entries.len(), expected.entries.len());
 }
 
-// TODO: Same issues with random storekeys, changing the order of expected response
 #[tokio::test]
 async fn test_ai_proxy_get_pred_succeeds() {
     let address = provision_test_servers().await;
-    let first_stream = TcpStream::connect(address).await.unwrap();
-    let second_stream = TcpStream::connect(address).await.unwrap();
-    let store_name = StoreName(String::from("Deven Kicks"));
-    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
-    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+    let address = format!("http://{}", address);
 
-    let nike_store_value =
-        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-    let adidas_store_value = StoreValue::from_iter([(
-        matching_metadatakey.clone(),
-        MetadataValue::RawString("Adidas".to_owned()),
-    )]);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let store_name = "Deven Kicks".to_string();
+    let matching_metadatakey = "Brand".to_string();
+    let matching_metadatavalue = MetadataValue {
+        value: Some(MValue::RawString("Nike".into())),
+    };
+
+    let nike_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
+    };
+
+    let adidas_store_value = StoreValue {
+        value: HashMap::from_iter([(
+            matching_metadatakey.clone(),
+            MetadataValue {
+                value: Some(MValue::RawString("Adidas".into())),
+            },
+        )]),
+    };
+
     let store_data = vec![
-        (
-            StoreInput::RawString(String::from("Jordan 3")),
-            nike_store_value.clone(),
-        ),
-        (
-            StoreInput::RawString(String::from("Air Force 1")),
-            nike_store_value.clone(),
-        ),
-        (
-            StoreInput::RawString(String::from("Yeezy")),
-            adidas_store_value.clone(),
-        ),
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Jordan 3".into())),
+            }),
+            value: Some(nike_store_value.clone()),
+        },
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Air Force 1".into())),
+            }),
+            value: Some(nike_store_value.clone()),
+        },
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Yeezy".into())),
+            }),
+            value: Some(adidas_store_value.clone()),
+        },
     ];
-    let message = AIServerQuery::from_queries(&[
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::from_iter([
-                matching_metadatakey.clone(),
-                MetadataKey::new("Original".to_owned()),
-            ]),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: true,
+
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![matching_metadatakey.clone(), "Original".to_string()],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
         },
-        AIQuery::Set {
-            store: store_name.clone(),
-            inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
         },
-    ]);
-    let mut reader = BufReader::new(first_stream);
+    ];
 
-    let _ = get_server_response(&mut reader, message).await;
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let _ = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
 
-    let message = AIServerQuery::from_queries(&[AIQuery::GetPred {
-        store: store_name,
-        condition: PredicateCondition::Value(Predicate::Equals {
-            key: matching_metadatakey.clone(),
-            value: matching_metadatavalue,
-        }),
-    }]);
+    // Test GetPred
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(matching_metadatavalue.clone()),
+            })),
+        })),
+    };
 
-    let mut expected = AIServerResult::with_capacity(1);
+    let get_pred_message = ahnlich_types::ai::query::GetPred {
+        store: store_name.clone(),
+        condition: Some(condition),
+    };
 
-    expected.push(Ok(AIServerResponse::Get(vec![
-        (
-            Some(StoreInput::RawString(String::from("Jordan 3"))),
-            nike_store_value.clone(),
-        ),
-        (
-            Some(StoreInput::RawString(String::from("Air Force 1"))),
-            nike_store_value.clone(),
-        ),
-    ])));
+    let response = client
+        .get_pred(tonic::Request::new(get_pred_message))
+        .await
+        .expect("Failed to get pred");
 
-    let mut reader = BufReader::new(second_stream);
-    //query_server_assert_result(&mut reader, message, expected.clone()).await;
-    let response = get_server_response(&mut reader, message).await;
-    assert!(response.len() == expected.len())
+    let expected_entries = vec![
+        GetEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Jordan 3".into())),
+            }),
+            value: Some(nike_store_value.clone()),
+        },
+        GetEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Air Force 1".into())),
+            }),
+            value: Some(nike_store_value.clone()),
+        },
+    ];
+
+    let response_entries = response.into_inner().entries;
+    assert_eq!(response_entries.len(), expected_entries.len());
+
+    // Verify all expected entries are present (order-independent)
+    for expected_entry in expected_entries {
+        assert!(
+            response_entries.contains(&expected_entry),
+            "Missing entry: {:?}",
+            expected_entry
+        );
+    }
 }
 
-// TODO: WIll Need fixing when we integrate AI model, for now we return the closest first
 #[tokio::test]
 async fn test_ai_proxy_get_sim_n_succeeds() {
     let address = provision_test_servers().await;
-    let first_stream = TcpStream::connect(address).await.unwrap();
-    let second_stream = TcpStream::connect(address).await.unwrap();
-    let store_name = StoreName(String::from("Deven Kicks"));
-    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
-    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+    let address = format!("http://{}", address);
 
-    let nike_store_value =
-        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-    let adidas_store_value = StoreValue::from_iter([(
-        matching_metadatakey.clone(),
-        MetadataValue::RawString("Adidas".to_owned()),
-    )]);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let store_name = "Deven Kicks".to_string();
+    let matching_metadatakey = "Brand".to_string();
+    let matching_metadatavalue = MetadataValue {
+        value: Some(MValue::RawString("Nike".into())),
+    };
+
+    let nike_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
+    };
+
+    let adidas_store_value = StoreValue {
+        value: HashMap::from_iter([(
+            matching_metadatakey.clone(),
+            MetadataValue {
+                value: Some(MValue::RawString("Adidas".into())),
+            },
+        )]),
+    };
+
     let store_data = vec![
-        (
-            StoreInput::RawString(String::from("Jordan 3")),
-            nike_store_value.clone(),
-        ),
-        (
-            StoreInput::RawString(String::from("Air Force 1")),
-            nike_store_value.clone(),
-        ),
-        (
-            StoreInput::RawString(String::from("Yeezy")),
-            adidas_store_value.clone(),
-        ),
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Jordan 3".into())),
+            }),
+            value: Some(nike_store_value.clone()),
+        },
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Air Force 1".into())),
+            }),
+            value: Some(nike_store_value.clone()),
+        },
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Yeezy".into())),
+            }),
+            value: Some(adidas_store_value.clone()),
+        },
     ];
-    let message = AIServerQuery::from_queries(&[
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::from_iter([
-                matching_metadatakey.clone(),
-                MetadataKey::new("Original".to_owned()),
-            ]),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: true,
-        },
-        AIQuery::Set {
-            store: store_name.clone(),
-            inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
-        },
-    ]);
-    let mut reader = BufReader::new(first_stream);
 
-    let _ = get_server_response(&mut reader, message).await;
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![matching_metadatakey.clone(), "Original".to_string()],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+    ];
 
-    let message = AIServerQuery::from_queries(&[AIQuery::GetSimN {
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let _ = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    // Test GetSimN
+    let get_sim_n_message = ahnlich_types::ai::query::GetSimN {
         store: store_name.clone(),
-        search_input: StoreInput::RawString(String::from("Yeezy")),
+        search_input: Some(StoreInput {
+            value: Some(Value::RawString("Yeezy".into())),
+        }),
         condition: None,
-        closest_n: NonZeroUsize::new(1).unwrap(),
-        algorithm: Algorithm::DotProductSimilarity,
-    }]);
+        closest_n: 1,
+        algorithm: Algorithm::DotProductSimilarity.into(),
+        preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+        execution_provider: None,
+    };
 
-    let mut expected = AIServerResult::with_capacity(1);
-    expected.push(Ok(AIServerResponse::Get(vec![(
-        Some(StoreInput::RawString(String::from("Yeezy"))),
-        adidas_store_value.clone(),
-    )])));
+    let response = client
+        .get_sim_n(tonic::Request::new(get_sim_n_message))
+        .await
+        .expect("Failed to get similar items");
 
-    let mut reader = BufReader::new(second_stream);
-    let response = get_server_response(&mut reader, message).await;
+    let expected_entry = GetSimNEntry {
+        key: Some(StoreInput {
+            value: Some(Value::RawString("Yeezy".into())),
+        }),
+        value: Some(adidas_store_value.clone()),
+        similarity: Some(Similarity { value: 0.99999994 }),
+    };
 
-    assert!(response.len() == expected.len())
+    let response_entries = response.into_inner().entries;
+    assert_eq!(response_entries.len(), 1);
+    assert_eq!(response_entries[0].key, expected_entry.key);
+    assert_eq!(
+        response_entries[0]
+            .similarity
+            .map(|sim| format!("{:.4}", sim.value)),
+        expected_entry
+            .similarity
+            .map(|sim| format!("{:.4}", sim.value))
+    );
 }
 
 #[tokio::test]
 async fn test_ai_proxy_create_drop_pred_index() {
     let address = provision_test_servers().await;
-    let second_stream = TcpStream::connect(address).await.unwrap();
-    let store_name = StoreName(String::from("Deven Kicks"));
-    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
-    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
-    let predicate_cond = PredicateCondition::Value(Predicate::Equals {
-        key: matching_metadatakey.clone(),
-        value: matching_metadatavalue.clone(),
-    });
+    let address = format!("http://{}", address);
 
-    let nike_store_value =
-        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-    let store_data = vec![(
-        StoreInput::RawString(String::from("Jordan 3")),
-        nike_store_value.clone(),
-    )];
-    let message = AIServerQuery::from_queries(&[
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::from_iter([]),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: true,
-        },
-        // returns nothing
-        AIQuery::GetPred {
-            store: store_name.clone(),
-            condition: predicate_cond.clone(),
-        },
-        AIQuery::CreatePredIndex {
-            store: store_name.clone(),
-            predicates: HashSet::from_iter([matching_metadatakey.clone()]),
-        },
-        AIQuery::Set {
-            store: store_name.clone(),
-            inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
-        },
-        AIQuery::GetPred {
-            store: store_name.clone(),
-            condition: predicate_cond,
-        },
-        AIQuery::DropPredIndex {
-            store: store_name.clone(),
-            predicates: HashSet::from_iter([matching_metadatakey.clone()]),
-            error_if_not_exists: true,
-        },
-    ]);
-    let mut expected = AIServerResult::with_capacity(6);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
 
-    expected.push(Ok(AIServerResponse::Unit));
-    expected.push(Ok(AIServerResponse::Get(vec![])));
-    expected.push(Ok(AIServerResponse::CreateIndex(1)));
-    expected.push(Ok(AIServerResponse::Set(StoreUpsert {
-        inserted: 1,
-        updated: 0,
-    })));
-    expected.push(Ok(AIServerResponse::Get(vec![(
-        Some(StoreInput::RawString(String::from("Jordan 3"))),
-        nike_store_value.clone(),
-    )])));
-    expected.push(Ok(AIServerResponse::Del(1)));
+    let store_name = "Deven Kicks".to_string();
+    let matching_metadatakey = "Brand".to_string();
+    let matching_metadatavalue = MetadataValue {
+        value: Some(MValue::RawString("Nike".into())),
+    };
 
-    let mut reader = BufReader::new(second_stream);
-    query_server_assert_result(&mut reader, message, expected).await
+    let nike_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
+    };
+
+    let store_data = vec![AiStoreEntry {
+        key: Some(StoreInput {
+            value: Some(Value::RawString("Jordan 3".into())),
+        }),
+        value: Some(nike_store_value.clone()),
+    }];
+
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(matching_metadatavalue.clone()),
+            })),
+        })),
+    };
+
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::GetPred(ai_query_types::GetPred {
+                store: store_name.clone(),
+                condition: Some(condition.clone()),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreatePredIndex(ai_query_types::CreatePredIndex {
+                store: store_name.clone(),
+                predicates: vec![matching_metadatakey.clone()],
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::GetPred(ai_query_types::GetPred {
+                store: store_name.clone(),
+                condition: Some(condition),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DropPredIndex(ai_query_types::DropPredIndex {
+                store: store_name.clone(),
+                predicates: vec![matching_metadatakey.clone()],
+                error_if_not_exists: true,
+            })),
+        },
+    ];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Unit(
+                    ai_response_types::Unit {},
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Get(
+                    ai_response_types::Get { entries: vec![] },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::CreateIndex(
+                    ai_response_types::CreateIndex { created_indexes: 1 },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Set(
+                    ai_response_types::Set {
+                        upsert: Some(StoreUpsert {
+                            inserted: 1,
+                            updated: 0,
+                        }),
+                    },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Get(
+                    ai_response_types::Get {
+                        entries: vec![ai_response_types::GetEntry {
+                            key: Some(StoreInput {
+                                value: Some(Value::RawString("Jordan 3".into())),
+                            }),
+                            value: Some(nike_store_value.clone()),
+                        }],
+                    },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Del(
+                    ai_response_types::Del { deleted_count: 1 },
+                )),
+            },
+        ],
+    };
+
+    assert_eq!(response.into_inner(), expected);
 }
 
 #[tokio::test]
 async fn test_ai_proxy_del_key_drop_store() {
     let address = provision_test_servers().await;
-    let second_stream = TcpStream::connect(address).await.unwrap();
-    let store_name = StoreName(String::from("Deven Kicks"));
-    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
-    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
-    let predicate_cond = PredicateCondition::Value(Predicate::Equals {
-        key: matching_metadatakey.clone(),
-        value: matching_metadatavalue.clone(),
-    });
+    let address = format!("http://{}", address);
 
-    let nike_store_value =
-        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-    let store_data = vec![(
-        StoreInput::RawString(String::from("Jordan 3")),
-        nike_store_value.clone(),
-    )];
-    let message = AIServerQuery::from_queries(&[
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::from_iter([]),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: true,
-        },
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::from_iter([]),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: false,
-            store_original: true,
-        },
-        AIQuery::Set {
-            store: store_name.clone(),
-            inputs: store_data.clone(),
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
-        },
-        AIQuery::DelKey {
-            store: store_name.clone(),
-            key: StoreInput::RawString(String::from("Jordan 3")),
-        },
-        AIQuery::GetPred {
-            store: store_name.clone(),
-            condition: predicate_cond,
-        },
-        AIQuery::DropStore {
-            store: store_name.clone(),
-            error_if_not_exists: true,
-        },
-    ]);
-    let mut expected = AIServerResult::with_capacity(6);
-
-    expected.push(Ok(AIServerResponse::Unit));
-    expected.push(Ok(AIServerResponse::Unit));
-    expected.push(Ok(AIServerResponse::Set(StoreUpsert {
-        inserted: 1,
-        updated: 0,
-    })));
-    expected.push(Ok(AIServerResponse::Del(1)));
-    expected.push(Ok(AIServerResponse::Get(vec![])));
-    expected.push(Ok(AIServerResponse::Del(1)));
-
-    let mut reader = BufReader::new(second_stream);
-    query_server_assert_result(&mut reader, message, expected).await
-}
-
-#[tokio::test]
-async fn test_ai_proxy_fails_db_server_unavailable() {
-    let ai_server = AIProxyServer::new(AI_CONFIG.clone())
-        .await
-        .expect("Could not initialize ai proxy");
-
-    let address = ai_server.local_addr().expect("Could not get local addr");
-    // start up ai proxy
-    let _ = tokio::spawn(async move { ai_server.start().await });
-    // Allow some time for the servers to start
     tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
 
-    let second_stream = TcpStream::connect(address).await.unwrap();
+    let store_name = "Deven Kicks".to_string();
+    let matching_metadatakey = "Brand".to_string();
+    let matching_metadatavalue = MetadataValue {
+        value: Some(MValue::RawString("Nike".into())),
+    };
 
-    let store_name = StoreName(String::from("Main"));
-    let message = AIServerQuery::from_queries(&[
-        AIQuery::Ping,
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::from_iter([]),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: true,
+    let nike_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
+    };
+
+    let store_data = vec![AiStoreEntry {
+        key: Some(StoreInput {
+            value: Some(Value::RawString("Jordan 3".into())),
+        }),
+        value: Some(nike_store_value.clone()),
+    }];
+
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(matching_metadatavalue.clone()),
+            })),
+        })),
+    };
+
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
         },
-    ]);
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: false,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DelKey(ai_query_types::DelKey {
+                store: store_name.clone(),
+                keys: vec![StoreInput {
+                    value: Some(Value::RawString("Jordan 3".into())),
+                }],
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::GetPred(ai_query_types::GetPred {
+                store: store_name.clone(),
+                condition: Some(condition),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DropStore(ai_query_types::DropStore {
+                store: store_name.clone(),
+                error_if_not_exists: true,
+            })),
+        },
+    ];
 
-    let mut reader = BufReader::new(second_stream);
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
 
-    // NOTE: on windows, streams seem to wait indefinitely rather
-    // than returning an EOF to indicate a closed stream, this
-    // then tends to make the AI server's DB pool unable to immediately
-    // communicate disconnection to it's client and so we catch that as a timeout
-    // for now
-    #[cfg(windows)]
-    {
-        let serialized_message = message.serialize().unwrap();
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Unit(
+                    ai_response_types::Unit {},
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Unit(
+                    ai_response_types::Unit {},
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Set(
+                    ai_response_types::Set {
+                        upsert: Some(StoreUpsert {
+                            inserted: 1,
+                            updated: 0,
+                        }),
+                    },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Del(
+                    ai_response_types::Del { deleted_count: 1 },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Get(
+                    ai_response_types::Get { entries: vec![] },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Del(
+                    ai_response_types::Del { deleted_count: 1 },
+                )),
+            },
+        ],
+    };
 
-        reader.write_all(&serialized_message).await.unwrap();
-
-        let mut header = [0u8; ahnlich_types::bincode::RESPONSE_HEADER_LEN];
-        assert!(
-            timeout(Duration::from_secs(1), reader.read_exact(&mut header))
-                .await
-                .is_err()
-        )
-    }
-
-    #[cfg(not(windows))]
-    {
-        let response = get_server_response(&mut reader, message).await;
-        let res = response.pop().unwrap();
-        assert!(res.is_err());
-        // Err("deadpool error Backend(Standard(Os { code: 61, kind: ConnectionRefused, message: \"Connection refused\" }))")] }
-        let err = res.err().unwrap();
-        assert!(err.contains(" kind: ConnectionRefused,"))
-    }
+    assert_eq!(response.into_inner(), expected);
 }
 
 #[tokio::test]
 async fn test_ai_proxy_test_with_persistence() {
+    // Setup servers with persistence
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
@@ -601,316 +915,514 @@ async fn test_ai_proxy_test_with_persistence() {
     let db_port = server.local_addr().unwrap().port();
     ai_proxy_config.db_port = db_port;
 
-    let ai_server = AIProxyServer::new(ai_proxy_config)
+    let ai_server = AIProxyServer::new(ai_proxy_config.clone())
         .await
         .expect("Could not initialize ai proxy");
 
     let address = ai_server.local_addr().expect("Could not get local addr");
     let _ = tokio::spawn(async move { server.start().await });
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
     let write_flag = ai_server.write_flag();
-    // start up ai proxy
+
+    // Start up ai proxy
     let _ = tokio::spawn(async move { ai_server.start().await });
-    // Allow some time for the servers to start
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    let store_name = StoreName(String::from("Main"));
-    let store_name_2 = StoreName(String::from("Main2"));
-    let first_stream = TcpStream::connect(address).await.unwrap();
-
-    let message = AIServerQuery::from_queries(&[
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::from_iter([]),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: true,
-        },
-        AIQuery::CreateStore {
-            store: store_name_2.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::from_iter([]),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: true,
-        },
-        AIQuery::DropStore {
-            store: store_name,
-            error_if_not_exists: true,
-        },
-    ]);
-
-    let mut expected = AIServerResult::with_capacity(3);
-
-    expected.push(Ok(AIServerResponse::Unit));
-    expected.push(Ok(AIServerResponse::Unit));
-    expected.push(Ok(AIServerResponse::Del(1)));
-
-    let mut reader = BufReader::new(first_stream);
-    query_server_assert_result(&mut reader, message, expected).await;
-
-    // write flag should show that a write has occured
-    assert!(write_flag.load(Ordering::SeqCst));
-    // Allow some time for persistence to kick in
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    // start another server with existing persistence
-
-    let persisted_server = AIProxyServer::new(AI_CONFIG_WITH_PERSISTENCE.clone())
+    // Create gRPC client
+    let channel = Channel::from_shared(format!("http://{}", address))
+        .expect("Failed to create channel")
+        .connect()
         .await
-        .unwrap();
+        .expect("Failed to connect");
+    let mut client = AiServiceClient::new(channel);
 
-    // Allow some time for the server to start
+    let store_name = "Main".to_string();
+    let store_name_2 = "Main2".to_string();
+
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name_2.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DropStore(ai_query_types::DropStore {
+                store: store_name.clone(),
+                error_if_not_exists: true,
+            })),
+        },
+    ];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    // Verify pipeline responses
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Unit(
+                    ai_response_types::Unit {},
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Unit(
+                    ai_response_types::Unit {},
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Del(
+                    ai_response_types::Del { deleted_count: 1 },
+                )),
+            },
+        ],
+    };
+
+    assert_eq!(response.into_inner(), expected);
+    assert!(write_flag.load(Ordering::SeqCst));
+
+    // Allow time for persistence
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Start new server with persisted data
+    let persisted_server = AIProxyServer::new(ai_proxy_config).await.unwrap();
+
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let address = persisted_server
+    let persisted_address = persisted_server
         .local_addr()
         .expect("Could not get local addr");
-    let write_flag = persisted_server.write_flag();
+    let persisted_write_flag = persisted_server.write_flag();
     let _ = tokio::spawn(async move { persisted_server.start().await });
-    let second_stream = TcpStream::connect(address).await.unwrap();
-    let mut reader = BufReader::new(second_stream);
 
-    let message = AIServerQuery::from_queries(&[AIQuery::ListStores]);
+    // Create new client for persisted server
+    let channel = Channel::from_shared(format!("http://{}", persisted_address))
+        .expect("Failed to create channel")
+        .connect()
+        .await
+        .expect("Failed to connect");
+    let mut persisted_client = AiServiceClient::new(channel);
 
-    let mut expected = AIServerResult::with_capacity(1);
-    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
+    // Verify persisted data
+    let list_response = persisted_client
+        .list_stores(tonic::Request::new(ai_query_types::ListStores {}))
+        .await
+        .expect("Failed to list stores");
 
-    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-        AIStoreInfo {
+    let ai_model: ModelDetails = SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
+    let expected = ai_response_types::StoreList {
+        stores: vec![ai_response_types::AiStoreInfo {
             name: store_name_2.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            embedding_size: ai_model.embedding_size.into(),
-        },
-    ]))));
+            query_model: AiModel::AllMiniLmL6V2.into(),
+            index_model: AiModel::AllMiniLmL6V2.into(),
+            embedding_size: ai_model.embedding_size.get() as u64,
+        }],
+    };
 
-    query_server_assert_result(&mut reader, message, expected).await;
-    assert!(!write_flag.load(Ordering::SeqCst));
-    // delete persistence
+    assert_eq!(list_response.into_inner(), expected);
+    assert!(!persisted_write_flag.load(Ordering::SeqCst));
+
+    // Clean up persistence file
     let _ = std::fs::remove_file(&*PERSISTENCE_FILE);
 }
 
 #[tokio::test]
 async fn test_ai_proxy_destroy_database() {
     let address = provision_test_servers().await;
-    let second_stream = TcpStream::connect(address).await.unwrap();
-    let store_name = StoreName(String::from("Deven Kicks"));
-    let message = AIServerQuery::from_queries(&[
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::from_iter([]),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: true,
-        },
-        AIQuery::ListStores,
-        AIQuery::PurgeStores,
-        AIQuery::ListStores,
-    ]);
-    let mut expected = AIServerResult::with_capacity(4);
+    let address = format!("http://{}", address);
 
-    let ai_model: Model = (&AIModel::AllMiniLML6V2).into();
-    expected.push(Ok(AIServerResponse::Unit));
-    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-        AIStoreInfo {
-            name: store_name,
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            embedding_size: ai_model.embedding_size.into(),
-        },
-    ]))));
-    expected.push(Ok(AIServerResponse::Del(1)));
-    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([]))));
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
 
-    let mut reader = BufReader::new(second_stream);
-    query_server_assert_result(&mut reader, message, expected).await
+    let store_name = "Deven Kicks".to_string();
+    let ai_model: ModelDetails = SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
+
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::ListStores(ai_query_types::ListStores {})),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::PurgeStores(ai_query_types::PurgeStores {})),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::ListStores(ai_query_types::ListStores {})),
+        },
+    ];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Unit(
+                    ai_response_types::Unit {},
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::StoreList(
+                    ai_response_types::StoreList {
+                        stores: vec![ai_response_types::AiStoreInfo {
+                            name: store_name,
+                            query_model: AiModel::AllMiniLmL6V2.into(),
+                            index_model: AiModel::AllMiniLmL6V2.into(),
+                            embedding_size: ai_model.embedding_size.get() as u64,
+                        }],
+                    },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Del(
+                    ai_response_types::Del { deleted_count: 1 },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::StoreList(
+                    ai_response_types::StoreList { stores: vec![] },
+                )),
+            },
+        ],
+    };
+
+    assert_eq!(response.into_inner(), expected);
 }
 
 #[tokio::test]
 async fn test_ai_proxy_binary_store_actions() {
     let address = provision_test_servers().await;
+    let address = format!("http://{}", address);
 
-    let store_name = StoreName(String::from("Deven Image Store"));
-    let matching_metadatakey = MetadataKey::new("Name".to_owned());
-    let matching_metadatavalue = MetadataValue::RawString("Greatness".to_owned());
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
 
-    let store_value_1 =
-        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
-    let store_value_2 = StoreValue::from_iter([(
-        matching_metadatakey.clone(),
-        MetadataValue::RawString("Deven".to_owned()),
-    )]);
-    let store_data = vec![
-        (
-            StoreInput::Image(include_bytes!("./images/dog.jpg").to_vec()),
-            store_value_1.clone(),
-        ),
-        (
-            StoreInput::Image(include_bytes!("./images/test.webp").to_vec()),
-            store_value_2.clone(),
-        ),
-        (
-            StoreInput::Image(include_bytes!("./images/cat.png").to_vec()),
-            StoreValue::from_iter([(
-                matching_metadatakey.clone(),
-                MetadataValue::RawString("Daniel".to_owned()),
-            )]),
-        ),
-    ];
+    let store_name = "Deven Image Store".to_string();
+    let matching_metadatakey = "Name".to_string();
+    let matching_metadatavalue = MetadataValue {
+        value: Some(MValue::RawString("Greatness".into())),
+    };
 
-    let oversize_data = vec![(
-        StoreInput::Image(include_bytes!("./images/large.webp").to_vec()),
-        StoreValue::from_iter([(
+    let store_value_1 = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
+    };
+
+    let store_value_2 = StoreValue {
+        value: HashMap::from_iter([(
             matching_metadatakey.clone(),
-            MetadataValue::RawString("Oversized".to_owned()),
+            MetadataValue {
+                value: Some(MValue::RawString("Deven".into())),
+            },
         )]),
-    )];
+    };
 
-    let message = AIServerQuery::from_queries(&[
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::Resnet50,
-            index_model: AIModel::Resnet50,
-            predicates: HashSet::new(),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: true,
+    let store_data = vec![
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::Image(include_bytes!("./images/dog.jpg").to_vec())),
+            }),
+            value: Some(store_value_1.clone()),
         },
-        AIQuery::ListStores,
-        AIQuery::CreatePredIndex {
-            store: store_name.clone(),
-            predicates: HashSet::from_iter([
-                MetadataKey::new("Name".to_string()),
-                MetadataKey::new("Age".to_string()),
-            ]),
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::Image(include_bytes!("./images/test.webp").to_vec())),
+            }),
+            value: Some(store_value_2.clone()),
         },
-        AIQuery::Set {
-            store: store_name.clone(),
-            inputs: store_data,
-            preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
-        },
-        // all dimensions match 224x224 so no error
-        AIQuery::Set {
-            store: store_name.clone(),
-            inputs: oversize_data,
-            preprocess_action: PreprocessAction::Image(ImageAction::ErrorIfDimensionsMismatch),
-        },
-        // expect an error as the dimensions do not match 224x224
-        AIQuery::DropPredIndex {
-            store: store_name.clone(),
-            predicates: HashSet::from_iter([MetadataKey::new("Age".to_string())]),
-            error_if_not_exists: true,
-        },
-        AIQuery::GetPred {
-            store: store_name.clone(),
-            condition: PredicateCondition::Value(Predicate::Equals {
-                key: matching_metadatakey.clone(),
-                value: matching_metadatavalue,
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::Image(include_bytes!("./images/cat.png").to_vec())),
+            }),
+            value: Some(StoreValue {
+                value: HashMap::from_iter([(
+                    matching_metadatakey.clone(),
+                    MetadataValue {
+                        value: Some(MValue::RawString("Daniel".into())),
+                    },
+                )]),
             }),
         },
-        AIQuery::PurgeStores,
-    ]);
+    ];
 
-    let mut expected = AIServerResult::with_capacity(8);
-    let resnet_model: Model = (&AIModel::Resnet50).into();
+    let oversize_data = vec![AiStoreEntry {
+        key: Some(StoreInput {
+            value: Some(Value::Image(include_bytes!("./images/large.webp").to_vec())),
+        }),
+        value: Some(StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                MetadataValue {
+                    value: Some(MValue::RawString("Oversized".into())),
+                },
+            )]),
+        }),
+    }];
 
-    expected.push(Ok(AIServerResponse::Unit));
-    expected.push(Ok(AIServerResponse::StoreList(HashSet::from_iter([
-        AIStoreInfo {
-            name: store_name,
-            query_model: AIModel::Resnet50,
-            index_model: AIModel::Resnet50,
-            embedding_size: resnet_model.embedding_size.into(),
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(matching_metadatavalue.clone()),
+            })),
+        })),
+    };
+
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::Resnet50.into(),
+                index_model: AiModel::Resnet50.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
         },
-    ]))));
-    expected.push(Ok(AIServerResponse::CreateIndex(2)));
-    expected.push(Ok(AIServerResponse::Set(StoreUpsert {
-        inserted: 3,
-        updated: 0,
-    })));
-    expected.push(Err(
-        "Image Dimensions [(821, 547)] does not match the expected model dimensions [(224, 224)]"
-            .to_string(),
-    ));
-    expected.push(Ok(AIServerResponse::Del(1)));
-    expected.push(Ok(AIServerResponse::Get(vec![(
-        Some(StoreInput::Image(
-            include_bytes!("./images/dog.jpg").to_vec(),
-        )),
-        store_value_1.clone(),
-    )])));
-    expected.push(Ok(AIServerResponse::Del(1)));
+        ai_pipeline::AiQuery {
+            query: Some(Query::ListStores(ai_query_types::ListStores {})),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreatePredIndex(ai_query_types::CreatePredIndex {
+                store: store_name.clone(),
+                predicates: vec!["Name".to_string(), "Age".to_string()],
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: oversize_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DropPredIndex(ai_query_types::DropPredIndex {
+                store: store_name.clone(),
+                predicates: vec!["Age".to_string()],
+                error_if_not_exists: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::GetPred(ai_query_types::GetPred {
+                store: store_name.clone(),
+                condition: Some(condition),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::PurgeStores(ai_query_types::PurgeStores {})),
+        },
+    ];
 
-    let connected_stream = TcpStream::connect(address).await.unwrap();
-    let mut reader = BufReader::new(connected_stream);
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
 
-    query_server_assert_result(&mut reader, message, expected).await;
+    let resnet_model: ModelDetails = SupportedModels::from(&AiModel::Resnet50).to_model_details();
+
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Unit(ai_response_types::Unit {})),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::StoreList(ai_response_types::StoreList {
+                    stores: vec![AiStoreInfo {
+                        name: store_name.clone(),
+                        query_model: AiModel::Resnet50.into(),
+                        index_model: AiModel::Resnet50.into(),
+                        embedding_size: resnet_model.embedding_size.get() as u64,
+                    }],
+                })),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::CreateIndex(ai_response_types::CreateIndex { created_indexes: 2 })),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Set(ai_response_types::Set {
+                    upsert: Some(StoreUpsert {
+                        inserted: 3,
+                        updated: 0,
+                    }),
+                })),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Error(ahnlich_types::shared::info::ErrorResponse {
+                    message: "Image Dimensions [(547, 821)] does not match the expected model dimensions [(224, 224)]".to_string(),
+                    code: 3,
+                })),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Del(ai_response_types::Del { deleted_count: 1 })),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Get(ai_response_types::Get {
+                    entries: vec![GetEntry {
+                        key: Some(StoreInput {
+                            value: Some(Value::Image(include_bytes!("./images/dog.jpg").to_vec())),
+                        }),
+                        value: Some(store_value_1.clone()),
+                    }],
+                })),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Del(ai_response_types::Del { deleted_count: 1 })),
+            },
+        ],
+    };
+
+    assert_eq!(response.into_inner(), expected);
 }
 
 #[tokio::test]
 async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
     let address = provision_test_servers().await;
+    let address = format!("http://{}", address);
 
-    let store_name = StoreName(String::from("Deven Mixed Store210u01"));
-    let matching_metadatakey = MetadataKey::new("Brand".to_owned());
-    let matching_metadatavalue = MetadataValue::RawString("Nike".to_owned());
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
 
-    let store_value_1 =
-        StoreValue::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]);
+    let store_name = "Deven Mixed Store210u01".to_string();
+    let matching_metadatakey = "Brand".to_string();
+    let matching_metadatavalue = MetadataValue {
+        value: Some(MValue::RawString("Nike".into())),
+    };
+
+    let store_value_1 = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
+    };
 
     let store_data = vec![
-        (
-            StoreInput::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45]),
-            store_value_1.clone(),
-        ),
-        (
-            StoreInput::RawString(String::from("Buster Matthews is the name")),
-            StoreValue::from_iter([(
-                MetadataKey::new("Description".to_string()),
-                MetadataValue::RawString("20 year old line backer".to_owned()),
-            )]),
-        ),
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::Image(vec![93, 4, 1, 6, 2, 8, 8, 32, 45])),
+            }),
+            value: Some(store_value_1.clone()),
+        },
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Buster Matthews is the name".into())),
+            }),
+            value: Some(StoreValue {
+                value: HashMap::from_iter([(
+                    "Description".to_string(),
+                    MetadataValue {
+                        value: Some(MValue::RawString("20 year old line backer".into())),
+                    },
+                )]),
+            }),
+        },
     ];
 
-    let message = AIServerQuery::from_queries(&[
-        AIQuery::CreateStore {
-            store: store_name.clone(),
-            query_model: AIModel::AllMiniLML6V2,
-            index_model: AIModel::AllMiniLML6V2,
-            predicates: HashSet::new(),
-            non_linear_indices: HashSet::new(),
-            error_if_exists: true,
-            store_original: true,
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
         },
-        AIQuery::Set {
-            store: store_name.clone(),
-            inputs: store_data,
-            preprocess_action: PreprocessAction::RawString(StringAction::ErrorIfTokensExceed),
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
         },
-        AIQuery::PurgeStores,
-    ]);
+        ai_pipeline::AiQuery {
+            query: Some(Query::PurgeStores(ai_query_types::PurgeStores {})),
+        },
+    ];
 
-    let mut expected = AIServerResult::with_capacity(3);
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
 
-    expected.push(Ok(AIServerResponse::Unit));
-    expected.push(Err(
-        "Cannot index Input. Store expects [RawString], input type [Image] was provided"
-            .to_string(),
-    ));
-    expected.push(Ok(AIServerResponse::Del(1)));
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Unit(ai_response_types::Unit {})),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Error(ahnlich_types::shared::info::ErrorResponse  {
+                    message: "Cannot index Input. Store expects [RawString], input type [Image] was provided".to_string(),
+                    code: 3,
+                })),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Del(ai_response_types::Del { deleted_count: 1 })),
+            },
+        ],
+    };
 
-    let connected_stream = TcpStream::connect(address).await.unwrap();
-    let mut reader = BufReader::new(connected_stream);
-
-    query_server_assert_result(&mut reader, message, expected).await;
+    assert_eq!(response.into_inner(), expected);
 }
 
 #[tokio::test]
 async fn test_ai_proxy_create_store_errors_unsupported_models() {
+    // Setup server with limited models
     let server = Server::new(&CONFIG)
         .await
         .expect("Could not initialize server");
@@ -924,59 +1436,103 @@ async fn test_ai_proxy_create_store_errors_unsupported_models() {
 
     let address = ai_server.local_addr().expect("Could not get local addr");
     let _ = tokio::spawn(async move { server.start().await });
-    // start up ai proxy
     let _ = tokio::spawn(async move { ai_server.start().await });
-    // Allow some time for the servers to start
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    let store_name = StoreName(String::from("Error Handling Store"));
-    let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
-        store: store_name.clone(),
-        query_model: AIModel::AllMiniLML12V2,
-        index_model: AIModel::AllMiniLML6V2,
-        predicates: HashSet::new(),
-        non_linear_indices: HashSet::new(),
-        error_if_exists: true,
-        store_original: true,
-    }]);
+    // Create gRPC client
+    let channel = Channel::from_shared(format!("http://{}", address))
+        .expect("Failed to create channel")
+        .connect()
+        .await
+        .expect("Failed to connect");
+    let mut client = AiServiceClient::new(channel);
 
-    let mut expected = AIServerResult::with_capacity(1);
+    let store_name = "Error Handling Store".to_string();
 
-    expected.push(Err(AIProxyError::AIModelNotInitialized.to_string()));
+    // Create pipeline request
+    let queries = vec![ai_pipeline::AiQuery {
+        query: Some(Query::CreateStore(ai_query_types::CreateStore {
+            store: store_name.clone(),
+            query_model: AiModel::AllMiniLmL12V2.into(),
+            index_model: AiModel::AllMiniLmL6V2.into(),
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        })),
+    }];
 
-    let connected_stream = TcpStream::connect(address).await.unwrap();
-    let mut reader = BufReader::new(connected_stream);
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
 
-    query_server_assert_result(&mut reader, message, expected).await;
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![ai_pipeline::AiServerResponse {
+            response: Some(ai_pipeline::ai_server_response::Response::Error(
+                ahnlich_types::shared::info::ErrorResponse {
+                    message: AIProxyError::AIModelNotInitialized.to_string(),
+                    code: 13,
+                },
+            )),
+        }],
+    };
+
+    assert_eq!(response.into_inner(), expected);
 }
 
 #[tokio::test]
 async fn test_ai_proxy_embedding_size_mismatch_error() {
     let address = provision_test_servers().await;
+    let address = format!("http://{}", address);
 
-    let store_name = StoreName(String::from("Deven Mixed Store210u01"));
-    let message = AIServerQuery::from_queries(&[AIQuery::CreateStore {
-        store: store_name.clone(),
-        query_model: AIModel::AllMiniLML6V2,
-        index_model: AIModel::BGEBaseEnV15,
-        predicates: HashSet::new(),
-        non_linear_indices: HashSet::new(),
-        error_if_exists: true,
-        store_original: true,
-    }]);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
 
-    let mut expected = AIServerResult::with_capacity(1);
+    let store_name = "Deven Mixed Store210u01".to_string();
 
-    let lml12_model: Model = (&AIModel::AllMiniLML12V2).into();
-    let bge_model: Model = (&AIModel::BGEBaseEnV15).into();
+    let lml12_model: ModelDetails =
+        SupportedModels::from(&AiModel::AllMiniLmL12V2).to_model_details();
+    let bge_model: ModelDetails = SupportedModels::from(&AiModel::BgeBaseEnV15).to_model_details();
+
+    // Create pipeline request
+    let queries = vec![ai_pipeline::AiQuery {
+        query: Some(Query::CreateStore(ai_query_types::CreateStore {
+            store: store_name.clone(),
+            query_model: AiModel::AllMiniLmL6V2.into(),
+            index_model: AiModel::BgeBaseEnV15.into(),
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        })),
+    }];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
 
     let error_message = AIProxyError::DimensionsMismatchError {
         index_model_dim: bge_model.embedding_size.into(),
         query_model_dim: lml12_model.embedding_size.into(),
     };
-    expected.push(Err(error_message.to_string()));
-    let connected_stream = TcpStream::connect(address).await.unwrap();
-    let mut reader = BufReader::new(connected_stream);
 
-    query_server_assert_result(&mut reader, message, expected).await;
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![ai_pipeline::AiServerResponse {
+            response: Some(ai_pipeline::ai_server_response::Response::Error(
+                ahnlich_types::shared::info::ErrorResponse {
+                    message: error_message.to_string(),
+                    code: 3,
+                },
+            )),
+        }],
+    };
+
+    assert_eq!(response.into_inner(), expected);
 }
