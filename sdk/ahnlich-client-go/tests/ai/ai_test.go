@@ -1,42 +1,37 @@
 package ai_test
 
-
-// ai_client_test.go
-package ahnlichgotest_test         // keep tests out-of-package to avoid import cycles
-
 import (
 	"context"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	aimodel "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/models"
+	aipipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/pipeline"
+	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess"
+	aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
+	aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
-	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
-	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
-	aimodel "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/models"
-	aipipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/pipeline"
-	aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
-	aiserver "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/server"
-	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess"
-	aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
 
-	utils "github.com/deven96/ahnlich/sdk/ahnlich-client-go/tests/ahnlichgotest"
+	utils "github.com/deven96/ahnlich/sdk/ahnlich-client-go/tests"
 )
 
+// Helper to start the AI process for tests
 func startAI(t *testing.T) *utils.AhnlichProcess {
 	return utils.RunAhnlich(
 		t,
-		&utils.BinaryOption{BinaryType: "ai"}, // <-- key difference vs. DB
+		&utils.BinaryFlag{BinaryType: "ai"},
 	)
 }
 
+// Helper to dial the AI gRPC server
 func dialAI(t *testing.T, addr string) *grpc.ClientConn {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	t.Cleanup(cancel)
@@ -45,37 +40,31 @@ func dialAI(t *testing.T, addr string) *grpc.ClientConn {
 	return conn
 }
 
-/* -------------------------------------------------------------------------
-   shared test data
-   -------------------------------------------------------------------------*/
+// Shared test data
 var (
 	storeNoPred = &aiquery.CreateStore{
 		Store:         "Diretnan Stores",
-		QueryModel:    aimodel.AiModel_ALL_MINI_LM_L6_V2,
-		IndexModel:    aimodel.AiModel_ALL_MINI_LM_L6_V2,
+		QueryModel:    aimodel.AIModel_ALL_MINI_LM_L6_V2,
+		IndexModel:    aimodel.AIModel_ALL_MINI_LM_L6_V2,
 		ErrorIfExists: true,
 		StoreOriginal: true,
 	}
 	storeWithPred = &aiquery.CreateStore{
 		Store:         "Diretnan Predication Stores",
-		QueryModel:    aimodel.AiModel_ALL_MINI_LM_L6_V2,
-		IndexModel:    aimodel.AiModel_ALL_MINI_LM_L6_V2,
+		QueryModel:    aimodel.AIModel_ALL_MINI_LM_L6_V2,
+		IndexModel:    aimodel.AIModel_ALL_MINI_LM_L6_V2,
 		Predicates:    []string{"special", "brand"},
 		ErrorIfExists: true,
 		StoreOriginal: true,
 	}
 )
 
-/* -------------------------------------------------------------------------
-   tests (one-to-one with your Python suite)
-   -------------------------------------------------------------------------*/
-
 func TestCreateStoreOK(t *testing.T) {
 	proc := startAI(t)
 	conn := dialAI(t, proc.ServerAddr)
 	defer conn.Close()
 
-	client := aisvc.NewAiServiceClient(conn)
+	client := aisvc.NewAIServiceClient(conn)
 	_, err := client.CreateStore(context.Background(), storeNoPred)
 	require.NoError(t, err)
 }
@@ -84,7 +73,7 @@ func TestCreateStoreAlreadyExists(t *testing.T) {
 	proc := startAI(t)
 	conn := dialAI(t, proc.ServerAddr)
 	defer conn.Close()
-	client := aisvc.NewAiServiceClient(conn)
+	client := aisvc.NewAIServiceClient(conn)
 
 	_, _ = client.CreateStore(context.Background(), storeNoPred)
 	_, err := client.CreateStore(context.Background(), storeNoPred)
@@ -98,24 +87,24 @@ func TestGetPredicates(t *testing.T) {
 	proc := startAI(t)
 	conn := dialAI(t, proc.ServerAddr)
 	defer conn.Close()
-	client := aisvc.NewAiServiceClient(conn)
+	client := aisvc.NewAIServiceClient(conn)
 
 	_, _ = client.CreateStore(context.Background(), storeWithPred)
 
 	entries := []*keyval.AiStoreEntry{
 		{
-			Key: &keyval.StoreInput{RawString: "Jordan One"},
+			Key: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "Jordan One"}},
 			Value: &keyval.StoreValue{
 				Value: map[string]*metadata.MetadataValue{
-					"brand": {RawString: "Nike"},
+					"brand": {Value: &metadata.MetadataValue_RawString{RawString: "Nike"}},
 				},
 			},
 		},
 		{
-			Key: &keyval.StoreInput{RawString: "Yeezey"},
+			Key: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "Yeezey"}},
 			Value: &keyval.StoreValue{
 				Value: map[string]*metadata.MetadataValue{
-					"brand": {RawString: "Adidas"},
+					"brand": {Value: &metadata.MetadataValue_RawString{RawString: "Adidas"}},
 				},
 			},
 		},
@@ -127,10 +116,14 @@ func TestGetPredicates(t *testing.T) {
 	})
 
 	cond := &predicates.PredicateCondition{
-		Value: &predicates.Predicate{
-			Equals: &predicates.Equals{
-				Key:   "brand",
-				Value: &metadata.MetadataValue{RawString: "Nike"},
+		Kind: &predicates.PredicateCondition_Value{
+			Value: &predicates.Predicate{
+				Kind: &predicates.Predicate_Equals{
+					Equals: &predicates.Equals{
+						Key:   "brand",
+						Value: &metadata.MetadataValue{Value: &metadata.MetadataValue_RawString{RawString: "Nike"}},
+					},
+				},
 			},
 		},
 	}
@@ -140,14 +133,14 @@ func TestGetPredicates(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, resp.Entries, 1)
-	require.Equal(t, "Jordan One", resp.Entries[0].Key.RawString)
+	require.Equal(t, "Jordan One", resp.Entries[0].Key.GetRawString())
 }
 
 func TestCreateAndDropPredIndex(t *testing.T) {
 	proc := startAI(t)
 	conn := dialAI(t, proc.ServerAddr)
 	defer conn.Close()
-	client := aisvc.NewAiServiceClient(conn)
+	client := aisvc.NewAIServiceClient(conn)
 
 	_, _ = client.CreateStore(context.Background(), storeNoPred)
 
@@ -177,17 +170,17 @@ func TestDeleteAndGetKey(t *testing.T) {
 	proc := startAI(t)
 	conn := dialAI(t, proc.ServerAddr)
 	defer conn.Close()
-	client := aisvc.NewAiServiceClient(conn)
+	client := aisvc.NewAIServiceClient(conn)
 
 	_, _ = client.CreateStore(context.Background(), storeWithPred)
 
 	_, _ = client.Set(context.Background(), &aiquery.Set{
 		Store: storeWithPred.Store,
 		Inputs: []*keyval.AiStoreEntry{{
-			Key: &keyval.StoreInput{RawString: "Yeezey"},
+			Key: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "Yeezey"}},
 			Value: &keyval.StoreValue{
 				Value: map[string]*metadata.MetadataValue{
-					"brand": {RawString: "Adidas"},
+					"brand": {Value: &metadata.MetadataValue_RawString{RawString: "Adidas"}},
 				},
 			},
 		}},
@@ -195,7 +188,7 @@ func TestDeleteAndGetKey(t *testing.T) {
 
 	del, _ := client.DelKey(context.Background(), &aiquery.DelKey{
 		Store: storeWithPred.Store,
-		Keys:  []*keyval.StoreInput{{RawString: "Yeezey"}},
+		Keys:  []*keyval.StoreInput{{Value: &keyval.StoreInput_RawString{RawString: "Yeezey"}}},
 	})
 	require.EqualValues(t, 1, del.DeletedCount)
 }
@@ -204,7 +197,7 @@ func TestDropStoreAndPurge(t *testing.T) {
 	proc := startAI(t)
 	conn := dialAI(t, proc.ServerAddr)
 	defer conn.Close()
-	client := aisvc.NewAiServiceClient(conn)
+	client := aisvc.NewAIServiceClient(conn)
 
 	_, _ = client.CreateStore(context.Background(), storeNoPred)
 	_, _ = client.CreateStore(context.Background(), storeWithPred)
@@ -223,7 +216,7 @@ func TestListClients(t *testing.T) {
 	proc := startAI(t)
 	conn := dialAI(t, proc.ServerAddr)
 	defer conn.Close()
-	client := aisvc.NewAiServiceClient(conn)
+	client := aisvc.NewAIServiceClient(conn)
 
 	resp, err := client.ListClients(context.Background(), &aiquery.ListClients{})
 	require.NoError(t, err)
@@ -234,31 +227,27 @@ func TestPipelineSuccess(t *testing.T) {
 	proc := startAI(t)
 	conn := dialAI(t, proc.ServerAddr)
 	defer conn.Close()
-	client := aisvc.NewAiServiceClient(conn)
+	client := aisvc.NewAIServiceClient(conn)
 
-	req := &aipipeline.AiRequestPipeline{
-		Queries: []*aipipeline.AiQuery{
-			{CreateStore: storeWithPred},
-			{
-				Set: &aiquery.Set{
-					Store: storeWithPred.Store,
-					Inputs: []*keyval.AiStoreEntry{{
-						Key: &keyval.StoreInput{RawString: "Product1"},
-						Value: &keyval.StoreValue{
-							Value: map[string]*metadata.MetadataValue{
-								"category": {RawString: "Electronics"},
-							},
+	req := &aipipeline.AIRequestPipeline{
+		Queries: []*aipipeline.AIQuery{
+			{Query: &aipipeline.AIQuery_CreateStore{CreateStore: storeWithPred}},
+			{Query: &aipipeline.AIQuery_Set{Set: &aiquery.Set{
+				Store: storeWithPred.Store,
+				Inputs: []*keyval.AiStoreEntry{{
+					Key: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "Product1"}},
+					Value: &keyval.StoreValue{
+						Value: map[string]*metadata.MetadataValue{
+							"category": {Value: &metadata.MetadataValue_RawString{RawString: "Electronics"}},
 						},
-					}},
-					PreprocessAction: preprocess.PreprocessAction_NoPreprocessing,
-				},
-			},
-			{
-				CreatePredIndex: &aiquery.CreatePredIndex{
-					Store:      storeWithPred.Store,
-					Predicates: []string{"category"},
-				},
-			},
+					},
+				}},
+				PreprocessAction: preprocess.PreprocessAction_NoPreprocessing,
+			}}},
+			{Query: &aipipeline.AIQuery_CreatePredIndex{CreatePredIndex: &aiquery.CreatePredIndex{
+				Store:      storeWithPred.Store,
+				Predicates: []string{"category"},
+			}}},
 		},
 	}
 
@@ -274,18 +263,18 @@ func TestPipelineError(t *testing.T) {
 	proc := startAI(t)
 	conn := dialAI(t, proc.ServerAddr)
 	defer conn.Close()
-	client := aisvc.NewAiServiceClient(conn)
+	client := aisvc.NewAIServiceClient(conn)
 
-	bad := &aipipeline.AiRequestPipeline{
-		Queries: []*aipipeline.AiQuery{{
-			Set: &aiquery.Set{
+	bad := &aipipeline.AIRequestPipeline{
+		Queries: []*aipipeline.AIQuery{
+			{Query: &aipipeline.AIQuery_Set{Set: &aiquery.Set{
 				Store: "does_not_exist",
 				Inputs: []*keyval.AiStoreEntry{{
-					Key:   &keyval.StoreInput{RawString: "P1"},
+					Key:   &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "P1"}},
 					Value: &keyval.StoreValue{},
 				}},
-			},
-		}},
+			}}},
+		},
 	}
 
 	resp, err := client.Pipeline(context.Background(), bad)

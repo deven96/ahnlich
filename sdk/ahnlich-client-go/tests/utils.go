@@ -24,7 +24,6 @@ const (
 	RetryInterval = 1 * time.Second
 )
 
-
 type AhnlichProcess struct {
 	ServerAddr string
 	Host       string
@@ -150,7 +149,6 @@ func (args *BinaryFlag) parseArgs() ([]string, error) {
 	return args.Flags, nil
 }
 
-
 type LogFlag struct {
 	LogLevel       string // trace, debug, info, warn, error
 	TracingEnabled bool
@@ -211,14 +209,14 @@ func (args *ExecFlag) parseArgs() ([]string, error) {
 	return args.Flags, nil
 }
 
-func execute(t *testing.T,execType string, binType string, args ...string) (*exec.Cmd, error) {
+func execute(t *testing.T, execType string, binType string, args ...string) (*exec.Cmd, error) {
 	lookPath := "cargo"
 	rootDir, err := GetPackageRoot("github.com/deven96/ahnlich/sdk/ahnlich-client-go")
 	if err != nil {
 		return nil, err
 	}
 	tomlDir := filepath.Join(rootDir, "..", "..", "ahnlich", "Cargo.toml")
-	t.Log("execute() args","tomlDir", tomlDir, "rootDir", rootDir, "execType", execType, "args", args)
+	t.Log("execute() args", "tomlDir", tomlDir, "rootDir", rootDir, "execType", execType, "args", args)
 	tomlDir, err = filepath.Abs(tomlDir)
 	if err != nil {
 		return nil, err
@@ -240,16 +238,15 @@ func execute(t *testing.T,execType string, binType string, args ...string) (*exe
 // RunAhnlich starts the Ahnlich process
 func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 	var (
-		cmd *exec.Cmd
-		host string
-		port int
-		err error
-		argsList []string
-		execType string
+		cmd        *exec.Cmd
+		host       string
+		port       int
+		err        error
+		argsList   []string
+		execType   string
 		binaryType string
-		outBuf bytes.Buffer
-		errBuf bytes.Buffer
-
+		outBuf     bytes.Buffer
+		errBuf     bytes.Buffer
 	)
 	t.Cleanup(func() {
 		if cmd != nil {
@@ -280,7 +277,7 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 				port = arg.port
 				argsList = append(argsList[:0], append(parsedArgs, argsList[0:]...)...) // Add the args to the beginning of the list
 			case *BinaryFlag:
-				_, err := opt.parseArgs()	
+				_, err := opt.parseArgs()
 				require.NoError(t, err)
 				binaryType = arg.BinaryType
 			default:
@@ -297,11 +294,9 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 	require.NotEmpty(t, execType)
 	require.NotEmpty(t, argsList)
 
-
-	cmd, err = execute(t,execType,binaryType, argsList...)
+	cmd, err = execute(t, execType, binaryType, argsList...)
 	require.NoError(t, err)
 	require.NotEmpty(t, cmd)
-
 
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -397,7 +392,6 @@ func ValidateJsonFile(t *testing.T, jsonFilePath string) {
 	require.NoError(t, err)
 }
 
-
 func GetPackageRoot(pkgName string) (string, error) {
 	// Look up the package in the Go build context
 	pkg, err := build.Import(pkgName, "", build.FindOnly)
@@ -408,7 +402,6 @@ func GetPackageRoot(pkgName string) (string, error) {
 	// Return the absolute path to the package root
 	return filepath.Abs(pkg.Dir)
 }
-
 
 func ListFilesInDir(dir string) ([]string, error) {
 	files, err := os.ReadDir(dir)
