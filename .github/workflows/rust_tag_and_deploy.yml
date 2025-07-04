@@ -82,5 +82,5 @@ jobs:
           sed -i '/^\[dev-dependencies\]/,/^\[/{//!d; /^\[dev-dependencies\]/s/.*/ /}' client/Cargo.toml
           # extract and replace current client's type deps version from * to latest
           VERSION=$(grep '^version' types/Cargo.toml | head -n1 | cut -d'"' -f2)
-          sed -i '' -E "s|(ahnlich_types *= *\{[^}]*version *= *)\"[^\"]*\"|\1\"$VERSION\"|" client/Cargo.toml
+          sed -i '' "/ahnlich_types *= *{.*version *=/s/version *= *\"[^\"]*\"/version = \"$VERSION\"/" client/Cargo.toml
           cargo publish --allow-dirty -p ahnlich_client_rs --token '${{secrets.CARGO_TOKEN}}'
