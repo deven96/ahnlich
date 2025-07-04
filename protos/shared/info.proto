@@ -4,6 +4,8 @@ package shared.info;
 
 import "server_types.proto";
 
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/shared/info;ahnlichclientsharedpb";
+
 message ServerInfo {
   string address = 1;
   string version = 2;

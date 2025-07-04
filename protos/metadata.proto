@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package metadata;
 
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata;ahnlichclientpb";
+
 message MetadataValue {
   oneof value {
     string raw_string = 2;

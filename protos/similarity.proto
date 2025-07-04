@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package similarity;
 
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/similarity;ahnlichclientpb";
 
 message Similarity {
-    float value = 1;
+  float value = 1;
 }

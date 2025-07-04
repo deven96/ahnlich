@@ -3,65 +3,63 @@ syntax = "proto3";
 package ai.server;
 
 import "ai/models.proto";
-import "keyval.proto"; 
 import "client.proto";
-import "similarity.proto";
+import "keyval.proto";
 import "shared/info.proto";
+import "similarity.proto";
+
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/server;ahnlichclientaipb";
 
 message Unit {}
 
 message Pong {}
 
 message ClientList {
-    repeated client.ConnectedClient clients = 1;
+  repeated client.ConnectedClient clients = 1;
 }
 
 message StoreList {
-    repeated AIStoreInfo stores = 1;
+  repeated AIStoreInfo stores = 1;
 }
 
 message InfoServer {
-    shared.info.ServerInfo info = 1;
+  shared.info.ServerInfo info = 1;
 }
 
 message Set {
-    shared.info.StoreUpsert upsert = 1;
+  shared.info.StoreUpsert upsert = 1;
 }
 
 message GetEntry {
-    keyval.StoreInput key = 1;
-    keyval.StoreValue value = 2;
+  keyval.StoreInput key = 1;
+  keyval.StoreValue value = 2;
 }
 
 message Get {
-    repeated GetEntry entries = 1;
+  repeated GetEntry entries = 1;
 }
 
 message GetSimNEntry {
-    optional keyval.StoreInput key = 1;
-    keyval.StoreValue value = 2;
-    similarity.Similarity similarity = 3;
+  optional keyval.StoreInput key = 1;
+  keyval.StoreValue value = 2;
+  similarity.Similarity similarity = 3;
 }
 
 message GetSimN {
-    repeated GetSimNEntry entries = 1;
+  repeated GetSimNEntry entries = 1;
 }
 
 message Del {
-    uint64 deleted_count = 1;
+  uint64 deleted_count = 1;
 }
 
 message CreateIndex {
-    uint64 created_indexes = 1;
+  uint64 created_indexes = 1;
 }
-
-
 
 message AIStoreInfo {
-    string name = 1;
-    ai.models.AIModel query_model = 2;
-    ai.models.AIModel index_model = 3;
-    uint64 embedding_size = 4;
+  string name = 1;
+  ai.models.AIModel query_model = 2;
+  ai.models.AIModel index_model = 3;
+  uint64 embedding_size = 4;
 }
-
-

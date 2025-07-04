@@ -2,10 +2,11 @@ syntax = "proto3";
 
 package algorithm.algorithms;
 
-enum Algorithm {
-    EuclideanDistance = 0;
-    DotProductSimilarity = 1;
-    CosineSimilarity = 2;
-    KDTree = 3;
-}
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms;ahnlichclientalgopb";
 
+enum Algorithm {
+  EuclideanDistance = 0;
+  DotProductSimilarity = 1;
+  CosineSimilarity = 2;
+  KDTree = 3;
+}

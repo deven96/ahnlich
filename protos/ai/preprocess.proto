@@ -1,9 +1,10 @@
-
 syntax = "proto3";
 
 package ai.preprocess;
 
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess;ahnlichclientaipb";
+
 enum PreprocessAction {
-    NoPreprocessing = 0;
-    ModelPreprocessing = 1;
+  NoPreprocessing = 0;
+  ModelPreprocessing = 1;
 }
