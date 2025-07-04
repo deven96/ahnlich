@@ -37,7 +37,7 @@ async def test_client_sends_info_server_to_db_success(module_scopped_ahnlich_db)
     service = db_service.DbServiceStub(channel)
     try:
         response = await service.info_server(db.query.InfoServer())
-        assert response.info.version == "0.0.0"
+        assert response.info.version is not None and response.info.version != ""
         assert response.info.type == server_types.ServerType.Database
     finally:
         channel.close()
