@@ -74,6 +74,7 @@ jobs:
       - name: Deploy using tag
         working-directory: ./ahnlich
         run: |
+          cp ../LICENSE ./types && cp ../LICENSE ./client
           cargo publish -p ahnlich_types --token '${{secrets.CARGO_TOKEN}}'
           # Removing dev dependencies as those use * and are only locally available
           sed -i '/^\[dev-dependencies\]/,/^\[/{//!d; /^\[dev-dependencies\]/s/.*/ /}' client/Cargo.toml
