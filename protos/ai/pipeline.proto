@@ -6,6 +6,8 @@ import "ai/query.proto";
 import "ai/server.proto";
 import "shared/info.proto";
 
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/pipeline;ahnlichclientaipb";
+
 message AIQuery {
   oneof query {
     ai.query.CreateStore create_store = 1;
