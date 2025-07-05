@@ -77,7 +77,7 @@ jobs:
           cp ../LICENSE ./types && cp ../LICENSE ./client
           # Remove types build.rs since we already prebuilt this
           rm ./types/build.rs
-          cargo publish --allow-dirty -p ahnlich_types --token '${{secrets.CARGO_TOKEN}}' --dry-run
+          cargo publish --allow-dirty -p ahnlich_types --token '${{secrets.CARGO_TOKEN}}'
           # Removing dev dependencies as those use * and are only locally available
           sed -i '/^\[dev-dependencies\]/,/^\[/{//!d; /^\[dev-dependencies\]/s/.*/ /}' client/Cargo.toml
           # extract and replace current client's type deps version from * to latest

@@ -20,10 +20,4 @@ The following topics are covered:
 cargo add ahnlich_client_rs
 ```
 
-## Change Log
-
-| Version| Description           |
-| -------|:-------------:|
-| 0.0.0 | Base Rust client to connect to ahnlich db. Bincode serialization and deserialization implemented |
-
 
