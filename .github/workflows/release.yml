@@ -1,8 +1,10 @@
 name: Ahnlich AI and DB Release
 
 on:
-    release:
-      types: [published]
+  push:
+    branches: "*"
+    # release:
+    #   types: [published]
 
 
 permissions:
@@ -22,13 +24,16 @@ jobs:
 
           - name: "Get Binary Type"
             id: get_binary_type
+            # run: |
+            #     cd ${{github.workspace}}
+            #     echo ${{ github.event.release.tag_name }}
+            #     value=$(echo "${{ github.event.release.tag_name }}" | cut -d'/' -f2)
+            #     echo "$value"
+            #     echo "BIN_SUFFIX=${value}" >> $GITHUB_OUTPUT
+            #     echo "BIN_NAME=ahnlich-${value}" >> $GITHUB_OUTPUT
             run: |
-                cd ${{github.workspace}}
-                echo ${{ github.event.release.tag_name }}
-                value=$(echo "${{ github.event.release.tag_name }}" | cut -d'/' -f2)
-                echo "$value"
-                echo "BIN_SUFFIX=${value}" >> $GITHUB_OUTPUT
-                echo "BIN_NAME=ahnlich-${value}" >> $GITHUB_OUTPUT
+              echo "BIN_SUFFIX=db" >> $GITHUB_OUTPUT
+              cho "BIN_NAME=ahnlich-db" >> $GITHUB_OUTPUT
 
     build_binaries_and_publish:
         needs: prebuild_preparation
