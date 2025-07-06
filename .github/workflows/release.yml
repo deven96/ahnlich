@@ -62,12 +62,10 @@ jobs:
               with:
                 toolchain: 1.87.0
 
-            - name: Install Protoc
-              uses: arduino/setup-protoc@v3
-
             - name: Build Linux Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
               working-directory: ./ahnlich
               run: |
+                rm types/build.rs
                 rustup target add ${{matrix.target}}
                 if [ $BIN_NAME == "ahnlich-ai" ] && [ '${{matrix.target}}' == *darwin ]; then
                     cargo build --features coreml --release --target ${{matrix.target}} --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
