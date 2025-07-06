@@ -1,6 +1,6 @@
 [package]
 name = "ai"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
 
 # only used for rust client test and not to be released
@@ -38,7 +38,7 @@ strum.workspace = true
 log.workspace = true
 fallible_collections.workspace = true
 rayon.workspace = true
-hf-hub = { version = "0.3", default-features = false }
+hf-hub = { version = "0.4", default-features = false, features = ["ureq", "rustls-tls"] }
 dirs = "5.0.1"
 ort = { version = "=2.0.0-rc.5", features = [
   "ndarray",
@@ -50,7 +50,7 @@ tracing-opentelemetry.workspace = true
 futures.workspace = true
 tiktoken-rs = "0.5.9"
 itertools.workspace = true
-tokenizers = { version = "0.20.1", features = ["hf-hub"] }
+tokenizers = { version = "0.21" }
 papaya.workspace = true
 
 [features]

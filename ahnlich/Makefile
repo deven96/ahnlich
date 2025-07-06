@@ -7,7 +7,7 @@
 # Define paths to the project files
 RUST_PROJECT_DIR := ../ahnlich
 RUST_TYPES_NAME := ahnlich_types
-RUST_CLIENT_NAME := client
+RUST_CLIENT_NAME := ahnlich_client_rs
 AHNLICH_DB_NAME := db
 AHNLICH_AI_NAME := ai
 PYTHON_PROJECT_DIR := ../sdk/ahnlich-client-py
