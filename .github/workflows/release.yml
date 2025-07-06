@@ -33,7 +33,7 @@ jobs:
             #     echo "BIN_NAME=ahnlich-${value}" >> $GITHUB_OUTPUT
             run: |
               echo "BIN_SUFFIX=db" >> $GITHUB_OUTPUT
-              cho "BIN_NAME=ahnlich-db" >> $GITHUB_OUTPUT
+              echo "BIN_NAME=ahnlich-db" >> $GITHUB_OUTPUT
 
     build_binaries_and_publish:
         needs: prebuild_preparation
