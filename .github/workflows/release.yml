@@ -68,6 +68,7 @@ jobs:
             - name: Build Linux Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
               working-directory: ./ahnlich
               run: |
+                rustup target add ${{matrix.target}}
                 if [ $BIN_NAME == "ahnlich-ai" ] && [ '${{matrix.target}}' == *darwin ]; then
                     cargo build --features coreml --release --target ${{matrix.target}} --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
                 else
