@@ -4,7 +4,7 @@ package keyval;
 
 import "metadata.proto";
 
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval;ahnlichclientpb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval;keyval";
 
 message StoreName {
   string value = 1;

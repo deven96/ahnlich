@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package algorithm.algorithms;
 
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms;ahnlichclientalgopb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms;algorithms";
 
 enum Algorithm {
   EuclideanDistance = 0;

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ai.preprocess;
 
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess;ahnlichclientaipb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess;preprocess";
 
 enum PreprocessAction {
   NoPreprocessing = 0;

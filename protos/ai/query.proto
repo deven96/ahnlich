@@ -10,7 +10,7 @@ import "algorithm/nonlinear.proto";
 import "keyval.proto";
 import "predicate.proto";
 
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query;ahnlichclientaipb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query;query";
 
 // =====================
 // === AI Query Types ===

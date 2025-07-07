@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package version;
 
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/version;ahnlichclientpb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/version;version";
 
 // Currently ahnlich uses the major versions to interact with clients provided they match.
 message Version {

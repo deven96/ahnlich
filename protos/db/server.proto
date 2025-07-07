@@ -7,7 +7,7 @@ import "keyval.proto";
 import "shared/info.proto";
 import "similarity.proto";
 
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/server;ahnlichclientdbpb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/server;server";
 
 message Unit {}
 

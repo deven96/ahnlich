@@ -3,7 +3,7 @@ syntax = "proto3";
 package server_types;
 
 // defines various server types
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/server_types;ahnlichclientpb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/server_types;server_types";
 
 enum ServerType {
   AI = 0;

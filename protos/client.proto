@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package client;
 
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/client;ahnlichclientpb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/client;client";
 
 message ConnectedClient {
   string address = 1;

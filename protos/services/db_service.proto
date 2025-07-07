@@ -6,7 +6,7 @@ import "db/pipeline.proto";
 import "db/query.proto";
 import "db/server.proto";
 
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service;ahnlichclientservicepb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service;db_service";
 
 service DBService {
   /** Create methods **/

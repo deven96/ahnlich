@@ -6,7 +6,7 @@ import "db/query.proto";
 import "db/server.proto";
 import "shared/info.proto";
 
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/pipeline;ahnlichclientdbpb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/pipeline;pipeline";
 
 // =============================
 // === DB Query Wrapper & Pipeline ===

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ai.models;
 
-option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/models;ahnlichclientaipb";
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/models;models";
 
 enum AIModel {
   ALL_MINI_LM_L6_V2 = 0;
