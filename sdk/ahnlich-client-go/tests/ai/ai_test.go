@@ -27,7 +27,7 @@ import (
 func startAI(t *testing.T) *utils.AhnlichProcess {
 	return utils.RunAhnlich(
 		t,
-		&utils.BinaryFlag{BinaryType: "ai"},
+		&utils.BinaryFlag{BinaryType: "ahnlich-ai"},
 	)
 }
 
@@ -88,7 +88,6 @@ func TestGetPredicates(t *testing.T) {
 	conn := dialAI(t, proc.ServerAddr)
 	defer conn.Close()
 	client := aisvc.NewAIServiceClient(conn)
-
 	_, _ = client.CreateStore(context.Background(), storeWithPred)
 
 	entries := []*keyval.AiStoreEntry{
@@ -287,3 +286,7 @@ func TestPipelineError(t *testing.T) {
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
+
+/**
+TestDropStoreAndPurge
+*/

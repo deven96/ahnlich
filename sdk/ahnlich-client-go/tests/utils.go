@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"go/build"
 	"io"
 	"net"
 	"os"
@@ -136,14 +135,14 @@ type BinaryFlag struct {
 func (args *BinaryFlag) parseArgs() ([]string, error) {
 	args.Flags = make([]string, 0)
 	if args.BinaryType != "" {
-		validTypes := []string{"db", "ai"}
+		validTypes := []string{"ahnlich-db", "ahnlich-ai"}
 		if !contains(validTypes, args.BinaryType) {
-			args.Flags = append(args.Flags, "db")
+			args.Flags = append(args.Flags, "ahnlich-db")
 		} else {
 			args.Flags = append(args.Flags, args.BinaryType)
 		}
 	} else {
-		args.Flags = append(args.Flags, "db")
+		args.Flags = append(args.Flags, "ahnlich-db")
 	}
 	args.BinaryType = args.Flags[0]
 	return args.Flags, nil
@@ -210,29 +209,27 @@ func (args *ExecFlag) parseArgs() ([]string, error) {
 }
 
 func execute(t *testing.T, execType string, binType string, args ...string) (*exec.Cmd, error) {
+	t.Log("Start execute() args", "execType", execType, "binType", binType, "args", args)
+	rootDir, err := GetPackageRoot(t)
+	if err != nil {
+		return nil, err
+	}
+	t.Log("execute() args", "rootDir", rootDir, "execType", execType, "args", args)
+	serverPath := filepath.Join(rootDir, "..", "..", "ahnlich")
 	lookPath := "cargo"
-	rootDir, err := GetPackageRoot("github.com/deven96/ahnlich/sdk/ahnlich-client-go")
-	if err != nil {
-		return nil, err
-	}
-	tomlDir := filepath.Join(rootDir, "..", "..", "ahnlich", "Cargo.toml")
-	t.Log("execute() args", "tomlDir", tomlDir, "rootDir", rootDir, "execType", execType, "args", args)
-	tomlDir, err = filepath.Abs(tomlDir)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := os.Stat(tomlDir); os.IsNotExist(err) {
-		return nil, err
-	}
+
+	t.Log("execute() args", "rootDir", rootDir, "execType", execType, "args", args)
 	if _, err := exec.LookPath(lookPath); err != nil {
 		return nil, err
 	}
-	commands := []string{execType, "--manifest-path", tomlDir}
+	commands := []string{execType}
 	if execType == "run" {
 		commands = append(commands, "--bin", binType, "run")
 	}
 	commands = append(commands, args...)
-	return exec.Command(lookPath, commands...), nil
+	cmd := exec.Command(lookPath, commands...)
+	cmd.Dir = serverPath
+	return cmd, nil
 }
 
 // RunAhnlich starts the Ahnlich process
@@ -293,7 +290,14 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 	require.NotEmpty(t, port)
 	require.NotEmpty(t, execType)
 	require.NotEmpty(t, argsList)
-
+	t.Log("RunAhnlich() args", "host", host, "port", port, "execType", execType, "args", argsList)
+	var dbAhlichProcess *AhnlichProcess
+	if binaryType == "ahnlich-ai" {
+		dbAhlichProcess = RunAhnlich(t, &BinaryFlag{BinaryType: "ahnlich-db"})
+	}
+	if dbAhlichProcess != nil {
+		argsList = append(argsList, "--db-host", dbAhlichProcess.Host, "--db-port", fmt.Sprint(dbAhlichProcess.Port))
+	}
 	cmd, err = execute(t, execType, binaryType, argsList...)
 	require.NoError(t, err)
 	require.NotEmpty(t, cmd)
@@ -301,6 +305,7 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
 
+	t.Log("RunAhnlich() cmd", "cmd", cmd)
 	err = cmd.Start()
 	require.NoError(t, err)
 
@@ -312,8 +317,10 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 			require.Truef(t, !cmd.ProcessState.Exited(), "ahnlich process exited", outBuf.String(), errBuf.String())
 			require.Truef(t, !cmd.ProcessState.Success(), "ahnlich process exited with success status", outBuf.String(), errBuf.String())
 		}
+		outBufString, errBufString := outBuf.String(), errBuf.String()
+
 		// Checking stderr for the Running message as well because the ahnlich writes warnings to stderr also
-		if strings.Contains(outBuf.String(), "Running") || (strings.Contains(errBuf.String(), "Running") && strings.Contains(errBuf.String(), "Finished")) && (!strings.Contains(errBuf.String(), "panicked") || !strings.Contains(outBuf.String(), "panicked")) {
+		if strings.Contains(outBufString, "Running") || (strings.Contains(errBufString, "Running") && strings.Contains(errBufString, "Finished")) && (!strings.Contains(errBufString, "panicked") || !strings.Contains(outBufString, "panicked")) {
 			break
 		}
 		t.Log("Waiting for the ahnlich to start")
@@ -392,15 +399,18 @@ func ValidateJsonFile(t *testing.T, jsonFilePath string) {
 	require.NoError(t, err)
 }
 
-func GetPackageRoot(pkgName string) (string, error) {
-	// Look up the package in the Go build context
-	pkg, err := build.Import(pkgName, "", build.FindOnly)
+func GetPackageRoot(t *testing.T) (string, error) {
+	out, err := exec.Command("go", "env", "GOMOD").Output()
 	if err != nil {
 		return "", err
 	}
-
-	// Return the absolute path to the package root
-	return filepath.Abs(pkg.Dir)
+	modPath := strings.TrimSpace(string(out))
+	paths := strings.Split(modPath, string(os.PathSeparator))
+	newPath := strings.Join(paths[:len(paths)-1], string(os.PathSeparator))
+	if newPath == "" {
+		return "", fmt.Errorf("not in a Go module")
+	}
+	return newPath, nil
 }
 
 func ListFilesInDir(dir string) ([]string, error) {
