@@ -128,13 +128,18 @@ impl SupportedModels {
         }
     }
 
-    pub async fn to_concrete_model(&self, cache_location: PathBuf) -> Result<Model, AIProxyError> {
+    pub async fn to_concrete_model(
+        &self,
+        cache_location: PathBuf,
+        session_profiling: bool,
+    ) -> Result<Model, AIProxyError> {
         let model_details = self.to_model_details();
         // can only be created with a cache location, this ties together the model public
         // facing details as well as the provider
         // if there are multiple providers, feel free to match here and override
         let provider = ModelProviders::ORT(
-            ORTProvider::from_model_and_cache_location(self, cache_location).await?,
+            ORTProvider::from_model_and_cache_location(self, cache_location, session_profiling)
+                .await?,
         );
         Ok(Model {
             model_details,

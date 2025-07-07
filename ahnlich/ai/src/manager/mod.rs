@@ -49,10 +49,11 @@ impl ModelThread {
     async fn new(
         supported_model: SupportedModels,
         cache_location: &Path,
+        session_profiling: bool,
         request_receiver: mpsc::Receiver<ModelThreadRequest>,
     ) -> Result<Self, AIProxyError> {
         let model = supported_model
-            .to_concrete_model(cache_location.to_path_buf())
+            .to_concrete_model(cache_location.to_path_buf(), session_profiling)
             .await?;
         Ok(Self {
             request_receiver: Mutex::new(request_receiver),
@@ -278,8 +279,13 @@ impl ModelManager {
     ) -> Result<mpsc::Sender<ModelThreadRequest>, AIProxyError> {
         let (request_sender, request_receiver) = mpsc::channel(10000);
         // There may be other things needed to load a model thread
-        let model_thread =
-            ModelThread::new(*model, &self.config.model_cache_location, request_receiver).await?;
+        let model_thread = ModelThread::new(
+            *model,
+            &self.config.model_cache_location,
+            self.config.session_profiling,
+            request_receiver,
+        )
+        .await?;
         let _ = &self.task_manager.spawn_task_loop(model_thread).await;
         Ok(request_sender)
     }

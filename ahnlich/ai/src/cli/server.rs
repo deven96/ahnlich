@@ -106,6 +106,10 @@ pub struct AIProxyConfig {
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).model_cache_location.clone())]
     pub(crate) model_cache_location: std::path::PathBuf,
 
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).session_profiling)]
+    pub(crate) session_profiling: bool,
+
     #[clap(flatten)]
     pub common: CommandLineConfig,
 }
@@ -115,6 +119,7 @@ pub struct ModelConfig {
     pub(crate) supported_models: Vec<SupportedModels>,
     pub(crate) model_cache_location: std::path::PathBuf,
     pub(crate) model_idle_time: u64,
+    pub(crate) session_profiling: bool,
 }
 
 impl Default for ModelConfig {
@@ -129,6 +134,7 @@ impl Default for ModelConfig {
                 })
                 .expect("Default directory could not be resolved."),
             model_idle_time: 60 * 5,
+            session_profiling: false,
         }
     }
 }
@@ -139,6 +145,7 @@ impl From<&AIProxyConfig> for ModelConfig {
             supported_models: config.supported_models.clone(),
             model_cache_location: config.model_cache_location.clone(),
             model_idle_time: config.ai_model_idle_time,
+            session_profiling: config.session_profiling,
         }
     }
 }
@@ -168,6 +175,7 @@ impl Default for AIProxyConfig {
                 })
                 .expect("Default directory could not be resolved."),
             ai_model_idle_time: 60 * 5,
+            session_profiling: false,
             common: CommandLineConfig::default(),
         }
     }
