@@ -34,7 +34,7 @@ ARG DEFAULT_PORT
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
-    libsasl2-modules-gssapi-mit libsasl2-dev \
+    libsasl2-modules-gssapi-mit libsasl2-dev curl \
     # Clean up
     && apt-get autoremove -y \
     && apt-get clean -y \
