@@ -27,7 +27,7 @@ RUN cargo build --release --bin ${AHNLICH_BIN}
 RUN cargo build --release --bin ahnlich-cli
 
 
-FROM debian:bookworm-slim AS runtime
+FROM debian:trixie-slim AS runtime
 
 ARG AHNLICH_BIN
 ARG DEFAULT_PORT
@@ -40,6 +40,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*
 
+# ✅ Conditionally install libonnxruntime-dev if AHNLICH_BIN=ahnlich-ai
+RUN if [ "$AHNLICH_BIN" = "ahnlich-ai" ]; then \
+      apt-get install -y --no-install-recommends libonnxruntime-dev && \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
 
 COPY --from=builder /app/target/release/${AHNLICH_BIN} /usr/local/bin/
 COPY --from=builder /app/target/release/ahnlich-cli /usr/local/bin/
