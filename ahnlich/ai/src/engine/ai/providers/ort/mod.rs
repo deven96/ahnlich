@@ -171,6 +171,7 @@ impl ORTProvider {
     pub(crate) async fn from_model_and_cache_location(
         supported_models: &SupportedModels,
         cache_location: PathBuf,
+        session_profiling: bool,
     ) -> Result<Self, AIProxyError> {
         let mut model = ORTModel::try_from(supported_models)?;
         let cache = Cache::new(ort_full_cache_path(&cache_location));
@@ -184,7 +185,8 @@ impl ORTProvider {
             .get(&model.weights_file)
             .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
         // Warm the cache with a default CPU provider
-        let executor_with_session_cache = ExecutorWithSessionCache::new(model_file_reference);
+        let executor_with_session_cache =
+            ExecutorWithSessionCache::new(model_file_reference, session_profiling);
         executor_with_session_cache
             .try_get_with(InnerAIExecutionProvider::CPU)
             .await?;

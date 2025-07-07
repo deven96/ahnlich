@@ -14,13 +14,15 @@ use std::thread::available_parallelism;
 pub struct ExecutorWithSessionCache {
     cache: MokaCache<InnerAIExecutionProvider, Arc<Session>>,
     model_file_reference: PathBuf,
+    session_profiling: bool,
 }
 
 impl ExecutorWithSessionCache {
     #[tracing::instrument]
-    pub fn new(model_file_reference: PathBuf) -> Self {
+    pub fn new(model_file_reference: PathBuf, session_profiling: bool) -> Self {
         Self {
             model_file_reference,
+            session_profiling,
             cache: MokaCache::new(InnerAIExecutionProvider::iter().count() as u64),
         }
     }
@@ -33,9 +35,11 @@ impl ExecutorWithSessionCache {
         let threads = available_parallelism()
             .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?
             .get();
-        let session_builder = Session::builder()?
-            .with_intra_threads(threads)?
-            .with_profiling("profiling.json")?;
+        let mut session_builder = Session::builder()?.with_intra_threads(threads)?;
+
+        if self.session_profiling {
+            session_builder = session_builder.with_profiling("profiling.json")?;
+        }
         register_provider(execution_provider, &session_builder)?;
         Ok(Arc::new(
             session_builder.commit_from_file(self.model_file_reference.clone())?,
