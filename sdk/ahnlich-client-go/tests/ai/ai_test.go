@@ -2,7 +2,6 @@ package ai_test
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -283,9 +282,9 @@ func TestPipelineError(t *testing.T) {
 	require.Contains(t, strings.ToLower(resp.Responses[0].GetError().Message), "not found")
 }
 
-func TestMain(m *testing.M) {
-	os.Exit(m.Run())
-}
+// func TestMain(m *testing.M) {
+// 	os.Exit(m.Run())
+// }
 
 /**
 TestDropStoreAndPurge
