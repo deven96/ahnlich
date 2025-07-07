@@ -12,6 +12,7 @@ services:
       - LOG_LEVEL=debug
       - COLLECTOR_OTLP_ENABLED=true
 
+
   ahnlich_db:
     image: ghcr.io/deven96/ahnlich-db:latest
     command: >
@@ -26,6 +27,9 @@ services:
 
   ahnlich_ai:
     image: ghcr.io/deven96/ahnlich-ai:latest
+    depends_on:
+      ahnlich_db:
+        condition: service_started
     command: >
       "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 \
       --supported-models all-minilm-l6-v2,resnet-50 \
