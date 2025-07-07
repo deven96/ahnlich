@@ -40,10 +40,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*
 
-# ✅ Conditionally install libonnxruntime-dev if AHNLICH_BIN=ahnlich-ai
+
+# ✅ Conditionally install onnxruntime from github if AHNLICH_BIN=ahnlich-ai
 RUN if [ "$AHNLICH_BIN" = "ahnlich-ai" ]; then \
-      apt-get install -y --no-install-recommends libonnxruntime-dev && \
-      rm -rf /var/lib/apt/lists/*; \
+      ORT_VER=1.21.0 && \
+      curl -L -o /tmp/ort.tgz \
+        https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VER}/onnxruntime-linux-x64-gpu-${ORT_VER}.tgz && \
+      mkdir -p /opt/onnxruntime && \
+      tar -xzf /tmp/ort.tgz -C /opt/onnxruntime && \
+      cp /opt/onnxruntime/onnxruntime-linux-x64-gpu-${ORT_VER}/lib/libonnxruntime.so.${ORT_VER} /usr/local/lib/ && \
+      ln -s /usr/local/lib/libonnxruntime.so.${ORT_VER} /usr/local/lib/libonnxruntime.so && \
+      rm -rf /tmp/ort.tgz; \
     fi
 
 COPY --from=builder /app/target/release/${AHNLICH_BIN} /usr/local/bin/
