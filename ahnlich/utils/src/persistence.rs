@@ -51,7 +51,6 @@ impl<T: Sync + Serialize + DeserializeOwned + Debug> Task for Persistence<T> {
         "persistence".to_string()
     }
 
-    #[tracing::instrument(skip(self))]
     async fn run(&self) -> TaskState {
         if self.has_potential_write().await {
             log::debug!("In potential write");

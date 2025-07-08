@@ -30,6 +30,7 @@ use utils::persistence::AhnlichPersistenceUtils;
 /// We should be only able to generate a store key id from a 1D vector except during tests
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub(crate) struct StoreKeyId(String);
 
 #[cfg(test)]

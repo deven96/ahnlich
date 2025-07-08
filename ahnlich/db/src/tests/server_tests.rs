@@ -713,6 +713,10 @@ async fn test_del_key() {
 #[tokio::test]
 async fn test_server_with_persistence() {
     // First server instance
+    //
+    // Clean up - delete persistence file
+    let _ = std::fs::remove_file(&*PERSISTENCE_FILE);
+
     let server = Server::new(&CONFIG_WITH_PERSISTENCE)
         .await
         .expect("Failed to create server");
@@ -775,7 +779,7 @@ async fn test_server_with_persistence() {
                         }),
                         value: Some(StoreValue {
                             value: HashMap::from_iter([(
-                                "medal".into(),
+                                "role".into(),
                                 MetadataValue {
                                     value: Some(MetadataValueEnum::Image(vec![1, 2, 3])),
                                 },
@@ -861,7 +865,7 @@ async fn test_server_with_persistence() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1232,
+                        size_in_bytes: 1320,
                     }],
                 },
             )),
@@ -885,7 +889,7 @@ async fn test_server_with_persistence() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 1,
-                        size_in_bytes: 1184,
+                        size_in_bytes: 1272,
                     }],
                 },
             )),
@@ -912,8 +916,6 @@ async fn test_server_with_persistence() {
     tokio::spawn(async move { server.start().await });
 
     // Verify persistence file exists and is not empty
-    // let file_metadata = std::fs::metadata(&*PERSISTENCE_FILE).unwrap();
-
     let file_metadata = std::fs::metadata(
         &CONFIG_WITH_PERSISTENCE
             .common
@@ -922,7 +924,6 @@ async fn test_server_with_persistence() {
             .unwrap(),
     )
     .unwrap();
-
     assert!(file_metadata.len() > 0, "The persistence file is empty");
 
     let address = format!("http://{}", address);
@@ -996,7 +997,7 @@ async fn test_server_with_persistence() {
                         }),
                         value: Some(StoreValue {
                             value: HashMap::from_iter([(
-                                "medal".into(),
+                                "role".into(),
                                 MetadataValue {
                                     value: Some(MetadataValueEnum::Image(vec![1, 2, 3])),
                                 },
