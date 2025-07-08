@@ -143,8 +143,44 @@ jobs:
       with:
         name: python
         path: sdk/ahnlich-client-py/python.xml
+      
 
+  run-go-tests:
+      if: always()
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
 
+        - name: Set up Rust cache
+          uses: Swatinem/rust-cache@v2
+          with:
+            workspaces: ahnlich
+
+        - name: Setup Go Environment
+          uses: actions/setup-go@v5
+          with:
+            go-version: 1.22
+            cache-dependency-path: ./sdk/ahnlich-client-go/go.sum
+
+        - name: Install Dependencies
+          working-directory: ./sdk/ahnlich-client-go
+          run: make install-dependencies CI=1
+
+        - name: Format and Lint Check
+          working-directory: ./sdk/ahnlich-client-go
+          run: make pre-commit-check
+
+        - name: Run Tests
+          working-directory: ./sdk/ahnlich-client-go
+          run: |
+            make test CACHE=1 REPORT=1
+
+        - name: Upload Test Results
+          uses: actions/upload-artifact@v4
+          if: always()
+          with:
+            name: go
+            path: sdk/ahnlich-client-go/go.xml
 
   upload-test-results:
     if: always()
@@ -163,6 +199,12 @@ jobs:
       with:
         name: python
         path: ./python
+    
+    - name: Download Go Test Output
+      uses: actions/download-artifact@v4
+      with:
+        name: go
+        path: ./go
 
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action/macos@v2
@@ -171,3 +213,4 @@ jobs:
         files: |
           rust/*.xml
           python/*.xml
+          go/*.xml

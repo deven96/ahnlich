@@ -6,6 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	aimodel "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/models"
 	aipipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/pipeline"
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess"
@@ -14,10 +19,6 @@ import (
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
 	aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	utils "github.com/deven96/ahnlich/sdk/ahnlich-client-go/tests"
 )
