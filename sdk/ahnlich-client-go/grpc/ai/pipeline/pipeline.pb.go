@@ -10,11 +10,12 @@ import (
 	reflect "reflect"
 	sync "sync"
 
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+
 	query "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
 	server "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/server"
 	info "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/shared/info"
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (

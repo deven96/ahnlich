@@ -155,6 +155,9 @@ jobs:
           uses: Swatinem/rust-cache@v2
           with:
             workspaces: ahnlich
+        
+        - name: Install Protoc
+          uses: arduino/setup-protoc@v3
 
         - name: Setup Go Environment
           uses: actions/setup-go@v5
@@ -185,7 +188,7 @@ jobs:
   upload-test-results:
     if: always()
     runs-on: ubuntu-latest
-    needs: ["run-rust-tests", "run-python-tests"]
+    needs: ["run-rust-tests", "run-python-tests", "run-go-tests"]
 
     steps:
     - name: Download Rust Test Output

@@ -8,12 +8,14 @@ package db_service
 
 import (
 	context "context"
-	pipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/pipeline"
-	query "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
-	server "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/server"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+
+	pipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/pipeline"
+	query "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+	server "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/server"
 )
 
 // This is a compile-time assertion to ensure that this generated file

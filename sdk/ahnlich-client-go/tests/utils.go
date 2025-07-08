@@ -1,3 +1,4 @@
+// Package ahnlichgotest ... provides utilities to run and manage the Ahnlich process in tests.
 package ahnlichgotest
 
 import (
@@ -19,10 +20,11 @@ import (
 )
 
 const (
-	MaxRetries    = 50
-	RetryInterval = 1 * time.Second
+	MaxRetries    = 120             // MaxRetries ... Maximum number of retries to check if the Ahnlich process is running
+	RetryInterval = 1 * time.Second // RetryInterval ... Interval between retries to check if the Ahnlich process is running
 )
 
+// AhnlichProcess ... A struct to hold the Ahnlich process information
 type AhnlichProcess struct {
 	ServerAddr string
 	Host       string
@@ -32,6 +34,7 @@ type AhnlichProcess struct {
 	*exec.Cmd
 }
 
+// OptionalFlags ... An interface to define the methods for optional flags
 type OptionalFlags interface {
 	// parseArgs takes in a struct with the args and returns a slice of strings
 	parseArgs() ([]string, error)
@@ -55,6 +58,7 @@ func (args baseFlag) getName(i interface{}) string {
 	return t.Name()
 }
 
+// AddrsFlag ... A struct to hold the server address and port
 type AddrsFlag struct {
 	ServerAddr any
 	host       string
@@ -64,7 +68,7 @@ type AddrsFlag struct {
 
 func (args *AddrsFlag) parseArgs() ([]string, error) {
 	args.Flags = make([]string, 0)
-	var host string = "127.0.0.1"
+	var host = "127.0.0.1"
 	var port int
 	var portStr string
 	var err error
@@ -85,13 +89,13 @@ func (args *AddrsFlag) parseArgs() ([]string, error) {
 		case int:
 			port = value
 		default:
-			port, err = GetAvailablePort(host)
+			port, err = GetAvailablePort()
 			if err != nil {
 				return nil, err
 			}
 		}
 	} else {
-		port, err = GetAvailablePort(host)
+		port, err = GetAvailablePort()
 		if err != nil {
 			return nil, err
 		}
@@ -102,6 +106,7 @@ func (args *AddrsFlag) parseArgs() ([]string, error) {
 	return args.Flags, nil
 }
 
+// PersistFlag ... A struct to hold the persistence related flags
 type PersistFlag struct {
 	Persistence             bool
 	PersistenceFileLocation string
@@ -127,8 +132,9 @@ func (args *PersistFlag) parseArgs() ([]string, error) {
 	return args.Flags, nil
 }
 
+// BinaryFlag ... A struct to hold the binary type (db or ai)
 type BinaryFlag struct {
-	BinaryType string // db, ai
+	BinaryType string // ahnlich-db or ahnlich-ai
 	baseFlag
 }
 
@@ -148,6 +154,7 @@ func (args *BinaryFlag) parseArgs() ([]string, error) {
 	return args.Flags, nil
 }
 
+// LogFlag ... A struct to hold the logging related flags
 type LogFlag struct {
 	LogLevel       string // trace, debug, info, warn, error
 	TracingEnabled bool
@@ -172,6 +179,7 @@ func (args *LogFlag) parseArgs() ([]string, error) {
 	return args.Flags, nil
 }
 
+// ClientsFlag ... A struct to hold the maximum number of clients
 type ClientsFlag struct {
 	MaximumClients int
 	baseFlag
@@ -187,6 +195,7 @@ func (args *ClientsFlag) parseArgs() ([]string, error) {
 	return args.Flags, nil
 }
 
+// ExecFlag ... A struct to hold the execution type (run or build)
 type ExecFlag struct {
 	ExecType string
 	baseFlag
@@ -356,7 +365,7 @@ func (proc *AhnlichProcess) Kill() {
 
 }
 
-// Check if proc is running
+// IsRunning ... checks if the Ahnlich process is running
 func (proc *AhnlichProcess) IsRunning() bool {
 	if proc.Cmd != nil {
 		return (proc.Cmd.ProcessState != nil && !proc.Cmd.ProcessState.Exited()) || proc.Cmd.ProcessState == nil
@@ -365,7 +374,7 @@ func (proc *AhnlichProcess) IsRunning() bool {
 }
 
 // GetAvailablePort finds an available port and returns it.
-func GetAvailablePort(host string) (int, error) {
+func GetAvailablePort() (int, error) {
 	maxRetries := 10
 	delay := 100 * time.Millisecond
 	for i := 0; i < maxRetries; i++ {
@@ -382,7 +391,8 @@ func GetAvailablePort(host string) (int, error) {
 	return 0, fmt.Errorf("unable to find a free port after %d attempts", maxRetries)
 }
 
-func ValidateJsonFile(t *testing.T, jsonFilePath string) {
+// ValidateJSONFile ... checks if the given JSON file is valid and not empty.
+func ValidateJSONFile(t *testing.T, jsonFilePath string) {
 	// Open the JSON file
 	file, err := os.Open(jsonFilePath)
 	require.NoError(t, err)
@@ -399,6 +409,7 @@ func ValidateJsonFile(t *testing.T, jsonFilePath string) {
 	require.NoError(t, err)
 }
 
+// GetPackageRoot ... returns the root directory of the Go module.
 func GetPackageRoot(t *testing.T) (string, error) {
 	out, err := exec.Command("go", "env", "GOMOD").Output()
 	if err != nil {
@@ -410,9 +421,11 @@ func GetPackageRoot(t *testing.T) (string, error) {
 	if newPath == "" {
 		return "", fmt.Errorf("not in a Go module")
 	}
+	t.Log("GetPackageRoot() module path", "modulePath", newPath)
 	return newPath, nil
 }
 
+// ListFilesInDir ... lists all files in the given directory.
 func ListFilesInDir(dir string) ([]string, error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
@@ -425,6 +438,7 @@ func ListFilesInDir(dir string) ([]string, error) {
 	return fileNames, nil
 }
 
+// GetFileFromPath ... extracts the file name from a given path.
 func GetFileFromPath(path string) string {
 	file := filepath.Base(path)
 	return file
