@@ -1,10 +1,14 @@
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
+use std::str::FromStr;
+
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::ai::models::AiStoreInputType;
 use crate::client::ConnectedClient;
 use crate::keyval::store_input::Value;
-use crate::keyval::StoreInput;
+use crate::keyval::{StoreInput, StoreName};
+use crate::metadata::metadata_value::Value as MetadataValueInner;
 use crate::metadata::MetadataValue;
 use crate::predicates::{AndCondition, Equals, In, NotEquals, NotIn, OrCondition};
 use crate::shared::info::StoreUpsert;
@@ -37,6 +41,74 @@ impl TryFrom<MetadataValue> for StoreInput {
                 value: Some(Value::RawString(text)),
             }),
         }
+    }
+}
+
+impl std::fmt::Display for MetadataValueInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MetadataValueInner::Image(bytes) => write!(f, "img:{}", ascii85::encode(bytes)),
+            MetadataValueInner::RawString(s) => write!(f, "str:{}", s),
+        }
+    }
+}
+
+impl Serialize for MetadataValue {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match &self.value {
+            Some(v) => s.serialize_str(&v.to_string()),
+            None => Err(serde::ser::Error::custom(
+                "Metadata value struct is empty, cannot serialize",
+            )),
+        }
+    }
+}
+
+impl Serialize for StoreName {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        s.serialize_str(&self.value)
+    }
+}
+
+impl<'de> Deserialize<'de> for StoreName {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = String::deserialize(d)?;
+        Ok(StoreName { value })
+    }
+}
+
+// If you need deserialization back into MyKey:
+impl FromStr for MetadataValueInner {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some(rest) = s.strip_prefix("img:") {
+            let bytes = ascii85::decode(rest).map_err(|e| e.to_string())?;
+            Ok(MetadataValueInner::Image(bytes))
+        } else if let Some(rest) = s.strip_prefix("str:") {
+            Ok(MetadataValueInner::RawString(rest.to_string()))
+        } else {
+            Err("unknown key format".into())
+        }
+    }
+}
+impl<'de> Deserialize<'de> for MetadataValue {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(d)?;
+        Ok(MetadataValue {
+            value: Some(MetadataValueInner::from_str(&s).map_err(serde::de::Error::custom)?),
+        })
     }
 }
 

@@ -268,38 +268,8 @@ impl PredicateIndices {
 /// ids. This is essential in helping us filter down the entire dataset using a predicate before
 /// performing similarity algorithmic search
 #[derive(Debug, Serialize, Deserialize)]
-struct PredicateIndex(#[serde(with = "custom_metadata_map")] InnerPredicateIndex);
-
-mod custom_metadata_map {
-    use super::*;
-    use serde::{self, Deserialize, Deserializer, Serialize, Serializer};
-
-    pub fn serialize<S>(map: &InnerPredicateIndex, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let hash_map: HashMap<MetadataValue, InnerPredicateIndexVal> = map
-            .iter(&map.guard())
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect();
-        hash_map.serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<InnerPredicateIndex, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let hashmap: HashMap<MetadataValue, InnerPredicateIndexVal> =
-            HashMap::deserialize(deserializer)?;
-
-        // let vec: Vec<(MetadataValue, InnerPredicateIndexVal)> = Vec::deserialize(deserializer)?;
-        let map = ConcurrentHashMap::new();
-        for (k, v) in hashmap {
-            map.insert(k, v, &map.guard());
-        }
-        Ok(map)
-    }
-}
+#[serde(transparent)]
+struct PredicateIndex(InnerPredicateIndex);
 
 impl PredicateIndex {
     #[tracing::instrument(skip(self))]

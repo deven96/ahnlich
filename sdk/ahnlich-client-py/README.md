@@ -103,7 +103,7 @@ channel = Channel(host="127.0.0.1", port=1369)
 ```py
 
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
 # Initialize client
@@ -127,7 +127,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
 async with Channel(host="127.0.0.1", port=1369) as channel:
@@ -142,7 +142,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
 async with Channel(host="127.0.0.1", port=1369) as channel:
@@ -155,7 +155,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
 async with Channel(host="127.0.0.1", port=1369) as channel:
@@ -172,7 +172,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
 async with Channel(host="127.0.0.1", port=1369) as channel:
@@ -199,7 +199,7 @@ Store dimensions is a one dimensional array of length N
 ### Set
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc import keyval, metadata
 from ahnlich_client_py.grpc.db import query as db_query
 
@@ -224,7 +224,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 ### Drop store
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
 async with Channel(host="127.0.0.1", port=1369) as channel:
@@ -245,7 +245,7 @@ Returns an array of tuple of (store_key, store_value) of Maximum specified N
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc.shared.algorithm import Algorithm
 
@@ -273,7 +273,7 @@ Returns an array of tuple of (store_key, store_value)
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
 async with Channel(host="127.0.0.1", port=1369) as channel:
@@ -296,7 +296,7 @@ Same as Get_key but returns results based defined conditions
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc import predicates, metadata
 
@@ -324,7 +324,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 ### Create Predicate Index
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
 async with Channel(host="127.0.0.1", port=1369) as channel:
@@ -342,7 +342,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 ### Drop Predicate Index
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 
 async with Channel(host="127.0.0.1", port=1369) as channel:
@@ -361,7 +361,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 ### Create Non Linear Algorithm Index
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc.algorithm.algorithms import NonLinearAlgorithm
 
@@ -380,7 +380,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 ### Drop Non Linear Algorithm Index
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc.algorithm.algorithms import NonLinearAlgorithm
 
@@ -401,7 +401,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 ### Delete Key
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc import keyval
 
@@ -422,7 +422,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 ### Delete Predicate
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import DbServiceStub
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc import predicates, metadata
 
@@ -455,7 +455,7 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
@@ -467,7 +467,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
@@ -479,7 +479,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
@@ -493,7 +493,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 ```py
 
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 from ahnlich_client_py.grpc.ai.models import AiModel
 
@@ -520,7 +520,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 ```py
 
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 from ahnlich_client_py.grpc import keyval, metadata
 from ahnlich_client_py.grpc.ai import preprocess
@@ -553,7 +553,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 ### Drop store
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
@@ -574,7 +574,7 @@ Returns an array of tuple of (store_key, store_value) of Maximum specified N
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 from ahnlich_client_py.grpc import keyval, algorithms
 
@@ -606,7 +606,7 @@ Same as Get_key but returns results based defined conditions
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 from ahnlich_client_py.grpc import predicates, metadata
 
@@ -631,7 +631,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 ### Create Predicate Index
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
@@ -647,7 +647,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 ### Drop Predicate Index
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
@@ -664,7 +664,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 ### Create Non Linear Algorithm Index
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm
 
@@ -682,7 +682,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 ### Drop Non Linear Algorithm Index
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm
 
@@ -703,7 +703,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 ```py
 
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 from ahnlich_client_py.grpc import keyval
 
@@ -722,7 +722,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 
 ```py
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
