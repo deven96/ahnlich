@@ -398,7 +398,7 @@ pub struct Store {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     id_to_value: ConcurrentHashMap<StoreKeyId, (StoreKey, StoreValue)>,
     /// Indices to filter for the store
-    predicate_indices: Arc<PredicateIndices>,
+    predicate_indices: PredicateIndices,
     /// Non linear Indices
     non_linear_indices: NonLinearAlgorithmIndices,
 }
@@ -413,7 +413,7 @@ impl Store {
         Self {
             dimension,
             id_to_value: ConcurrentHashMap::new(),
-            predicate_indices: Arc::new(PredicateIndices::init(predicates)),
+            predicate_indices: PredicateIndices::init(predicates),
             non_linear_indices: NonLinearAlgorithmIndices::create(non_linear_indices, dimension),
         }
     }
@@ -611,8 +611,7 @@ impl Store {
                 None
             })
             .collect();
-        let predicate_indices = self.predicate_indices.clone();
-        predicate_indices.add(predicate_insert);
+        self.predicate_indices.add(predicate_insert);
         if !self.non_linear_indices.is_empty() {
             self.non_linear_indices.insert(inserted_keys);
         }
