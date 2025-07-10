@@ -292,6 +292,13 @@ func TestPipelineError(t *testing.T) {
 	require.Contains(t, strings.ToLower(resp.Responses[0].GetError().Message), "not found")
 }
 
+func TestMain(m *testing.M) {
+	t := new(testing.T)
+	proc := startAI(t)
+	proc.Kill()
+	m.Run()
+}
+
 /**
 TestDropStoreAndPurge
 */
