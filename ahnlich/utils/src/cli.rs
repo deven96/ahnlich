@@ -94,8 +94,7 @@ fn validate_allocator_size(val: &str) -> Result<usize, String> {
 
     if size < MIN_ALLOCATION_SIZE {
         Err(format!(
-            "Size mut be atleast {} bytes (10 MB)",
-            MIN_ALLOCATION_SIZE
+            "Size mut be atleast {MIN_ALLOCATION_SIZE} bytes (10 MB)",
         ))
     } else {
         Ok(size)

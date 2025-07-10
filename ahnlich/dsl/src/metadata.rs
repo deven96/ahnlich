@@ -2,8 +2,8 @@ use crate::array::parse_f32_array;
 use crate::error::DslError;
 use crate::parser::Rule;
 use ahnlich_types::{
-    keyval::{store_input, AiStoreEntry, DbStoreEntry, StoreInput, StoreValue},
-    metadata::{metadata_value::Value, MetadataValue},
+    keyval::{AiStoreEntry, DbStoreEntry, StoreInput, StoreValue, store_input},
+    metadata::{MetadataValue, metadata_value::Value},
 };
 use pest::iterators::Pair;
 use std::collections::HashMap;

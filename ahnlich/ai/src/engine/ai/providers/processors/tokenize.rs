@@ -1,4 +1,4 @@
-use crate::engine::ai::providers::ort::helper::{read_file_to_bytes, HFConfigReader};
+use crate::engine::ai::providers::ort::helper::{HFConfigReader, read_file_to_bytes};
 use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
 use crate::error::AIProxyError;
 use hf_hub::api::sync::ApiRepo;
@@ -147,7 +147,7 @@ impl Preprocessor for Tokenize {
                     .tokenizer
                     .encode_batch(text.clone(), true)
                     .map_err(|_| AIProxyError::ModelTokenizationError {
-                        message: format!("Tokenize process failed. Texts: {:?}", text),
+                        message: format!("Tokenize process failed. Texts: {text:?}"),
                     })?;
                 Ok(PreprocessorData::EncodedText(tokenized))
             }

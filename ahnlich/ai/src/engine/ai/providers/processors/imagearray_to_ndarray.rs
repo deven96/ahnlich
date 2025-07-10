@@ -25,8 +25,7 @@ impl Preprocessor for ImageArrayToNdArray {
                             .collect::<Vec<_>>();
                         AIProxyError::ImageArrayToNdArrayError {
                             message: format!(
-                                "Images must have same dimensions, instead found: {:?}.",
-                                array_shapes
+                                "Images must have same dimensions, instead found: {array_shapes:?}."
                             ),
                         }
                     })?;

@@ -10,7 +10,7 @@ use ahnlich_types::db::server::StoreInfo;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::{StoreKey, StoreValue};
 use ahnlich_types::predicates::{
-    self, predicate::Kind as PredicateKind, Predicate, PredicateCondition,
+    self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
 };
 use ahnlich_types::shared::info::StoreUpsert;
 use ahnlich_types::similarity::Similarity;
@@ -21,9 +21,9 @@ use std::collections::HashMap as StdHashMap;
 use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
-use std::sync::Arc;
 use utils::persistence::AhnlichPersistenceUtils;
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
@@ -703,8 +703,8 @@ mod tests {
     use super::*;
     use ahnlich_types::metadata::MetadataValue;
     use ahnlich_types::predicates::{
-        self, predicate::Kind as PredicateKind,
-        predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
+        self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
+        predicate_condition::Kind as PredicateConditionKind,
     };
     use std::collections::HashMap as StdHashMap;
 

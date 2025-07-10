@@ -1,8 +1,8 @@
+use crate::NonLinearAlgorithmWithIndexImpl;
 /// K Dimensional Tree algorithm is a binary search tree that extends to multiple dimensions,
 /// making it an efficient datastructure for applying nearest neighbour searches and range searches
 use crate::error::Error;
 use crate::utils::VecF32Ordered;
-use crate::NonLinearAlgorithmWithIndexImpl;
 use crossbeam::epoch::{self, Atomic, Guard, Owned, Shared};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -477,7 +477,7 @@ impl KDTree {
                 });
                 if heap.len() < n.get()
                     || (reference_point[dim] - shared.point[dim]).abs()
-                        < heap.peek().map_or(f32::INFINITY, |x| x.0 .1)
+                        < heap.peek().map_or(f32::INFINITY, |x| x.0.1)
                 {
                     self.n_nearest_recursive(NearestRecuriveArgs {
                         node: &shared.right,
@@ -501,7 +501,7 @@ impl KDTree {
                 });
                 if heap.len() < n.get()
                     || (reference_point[dim] - shared.point[dim]).abs()
-                        < heap.peek().map_or(f32::INFINITY, |x| x.0 .1)
+                        < heap.peek().map_or(f32::INFINITY, |x| x.0.1)
                 {
                     self.n_nearest_recursive(NearestRecuriveArgs {
                         node: &shared.left,

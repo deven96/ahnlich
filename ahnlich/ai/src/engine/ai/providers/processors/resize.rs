@@ -1,6 +1,6 @@
 use crate::engine::ai::models::ImageArray;
 use crate::engine::ai::providers::processors::{
-    Preprocessor, PreprocessorData, CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD,
+    CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD, Preprocessor, PreprocessorData,
 };
 use crate::error::AIProxyError;
 use image::imageops::FilterType;
@@ -85,8 +85,7 @@ impl Resize {
             }
             _ => Err(AIProxyError::ModelConfigLoadError {
                 message: format!(
-                    "Resize init failed. image_processor_type {} not supported",
-                    image_processor_type
+                    "Resize init failed. image_processor_type {image_processor_type} not supported"
                 ),
             }),
         }

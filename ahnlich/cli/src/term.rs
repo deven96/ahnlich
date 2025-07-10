@@ -1,12 +1,11 @@
 use crossterm::{
-    cursor,
+    ExecutableCommand, cursor,
     event::{self, Event, KeyCode, KeyEvent},
     queue,
     style::{Color, Print, SetForegroundColor, Stylize},
     terminal::{self, disable_raw_mode, enable_raw_mode},
-    ExecutableCommand,
 };
-use std::io::{self, stdout, Stdout, Write};
+use std::io::{self, Stdout, Write, stdout};
 
 use crate::{connect::AgentClient, history::HistoryManager};
 
@@ -103,7 +102,7 @@ impl Term {
 
     pub(crate) fn format_output(&self, query: &str) -> String {
         let matches = |c| c == ';' || c == ' ';
-        let output = query
+        query
             .split_inclusive(matches)
             .map(|ex| {
                 // Trim the trailing space or semicolon from the command part
@@ -120,9 +119,7 @@ impl Term {
                     format!("{}{}", trimmed_ex.white(), &ex[trimmed_ex.len()..])
                 }
             })
-            .collect::<String>();
-
-        output
+            .collect::<String>()
     }
 
     fn remove_at_pos(&self, input: &mut String, char_index: u16) {
@@ -285,7 +282,7 @@ impl Term {
                                 for msg in success {
                                     queue!(
                                         stdout,
-                                        Print(format!("{}\n", msg)),
+                                        Print(format!("{msg}\n")),
                                         cursor::MoveToColumn(0)
                                     )?;
                                 }

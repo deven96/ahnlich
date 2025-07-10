@@ -4,8 +4,8 @@ use super::store::StoreKeyId;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicates::{
-    self, predicate::Kind as PredicateKind, predicate_condition::Kind as PredicateConditionKind,
-    Predicate, PredicateCondition,
+    self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
+    predicate_condition::Kind as PredicateConditionKind,
 };
 use itertools::Itertools;
 use papaya::HashMap as ConcurrentHashMap;

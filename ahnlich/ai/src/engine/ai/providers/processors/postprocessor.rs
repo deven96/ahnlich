@@ -46,7 +46,7 @@ impl ORTTextPostprocessor {
                 return Err(AIProxyError::ModelPostprocessingError {
                     model_name: supported_model.to_string(),
                     message: "Unsupported model for ORTTextPostprocessor".to_string(),
-                })
+                });
             }
         };
         Ok(Self {
@@ -66,7 +66,7 @@ impl ORTTextPostprocessor {
             .onnx_output_transform
             .process(PostprocessorData::OnnxOutput(session_outputs))?;
         let pooling_impl = match &self.pooling {
-            Pooling::Mean(ref pooling) => {
+            Pooling::Mean(pooling) => {
                 PoolingImpl::Mean(pooling.with_attention_mask(attention_mask))
             }
             Pooling::Regular(a) => PoolingImpl::Regular(*a),
