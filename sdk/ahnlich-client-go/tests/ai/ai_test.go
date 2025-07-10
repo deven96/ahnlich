@@ -197,26 +197,6 @@ func TestDeleteAndGetKey(t *testing.T) {
 	require.EqualValues(t, 1, del.DeletedCount)
 }
 
-// func TestDropStoreAndPurge(t *testing.T) {
-// 	proc := startAI(t)
-// 	defer proc.Kill()
-// 	conn := dialAI(t, proc.ServerAddr)
-// 	defer conn.Close()
-// 	client := aisvc.NewAIServiceClient(conn)
-
-// 	_, _ = client.CreateStore(context.Background(), storeNoPred)
-// 	_, _ = client.CreateStore(context.Background(), storeWithPred)
-
-// 	drop, _ := client.DropStore(context.Background(), &aiquery.DropStore{
-// 		Store:            storeWithPred.Store,
-// 		ErrorIfNotExists: true,
-// 	})
-// 	require.EqualValues(t, 1, drop.DeletedCount)
-
-// 	purge, _ := client.PurgeStores(context.Background(), &aiquery.PurgeStores{})
-// 	require.GreaterOrEqual(t, purge.DeletedCount, int64(1))
-// }
-
 func TestListClients(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
@@ -298,7 +278,3 @@ func TestMain(m *testing.M) {
 	proc.Kill()
 	m.Run()
 }
-
-/**
-TestDropStoreAndPurge
-*/
