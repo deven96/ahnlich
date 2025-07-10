@@ -57,8 +57,21 @@ run-db: ## Run ahnlich_db bin
 run-db-tracing: ## Run ahnlich_db bin with  tracing enabled
 	cargo run --bin ahnlich-db run --enable-tracing
 
+run-db-persistence: ## Run ahnlich_db bin with persistence
+	cargo run --bin ahnlich-db run --enable-tracing \
+		--enable-persistence \
+		--persistence-interval 60 \
+		--persist-location ahnlich-db.dat
+
 run-ai: ## Run ahnlich_ai bin with default supported models
 	cargo run --bin ahnlich-ai run --supported-models all-minilm-l6-v2,resnet-50,bge-base-en-v1.5,clip-vit-b32-text,clip-vit-b32-image
+
+run-ai-persistence: ## Run ahnlich_ai bin with persistence
+	cargo run --bin ahnlich-ai run --enable-tracing --enable-persistence \
+		--persist-location ahnlich-ai.dat \
+		--persistence-interval 60 \
+		--supported-models all-minilm-l6-v2,resnet-50,bge-base-en-v1.5,clip-vit-b32-text,clip-vit-b32-image
+
 
 run-ai-coreml: ## Run ahnlich_ai bin with coreML and tracing on mac-os
 	RUST_LOG='ort=debug' \

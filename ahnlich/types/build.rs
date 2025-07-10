@@ -71,20 +71,16 @@ fn main() -> Result<()> {
         )
         .type_attribute(
             "metadata.MetadataValue",
-            "#[derive(serde::Serialize, serde::Deserialize, PartialOrd, Ord, Hash, Eq)]",
+            "#[derive(PartialOrd, Ord, Hash, Eq)]",
         )
-        .type_attribute(
-            "keyval.StoreName",
-            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, Ord, PartialOrd)]",
-        )
-        .type_attribute("keyval.StoreName", "#[serde(transparent)]")
+        .type_attribute("keyval.StoreName", "#[derive(Eq, Hash, Ord, PartialOrd)]")
         .type_attribute(
             "db.server.StoreInfo",
             "#[derive(Hash, Eq, Ord, PartialOrd)]",
         )
         .type_attribute(
             "metadata.MetadataValue.value",
-            "#[derive(serde::Serialize, serde::Deserialize, PartialOrd, Ord, Hash, Eq)]",
+            "#[derive(PartialOrd, Ord, Hash, Eq)]",
         )
         .type_attribute(
             "ai.models.AIModel",
