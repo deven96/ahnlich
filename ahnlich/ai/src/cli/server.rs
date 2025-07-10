@@ -270,7 +270,7 @@ impl SupportedModelArgs {
         let mut output = String::new();
 
         for supported_model in SupportedModels::VARIANTS.iter() {
-            output.push_str(format!("{}, ", supported_model).as_str())
+            output.push_str(format!("{supported_model}, ").as_str())
         }
         output
     }
@@ -298,6 +298,6 @@ impl SupportedModelArgs {
             text.push_str(&self.list_supported_models());
         }
 
-        writeln!(&mut stdout, "{}", text).expect("Failed to write output");
+        writeln!(&mut stdout, "{text}").expect("Failed to write output");
     }
 }

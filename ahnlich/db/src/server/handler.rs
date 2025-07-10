@@ -16,8 +16,8 @@ use std::future::Future;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
 use std::num::NonZeroUsize;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use task_manager::BlockingTask;
 use task_manager::TaskManager;
 
@@ -52,7 +52,7 @@ impl DbService for Server {
             None => {
                 return Err(tonic::Status::invalid_argument(
                     "dimension must be greater than 0",
-                ))
+                ));
             }
         };
         let non_linear_indices = create_store_params

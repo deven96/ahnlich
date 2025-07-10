@@ -1,21 +1,21 @@
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::providers::ort::ORTProvider;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::ProviderTrait;
+use crate::engine::ai::providers::ort::ORTProvider;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider;
 use ahnlich_types::ai::models::AiStoreInputType;
 use ahnlich_types::keyval::StoreKey;
-use fast_image_resize::images::Image;
-use fast_image_resize::images::ImageRef;
 use fast_image_resize::FilterType;
 use fast_image_resize::PixelType;
 use fast_image_resize::ResizeAlg;
 use fast_image_resize::ResizeOptions;
 use fast_image_resize::Resizer;
-use image::imageops;
+use fast_image_resize::images::Image;
+use fast_image_resize::images::ImageRef;
 use image::ImageReader;
 use image::RgbImage;
+use image::imageops;
 use ndarray::{Array, Ix3};
 use ndarray::{ArrayView, Ix4};
 use nonzero_ext::nonzero;
@@ -66,65 +66,65 @@ impl SupportedModels {
                 embedding_size: nonzero!(384usize),
             },
             SupportedModels::AllMiniLML12V2 => ModelDetails {
-                    model_type: ModelType::Text {
-                        // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
-                        max_input_tokens: nonzero!(256usize),
-                    },
-                    supported_model: SupportedModels::AllMiniLML12V2,
-                    description: String::from("Sentence Transformer model, with 12 layers, version 2."),
-                    embedding_size: nonzero!(384usize),
+                model_type: ModelType::Text {
+                    // Token size source: https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2#intended-uses
+                    max_input_tokens: nonzero!(256usize),
+                },
+                supported_model: SupportedModels::AllMiniLML12V2,
+                description: String::from("Sentence Transformer model, with 12 layers, version 2."),
+                embedding_size: nonzero!(384usize),
             },
             SupportedModels::BGEBaseEnV15 => ModelDetails {
-                    model_type: ModelType::Text {
-                        // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
-                        max_input_tokens: nonzero!(512usize),
-                    },
-                    supported_model: SupportedModels::BGEBaseEnV15,
-                    description: String::from(
-                        "BAAI General Embedding model with English support, base scale, version 1.5.",
-                    ),
-                    embedding_size: nonzero!(768usize),
+                model_type: ModelType::Text {
+                    // Token size source: https://huggingface.co/BAAI/bge-large-en/discussions/11#64e44de1623074ac850aa1ae
+                    max_input_tokens: nonzero!(512usize),
+                },
+                supported_model: SupportedModels::BGEBaseEnV15,
+                description: String::from(
+                    "BAAI General Embedding model with English support, base scale, version 1.5.",
+                ),
+                embedding_size: nonzero!(768usize),
             },
             SupportedModels::BGELargeEnV15 => ModelDetails {
-                    model_type: ModelType::Text {
-                        max_input_tokens: nonzero!(512usize),
-                    },
-                    supported_model: SupportedModels::BGELargeEnV15,
-                    description: String::from(
-                        "BAAI General Embedding model with English support, large scale, version 1.5.",
-                    ),
-                    embedding_size: nonzero!(1024usize),
+                model_type: ModelType::Text {
+                    max_input_tokens: nonzero!(512usize),
+                },
+                supported_model: SupportedModels::BGELargeEnV15,
+                description: String::from(
+                    "BAAI General Embedding model with English support, large scale, version 1.5.",
+                ),
+                embedding_size: nonzero!(1024usize),
             },
             SupportedModels::Resnet50 => ModelDetails {
-                    model_type: ModelType::Image {
-                        expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
-                    },
-                    supported_model: SupportedModels::Resnet50,
-                    description: String::from("Residual Networks model, with 50 layers."),
-                    embedding_size: nonzero!(2048usize),
+                model_type: ModelType::Image {
+                    expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
+                },
+                supported_model: SupportedModels::Resnet50,
+                description: String::from("Residual Networks model, with 50 layers."),
+                embedding_size: nonzero!(2048usize),
             },
             SupportedModels::ClipVitB32Image => ModelDetails {
-                    model_type: ModelType::Image {
-                        expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
-                    },
-                    supported_model: SupportedModels::ClipVitB32Image,
-                    description: String::from(
-                        "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
-                    ),
-                    embedding_size: nonzero!(512usize),
+                model_type: ModelType::Image {
+                    expected_image_dimensions: (nonzero!(224usize), nonzero!(224usize)),
+                },
+                supported_model: SupportedModels::ClipVitB32Image,
+                description: String::from(
+                    "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
+                ),
+                embedding_size: nonzero!(512usize),
             },
             SupportedModels::ClipVitB32Text => ModelDetails {
-                    supported_model: SupportedModels::ClipVitB32Text,
-                    description: String::from(
-                        "Contrastive Language-Image Pre-Training Text transformer model, base scale. \
+                supported_model: SupportedModels::ClipVitB32Text,
+                description: String::from(
+                    "Contrastive Language-Image Pre-Training Text transformer model, base scale. \
                             Ideal for embedding very short text and using in combination with ClipVitB32Image",
-                    ),
-                    embedding_size: nonzero!(512usize),
-                    model_type: ModelType::Text {
-                        // Token size source: https://github.com/UKPLab/sentence-transformers/issues/1269
-                        max_input_tokens: nonzero!(77usize),
-                    },
+                ),
+                embedding_size: nonzero!(512usize),
+                model_type: ModelType::Text {
+                    // Token size source: https://github.com/UKPLab/sentence-transformers/issues/1269
+                    max_input_tokens: nonzero!(77usize),
                 },
+            },
         }
     }
 

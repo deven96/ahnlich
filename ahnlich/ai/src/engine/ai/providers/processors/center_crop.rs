@@ -1,6 +1,6 @@
 use crate::engine::ai::models::ImageArray;
 use crate::engine::ai::providers::processors::{
-    Preprocessor, PreprocessorData, CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD,
+    CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD, Preprocessor, PreprocessorData,
 };
 use crate::error::AIProxyError;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -87,9 +87,8 @@ impl CenterCrop {
             }
             _ => Err(AIProxyError::ModelConfigLoadError {
                 message: format!(
-                    "The key 'image_processor_type' in the configuration has the wrong value: {}; \
-                it should be either 'CLIPImageProcessor' or 'ConvNextFeatureExtractor'.",
-                    image_processor_type
+                    "The key 'image_processor_type' in the configuration has the wrong value: {image_processor_type}; \
+                it should be either 'CLIPImageProcessor' or 'ConvNextFeatureExtractor'."
                 )
                 .to_string(),
             }),

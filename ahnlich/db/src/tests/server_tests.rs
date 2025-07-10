@@ -3,11 +3,11 @@ use crate::{cli::ServerConfig, errors::ServerError};
 use ahnlich_types::algorithm::algorithms::Algorithm;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreValue};
-use ahnlich_types::metadata::metadata_value::Value as MetadataValueEnum;
 use ahnlich_types::metadata::MetadataValue;
+use ahnlich_types::metadata::metadata_value::Value as MetadataValueEnum;
 use ahnlich_types::predicates::{
-    self, predicate::Kind as PredicateKind, predicate_condition::Kind as PredicateConditionKind,
-    Predicate, PredicateCondition,
+    self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
+    predicate_condition::Kind as PredicateConditionKind,
 };
 use ahnlich_types::server_types::ServerType;
 use ahnlich_types::shared::info::StoreUpsert;

@@ -1,18 +1,18 @@
+use crate::AHNLICH_AI_RESERVED_META_KEY;
+use crate::cli::AIProxyConfig;
 use crate::cli::server::ModelConfig;
 use crate::cli::server::SupportedModels;
-use crate::cli::AIProxyConfig;
 use crate::engine::ai::models::Model;
 use crate::engine::ai::models::ModelDetails;
 use crate::engine::store::AIStoreHandler;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
-use crate::AHNLICH_AI_RESERVED_META_KEY;
 use ahnlich_types::ai::models::AiModel;
-use ahnlich_types::ai::pipeline::ai_query::Query;
-use ahnlich_types::ai::pipeline::ai_server_response;
 use ahnlich_types::ai::pipeline::AiRequestPipeline;
 use ahnlich_types::ai::pipeline::AiResponsePipeline;
 use ahnlich_types::ai::pipeline::AiServerResponse;
+use ahnlich_types::ai::pipeline::ai_query::Query;
+use ahnlich_types::ai::pipeline::ai_server_response;
 use ahnlich_types::ai::preprocess::PreprocessAction;
 use ahnlich_types::ai::query::CreateNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::CreatePredIndex;
@@ -38,8 +38,8 @@ use ahnlich_types::ai::server::Get;
 use ahnlich_types::ai::server::Pong;
 use ahnlich_types::ai::server::StoreList;
 use ahnlich_types::ai::server::Unit;
-use ahnlich_types::db::pipeline::db_server_response::Response as DbResponse;
 use ahnlich_types::db::pipeline::DbServerResponse;
+use ahnlich_types::db::pipeline::db_server_response::Response as DbResponse;
 use ahnlich_types::db::query::CreateNonLinearAlgorithmIndex as DbCreateNonLinearAlgorithmIndex;
 use ahnlich_types::db::query::CreatePredIndex as DbCreatePredIndex;
 use ahnlich_types::db::query::CreateStore as DbCreateStore;
@@ -52,11 +52,11 @@ use ahnlich_types::db::server::Set as DbSet;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
-use ahnlich_types::predicates::predicate::Kind as PredicateKind;
-use ahnlich_types::predicates::predicate_condition::Kind;
 use ahnlich_types::predicates::In;
 use ahnlich_types::predicates::Predicate;
 use ahnlich_types::predicates::PredicateCondition;
+use ahnlich_types::predicates::predicate::Kind as PredicateKind;
+use ahnlich_types::predicates::predicate_condition::Kind;
 use ahnlich_types::services::ai_service::ai_service_server::AiService;
 use ahnlich_types::services::ai_service::ai_service_server::AiServiceServer;
 use ahnlich_types::shared::info::ErrorResponse;
@@ -66,8 +66,8 @@ use std::error::Error;
 use std::future::Future;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use task_manager::BlockingTask;
 use task_manager::TaskManager;
 use tokio_util::sync::CancellationToken;
@@ -416,14 +416,19 @@ impl AiService for AIProxyServer {
         };
         pipeline.set(set_params);
         match pipeline.exec().await?.responses.as_slice() {
-            [DbServerResponse {
-                response: Some(DbResponse::Set(DbSet { upsert })),
-            }]
-            | [DbServerResponse {
-                response: Some(DbResponse::Del(_)),
-            }, DbServerResponse {
-                response: Some(DbResponse::Set(DbSet { upsert })),
-            }] => Ok(tonic::Response::new(server::Set { upsert: *upsert })),
+            [
+                DbServerResponse {
+                    response: Some(DbResponse::Set(DbSet { upsert })),
+                },
+            ]
+            | [
+                DbServerResponse {
+                    response: Some(DbResponse::Del(_)),
+                },
+                DbServerResponse {
+                    response: Some(DbResponse::Set(DbSet { upsert })),
+                },
+            ] => Ok(tonic::Response::new(server::Set { upsert: *upsert })),
             e => return Err(AIProxyError::UnexpectedDBResponse(format!("{e:?}")).into()),
         }
     }

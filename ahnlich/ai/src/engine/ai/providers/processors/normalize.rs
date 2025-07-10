@@ -20,13 +20,12 @@ impl ImageNormalize {
             let field = value
                 .get(key)
                 .ok_or_else(|| AIProxyError::ModelConfigLoadError {
-                    message: format!("The key '{}' is missing from the configuration.", key),
+                    message: format!("The key '{key}' is missing from the configuration."),
                 })?;
             serde_json::from_value(field.to_owned()).map_err(|_| {
                 AIProxyError::ModelConfigLoadError {
                     message: format!(
-                        "The key '{}' in the configuration must be an array of floats.",
-                        key
+                        "The key '{key}' in the configuration must be an array of floats."
                     ),
                 }
             })
@@ -94,9 +93,8 @@ impl Postprocessor for VectorNormalize {
                     .broadcast(array.dim())
                     .ok_or(AIProxyError::VectorNormalizationError {
                         message: format!(
-                            "Could not broadcast attention mask with shape {:?} to \
-                         shape {:?} of the input tensor.",
-                            source_shape, target_shape
+                            "Could not broadcast attention mask with shape {source_shape:?} to \
+                         shape {target_shape:?} of the input tensor."
                         ),
                     })?
                     .to_owned();

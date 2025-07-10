@@ -25,14 +25,18 @@ pub enum AIProxyError {
     ReservedError(String),
     #[error("Unexpected DB Response {0} ")]
     UnexpectedDBResponse(String),
-    #[error("Cannot {action} Input. Store expects [{index_model_type:?}], input type [{storeinput_type:?}] was provided")]
+    #[error(
+        "Cannot {action} Input. Store expects [{index_model_type:?}], input type [{storeinput_type:?}] was provided"
+    )]
     StoreTypeMismatchError {
         action: InputAction,
         index_model_type: AiStoreInputType,
         storeinput_type: AiStoreInputType,
     },
 
-    #[error("Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}].")]
+    #[error(
+        "Max Token Exceeded. Model Expects [{max_token_size}], input type was [{input_token_size}]."
+    )]
     TokenExceededError {
         max_token_size: usize,
         input_token_size: usize,
@@ -98,7 +102,9 @@ pub enum AIProxyError {
     #[error("Error receiving response from model thread")]
     AIModelRecvError(#[from] RecvError),
 
-    #[error("Dimensions Mismatch between index [{index_model_dim}], and Query [{query_model_dim}] Models.")]
+    #[error(
+        "Dimensions Mismatch between index [{index_model_dim}], and Query [{query_model_dim}] Models."
+    )]
     DimensionsMismatchError {
         index_model_dim: usize,
         query_model_dim: usize,
@@ -115,9 +121,7 @@ pub enum AIProxyError {
     #[error("Image could not be successfully encoded into bytes.")]
     ImageBytesEncodeError,
 
-    #[error(
-        "Image can't have zero value in any dimension. Found height: {height}, width: {width}"
-    )]
+    #[error("Image can't have zero value in any dimension. Found height: {height}, width: {width}")]
     ImageNonzeroDimensionError { width: usize, height: usize },
 
     #[error("Image could not be resized. {0}")]

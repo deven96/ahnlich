@@ -30,11 +30,11 @@ where
     unsafe fn alloc(&self, layout: alloc::Layout) -> *mut u8 {
         //TODO: we reserve 1000 bytes to handle panics
         //const RESERVED: usize = 10000;
-        self.allocator.alloc(layout)
+        unsafe { self.allocator.alloc(layout) }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: alloc::Layout) {
-        self.allocator.dealloc(ptr, layout)
+        unsafe { self.allocator.dealloc(ptr, layout) }
     }
 }
 

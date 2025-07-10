@@ -9,7 +9,7 @@ use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvi
 use ahnlich_types::keyval::StoreKey;
 use executor::ExecutorWithSessionCache;
 use fallible_collections::FallibleVec;
-use hf_hub::{api::sync::ApiBuilder, Cache};
+use hf_hub::{Cache, api::sync::ApiBuilder};
 use itertools::Itertools;
 use ort::{
     CUDAExecutionProvider, CoreMLExecutionProvider, DirectMLExecutionProvider, ExecutionProvider,
@@ -325,7 +325,7 @@ impl ORTProvider {
             _ => {
                 return Err(AIProxyError::AIModelNotSupported {
                     model_name: self.supported_models.to_string(),
-                })
+                });
             }
         };
 

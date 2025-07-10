@@ -1,6 +1,6 @@
 use crate::engine::ai::providers::processors::{Postprocessor, PostprocessorData};
 use crate::error::AIProxyError;
-use ndarray::{s, Array, Axis, Ix2};
+use ndarray::{Array, Axis, Ix2, s};
 
 #[derive(Clone)]
 pub enum Pooling {

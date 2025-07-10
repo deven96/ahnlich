@@ -1,6 +1,6 @@
 use ahnlich_types::{
     ai::{
-        pipeline::{ai_query::Query, AiQuery, AiRequestPipeline, AiResponsePipeline},
+        pipeline::{AiQuery, AiRequestPipeline, AiResponsePipeline, ai_query::Query},
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
             DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
@@ -317,8 +317,8 @@ impl AiClient {
 mod test {
 
     use super::*;
-    use ahnlich_ai_proxy::cli::server::SupportedModels;
     use ahnlich_ai_proxy::cli::AIProxyConfig;
+    use ahnlich_ai_proxy::cli::server::SupportedModels;
     use ahnlich_ai_proxy::engine::ai::models::ModelDetails;
     use ahnlich_ai_proxy::error::AIProxyError;
     use ahnlich_ai_proxy::server::handler::AIProxyServer;
@@ -331,7 +331,7 @@ mod test {
     use ahnlich_types::ai::server::{AiStoreInfo, GetEntry};
     use ahnlich_types::keyval::store_input::Value;
     use ahnlich_types::keyval::{AiStoreEntry, StoreInput, StoreValue};
-    use ahnlich_types::metadata::{metadata_value::Value as MValue, MetadataValue};
+    use ahnlich_types::metadata::{MetadataValue, metadata_value::Value as MValue};
     use ahnlich_types::shared::info::{ErrorResponse, StoreUpsert};
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_eq;
@@ -343,8 +343,8 @@ mod test {
     use ahnlich_types::{ai::pipeline::ai_server_response::Response, keyval::StoreName};
 
     use ahnlich_types::predicates::{
-        self, predicate::Kind as PredicateKind,
-        predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
+        self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
+        predicate_condition::Kind as PredicateConditionKind,
     };
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
@@ -549,10 +549,12 @@ mod test {
             store_original: true,
         };
 
-        assert!(ai_client
-            .create_store(create_store_params, None)
-            .await
-            .is_ok());
+        assert!(
+            ai_client
+                .create_store(create_store_params, None)
+                .await
+                .is_ok()
+        );
 
         let set_params = Set {
             store: "Main".to_string(),

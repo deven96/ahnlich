@@ -8,7 +8,7 @@ use pretty_assertions::assert_eq;
 use std::{collections::HashMap, net::SocketAddr, sync::atomic::Ordering};
 
 use crate::{
-    cli::{server::SupportedModels, AIProxyConfig},
+    cli::{AIProxyConfig, server::SupportedModels},
     engine::ai::models::ModelDetails,
     error::AIProxyError,
     server::handler::AIProxyServer,
@@ -17,7 +17,7 @@ use crate::{
 use ahnlich_types::algorithm::algorithms::Algorithm;
 use ahnlich_types::{
     ai::server::GetSimNEntry,
-    metadata::{metadata_value::Value as MValue, MetadataValue},
+    metadata::{MetadataValue, metadata_value::Value as MValue},
 };
 use ahnlich_types::{
     ai::{
@@ -27,14 +27,14 @@ use ahnlich_types::{
         query::{self as ai_query_types},
         server::{self as ai_response_types, AiStoreInfo, GetEntry},
     },
-    keyval::{store_input::Value, AiStoreEntry, StoreInput, StoreName, StoreValue},
+    keyval::{AiStoreEntry, StoreInput, StoreName, StoreValue, store_input::Value},
     services::ai_service::ai_service_client::AiServiceClient,
     shared::info::StoreUpsert,
 };
 use ahnlich_types::{
     predicates::{
-        self, predicate::Kind as PredicateKind,
-        predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
+        self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
+        predicate_condition::Kind as PredicateConditionKind,
     },
     similarity::Similarity,
 };

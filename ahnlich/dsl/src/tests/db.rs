@@ -10,10 +10,10 @@ use ahnlich_types::{
         },
     },
     keyval::{DbStoreEntry, StoreKey, StoreValue},
-    metadata::{metadata_value::Value, MetadataValue},
+    metadata::{MetadataValue, metadata_value::Value},
     predicates::{
-        predicate::Kind as PredicateKind, predicate_condition::Kind, Equals, In, NotEquals, NotIn,
-        Predicate, PredicateCondition,
+        Equals, In, NotEquals, NotIn, Predicate, PredicateCondition,
+        predicate::Kind as PredicateKind, predicate_condition::Kind,
     },
 };
 use pretty_assertions::assert_eq;
