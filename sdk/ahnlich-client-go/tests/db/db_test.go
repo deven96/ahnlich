@@ -404,10 +404,3 @@ func TestPipeline_BulkSetAndGet(t *testing.T) {
 	require.Len(t, getResp.Entries, 1)
 	require.Equal(t, []float32{1, 2, 3, 4, 5}, getResp.Entries[0].Key.Key)
 }
-
-func TestMain(m *testing.M) {
-	t := new(testing.T)
-	proc := startDB(t)
-	proc.Kill()
-	m.Run()
-}
