@@ -10,18 +10,18 @@ use std::path::PathBuf;
 /// To be used when loading local model files.
 pub fn read_file_to_bytes(file: &PathBuf) -> Result<Vec<u8>, AIProxyError> {
     let mut file = File::open(file).map_err(|_| AIProxyError::ModelConfigLoadError {
-        message: format!("failed to open file {:?}", file),
+        message: format!("failed to open file {file:?}"),
     })?;
     let file_size = file
         .metadata()
         .map_err(|_| AIProxyError::ModelConfigLoadError {
-            message: format!("failed to get metadata for file {:?}", file),
+            message: format!("failed to get metadata for file {file:?}"),
         })?
         .len() as usize;
     let mut buffer = Vec::with_capacity(file_size);
     file.read_to_end(&mut buffer)
         .map_err(|_| AIProxyError::ModelConfigLoadError {
-            message: format!("failed to read file {:?}", file),
+            message: format!("failed to read file {file:?}"),
         })?;
     Ok(buffer)
 }
@@ -47,15 +47,15 @@ impl HFConfigReader {
             self.model_repo
                 .get(config_name)
                 .map_err(|e| AIProxyError::ModelConfigLoadError {
-                    message: format!("failed to fetch {}, {}", config_name, e),
+                    message: format!("failed to fetch {config_name}, {e}"),
                 })?;
         let contents =
             read_file_to_bytes(&file).map_err(|e| AIProxyError::ModelConfigLoadError {
-                message: format!("failed to read {}, {}", config_name, e),
+                message: format!("failed to read {config_name}, {e}"),
             })?;
         let value: serde_json::Value =
             serde_json::from_slice(&contents).map_err(|e| AIProxyError::ModelConfigLoadError {
-                message: format!("failed to parse {}, {}", config_name, e),
+                message: format!("failed to parse {config_name}, {e}"),
             })?;
         self.cache
             .insert(config_name.to_string(), Ok(value.clone()));

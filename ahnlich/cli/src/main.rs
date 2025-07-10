@@ -18,8 +18,7 @@ async fn main() -> std::io::Result<()> {
                 .map_err(io::Error::other)?
             {
                 return Err(io::Error::other(format!(
-                    "Connected Server is not a valid {} Server",
-                    client
+                    "Connected Server is not a valid {client} Server"
                 )));
             }
             let term = Term::new(client);

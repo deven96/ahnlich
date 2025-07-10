@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 use tracing_subscriber::fmt::format::FmtSpan;
 
-use opentelemetry::{global, trace::TraceContextExt, Context, KeyValue};
+use opentelemetry::{Context, KeyValue, global, trace::TraceContextExt};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
+    Resource,
     propagation::TraceContextPropagator,
     trace::{self, Sampler},
-    Resource,
 };
 use std::sync::Once;
 use tracing::subscriber::set_global_default;
 use tracing_log::LogTracer;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
-use tracing_subscriber::{layer::SubscriberExt, EnvFilter, Registry};
+use tracing_subscriber::{EnvFilter, Registry, layer::SubscriberExt};
 
 static INIT_ONCE: Once = Once::new();
 

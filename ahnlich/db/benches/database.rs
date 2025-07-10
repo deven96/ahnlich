@@ -3,15 +3,15 @@ use ahnlich_types::algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgori
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 use rayon::iter::ParallelIterator;
 use rayon::slice::ParallelSlice;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 fn generate_storekey_store_value(size: usize, dimension: usize) -> Vec<(StoreKey, StoreValue)> {
     let mut buffer: Vec<f32> = Vec::with_capacity(size * dimension);

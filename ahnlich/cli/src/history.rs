@@ -33,7 +33,7 @@ fn save_command_history(commands: &[String]) {
         .open(path)
         .expect("Unable to open history file");
     for command in commands {
-        writeln!(file, "{}", command).expect("Unable to write to history file");
+        writeln!(file, "{command}").expect("Unable to write to history file");
     }
 }
 

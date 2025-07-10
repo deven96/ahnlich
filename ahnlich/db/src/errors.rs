@@ -15,7 +15,9 @@ pub enum ServerError {
     StoreNotFound(StoreName),
     #[error("Store {0:?} already exists")]
     StoreAlreadyExists(StoreName),
-    #[error("Store dimension is [{store_dimension}], input dimension of [{input_dimension}] was specified")]
+    #[error(
+        "Store dimension is [{store_dimension}], input dimension of [{input_dimension}] was specified"
+    )]
     StoreDimensionMismatch {
         store_dimension: usize,
         input_dimension: usize,

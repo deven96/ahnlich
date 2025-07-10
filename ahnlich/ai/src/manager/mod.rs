@@ -7,9 +7,9 @@ use crate::engine::ai::models::{ImageArray, InputAction};
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
 use crate::engine::ai::models::{Model, ModelInput};
+use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::processors::imagearray_to_ndarray::ImageArrayToNdArray;
 use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
-use crate::engine::ai::providers::ModelProviders;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider;
 use ahnlich_types::ai::models::AiModel;

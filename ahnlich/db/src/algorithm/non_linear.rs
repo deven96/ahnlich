@@ -1,8 +1,8 @@
 use super::super::errors::ServerError;
 use super::FindSimilarN;
+use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_similarity::utils::VecF32Ordered;
-use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::keyval::StoreKey;
 use papaya::HashMap as ConcurrentHashMap;

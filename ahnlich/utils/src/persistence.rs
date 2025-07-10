@@ -1,19 +1,19 @@
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::BufReader;
 use std::path::Path;
+use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use std::sync::Arc;
 use task_manager::Task;
 use task_manager::TaskState;
 use tempfile::NamedTempFile;
 use thiserror::Error;
-use tokio::time::sleep;
 use tokio::time::Duration;
+use tokio::time::sleep;
 
 pub trait AhnlichPersistenceUtils {
     type PersistenceObject: Serialize + DeserializeOwned + Send + Sync + 'static + Debug;

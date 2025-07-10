@@ -8,8 +8,8 @@ use crate::ai::models::AiStoreInputType;
 use crate::client::ConnectedClient;
 use crate::keyval::store_input::Value;
 use crate::keyval::{StoreInput, StoreName};
-use crate::metadata::metadata_value::Value as MetadataValueInner;
 use crate::metadata::MetadataValue;
+use crate::metadata::metadata_value::Value as MetadataValueInner;
 use crate::predicates::{AndCondition, Equals, In, NotEquals, NotIn, OrCondition};
 use crate::shared::info::StoreUpsert;
 
@@ -48,7 +48,7 @@ impl std::fmt::Display for MetadataValueInner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MetadataValueInner::Image(bytes) => write!(f, "img:{}", ascii85::encode(bytes)),
-            MetadataValueInner::RawString(s) => write!(f, "str:{}", s),
+            MetadataValueInner::RawString(s) => write!(f, "str:{s}"),
         }
     }
 }

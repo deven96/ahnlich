@@ -13,12 +13,12 @@ use ahnlich_types::{
     },
     algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
     keyval::{
-        store_input::Value as StoreValue, AiStoreEntry, StoreInput, StoreValue as KvStoreValue,
+        AiStoreEntry, StoreInput, StoreValue as KvStoreValue, store_input::Value as StoreValue,
     },
-    metadata::{metadata_value::Value, MetadataValue},
+    metadata::{MetadataValue, metadata_value::Value},
     predicates::{
-        predicate::Kind as PredicateKind, predicate_condition::Kind, Equals, In, NotEquals, NotIn,
-        Predicate, PredicateCondition,
+        Equals, In, NotEquals, NotIn, Predicate, PredicateCondition,
+        predicate::Kind as PredicateKind, predicate_condition::Kind,
     },
 };
 use pretty_assertions::assert_eq;

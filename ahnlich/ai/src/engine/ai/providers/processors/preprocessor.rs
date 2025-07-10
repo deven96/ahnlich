@@ -62,7 +62,7 @@ impl ORTImagePreprocessor {
                     .process(data)
                     .map_err(|e| AIProxyError::ModelPreprocessingError {
                         model_name: self.model.to_string(),
-                        message: format!("Failed to process resize: {}", e),
+                        message: format!("Failed to process resize: {e}"),
                     })?
             }
             None => data,
@@ -73,7 +73,7 @@ impl ORTImagePreprocessor {
                 Some(ref center_crop) => center_crop.process(data).map_err(|e| {
                     AIProxyError::ModelPreprocessingError {
                         model_name: self.model.to_string(),
-                        message: format!("Failed to process center crop: {}", e),
+                        message: format!("Failed to process center crop: {e}"),
                     }
                 })?,
                 None => data,
@@ -82,7 +82,7 @@ impl ORTImagePreprocessor {
         data = self.imagearray_to_ndarray.process(data).map_err(|e| {
             AIProxyError::ModelPreprocessingError {
                 model_name: self.model.to_string(),
-                message: format!("Failed to process imagearray to ndarray: {}", e),
+                message: format!("Failed to process imagearray to ndarray: {e}"),
             }
         })?;
 
@@ -92,7 +92,7 @@ impl ORTImagePreprocessor {
                     .process(data)
                     .map_err(|e| AIProxyError::ModelPreprocessingError {
                         model_name: self.model.to_string(),
-                        message: format!("Failed to process rescale: {}", e),
+                        message: format!("Failed to process rescale: {e}"),
                     })?
             }
             None => data,
@@ -104,7 +104,7 @@ impl ORTImagePreprocessor {
                     .process(data)
                     .map_err(|e| AIProxyError::ModelPreprocessingError {
                         model_name: self.model.to_string(),
-                        message: format!("Failed to process normalize: {}", e),
+                        message: format!("Failed to process normalize: {e}"),
                     })?
             }
             None => data,
@@ -165,7 +165,7 @@ impl ORTTextPreprocessor {
             .process(data)
             .map_err(|e| AIProxyError::ModelPreprocessingError {
                 model_name: self.model.to_string(),
-                message: format!("Failed to process tokenize: {}", e),
+                message: format!("Failed to process tokenize: {e}"),
             })?;
 
         match data {

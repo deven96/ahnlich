@@ -116,7 +116,7 @@ impl FindSimilarN for LinearAlgorithm {
                 n,
             )
             .into_par_iter()
-            .map(|a| (a.0 .0 .0.clone(), a.0 .0 .1))
+            .map(|a| (a.0.0.0.clone(), a.0.0.1))
             .collect(),
             HeapOrder::Max => pop_n(
                 &mut search_list
@@ -129,7 +129,7 @@ impl FindSimilarN for LinearAlgorithm {
                 n,
             )
             .into_par_iter()
-            .map(|a| (a.0 .0.clone(), a.0 .1))
+            .map(|a| (a.0.0.clone(), a.0.1))
             .collect(),
         }
     }

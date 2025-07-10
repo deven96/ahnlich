@@ -1,6 +1,6 @@
 use ahnlich_types::{
     db::{
-        pipeline::{db_query::Query, DbQuery, DbRequestPipeline, DbResponsePipeline},
+        pipeline::{DbQuery, DbRequestPipeline, DbResponsePipeline, db_query::Query},
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred,
             DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
@@ -328,19 +328,19 @@ mod test {
     use ahnlich_types::{
         algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
         db::{
-            pipeline::{db_server_response::Response, DbServerResponse},
+            pipeline::{DbServerResponse, db_server_response::Response},
             query::CreateStore,
             server::{GetSimNEntry, StoreInfo},
         },
         keyval::{DbStoreEntry, StoreKey, StoreValue},
-        metadata::{metadata_value::Value, MetadataValue},
+        metadata::{MetadataValue, metadata_value::Value},
         shared::info::ErrorResponse,
         similarity::Similarity,
     };
 
     use ahnlich_types::predicates::{
-        self, predicate::Kind as PredicateKind,
-        predicate_condition::Kind as PredicateConditionKind, Predicate, PredicateCondition,
+        self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
+        predicate_condition::Kind as PredicateConditionKind,
     };
 
     use ahnlich_types::{
@@ -450,10 +450,12 @@ mod test {
             error_if_exists: true,
         };
 
-        assert!(db_client
-            .create_store(create_store_params, None)
-            .await
-            .is_ok());
+        assert!(
+            db_client
+                .create_store(create_store_params, None)
+                .await
+                .is_ok()
+        );
 
         let set_key_params = Set {
             store: "Main".to_string(),
@@ -729,10 +731,12 @@ mod test {
             error_if_exists: true,
         };
 
-        assert!(db_client
-            .create_store(create_store_params, None)
-            .await
-            .is_ok());
+        assert!(
+            db_client
+                .create_store(create_store_params, None)
+                .await
+                .is_ok()
+        );
 
         let del_key_params = DelKey {
             store: "Main".to_string(),
@@ -837,10 +841,12 @@ mod test {
             error_if_exists: true,
         };
 
-        assert!(db_client
-            .create_store(create_store_params, None)
-            .await
-            .is_ok());
+        assert!(
+            db_client
+                .create_store(create_store_params, None)
+                .await
+                .is_ok()
+        );
 
         let set_key_params = Set {
             store: "Main".to_string(),

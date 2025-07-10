@@ -4,7 +4,7 @@ use ort::Session;
 use crate::error::AIProxyError;
 use strum::IntoEnumIterator;
 
-use super::{register_provider, InnerAIExecutionProvider};
+use super::{InnerAIExecutionProvider, register_provider};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::available_parallelism;
