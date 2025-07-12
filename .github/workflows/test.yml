@@ -30,8 +30,10 @@ jobs:
       run: |
         which cargo-nextest || cargo install cargo-nextest
 
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v3
+    - name: Install protoc
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
     
     - name: Cache Docker images.
       uses: ScribeMD/docker-cache@0.5.0
@@ -109,8 +111,10 @@ jobs:
         poetry run isort . -c --profile black; echo $?
         poetry run black . --check; echo $?
 
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v3
+    - name: Install protoc
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
 
     - name: Complie Binaries
       working-directory: ./ahnlich
