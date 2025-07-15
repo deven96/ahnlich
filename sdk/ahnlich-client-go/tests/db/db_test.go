@@ -27,12 +27,11 @@ func startDB(t *testing.T) *utils.AhnlichProcess {
 }
 
 // Helper to dial the DB gRPC server
-func dialDB(t *testing.T, addr string) *grpc.ClientConn {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+func dialDB(t *testing.T, addr string) (*grpc.ClientConn, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	conn, err := grpc.DialContext(ctx, addr, grpc.WithInsecure(), grpc.WithBlock())
 	require.NoError(t, err)
-	return conn
+	return conn, cancel
 }
 
 // Shared test data
@@ -51,9 +50,11 @@ var (
 )
 
 func TestCreateStore_Succeeds(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 
@@ -63,9 +64,11 @@ func TestCreateStore_Succeeds(t *testing.T) {
 }
 
 func TestCreateStoreWithPredicates_Succeeds(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 
@@ -75,9 +78,11 @@ func TestCreateStoreWithPredicates_Succeeds(t *testing.T) {
 }
 
 func TestListStores_FindsCreatedStore(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 
@@ -95,9 +100,11 @@ func TestListStores_FindsCreatedStore(t *testing.T) {
 }
 
 func TestSetInStore_Succeeds(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 
@@ -128,9 +135,11 @@ func TestSetInStore_Succeeds(t *testing.T) {
 }
 
 func TestSetInStore_SucceedsWithBinary(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 
@@ -152,9 +161,11 @@ func TestSetInStore_SucceedsWithBinary(t *testing.T) {
 }
 
 func TestCreatePredicateIndex_Succeeds(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 	_, _ = client.CreateStore(context.Background(), storeWithPred)
@@ -168,9 +179,11 @@ func TestCreatePredicateIndex_Succeeds(t *testing.T) {
 }
 
 func TestGetByPredicate_Succeeds(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 	_, _ = client.CreateStore(context.Background(), storeWithPred)
@@ -216,9 +229,11 @@ func TestGetByPredicate_Succeeds(t *testing.T) {
 }
 
 func TestGetSimN_Succeeds(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 	_, _ = client.CreateStore(context.Background(), storeNoPred)
@@ -254,9 +269,11 @@ func TestGetSimN_Succeeds(t *testing.T) {
 }
 
 func TestDropPredicateIndex_Succeeds(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 	_, _ = client.CreateStore(context.Background(), storeWithPred)
@@ -271,9 +288,11 @@ func TestDropPredicateIndex_Succeeds(t *testing.T) {
 }
 
 func TestDeletePredicate_Succeeds(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 	_, _ = client.CreateStore(context.Background(), storeWithPred)
@@ -309,9 +328,11 @@ func TestDeletePredicate_Succeeds(t *testing.T) {
 }
 
 func TestDeleteKey_Succeeds(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 	_, _ = client.CreateStore(context.Background(), storeNoPred)
@@ -338,9 +359,11 @@ func TestDeleteKey_Succeeds(t *testing.T) {
 }
 
 func TestDropStore_Succeeds(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 	_, _ = client.CreateStore(context.Background(), storeNoPred)
@@ -351,9 +374,11 @@ func TestDropStore_Succeeds(t *testing.T) {
 }
 
 func TestListStores_ReflectsDroppedStore(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 	_, _ = client.CreateStore(context.Background(), storeNoPred)
@@ -367,9 +392,11 @@ func TestListStores_ReflectsDroppedStore(t *testing.T) {
 }
 
 func TestPipeline_BulkSetAndGet(t *testing.T) {
+	t.Parallel()
 	proc := startDB(t)
 	defer proc.Kill()
-	conn := dialDB(t, proc.ServerAddr)
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := dbsvc.NewDBServiceClient(conn)
 	_, _ = client.CreateStore(context.Background(), storeNoPred)

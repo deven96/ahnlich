@@ -13,6 +13,9 @@ JUNIT_VERSION        := 2.1.0
 STATICCHECK_VERSION  :=  2025.1
 OUT_DIR    := grpc 
 TEST_DIR := $(shell realpath .)
+TEST_NUM_MODULE_BUILDS := 1
+TEST_NUM_PARALLEL := 20
+AHNLICH_DIR := $(shell realpath ../../ahnlich)
 
 .PHONY: all \
         install-go-junit install-go-test-sum install-gofmt install-goimports \
@@ -164,13 +167,12 @@ pre-commit-check: format-check lint-check
 
 .PHONY: help-bins
 help-bins:
-	@echo "→ ahnlich-db help"
-	@toml=$$(realpath ../../ahnlich/Cargo.toml) && \
-	  cargo run --manifest-path $$toml --bin ahnlich-db --help
+	@echo "→ ahnlich build"
+	pushd "$(AHNLICH_DIR)" && \
+	cargo build && \
+	echo "→ ahnlich build complete" && \
+	popd
 	@echo
-	@echo "→ ahnlich-ai help"
-	@toml=$$(realpath ../../ahnlich/Cargo.toml) && \
-	  cargo run --manifest-path $$toml --bin ahnlich-ai --help
 
 test-sequential:
 	 make help-bins
@@ -179,17 +181,37 @@ ifeq ($(CI),1)
 endif
 ifneq ($(CACHE),1)
 ifeq ($(REPORT),1)
-	CGO_ENABLED=0 go test -count=1 -p 1 -failfast -v $$(go list $(TEST_DIR)/...) && gotestsum --junitfile go.xml
+	CGO_ENABLED=0 go test -count=1 -p $(TEST_NUM_MODULE_BUILDS) -failfast -v $$(go list $(TEST_DIR)/...) && gotestsum --junitfile go.xml
 else
-	CGO_ENABLED=0 go test -count=1 -p 1 -failfast -v $$(go list $(TEST_DIR)/...)
+	CGO_ENABLED=0 go test -count=1 -p $(TEST_NUM_MODULE_BUILDS) -failfast -v $$(go list $(TEST_DIR)/...)
 endif
 else
 ifeq ($(REPORT),1)
-	CGO_ENABLED=0 go test -p 1 -failfast -v $$(go list $(TEST_DIR)/...) && gotestsum --junitfile go.xml
+	CGO_ENABLED=0 go test -p $(TEST_NUM_MODULE_BUILDS) -failfast -v $$(go list $(TEST_DIR)/...) && gotestsum --junitfile go.xml
 else
-	CGO_ENABLED=0 go test -p 1 -failfast -v $$(go list $(TEST_DIR)/...)
+	CGO_ENABLED=0 go test -p $(TEST_NUM_MODULE_BUILDS) -failfast -v $$(go list $(TEST_DIR)/...)
 endif
 endif
+
+test-parallel:
+	 make help-bins
+ifeq ($(CI),1)
+	@export PATH=$$PATH:/usr/local/go/bin:$(shell go env GOPATH)/bin;
+endif
+ifneq ($(CACHE),1)
+ifeq ($(REPORT),1)
+	CGO_ENABLED=0 go test -count=1 -parallel $(TEST_NUM_PARALLEL) -p $(TEST_NUM_MODULE_BUILDS) -failfast -v $$(go list $(TEST_DIR)/...) && gotestsum --junitfile go.xml
+else
+	CGO_ENABLED=0 go test -count=1 -parallel $(TEST_NUM_PARALLEL) -p $(TEST_NUM_MODULE_BUILDS) -failfast -v $$(go list $(TEST_DIR)/...)
+endif
+else
+ifeq ($(REPORT),1)
+	CGO_ENABLED=0 go test -p $(TEST_NUM_MODULE_BUILDS) -parallel $(TEST_NUM_PARALLEL) -failfast -v $$(go list $(TEST_DIR)/...) && gotestsum --junitfile go.xml
+else
+	CGO_ENABLED=0 go test -p $(TEST_NUM_MODULE_BUILDS) -parallel $(TEST_NUM_PARALLEL) -failfast -v $$(go list $(TEST_DIR)/...)
+endif
+endif
+
 
 test-race:
 ifeq ($(CI),1)
@@ -239,4 +261,4 @@ clean:
 	rm -f $(PB_FILES) $(PBW_FILES) $(GRPC_PB_FILES)
 	@echo "✅ Clean complete."
 
-test: test-sequential
+test: test-parallel

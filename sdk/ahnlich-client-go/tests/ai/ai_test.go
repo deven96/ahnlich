@@ -32,12 +32,11 @@ func startAI(t *testing.T) *utils.AhnlichProcess {
 }
 
 // Helper to dial the AI gRPC server
-func dialAI(t *testing.T, addr string) *grpc.ClientConn {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
+func dialAI(t *testing.T, addr string) (*grpc.ClientConn, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	conn, err := grpc.DialContext(ctx, addr, grpc.WithInsecure(), grpc.WithBlock())
 	require.NoError(t, err)
-	return conn
+	return conn, cancel
 }
 
 // Shared test data
@@ -62,7 +61,8 @@ var (
 func TestCreateStoreOK(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
-	conn := dialAI(t, proc.ServerAddr)
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 
 	client := aisvc.NewAIServiceClient(conn)
@@ -73,7 +73,8 @@ func TestCreateStoreOK(t *testing.T) {
 func TestCreateStoreAlreadyExists(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
-	conn := dialAI(t, proc.ServerAddr)
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := aisvc.NewAIServiceClient(conn)
 
@@ -88,7 +89,8 @@ func TestCreateStoreAlreadyExists(t *testing.T) {
 func TestGetPredicates(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
-	conn := dialAI(t, proc.ServerAddr)
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := aisvc.NewAIServiceClient(conn)
 	_, _ = client.CreateStore(context.Background(), storeWithPred)
@@ -141,7 +143,8 @@ func TestGetPredicates(t *testing.T) {
 func TestCreateAndDropPredIndex(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
-	conn := dialAI(t, proc.ServerAddr)
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := aisvc.NewAIServiceClient(conn)
 
@@ -172,7 +175,8 @@ func TestCreateAndDropPredIndex(t *testing.T) {
 func TestDeleteAndGetKey(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
-	conn := dialAI(t, proc.ServerAddr)
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := aisvc.NewAIServiceClient(conn)
 
@@ -200,7 +204,8 @@ func TestDeleteAndGetKey(t *testing.T) {
 func TestListClients(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
-	conn := dialAI(t, proc.ServerAddr)
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := aisvc.NewAIServiceClient(conn)
 
@@ -212,7 +217,8 @@ func TestListClients(t *testing.T) {
 func TestPipelineSuccess(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
-	conn := dialAI(t, proc.ServerAddr)
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := aisvc.NewAIServiceClient(conn)
 
@@ -249,7 +255,8 @@ func TestPipelineSuccess(t *testing.T) {
 func TestPipelineError(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
-	conn := dialAI(t, proc.ServerAddr)
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
 	defer conn.Close()
 	client := aisvc.NewAIServiceClient(conn)
 

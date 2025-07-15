@@ -225,15 +225,15 @@ func execute(t *testing.T, execType string, binType string, args ...string) (*ex
 	}
 	t.Log("execute() args", "rootDir", rootDir, "execType", execType, "args", args)
 	serverPath := filepath.Join(rootDir, "..", "..", "ahnlich")
-	lookPath := "cargo"
 
 	t.Log("execute() args", "rootDir", rootDir, "execType", execType, "args", args)
-	if _, err := exec.LookPath(lookPath); err != nil {
-		return nil, err
-	}
+	lookPath := "cargo"
 	commands := []string{execType}
 	if execType == "run" {
 		commands = append(commands, "--bin", binType, "run")
+	}
+	if _, err := exec.LookPath(lookPath); err != nil {
+		return nil, err
 	}
 	commands = append(commands, args...)
 	cmd := exec.Command(lookPath, commands...)
@@ -330,6 +330,9 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 
 		// Checking stderr for the Running message as well because the ahnlich writes warnings to stderr also
 		if strings.Contains(outBufString, "Running") || (strings.Contains(errBufString, "Running") && strings.Contains(errBufString, "Finished")) && (!strings.Contains(errBufString, "panicked") || !strings.Contains(outBufString, "panicked")) {
+			break
+		}
+		if (strings.Contains(outBufString, "Starting") || (strings.Contains(errBufString, "Starting"))) && (!strings.Contains(errBufString, "panicked") || !strings.Contains(outBufString, "panicked")) {
 			break
 		}
 		t.Log("Waiting for the ahnlich to start")
