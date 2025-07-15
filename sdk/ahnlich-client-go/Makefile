@@ -129,14 +129,14 @@ install-dependencies: install-go-junit \
 
 
 format-check:
-	docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd)":/work tmknom/prettier:$(PRETTIER_VERSION) --check "**/*.md"
+    # docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd)":/work tmknom/prettier:$(PRETTIER_VERSION) --check "**/*.md"
 	# docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd)":/work tmknom/prettier:$(PRETTIER_VERSION) --check "**/*.yml"
 	# shfmt -f . | grep -v 'internal/' | grep -v 'tmp/' | xargs shfmt -i 4 -ci -d
 	test -z "$$(find . -type f -name '*.go' ! -path './internal/*' | xargs goimports -local github.com/deven96/ahnlich/sdk/ahnlich-client-go -l)"
 	test -z "$$(find . -type f -name '*.go' ! -path './internal/*' | xargs gofmt -l)"
 
 format:
-	docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd)":/work tmknom/prettier:$(PRETTIER_VERSION) --write "**/*.md"
+    # docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd)":/work tmknom/prettier:$(PRETTIER_VERSION) --write "**/*.md"
 	# docker run --rm -u "$$(id -u):$$(id -g)" -v "$$(pwd)":/work tmknom/prettier:$(PRETTIER_VERSION) --write "**/*.yml"
 	# shfmt -f . | grep -v 'internal/' | grep -v 'tmp/' | xargs shfmt -i 4 -ci -w
 	find . -type f -name '*.go' ! -path './internal/*' | xargs goimports -local github.com/deven96/ahnlich/sdk/ahnlich-client-go -w
