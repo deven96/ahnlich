@@ -166,11 +166,11 @@ pre-commit-check: format-check lint-check
 help-bins:
 	@echo "→ ahnlich-db help"
 	@toml=$$(realpath ../../ahnlich/Cargo.toml) && \
-	  cargo run --manifest-path $$toml --bin ahnlich-db -- --help
+	  cargo run --manifest-path $$toml --bin ahnlich-db --help
 	@echo
 	@echo "→ ahnlich-ai help"
 	@toml=$$(realpath ../../ahnlich/Cargo.toml) && \
-	  cargo run --manifest-path $$toml --bin ahnlich-ai -- --help
+	  cargo run --manifest-path $$toml --bin ahnlich-ai --help
 
 test-sequential:
 	 make help-bins
