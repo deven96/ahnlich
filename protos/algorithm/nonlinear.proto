@@ -2,8 +2,8 @@ syntax = "proto3";
 
 package algorithm.nonlinear;
 
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear;nonlinear";
 
 enum NonLinearAlgorithm {
-    KDTree = 0;
-
+  KDTree = 0;
 }

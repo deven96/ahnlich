@@ -1,4 +1,3 @@
-
 syntax = "proto3";
 
 package predicates;
@@ -6,6 +5,8 @@ package predicates;
 import "metadata.proto";
 
 // Defines different forms of conditions for making queries using ahnlich
+
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates;predicates";
 
 message Predicate {
   oneof kind {

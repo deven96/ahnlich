@@ -6,6 +6,8 @@ import "ai/pipeline.proto";
 import "ai/query.proto";
 import "ai/server.proto";
 
+option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service;ai_service";
+
 service AIService {
   /** Create methods **/
   rpc CreateStore(ai.query.CreateStore) returns (ai.server.Unit);
