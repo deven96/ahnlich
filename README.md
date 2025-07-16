@@ -42,7 +42,44 @@ create_store(
 
 ## Architecture
 
-![Architecture Diagram](assets/ahnlich.jpg)
+```mermaid
+flowchart TD
+  subgraph ai [ahnlich‑ai]
+    direction TB
+    AIClient["AI Client"]
+    StoreHandlerAI["Store Handler"]
+    StoreA_AI["Store A"]
+    ModelNode["Index Model → Model B<br/>Query Model → Model A<br/>Preprocess Method"]
+    PersistenceAI[(Persistence)]
+    
+    AIClient --> |"original + metadata"| StoreHandlerAI
+    StoreHandlerAI --> StoreA_AI
+    StoreA_AI --> ModelNode
+    ModelNode -.-> PersistenceAI
+    class PersistenceAI optionalNode
+  end
+
+  subgraph db [ahnlich‑db]
+    direction TB
+    DBClient["DB Client"]
+    StoreHandlerDB["Store Handler"]
+    StoreA_DB["Store A"]
+    PersistenceDB[(Persistence)]
+    
+    DBClient --> |"DB query"| StoreHandlerDB
+    StoreHandlerDB --> StoreA_DB
+    StoreA_DB -.-> PersistenceDB
+    class PersistenceDB optionalNode
+  end
+
+  %% Interactions between services
+  StoreHandlerAI -.-> |"Set: vector + metadata"| StoreHandlerDB
+  StoreHandlerAI -.-> |"GetSimN: vector"| StoreHandlerDB
+  StoreHandlerDB -.-> |"TopN results"| StoreHandlerAI
+
+  classDef optionalNode stroke-dasharray: 5 5, color: gray, stroke: gray;
+  class PersistenceAI,PersistenceDB optionalNode
+```
 
 
 ## Usage
