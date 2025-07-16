@@ -11,32 +11,24 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Easy to Use',
-    Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
+    title: 'Ahnlich DB',
+    Svg: require('@site/static/img/landing-2.svg').default,
     description: (
       <>
-        Docusaurus was designed from the ground up to be easily installed and
-        used to get your website up and running quickly.
+        In-memory vector key value store for storing embeddings/vectors with corresponding metadata(key-value maps). 
+        It&apos;s a powerful system which enables AI/ML engineers to store and search similar vectors using linear 
+        (cosine, euclidean) or non-linear similarity (kdtree) algorithms.
       </>
     ),
   },
   {
-    title: 'Focus on What Matters',
-    Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
+    title: 'Ahnlich AI',
+    Svg: require('@site/static/img/landing-1.svg').default,
     description: (
       <>
-        Docusaurus lets you focus on your docs, and we&apos;ll do the chores. Go
-        ahead and move your docs into the <code>docs</code> directory.
-      </>
-    ),
-  },
-  {
-    title: 'Powered by React',
-    Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
-    description: (
-      <>
-        Extend or customize your website layout by reusing React. Docusaurus can
-        be extended while reusing the same header and footer.
+        AI proxy to communicate with ahnlich-db, receiving raw input, transforming into embeddings, and storing within 
+        the DB. It extends the capabilities by then allowing developers/engineers to issue queries to the same store using 
+        raw input such as images/text. 
       </>
     ),
   },
@@ -45,11 +37,11 @@ const FeatureList: FeatureItem[] = [
 function Feature({title, Svg, description}: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
-      <div className="text--center">
+      <div className="flex justify-center">
         <Svg className={styles.featureSvg} role="img" />
       </div>
       <div className="text--center padding-horiz--md">
-        <Heading as="h3">{title}</Heading>
+        <Heading as="h3" className='font-bold text-xl'>{title}</Heading>
         <p>{description}</p>
       </div>
     </div>
@@ -60,7 +52,7 @@ export default function HomepageFeatures(): ReactNode {
   return (
     <section className={styles.features}>
       <div className="container">
-        <div className="row">
+        <div className="flex flex-wrap justify-evenly">
           {FeatureList.map((props, idx) => (
             <Feature key={idx} {...props} />
           ))}
