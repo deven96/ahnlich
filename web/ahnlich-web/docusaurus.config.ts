@@ -80,6 +80,10 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
+    metadata: [
+      { name: 'twitter:image', content: 'img/logo.jpg' },
+      { property: 'og:image', content: 'img/logo.jpg' },
+    ],
     image: 'img/logo.jpg',
 
     navbar: {
