@@ -18,10 +18,10 @@ jobs:
         run: |
           npm ci --legacy-peer-deps
           npm run build
-          touch out/.nojekyll
-          echo "ahnlich.tech" >> out/CNAME
+          touch build/.nojekyll
+          echo "ahnlich.tech" >> build/CNAME
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: web/ahnlich-web/out # The folder the action should deploy.
+          folder: web/ahnlich-web/build # The folder the action should deploy.
