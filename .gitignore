@@ -30,3 +30,7 @@ profiling.json*
 
 **/.idea/
 .trunk/
+
+#npm residue
+node_modules/
+.DS_Store
