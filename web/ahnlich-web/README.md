@@ -39,3 +39,14 @@ $ GIT_USER=<Your GitHub username> yarn deploy
 ```
 
 If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+
+
+## Contributing
+
+### Docs
+
+To add/edit docs, navigate to the `docs` folder and make the necessary changes. Blog pages are usually ordered on the sidebar in multiples of 10 and in chronological order. This is to ensure that needed additional pages in between can be added easily.
+
+
+
+
