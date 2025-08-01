@@ -1,6 +1,6 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
-import type * as Preset from '@docusaurus/preset-classic';
+import * as Preset from '@docusaurus/preset-classic';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
@@ -17,11 +17,11 @@ const config: Config = {
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'facebook', // Usually your GitHub org/user name.
-  projectName: 'docusaurus', // Usually your repo name.
+  organizationName: 'deven96', // Usually your GitHub org/user name.
+  projectName: 'ahnlich', // Usually your repo name.
 
   onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+  onBrokenMarkdownLinks: 'throw',
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
@@ -53,8 +53,9 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+          editUrl: ({locale, docPath}) => {
+            return `https://github.com/deven96/ahnlich/tree/main/web/ahnlich-web/docs/${docPath}`;
+          },
         },
         blog: {
           showReadingTime: true,
@@ -64,8 +65,9 @@ const config: Config = {
           },
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+          editUrl: ({locale, blogPath}) => {
+            return `https://github.com/deven96/ahnlich/tree/main/web/ahnlich-web/blog/${blogPath}`;
+          },
           // Useful options to enforce blogging best practices
           onInlineTags: 'warn',
           onInlineAuthors: 'warn',
@@ -95,14 +97,14 @@ const config: Config = {
       items: [
         {
           type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
-          position: 'left',
+          sidebarId: 'docsSidebar',
+          position: 'right',
           label: 'Docs',
         },
-        {to: '/blog', label: 'Blog', position: 'left'},
-        {to: '/blog', label: 'Examples', position: 'left'},
+        {to: '/blog', label: 'Blog', position: 'right'},
+        {to: '/docs/guides', label: 'Guides', position: 'right'},
         {
-          href: 'https://github.com/facebook/docusaurus',
+          href: 'https://github.com/deven96/ahnlich',
           label: 'GitHub',
           position: 'right',
         },
@@ -115,28 +117,48 @@ const config: Config = {
           title: 'Docs',
           items: [
             {
-              label: 'Overview',
-              to: '/docs/intro',
+              label: 'Guides',
+              to: '/docs/guides',
             },
+            {
+              label: 'Overview',
+              to: '/docs/overview',
+            },
+            {
+              label: 'Getting Started',
+              to: '/docs/getting-started',
+            },
+            {
+              label: 'Components',
+              to: '/docs/components',
+            },
+            {
+              label: 'Client Libraries',
+              to: '/docs/client-libraries',
+            },
+            {
+              label: 'Ahnlich In Production',
+              to: '/docs/ahnlich-in-production',
+            },
+            {
+              label: 'Architecture',
+              to: '/docs/architecture',
+            }
           ],
         },
-        // {
-        //   title: 'Community',
-        //   items: [
-        //     {
-        //       label: 'Stack Overflow',
-        //       href: 'https://stackoverflow.com/questions/tagged/docusaurus',
-        //     },
-        //     {
-        //       label: 'Discord',
-        //       href: 'https://discordapp.com/invite/docusaurus',
-        //     },
-        //     {
-        //       label: 'X',
-        //       href: 'https://x.com/docusaurus',
-        //     },
-        //   ],
-        // },
+        {
+          title: 'Community',
+          items: [
+            {
+              label: 'WhatsApp',
+              href: 'https://whatsapp.com',
+            },
+            {
+              label: 'GitHub Discussions',
+              href: 'https://github.com/deven96/ahnlich/discussions',
+            }
+          ],
+        },
         {
           title: 'More',
           items: [
