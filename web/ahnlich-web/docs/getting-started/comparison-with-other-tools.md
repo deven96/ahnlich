@@ -1,5 +1,5 @@
 ---
-title: Comparison with other tools
+title: ⚖️ Comparison with other tools
 sidebar_position: 30
 ---
 

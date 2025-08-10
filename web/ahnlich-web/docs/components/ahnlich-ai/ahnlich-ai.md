@@ -1,5 +1,5 @@
 ---
-title: Ahnlich AI
+title: 🤖 Ahnlich AI
 sidebar_position: 30
 ---
 

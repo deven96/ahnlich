@@ -1,5 +1,5 @@
 ---
-title: Ahnlich DB
+title: 🗄️ Ahnlich DB
 sidebar_position: 10
 ---
 

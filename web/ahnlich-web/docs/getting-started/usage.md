@@ -1,5 +1,5 @@
 ---
-title: Usage
+title: 🔨 Usage
 sidebar_position: 20
 ---
 
