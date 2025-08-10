@@ -37,3 +37,13 @@
   display: flex;
   align-items: center;
 }
+
+.menu__list-item {
+  padding: 0.6rem 0;
+}
+
+.theme-edit-this-page {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}

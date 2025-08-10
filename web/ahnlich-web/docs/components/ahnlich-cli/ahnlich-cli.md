@@ -1,5 +1,5 @@
 ---
-title: Ahnlich DB
+title: 📟 Ahnlich CLI
 sidebar_position: 10
 ---
 

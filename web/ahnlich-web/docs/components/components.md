@@ -1,5 +1,5 @@
 ---
-title: Components
+title: 🧩 Components
 sidebar_position: 30
 ---
 
