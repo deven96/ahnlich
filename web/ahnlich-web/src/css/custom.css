@@ -10,26 +10,26 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
+  --ifm-color-primary: #2A8CFF;
+  --ifm-color-primary-dark: #0D7AFF;
+  --ifm-color-primary-darker: #0070F0;
+  --ifm-color-primary-darkest: #005CC7;
+  --ifm-color-primary-light: #479EFF;
+  --ifm-color-primary-lighter: #5CA8FF;
+  --ifm-color-primary-lightest: #85BEFF;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
+  --ifm-color-primary: #00F0FF;
+  --ifm-color-primary-dark: #00D9E6;
+  --ifm-color-primary-darker: #00CCDB;
+  --ifm-color-primary-darkest: #00A8B8;
+  --ifm-color-primary-light: #1AF3FF;
+  --ifm-color-primary-lighter: #2EF5FF;
+  --ifm-color-primary-lightest: #5CF8FF;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 }
 
@@ -46,4 +46,38 @@
   display: flex;
   align-items: center;
   gap: 5px;
+}
+
+.breadcrumbs {
+  display: flex;
+}
+
+.breadcrumbs__item {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+}
+
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 500;
+}
+
+h1 { font-size: 2.5rem; }
+h2 { font-size: 2rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1.125rem; }
+h6 { font-size: 1rem; }
+
+.markdown a {
+  text-decoration: underline;
+}
+
+.next-steps a {
+  text-decoration: none;
+}
+
+.theme-doc-card-list .card__image {
+  display: none !important;
 }
