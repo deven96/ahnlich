@@ -7,6 +7,7 @@ import DocCardList from '@theme/DocCardList';
 
 # Next steps
 
+<div className="next-steps">
 <DocCardList items={
     [
         {
@@ -40,3 +41,4 @@ import DocCardList from '@theme/DocCardList';
         }
     ]
 } />
+</div>

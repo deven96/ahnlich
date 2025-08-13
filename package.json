@@ -4,6 +4,7 @@
     "@types/react-syntax-highlighter": "^15.5.13"
   },
   "dependencies": {
+    "@docusaurus/plugin-ideal-image": "^3.8.1",
     "react-copy-to-clipboard": "^5.1.0"
   }
 }
