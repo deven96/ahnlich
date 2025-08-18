@@ -1,5 +1,5 @@
 ---
-title: Community
+title: 🌍 Community
 sidebar_position: 70
 ---
 
