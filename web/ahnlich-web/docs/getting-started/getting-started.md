@@ -25,8 +25,8 @@ import DocCardList from '@theme/DocCardList';
         },
         {
             type: 'link',
-            title: 'Comparison with othe tools',
-            label: 'Comparison with othe tools',
+            title: 'Comparison with other tools',
+            label: 'Comparison with other tools',
             href: '/docs/getting-started/comparison-with-other-tools',
             description: ''
         },

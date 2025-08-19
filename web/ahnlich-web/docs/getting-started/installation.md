@@ -31,7 +31,7 @@ For more advanced setups—including tracing, persistence, and model caching—r
 
 ## **Download Pre-built Binaries** *(Great for local servers & headless deployment)*
 
-You can download OS‑specific binaries (for `db` and `ai`) from the [Ahnlich GitHub Releases page](https://github.com/deven96/ahnlich/releases). [GitHub](https://github.com/deven96/ahnlich/releases?utm_source=chatgpt.com)
+You can download OS‑specific binaries (for `db` and `ai`) from the [Ahnlich GitHub Releases page](https://github.com/deven96/ahnlich/releases). [GitHub](https://github.com/deven96/ahnlich/releases)
 
 Example steps for a Linux (`x86_64-unknown-linux-gnu`) environment:
 
@@ -54,7 +54,7 @@ Run the database service
 
 Repeat the same for the `ahnlich-ai` binary, substituting `db` → `ai` and the correct filename.
 
-You can find complete download instructions (including Windows / macOS options) in the [official repository README](https://github.com/deven96/ahnlich/blob/main/README.md). [GitHub](https://github.com/deven96/ahnlich?utm_source=chatgpt.com)
+You can find complete download instructions (including Windows / macOS options) in the [official repository README](https://github.com/deven96/ahnlich/blob/main/README.md). [GitHub](https://github.com/deven96/ahnlich)
 
 ---
 
@@ -76,7 +76,7 @@ Once built, find the executables in `target/release/`. Move them into your `$PAT
 ./target/release/ahnlich-ai --help
 ```
 
-This method is ideal for reviewing code, customizing defaults, or staying on the cutting edge. Ensure you have the Rust toolchain installed via [rustup.rs](https://rustup.rs/). [GitHub](https://github.com/deven96/ahnlich/blob/main/README.md?utm_source=chatgpt.com)
+This method is ideal for reviewing code, customizing defaults, or staying on the cutting edge. Ensure you have the Rust toolchain installed via [rustup.rs](https://rustup.rs/). [GitHub](https://github.com/deven96/ahnlich/blob/main/README.md)
 
 
 
@@ -110,8 +110,8 @@ This method is ideal for reviewing code, customizing defaults, or staying on the
 
 * 🏠 [Main repository & documentation](https://github.com/deven96/ahnlich)
 
-* 📦 [Releases page for downloading binaries](https://github.com/deven96/ahnlich/releases) [GitHub](https://github.com/deven96/ahnlich/releases?utm_source=chatgpt.com)
+* 📦 [Releases page for downloading binaries](https://github.com/deven96/ahnlich/releases) [GitHub](https://github.com/deven96/ahnlich/releases)
 
-* 🧾 [Example Docker Compose and usage docs](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml) [GitHub](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml?utm_source=chatgpt.com)
+* 🧾 [Example Docker Compose and usage docs](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml) [GitHub](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml)
 
-* 📖 [Full README (includes installation & usage guidance)](https://github.com/deven96/ahnlich/blob/main/README.md) [GitHub](https://github.com/deven96/ahnlich/blob/main/README.md?utm_source=chatgpt.com)  
+* 📖 [Full README (includes installation & usage guidance)](https://github.com/deven96/ahnlich/blob/main/README.md) [GitHub](https://github.com/deven96/ahnlich/blob/main/README.md)  
