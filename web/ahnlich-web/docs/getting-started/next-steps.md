@@ -7,7 +7,7 @@ import DocCardList from '@theme/DocCardList';
 
 # Next steps
 
-<div className="next-steps">
+<div className="remove-link-line">
 <DocCardList items={
     [
         {
@@ -32,13 +32,6 @@ import DocCardList from '@theme/DocCardList';
             href: '/docs/community',
             description: 'Get involved with Ahnlich'
         },
-        {
-            type: 'link',
-            title: 'Comparison with other tools',
-            label: 'Comparison with other tools',
-            href: '/docs/comparison-with-other-tools',
-            description: 'Compare Ahnlich with other tools'
-        }
     ]
 } />
 </div>
