@@ -1,0 +1,32 @@
+---
+sidebar_exclude: true
+slug: /guides
+className: centeredPage
+---
+
+import GuidesCard from '@site/src/components/GuidesCard';
+import rustLogo from '@site/static/img/rust-logo.png';
+import rustLogoLight from '@site/static/img/Rust.png';
+import pythonLogo from '@site/static/img/python-logo.png'
+import pythonLogoLight from '@site/static/img/python_logo.png'
+
+# Guides
+
+Discover in-depth tutorials and real-world examples built using Ahnlich. Each guide walks through full end-to-end scenarios that demonstrate how to build semantic search applications with Rust and Python.
+
+<div className="grid gap-6 lg:grid-cols-4 md:grid-cols-3 sm:grid-cols-2 mt-8">
+  <GuidesCard
+    logoLight={rustLogoLight}
+    logoDark={rustLogo}
+    title="Rust Image Search"
+    description="The guide that demonstrates building an image-based similarity search application using the Rust SDK"
+    link="/docs/guides/rust"
+  />
+  <GuidesCard
+    logoLight={pythonLogoLight}
+    logoDark={pythonLogo}
+    title="Python Book Search"
+    description="This walkthrough guides building a textual book similarity search tool using Python"
+    link="/docs/guides/python"
+  />
+</div>

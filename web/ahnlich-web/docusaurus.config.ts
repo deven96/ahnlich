@@ -7,7 +7,11 @@ import * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'Ahnlich',
   tagline: 'A project by developers bringing vector database and artificial intelligence powered semantic search abilities closer to you',
-  favicon: 'img/logo.jpg',
+  favicon: 'img/logo.png',
+  markdown: {
+      mermaid: true,
+    },
+    themes: ['@docusaurus/theme-mermaid'],
 
   // Set the production url of your site here
   url: 'https://ahnlich.tech',
@@ -83,17 +87,20 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
+    mermaid: {
+      theme: {light: 'neutral', dark: 'dark'},
+    },
     metadata: [
       { name: 'twitter:image', content: 'img/logo.jpg' },
       { property: 'og:image', content: 'img/logo.jpg' },
     ],
-    image: 'img/logo.jpg',
+    image: 'img/logo.png',
 
     navbar: {
       title: 'AHNLICH',
       logo: {
         alt: 'Ahnlich Logo',
-        src: 'img/logo.jpg',
+        src: 'img/logo.png',
       },
       items: [
         {

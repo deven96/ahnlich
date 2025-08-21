@@ -1,5 +1,5 @@
 # Ahnlich
-<p align="left"><img src="assets/logo.jpg" alt="ahnlich" height="120px"></p>
+<p align="left"><img src="assets/logo.png" alt="ahnlich" height="120px"></p>
 
 [![All Test](https://github.com/deven96/ahnlich/actions/workflows/test.yml/badge.svg)](https://github.com/deven96/ahnlich/actions/workflows/test.yml)
 

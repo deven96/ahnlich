@@ -74,10 +74,33 @@ h6 { font-size: 1rem; }
   text-decoration: underline;
 }
 
-.next-steps a {
+.remove-link-line a {
   text-decoration: none;
 }
 
 .theme-doc-card-list .card__image {
   display: none !important;
+}
+
+.markdown ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.markdown ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+html.docs-doc-id-guides\/index .docItemCol_VOVn,
+html.docs-doc-id-guides\/rust .docItemCol_VOVn,
+html.docs-doc-id-guides\/python .docItemCol_VOVn {
+  margin: 0 auto;
+}
+
+ @media (min-width: 1024px) {
+    html.docs-doc-id-guides\/rust .docItemCol_VOVn,
+    html.docs-doc-id-guides\/python .docItemCol_VOVn {
+      padding-left: 10rem;
+}
 }
