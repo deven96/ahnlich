@@ -24,7 +24,7 @@ description: Official Rust client library to integrate with Ahnlich DB (exact ve
 
 The official Rust client to interface with **ahnlich‑db** (exact similarity search) and **ahnlich‑ai** (semantic similarity) over gRPC.
 
-See full API docs and examples at [docs.rs – `ahnlich_client_rs`](https://docs.rs/ahnlich_client_rs/0.1.0/ahnlich_client_rs/) :contentReference[oaicite:0]{index=0}
+See full API docs and examples at [docs.rs – `ahnlich_client_rs`](https://docs.rs/ahnlich_client_rs/0.1.0/ahnlich_client_rs/)
 
 
 
