@@ -3,7 +3,7 @@
 pub struct AiQuery {
     #[prost(
         oneof = "ai_query::Query",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17"
     )]
     pub query: ::core::option::Option<ai_query::Query>,
 }
@@ -43,6 +43,8 @@ pub mod ai_query {
         PurgeStores(super::super::query::PurgeStores),
         #[prost(message, tag = "16")]
         Ping(super::super::query::Ping),
+        #[prost(message, tag = "17")]
+        InputToEmbeddings(super::super::query::InputToEmbeddings),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -54,7 +56,7 @@ pub struct AiRequestPipeline {
 pub struct AiServerResponse {
     #[prost(
         oneof = "ai_server_response::Response",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12"
     )]
     pub response: ::core::option::Option<ai_server_response::Response>,
 }
@@ -84,6 +86,8 @@ pub mod ai_server_response {
         CreateIndex(super::super::server::CreateIndex),
         #[prost(message, tag = "11")]
         Error(super::super::super::shared::info::ErrorResponse),
+        #[prost(message, tag = "12")]
+        Embeddings(super::super::server::Embeddings),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

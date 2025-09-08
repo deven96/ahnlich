@@ -84,3 +84,13 @@ class AiStoreInfo(betterproto.Message):
     query_model: "_models__.AiModel" = betterproto.enum_field(2)
     index_model: "_models__.AiModel" = betterproto.enum_field(3)
     embedding_size: int = betterproto.uint64_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class FloatArray(betterproto.Message):
+    values: List[float] = betterproto.float_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class Embeddings(betterproto.Message):
+    embeddings: List["FloatArray"] = betterproto.message_field(1)

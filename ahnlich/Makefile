@@ -47,7 +47,7 @@ grpc-update-python: ## updates python generated code after proto change
 		&& poetry run isort . \
 		&& poetry run black .
 
-grpc-update-rust: ## updates python generated code after proto change
+grpc-update-rust: ## updates rust generated code after proto change
 	@cargo build -p ahnlich_types
 	@make format
 
@@ -141,7 +141,7 @@ demo-tracing:
 	@cd $(PYTHON_PROJECT_DIR) && poetry config --local virtualenvs.in-project true
 	@cd $(PYTHON_PROJECT_DIR) && poetry install
 	@echo "Run demo_tracing..."
-	@cd $(PYTHON_PROJECT_DIR) && python demo_tracing.py 
+	@cd $(PYTHON_PROJECT_DIR) && python demo_tracing.py
 
 
 all: format check test clippy generate-specs bumpversion bump-py-client bump-rs-client ## format, clip, generate type specs, and bumpversions 

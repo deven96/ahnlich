@@ -90,7 +90,7 @@ pub struct AIProxyServer {
     client_handler: Arc<ClientHandler>,
     store_handler: Arc<AIStoreHandler>,
     task_manager: Arc<TaskManager>,
-    db_client: Arc<DbClient>,
+    db_client: Option<Arc<DbClient>>,
     model_manager: Arc<ModelManager>,
 }
 
@@ -172,8 +172,12 @@ impl AiService for AIProxyServer {
             .map_err(|_| AIProxyError::InputNotSpecified("Query model".to_string()))?;
         let model: ModelDetails = SupportedModels::from(&index_model).to_model_details();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let _ = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        db_client
             .create_store(
                 DbCreateStore {
                     store: params.store.clone(),

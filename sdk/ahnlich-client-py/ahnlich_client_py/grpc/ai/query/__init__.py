@@ -187,3 +187,12 @@ class Set(betterproto.Message):
     execution_provider: Optional["_execution_provider__.ExecutionProvider"] = (
         betterproto.enum_field(4, optional=True)
     )
+
+
+@dataclass(eq=False, repr=False)
+class InputToEmbeddings(betterproto.Message):
+    inputs: List["__keyval__.StoreInput"] = betterproto.message_field(1)
+    """Convert query inputs to embeddings"""
+
+    preprocess_action: "_preprocess__.PreprocessAction" = betterproto.enum_field(2)
+    model: "_models__.AiModel" = betterproto.enum_field(3)

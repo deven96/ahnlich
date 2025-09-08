@@ -211,3 +211,17 @@ pub struct Set {
     )]
     pub execution_provider: ::core::option::Option<i32>,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InputToEmbeddings {
+    /// Convert query inputs to embeddings
+    ///
+    /// Input keys to retrieve from the store
+    #[prost(message, repeated, tag = "1")]
+    pub inputs: ::prost::alloc::vec::Vec<super::super::keyval::StoreInput>,
+    /// Preprocessing actions to apply to input before querying
+    #[prost(enumeration = "super::preprocess::PreprocessAction", tag = "2")]
+    pub preprocess_action: i32,
+    /// AI model used for querying (string or image-based)
+    #[prost(enumeration = "super::models::AiModel", tag = "3")]
+    pub model: i32,
+}

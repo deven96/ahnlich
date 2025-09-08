@@ -70,3 +70,13 @@ pub struct AiStoreInfo {
     #[prost(uint64, tag = "4")]
     pub embedding_size: u64,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FloatArray {
+    #[prost(float, repeated, tag = "1")]
+    pub values: ::prost::alloc::vec::Vec<f32>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Embeddings {
+    #[prost(message, repeated, tag = "1")]
+    pub embeddings: ::prost::alloc::vec::Vec<FloatArray>,
+}

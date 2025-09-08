@@ -63,3 +63,11 @@ message AIStoreInfo {
   ai.models.AIModel index_model = 3;
   uint64 embedding_size = 4;
 }
+
+message FloatArray {
+  repeated float values = 1;
+}
+
+message Embeddings {
+ repeated FloatArray embeddings = 1;
+}
