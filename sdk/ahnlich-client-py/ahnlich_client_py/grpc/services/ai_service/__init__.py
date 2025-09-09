@@ -293,6 +293,23 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def connect_input_to_embeddings(
+        self,
+        ai_query_connect_input_to_embeddings: "__ai_query__.ConnectInputToEmbeddings",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__ai_server__.InputToEmbeddingsList":
+        return await self._unary_unary(
+            "/services.ai_service.AIService/ConnectInputToEmbeddings",
+            ai_query_connect_input_to_embeddings,
+            __ai_server__.InputToEmbeddingsList,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def pipeline(
         self,
         ai_pipeline_ai_request_pipeline: "__ai_pipeline__.AiRequestPipeline",
@@ -389,6 +406,12 @@ class AiServiceBase(ServiceBase):
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def ping(self, ai_query_ping: "__ai_query__.Ping") -> "__ai_server__.Pong":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def connect_input_to_embeddings(
+        self,
+        ai_query_connect_input_to_embeddings: "__ai_query__.ConnectInputToEmbeddings",
+    ) -> "__ai_server__.InputToEmbeddingsList":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def pipeline(
@@ -518,6 +541,14 @@ class AiServiceBase(ServiceBase):
         response = await self.ping(request)
         await stream.send_message(response)
 
+    async def __rpc_connect_input_to_embeddings(
+        self,
+        stream: "grpclib.server.Stream[__ai_query__.ConnectInputToEmbeddings, __ai_server__.InputToEmbeddingsList]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.connect_input_to_embeddings(request)
+        await stream.send_message(response)
+
     async def __rpc_pipeline(
         self,
         stream: "grpclib.server.Stream[__ai_pipeline__.AiRequestPipeline, __ai_pipeline__.AiResponsePipeline]",
@@ -623,6 +654,12 @@ class AiServiceBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __ai_query__.Ping,
                 __ai_server__.Pong,
+            ),
+            "/services.ai_service.AIService/ConnectInputToEmbeddings": grpclib.const.Handler(
+                self.__rpc_connect_input_to_embeddings,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __ai_query__.ConnectInputToEmbeddings,
+                __ai_server__.InputToEmbeddingsList,
             ),
             "/services.ai_service.AIService/Pipeline": grpclib.const.Handler(
                 self.__rpc_pipeline,

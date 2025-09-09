@@ -64,10 +64,19 @@ message AIStoreInfo {
   uint64 embedding_size = 4;
 }
 
-message FloatArray {
-  repeated float values = 1;
+message FloatList {
+  repeated float float_list = 1;
 }
 
-message Embeddings {
- repeated FloatArray embeddings = 1;
+message FloatListList {
+ repeated FloatList float_list_list = 1;
+}
+
+message InputToEmbeddingsKeyValue {
+  keyval.StoreInput input = 1;
+  FloatListList embeddings = 2;
+}
+
+message InputToEmbeddingsList {
+ repeated InputToEmbeddingsKeyValue input_to_embeddings_list = 1;
 }

@@ -71,12 +71,24 @@ pub struct AiStoreInfo {
     pub embedding_size: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FloatArray {
+pub struct FloatList {
     #[prost(float, repeated, tag = "1")]
-    pub values: ::prost::alloc::vec::Vec<f32>,
+    pub float_list: ::prost::alloc::vec::Vec<f32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct Embeddings {
+pub struct FloatListList {
     #[prost(message, repeated, tag = "1")]
-    pub embeddings: ::prost::alloc::vec::Vec<FloatArray>,
+    pub float_list_list: ::prost::alloc::vec::Vec<FloatList>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InputToEmbeddingsKeyValue {
+    #[prost(message, optional, tag = "1")]
+    pub input: ::core::option::Option<super::super::keyval::StoreInput>,
+    #[prost(message, optional, tag = "2")]
+    pub embeddings: ::core::option::Option<FloatListList>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InputToEmbeddingsList {
+    #[prost(message, repeated, tag = "1")]
+    pub input_to_embeddings_list: ::prost::alloc::vec::Vec<InputToEmbeddingsKeyValue>,
 }

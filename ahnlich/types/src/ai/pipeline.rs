@@ -44,7 +44,7 @@ pub mod ai_query {
         #[prost(message, tag = "16")]
         Ping(super::super::query::Ping),
         #[prost(message, tag = "17")]
-        InputToEmbeddings(super::super::query::InputToEmbeddings),
+        ConnectInputToEmbeddings(super::super::query::ConnectInputToEmbeddings),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -87,7 +87,7 @@ pub mod ai_server_response {
         #[prost(message, tag = "11")]
         Error(super::super::super::shared::info::ErrorResponse),
         #[prost(message, tag = "12")]
-        Embeddings(super::super::server::Embeddings),
+        InputToEmbeddingsList(super::super::server::InputToEmbeddingsList),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

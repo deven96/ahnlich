@@ -87,10 +87,23 @@ class AiStoreInfo(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class FloatArray(betterproto.Message):
-    values: List[float] = betterproto.float_field(1)
+class FloatList(betterproto.Message):
+    float_list: List[float] = betterproto.float_field(1)
 
 
 @dataclass(eq=False, repr=False)
-class Embeddings(betterproto.Message):
-    embeddings: List["FloatArray"] = betterproto.message_field(1)
+class FloatListList(betterproto.Message):
+    float_list_list: List["FloatList"] = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class InputToEmbeddingsKeyValue(betterproto.Message):
+    input: "__keyval__.StoreInput" = betterproto.message_field(1)
+    embeddings: "FloatListList" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class InputToEmbeddingsList(betterproto.Message):
+    input_to_embeddings_list: List["InputToEmbeddingsKeyValue"] = (
+        betterproto.message_field(1)
+    )

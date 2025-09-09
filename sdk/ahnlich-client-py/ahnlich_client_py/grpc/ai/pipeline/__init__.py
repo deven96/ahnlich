@@ -39,8 +39,8 @@ class AiQuery(betterproto.Message):
     list_stores: "_query__.ListStores" = betterproto.message_field(14, group="query")
     purge_stores: "_query__.PurgeStores" = betterproto.message_field(15, group="query")
     ping: "_query__.Ping" = betterproto.message_field(16, group="query")
-    input_to_embeddings: "_query__.InputToEmbeddings" = betterproto.message_field(
-        17, group="query"
+    connect_input_to_embeddings: "_query__.ConnectInputToEmbeddings" = (
+        betterproto.message_field(17, group="query")
     )
 
 
@@ -66,7 +66,9 @@ class AiServerResponse(betterproto.Message):
     error: "__shared_info__.ErrorResponse" = betterproto.message_field(
         11, group="response"
     )
-    embeddings: "_server__.Embeddings" = betterproto.message_field(12, group="response")
+    input_to_embeddings_list: "_server__.InputToEmbeddingsList" = (
+        betterproto.message_field(12, group="response")
+    )
 
 
 @dataclass(eq=False, repr=False)

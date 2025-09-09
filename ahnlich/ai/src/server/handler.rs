@@ -14,6 +14,7 @@ use ahnlich_types::ai::pipeline::AiServerResponse;
 use ahnlich_types::ai::pipeline::ai_query::Query;
 use ahnlich_types::ai::pipeline::ai_server_response;
 use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::ai::query::ConnectInputToEmbeddings;
 use ahnlich_types::ai::query::CreateNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::CreatePredIndex;
 use ahnlich_types::ai::query::CreateStore;
@@ -35,6 +36,7 @@ use ahnlich_types::ai::server::ClientList;
 use ahnlich_types::ai::server::CreateIndex;
 use ahnlich_types::ai::server::Del;
 use ahnlich_types::ai::server::Get;
+use ahnlich_types::ai::server::InputToEmbeddingsList;
 use ahnlich_types::ai::server::Pong;
 use ahnlich_types::ai::server::StoreList;
 use ahnlich_types::ai::server::Unit;
@@ -208,8 +210,13 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<CreateIndex>, tonic::Status> {
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+
+        let res = db_client
             .create_pred_index(
                 DbCreatePredIndex {
                     store: params.store,
@@ -230,8 +237,13 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<CreateIndex>, tonic::Status> {
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+
+        let res = db_client
             .create_non_linear_algorithm_index(
                 DbCreateNonLinearAlgorithmIndex {
                     store: params.store,
@@ -265,8 +277,12 @@ impl AiService for AIProxyServer {
                 })),
             })),
         });
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let res = db_client
             .get_pred(
                 DbGetPred {
                     store: params.store,
@@ -288,8 +304,12 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<Get>, tonic::Status> {
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let res = db_client
             .get_pred(
                 DbGetPred {
                     store: params.store,
@@ -334,10 +354,12 @@ impl AiService for AIProxyServer {
             algorithm: params.algorithm,
             condition: params.condition,
         };
-        let response = self
+        let db_client = self
             .db_client
-            .get_sim_n(get_sim_n_params, parent_id)
-            .await?;
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let response = db_client.get_sim_n(get_sim_n_params, parent_id).await?;
         let (store_key_input, similarities): (Vec<_>, Vec<_>) = response
             .entries
             .into_par_iter()
@@ -399,7 +421,12 @@ impl AiService for AIProxyServer {
                 params.execution_provider.and_then(|a| a.try_into().ok()),
             )
             .await?;
-        let mut pipeline = self.db_client.pipeline(parent_id);
+        let db_client = self
+            .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let mut pipeline = db_client.pipeline(parent_id);
         if let Some(del_hashset) = delete_hashset {
             let delete_condition = DelPred {
                 store: params.store.clone(),
@@ -447,8 +474,12 @@ impl AiService for AIProxyServer {
             .predicates
             .retain(|val| val != AHNLICH_AI_RESERVED_META_KEY);
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let res = db_client
             .drop_pred_index(
                 DbDropPredIndex {
                     store: params.store,
@@ -470,8 +501,12 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<Del>, tonic::Status> {
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let res = db_client
             .drop_non_linear_algorithm_index(
                 DbDropNonLinearAlgorithmIndex {
                     store: params.store,
@@ -518,7 +553,12 @@ impl AiService for AIProxyServer {
                 }),
             };
             let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-            let res = self.db_client.del_pred(del_pred_params, parent_id).await?;
+            let db_client = self
+                .db_client
+                .as_ref()
+                .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+                .clone();
+            let res = db_client.del_pred(del_pred_params, parent_id).await?;
             Ok(tonic::Response::new(Del {
                 deleted_count: res.deleted_count,
             }))
@@ -576,6 +616,18 @@ impl AiService for AIProxyServer {
         Ok(tonic::Response::new(Del {
             deleted_count: deleted_count as u64,
         }))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn connect_input_to_embeddings(
+        &self,
+        request: tonic::Request<ConnectInputToEmbeddings>,
+    ) -> Result<tonic::Response<InputToEmbeddingsList>, tonic::Status> {
+        let connect_input_to_embeddings_params = request.into_inner();
+
+        // TODO (JIM): write business logic to convert input to output
+
+        Ok(tonic::Response::new(InputToEmbeddingsList {}))
     }
 
     #[tracing::instrument(skip_all)]
@@ -809,6 +861,23 @@ impl AiService for AIProxyServer {
                         }
                     }
                 }
+
+                Query::ConnectInputToEmbeddings(params) => {
+                    match self
+                        .connect_input_to_embeddings(tonic::Request::new(params))
+                        .await
+                    {
+                        Ok(res) => response_vec.push(
+                            ai_server_response::Response::InputToEmbeddingsList(res.into_inner()),
+                        ),
+                        Err(err) => {
+                            response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                                message: err.message().to_string(),
+                                code: err.code().into(),
+                            }));
+                        }
+                    }
+                }
             }
         }
         let response_vec = response_vec
@@ -907,7 +976,7 @@ impl AIProxyServer {
             client_handler,
             store_handler: Arc::new(store_handler),
             config,
-            db_client: Arc::new(db_client),
+            db_client: Some(Arc::new(db_client)),
             task_manager,
             model_manager: Arc::new(model_manager),
         })
