@@ -81,14 +81,14 @@ pub struct FloatListList {
     pub float_list_list: ::prost::alloc::vec::Vec<FloatList>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct InputToEmbeddingsKeyValue {
+pub struct SingleInputToEmbedding {
     #[prost(message, optional, tag = "1")]
     pub input: ::core::option::Option<super::super::keyval::StoreInput>,
     #[prost(message, optional, tag = "2")]
-    pub embeddings: ::core::option::Option<FloatListList>,
+    pub embedding: ::core::option::Option<super::super::keyval::StoreKey>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct InputToEmbeddingsList {
+pub struct StoreInputToEmbeddingsList {
     #[prost(message, repeated, tag = "1")]
-    pub input_to_embeddings_list: ::prost::alloc::vec::Vec<InputToEmbeddingsKeyValue>,
+    pub values: ::prost::alloc::vec::Vec<SingleInputToEmbedding>,
 }

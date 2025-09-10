@@ -293,18 +293,18 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
-    async def connect_input_to_embeddings(
+    async def convert_store_input_to_embeddings(
         self,
-        ai_query_connect_input_to_embeddings: "__ai_query__.ConnectInputToEmbeddings",
+        ai_query_convert_store_input_to_embeddings: "__ai_query__.ConvertStoreInputToEmbeddings",
         *,
         timeout: Optional[float] = None,
         deadline: Optional["Deadline"] = None,
         metadata: Optional["MetadataLike"] = None
-    ) -> "__ai_server__.InputToEmbeddingsList":
+    ) -> "__ai_server__.StoreInputToEmbeddingsList":
         return await self._unary_unary(
-            "/services.ai_service.AIService/ConnectInputToEmbeddings",
-            ai_query_connect_input_to_embeddings,
-            __ai_server__.InputToEmbeddingsList,
+            "/services.ai_service.AIService/ConvertStoreInputToEmbeddings",
+            ai_query_convert_store_input_to_embeddings,
+            __ai_server__.StoreInputToEmbeddingsList,
             timeout=timeout,
             deadline=deadline,
             metadata=metadata,
@@ -408,10 +408,10 @@ class AiServiceBase(ServiceBase):
     async def ping(self, ai_query_ping: "__ai_query__.Ping") -> "__ai_server__.Pong":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
-    async def connect_input_to_embeddings(
+    async def convert_store_input_to_embeddings(
         self,
-        ai_query_connect_input_to_embeddings: "__ai_query__.ConnectInputToEmbeddings",
-    ) -> "__ai_server__.InputToEmbeddingsList":
+        ai_query_convert_store_input_to_embeddings: "__ai_query__.ConvertStoreInputToEmbeddings",
+    ) -> "__ai_server__.StoreInputToEmbeddingsList":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def pipeline(
@@ -541,12 +541,12 @@ class AiServiceBase(ServiceBase):
         response = await self.ping(request)
         await stream.send_message(response)
 
-    async def __rpc_connect_input_to_embeddings(
+    async def __rpc_convert_store_input_to_embeddings(
         self,
-        stream: "grpclib.server.Stream[__ai_query__.ConnectInputToEmbeddings, __ai_server__.InputToEmbeddingsList]",
+        stream: "grpclib.server.Stream[__ai_query__.ConvertStoreInputToEmbeddings, __ai_server__.StoreInputToEmbeddingsList]",
     ) -> None:
         request = await stream.recv_message()
-        response = await self.connect_input_to_embeddings(request)
+        response = await self.convert_store_input_to_embeddings(request)
         await stream.send_message(response)
 
     async def __rpc_pipeline(
@@ -655,11 +655,11 @@ class AiServiceBase(ServiceBase):
                 __ai_query__.Ping,
                 __ai_server__.Pong,
             ),
-            "/services.ai_service.AIService/ConnectInputToEmbeddings": grpclib.const.Handler(
-                self.__rpc_connect_input_to_embeddings,
+            "/services.ai_service.AIService/ConvertStoreInputToEmbeddings": grpclib.const.Handler(
+                self.__rpc_convert_store_input_to_embeddings,
                 grpclib.const.Cardinality.UNARY_UNARY,
-                __ai_query__.ConnectInputToEmbeddings,
-                __ai_server__.InputToEmbeddingsList,
+                __ai_query__.ConvertStoreInputToEmbeddings,
+                __ai_server__.StoreInputToEmbeddingsList,
             ),
             "/services.ai_service.AIService/Pipeline": grpclib.const.Handler(
                 self.__rpc_pipeline,

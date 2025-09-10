@@ -2,19 +2,21 @@ use crate::AHNLICH_AI_RESERVED_META_KEY;
 use crate::cli::AIProxyConfig;
 use crate::cli::server::ModelConfig;
 use crate::cli::server::SupportedModels;
+use crate::engine::ai::models::InputAction;
 use crate::engine::ai::models::Model;
 use crate::engine::ai::models::ModelDetails;
 use crate::engine::store::AIStoreHandler;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use ahnlich_types::ai::models::AiModel;
+use ahnlich_types::ai::models::AiStoreInputType;
 use ahnlich_types::ai::pipeline::AiRequestPipeline;
 use ahnlich_types::ai::pipeline::AiResponsePipeline;
 use ahnlich_types::ai::pipeline::AiServerResponse;
 use ahnlich_types::ai::pipeline::ai_query::Query;
 use ahnlich_types::ai::pipeline::ai_server_response;
 use ahnlich_types::ai::preprocess::PreprocessAction;
-use ahnlich_types::ai::query::ConnectInputToEmbeddings;
+use ahnlich_types::ai::query::ConvertStoreInputToEmbeddings;
 use ahnlich_types::ai::query::CreateNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::CreatePredIndex;
 use ahnlich_types::ai::query::CreateStore;
@@ -36,8 +38,9 @@ use ahnlich_types::ai::server::ClientList;
 use ahnlich_types::ai::server::CreateIndex;
 use ahnlich_types::ai::server::Del;
 use ahnlich_types::ai::server::Get;
-use ahnlich_types::ai::server::InputToEmbeddingsList;
 use ahnlich_types::ai::server::Pong;
+use ahnlich_types::ai::server::SingleInputToEmbedding;
+use ahnlich_types::ai::server::StoreInputToEmbeddingsList;
 use ahnlich_types::ai::server::StoreList;
 use ahnlich_types::ai::server::Unit;
 use ahnlich_types::db::pipeline::DbServerResponse;
@@ -619,15 +622,59 @@ impl AiService for AIProxyServer {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn connect_input_to_embeddings(
+    async fn convert_store_input_to_embeddings(
         &self,
-        request: tonic::Request<ConnectInputToEmbeddings>,
-    ) -> Result<tonic::Response<InputToEmbeddingsList>, tonic::Status> {
-        let connect_input_to_embeddings_params = request.into_inner();
+        request: tonic::Request<ConvertStoreInputToEmbeddings>,
+    ) -> Result<tonic::Response<StoreInputToEmbeddingsList>, tonic::Status> {
+        let params = request.into_inner();
 
-        // TODO (JIM): write business logic to convert input to output
+        let ai_model = AiModel::try_from(params.model)
+            .map_err(|_| AIProxyError::InputNotSpecified("AI Model Value".to_string()))?;
 
-        Ok(tonic::Response::new(InputToEmbeddingsList {}))
+        let preprocess_action = params
+            .preprocess_action
+            .ok_or_else(|| AIProxyError::InputNotSpecified("Preprocess Action Value".to_string()))
+            .and_then(|val| {
+                PreprocessAction::try_from(val).map_err(|_| {
+                    AIProxyError::InputNotSpecified("Preprocess Action Value".to_string())
+                })
+            })?;
+
+        let index_model_repr: ModelDetails = SupportedModels::from(&ai_model).to_model_details();
+
+        for store_input in &params.store_inputs {
+            let store_input_type: AiStoreInputType = (store_input)
+                .try_into()
+                .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
+
+            if store_input_type != index_model_repr.input_type() {
+                return Err(tonic::Status::failed_precondition(
+                    "Store input type and AI model type don't match",
+                ));
+            }
+        }
+
+        let store_keys = ModelManager::handle_request(
+            &self.model_manager,
+            &ai_model,
+            params.store_inputs.clone(),
+            preprocess_action,
+            InputAction::Index,
+            None,
+        )
+        .await?;
+
+        Ok(tonic::Response::new(StoreInputToEmbeddingsList {
+            values: params
+                .store_inputs
+                .into_iter()
+                .zip(store_keys)
+                .map(|(input, key)| SingleInputToEmbedding {
+                    input: Some(input),
+                    embedding: Some(key),
+                })
+                .collect(),
+        }))
     }
 
     #[tracing::instrument(skip_all)]
@@ -862,13 +909,15 @@ impl AiService for AIProxyServer {
                     }
                 }
 
-                Query::ConnectInputToEmbeddings(params) => {
+                Query::ConvertStoreInputToEmbeddings(params) => {
                     match self
-                        .connect_input_to_embeddings(tonic::Request::new(params))
+                        .convert_store_input_to_embeddings(tonic::Request::new(params))
                         .await
                     {
                         Ok(res) => response_vec.push(
-                            ai_server_response::Response::InputToEmbeddingsList(res.into_inner()),
+                            ai_server_response::Response::StoreInputToEmbeddingsList(
+                                res.into_inner(),
+                            ),
                         ),
                         Err(err) => {
                             response_vec.push(ai_server_response::Response::Error(ErrorResponse {

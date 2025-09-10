@@ -72,11 +72,11 @@ message FloatListList {
  repeated FloatList float_list_list = 1;
 }
 
-message InputToEmbeddingsKeyValue {
+message SingleInputToEmbedding {
   keyval.StoreInput input = 1;
-  FloatListList embeddings = 2;
+  keyval.StoreKey embedding = 2;
 }
 
-message InputToEmbeddingsList {
- repeated InputToEmbeddingsKeyValue input_to_embeddings_list = 1;
+message StoreInputToEmbeddingsList {
+ repeated SingleInputToEmbedding values = 1;
 }

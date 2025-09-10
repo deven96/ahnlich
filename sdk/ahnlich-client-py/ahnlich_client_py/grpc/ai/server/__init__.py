@@ -97,13 +97,11 @@ class FloatListList(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class InputToEmbeddingsKeyValue(betterproto.Message):
+class SingleInputToEmbedding(betterproto.Message):
     input: "__keyval__.StoreInput" = betterproto.message_field(1)
-    embeddings: "FloatListList" = betterproto.message_field(2)
+    embedding: "__keyval__.StoreKey" = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)
-class InputToEmbeddingsList(betterproto.Message):
-    input_to_embeddings_list: List["InputToEmbeddingsKeyValue"] = (
-        betterproto.message_field(1)
-    )
+class StoreInputToEmbeddingsList(betterproto.Message):
+    values: List["SingleInputToEmbedding"] = betterproto.message_field(1)

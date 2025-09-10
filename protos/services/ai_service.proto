@@ -34,7 +34,7 @@ service AIService {
   rpc InfoServer(ai.query.InfoServer) returns (ai.server.InfoServer);
   rpc PurgeStores(ai.query.PurgeStores) returns (ai.server.Del);
   rpc Ping(ai.query.Ping) returns (ai.server.Pong);
-  rpc ConnectInputToEmbeddings(ai.query.ConnectInputToEmbeddings) returns (ai.server.InputToEmbeddingsList);
+  rpc ConvertStoreInputToEmbeddings(ai.query.ConvertStoreInputToEmbeddings) returns (ai.server.StoreInputToEmbeddingsList);
 
   /** Pipeline method for all methods **/
   rpc Pipeline(ai.pipeline.AIRequestPipeline) returns (ai.pipeline.AIResponsePipeline);

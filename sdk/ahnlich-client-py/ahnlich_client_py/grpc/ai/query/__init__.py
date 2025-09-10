@@ -190,9 +190,9 @@ class Set(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class ConnectInputToEmbeddings(betterproto.Message):
-    inputs: List["__keyval__.StoreInput"] = betterproto.message_field(1)
-    """Connect query inputs to embeddings"""
+class ConvertStoreInputToEmbeddings(betterproto.Message):
+    store_inputs: List["__keyval__.StoreInput"] = betterproto.message_field(1)
+    """Convert store inputs to embeddings"""
 
     preprocess_action: Optional["_preprocess__.PreprocessAction"] = (
         betterproto.enum_field(2, optional=True)
