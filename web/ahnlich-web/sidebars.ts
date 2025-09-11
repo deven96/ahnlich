@@ -1,4 +1,4 @@
-import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
+import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
@@ -44,7 +44,7 @@ const sidebars: SidebarsConfig = {
             type: 'doc',
             id: 'components/ahnlich-cli/ahnlich-cli'
           },
-          items: [ 
+          items: [
             'components/ahnlich-cli/overview',
             'components/ahnlich-cli/reference',
             'components/ahnlich-cli/advanced'
@@ -57,7 +57,7 @@ const sidebars: SidebarsConfig = {
             type: 'doc',
             id: 'components/ahnlich-db/ahnlich-db'
           },
-          items: [ 
+          items: [
             'components/ahnlich-db/overview',
             'components/ahnlich-db/reference',
             'components/ahnlich-db/advanced'
@@ -68,9 +68,9 @@ const sidebars: SidebarsConfig = {
           label: '🤖 Ahnlich AI',
           link: {
             type: 'doc',
-            id: 'components/ahnlich-ai/ahnlich-ai' 
+            id: 'components/ahnlich-ai/ahnlich-ai'
           },
-          items: [ 
+          items: [
             'components/ahnlich-ai/overview',
             'components/ahnlich-ai/reference',
             'components/ahnlich-ai/advanced',
@@ -84,7 +84,7 @@ const sidebars: SidebarsConfig = {
       label: '📚 Client Libraries',
       link: {
         type: 'doc',
-        id: 'client-libraries/client-libraries' 
+        id: 'client-libraries/client-libraries'
       },
       items: [
         {
@@ -92,16 +92,16 @@ const sidebars: SidebarsConfig = {
           label: '🐍 Python',
           link: {
             type: 'doc',
-            id: 'client-libraries/python/python' 
+            id: 'client-libraries/python/python'
           },
           items: [
             'client-libraries/python/python-specific-resources',
             {
-               type: 'category',
+              type: 'category',
               label: 'Request DB',
               link: {
                 type: 'doc',
-                id: 'client-libraries/python/request-db/request-db' 
+                id: 'client-libraries/python/request-db/request-db'
               },
               items: [
                 'client-libraries/python/request-db/ping',
@@ -122,11 +122,11 @@ const sidebars: SidebarsConfig = {
               ]
             },
             {
-               type: 'category',
+              type: 'category',
               label: 'Request AI',
               link: {
                 type: 'doc',
-                id: 'client-libraries/python/request-ai/request-ai' 
+                id: 'client-libraries/python/request-ai/request-ai'
               },
               items: [
                 'client-libraries/python/request-ai/ping',
@@ -148,6 +148,69 @@ const sidebars: SidebarsConfig = {
             'client-libraries/python/type-meanings'
           ],
         },
+        {
+          type: 'category',
+          label: '⚙️ Go',
+          link: {
+            type: 'doc',
+            id: 'client-libraries/go/go',
+          },
+          items: [
+            'client-libraries/go/go-specific-resources',
+            {
+              type: 'category',
+              label: 'Request DB',
+              link: {
+                type: 'doc',
+                id: 'client-libraries/go/request-db/request-db'
+              },
+              items: [
+                'client-libraries/go/request-db/ping',
+                'client-libraries/go/request-db/info-server',
+                'client-libraries/go/request-db/list-stores',
+                'client-libraries/go/request-db/create-store',
+                'client-libraries/go/request-db/set',
+                'client-libraries/go/request-db/get-simn',
+                'client-libraries/go/request-db/get-key',
+                'client-libraries/go/request-db/get-by-predicate',
+                'client-libraries/go/request-db/create-predicate-index',
+                'client-libraries/go/request-db/drop-predicate-index',
+                'client-libraries/go/request-db/delete-key',
+                'client-libraries/go/request-db/drop-store',
+                'client-libraries/go/request-db/list-connected-clients',
+                'client-libraries/go/request-db/create-non-linear-algx',
+                'client-libraries/go/request-db/drop-non-linear-algx',
+                'client-libraries/go/request-db/delete-predicate',
+              ]
+            },
+            {
+              type: 'category',
+              label: 'Request AI',
+              link: {
+                type: 'doc',
+                id: 'client-libraries/go/request-ai/request-ai'
+              },
+              items: [
+                'client-libraries/go/request-ai/ping',
+                'client-libraries/go/request-ai/info-server',
+                'client-libraries/go/request-ai/list-stores',
+                'client-libraries/go/request-ai/create-store',
+                'client-libraries/go/request-ai/set',
+                'client-libraries/go/request-ai/get-simn',
+                'client-libraries/go/request-ai/get-by-predicate',
+                'client-libraries/go/request-ai/create-predicate-index',
+                'client-libraries/go/request-ai/drop-predicate-index',
+                'client-libraries/go/request-ai/delete-key',
+                'client-libraries/go/request-ai/drop-store',
+                'client-libraries/go/request-ai/create-non-linear-algx',
+                'client-libraries/go/request-ai/drop-non-linear-algx',
+              ]
+            },
+            'client-libraries/go/bulk-requests',
+            'client-libraries/go/type-meanings'
+          ]
+        },
+
       ],
     },
     {
