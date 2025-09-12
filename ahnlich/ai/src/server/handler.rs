@@ -654,10 +654,12 @@ impl AiService for AIProxyServer {
             }
         }
 
+        let inputs = Arc::new(params.store_inputs);
+
         let store_keys = ModelManager::handle_request(
             &self.model_manager,
             &ai_model,
-            params.store_inputs.clone(),
+            Arc::clone(&inputs),
             preprocess_action,
             InputAction::Index,
             None,
@@ -665,8 +667,9 @@ impl AiService for AIProxyServer {
         .await?;
 
         Ok(tonic::Response::new(StoreInputToEmbeddingsList {
-            values: params
-                .store_inputs
+            values: inputs
+                .as_ref()
+                .clone()
                 .into_iter()
                 .zip(store_keys)
                 .map(|(input, key)| SingleInputToEmbedding {

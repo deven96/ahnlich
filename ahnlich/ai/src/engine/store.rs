@@ -269,7 +269,7 @@ impl AIStoreHandler {
         let store_keys = model_manager
             .handle_request(
                 &store.index_model,
-                store_inputs,
+                Arc::new(store_inputs),
                 preprocess_action,
                 InputAction::Index,
                 execution_provider,
@@ -346,7 +346,7 @@ impl AIStoreHandler {
         let mut store_keys = model_manager
             .handle_request(
                 &store.query_model,
-                vec![store_input],
+                Arc::new(vec![store_input]),
                 preprocess_action,
                 InputAction::Query,
                 execution_provider,
