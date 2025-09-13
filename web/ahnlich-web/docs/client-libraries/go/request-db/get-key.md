@@ -6,7 +6,7 @@ title: GetKey
 
 ## Description
 
-The GetKey request is used to retrieve **specific entries** from a store by providing the exact vector keys. Unlike GetSimN, which searches for approximate or closest matches, GetKey performs a **direct lookup** based on the stored vectors.
+The `GetKey` request is used to retrieve **specific entries** from a store by providing the exact vector keys. Unlike GetSimN, which searches for approximate or closest matches, GetKey performs a **direct lookup** based on the stored vectors.
 
 ## Source Code Example
 

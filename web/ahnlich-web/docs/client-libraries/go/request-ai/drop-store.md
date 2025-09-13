@@ -6,7 +6,7 @@ title: Drop Store
 
 ## Description
 
-The **DropStore** request deletes an entire AI-managed store, including its embeddings, metadata, and indexes. This is a destructive operation and should be used when a store is no longer required.
+The `DropStore` request deletes an entire AI-managed store, including its embeddings, metadata, and indexes. This is a destructive operation and should be used when a store is no longer required.
 
 ## Source Code Example
 

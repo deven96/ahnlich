@@ -6,7 +6,7 @@ title: GetSimN
 
 ## Description
 
-The **GetSimN** request-ai performs a **nearest-neighbor search** using a **raw query input**. The AI proxy embeds the raw query with the store’s configured **QueryModel**, sends the similarity search to the DB, and returns the top-N matches.
+The `GetSimN` request-ai performs a **nearest-neighbor search** using a **raw query input**. The AI proxy embeds the raw query with the store’s configured **QueryModel**, sends the similarity search to the DB, and returns the top-N matches.
 
 ## Source Code Example
 

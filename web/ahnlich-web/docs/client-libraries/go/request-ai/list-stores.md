@@ -6,7 +6,7 @@ title: List Stores
 
 ## Description
 
-**ListStores** provides a **catalog of AI-managed stores** currently registered in the Ahnlich AI proxy. Each store represents a logical grouping where raw inputs (text, images, etc.) are converted into embeddings using the configured models and then indexed for retrieval.
+`ListStores` provides a **catalog of AI-managed stores** currently registered in the Ahnlich AI proxy. Each store represents a logical grouping where raw inputs (text, images, etc.) are converted into embeddings using the configured models and then indexed for retrieval.
 
 This request allows developers to:
 

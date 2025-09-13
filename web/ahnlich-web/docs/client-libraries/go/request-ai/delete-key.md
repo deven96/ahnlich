@@ -6,7 +6,7 @@ title: Delete Key
 
 ## Description
 
-The **DeleteKey** request removes specific entries from an AI-managed store using their **input keys**. Unlike dropping the store entirely, this operation targets only selected records.
+The `DeleteKey` request removes specific entries from an AI-managed store using their **input keys**. Unlike dropping the store entirely, this operation targets only selected records.
 
 ## Source Code Example
 

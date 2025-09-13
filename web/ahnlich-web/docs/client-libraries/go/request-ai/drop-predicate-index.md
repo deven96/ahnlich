@@ -6,7 +6,7 @@ title: Drop Predicate Index
 
 ## Description
 
-The **DropPredicateIndex** request removes an existing predicate index from a given AI-managed store. Predicate indexes are used to accelerate metadata-based queries (`GetByPredicate`), and dropping them reverts queries to a slower scan-based evaluation.
+The `DropPredicateIndex` request removes an existing predicate index from a given AI-managed store. Predicate indexes are used to accelerate metadata-based queries (`GetByPredicate`), and dropping them reverts queries to a slower scan-based evaluation.
 
 ## Source Code Example
 

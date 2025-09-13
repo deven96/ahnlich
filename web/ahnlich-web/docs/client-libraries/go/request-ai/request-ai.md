@@ -36,12 +36,12 @@ When creating or configuring a store via the AI proxy, you supply two model iden
 - QUERYMODEL — the model used to transform incoming raw queries into embeddings for search.
 
 *Example (CLI-style):*
-```
+```go
 CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
 ```
 
 Structured example (provided):
-```
+```go
 create_store(
     store="my_store",
     index_model="all-minilm-l6-v2",
@@ -62,12 +62,12 @@ create_store(
 
 ## Source Code Example
 Create a store named my_store and select the same model for both indexing and querying:
-```
+```go
 CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
 ```
 
 Equivalent in structured form:
-```
+```go
 create_store(
     store="my_store",
     index_model="all-minilm-l6-v2",

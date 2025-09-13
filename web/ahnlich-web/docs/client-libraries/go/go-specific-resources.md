@@ -11,14 +11,14 @@ Follow these steps to set up the Ahnlich Go SDK on your local machine.
 
 <!-- Go to the official [Go website](https://go.dev/doc/install) -->
 
-```
+```go
   # Check if you already have Go installed:
   go version
 ```
 
 _Example output:_
 
-```
+```go
   go version go1.20.5 linux/amd64
 ```
 
@@ -26,12 +26,12 @@ If Go is not installed, follow the steps for your operating system:
 
 ### macOS
 
-```
+```go
   # Install using Homebrew:
   brew install go
 ```
 
-```
+```go
   # Verify the installation:
   go version
 ```
@@ -44,7 +44,7 @@ If Go is not installed, follow the steps for your operating system:
 
 **Open Command Prompt or PowerShell and check:**
 
-```
+```go
   go version
 ```
 
@@ -54,7 +54,7 @@ Download the Go tarball from the official Go website.
 
 **Source Code Source Code Example:**
 
-```
+```go
   # Download Go
   wget https://go.dev/dl/go1.20.5.linux-amd64.tar.gz
 
@@ -74,13 +74,13 @@ The Ahnlich Go SDK provides the client libraries you’ll use to connect with Ah
 
 You can add it to your project in two ways:
 
-```
+```go
   Install with go get
 ```
 
 Run the following command in your project directory:
 
-```
+```go
   Using go get
   github.com/deven96/ahnlich/sdk/ahnlich-client-go@vX.Y.Z
 ```
@@ -95,7 +95,7 @@ Or Add it manually in **go.mod**
 
 Open your go.mod file and add the following line inside the require block:
 
-```
+```go
   require (
       github.com/deven96/ahnlich/sdk/ahnlich-client-go vX.Y.Z
   )
@@ -105,7 +105,7 @@ Open your go.mod file and add the following line inside the require block:
 
 - Once added, **run:**
 
-```
+```go
   go mod tidy
 ```
 
@@ -160,7 +160,7 @@ All DB request/response messages live under:
 
 _Example_
 
-```
+```go
   import "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db"
 ```
 
@@ -176,7 +176,7 @@ _Example_
 
 All AI request/response messages live under:
 
-```
+```go
   import "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai"
 ```
 
@@ -215,7 +215,10 @@ This ensures proper resource management and clean shutdown.
 The DB client allows you to connect to an Ahnlich DB instance and perform vector operations such as creating stores, inserting embeddings, or querying for similarity.
 package example
 
-```
+<details>
+  <summary>Click to expand source code</summary>
+
+```go
 import (
     "context"
     "fmt"
@@ -260,12 +263,16 @@ func (c *ExampleDBClient) Close() error {
     return c.conn.Close()
 }
 ```
+</details>
 
 ### AI Client
 
 The AI client connects to the Ahnlich AI service, which handles embedding generation and semantic queries.
 
-```
+<details>
+  <summary>Click to expand source code</summary>
+
+```go
 package example
 
 import (
@@ -313,6 +320,7 @@ func (c *ExampleAIClient) Close() error {
     return c.conn.Close()
 }
 ```
+</details>
 
 ### Connection Pooling
 

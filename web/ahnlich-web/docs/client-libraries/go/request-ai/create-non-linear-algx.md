@@ -6,7 +6,7 @@ title: Create Non-Linear algorithm Index
 
 ## Description
 
-The **Create Non Linear Algorithm Index** request allows the AI service to build specialized non-linear search indices (e.g., KD-Tree) on top of vector embeddings that have already been stored in an AI-managed store.
+The `Create Non Linear Algorithm Index` request allows the AI service to build specialized non-linear search indices (e.g., KD-Tree) on top of vector embeddings that have already been stored in an AI-managed store.
 
 Non-linear indices are essential when scaling similarity search, as they provide faster and more efficient retrieval of high-dimensional vectors compared to brute-force search.
 

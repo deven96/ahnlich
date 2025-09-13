@@ -6,7 +6,7 @@ title: Create Predicate Index
 
 ## Description
 
-The **CreatePredicateIndex** request enhances retrieval efficiency by building indexes on specified metadata fields within an AI-managed store. By indexing metadata keys, subsequent GetByPredicate requests can be executed more efficiently, especially on large datasets.
+The  `CreatePredicateIndex` request enhances retrieval efficiency by building indexes on specified metadata fields within an AI-managed store. By indexing metadata keys, subsequent GetByPredicate requests can be executed more efficiently, especially on large datasets.
 
 ## Source Code Example
 

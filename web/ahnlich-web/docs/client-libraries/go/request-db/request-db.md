@@ -23,7 +23,7 @@ _Example_
 
 A query to retrieve the 2 most similar vectors to `[0.2, 0.1]` from the store `my_store`, using cosine similarity, while excluding any items where the metadata field `page` is equal to `"hidden"`:
 
-```
+```go
 GETSIMN 2 WITH [0.2, 0.1] USING cosinesimilarity IN my_store WHERE (page != hidden)
 ```
 
