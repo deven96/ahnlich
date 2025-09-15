@@ -69,7 +69,7 @@ message FloatList {
 }
 
 message FloatListList {
- repeated FloatList float_list_list = 1;
+  repeated FloatList float_list_list = 1;
 }
 
 message SingleInputToEmbedding {
@@ -78,5 +78,5 @@ message SingleInputToEmbedding {
 }
 
 message StoreInputToEmbeddingsList {
- repeated SingleInputToEmbedding values = 1;
+  repeated SingleInputToEmbedding values = 1;
 }
