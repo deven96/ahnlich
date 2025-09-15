@@ -69,23 +69,30 @@ pub struct AIProxyConfig {
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).port.clone())]
     pub port: u16,
 
+    /// Start Ahnlich AI Proxy without Database connection
+    /// #[arg(long, group = "action")]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).without_db.clone())]
+    pub without_db: bool,
+
     /// Ahnlich Database Host
     #[arg(long, default_value_t =
-    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_host.clone())]
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_host.clone(), conflicts_with = "without_db")]
     pub db_host: String,
 
+    /// Use HTTPS to connect to Ahnlich Database
     #[arg(long, default_value_t =
-    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_https.clone())]
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_https.clone(), conflicts_with = "without_db")]
     pub db_https: bool,
 
     /// Ahnlich Database port
     #[arg(long, default_value_t =
-    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_port.clone())]
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_port.clone(), conflicts_with = "without_db")]
     pub db_port: u16,
 
     /// Ahnlich Database Client Connection Pool Size
     #[arg(long, default_value_t =
-    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_client_pool_size.clone())]
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_client_pool_size.clone(), conflicts_with = "without_db")]
     pub db_client_pool_size: usize,
 
     /// List of ai models to support in your aiproxy stores
@@ -154,6 +161,7 @@ impl Default for AIProxyConfig {
     fn default() -> Self {
         Self {
             port: 1370,
+            without_db: false,
             db_host: String::from("127.0.0.1"),
             db_https: false,
             db_port: 1369,
