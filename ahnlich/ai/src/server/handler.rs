@@ -666,6 +666,14 @@ impl AiService for AIProxyServer {
         )
         .await?;
 
+        if inputs.len() != store_keys.len() {
+            return Err(tonic::Status::failed_precondition(format!(
+                "Mismatched lengths: inputs has {} elements, but store_keys has {}.",
+                inputs.len(),
+                store_keys.len()
+            )));
+        }
+
         Ok(tonic::Response::new(StoreInputToEmbeddingsList {
             values: inputs
                 .as_ref()

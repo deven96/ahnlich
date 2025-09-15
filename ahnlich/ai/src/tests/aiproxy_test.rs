@@ -14,12 +14,11 @@ use crate::{
     server::handler::AIProxyServer,
 };
 
+use ahnlich_types::algorithm::algorithms::Algorithm;
 use ahnlich_types::{
     ai::server::GetSimNEntry,
-    keyval::StoreKey,
     metadata::{MetadataValue, metadata_value::Value as MValue},
 };
-use ahnlich_types::{ai::server::SingleInputToEmbedding, algorithm::algorithms::Algorithm};
 use ahnlich_types::{
     ai::{
         models::AiModel,
@@ -41,6 +40,7 @@ use ahnlich_types::{
 };
 
 use std::path::PathBuf;
+use test_case::test_case;
 use tokio::time::Duration;
 use tonic::transport::Channel;
 
@@ -625,6 +625,13 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
 }
 
 #[tokio::test]
+// #[test_case(1, AiModel::AllMiniLmL6V2.into(); "AllMiniLmL6V2")]
+// #[test_case(2, AiModel::AllMiniLmL12V2.into(); "AllMiniLmL12V2")]
+// #[test_case(3, AiModel::BgeBaseEnV15.into(); "BgeBaseEnV15")]
+// #[test_case(4, AiModel::BgeLargeEnV15.into(); "BgeLargeEnV15e")]
+// #[test_case(5, AiModel::Resnet50.into(); "Resnet50")]
+// #[test_case(6, AiModel::ClipVitB32Image.into(); "ClipVitB32Image")]
+// #[test_case(7, AiModel::ClipVitB32Text.into(); "ClipVitB32Text")]
 async fn test_convert_store_input_to_embeddings() {
     let address = provision_test_servers().await;
 
@@ -756,23 +763,10 @@ async fn test_convert_store_input_to_embeddings() {
             .await
             .expect("Failed to send pipeline request");
 
-        let expected_entries = ai_response_types::StoreInputToEmbeddingsList {
-            values: vec![
-                SingleInputToEmbedding {
-                    input: Some(store_input_1.clone()),
-                    embedding: Some(StoreKey { key: vec![] }),
-                },
-                SingleInputToEmbedding {
-                    input: Some(store_input_2.clone()),
-                    embedding: Some(StoreKey { key: vec![] }),
-                },
-            ],
-        };
-
         let store_inputs = vec![store_input_1, store_input_2];
 
         let query = ai_query_types::ConvertStoreInputToEmbeddings {
-            store_inputs,
+            store_inputs: store_inputs.clone(),
             preprocess_action: Some(PreprocessAction::NoPreprocessing.into()),
             model,
         };
@@ -784,15 +778,15 @@ async fn test_convert_store_input_to_embeddings() {
 
         let response_entries = response.into_inner().values;
 
-        assert_eq!(response_entries.len(), expected_entries.values.len());
+        assert_eq!(response_entries.len(), store_inputs.len());
 
         // Verify all expected entries are present (order-independent)
-        for expected_entry in expected_entries.values {
-            response_entries.iter().any(|e| {
-                e.input == expected_entry.input
+        for input in store_inputs {
+            assert!(response_entries.iter().any(|e| {
+                e.input == Some(input.clone())
                     && e.embedding.is_some()
                     && e.embedding.as_ref().unwrap().key.len() > 0
-            });
+            }))
         }
     }
 }
