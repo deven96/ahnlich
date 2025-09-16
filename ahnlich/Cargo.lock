@@ -45,6 +45,7 @@ dependencies = [
  "ndarray",
  "once_cell",
  "pretty_assertions",
+ "test-case",
  "thiserror 1.0.69",
  "tokio",
  "tonic 0.12.3",

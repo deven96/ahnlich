@@ -24,6 +24,7 @@ tokio.workspace = true
 tonic.workspace = true
 http.workspace = true
 fallible_collections.workspace = true
+test-case = "3.3.1"
 
 [dev-dependencies]
 db = { path = "../db", version = "*" }

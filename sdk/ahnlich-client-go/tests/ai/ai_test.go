@@ -201,6 +201,82 @@ func TestDeleteAndGetKey(t *testing.T) {
 	require.EqualValues(t, 1, del.DeletedCount)
 }
 
+func TestConvertInputsToEmbeddings(t *testing.T) {
+	proc := startAI(t)
+	defer proc.Kill()
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := aisvc.NewAIServiceClient(conn)
+
+	_, _ = client.CreateStore(context.Background(), storeWithPred)
+
+	entries := []*keyval.AiStoreEntry{
+		{
+			Key: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "Jordan One"}},
+			Value: &keyval.StoreValue{
+				Value: map[string]*metadata.MetadataValue{
+					"brand": {Value: &metadata.MetadataValue_RawString{RawString: "Nike"}},
+				},
+			},
+		},
+		{
+			Key: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "Air Force One"}},
+			Value: &keyval.StoreValue{
+				Value: map[string]*metadata.MetadataValue{
+					"brand": {Value: &metadata.MetadataValue_RawString{RawString: "Nike"}},
+				},
+			},
+		},
+	}
+
+	_, _ = client.Set(context.Background(), &aiquery.Set{
+		Store:            storeWithPred.Store,
+		Inputs:           entries,
+		PreprocessAction: preprocess.PreprocessAction_NoPreprocessing,
+	})
+
+	inputs := []*keyval.StoreInput{
+		{
+			Value: &keyval.StoreInput_RawString{RawString: "Jordan One"},
+		},
+		{
+			Value: &keyval.StoreInput_RawString{RawString: "Air Force One"},
+		},
+	}
+
+	response, err := client.ConvertStoreInputToEmbeddings(
+		context.Background(),
+		&aiquery.ConvertStoreInputToEmbeddings{
+			StoreInputs:      inputs,
+			PreprocessAction: preprocess.PreprocessAction_NoPreprocessing.Enum(),
+			Model:            aimodel.AIModel_ALL_MINI_LM_L6_V2,
+		},
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, len(response.Values), len(inputs))
+
+	for _, input := range inputs {
+		found := false
+
+		for _, inputToEmbedding := range response.Values {
+			rawStringInputToEmbedding, okInputToEmbedding := inputToEmbedding.Input.Value.(*keyval.StoreInput_RawString)
+			rawStringInput, okInput := input.Value.(*keyval.StoreInput_RawString)
+
+			if okInputToEmbedding && okInput &&
+				rawStringInputToEmbedding.RawString == rawStringInput.RawString &&
+				inputToEmbedding.Embedding != nil &&
+				len(inputToEmbedding.Embedding.Key) > 0 {
+				found = true
+				break
+			}
+		}
+
+		require.True(t, found, "Embedding not found for input: %v", input)
+	}
+}
+
 func TestListClients(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
