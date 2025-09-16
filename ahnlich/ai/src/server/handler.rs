@@ -654,12 +654,12 @@ impl AiService for AIProxyServer {
             }
         }
 
-        let inputs = Arc::new(params.store_inputs);
+        let inputs = params.store_inputs;
 
         let store_keys = ModelManager::handle_request(
             &self.model_manager,
             &ai_model,
-            Arc::clone(&inputs),
+            inputs.clone(),
             preprocess_action,
             InputAction::Index,
             None,
@@ -676,7 +676,6 @@ impl AiService for AIProxyServer {
 
         Ok(tonic::Response::new(StoreInputToEmbeddingsList {
             values: inputs
-                .as_ref()
                 .clone()
                 .into_iter()
                 .zip(store_keys)
@@ -998,7 +997,12 @@ impl AIProxyServer {
         )
         .await?;
         let write_flag = Arc::new(AtomicBool::new(false));
-        let db_client = Self::build_db_client(&config).await;
+        let db_client = if config.without_db {
+            None
+        } else {
+            Some(Arc::new(Self::build_db_client(&config).await))
+        };
+
         let mut store_handler =
             AIStoreHandler::new(write_flag.clone(), config.supported_models.clone());
         if let Some(ref persist_location) = config.common.persist_location {
@@ -1036,7 +1040,7 @@ impl AIProxyServer {
             client_handler,
             store_handler: Arc::new(store_handler),
             config,
-            db_client: Some(Arc::new(db_client)),
+            db_client: db_client,
             task_manager,
             model_manager: Arc::new(model_manager),
         })

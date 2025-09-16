@@ -294,7 +294,7 @@ impl ModelManager {
     pub async fn handle_request(
         &self,
         model: &AiModel,
-        inputs: Arc<Vec<StoreInput>>,
+        inputs: Vec<StoreInput>, // FIXME: optimise usage here to avaoid cloning if possible
         preprocess_action: PreprocessAction,
         action_type: InputAction,
         execution_provider: Option<ExecutionProvider>,
@@ -312,7 +312,7 @@ impl ModelManager {
 
         let (response_tx, response_rx) = oneshot::channel();
         let request = ModelThreadRequest {
-            inputs: inputs.as_ref().clone(),
+            inputs: inputs,
             response: response_tx,
             preprocess_action,
             action_type,
@@ -385,13 +385,7 @@ mod tests {
         }];
         let action = PreprocessAction::ModelPreprocessing;
         let _ = model_manager
-            .handle_request(
-                &sample_ai_model,
-                Arc::new(inputs),
-                action,
-                InputAction::Query,
-                None,
-            )
+            .handle_request(&sample_ai_model, inputs, action, InputAction::Query, None)
             .await
             .unwrap();
         let recreated_model = model_manager.models.get(&sample_supported_model).await;
