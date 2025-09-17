@@ -15,7 +15,7 @@ maintenance = { status = "actively-developed" }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ahnlich_types = { path = "../types", version = "*"  }
+ahnlich_types = { path = "../types", version = "*" }
 thiserror.workspace = true
 once_cell.workspace = true
 bincode.workspace = true
@@ -24,7 +24,6 @@ tokio.workspace = true
 tonic.workspace = true
 http.workspace = true
 fallible_collections.workspace = true
-test-case = "3.3.1"
 
 [dev-dependencies]
 db = { path = "../db", version = "*" }
@@ -32,4 +31,4 @@ ai = { path = "../ai", version = "*" }
 pretty_assertions.workspace = true
 ndarray.workspace = true
 utils = { path = "../utils", version = "*" }
-
+test-case = "3.3.1"

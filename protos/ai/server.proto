@@ -64,14 +64,6 @@ message AIStoreInfo {
   uint64 embedding_size = 4;
 }
 
-message FloatList {
-  repeated float float_list = 1;
-}
-
-message FloatListList {
-  repeated FloatList float_list_list = 1;
-}
-
 message SingleInputToEmbedding {
   keyval.StoreInput input = 1;
   keyval.StoreKey embedding = 2;

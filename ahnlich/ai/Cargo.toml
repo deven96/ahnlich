@@ -53,7 +53,6 @@ tiktoken-rs = "0.5.9"
 itertools.workspace = true
 tokenizers = { version = "0.21" }
 papaya.workspace = true
-test-case = "3.3.1"
 
 [features]
 # ORT Execution providers
@@ -68,3 +67,5 @@ directml = ["ort/directml"]
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true
+regex = "1.11.1"
+test-case = "3.3.1"

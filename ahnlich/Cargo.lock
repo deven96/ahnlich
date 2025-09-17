@@ -114,6 +114,7 @@ dependencies = [
  "pretty_assertions",
  "prost 0.13.4",
  "rayon",
+ "regex",
  "serde",
  "serde_json",
  "strum",

@@ -227,7 +227,7 @@ async def test_ai_client_get_key(spin_up_ahnlich_ai):
     try:
         # Create store and insert data
         await client.create_store(
-            ai_query.CreateStore(**ai_store_payload_with_predicates) 
+            ai_query.CreateStore(**ai_store_payload_with_predicates)
         )
 
         entries = [
@@ -304,6 +304,7 @@ async def test_ai_client_purge_stores_succeeds(spin_up_ahnlich_ai):
     finally:
         channel.close()
 
+
 @pytest.mark.asyncio
 async def test_ai_client_convert_store_input_to_embeddings_succeeds(spin_up_ahnlich_ai):
     channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
@@ -338,17 +339,21 @@ async def test_ai_client_convert_store_input_to_embeddings_succeeds(spin_up_ahnl
             keyval.StoreInput(raw_string="Air Force One"),
         ]
 
-        response = await client.convert_store_input_to_embeddings(ai_query.ConvertStoreInputToEmbeddings(
-            store_inputs=inputs,
-            preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
-            model=AiModel.ALL_MINI_LM_L6_V2
-        ))
+        response = await client.convert_store_input_to_embeddings(
+            ai_query.ConvertStoreInputToEmbeddings(
+                store_inputs=inputs,
+                preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+                model=AiModel.ALL_MINI_LM_L6_V2,
+            )
+        )
 
         assert len(response.values) == len(inputs)
 
         for input in inputs:
             assert any(
-                e.input == input and e.embedding is not None and len(e.embedding.key) > 0
+                e.input == input
+                and e.embedding is not None
+                and len(e.embedding.key) > 0
                 for e in response.values
             )
     finally:

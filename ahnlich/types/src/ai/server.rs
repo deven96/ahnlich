@@ -71,16 +71,6 @@ pub struct AiStoreInfo {
     pub embedding_size: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FloatList {
-    #[prost(float, repeated, tag = "1")]
-    pub float_list: ::prost::alloc::vec::Vec<f32>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FloatListList {
-    #[prost(message, repeated, tag = "1")]
-    pub float_list_list: ::prost::alloc::vec::Vec<FloatList>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SingleInputToEmbedding {
     #[prost(message, optional, tag = "1")]
     pub input: ::core::option::Option<super::super::keyval::StoreInput>,
