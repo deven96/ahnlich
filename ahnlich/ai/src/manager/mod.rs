@@ -312,7 +312,7 @@ impl ModelManager {
 
         let (response_tx, response_rx) = oneshot::channel();
         let request = ModelThreadRequest {
-            inputs: inputs,
+            inputs,
             response: response_tx,
             preprocess_action,
             action_type,

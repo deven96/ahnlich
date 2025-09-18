@@ -1040,7 +1040,7 @@ impl AIProxyServer {
             client_handler,
             store_handler: Arc::new(store_handler),
             config,
-            db_client: db_client,
+            db_client,
             task_manager,
             model_manager: Arc::new(model_manager),
         })
