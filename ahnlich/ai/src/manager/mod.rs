@@ -294,7 +294,7 @@ impl ModelManager {
     pub async fn handle_request(
         &self,
         model: &AiModel,
-        inputs: Vec<StoreInput>,
+        inputs: Vec<StoreInput>, // FIXME: optimise usage here to avaoid cloning if possible
         preprocess_action: PreprocessAction,
         action_type: InputAction,
         execution_provider: Option<ExecutionProvider>,

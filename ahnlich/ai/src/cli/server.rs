@@ -69,23 +69,30 @@ pub struct AIProxyConfig {
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).port.clone())]
     pub port: u16,
 
+    /// Start Ahnlich AI Proxy without Database connection
+    /// #[arg(long, group = "action")]
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).without_db.clone())]
+    pub without_db: bool,
+
     /// Ahnlich Database Host
     #[arg(long, default_value_t =
-    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_host.clone())]
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_host.clone(), conflicts_with = "without_db")]
     pub db_host: String,
 
+    /// Use HTTPS to connect to Ahnlich Database
     #[arg(long, default_value_t =
-    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_https.clone())]
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_https.clone(), conflicts_with = "without_db")]
     pub db_https: bool,
 
     /// Ahnlich Database port
     #[arg(long, default_value_t =
-    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_port.clone())]
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_port.clone(), conflicts_with = "without_db")]
     pub db_port: u16,
 
     /// Ahnlich Database Client Connection Pool Size
     #[arg(long, default_value_t =
-    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_client_pool_size.clone())]
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).db_client_pool_size.clone(), conflicts_with = "without_db")]
     pub db_client_pool_size: usize,
 
     /// List of ai models to support in your aiproxy stores
@@ -154,6 +161,7 @@ impl Default for AIProxyConfig {
     fn default() -> Self {
         Self {
             port: 1370,
+            without_db: false,
             db_host: String::from("127.0.0.1"),
             db_https: false,
             db_port: 1369,
@@ -299,5 +307,55 @@ impl SupportedModelArgs {
         }
 
         writeln!(&mut stdout, "{text}").expect("Failed to write output");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use regex::Regex;
+    use std::process;
+    use test_case::test_case;
+
+    #[test_case("--db-host", Some("127.0.0.1"), Some("<DB_HOST>"); "with_db_host_option_passed")]
+    #[test_case("--db-port", Some("1369"), Some("<DB_PORT>"); "with_db_port_option_passed")]
+    #[test_case("--db-https", None, None; "with_db_https_option_passed")]
+    #[test_case("--db-client-pool-size", Some("10"), Some("<DB_CLIENT_POOL_SIZE>"); "with_db_client_pool_size_option_passed")]
+    #[tokio::test]
+    async fn test_ai_cli_does_not_accept_db_config_when_without_db_option_is_passed(
+        option: &str,
+        value: Option<&str>,
+        placeholder: Option<&str>,
+    ) {
+        let expected = match placeholder {
+            Some(ph) => format!(
+                "the argument '{} {}' cannot be used with '--without-db'",
+                option, ph
+            ),
+            None => format!(
+                "the argument '{}' cannot be used with '--without-db'",
+                option
+            ),
+        };
+
+        let mut args = vec!["run", "--bin", "ahnlich-ai", "run", option];
+
+        if let Some(v) = value {
+            args.push(v);
+        }
+
+        args.push("--without-db");
+
+        let output = process::Command::new("cargo")
+            .args(&args)
+            .output()
+            .expect("Failed to execute process");
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        let re = Regex::new(r"(?m)^error:\s+(.*)$").unwrap();
+
+        if let Some(caps) = re.captures(&stderr) {
+            assert_eq!(&caps[1], expected);
+        }
     }
 }

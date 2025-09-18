@@ -2,18 +2,21 @@ use crate::AHNLICH_AI_RESERVED_META_KEY;
 use crate::cli::AIProxyConfig;
 use crate::cli::server::ModelConfig;
 use crate::cli::server::SupportedModels;
+use crate::engine::ai::models::InputAction;
 use crate::engine::ai::models::Model;
 use crate::engine::ai::models::ModelDetails;
 use crate::engine::store::AIStoreHandler;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use ahnlich_types::ai::models::AiModel;
+use ahnlich_types::ai::models::AiStoreInputType;
 use ahnlich_types::ai::pipeline::AiRequestPipeline;
 use ahnlich_types::ai::pipeline::AiResponsePipeline;
 use ahnlich_types::ai::pipeline::AiServerResponse;
 use ahnlich_types::ai::pipeline::ai_query::Query;
 use ahnlich_types::ai::pipeline::ai_server_response;
 use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::ai::query::ConvertStoreInputToEmbeddings;
 use ahnlich_types::ai::query::CreateNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::CreatePredIndex;
 use ahnlich_types::ai::query::CreateStore;
@@ -36,6 +39,8 @@ use ahnlich_types::ai::server::CreateIndex;
 use ahnlich_types::ai::server::Del;
 use ahnlich_types::ai::server::Get;
 use ahnlich_types::ai::server::Pong;
+use ahnlich_types::ai::server::SingleInputToEmbedding;
+use ahnlich_types::ai::server::StoreInputToEmbeddingsList;
 use ahnlich_types::ai::server::StoreList;
 use ahnlich_types::ai::server::Unit;
 use ahnlich_types::db::pipeline::DbServerResponse;
@@ -90,7 +95,7 @@ pub struct AIProxyServer {
     client_handler: Arc<ClientHandler>,
     store_handler: Arc<AIStoreHandler>,
     task_manager: Arc<TaskManager>,
-    db_client: Arc<DbClient>,
+    db_client: Option<Arc<DbClient>>,
     model_manager: Arc<ModelManager>,
 }
 
@@ -172,8 +177,12 @@ impl AiService for AIProxyServer {
             .map_err(|_| AIProxyError::InputNotSpecified("Query model".to_string()))?;
         let model: ModelDetails = SupportedModels::from(&index_model).to_model_details();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let _ = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        db_client
             .create_store(
                 DbCreateStore {
                     store: params.store.clone(),
@@ -204,8 +213,13 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<CreateIndex>, tonic::Status> {
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+
+        let res = db_client
             .create_pred_index(
                 DbCreatePredIndex {
                     store: params.store,
@@ -226,8 +240,13 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<CreateIndex>, tonic::Status> {
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+
+        let res = db_client
             .create_non_linear_algorithm_index(
                 DbCreateNonLinearAlgorithmIndex {
                     store: params.store,
@@ -261,8 +280,12 @@ impl AiService for AIProxyServer {
                 })),
             })),
         });
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let res = db_client
             .get_pred(
                 DbGetPred {
                     store: params.store,
@@ -284,8 +307,12 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<Get>, tonic::Status> {
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let res = db_client
             .get_pred(
                 DbGetPred {
                     store: params.store,
@@ -330,10 +357,12 @@ impl AiService for AIProxyServer {
             algorithm: params.algorithm,
             condition: params.condition,
         };
-        let response = self
+        let db_client = self
             .db_client
-            .get_sim_n(get_sim_n_params, parent_id)
-            .await?;
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let response = db_client.get_sim_n(get_sim_n_params, parent_id).await?;
         let (store_key_input, similarities): (Vec<_>, Vec<_>) = response
             .entries
             .into_par_iter()
@@ -395,7 +424,12 @@ impl AiService for AIProxyServer {
                 params.execution_provider.and_then(|a| a.try_into().ok()),
             )
             .await?;
-        let mut pipeline = self.db_client.pipeline(parent_id);
+        let db_client = self
+            .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let mut pipeline = db_client.pipeline(parent_id);
         if let Some(del_hashset) = delete_hashset {
             let delete_condition = DelPred {
                 store: params.store.clone(),
@@ -443,8 +477,12 @@ impl AiService for AIProxyServer {
             .predicates
             .retain(|val| val != AHNLICH_AI_RESERVED_META_KEY);
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let res = db_client
             .drop_pred_index(
                 DbDropPredIndex {
                     store: params.store,
@@ -466,8 +504,12 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<Del>, tonic::Status> {
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let res = self
+        let db_client = self
             .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let res = db_client
             .drop_non_linear_algorithm_index(
                 DbDropNonLinearAlgorithmIndex {
                     store: params.store,
@@ -514,7 +556,12 @@ impl AiService for AIProxyServer {
                 }),
             };
             let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-            let res = self.db_client.del_pred(del_pred_params, parent_id).await?;
+            let db_client = self
+                .db_client
+                .as_ref()
+                .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+                .clone();
+            let res = db_client.del_pred(del_pred_params, parent_id).await?;
             Ok(tonic::Response::new(Del {
                 deleted_count: res.deleted_count,
             }))
@@ -571,6 +618,72 @@ impl AiService for AIProxyServer {
         let deleted_count = self.store_handler.purge_stores();
         Ok(tonic::Response::new(Del {
             deleted_count: deleted_count as u64,
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn convert_store_input_to_embeddings(
+        &self,
+        request: tonic::Request<ConvertStoreInputToEmbeddings>,
+    ) -> Result<tonic::Response<StoreInputToEmbeddingsList>, tonic::Status> {
+        let params = request.into_inner();
+
+        let ai_model = AiModel::try_from(params.model)
+            .map_err(|_| AIProxyError::InputNotSpecified("AI Model Value".to_string()))?;
+
+        let preprocess_action = params
+            .preprocess_action
+            .ok_or_else(|| AIProxyError::InputNotSpecified("Preprocess Action Value".to_string()))
+            .and_then(|val| {
+                PreprocessAction::try_from(val).map_err(|_| {
+                    AIProxyError::InputNotSpecified("Preprocess Action Value".to_string())
+                })
+            })?;
+
+        let index_model_repr: ModelDetails = SupportedModels::from(&ai_model).to_model_details();
+
+        for store_input in &params.store_inputs {
+            let store_input_type: AiStoreInputType = (store_input)
+                .try_into()
+                .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
+
+            if store_input_type != index_model_repr.input_type() {
+                return Err(tonic::Status::failed_precondition(
+                    "Store input type and AI model type don't match",
+                ));
+            }
+        }
+
+        let inputs = params.store_inputs;
+
+        let store_keys = ModelManager::handle_request(
+            &self.model_manager,
+            &ai_model,
+            inputs.clone(),
+            preprocess_action,
+            InputAction::Index,
+            None,
+        )
+        .await?;
+
+        if inputs.len() != store_keys.len() {
+            return Err(tonic::Status::failed_precondition(format!(
+                "Mismatched lengths: inputs has {} elements, but store_keys has {}.",
+                inputs.len(),
+                store_keys.len()
+            )));
+        }
+
+        Ok(tonic::Response::new(StoreInputToEmbeddingsList {
+            values: inputs
+                .clone()
+                .into_iter()
+                .zip(store_keys)
+                .map(|(input, key)| SingleInputToEmbedding {
+                    input: Some(input),
+                    embedding: Some(key),
+                })
+                .collect(),
         }))
     }
 
@@ -805,6 +918,25 @@ impl AiService for AIProxyServer {
                         }
                     }
                 }
+
+                Query::ConvertStoreInputToEmbeddings(params) => {
+                    match self
+                        .convert_store_input_to_embeddings(tonic::Request::new(params))
+                        .await
+                    {
+                        Ok(res) => response_vec.push(
+                            ai_server_response::Response::StoreInputToEmbeddingsList(
+                                res.into_inner(),
+                            ),
+                        ),
+                        Err(err) => {
+                            response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                                message: err.message().to_string(),
+                                code: err.code().into(),
+                            }));
+                        }
+                    }
+                }
             }
         }
         let response_vec = response_vec
@@ -865,7 +997,12 @@ impl AIProxyServer {
         )
         .await?;
         let write_flag = Arc::new(AtomicBool::new(false));
-        let db_client = Self::build_db_client(&config).await;
+        let db_client = if config.without_db {
+            None
+        } else {
+            Some(Arc::new(Self::build_db_client(&config).await))
+        };
+
         let mut store_handler =
             AIStoreHandler::new(write_flag.clone(), config.supported_models.clone());
         if let Some(ref persist_location) = config.common.persist_location {
@@ -903,7 +1040,7 @@ impl AIProxyServer {
             client_handler,
             store_handler: Arc::new(store_handler),
             config,
-            db_client: Arc::new(db_client),
+            db_client,
             task_manager,
             model_manager: Arc::new(model_manager),
         })

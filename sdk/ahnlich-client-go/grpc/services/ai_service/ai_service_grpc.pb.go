@@ -40,6 +40,7 @@ const (
 	AIService_InfoServer_FullMethodName                    = "/services.ai_service.AIService/InfoServer"
 	AIService_PurgeStores_FullMethodName                   = "/services.ai_service.AIService/PurgeStores"
 	AIService_Ping_FullMethodName                          = "/services.ai_service.AIService/Ping"
+	AIService_ConvertStoreInputToEmbeddings_FullMethodName = "/services.ai_service.AIService/ConvertStoreInputToEmbeddings"
 	AIService_Pipeline_FullMethodName                      = "/services.ai_service.AIService/Pipeline"
 )
 
@@ -68,6 +69,7 @@ type AIServiceClient interface {
 	InfoServer(ctx context.Context, in *query.InfoServer, opts ...grpc.CallOption) (*server.InfoServer, error)
 	PurgeStores(ctx context.Context, in *query.PurgeStores, opts ...grpc.CallOption) (*server.Del, error)
 	Ping(ctx context.Context, in *query.Ping, opts ...grpc.CallOption) (*server.Pong, error)
+	ConvertStoreInputToEmbeddings(ctx context.Context, in *query.ConvertStoreInputToEmbeddings, opts ...grpc.CallOption) (*server.StoreInputToEmbeddingsList, error)
 	// * Pipeline method for all methods *
 	Pipeline(ctx context.Context, in *pipeline.AIRequestPipeline, opts ...grpc.CallOption) (*pipeline.AIResponsePipeline, error)
 }
@@ -240,6 +242,16 @@ func (c *aIServiceClient) Ping(ctx context.Context, in *query.Ping, opts ...grpc
 	return out, nil
 }
 
+func (c *aIServiceClient) ConvertStoreInputToEmbeddings(ctx context.Context, in *query.ConvertStoreInputToEmbeddings, opts ...grpc.CallOption) (*server.StoreInputToEmbeddingsList, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(server.StoreInputToEmbeddingsList)
+	err := c.cc.Invoke(ctx, AIService_ConvertStoreInputToEmbeddings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *aIServiceClient) Pipeline(ctx context.Context, in *pipeline.AIRequestPipeline, opts ...grpc.CallOption) (*pipeline.AIResponsePipeline, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(pipeline.AIResponsePipeline)
@@ -275,6 +287,7 @@ type AIServiceServer interface {
 	InfoServer(context.Context, *query.InfoServer) (*server.InfoServer, error)
 	PurgeStores(context.Context, *query.PurgeStores) (*server.Del, error)
 	Ping(context.Context, *query.Ping) (*server.Pong, error)
+	ConvertStoreInputToEmbeddings(context.Context, *query.ConvertStoreInputToEmbeddings) (*server.StoreInputToEmbeddingsList, error)
 	// * Pipeline method for all methods *
 	Pipeline(context.Context, *pipeline.AIRequestPipeline) (*pipeline.AIResponsePipeline, error)
 	mustEmbedUnimplementedAIServiceServer()
@@ -334,6 +347,9 @@ func (UnimplementedAIServiceServer) PurgeStores(context.Context, *query.PurgeSto
 }
 func (UnimplementedAIServiceServer) Ping(context.Context, *query.Ping) (*server.Pong, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+}
+func (UnimplementedAIServiceServer) ConvertStoreInputToEmbeddings(context.Context, *query.ConvertStoreInputToEmbeddings) (*server.StoreInputToEmbeddingsList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ConvertStoreInputToEmbeddings not implemented")
 }
 func (UnimplementedAIServiceServer) Pipeline(context.Context, *pipeline.AIRequestPipeline) (*pipeline.AIResponsePipeline, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Pipeline not implemented")
@@ -647,6 +663,24 @@ func _AIService_Ping_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AIService_ConvertStoreInputToEmbeddings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(query.ConvertStoreInputToEmbeddings)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).ConvertStoreInputToEmbeddings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_ConvertStoreInputToEmbeddings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).ConvertStoreInputToEmbeddings(ctx, req.(*query.ConvertStoreInputToEmbeddings))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AIService_Pipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(pipeline.AIRequestPipeline)
 	if err := dec(in); err != nil {
@@ -735,6 +769,10 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Ping",
 			Handler:    _AIService_Ping_Handler,
+		},
+		{
+			MethodName: "ConvertStoreInputToEmbeddings",
+			Handler:    _AIService_ConvertStoreInputToEmbeddings_Handler,
 		},
 		{
 			MethodName: "Pipeline",

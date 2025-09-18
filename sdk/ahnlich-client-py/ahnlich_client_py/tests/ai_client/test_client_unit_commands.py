@@ -46,13 +46,5 @@ async def test_client_works_using_context_manager(spin_up_ahnlich_ai):
     async with Channel(host="127.0.0.1", port=spin_up_ahnlich_ai) as channel:
         client = ai_service.AiServiceStub(channel)
         response = await client.list_stores(ai_query.ListStores())
-        assert len(response.stores) == 0
-
-
-@pytest.mark.asyncio
-async def test_client_works_using_context_manager(spin_up_ahnlich_ai):
-    async with Channel(host="127.0.0.1", port=spin_up_ahnlich_ai) as channel:
-        client = ai_service.AiServiceStub(channel)
-        response = await client.list_stores(ai_query.ListStores())
         assert isinstance(response, ai_server.StoreList)
         assert len(response.stores) == 0
