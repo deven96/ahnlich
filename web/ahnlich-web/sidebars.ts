@@ -210,7 +210,74 @@ const sidebars: SidebarsConfig = {
             'client-libraries/go/type-meanings'
           ]
         },
-
+        {
+          type: 'category',
+          label: '⚙️ Rust',
+          link: {
+            type: 'doc',
+            id: 'client-libraries/rust/rust',
+          },
+          items: [
+            'client-libraries/rust/rust-specific-resources',
+            {
+              type: 'category',
+              label: 'Request DB',
+              link: {
+                type: 'doc',
+                id: 'client-libraries/rust/request-db/request-db'
+              },
+              items: [
+                'client-libraries/rust/request-db/ping',
+                'client-libraries/rust/request-db/info-server',
+                'client-libraries/rust/request-db/list-stores',
+                'client-libraries/rust/request-db/create-store',
+                'client-libraries/rust/request-db/set',
+                'client-libraries/rust/request-db/get-simn',
+                'client-libraries/rust/request-db/get-key',
+                'client-libraries/rust/request-db/get-by-predicate',
+                'client-libraries/rust/request-db/create-predicate-index',
+                'client-libraries/rust/request-db/drop-predicate-index',
+                'client-libraries/rust/request-db/delete-key',
+                'client-libraries/rust/request-db/drop-store',
+                'client-libraries/rust/request-db/list-connected-clients',
+                'client-libraries/rust/request-db/create-non-linear-algx',
+                'client-libraries/rust/request-db/drop-non-linear-algx',
+                'client-libraries/rust/request-db/delete-by-predicate'
+              ]
+            },
+            {
+              type: 'category',
+              label: 'Request AI',
+              link: {
+                type: 'doc',
+                id: 'client-libraries/rust/request-ai/request-ai'
+              },
+              items: [
+                'client-libraries/rust/request-ai/ping',
+                'client-libraries/rust/request-ai/info-server',
+                'client-libraries/rust/request-ai/list-stores',
+                'client-libraries/rust/request-ai/create-store',
+                'client-libraries/rust/request-ai/set',
+                'client-libraries/rust/request-ai/get-simn',
+                'client-libraries/rust/request-ai/get-key',
+                'client-libraries/rust/request-ai/get-by-predicate',
+                'client-libraries/rust/request-ai/create-predicate-index',
+                'client-libraries/rust/request-ai/drop-predicate-index',
+                'client-libraries/rust/request-ai/delete-key',
+                'client-libraries/rust/request-ai/drop-store',
+                'client-libraries/rust/request-ai/list-connected-clients',
+                'client-libraries/rust/request-ai/create-non-linear-algx',
+                'client-libraries/rust/request-ai/drop-non-linear-algx',
+                'client-libraries/rust/request-ai/new',
+                'client-libraries/rust/request-ai/purge-stores'
+              ]
+            },
+            'client-libraries/rust/pipeline',
+            'client-libraries/rust/types-and-utilities',
+            'client-libraries/rust/testing',
+            'client-libraries/rust/distributed-tracing'
+          ]
+        },
       ],
     },
     {
