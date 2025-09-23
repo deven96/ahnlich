@@ -1,73 +1,485 @@
 ---
 title: Rust
-sidebar_position: 30
+sidebar_position: 20
 ---
 
-# Rust
+# Rust SDK
 
-The Ahnlich Rust client library is a Rust crate that allows you to interact with [Ahnlich DB](/docs/components/ahnlich-db/ahnlich-db.md) and [Ahnlich AI](/docs/components/ahnlich-ai/ahnlich-ai.md).
+Build Ahnlich Applications with the Rust SDK – Vector Storage, Search, and AI tooling.
 
----
-id: client-rust
+## [Rust-Specific Resources](/docs/client-libraries/rust/rust-specific-resources)
+* Build Ahnlich Applications with the Rust SDK
 
-title: Rust SDK (🦀)
+* Ahnlich Rust Technical Resources
 
-sidebar_label: Rust
+* Rust SDK Quickstart – Setup Guide 
 
-description: Official Rust client library to integrate with Ahnlich DB (exact vector search) and AI (semantic embeddings) services.
+## Overview
 
----
+### Clients
+* `db` — Vector Database client
 
-<!-- import RustIcon from '@site/static/img/icons/lang/rust.svg' -->
+* `ai` — AI Service client
 
-## 🦀 Ahnlich Rust SDK
+### Pipelines
+* Multiple ordered operations in batch
 
-The official Rust client to interface with **ahnlich‑db** (exact similarity search) and **ahnlich‑ai** (semantic similarity) over gRPC.
+* Sequential execution, consistent reads
 
-See full API docs and examples at [docs.rs – `ahnlich_client_rs`](https://docs.rs/ahnlich_client_rs/0.1.0/ahnlich_client_rs/) :contentReference[oaicite:0]{index=0}
+* Reduced gRPC round-trips
 
+## What’s Included in the SDK
 
+### Capabilities
 
-## 🚀 Connecting to DB / AI Services
+#### DB Client
+* Store vectors and metadata
 
-Both services expect:
+* Query nearest neighbors with filters
 
-- `ahnlich-db` should be accessible (default: `127.0.0.1:1369`)
-- `ahnlich-ai` should be separately reachable (default: `127.0.0.1:1370` or as configured)
+* Manage stores  
 
-The SDK supports optional W3C trace context via an `Option<String>` `trace_id` in all calls. 
+#### AI Client
+* Generate embeddings from raw inputs
 
-```rust,no_run
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let tracing_id: Option<String> = None;
+* Interpret embeddings for similarity/clustering
 
-    // ✔️ DB client:
-    let db_client = ahnlich_client_rs::db::DbClient::new("127.0.0.1:1369".to_string()).await?;
-    db_client.ping(tracing_id.clone()).await?;
+* Complement DB client
 
-    // ✔️ AI client:
-    let ai_client = ahnlich_client_rs::ai::AIClient::new("127.0.0.1:1369".to_string()).await?;
-    ai_client.ping(tracing_id.clone()).await?;
+### Typical Workflow
 
-    Ok(())
-}
-```
-<!-- < Can grab example rust snippets from > -->
+* AI Service → Generate embeddings
 
-🧠 Best Practices
-Always match vector/query dimension to the store’s declared dimension (e.g. 128 or 768).
+* DB Service → Store embeddings
 
-Use DbClient::pipeline() or AIClient::pipeline() if you require ordered batched operations with predictable response order.
+* Response → Ordered results
 
-Metadata predicates are fast and flexible filtering tools—even if predicates aren't pre-indexed.
+## [Request – DB (Detailed)](/docs/client-libraries/rust/request-db)
+### [Ping](/docs/client-libraries/rust/request-db/ping)
 
-AI Stores automatically handle embedding; no need to compute embeddings manually for raw input.
+* Description
 
+* Source Code Example
 
-## Installation
-[Installation and Usage](installation-and-usage.md)
+* Parameters
 
+* Returns
 
-## Reference
-[Reference](reference.md)
+* Behavior
+
+### [Info Server](/docs/client-libraries/rust/request-db/info-server)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Behavior
+
+* When to use
+
+### [List Stores](/docs/client-libraries/rust/request-db/list-stores)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Create Store](/docs/client-libraries/rust/request-db/create-store)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Set](/docs/client-libraries/rust/request-db/set)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Get Sim N](/docs/client-libraries/rust/request-db/get-simn)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Get Key](/docs/client-libraries/rust/request-db/get-key)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Get by Predicate](/docs/client-libraries/rust/request-db/get-by-predicate)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Create Predicate Index](/docs/client-libraries/rust/request-db/create-predicate-index)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Drop Predicate Index](/docs/client-libraries/rust/request-db/drop-predicate-index)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Delete Key](/docs/client-libraries/rust/request-db/delete-key)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Drop Store](/docs/client-libraries/rust/request-db/drop-store)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [List Connected Clients](/docs/client-libraries/rust/request-db/list-connected-clients)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Create Non-Linear Algorithm Index](/docs/client-libraries/rust/request-db/create-non-linear-algx)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Drop Non-Linear Algorithm Index](/docs/client-libraries/rust/request-db/drop-non-linear-algx)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Delete By Predicate](/docs/client-libraries/rust/request-db/delete-by-predicate)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+## [Request – AI (Detailed)](/docs/client-libraries/rust/request-ai)
+### [Ping](/docs/client-libraries/rust/request-ai/ping)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Info Server](/docs/client-libraries/rust/request-ai/info-server)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [List Stores](/docs/client-libraries/rust/request-ai/list-stores)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Create Store](/docs/client-libraries/rust/request-ai/create-store)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Set](/docs/client-libraries/rust/request-ai/set)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Get Sim N](/docs/client-libraries/rust/request-ai/get-simn)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Get Key](/docs/client-libraries/rust/request-ai/get-key)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Get by Predicate](/docs/client-libraries/rust/request-ai/get-by-predicate)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Create Predicate Index](/docs/client-libraries/rust/request-ai/create-predicate-index)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Drop Predicate Index](/docs/client-libraries/rust/request-ai/drop-predicate-index)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Delete Key](/docs/client-libraries/rust/request-ai/delete-key)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Drop Store](/docs/client-libraries/rust/request-ai/drop-store)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [List Connected Clients](/docs/client-libraries/rust/request-ai/list-connected-clients)
+
+* Description
+
+* Source Code Example
+
+* Returns
+
+* Behavior
+
+### [Create Non-Linear Algorithm Index](/docs/client-libraries/rust/request-ai/create-non-linear-algx)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Drop Non-Linear Algorithm Index](/docs/client-libraries/rust/request-ai/drop-non-linear-algx)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [New](/docs/client-libraries/rust/request-ai/new)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Purge Stores](/docs/client-libraries/rust/request-ai/purge-stores)
+
+* Description
+
+* Source Code Example
+
+* Returns
+
+* Behavior  
+
+## [Pipeline](/docs/client-libraries/rust/pipeline)
+
+* Description  
+
+* Source Code Example  
+
+* Parameters  
+
+* Returns  
+
+* Behavior
+
+## [Types & Utilities](/docs/client-libraries/rust/types-and-utilities)
+
+* Description 
+
+* Usage  
+
+* Details
+
+## [Testing](/docs/client-libraries/rust/testing)
+
+* Description  
+
+* Key Test Scenarios  
+
+* Purpose
+
+## [Distributed Tracing](/docs/client-libraries/rust/distributed-tracing)
+
+* Description  
+
+* Usage  
+
+* Benefits
