@@ -84,3 +84,14 @@ class AiStoreInfo(betterproto.Message):
     query_model: "_models__.AiModel" = betterproto.enum_field(2)
     index_model: "_models__.AiModel" = betterproto.enum_field(3)
     embedding_size: int = betterproto.uint64_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class SingleInputToEmbedding(betterproto.Message):
+    input: "__keyval__.StoreInput" = betterproto.message_field(1)
+    embedding: "__keyval__.StoreKey" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class StoreInputToEmbeddingsList(betterproto.Message):
+    values: List["SingleInputToEmbedding"] = betterproto.message_field(1)

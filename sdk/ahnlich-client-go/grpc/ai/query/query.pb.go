@@ -958,6 +958,70 @@ func (x *Set) GetExecutionProvider() execution_provider.ExecutionProvider {
 	return execution_provider.ExecutionProvider(0)
 }
 
+type ConvertStoreInputToEmbeddings struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Convert store inputs to embeddings
+	StoreInputs      []*keyval.StoreInput         `protobuf:"bytes,1,rep,name=store_inputs,json=storeInputs,proto3" json:"store_inputs,omitempty"`                                                           // Input keys to retrieve from the store
+	PreprocessAction *preprocess.PreprocessAction `protobuf:"varint,2,opt,name=preprocess_action,json=preprocessAction,proto3,enum=ai.preprocess.PreprocessAction,oneof" json:"preprocess_action,omitempty"` // Preprocessing actions to apply to input before querying
+	Model            models.AIModel               `protobuf:"varint,3,opt,name=model,proto3,enum=ai.models.AIModel" json:"model,omitempty"`                                                                  // AI model used for querying (string or image-based)
+}
+
+func (x *ConvertStoreInputToEmbeddings) Reset() {
+	*x = ConvertStoreInputToEmbeddings{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_ai_query_proto_msgTypes[16]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ConvertStoreInputToEmbeddings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConvertStoreInputToEmbeddings) ProtoMessage() {}
+
+func (x *ConvertStoreInputToEmbeddings) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_query_proto_msgTypes[16]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConvertStoreInputToEmbeddings.ProtoReflect.Descriptor instead.
+func (*ConvertStoreInputToEmbeddings) Descriptor() ([]byte, []int) {
+	return file_ai_query_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ConvertStoreInputToEmbeddings) GetStoreInputs() []*keyval.StoreInput {
+	if x != nil {
+		return x.StoreInputs
+	}
+	return nil
+}
+
+func (x *ConvertStoreInputToEmbeddings) GetPreprocessAction() preprocess.PreprocessAction {
+	if x != nil && x.PreprocessAction != nil {
+		return *x.PreprocessAction
+	}
+	return preprocess.PreprocessAction(0)
+}
+
+func (x *ConvertStoreInputToEmbeddings) GetModel() models.AIModel {
+	if x != nil {
+		return x.Model
+	}
+	return models.AIModel(0)
+}
+
 var File_ai_query_proto protoreflect.FileDescriptor
 
 var file_ai_query_proto_rawDesc = []byte{
@@ -1095,12 +1159,27 @@ var file_ai_query_proto_rawDesc = []byte{
 	0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x50, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x48, 0x00,
 	0x52, 0x11, 0x65, 0x78, 0x65, 0x63, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x50, 0x72, 0x6f, 0x76, 0x69,
 	0x64, 0x65, 0x72, 0x88, 0x01, 0x01, 0x42, 0x15, 0x0a, 0x13, 0x5f, 0x65, 0x78, 0x65, 0x63, 0x75,
-	0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x42, 0x46, 0x5a,
-	0x44, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x76, 0x65,
-	0x6e, 0x39, 0x36, 0x2f, 0x61, 0x68, 0x6e, 0x6c, 0x69, 0x63, 0x68, 0x2f, 0x73, 0x64, 0x6b, 0x2f,
-	0x61, 0x68, 0x6e, 0x6c, 0x69, 0x63, 0x68, 0x2d, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2d, 0x67,
-	0x6f, 0x2f, 0x67, 0x72, 0x70, 0x63, 0x2f, 0x61, 0x69, 0x2f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x3b,
-	0x71, 0x75, 0x65, 0x72, 0x79, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x22, 0xe9, 0x01,
+	0x0a, 0x1d, 0x43, 0x6f, 0x6e, 0x76, 0x65, 0x72, 0x74, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x49, 0x6e,
+	0x70, 0x75, 0x74, 0x54, 0x6f, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x12,
+	0x35, 0x0a, 0x0c, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x5f, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x18,
+	0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x6b, 0x65, 0x79, 0x76, 0x61, 0x6c, 0x2e, 0x53,
+	0x74, 0x6f, 0x72, 0x65, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x52, 0x0b, 0x73, 0x74, 0x6f, 0x72, 0x65,
+	0x49, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x12, 0x51, 0x0a, 0x11, 0x70, 0x72, 0x65, 0x70, 0x72, 0x6f,
+	0x63, 0x65, 0x73, 0x73, 0x5f, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0e, 0x32, 0x1f, 0x2e, 0x61, 0x69, 0x2e, 0x70, 0x72, 0x65, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73,
+	0x73, 0x2e, 0x50, 0x72, 0x65, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x41, 0x63, 0x74, 0x69,
+	0x6f, 0x6e, 0x48, 0x00, 0x52, 0x10, 0x70, 0x72, 0x65, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73,
+	0x41, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x88, 0x01, 0x01, 0x12, 0x28, 0x0a, 0x05, 0x6d, 0x6f, 0x64,
+	0x65, 0x6c, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x12, 0x2e, 0x61, 0x69, 0x2e, 0x6d, 0x6f,
+	0x64, 0x65, 0x6c, 0x73, 0x2e, 0x41, 0x49, 0x4d, 0x6f, 0x64, 0x65, 0x6c, 0x52, 0x05, 0x6d, 0x6f,
+	0x64, 0x65, 0x6c, 0x42, 0x14, 0x0a, 0x12, 0x5f, 0x70, 0x72, 0x65, 0x70, 0x72, 0x6f, 0x63, 0x65,
+	0x73, 0x73, 0x5f, 0x61, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x42, 0x46, 0x5a, 0x44, 0x67, 0x69, 0x74,
+	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x76, 0x65, 0x6e, 0x39, 0x36, 0x2f,
+	0x61, 0x68, 0x6e, 0x6c, 0x69, 0x63, 0x68, 0x2f, 0x73, 0x64, 0x6b, 0x2f, 0x61, 0x68, 0x6e, 0x6c,
+	0x69, 0x63, 0x68, 0x2d, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2d, 0x67, 0x6f, 0x2f, 0x67, 0x72,
+	0x70, 0x63, 0x2f, 0x61, 0x69, 0x2f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x3b, 0x71, 0x75, 0x65, 0x72,
+	0x79, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1115,7 +1194,7 @@ func file_ai_query_proto_rawDescGZIP() []byte {
 	return file_ai_query_proto_rawDescData
 }
 
-var file_ai_query_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_ai_query_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_ai_query_proto_goTypes = []any{
 	(*CreateStore)(nil),                       // 0: ai.query.CreateStore
 	(*GetPred)(nil),                           // 1: ai.query.GetPred
@@ -1133,37 +1212,41 @@ var file_ai_query_proto_goTypes = []any{
 	(*PurgeStores)(nil),                       // 13: ai.query.PurgeStores
 	(*Ping)(nil),                              // 14: ai.query.Ping
 	(*Set)(nil),                               // 15: ai.query.Set
-	(models.AIModel)(0),                       // 16: ai.models.AIModel
-	(nonlinear.NonLinearAlgorithm)(0),         // 17: algorithm.nonlinear.NonLinearAlgorithm
-	(*predicates.PredicateCondition)(nil),     // 18: predicates.PredicateCondition
-	(*keyval.StoreInput)(nil),                 // 19: keyval.StoreInput
-	(algorithms.Algorithm)(0),                 // 20: algorithm.algorithms.Algorithm
-	(preprocess.PreprocessAction)(0),          // 21: ai.preprocess.PreprocessAction
-	(execution_provider.ExecutionProvider)(0), // 22: ai.execution_provider.ExecutionProvider
-	(*keyval.AiStoreEntry)(nil),               // 23: keyval.AiStoreEntry
+	(*ConvertStoreInputToEmbeddings)(nil),     // 16: ai.query.ConvertStoreInputToEmbeddings
+	(models.AIModel)(0),                       // 17: ai.models.AIModel
+	(nonlinear.NonLinearAlgorithm)(0),         // 18: algorithm.nonlinear.NonLinearAlgorithm
+	(*predicates.PredicateCondition)(nil),     // 19: predicates.PredicateCondition
+	(*keyval.StoreInput)(nil),                 // 20: keyval.StoreInput
+	(algorithms.Algorithm)(0),                 // 21: algorithm.algorithms.Algorithm
+	(preprocess.PreprocessAction)(0),          // 22: ai.preprocess.PreprocessAction
+	(execution_provider.ExecutionProvider)(0), // 23: ai.execution_provider.ExecutionProvider
+	(*keyval.AiStoreEntry)(nil),               // 24: keyval.AiStoreEntry
 }
 var file_ai_query_proto_depIdxs = []int32{
-	16, // 0: ai.query.CreateStore.query_model:type_name -> ai.models.AIModel
-	16, // 1: ai.query.CreateStore.index_model:type_name -> ai.models.AIModel
-	17, // 2: ai.query.CreateStore.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearAlgorithm
-	18, // 3: ai.query.GetPred.condition:type_name -> predicates.PredicateCondition
-	19, // 4: ai.query.GetSimN.search_input:type_name -> keyval.StoreInput
-	18, // 5: ai.query.GetSimN.condition:type_name -> predicates.PredicateCondition
-	20, // 6: ai.query.GetSimN.algorithm:type_name -> algorithm.algorithms.Algorithm
-	21, // 7: ai.query.GetSimN.preprocess_action:type_name -> ai.preprocess.PreprocessAction
-	22, // 8: ai.query.GetSimN.execution_provider:type_name -> ai.execution_provider.ExecutionProvider
-	17, // 9: ai.query.CreateNonLinearAlgorithmIndex.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearAlgorithm
-	17, // 10: ai.query.DropNonLinearAlgorithmIndex.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearAlgorithm
-	19, // 11: ai.query.DelKey.keys:type_name -> keyval.StoreInput
-	19, // 12: ai.query.GetKey.keys:type_name -> keyval.StoreInput
-	23, // 13: ai.query.Set.inputs:type_name -> keyval.AiStoreEntry
-	21, // 14: ai.query.Set.preprocess_action:type_name -> ai.preprocess.PreprocessAction
-	22, // 15: ai.query.Set.execution_provider:type_name -> ai.execution_provider.ExecutionProvider
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	17, // 0: ai.query.CreateStore.query_model:type_name -> ai.models.AIModel
+	17, // 1: ai.query.CreateStore.index_model:type_name -> ai.models.AIModel
+	18, // 2: ai.query.CreateStore.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearAlgorithm
+	19, // 3: ai.query.GetPred.condition:type_name -> predicates.PredicateCondition
+	20, // 4: ai.query.GetSimN.search_input:type_name -> keyval.StoreInput
+	19, // 5: ai.query.GetSimN.condition:type_name -> predicates.PredicateCondition
+	21, // 6: ai.query.GetSimN.algorithm:type_name -> algorithm.algorithms.Algorithm
+	22, // 7: ai.query.GetSimN.preprocess_action:type_name -> ai.preprocess.PreprocessAction
+	23, // 8: ai.query.GetSimN.execution_provider:type_name -> ai.execution_provider.ExecutionProvider
+	18, // 9: ai.query.CreateNonLinearAlgorithmIndex.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearAlgorithm
+	18, // 10: ai.query.DropNonLinearAlgorithmIndex.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearAlgorithm
+	20, // 11: ai.query.DelKey.keys:type_name -> keyval.StoreInput
+	20, // 12: ai.query.GetKey.keys:type_name -> keyval.StoreInput
+	24, // 13: ai.query.Set.inputs:type_name -> keyval.AiStoreEntry
+	22, // 14: ai.query.Set.preprocess_action:type_name -> ai.preprocess.PreprocessAction
+	23, // 15: ai.query.Set.execution_provider:type_name -> ai.execution_provider.ExecutionProvider
+	20, // 16: ai.query.ConvertStoreInputToEmbeddings.store_inputs:type_name -> keyval.StoreInput
+	22, // 17: ai.query.ConvertStoreInputToEmbeddings.preprocess_action:type_name -> ai.preprocess.PreprocessAction
+	17, // 18: ai.query.ConvertStoreInputToEmbeddings.model:type_name -> ai.models.AIModel
+	19, // [19:19] is the sub-list for method output_type
+	19, // [19:19] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_ai_query_proto_init() }
@@ -1364,16 +1447,29 @@ func file_ai_query_proto_init() {
 				return nil
 			}
 		}
+		file_ai_query_proto_msgTypes[16].Exporter = func(v any, i int) any {
+			switch v := v.(*ConvertStoreInputToEmbeddings); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_ai_query_proto_msgTypes[2].OneofWrappers = []any{}
 	file_ai_query_proto_msgTypes[15].OneofWrappers = []any{}
+	file_ai_query_proto_msgTypes[16].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_ai_query_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

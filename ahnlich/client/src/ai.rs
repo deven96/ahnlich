@@ -2,13 +2,13 @@ use ahnlich_types::{
     ai::{
         pipeline::{AiQuery, AiRequestPipeline, AiResponsePipeline, ai_query::Query},
         query::{
-            CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
-            DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
-            InfoServer, ListClients, ListStores, Ping, PurgeStores, Set,
+            ConvertStoreInputToEmbeddings, CreateNonLinearAlgorithmIndex, CreatePredIndex,
+            CreateStore, DelKey, DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey,
+            GetPred, GetSimN, InfoServer, ListClients, ListStores, Ping, PurgeStores, Set,
         },
         server::{
             ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong, Set as SetResult,
-            StoreList, Unit,
+            StoreInputToEmbeddingsList, StoreList, Unit,
         },
     },
     services::ai_service::ai_service_client::AiServiceClient,
@@ -79,6 +79,11 @@ impl AiPipeline {
 
     pub fn purge_stores(&mut self) {
         self.queries.push(Query::PurgeStores(PurgeStores {}));
+    }
+
+    pub fn convert_store_input_to_embeddings(&mut self, params: ConvertStoreInputToEmbeddings) {
+        self.queries
+            .push(Query::ConvertStoreInputToEmbeddings(params));
     }
 
     pub fn list_stores(&mut self) {
@@ -296,6 +301,21 @@ impl AiClient {
         Ok(self.client.clone().purge_stores(req).await?.into_inner())
     }
 
+    pub async fn convert_store_input_to_embeddings(
+        &self,
+        params: ConvertStoreInputToEmbeddings,
+        tracing_id: Option<String>,
+    ) -> Result<StoreInputToEmbeddingsList, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        Ok(self
+            .client
+            .clone()
+            .convert_store_input_to_embeddings(req)
+            .await?
+            .into_inner())
+    }
+
     pub async fn ping(&self, tracing_id: Option<String>) -> Result<Pong, AhnlichError> {
         let mut req = tonic::Request::new(Ping {});
         add_trace_parent(&mut req, tracing_id);
@@ -337,6 +357,7 @@ mod test {
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
     use std::net::SocketAddr;
+    use test_case::test_case;
     use tokio::time::Duration;
     use utils::server::AhnlichServerUtils;
 
@@ -696,6 +717,158 @@ mod test {
 
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
+    }
+
+    #[test_case(1, AiModel::AllMiniLmL6V2.into(); "AllMiniLmL6V2")]
+    #[test_case(2, AiModel::AllMiniLmL12V2.into(); "AllMiniLmL12V2")]
+    #[test_case(3, AiModel::BgeBaseEnV15.into(); "BgeBaseEnV15")]
+    #[test_case(4, AiModel::BgeLargeEnV15.into(); "BgeLargeEnV15e")]
+    #[test_case(5, AiModel::Resnet50.into(); "Resnet50")]
+    #[test_case(6, AiModel::ClipVitB32Image.into(); "ClipVitB32Image")]
+    #[test_case(7, AiModel::ClipVitB32Text.into(); "ClipVitB32Text")]
+    #[tokio::test]
+    async fn test_convert_store_input_to_embeddings_with_pipeline(index: usize, model: i32) {
+        let address = provision_test_servers().await;
+        let ai_client = AiClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+
+        let mut pipeline = ai_client.pipeline(None);
+
+        let store_name = "Deven Kicks".to_string() + index.to_string().as_str();
+
+        let create_store_params = CreateStore {
+            store: store_name.clone(),
+            index_model: model,
+            query_model: model,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+        pipeline.create_store(create_store_params);
+
+        let ai_model = AiModel::try_from(model)
+            .map_err(|_| AIProxyError::InputNotSpecified("AI Model Value".to_string()));
+
+        let index_model_repr: ModelDetails =
+            SupportedModels::from(&ai_model.unwrap()).to_model_details();
+
+        let matching_metadatakey = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+            "Brand".to_string() + index.to_string().as_str()
+        } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+            "Animal".to_string() + index.to_string().as_str()
+        } else {
+            "".to_string()
+        };
+
+        let matching_metadatavalue = if index_model_repr.input_type().as_str_name() == "RAW_STRING"
+        {
+            MetadataValue {
+                value: Some(MValue::RawString("Nike".into())),
+            }
+        } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+            MetadataValue {
+                value: Some(MValue::RawString("Mammal".into())),
+            }
+        } else {
+            MetadataValue {
+                value: Some(MValue::RawString("".into())),
+            }
+        };
+
+        let store_value = StoreValue {
+            value: HashMap::from_iter([(
+                matching_metadatakey.clone(),
+                matching_metadatavalue.clone(),
+            )]),
+        };
+
+        let store_input_1 = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+            StoreInput {
+                value: Some(Value::RawString("Jordan 3".into())),
+            }
+        } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+            StoreInput {
+                value: Some(Value::Image(
+                    include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
+                )),
+            }
+        } else {
+            StoreInput {
+                value: Some(Value::RawString("".into())),
+            }
+        };
+
+        let store_input_2 = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+            StoreInput {
+                value: Some(Value::RawString("Air Force 1".into())),
+            }
+        } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+            StoreInput {
+                value: Some(Value::Image(
+                    include_bytes!("../../ai/src/tests/images/dog.jpg").to_vec(),
+                )),
+            }
+        } else {
+            StoreInput {
+                value: Some(Value::RawString("".into())),
+            }
+        };
+
+        let store_data = vec![
+            AiStoreEntry {
+                key: Some(store_input_1.clone()),
+                value: Some(store_value.clone()),
+            },
+            AiStoreEntry {
+                key: Some(store_input_2.clone()),
+                value: Some(store_value.clone()),
+            },
+        ];
+
+        let set_store_params = Set {
+            store: store_name.clone(),
+            inputs: store_data,
+            preprocess_action: PreprocessAction::NoPreprocessing.into(),
+            execution_provider: None,
+        };
+        pipeline.set(set_store_params);
+
+        let store_inputs = vec![store_input_1.clone(), store_input_2.clone()];
+
+        let convert_store_input_to_embeddings_params = ConvertStoreInputToEmbeddings {
+            store_inputs: store_inputs.clone(),
+            preprocess_action: Some(PreprocessAction::NoPreprocessing.into()),
+            model,
+        };
+        pipeline.convert_store_input_to_embeddings(convert_store_input_to_embeddings_params);
+
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+
+        let response_entries = res.responses[2]
+            .response
+            .as_ref()
+            .cloned()
+            .and_then(|r| {
+                if let Response::StoreInputToEmbeddingsList(list) = r {
+                    Some(list.values)
+                } else {
+                    None
+                }
+            })
+            .unwrap();
+
+        assert_eq!(response_entries.len(), store_inputs.len());
+
+        // Verify all expected entries are present (order-independent)
+        for input in store_inputs {
+            assert!(response_entries.iter().any(|e| {
+                e.input == Some(input.clone())
+                    && e.embedding.is_some()
+                    && e.embedding.as_ref().unwrap().key.len() > 0
+            }))
+        }
     }
 
     #[tokio::test]

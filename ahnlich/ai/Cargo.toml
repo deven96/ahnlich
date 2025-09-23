@@ -25,7 +25,7 @@ thiserror.workspace = true
 async-trait.workspace = true
 utils = { path = "../utils", version = "*" }
 task-manager = { path = "../task-manager", version = "*" }
-ahnlich_types = { path = "../types", version = "*"  }
+ahnlich_types = { path = "../types", version = "*" }
 tokio-util.workspace = true
 once_cell.workspace = true
 tracing.workspace = true
@@ -38,12 +38,13 @@ strum.workspace = true
 log.workspace = true
 fallible_collections.workspace = true
 rayon.workspace = true
-hf-hub = { version = "0.4", default-features = false, features = ["ureq", "rustls-tls"] }
-dirs = "5.0.1"
-ort = { version = "=2.0.0-rc.5", features = [
-  "ndarray",
+hf-hub = { version = "0.4", default-features = false, features = [
+  "ureq",
+  "rustls-tls",
 ] }
-fast_image_resize = { version = "5.1.1", features = ["rayon"]}
+dirs = "5.0.1"
+ort = { version = "=2.0.0-rc.5", features = ["ndarray"] }
+fast_image_resize = { version = "5.1.1", features = ["rayon"] }
 ort-sys = "=2.0.0-rc.8"
 moka = { version = "0.12.8", features = ["future", "sync"] }
 tracing-opentelemetry.workspace = true
@@ -66,3 +67,5 @@ directml = ["ort/directml"]
 [dev-dependencies]
 db = { path = "../db", version = "*" }
 pretty_assertions.workspace = true
+regex = "1.11.1"
+test-case = "3.3.1"

@@ -26,6 +26,7 @@ message AIQuery {
     ai.query.ListStores list_stores = 14;
     ai.query.PurgeStores purge_stores = 15;
     ai.query.Ping ping = 16;
+    ai.query.ConvertStoreInputToEmbeddings convert_store_input_to_embeddings = 17;
   }
 }
 
@@ -46,6 +47,7 @@ message AIServerResponse {
     ai.server.Del del = 9;
     ai.server.CreateIndex create_index = 10;
     shared.info.ErrorResponse error = 11;
+    ai.server.StoreInputToEmbeddingsList store_input_to_embeddings_list = 12;
   }
 }
 

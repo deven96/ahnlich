@@ -40,6 +40,7 @@ use ahnlich_types::{
 };
 
 use std::path::PathBuf;
+use test_case::test_case;
 use tokio::time::Duration;
 use tonic::transport::Channel;
 
@@ -61,6 +62,29 @@ static AI_CONFIG_LIMITED_MODELS: Lazy<AIProxyConfig> = Lazy::new(|| {
         .os_select_port()
         .set_supported_models(vec![SupportedModels::AllMiniLML6V2])
 });
+
+async fn provision_test_servers_without_db_client() -> SocketAddr {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+
+    tokio::spawn(async move { server.start().await });
+
+    let mut config = AI_CONFIG.clone();
+
+    config.without_db = true;
+
+    let ai_server = AIProxyServer::new(config)
+        .await
+        .expect("Could not initialize ai proxy");
+
+    let ai_address = ai_server.local_addr().expect("Could not get local addr");
+
+    // start up ai proxy
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    // Allow some time for the servers to start
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    ai_address
+}
 
 async fn provision_test_servers() -> SocketAddr {
     let server = Server::new(&CONFIG).await.expect("Failed to create server");
@@ -621,6 +645,302 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
             .similarity
             .map(|sim| format!("{:.4}", sim.value))
     );
+}
+
+#[test_case(1, AiModel::AllMiniLmL6V2.into(); "AllMiniLmL6V2")]
+#[test_case(2, AiModel::AllMiniLmL12V2.into(); "AllMiniLmL12V2")]
+#[test_case(3, AiModel::BgeBaseEnV15.into(); "BgeBaseEnV15")]
+#[test_case(4, AiModel::BgeLargeEnV15.into(); "BgeLargeEnV15e")]
+#[test_case(5, AiModel::Resnet50.into(); "Resnet50")]
+#[test_case(6, AiModel::ClipVitB32Image.into(); "ClipVitB32Image")]
+#[test_case(7, AiModel::ClipVitB32Text.into(); "ClipVitB32Text")]
+#[tokio::test]
+async fn test_convert_store_input_to_embeddings(index: usize, model: i32) {
+    let address = provision_test_servers().await;
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    let ai_model = AiModel::try_from(model)
+        .map_err(|_| AIProxyError::InputNotSpecified("AI Model Value".to_string()));
+
+    let index_model_repr: ModelDetails =
+        SupportedModels::from(&ai_model.unwrap()).to_model_details();
+
+    let store_name = "Deven Kicks".to_string() + index.to_string().as_str();
+
+    let matching_metadatakey = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+        "Brand".to_string() + index.to_string().as_str()
+    } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+        "Animal".to_string() + index.to_string().as_str()
+    } else {
+        "".to_string()
+    };
+
+    let matching_metadatavalue = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+        MetadataValue {
+            value: Some(MValue::RawString("Nike".into())),
+        }
+    } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+        MetadataValue {
+            value: Some(MValue::RawString("Mammal".into())),
+        }
+    } else {
+        MetadataValue {
+            value: Some(MValue::RawString("".into())),
+        }
+    };
+
+    let store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
+    };
+
+    let store_input_1 = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+        StoreInput {
+            value: Some(Value::RawString("Jordan 3".into())),
+        }
+    } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+        StoreInput {
+            value: Some(Value::Image(include_bytes!("./images/cat.png").to_vec())),
+        }
+    } else {
+        StoreInput {
+            value: Some(Value::RawString("".into())),
+        }
+    };
+
+    let store_input_2 = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+        StoreInput {
+            value: Some(Value::RawString("Air Force 1".into())),
+        }
+    } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+        StoreInput {
+            value: Some(Value::Image(include_bytes!("./images/dog.jpg").to_vec())),
+        }
+    } else {
+        StoreInput {
+            value: Some(Value::RawString("".into())),
+        }
+    };
+
+    let store_data = vec![
+        AiStoreEntry {
+            key: Some(store_input_1.clone()),
+            value: Some(store_value.clone()),
+        },
+        AiStoreEntry {
+            key: Some(store_input_2.clone()),
+            value: Some(store_value.clone()),
+        },
+    ];
+
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: model,
+                index_model: model,
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+    ];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+
+    let _ = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    let store_inputs = vec![store_input_1, store_input_2];
+
+    let query = ai_query_types::ConvertStoreInputToEmbeddings {
+        store_inputs: store_inputs.clone(),
+        preprocess_action: Some(PreprocessAction::NoPreprocessing.into()),
+        model,
+    };
+
+    let response = client
+        .convert_store_input_to_embeddings(tonic::Request::new(query))
+        .await
+        .expect("Failed to convert store input to embeddings");
+
+    let response_entries = response.into_inner().values;
+
+    assert_eq!(response_entries.len(), store_inputs.len());
+
+    // Verify all expected entries are present (order-independent)
+    for input in store_inputs {
+        assert!(response_entries.iter().any(|e| {
+            e.input == Some(input.clone())
+                && e.embedding.is_some()
+                && e.embedding.as_ref().unwrap().key.len() > 0
+        }))
+    }
+}
+
+#[test_case(1, AiModel::AllMiniLmL6V2.into(); "AllMiniLmL6V2")]
+#[test_case(2, AiModel::AllMiniLmL12V2.into(); "AllMiniLmL12V2")]
+#[test_case(3, AiModel::BgeBaseEnV15.into(); "BgeBaseEnV15")]
+#[test_case(4, AiModel::BgeLargeEnV15.into(); "BgeLargeEnV15e")]
+#[test_case(5, AiModel::Resnet50.into(); "Resnet50")]
+#[test_case(6, AiModel::ClipVitB32Image.into(); "ClipVitB32Image")]
+#[test_case(7, AiModel::ClipVitB32Text.into(); "ClipVitB32Text")]
+#[tokio::test]
+async fn test_convert_store_input_to_embeddings_without_db(index: usize, model: i32) {
+    let address = provision_test_servers_without_db_client().await;
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    let ai_model = AiModel::try_from(model)
+        .map_err(|_| AIProxyError::InputNotSpecified("AI Model Value".to_string()));
+
+    let index_model_repr: ModelDetails =
+        SupportedModels::from(&ai_model.unwrap()).to_model_details();
+
+    let store_name = "Deven Kicks".to_string() + index.to_string().as_str();
+
+    let matching_metadatakey = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+        "Brand".to_string() + index.to_string().as_str()
+    } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+        "Animal".to_string() + index.to_string().as_str()
+    } else {
+        "".to_string()
+    };
+
+    let matching_metadatavalue = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+        MetadataValue {
+            value: Some(MValue::RawString("Nike".into())),
+        }
+    } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+        MetadataValue {
+            value: Some(MValue::RawString("Mammal".into())),
+        }
+    } else {
+        MetadataValue {
+            value: Some(MValue::RawString("".into())),
+        }
+    };
+
+    let store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), matching_metadatavalue.clone())]),
+    };
+
+    let store_input_1 = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+        StoreInput {
+            value: Some(Value::RawString("Jordan 3".into())),
+        }
+    } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+        StoreInput {
+            value: Some(Value::Image(include_bytes!("./images/cat.png").to_vec())),
+        }
+    } else {
+        StoreInput {
+            value: Some(Value::RawString("".into())),
+        }
+    };
+
+    let store_input_2 = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
+        StoreInput {
+            value: Some(Value::RawString("Air Force 1".into())),
+        }
+    } else if index_model_repr.input_type().as_str_name() == "IMAGE" {
+        StoreInput {
+            value: Some(Value::Image(include_bytes!("./images/dog.jpg").to_vec())),
+        }
+    } else {
+        StoreInput {
+            value: Some(Value::RawString("".into())),
+        }
+    };
+
+    let store_data = vec![
+        AiStoreEntry {
+            key: Some(store_input_1.clone()),
+            value: Some(store_value.clone()),
+        },
+        AiStoreEntry {
+            key: Some(store_input_2.clone()),
+            value: Some(store_value.clone()),
+        },
+    ];
+
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: model,
+                index_model: model,
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+    ];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+
+    let _ = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    let store_inputs = vec![store_input_1, store_input_2];
+
+    let query = ai_query_types::ConvertStoreInputToEmbeddings {
+        store_inputs: store_inputs.clone(),
+        preprocess_action: Some(PreprocessAction::NoPreprocessing.into()),
+        model,
+    };
+
+    let response = client
+        .convert_store_input_to_embeddings(tonic::Request::new(query))
+        .await
+        .expect("Failed to convert store input to embeddings");
+
+    let response_entries = response.into_inner().values;
+
+    assert_eq!(response_entries.len(), store_inputs.len());
+
+    // Verify all expected entries are present (order-independent)
+    for input in store_inputs {
+        assert!(response_entries.iter().any(|e| {
+            e.input == Some(input.clone())
+                && e.embedding.is_some()
+                && e.embedding.as_ref().unwrap().key.len() > 0
+        }))
+    }
 }
 
 #[tokio::test]

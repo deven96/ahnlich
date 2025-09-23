@@ -13,13 +13,13 @@ plugins:
     - paths=import
     - module=github.com/deven96/ahnlich/sdk/ahnlich-client-go
 
-  # Python
-  - plugin: buf.build/community/danielgtaylor-betterproto:v1.2.5
-    out: ../sdk/ahnlich-client-py/gen
-  - plugin: buf.build/grpc/python:v1.62.1
-    out: ../sdk/ahnlich-client-py/grpc
-  - plugin: buf.build/protocolbuffers/python:v26.1
-    out: ../sdk/ahnlich-client-py/grpc
+  # # Python
+  # - plugin: buf.build/community/danielgtaylor-betterproto:v1.2.5
+  #   out: ../sdk/ahnlich-client-py/gen
+  # - plugin: buf.build/grpc/python:v1.62.1
+  #   out: ../sdk/ahnlich-client-py/grpc
+  # - plugin: buf.build/protocolbuffers/python:v26.1
+  #   out: ../sdk/ahnlich-client-py/grpc
 
   # gRPC-web
   # - plugin: buf.build/grpc/web:v1.5.0
