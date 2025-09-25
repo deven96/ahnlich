@@ -18,11 +18,6 @@ use std::net::SocketAddr;
 use tokio::time::Duration;
 use utils::server::AhnlichServerUtils;
 
-#[pg_extern]
-fn hello_ahnlich_postgres_ext() -> &'static str {
-    "Hello, ahnlich_postgres_ext"
-}
-
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
     let mut ai_proxy = AIProxyConfig::default().os_select_port();
@@ -57,6 +52,11 @@ async fn provision_test_servers() -> SocketAddr {
 }
 
 #[pg_extern]
+fn hello_ahnlich_postgres_ext() -> &'static str {
+    "Hello, ahnlich_postgres_ext"
+}
+
+#[pg_extern]
 #[tokio::main]
 async fn ping() -> bool {
     let address = provision_test_servers().await;
@@ -76,9 +76,9 @@ async fn run_query() -> &'static str {
         .expect("Could not initialize client");
 
     if ai_client.ping(None).await.is_ok() {
-        "Ping successful"
+        "Ping successful!"
     } else {
-        "Ping failed"
+        "Ping failed!"
     }
 }
 
