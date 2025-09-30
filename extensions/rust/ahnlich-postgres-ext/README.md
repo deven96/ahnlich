@@ -16,8 +16,18 @@ When the `psql` shell opens, now you can run:
 CREATE EXTENSION ahnlich_postgres_ext;
 ```
 
-Then you can run any of the functions defined in lib.rs
+Next, run the Ahnlich client init function:
 
 ```sql
-SELECT run_query_with_args(2992);
+SELECT init_client('');
+```
+
+Then you can run any of the other functions defined in `lib.rs`:
+
+```sql
+SELECT ping();
+```
+
+```sql
+SELECT ping_with_args(2992);
 ```
