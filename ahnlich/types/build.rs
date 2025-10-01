@@ -56,7 +56,7 @@ fn main() -> Result<()> {
         .open(out_dir.join("lib.rs"))
         .expect("Failed to create mod file");
 
-    // nonlinear algorthim, storekeyid, storevalue, metadatakey and value,
+    // nonlinear algorithm, storekeyid, storevalue, metadatakey and value
     tonic_build::configure()
         .build_client(true)
         .build_client(true)
@@ -66,21 +66,33 @@ fn main() -> Result<()> {
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
         .type_attribute(
+            "keyval.StoreInput",
+            "#[derive(pgrx::PostgresType, serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
+            "keyval.StoreInput.value",
+            "#[derive(PartialOrd, Ord, Hash, Eq, pgrx::PostgresType, serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
             "keyval.StoreValue",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
+            "#[derive(pgrx::PostgresType, serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
+            "keyval.StoreValue.value",
+            "#[derive(PartialOrd, Ord, Hash, Eq, pgrx::PostgresType, serde::Serialize, serde::Deserialize)]",
         )
         .type_attribute(
             "metadata.MetadataValue",
-            "#[derive(PartialOrd, Ord, Hash, Eq)]",
+            "#[derive(PartialOrd, Ord, Hash, Eq, pgrx::PostgresType)]",
+        )
+        .type_attribute(
+            "metadata.MetadataValue.value",
+            "#[derive(PartialOrd, Ord, Hash, Eq, serde::Serialize, serde::Deserialize)]",
         )
         .type_attribute("keyval.StoreName", "#[derive(Eq, Hash, Ord, PartialOrd)]")
         .type_attribute(
             "db.server.StoreInfo",
             "#[derive(Hash, Eq, Ord, PartialOrd)]",
-        )
-        .type_attribute(
-            "metadata.MetadataValue.value",
-            "#[derive(PartialOrd, Ord, Hash, Eq)]",
         )
         .type_attribute(
             "ai.models.AIModel",
@@ -91,9 +103,21 @@ fn main() -> Result<()> {
             "#[derive(Eq, PartialOrd, Ord, Hash)]",
         )
         .type_attribute("client.ConnectedClient", "#[derive(PartialOrd, Ord, Eq)]")
+        .type_attribute(
+            "ai.server.SingleInputToEmbedding",
+            "#[derive(pgrx::PostgresType, serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
+            "ai.query.ConvertStoreInputToEmbeddings",
+            "#[derive(pgrx::PostgresType, serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
+            "ai.server.StoreInputToEmbeddingsList",
+            "#[derive(pgrx::PostgresType, serde::Serialize, serde::Deserialize)]",
+        )
         .compile_protos(&protofiles, &[proto_dir])
         .inspect_err(|err| println!("{err}"))
-        .expect("failed");
+        .expect("Failed");
 
     restructure_generated_code(&out_dir, &mut file);
 
@@ -162,5 +186,5 @@ fn restructure_generated_code(out_dir: &PathBuf, file: &mut std::fs::File) {
         .join("\n");
 
     file.write_all(buffer.as_bytes())
-        .expect("could not generate lib.rs");
+        .expect("Could not generate lib.rs");
 }
