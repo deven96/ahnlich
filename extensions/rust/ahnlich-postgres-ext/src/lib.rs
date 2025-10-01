@@ -1,4 +1,4 @@
-use pgrx::prelude::*;
+use pgrx::{prelude::*, Json};
 
 ::pgrx::pg_module_magic!(name, version);
 
@@ -9,6 +9,9 @@ use ahnlich_client_rs::ai::AiClient;
 
 use ahnlich_db::cli::ServerConfig;
 use ahnlich_db::server::handler::Server;
+
+use ahnlich_types::ai::query::ConvertStoreInputToEmbeddings;
+use ahnlich_types::ai::server::StoreInputToEmbeddingsList;
 
 use once_cell::sync::Lazy;
 
@@ -156,7 +159,7 @@ fn ping_with_args(i: i32) -> String {
 
 // #[pg_extern]
 // #[tokio::main]
-// async fn ping_with_args(i: i32) -> String {
+// async fn ping_with_args_optional(i: Option<i32>) -> String {
 //     let address = provision_servers().await;
 //     let ai_client = AiClient::new(address.to_string())
 //         .await
@@ -170,6 +173,27 @@ fn ping_with_args(i: i32) -> String {
 //         format!("Ping failed! Args: {}, Response: {:?}", i, res.unwrap())
 //     }
 // }
+
+#[pg_extern]
+fn convert_store_input_to_embeddings(query: Json) -> StoreInputToEmbeddingsList {
+    TOKIO_RUNTIME.block_on(async {
+        match CLIENT.get() {
+            Some(client) => {
+                // Deserialize the JSON into your struct
+                let query: ConvertStoreInputToEmbeddings = serde_json::from_value(query.0)
+                    .expect("Invalid JSON for ConvertStoreInputToEmbeddings");
+
+                let response = client
+                    .convert_store_input_to_embeddings(query, None)
+                    .await
+                    .expect("Failed to convert store input to embeddings");
+
+                response
+            }
+            None => StoreInputToEmbeddingsList { values: vec![] },
+        }
+    })
+}
 
 #[cfg(any(test, feature = "pg_test"))]
 #[pg_schema]

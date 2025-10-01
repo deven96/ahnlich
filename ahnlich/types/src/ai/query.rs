@@ -211,7 +211,9 @@ pub struct Set {
     )]
     pub execution_provider: ::core::option::Option<i32>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(
+    pgrx::PostgresType, serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message,
+)]
 pub struct ConvertStoreInputToEmbeddings {
     /// Convert store inputs to embeddings
     ///
