@@ -1,6 +1,7 @@
 ---
-title: Advanced
+title: Use Cases
 sidebar_position: 30
 ---
 
-# Advanced
+# Use Cases
+
