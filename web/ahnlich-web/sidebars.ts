@@ -58,7 +58,7 @@ const sidebars: SidebarsConfig = {
             id: 'components/ahnlich-db/ahnlich-db'
           },
           items: [
-            // 'components/ahnlich-db/overview',
+            // 'components/ahnlich-db/reference',
             'components/ahnlich-db/installation',
             'components/ahnlich-db/use-cases'
           ],
