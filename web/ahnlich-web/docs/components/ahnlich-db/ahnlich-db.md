@@ -88,4 +88,3 @@ get_sim_n(
 ```
 
 Both queries return the 10 most similar active users.
-
