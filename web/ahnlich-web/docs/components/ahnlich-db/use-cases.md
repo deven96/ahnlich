@@ -102,8 +102,3 @@ IN fashion_store WHERE (availability = "in_stock")
 
 This enables image-to-product search, a powerful e-commerce feature.
 ```
-
-
-## Setup & Configuration (**Ahnlich DB**)
-This section explains how to install, configure, and run **Ahnlich DB**. The database can run standalone and is available as prebuilt binaries and Docker images for multiple platforms.
-

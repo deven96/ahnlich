@@ -5,7 +5,11 @@ sidebar_position: 20
 
 # Installation
 
-## 1. Download Binaries
+## Setup & Configuration (**Ahnlich DB**)
+This section explains how to install, configure, and run **Ahnlich DB**. The database can run standalone and is available as prebuilt binaries and Docker images for multiple platforms.
+
+
+### 1. Download Binaries
 Prebuilt binaries are available from GitHub Releases.
 
 #### Download with `wget`:
@@ -26,7 +30,7 @@ tar -xvzf aarch64-darwin-ahnlich-db.tar.gz
 
 Replace `aarch64-darwin-ahnlich-db.tar.gz` with the correct file for your platform.
 
-## 2. Using Docker
+### 2. Using Docker
 Ahnlich DB also ships as a Docker image:
 ```go
 docker pull ghcr.io/deven96/ahnlich-db:latest
@@ -40,7 +44,7 @@ docker run --rm -p 1369:1369 \
   ahnlich-db run --port 1369
 ```
 
-## 3. Example Docker Compose
+### 3. Example Docker Compose
 
 You can orchestrate Ahnlich DB with **docker-compose**.
 
