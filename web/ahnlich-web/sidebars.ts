@@ -72,10 +72,10 @@ const sidebars: SidebarsConfig = {
             id: 'components/ahnlich-ai/ahnlich-ai'
           },
           items: [
-            'components/ahnlich-ai/overview',
+            'components/ahnlich-ai/use-cases',
+            'components/ahnlich-ai/setup-config',
             'components/ahnlich-ai/reference',
             'components/ahnlich-ai/advanced',
-            'components/ahnlich-ai/persistence-for-ahnlich-db-and-ahnlich-ai'
           ],
         },
       ],
