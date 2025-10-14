@@ -7,8 +7,8 @@ sidebar_position: 30
 
 This section documents all supported DB request commands in Ahnlich DB. Commands can be executed via the text-based query interface or programmatically through client APIs.
 
-## 1. Server & System
-### PING
+### 1. Server & System
+#### PING
 Check server health.
 ```
 PING
@@ -16,161 +16,161 @@ PING
 
 Returns `PONG` if the server is running.
 
-### INFO SERVER
+#### INFO SERVER
 Retrieve server information (version, uptime, memory usage).
 ```
 INFO SERVER
 ```
 
-### LIST CONNECTED CLIENTS
+#### LIST CONNECTED CLIENTS
 View currently connected clients.
 ```
 LIST CONNECTED CLIENTS
 ```
 
 
-## 2. Store Management
+### 2. Store Management
 
-### LIST STORES
+#### LIST STORES
 Show all existing vector stores.
 ```
 LIST STORES
 ```
 
-### CREATE STORE
+#### CREATE STORE
 Create a new store with a given dimension and algorithm.
 ```
 CREATE STORE <store_name> DIMENSION <n> ALGORITHM <cosine|euclidean|kdtree>
 ```
 
-### Example:
+#### Example:
 ```
 CREATE STORE my_store DIMENSION 128 ALGORITHM cosine
 ```
 
-### DROP STORE
+#### DROP STORE
 Remove a store and its contents.
 ```
 DROP STORE <store_name>
 ```
 
-### Example:
+#### Example:
 ```
 DROP STORE my_store
 ```
 
 
-## 3. Insert, Update & Delete
-### SET
+### 3. Insert, Update & Delete
+#### SET
 Insert or update a vector with metadata.
 ```
 SET <key> [<float>, <float>, ...] WITH { "<meta_key>": "<meta_value>", ... } IN <store_name>
 ```
 
-### Example:
+#### Example:
 ```
 SET doc1 [0.25, 0.88] WITH { "category": "news", "lang": "en" } IN my_store
 ```
 
-### DELETE KEY
+#### DELETE KEY
 Delete a vector by key.
 ```
 DELETE KEY <key> IN <store_name>
 ```
 
-### Example:
+#### Example:
 ```
 DELETE KEY doc1 IN my_store
 ```
 
-### DELETE PREDICATE
+#### DELETE PREDICATE
 Delete all vectors that match a predicate.
 ```
 DELETE PREDICATE <predicate> IN <store_name>
 ```
 
-### Example:
+#### Example:
 ```
 DELETE PREDICATE (category = "archive") IN my_store
 ```
 
 
-## 4. Query & Retrieval
-### GET SIM N
+### 4. Query & Retrieval
+#### GET SIM N
 Find the N most similar vectors to an input vector.
 ```
 GETSIMN <n> WITH [<float>, <float>, ...] USING <cosinesimilarity|euclideandistance> IN <store_name> WHERE (<predicate>)
 ```
 
-### Example:
+#### Example:
 ```
 GETSIMN 3 WITH [0.25, 0.88] USING cosinesimilarity IN my_store WHERE (category != "draft")
 ```
 
-### GET KEY
+#### GET KEY
 Retrieve a vector and its metadata by key.
 ```
 GET KEY <key> IN <store_name>
 ```
 
-### Example:
+#### Example:
 ```
 GET KEY doc1 IN my_store
 ```
 
-### GET BY PREDICATE
+#### GET BY PREDICATE
 Retrieve all vectors that satisfy a metadata predicate.
 ```
 GET BY PREDICATE (<predicate>) IN <store_name>
 ```
 
-### Example:
+#### Example:
 ```
 GET BY PREDICATE (lang = "en") IN my_store
 ```
 
 
-## 5. Index Management
-### CREATE PREDICATE INDEX
+### 5. Index Management
+#### CREATE PREDICATE INDEX
 Create an index for faster metadata filtering.
 ```
 CREATE PREDICATE INDEX <field> IN <store_name>
 ```
 
-### Example:
+#### Example:
 ```
 CREATE PREDICATE INDEX category IN my_store
 ```
 
-### DROP PREDICATE INDEX
+#### DROP PREDICATE INDEX
 Remove a predicate index.
 ```
 DROP PREDICATE INDEX <field> IN <store_name>
 ```
 
-### Example:
+#### Example:
 ```
 DROP PREDICATE INDEX category IN my_store
 ```
 
-### CREATE NON LINEAR ALGORITHM INDEX
+#### CREATE NON LINEAR ALGORITHM INDEX
 Build a non-linear index (e.g., KD-Tree) for improved search efficiency.
 ```
 CREATE NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name>
 ```
 
-### Example:
+#### Example:
 ```
 CREATE NON LINEAR ALGORITHM INDEX kdtree IN my_store
 ```
 
-### DROP NON LINEAR ALGORITHM INDEX
+#### DROP NON LINEAR ALGORITHM INDEX
 Remove a non-linear algorithm index.
 ```
 DROP NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name>
 ```
 
-### Example:
+#### Example:
 ```
 DROP NON LINEAR ALGORITHM INDEX kdtree IN my_store
 ```
