@@ -76,6 +76,7 @@ const sidebars: SidebarsConfig = {
             'components/ahnlich-ai/setup-config',
             'components/ahnlich-ai/reference',
             'components/ahnlich-ai/advanced',
+            'components/ahnlich-ai/deep-dive'
           ],
         },
       ],
