@@ -79,6 +79,19 @@ const sidebars: SidebarsConfig = {
             'components/ahnlich-ai/deep-dive'
           ],
         },
+        {
+          type: 'category',
+          label: '🕸️ Distributed Tracing',
+          link: {
+            type: 'doc',
+            id: 'components/distributed-tracing/distributed-tracing'
+          },
+          items: [
+            'components/distributed-tracing/ahnlich-db',
+            'components/distributed-tracing/ahnlich-ai',
+            'components/distributed-tracing/using-jaeger',
+          ],
+        },
       ],
     },
     {
