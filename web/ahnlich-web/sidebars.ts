@@ -45,9 +45,9 @@ const sidebars: SidebarsConfig = {
             id: 'components/ahnlich-cli/ahnlich-cli'
           },
           items: [
-            'components/ahnlich-cli/overview',
-            'components/ahnlich-cli/reference',
-            'components/ahnlich-cli/advanced'
+            'components/ahnlich-cli/installation',
+            'components/ahnlich-cli/db-commands',
+            'components/ahnlich-cli/ai-commands',
           ],
         },
         {
@@ -76,6 +76,20 @@ const sidebars: SidebarsConfig = {
             'components/ahnlich-ai/setup-config',
             'components/ahnlich-ai/reference',
             'components/ahnlich-ai/advanced',
+            'components/ahnlich-ai/deep-dive'
+          ],
+        },
+        {
+          type: 'category',
+          label: '🕸️ Distributed Tracing',
+          link: {
+            type: 'doc',
+            id: 'components/distributed-tracing/distributed-tracing'
+          },
+          items: [
+            'components/distributed-tracing/ahnlich-db',
+            'components/distributed-tracing/ahnlich-ai',
+            'components/distributed-tracing/using-jaeger',
           ],
         },
       ],
