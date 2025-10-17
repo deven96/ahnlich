@@ -81,6 +81,18 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
+          label: '♾️ Persistence In Ahnlich',
+          link: {
+            type: 'doc',
+            id: 'components/persistence-in-ahnlich/persistence-in-ahnlich'
+          },
+          items: [
+            'components/persistence-in-ahnlich/persistence-for-ahnlich-db',
+            'components/persistence-in-ahnlich/persistence-for-ahnlich-ai',
+          ],
+        },
+        {
+          type: 'category',
           label: '🕸️ Distributed Tracing',
           link: {
             type: 'doc',
