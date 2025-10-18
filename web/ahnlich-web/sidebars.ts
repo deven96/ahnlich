@@ -45,9 +45,9 @@ const sidebars: SidebarsConfig = {
             id: 'components/ahnlich-cli/ahnlich-cli'
           },
           items: [
-            'components/ahnlich-cli/overview',
-            'components/ahnlich-cli/reference',
-            'components/ahnlich-cli/advanced'
+            'components/ahnlich-cli/installation',
+            'components/ahnlich-cli/db-commands',
+            'components/ahnlich-cli/ai-commands',
           ],
         },
         {
@@ -58,9 +58,10 @@ const sidebars: SidebarsConfig = {
             id: 'components/ahnlich-db/ahnlich-db'
           },
           items: [
-            'components/ahnlich-db/overview',
+            'components/ahnlich-db/use-cases',
+            'components/ahnlich-db/installation',
             'components/ahnlich-db/reference',
-            'components/ahnlich-db/advanced'
+            'components/ahnlich-db/advanced',
           ],
         },
         {
@@ -71,10 +72,36 @@ const sidebars: SidebarsConfig = {
             id: 'components/ahnlich-ai/ahnlich-ai'
           },
           items: [
-            'components/ahnlich-ai/overview',
+            'components/ahnlich-ai/use-cases',
+            'components/ahnlich-ai/setup-config',
             'components/ahnlich-ai/reference',
             'components/ahnlich-ai/advanced',
-            'components/ahnlich-ai/persistence-for-ahnlich-db-and-ahnlich-ai'
+            'components/ahnlich-ai/deep-dive'
+          ],
+        },
+        {
+          type: 'category',
+          label: '♾️ Persistence In Ahnlich',
+          link: {
+            type: 'doc',
+            id: 'components/persistence-in-ahnlich/persistence-in-ahnlich'
+          },
+          items: [
+            'components/persistence-in-ahnlich/persistence-for-ahnlich-db',
+            'components/persistence-in-ahnlich/persistence-for-ahnlich-ai',
+          ],
+        },
+        {
+          type: 'category',
+          label: '🕸️ Distributed Tracing',
+          link: {
+            type: 'doc',
+            id: 'components/distributed-tracing/distributed-tracing'
+          },
+          items: [
+            'components/distributed-tracing/ahnlich-db',
+            'components/distributed-tracing/ahnlich-ai',
+            'components/distributed-tracing/using-jaeger',
           ],
         },
       ],
