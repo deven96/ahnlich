@@ -30,7 +30,7 @@ ahnlich-db --version
 
 #### Run the Database Server
 ```
-cargo run -p db --bin ahnlich-db   # Starts the DB server
+ahblich-db run    # Starts the DB server
 ```
 
 
