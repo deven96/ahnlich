@@ -145,6 +145,8 @@ Remove a specific key from a store.
 DELETEKEY doc1 IN article_store
 ```
 
+## Ahnlich AI Commands
+
 | AI Command | Rust API Equivalent | Python API Equivalent | Go API Equivalent |
 | --- | --- | --- | --- |
 | PING | ```client.ping()?;``` | ```client.ping()``` | ```client.Ping(ctx)``` |

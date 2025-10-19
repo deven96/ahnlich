@@ -1,5 +1,5 @@
 ---
-title: Distributed Tracing
+title: 🕸️ Distributed Tracing
 ---
 
 # Distributed Tracing in Ahnlich

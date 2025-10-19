@@ -1,0 +1,46 @@
+---
+title: Client libraries
+---
+
+import CustomDocCard from '@site/src/components/CustomDocCard';
+import rustLogo from '@site/static/img/rust-logo.png';
+import rustLogoLight from '@site/static/img/Rust.png';
+import pythonLogo from '@site/static/img/python-logo.png'
+import pythonLogoLight from '@site/static/img/python_logo.png'
+import goLogo from '@site/static/img/go.png'
+
+export const components = [
+    {
+        title: "Python",
+        logoLight: pythonLogoLight,
+        logoDark: pythonLogo,
+        link: "/docs/client-libraries/python"
+    },
+    {
+        title: 'Go',
+        logoLight: goLogo,
+        logoDark: goLogo,
+        link: "/docs/client-libraries/go"
+    },
+    {
+        title: 'Rust',
+        logoLight: rustLogoLight,
+        logoDark: rustLogo,
+        link: "/docs/client-libraries/rust"
+    }
+];
+
+# Client libraries
+
+<div className="remove-link-line grid md:grid-cols-2 gap-4">
+    {components.map((component) => (
+        <CustomDocCard 
+            key={component.title}
+            title={component.title} 
+            icon={component.icon} 
+            link={component.link} 
+            logoLight={component.logoLight}
+            logoDark={component.logoDark}
+        />
+    ))}
+</div>
