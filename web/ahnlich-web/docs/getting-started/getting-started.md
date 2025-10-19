@@ -30,7 +30,7 @@ export const components = [
 
 # 🚀 Getting Started with Ahnlich
 
-<div className="remove-link-line grid md:grid-cols-2 gap-4">
+<div className="remove-link-line grid xl:grid-cols-2 gap-4">
     {components.map((component) => (
         <CustomDocCard 
             key={component.title}

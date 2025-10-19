@@ -28,6 +28,11 @@ sudo mv ahnlich-db /usr/local/bin/
 ahnlich-db --version
 ```
 
+#### Run the Database Server
+```
+cargo run -p db --bin ahnlich-db   # Starts the DB server
+```
+
 
 #### Example: Run CLI against DB agent
 ```
