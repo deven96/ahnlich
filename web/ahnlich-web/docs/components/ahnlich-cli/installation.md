@@ -52,12 +52,12 @@ cd ahnlich
 
 #### Run the Database Server
 ```
-cargo run -p db --bin ahnlich-db   # Starts the DB server
+cargo run -p db --bin ahnlich-db run   # Starts the DB server
 ```
 
 #### Run the AI Server
 ```
-cargo run -p ai --bin ahnlich-ai   # Starts the AI server
+cargo run -p ai --bin ahnlich-ai run  # Starts the AI server
 ```
 
 #### Run the CLI
