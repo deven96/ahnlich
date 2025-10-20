@@ -16,7 +16,7 @@ Semantic search goes beyond keyword matching it finds items that are **conceptua
 
 - **Ahnlich DB** retrieves the most similar vectors using **cosine similarity**, filtering out irrelevant categories (e.g., `topic != sports`).
 
-```go
+```
 GETSIMN 5 WITH [0.42, -0.13, 0.76, ...] USING cosinesimilarity 
 IN news_store WHERE (topic != sports)
 ```
@@ -36,7 +36,7 @@ An e-commerce platform wants to recommend products to a user based on their brow
 
 - **Query:** Find the 10 most similar products to the user’s embedding.
 
-```go
+```
 get_sim_n(
     store="product_store",
     search_input=[0.24, 0.15, 0.93, ...],
@@ -73,7 +73,7 @@ This allows scientists to explore relationships between data points without expl
 **Example:**
 A video platform wants to recommend “similar” videos but only those uploaded in the last 12 months.
 
-```go
+```
 find top-8 similar videos
 GETSIMN 8 WITH [0.89, -0.33, 0.55, ...] USING euclideandistance IN video_store;
 
@@ -96,7 +96,7 @@ A fashion company wants customers to upload a **photo of an outfit** and find si
 
 - Metadata filter ensures only items in stock are suggested.
 
-```go
+```
 GETSIMN 3 WITH [0.31, 0.88, 0.64, ...] USING cosinesimilarity 
 IN fashion_store WHERE (availability = "in_stock")
 

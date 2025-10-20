@@ -33,7 +33,7 @@ In essence, **Ahnlich DB** **is the backbone of vector storage and retrieval in 
 **Example:**
  A user searches for articles similar to “renewable energy storage.” The text is converted into a vector and matched against stored article embeddings.
 
-```go
+```
 GETSIMN 3 WITH [0.23, 0.91, -0.44, ...] USING cosinesimilarity 
 IN article_store WHERE (category != "sports")
 ```
@@ -46,7 +46,7 @@ Every stored vector can be annotated with **key–value metadata**, allowing you
 **Example:**
  A music app wants to recommend similar songs but only from the Jazz genre.
 
-```go
+```
 GETSIMN 5 WITH [0.11, 0.75, -0.32, ...] USING euclideandistance 
 IN music_store WHERE (genre = "jazz")
 ```
@@ -68,13 +68,13 @@ This flexibility allows **Ahnlich DB** to integrate into different pipelines—w
 
 **Example:**
 **Command Interface:**
-```go
+```
 GETSIMN 10 WITH [0.55, 0.82, -0.17, ...] USING cosinesimilarity 
 IN user_store WHERE (status = "active")
 ```
 
 Rust API:
-```go
+```
 get_sim_n(
     store="user_store",
     search_input=[0.55, 0.82, -0.17, ...],

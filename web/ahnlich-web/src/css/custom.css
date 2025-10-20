@@ -50,6 +50,7 @@
 
 .breadcrumbs {
   display: flex;
+  flex-flow: row wrap;
 }
 
 .breadcrumbs__item {
