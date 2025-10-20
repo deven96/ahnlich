@@ -10,21 +10,21 @@ This section explains how to install, configure, and run **Ahnlich DB**. The dat
 
 
 ### 1. Download Binaries
-Prebuilt binaries are available from GitHub Releases.
+Prebuilt binaries are available from [GitHub Releases](https://github.com/deven96/ahnlich/releases).
 
 #### Download with `wget`:
-```go
+```
 wget 
 https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.0.0/aarch64-darwin-ahnlich-db.tar.gz
 ```
 
 #### Extract the archive:
-```go
+```
 tar -xvzf aarch64-darwin-ahnlich-db.tar.gz
 ```
 
 #### Run the binary:
-```go
+```
 ./ahnlich-db
 ```
 
@@ -32,12 +32,12 @@ Replace `aarch64-darwin-ahnlich-db.tar.gz` with the correct file for your platfo
 
 ### 2. Using Docker
 Ahnlich DB also ships as a Docker image:
-```go
+```
 docker pull ghcr.io/deven96/ahnlich-db:latest
 ```
 
 #### Run with:
-```go
+```
 docker run --rm -p 1369:1369 \
   --name ahnlich-db \
   ghcr.io/deven96/ahnlich-db:latest \
@@ -49,7 +49,7 @@ docker run --rm -p 1369:1369 \
 You can orchestrate Ahnlich DB with **docker-compose**.
 
 #### Basic (with tracing enabled):
-```go
+```
 services:
   ahnlich_db:
     image: ghcr.io/deven96/ahnlich-db:latest
@@ -70,7 +70,7 @@ services:
 ``` 
 
 #### With Persistence:
-```go
+```
 services:
   ahnlich_db:
     image: ghcr.io/deven96/ahnlich-db:latest
@@ -112,21 +112,21 @@ Ahnlich DB can be customized using runtime flags:
 ### Quick Start Example
 
 #### Start a simple database:
-```go
+```
 ./ahnlich-db run --host 0.0.0.0 --port 1369
 ```
 
 #### Create a store:
-```go
+```
 CREATE STORE my_store DIMENSION 2 ALGORITHM cosine
 ```
 
 #### Insert a vector with metadata:
-```go
+```
 INSERT [0.2, 0.1] WITH { "page": "home" } IN my_store
 ```
 
 #### Run a similarity search:
-```go
+```
 GETSIMN 2 WITH [0.2, 0.1] USING cosinesimilarity IN my_store WHERE (page != hidden)
 ```
