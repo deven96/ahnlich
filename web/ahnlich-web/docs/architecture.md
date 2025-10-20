@@ -3,7 +3,7 @@ title: 🏛️ Architecture
 sidebar_position: 60
 ---
 
-# Ahnlich Architecture V2
+# Ahnlich Architecture
 **Status**: *Alpha / testing – subject to breaking changes.***
 
 Ahnlich is split into two independent, network‑accessible services that work in tandem:
