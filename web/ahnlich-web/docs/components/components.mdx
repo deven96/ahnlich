@@ -1,0 +1,49 @@
+---
+id: components
+title: 🧩 Components
+---
+
+import CustomDocCard from '@site/src/components/CustomDocCard';
+
+export const components = [
+    {
+        title: "Ahnlich CLI",
+        icon: "📟",
+        link: "/docs/components/ahnlich-cli"
+    },
+    {
+        title: 'Ahnlich DB',
+        icon: "🗄️",
+        link: "/docs/components/ahnlich-db"
+    },
+    {
+        title: 'Ahnlich AI',
+        icon: "🤖",
+        link: "/docs/components/ahnlich-ai"
+    },
+    {
+        title: 'Persistence in Ahnlich',
+        icon: "♾️",
+        link: "/docs/components/persistence-in-ahnlich"
+    },
+    {
+        title: 'Distributed Tracing',
+        icon: "🕸️",
+        link: "/docs/components/distributed-tracing"
+    }
+];
+
+# Components
+
+Ahnlich is a suite of tools that can be used to build a variety of applications. This page lists the components that are available in Ahnlich.
+
+<div className="remove-link-line grid md:grid-cols-2 gap-4">
+    {components.map((component) => (
+        <CustomDocCard 
+            key={component.title}
+            title={component.title} 
+            icon={component.icon} 
+            link={component.link} 
+        />
+    ))}
+</div>

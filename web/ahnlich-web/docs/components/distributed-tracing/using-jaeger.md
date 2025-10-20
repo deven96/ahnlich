@@ -50,7 +50,7 @@ These queries **create stores**, **insert data**, and **query similarity** the o
 ## Program Implementing the Queries
 
 <details>
-<summary>Click to Exapnad Code</summary>
+<summary>Click to Expand Code</summary>
 
 ```python
 import asyncio 

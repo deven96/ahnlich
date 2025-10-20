@@ -28,6 +28,11 @@ sudo mv ahnlich-db /usr/local/bin/
 ahnlich-db --version
 ```
 
+#### Run the Database Server
+```
+ahblich-db run    # Starts the DB server
+```
+
 
 #### Example: Run CLI against DB agent
 ```
@@ -47,12 +52,12 @@ cd ahnlich
 
 #### Run the Database Server
 ```
-cargo run -p db --bin ahnlich-db   # Starts the DB server
+cargo run -p db --bin ahnlich-db run   # Starts the DB server
 ```
 
 #### Run the AI Server
 ```
-cargo run -p ai --bin ahnlich-ai   # Starts the AI server
+cargo run -p ai --bin ahnlich-ai run  # Starts the AI server
 ```
 
 #### Run the CLI
