@@ -105,3 +105,17 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
       padding-left: 10rem;
 }
 }
+
+.sidebarIcon {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  vertical-align: middle;
+  display: inline-block;
+}
+
+.sidebarIcon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}

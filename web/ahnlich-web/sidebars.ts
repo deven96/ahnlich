@@ -116,10 +116,15 @@ const sidebars: SidebarsConfig = {
       items: [
         {
           type: 'category',
-          label: '🐍 Python',
+          label: 'Python',
           link: {
             type: 'doc',
             id: 'client-libraries/python/python'
+          },
+          customProps: {
+            iconLight: '/img/python_logo.png',
+            iconDark: '/img/python-logo.png',
+            iconType: 'img'
           },
           items: [
             'client-libraries/python/python-specific-resources',
@@ -177,10 +182,14 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: '⚙️ Go',
+          label: 'Go',
           link: {
             type: 'doc',
             id: 'client-libraries/go/go',
+          },
+          customProps: {
+            icon: '/img/go.png',
+            iconType: 'img'
           },
           items: [
             'client-libraries/go/go-specific-resources',
@@ -239,10 +248,15 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: '⚙️ Rust',
+          label: 'Rust',
           link: {
             type: 'doc',
             id: 'client-libraries/rust/rust',
+          },
+          customProps: {
+            iconLight: '/img/rust.png',
+            iconDark: '/img/rust-logo.png',
+            iconType: 'img'
           },
           items: [
             'client-libraries/rust/rust-specific-resources',
