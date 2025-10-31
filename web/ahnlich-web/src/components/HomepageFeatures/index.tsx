@@ -16,8 +16,7 @@ const FeatureList: FeatureItem[] = [
     description: (
       <>
         In-memory vector key value store for storing embeddings/vectors with corresponding metadata(key-value maps). 
-        It&apos;s a powerful system which enables AI/ML engineers to store and search similar vectors using linear 
-        (cosine, euclidean) or non-linear similarity (kdtree) algorithms.
+        It&apos;s a powerful system which enables developers/engineers to store and search similar vectors semantically.
       </>
     ),
   },
@@ -26,8 +25,8 @@ const FeatureList: FeatureItem[] = [
     Svg: require('@site/static/img/landing-1.svg').default,
     description: (
       <>
-        AI proxy to communicate with ahnlich-db, receiving raw input, transforming into embeddings, and storing within 
-        the DB. It extends the capabilities by then allowing developers/engineers to issue queries to the same store using 
+        AI proxy to communicate with DB. Eeceiving raw input, transforming into embeddings, and storing within 
+        the DB. It extends the capabilities by allowing developers/engineers to issue queries to the same store using 
         raw input such as images/text. 
       </>
     ),
