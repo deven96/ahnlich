@@ -19,7 +19,7 @@ jobs:
           yarn install
           yarn run build
           touch build/.nojekyll
-          echo "ahnlich.tech" >> build/CNAME
+          echo "ahnlich.dev" >> build/CNAME
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@v4
