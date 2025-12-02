@@ -1,23 +1,19 @@
 import type {ReactNode} from 'react';
-import clsx from 'clsx';
-import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
-import Heading from '@theme/Heading';
 
-import styles from './index.module.css';
+import ImageSearch from '@site/static/img/landingPage/rustimagesearch.png'
+
+import { ActionLinks } from '../components/buttons';
+import { DownloadIcon, GithubIcon, RocketIcon } from '../components/icons';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
-    <header className={clsx('relative hero hero--primary bg-[url(https://res.cloudinary.com/drfw1bzcw/image/upload/v1733262252/Ahnlich/hero_f4xrul.webp)]', styles.heroBanner)}>
-      <div className="absolute inset-0 bg-black opacity-80"></div>
-      <div className="container text-white z-10">
-        <Heading as="h1" className="hero__title text-7xl">
-          {siteConfig.title}
-        </Heading>
-        <p className="hero__subtitle text-2xl w-full md:w-1/2 m-auto my-3">{siteConfig.tagline}</p>
+    <header className="pt-8 md:pt-16 text-center sticky top-0 bg-[url(@site/static/img/landingPage/hero.jpg)]">
+      <div className="container relative flex flex-col items-center text-white z-10">
+        <img src={ImageSearch} alt='An architectural diagram of Ahnlich' className='w-full lg:w-1/2 rounded-2xl' />
       </div>
     </header>
   );
@@ -30,8 +26,23 @@ export default function Home(): ReactNode {
       title={`${siteConfig.title}`}
       description={`${siteConfig.tagline}`}>
       <HomepageHeader />
-      <main>
+      <main className='z-10 bg-white dark:bg-[#242526]'>
+        <section className='p-12 bg-slate-200 dark:bg-slate-500'>
+          <p className='text-3xl text-center'>A fast, intuitive interface designed to make your <br /> workflow smoother from day one.</p>
+          <div className='flex flex-col md:flex-row items-center justify-center my-10 gap-12'>
+            <ActionLinks href="/docs/getting-started" icon={<RocketIcon />}>Get Started</ActionLinks>
+            <ActionLinks href="https://github.com/deven96/ahnlich" icon={<GithubIcon />}>View Github</ActionLinks>
+          </div>
+        </section>
+
         <HomepageFeatures />
+
+        <section className='p-12 bg-slate-200 dark:bg-slate-500'>
+          <p className='text-3xl text-center'>Get releases for Mac and Linux</p>
+          <div className='flex items-center justify-center my-10 gap-12'>
+            <ActionLinks href="https://github.com/deven96/ahnlich/releases" icon={<DownloadIcon />}>Download now</ActionLinks>
+          </div>
+        </section>
       </main>
     </Layout>
   );
