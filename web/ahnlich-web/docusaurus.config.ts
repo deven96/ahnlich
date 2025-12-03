@@ -109,7 +109,7 @@ const config: Config = {
           position: 'right',
           label: 'Docs',
         },
-        {to: '/blog', label: 'Blog', position: 'right'},
+        // {to: '/blog', label: 'Blog', position: 'right'},
         {to: '/docs/guides', label: 'Guides', position: 'right'},
         {
           href: 'https://github.com/deven96/ahnlich',
@@ -159,7 +159,7 @@ const config: Config = {
           items: [
             {
               label: 'WhatsApp',
-              href: 'https://whatsapp.com',
+              href: 'https://chat.whatsapp.com/E4CP7VZ1lNH9dJUxpsZVvD',
             },
             {
               label: 'GitHub Discussions',
@@ -170,10 +170,10 @@ const config: Config = {
         {
           title: 'More',
           items: [
-            {
-              label: 'Blog',
-              to: '/blog',
-            },
+            // {
+            //   label: 'Blog',
+            //   to: '/blog',
+            // },
             {
               label: 'GitHub',
               href: 'https://github.com/deven96/ahnlich',
