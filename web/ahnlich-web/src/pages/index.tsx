@@ -28,7 +28,7 @@ export default function Home(): ReactNode {
       <HomepageHeader />
       <main className='z-10 bg-white dark:bg-[#242526]'>
         <section className='p-12 bg-slate-200 dark:bg-slate-500'>
-          <p className='text-3xl text-center'>A fast, intuitive interface designed to make your <br /> workflow smoother from day one.</p>
+          <p className='text-3xl text-center'>Smarter search <br /> A vector search engine that gets out of your way.</p>
           <div className='flex flex-col md:flex-row items-center justify-center my-10 gap-12'>
             <ActionLinks href="/docs/getting-started" icon={<RocketIcon />}>Get Started</ActionLinks>
             <ActionLinks href="https://github.com/deven96/ahnlich" icon={<GithubIcon />}>View Github</ActionLinks>
