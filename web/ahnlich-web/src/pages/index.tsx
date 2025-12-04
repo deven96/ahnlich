@@ -7,6 +7,7 @@ import ImageSearch from '@site/static/img/landingPage/rustimagesearch.png'
 
 import { ActionLinks } from '../components/buttons';
 import { DownloadIcon, GithubIcon, RocketIcon } from '../components/icons';
+import AudioPlayer from '../components/AudioPlayer';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -28,7 +29,13 @@ export default function Home(): ReactNode {
       <HomepageHeader />
       <main className='z-10 bg-white dark:bg-[#242526]'>
         <section className='p-12 bg-slate-200 dark:bg-slate-500'>
-          <p className='text-3xl text-center'>Smarter search.<br /> A vector engine that gets out of your way.</p>
+          <p className='text-xl text-center'>
+            /ˈɛːnlɪç/ <br /> EH-n-likh
+          </p>
+          <AudioPlayer src='/audio/aehnlich.mp3' />
+          <p className='text-3xl text-center mt-3'>
+            Smarter search with <br /> a vector engine that gets out of your way
+          </p>
           <div className='flex flex-col md:flex-row items-center justify-center my-10 gap-12'>
             <ActionLinks href="/docs/getting-started" icon={<RocketIcon />}>Get Started</ActionLinks>
             <ActionLinks href="https://github.com/deven96/ahnlich" icon={<GithubIcon />}>View Github</ActionLinks>
