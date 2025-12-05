@@ -40,6 +40,13 @@
 
     * [Breakdown](#breakdown-4)
 
+* [Data Model & API Interface](#data-model--api-interfaces)
+
+* [Testing Strategy](#testing-strategy)
+    * [Correctness](#correctness)
+    * [Determinism in Replicated Environments](#determinism-in-replicated-environments)
+    * [Performance Evaluation](#performance-evaluation)
+
 * [References](#references)
 
 
@@ -495,6 +502,12 @@ Output: K nearest elements to q
 * It seems like ef in K-NN-SEARCH could be treated as optional, defaulting to efConstruction if the user doesn’t provide a value. This way, the search would automatically match the recall used during insertion, while still allowing users to override it for custom search precision or speed.
 
 ---
+
+
+## Data Model & API Interfaces:
+
+
+
 
 
 ## References:
