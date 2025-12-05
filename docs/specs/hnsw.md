@@ -42,10 +42,20 @@
 
 * [Data Model & API Interface](#data-model--api-interfaces)
 
+* [Needs Further Research / Open Questions](#needs-further-research--open-questions)
+
+  
 * [Testing Strategy](#testing-strategy)
-    * [Correctness](#correctness)
-    * [Determinism in Replicated Environments](#determinism-in-replicated-environments)
-    * [Performance Evaluation](#performance-evaluation)
+    * [Correctness Testing (Core Validation)](#1-correctness-testing-core-validation)
+        * [Linear Scan Baseline (Required, V1)](#11-linear-scan-baseline-required-v1)
+        * [FAISS HNSW Comparison (Required, Optional Output Check)](#12-faiss-hnsw-comparison-required-optional-output-check)
+        * [Optional / Advanced Correctness Checks](#13-optional--advanced-correctness-checks)
+    * [Determinism in a Replicated System](#2-determinism-in-a-replicated-system)
+    * [Performance Testing](#3-performance-testing)
+        * [Speed Benchmarks](#31-speed-benchmarks)
+        * [Memory Usage](#32-memory-usage)
+        * [Testing Flow Summary](#testing-flow-summary)
+
 
 * [References](#references)
 
@@ -67,10 +77,10 @@ a graph
 - `l`: The maximum layer level of an element. Defined by `l = floor(-ln(uniform(0,1)) * mL)` (Used during insert)
 
 - `M`: Defines the maximum number of connections between each elements/node. It controls the tradeoff between memory usage and search quality by
-how manay neighbors each element can maintain in layers above level 0.
+how many neighbors each element can maintain in layers above level 0.
 
 
-- `mL`: a normalization param that controls the expected number of layers in the hierachical structure. It plays a crucial role in balancing the tradeoff between search
+- `mL`: a normalization param that controls the expected number of layers in the hierarchical structure. It plays a crucial role in balancing the tradeoff between search
 efficiency and construction complexity as its probabilistic assignment ensures that higher layers contain fewer elements while maintaining
 proper connectivity.
 
@@ -92,10 +102,6 @@ At layer 0, instead of performing a greedy search (which can easily get stuck), 
   with a smaller number `5-12`, while high-dimensional data `16-48`
   - `mL`: `1/ln(M)` 
 
-  *Questions for Ahnlich...??*
-  > - How do we define a default for this value if not provided by the user? If a wrong default is chosen, do we recreate after
-    we understand the dimensionality of said data??
-
 
 
 
@@ -112,16 +118,10 @@ At layer 0, instead of performing a greedy search (which can easily get stuck), 
   
 
   - Construction Complexity: Theoretically, it is `O(N log N)` for construction on relatively low-dimensional data. Where N represents the number of elements.
-    *Questions for Ahnlich...??*
-    > - What is the construction complexity for high-dimensional data??
 
 
 
-<!-- Move-->
-## **More Questions**
 
-### **Q0. How deterministic is the HNSW given it's approximate nature? With Ahnlich looking at distributed strategies, if a replica instance is spun up and a same query is sent to each replicas as independent results, how similar would the response be?**
-pending...
 
 
 
@@ -146,7 +146,7 @@ Output: update hnsw inserting element q
 8 for lc ← min(L, l) … 0
 9   W ← SEARCH-LAYER(q, ep, efConstruction, lc)
 10  neighbors ← SELECT-NEIGHBORS(q, W, M, lc) // alg. 3 or alg. 4
-11  add bidirectionall connections from neighbors to q at layer lc
+11  add bidirectional connections from neighbors to q at layer lc
 
 12  for each e ∈ neighbors // shrink connections if needed
 13    eConn ← neighbourhood(e) at layer lc
@@ -509,26 +509,327 @@ Output: K nearest elements to q
 
 WIP: A simple HNSW structure
 ```rust
-use std::collections::btree_map::BTreeMap;
+use std::collections::{HashSet, btree_map::BTreeMap};
 
+/// LayerIndex is just a wrapper around usize to represent a layer in HNSW.
+pub struct LayerIndex(usize);
+
+/// NodeId wraps usize to uniquely identify a node across all layers.
+pub struct NodeId(usize);
+
+/// HNSW represents the hierarchical navigable small world graph.
+///
+/// `entries` maps each layer to a vector of nodes in that layer. Each node
+/// may appear in multiple layers, and neighbors are stored per layer.
 pub struct HNSW {
+    /// breadth of search during insertion
     pub ef_construction: Option<u8>,
 
-    // represents L: top layer of the hnsw
+    /// L: top layer in the HNSW
     pub top_most_layer: u8,
 
-    // M: defines the max num of conns between each Node
+    /// M: max number of connections per node
     pub maximum_connections: u8,
-
-    // mL: => 1 / ln(M)
+    /// mL: 1 / ln(M)
     pub inv_log_m: f64,
 
-    entries: BTreeMap<u8, Vec<Node>>,
+    /// Nodes in each layer.
+    ///
+    /// For example, `entries[LayerIndex(2)]` contains all nodes in layer 2.
+    /// Each node holds its own neighbors per layer.
+    entries: BTreeMap<LayerIndex, Vec<Node>>,
 }
 
-pub struct Node;
+/// Node represents a single element in the HNSW graph.
+///
+/// Each node stores:
+/// - `id`: unique identifier
+/// - `value`: embedding vector
+/// - `neighbours`: map from layer to set of NodeIds of neighbors in that layer
+///
+/// Example of a node:
+/// ```text
+/// Node {
+///     id: 42,
+///     value: [0.12, 0.55, 0.77],
+///     neighbours: {
+///         0: [10, 55, 71],
+///         1: [9, 11],
+///         2: [88],
+///         3: [200, 201]
+///     }
+/// }
+/// ```
+/// This shows Node 42 exists in layers 0–3, with different neighbors at each level.
+pub struct Node {
+    id: NodeId,
+    value: Vec<f64>,
+    neighbours: BTreeMap<LayerIndex, HashSet<NodeId>>,
+}
+```
+
+### API Interface
+
+#### HNSW
+```rust
+impl HNSW {
+    /// Insert a new element into the HNSW graph
+    /// Corresponds to Algorithm 1 (INSERT)
+    pub fn insert(&mut self, q: Vec<f64>) -> NodeId {
+        // internally uses SEARCH-LAYER, SELECT-NEIGHBORS
+        todo!()
+    }
+
+    /// Search for ef nearest neighbors in a specific layer
+    /// Corresponds to Algorithm 2 (SEARCH-LAYER)
+    pub fn search_layer(
+        &self,
+        query: &Vec<f64>,
+        entry_points: &[NodeId],
+        ef: usize,
+        layer: LayerIndex,
+    ) -> Vec<NodeId> {
+        todo!()
+    }
+
+    /// Select M neighbors simply based on distance
+    /// Corresponds to Algorithm 3 (SELECT-NEIGHBORS-SIMPLE)
+    pub fn select_neighbors_simple(
+        &self,
+        base: NodeId,
+        candidates: &[NodeId],
+        m: usize,
+    ) -> Vec<NodeId> {
+        todo!()
+    }
+
+    /// Select M neighbors using heuristic for diversity and pruning
+    /// Corresponds to Algorithm 4 (SELECT-NEIGHBORS-HEURISTIC)
+    pub fn select_neighbors_heuristic(
+        &self,
+        base: NodeId,
+        candidates: &[NodeId],
+        m: usize,
+        layer: LayerIndex,
+        extend_candidates: bool,
+        keep_pruned_connections: bool,
+    ) -> Vec<NodeId> {
+        todo!()
+    }
+
+    /// K-Nearest Neighbor Search
+    /// Corresponds to Algorithm 5 (K-NN-SEARCH)
+    pub fn knn_search(
+        &self,
+        query: &Vec<f64>,
+        k: usize,
+        ef: Option<usize>,
+    ) -> Vec<NodeId> {
+        todo!()
+    }
+
+    /// Optional helper to get a node by NodeId efficiently
+    pub fn get_node(&self, id: NodeId) -> Option<&Node> {
+        todo!()
+    }
+}
+```
+
+
+#### Node
+*Just helper methods*
+```rust
+impl Node {
+    /// get neighbors at a specific layer
+    pub fn neighbors_at(&self, layer: LayerIndex) -> Option<&HashSet<NodeId>> {
+        self.neighbours.get(&layer)
+    }
+
+    /// add a neighbor at a specific layer
+    pub fn add_neighbor(&mut self, layer: LayerIndex, neighbor: NodeId) {
+        self.neighbours.entry(layer).or_insert(neighbor);
+    }
+
+    /// remove a neighbor at a specific layer
+    pub fn remove_neighbor(&mut self, layer: LayerIndex, neighbor: NodeId) {
+        if let Some(set) = self.neighbours.get_mut(&layer) {
+            set.remove(&neighbor);
+        }
+    }
+
+    // perhaps useful??
+    pub fn closest_neighbor_to(&self, query: &Vec<f64>) -> NodeId {
+      todo!()
+    }
+}
 
 ```
+
+
+## Needs Further Research / Open Questions
+
+- Construction complexity for high-dimensional data.
+
+- Determinism in replicated environments: how similar would results be across multiple replicas for the same query?
+
+- Default ef in K-NN-SEARCH: should it default to efConstruction if not provided?
+
+- How do we define a default for this value if not provided by the user? If a wrong default is chosen, do we recreate after we understand the dimensionality of said data??
+  > @deven96's comment: Yeah we already know the dimensionality of the data so what i propose we do is surface some options as Option but if the values are not provided then we compute our defaults
+
+
+
+## **Testing Strategy**
+
+
+To properly validate our HNSW implementation, we’ll structure testing into three main layers:
+
+1. **Correctness** – ensures our ANN returns neighbors close to the true nearest neighbors.
+2. **Determinism** – ensures replicated systems produce consistent results.
+3. **Performance** – measures efficiency and guides optimization.
+
+Each layer targets a different class of issues, together ensuring a **robust and production-ready implementation**.
+
+---
+
+### **1. Correctness Testing (Core Validation)**
+
+The primary goal is to ensure our HNSW implementation returns neighbors as close as possible to the **true nearest neighbors**, measured using **Recall@K**.
+
+**Recall@K** is defined as:
+```r
+Recall@K = (# of true neighbors returned in top K results) / K
+```
+
+* **K** = number of neighbors requested per query (should reflect typical application queries)
+* **True neighbors** = nearest neighbors obtained via a brute-force linear scan
+* **Range:** 0–1 (or 0%–100%)
+
+High Recall@K indicates the approximate HNSW search is capturing most of the actual nearest neighbors.
+
+Testing correctness is done in **two phases**:
+
+---
+
+#### **1.1. Linear Scan Baseline (Required, V1)**
+
+Compare our HNSW implementation against a **brute-force KNN (linear scan)**, which serves as the ground truth. ([https://github.com/nmslib/hnswlib/blob/master/TESTING_RECALL.md](https://github.com/nmslib/hnswlib/blob/master/TESTING_RECALL.md))
+
+**Procedure:**
+
+1. Generate a dataset (synthetic or real, e.g., SIFT1M).
+2. Build our HNSW index and a brute-force index.
+3. Query each vector for `k` nearest neighbors.
+4. Compute **Recall@K**:
+
+```r
+Recall@K = (# correct neighbors returned by HNSW) / K
+```
+
+**Validates:**
+
+* Layer traversal
+* Neighbor selection & pruning logic
+* Candidate queue behavior
+* Distance metric correctness
+
+💡 This is the **industry-standard recall validation**.
+
+---
+
+#### **1.2. FAISS HNSW Comparison (Required, Optional Output Check)**
+
+Compare our HNSW implementation against **FAISS’s HNSW** on the same dataset.
+
+* **Purpose:** Not to copy FAISS’s implementation, but to obtain a **production-level baseline for recall**.
+* FAISS outputs are **not ground truth**, but they serve as a widely-used reference for recall performance.
+* Helps identify potential blind spots and performance differences.
+
+**Procedure:**
+
+1. Build a FAISS HNSW index on the same dataset.
+2. Query for `k` nearest neighbors.
+3. Compare neighbor overlap and Recall@K with our implementation.
+
+---
+
+#### **1.3. Optional / Advanced Correctness Checks**
+
+* **Sanity tests:** simple vectors, identical vectors, widely separated points.
+* **Structural integrity tests:** no duplicate neighbors, bidirectional edges, valid levels.
+* **Dense cluster stress tests:** test candidate pruning and heuristics under tightly clustered vectors.
+
+> These tests are optional but provide additional confidence in the implementation. They can be run periodically or on stress-test datasets.
+
+---
+
+### **2. Determinism in a Replicated System**
+
+For distributed or replicated deployments, **determinism is critical**.
+
+**Procedure:**
+
+1. Insert **exact same items in the exact same order** across two nodes.
+2. Compare:
+
+   * Complete adjacency lists
+   * Layer assignments
+   * Enter point
+   * Number of neighbors per node
+
+**Checks for:**
+
+* Floating-point nondeterminism
+* Unstable sorting
+* Concurrency issues
+* Randomness not properly seeded
+
+> Ensures queries produce consistent results across replicas.
+
+---
+
+### **3. Performance Testing**
+
+Once correctness and a recall baseline are established, performance testing guides **optimization and efficiency improvements**.
+
+#### **3.1. Speed Benchmarks**
+
+Measure **insertion and search speed** at varying dataset sizes:
+
+* 10k, 100k, 1M vectors
+* Track impact of HNSW parameters: `M`, `Mmax0`, `efConstruction`, `ef`
+
+  **Note on ef vs efConstruction:**
+
+  **efConstruction** → controls candidate exploration during insertion, affecting graph quality and build time.
+
+  **ef** → controls candidate exploration during search/query, affecting recall and query speed.
+
+  Increasing either parameter improves recall but slows down the respective operation.
+
+* utilize SIMD acceleration for distance calculations (Euclidean, dot product, cosine similarity).
+
+
+#### **3.2. Memory Usage**
+
+
+Track **memory per node and per layer**:
+
+* Total memory vs dataset size
+* Effect of larger `M` values
+* Impact of data layout optimizations (SoA vs AoS):  
+Using a Structure of Arrays (SoA) can improve cache locality and SIMD efficiency for bulk distance computations, whereas Array of Structures (AoS) is simpler but less cache-friendly for vector-heavy operations
+
+> Provides insight for optimizing both speed and memory footprint.
+
+---
+
+#### **Testing Flow Summary**
+
+1. **Correctness Phase**: Compare our HNSW vs brute-force → establishes Recall@K baseline.
+2. **Production Baseline Phase**: Compare our HNSW vs FAISS HNSW → confirms recall relative to a widely-used implementation.
+3. **Determinism & Integrity Checks**: ensure replication-safe behavior.
+4. **Performance Phase**: establish baseline speed/memory, then explore optimizations.
 
 
 
