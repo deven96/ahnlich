@@ -90,6 +90,7 @@ At layer 0, instead of performing a greedy search (which can easily get stuck), 
 
   - `M`: `5-48`, depending on dimensionality and clustering characteristics of the data. Lower dimension datasets would perform well
   with a smaller number `5-12`, while high-dimensional data `16-48`
+  - `mL`: `1/ln(M)` 
 
   *Questions for Ahnlich...??*
   > - How do we define a default for this value if not provided by the user? If a wrong default is chosen, do we recreate after
@@ -506,6 +507,28 @@ Output: K nearest elements to q
 
 ## Data Model & API Interfaces:
 
+WIP: A simple HNSW structure
+```rust
+use std::collections::btree_map::BTreeMap;
+
+pub struct HNSW {
+    pub ef_construction: Option<u8>,
+
+    // represents L: top layer of the hnsw
+    pub top_most_layer: u8,
+
+    // M: defines the max num of conns between each Node
+    pub maximum_connections: u8,
+
+    // mL: => 1 / ln(M)
+    pub inv_log_m: f64,
+
+    entries: BTreeMap<u8, Vec<Node>>,
+}
+
+pub struct Node;
+
+```
 
 
 
