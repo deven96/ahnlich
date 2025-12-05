@@ -30,7 +30,7 @@ export default function Home(): ReactNode {
       <main className='z-10 bg-white dark:bg-[#242526]'>
         <section className='p-12 bg-slate-200 dark:bg-slate-500'>
           <p className='text-xl text-center'>
-            /ˈɛːnlɪç/ <br /> EH-n-likh
+            /ˈɛːnlɪç/ <br />
           </p>
           <AudioPlayer src='/audio/aehnlich.mp3' />
           <p className='text-3xl text-center mt-3'>
