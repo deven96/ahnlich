@@ -86,7 +86,10 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
+    colorMode: {
+      defaultMode: 'dark',
+      respectPrefersColorScheme: true,
+    },
     mermaid: {
       theme: {light: 'neutral', dark: 'dark'},
     },
