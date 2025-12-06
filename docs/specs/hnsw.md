@@ -40,6 +40,10 @@
 
     * [Breakdown](#breakdown-4)
 
+  * [Algorithm 6 — Delete](#algorithm-6)
+
+    * [Breakdown](#breakdown-5)
+
 * [Data Model & API Interface](#data-model--api-interfaces)
 
 * [Needs Further Research / Open Questions](#needs-further-research--open-questions)
@@ -504,6 +508,64 @@ Output: K nearest elements to q
 
 ---
 
+### Algorithm 6
+
+```
+DELETE(hnsw, nodeId)
+Input: multilayer graph hnsw, NodeId of element to remove
+Output: update hnsw by removing the node and cleaning neighbor references
+
+1 n ← hnsw.nodes.get(nodeId) // fetch the node to delete
+2 for each r ∈ n.back_links
+3    rNode ← hnsw.nodes.get(r) // fetch referring node
+4    for each lc ∈ rNode.neighbours.keys()
+5        if nodeId ∈ rNode.neighbours[lc]
+6            remove nodeId from rNode.neighbours[lc] // remove reference
+7 for each lc ∈ n.neighbours.keys()
+8    remove nodeId from hnsw.graph[lc] // remove from layer set
+9 remove nodeId from hnsw.nodes // remove the node itself
+```
+
+---
+
+### Breakdown
+
+1. **Fetch node**: Retrieve the Node struct corresponding to `nodeId` from `hnsw.nodes`. This is the node we want to delete.
+
+2. **Iterate over back-links/referrals (`r`)**:
+
+   * back-links represent nodes that consider the deleted node as a neighbor.
+   * For each referring node, fetch its Node struct.
+
+3. **Remove deleted node from neighbor sets**:
+
+   * For each layer `lc` of the referring node, check if the nodeId exists in its `neighbours[lc]`.
+   * If it does, remove it.
+   * This ensures no stale references remain in the graph.
+
+4. **Remove node from graph layers**:
+
+   * Iterate over the layers where the deleted node exists (`n.neighbours.keys()`).
+   * Remove `nodeId` from the corresponding `hnsw.graph[lc]` sets.
+   * This ensures the layer-level index remains consistent.
+
+5. **Remove node from nodes map**:
+
+   * Finally, remove `nodeId` from `hnsw.nodes`, fully purging the node from the HNSW structure.
+
+---
+
+### **Rationale**:
+
+* Deletion is **directed**, not global: we only touch nodes that reference the deleted node, avoiding a full traversal of the graph.
+* Layer information is naturally captured via `neighbours.keys()`, so no extra layer tracking in referrals is needed.
+* Complexity is O(M × R) where M = max neighbors per layer, R = number of referrals/back-links, making deletion practical.
+* After deletion, the `graph` remains consistent: no node ID appears in any layer sets for the deleted node.
+
+---
+
+
+
 
 ## Data Model & API Interfaces:
 
@@ -511,33 +573,64 @@ WIP: A simple HNSW structure
 ```rust
 use std::collections::{HashSet, btree_map::BTreeMap};
 
-/// LayerIndex is just a wrapper around usize to represent a layer in HNSW.
-pub struct LayerIndex(usize);
+/// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
+pub struct LayerIndex(u16);
 
-/// NodeId wraps usize to uniquely identify a node across all layers.
-pub struct NodeId(usize);
+/// NodeId wraps String(hash of node embeddings) to uniquely identify a node across all layers.
+pub struct NodeId(String);
 
-/// HNSW represents the hierarchical navigable small world graph.
+
+/// HNSW represents a Hierarchical Navigable Small World graph.
 ///
-/// `entries` maps each layer to a vector of nodes in that layer. Each node
-/// may appear in multiple layers, and neighbors are stored per layer.
+/// The graph is organized into multiple layers. Each layer contains a set of node IDs,
+/// and each node holds its neighbors per layer along with its embedding vector.
+/// This separation allows efficient lookups, prevents duplicate nodes per layer,
+/// and supports deletion operations.
+///
+/// Design rationale:
+/// 1. `nodes` is the single source of truth: all Node structs live here, keyed by NodeId.
+/// 2. `graph` maps each layer to a `HashSet` of NodeIds, ensuring uniqueness per layer
+///    and fast removal when deleting nodes.
+/// 3. Deletion is fully supported:
+///    - Remove the node ID from the `graph` for all layers where it exists.
+///    - Remove the node from `nodes`.
+///    - Remove the node ID from all neighbors of other nodes (using back-links/referrals).
+///      This ensures no stale references remain in the graph.
+///
+/// Example of usage:
+/// ```text
+/// Layer 0: {42, 10, 55}
+/// Layer 1: {42, 11, 9}
+/// Layer 2: {42, 88}
+/// Layer 3: {42, 200, 201}
+///
+/// Node 42 participates in layers 0–3, with neighbors stored per layer and
+/// back-links automatically updated upon deletion.
+/// ```
 pub struct HNSW {
-    /// breadth of search during insertion
+    /// Breadth of search during insertion (efConstruction)
     pub ef_construction: Option<u8>,
 
-    /// L: top layer in the HNSW
+    /// Top-most layer index in the graph (L)
     pub top_most_layer: u8,
 
-    /// M: max number of connections per node
+    /// Maximum number of connections per node (M)
     pub maximum_connections: u8,
-    /// mL: 1 / ln(M)
+
+    /// Precomputed value 1 / ln(M) used in level generation
     pub inv_log_m: f64,
 
-    /// Nodes in each layer.
+    /// Nodes in each layer
     ///
-    /// For example, `entries[LayerIndex(2)]` contains all nodes in layer 2.
-    /// Each node holds its own neighbors per layer.
-    entries: BTreeMap<LayerIndex, Vec<Node>>,
+    /// Each layer index maps to a set of NodeIds.
+    /// This ensures uniqueness per layer and allows easy removal during deletion.
+    graph: BTreeMap<LayerIndex, HashSet<NodeId>>,
+
+    /// All nodes in the HNSW
+    ///
+    /// The single source of truth for all node data.
+    /// Keys are NodeId, values are the Node structs containing embeddings and neighbors.
+    nodes: HashMap<NodeId, Node>,
 }
 
 /// Node represents a single element in the HNSW graph.
@@ -546,6 +639,8 @@ pub struct HNSW {
 /// - `id`: unique identifier
 /// - `value`: embedding vector
 /// - `neighbours`: map from layer to set of NodeIds of neighbors in that layer
+/// - `back_links`: set of NodeIds of nodes that consider us a neighbor.
+///   Used to efficiently update the graph when deleting this node.
 ///
 /// Example of a node:
 /// ```text
@@ -557,15 +652,18 @@ pub struct HNSW {
 ///         1: [9, 11],
 ///         2: [88],
 ///         3: [200, 201]
-///     }
+///     },
+///     back_links: [9, 88]
 /// }
 /// ```
-/// This shows Node 42 exists in layers 0–3, with different neighbors at each level.
+/// This shows that Node 42 participates in layers 0 through 3.
 pub struct Node {
     id: NodeId,
     value: Vec<f64>,
     neighbours: BTreeMap<LayerIndex, HashSet<NodeId>>,
+    back_links: HashSet<NodeId>,
 }
+
 ```
 
 ### API Interface
