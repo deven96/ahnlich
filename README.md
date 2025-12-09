@@ -3,7 +3,7 @@
 
 [![All Test](https://github.com/deven96/ahnlich/actions/workflows/test.yml/badge.svg)](https://github.com/deven96/ahnlich/actions/workflows/test.yml)
 
-⚠️ **Note:** Ahnlich is not production-ready yet and is still in **testing** and so might experience breaking changes.
+⚠️ **Note:** Ahnlich continues to evolve **rapidly**, and while stable for most use cases, it may still receive occasional breaking updates as features improve.
 
  "ähnlich" means similar in german. It comprises of multiple tools for usage and development such as:
 
