@@ -36,7 +36,7 @@ export default function Home(): ReactNode {
           <p className='text-3xl text-center mt-3'>
             Smarter search with <br /> a vector engine that gets out of your way
           </p>
-          <div className='flex flex-col md:flex-row items-center justify-center my-10 gap-12'>
+          <div className='flex flex-col md:flex-row items-center justify-center my-10 gap-5 md:gap-12'>
             <ActionLinks href="/docs/getting-started" icon={<RocketIcon />}>Get Started</ActionLinks>
             <ActionLinks href="https://github.com/deven96/ahnlich" icon={<GithubIcon />}>View Github</ActionLinks>
           </div>
