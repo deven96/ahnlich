@@ -2,6 +2,8 @@ import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import * as Preset from '@docusaurus/preset-classic';
 
+require('dotenv').config();
+
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
@@ -80,6 +82,10 @@ const config: Config = {
         },
         theme: {
           customCss: './src/css/custom.css',
+        },
+        gtag: {
+          trackingID: process.env.G_TRACKING_ID,
+          anonymizeIP: true,
         },
       } satisfies Preset.Options,
     ],
