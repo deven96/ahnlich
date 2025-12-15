@@ -1,4 +1,4 @@
-# WIP: Thoughts and potential Spec on HNSW algorithm
+# Thoughts and potential Spec on HNSW algorithm
 
 > This would serve rough sheet where i dump summaries on hnsw, until it becomes a spec document. More reading is required to understand certain questions, omissions and outright wrong assumtions
 
@@ -526,7 +526,11 @@ Output: update hnsw by removing the node and cleaning neighbor references
 9 remove nodeId from hnsw.nodes // remove the node itself
 ```
 
----
+----
+
+> **Note on Insertion for Back-link Deletions:**
+To support efficient back-link-based deletions, the **INSERT** procedure would include an extra step: for each neighbor e that q connects to, add q to e’s back-links.
+----
 
 ### Breakdown
 
