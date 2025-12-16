@@ -9,14 +9,27 @@ pub struct StoreKey {
     #[prost(float, repeated, tag = "1")]
     pub key: ::prost::alloc::vec::Vec<f32>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(
+    pgrx::PostgresType, serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message,
+)]
 pub struct StoreInput {
     #[prost(oneof = "store_input::Value", tags = "2, 3")]
     pub value: ::core::option::Option<store_input::Value>,
 }
 /// Nested message and enum types in `StoreInput`.
 pub mod store_input {
-    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    #[derive(
+        PartialOrd,
+        Ord,
+        Hash,
+        Eq,
+        pgrx::PostgresType,
+        serde::Serialize,
+        serde::Deserialize,
+        Clone,
+        PartialEq,
+        ::prost::Oneof,
+    )]
     pub enum Value {
         #[prost(string, tag = "2")]
         RawString(::prost::alloc::string::String),
@@ -40,7 +53,9 @@ pub struct AiStoreEntry {
     #[prost(message, optional, tag = "2")]
     pub value: ::core::option::Option<StoreValue>,
 }
-#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message)]
+#[derive(
+    pgrx::PostgresType, serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message,
+)]
 pub struct StoreValue {
     #[prost(map = "string, message", tag = "1")]
     pub value:

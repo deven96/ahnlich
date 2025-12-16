@@ -70,14 +70,18 @@ pub struct AiStoreInfo {
     #[prost(uint64, tag = "4")]
     pub embedding_size: u64,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(
+    pgrx::PostgresType, serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message,
+)]
 pub struct SingleInputToEmbedding {
     #[prost(message, optional, tag = "1")]
     pub input: ::core::option::Option<super::super::keyval::StoreInput>,
     #[prost(message, optional, tag = "2")]
     pub embedding: ::core::option::Option<super::super::keyval::StoreKey>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(
+    pgrx::PostgresType, serde::Serialize, serde::Deserialize, Clone, PartialEq, ::prost::Message,
+)]
 pub struct StoreInputToEmbeddingsList {
     #[prost(message, repeated, tag = "1")]
     pub values: ::prost::alloc::vec::Vec<SingleInputToEmbedding>,

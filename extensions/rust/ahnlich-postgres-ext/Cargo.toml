@@ -1,0 +1,113 @@
+[package]
+name = "ahnlich_postgres_ext"
+version = "0.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[[bin]]
+name = "pgrx_embed_ahnlich_postgres_ext"
+path = "./src/bin/pgrx_embed.rs"
+
+[features]
+default = ["pg15"]
+pg13 = ["pgrx/pg13", "pgrx-tests/pg13"]
+pg14 = ["pgrx/pg14", "pgrx-tests/pg14"]
+pg15 = ["pgrx/pg15", "pgrx-tests/pg15"]
+pg16 = ["pgrx/pg16", "pgrx-tests/pg16"]
+pg17 = ["pgrx/pg17", "pgrx-tests/pg17"]
+pg18 = ["pgrx/pg18", "pgrx-tests/pg18"]
+pg_test = []
+
+[dependencies]
+pgrx = "=0.16.0"
+ahnlich_client_rs = { path = "../../../ahnlich/client" }
+ahnlich_types = { path = "../../../ahnlich/types" }
+db = { path = "../../../ahnlich/db", version = "*" }
+ai = { path = "../../../ahnlich/ai", version = "*" }
+utils = { path = "../../../ahnlich/utils", version = "*" }
+once_cell = "1.19.0"
+serde_json = "1.0.116"
+tokio = { version = "1.37.0", features = [
+    "net",
+    "macros",
+    "io-util",
+    "rt-multi-thread",
+    "sync",
+    "signal",
+] }
+tonic = "0.12.3"
+# async-trait = "0.1"
+# serde = { version = "1.0.*", features = ["derive", "rc"] }
+# bincode = "1.3.3"
+# ndarray = { version = "0.16.1", features = ["serde", "rayon"] }
+# image = "0.25.5"
+# serde_json = "1.0.116"
+# itertools = "0.10.0"
+# clap = { version = "4.5.4", features = ["derive"] }
+# futures = "0.3.30"
+# pretty_assertions = "1.4.0"
+# tracing = "0.1"
+# thiserror = "1.0"
+# blake3 = "1.5.1"
+# tokio-util = { version = "0.7.11", features = ["rt"] }
+# rand = "0.8"
+# rayon = "1.10"
+# opentelemetry = { version = "0.23.0", features = ["trace"] }
+# tracing-opentelemetry = "0.24.0"
+# log = "0.4"
+# fallible_collections = "0.4.9"
+# dirs = "5.0.1"
+# strum = { version = "0.26", features = ["derive"] }
+# papaya = { version = "0.2.0", features = ["serde"] }
+# tonic = "0.12.3"
+# http = "1.2.0"
+# prost = "0.13"
+
+[dev-dependencies]
+pgrx-tests = "=0.16.0"
+
+[profile.dev]
+panic = "unwind"
+
+[profile.release]
+panic = "unwind"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+
+# [package]
+# name = "ahnlich_client_rs"
+# version = "0.1.0"
+# authors = ["Diretnan Domnan <diretnandomnan@gmail.com>"]
+# categories = ["database-implementations", "database", "web-programming"]
+# keywords = ["ahnlich", "in-memory", "ai"]
+# edition = "2024"
+# license-file = "LICENSE"
+# homepage = "https://github.com/deven96/ahnlich"
+# repository = "https://github.com/deven96/ahnlich"
+# description = "Client library for accessing in-memory ahnlich vector database and ai-proxy"
+
+# [badges]
+# maintenance = { status = "actively-developed" }
+# # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+# [dependencies]
+# ahnlich_types = { path = "../types", version = "*" }
+# thiserror.workspace = true
+# once_cell.workspace = true
+# bincode.workspace = true
+# async-trait.workspace = true
+# tokio.workspace = true
+# tonic.workspace = true
+# http.workspace = true
+# fallible_collections.workspace = true
+
+# [dev-dependencies]
+# db = { path = "../db", version = "*" }
+# ai = { path = "../ai", version = "*" }
+# pretty_assertions.workspace = true
+# ndarray.workspace = true
+# utils = { path = "../utils", version = "*" }
+# test-case = "3.3.1"
