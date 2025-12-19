@@ -1,8 +1,9 @@
+use crate::EmbeddingKey;
 use crate::NonLinearAlgorithmWithIndexImpl;
+use crate::distance::squared_euclidean_distance;
 /// K Dimensional Tree algorithm is a binary search tree that extends to multiple dimensions,
 /// making it an efficient datastructure for applying nearest neighbour searches and range searches
 use crate::error::Error;
-use crate::utils::VecF32Ordered;
 use crossbeam::epoch::{self, Atomic, Guard, Owned, Shared};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -16,14 +17,16 @@ use std::sync::atomic::Ordering;
 
 #[derive(Debug)]
 pub struct KDNode {
-    point: Vec<f32>,
+    point: EmbeddingKey,
     left: Atomic<KDNode>,
     right: Atomic<KDNode>,
 }
 
 impl KDNode {
     fn size(&self) -> usize {
-        let mut s = size_of_val(self) + size_of_val(&self.point);
+        // size_of_val gives us the Arc pointer size; add the heap-allocated Vec<f32> too
+        let mut s =
+            size_of_val(self) + size_of_val(&self.point) + size_of_val(self.point.0.as_ref());
         let guard = epoch::pin();
         let left = self.left.load(Ordering::Acquire, &guard);
         if !left.is_null() {
@@ -77,7 +80,7 @@ impl From<&KDNode> for TempKDNode {
             Some(Box::new(unsafe { right.deref().into() }))
         };
         TempKDNode {
-            point: input.point.clone(),
+            point: input.point.as_slice().to_vec(),
             left,
             right,
         }
@@ -97,7 +100,7 @@ impl From<TempKDNode> for KDNode {
             Atomic::null()
         };
         KDNode {
-            point: input.point,
+            point: EmbeddingKey::new(input.point),
             left,
             right,
         }
@@ -113,7 +116,7 @@ struct TempKDNode {
 }
 
 impl KDNode {
-    pub fn new(point: Vec<f32>) -> Self {
+    pub fn new(point: EmbeddingKey) -> Self {
         Self {
             point,
             left: Atomic::null(),
@@ -124,7 +127,7 @@ impl KDNode {
 
 // Internal structure to sort array by second field which is similarity score
 #[derive(Debug)]
-struct OrderedArray(Vec<f32>, f32);
+struct OrderedArray(EmbeddingKey, f32);
 
 impl PartialEq for OrderedArray {
     fn eq(&self, other: &Self) -> bool {
@@ -225,7 +228,7 @@ struct NearestRecuriveArgs<'a> {
     n: NonZeroUsize,
     guard: &'a Guard,
     heap: &'a mut BinaryHeap<Reverse<OrderedArray>>,
-    accept_list: &'a Option<HashSet<VecF32Ordered>>,
+    accept_list: &'a Option<HashSet<EmbeddingKey>>,
 }
 
 impl KDTree {
@@ -266,7 +269,7 @@ impl KDTree {
     pub fn insert(&self, point: Vec<f32>) -> Result<(), Error> {
         self.assert_shape(&point)?;
         let guard = epoch::pin();
-        self.insert_recursive(&self.root, point, 0, &guard);
+        self.insert_recursive(&self.root, EmbeddingKey::new(point), 0, &guard);
         Ok(())
     }
 
@@ -274,7 +277,7 @@ impl KDTree {
     fn insert_recursive(
         &self,
         node: &Atomic<KDNode>,
-        point: Vec<f32>,
+        point: EmbeddingKey,
         depth: usize,
         guard: &Guard,
     ) {
@@ -289,6 +292,7 @@ impl KDTree {
             ) {
                 // node is null i.e does not exist so we create it
                 Ok(shared) => {
+                    // EmbeddingKey::clone is a cheap Arc pointer bump
                     let new_node = Box::new(KDNode::new(point.clone()));
                     let new_node_ptr = Owned::from(new_node);
                     // successfully created new node else keep spinning
@@ -312,8 +316,8 @@ impl KDTree {
                     if point == current.point {
                         break;
                     }
-                    match point[dim]
-                        .partial_cmp(&current.point[dim])
+                    match point.as_slice()[dim]
+                        .partial_cmp(&current.point.as_slice()[dim])
                         .expect("Partial cmp does not exist")
                     {
                         CmpOrdering::Less => {
@@ -332,20 +336,21 @@ impl KDTree {
 
     /// Delete an entry matching delete_point from KD tree
     #[tracing::instrument(skip_all)]
-    pub fn delete(&self, delete_point: &Vec<f32>) -> Result<Option<Vec<f32>>, Error> {
+    pub fn delete(&self, delete_point: &[f32]) -> Result<Option<EmbeddingKey>, Error> {
         self.assert_shape(delete_point)?;
+        let key = EmbeddingKey::new(delete_point.to_owned());
         let guard = epoch::pin();
-        Ok(self.delete_recursive(&self.root, delete_point, 0, &guard))
+        Ok(self.delete_recursive(&self.root, &key, 0, &guard))
     }
 
     #[tracing::instrument(skip_all)]
     fn delete_recursive(
         &self,
         node: &Atomic<KDNode>,
-        delete_point: &Vec<f32>,
+        delete_point: &EmbeddingKey,
         depth: usize,
         guard: &Guard,
-    ) -> Option<Vec<f32>> {
+    ) -> Option<EmbeddingKey> {
         let dim = depth % self.depth.get();
 
         match node.load(Ordering::Acquire, guard) {
@@ -387,7 +392,7 @@ impl KDTree {
                         new_point.right.store(new_right, Ordering::Release);
                         Some(successor_point)
                     }
-                } else if delete_point[dim] < current.point[dim] {
+                } else if delete_point.as_slice()[dim] < current.point.as_slice()[dim] {
                     let left_child =
                         self.delete_recursive(&current.left, delete_point, depth + 1, guard);
                     if let Some(left_child) = left_child {
@@ -429,10 +434,12 @@ impl KDTree {
     }
 
     #[tracing::instrument(skip_all)]
-    fn is_in_accept_list(accept_list: &Option<HashSet<VecF32Ordered>>, point: &[f32]) -> bool {
+    fn is_in_accept_list(
+        accept_list: &Option<HashSet<EmbeddingKey>>,
+        point: &EmbeddingKey,
+    ) -> bool {
         if let Some(accept_list) = accept_list {
-            let point = VecF32Ordered(point.to_owned());
-            return accept_list.contains(&point);
+            return accept_list.contains(point);
         }
         true
     }
@@ -451,7 +458,8 @@ impl KDTree {
         }: NearestRecuriveArgs,
     ) {
         if let Some(shared) = unsafe { node.load(Ordering::Acquire, guard).as_ref() } {
-            let distance = self.squared_distance(reference_point, &shared.point);
+            let point_slice = shared.point.as_slice();
+            let distance = self.squared_distance(reference_point, point_slice);
             if heap.len() < n.get() && Self::is_in_accept_list(accept_list, &shared.point) {
                 heap.push(Reverse(OrderedArray(shared.point.clone(), distance)));
             } else if let Some(Reverse(OrderedArray(_, max_distance))) = heap.peek()
@@ -465,7 +473,7 @@ impl KDTree {
             }
 
             let dim = depth % self.depth.get();
-            let go_left_first = reference_point[dim] < shared.point[dim];
+            let go_left_first = reference_point[dim] < point_slice[dim];
             if go_left_first {
                 self.n_nearest_recursive(NearestRecuriveArgs {
                     node: &shared.left,
@@ -477,7 +485,7 @@ impl KDTree {
                     accept_list,
                 });
                 if heap.len() < n.get()
-                    || (reference_point[dim] - shared.point[dim]).abs()
+                    || (reference_point[dim] - point_slice[dim]).abs()
                         < heap.peek().map_or(f32::INFINITY, |x| x.0.1)
                 {
                     self.n_nearest_recursive(NearestRecuriveArgs {
@@ -501,7 +509,7 @@ impl KDTree {
                     accept_list,
                 });
                 if heap.len() < n.get()
-                    || (reference_point[dim] - shared.point[dim]).abs()
+                    || (reference_point[dim] - point_slice[dim]).abs()
                         < heap.peek().map_or(f32::INFINITY, |x| x.0.1)
                 {
                     self.n_nearest_recursive(NearestRecuriveArgs {
@@ -520,22 +528,19 @@ impl KDTree {
 
     #[tracing::instrument(skip_all)]
     fn squared_distance(&self, a: &[f32], b: &[f32]) -> f32 {
-        a.iter()
-            .zip(b.iter())
-            .map(|(ai, bi)| (ai - bi).powi(2))
-            .sum()
+        squared_euclidean_distance(a, b)
     }
 }
 
 impl NonLinearAlgorithmWithIndexImpl<'_> for KDTree {
     #[tracing::instrument(skip_all)]
-    fn insert(&self, points: Vec<Vec<f32>>) -> Result<(), Error> {
+    fn insert(&self, points: Vec<EmbeddingKey>) -> Result<(), Error> {
         if points.is_empty() {
             return Ok(());
         }
         let _res = points
             .into_iter()
-            .map(|point| self.insert(point))
+            .map(|point| self.insert(point.as_slice().to_vec()))
             .collect::<Result<Vec<()>, Error>>()?;
         Ok(())
     }
@@ -557,13 +562,13 @@ impl NonLinearAlgorithmWithIndexImpl<'_> for KDTree {
 
     /// delete multiple entries from the KDTree
     #[tracing::instrument(skip_all)]
-    fn delete(&self, delete_multi: &[Vec<f32>]) -> Result<usize, Error> {
+    fn delete(&self, delete_multi: &[EmbeddingKey]) -> Result<usize, Error> {
         if delete_multi.is_empty() {
             return Ok(0);
         }
         let res = delete_multi
             .iter()
-            .map(|del| self.delete(del))
+            .map(|del| self.delete(del.as_slice()))
             .collect::<Result<Vec<_>, Error>>()?;
         let deleted_count = res.into_iter().flatten().count();
         Ok(deleted_count)
@@ -577,8 +582,8 @@ impl NonLinearAlgorithmWithIndexImpl<'_> for KDTree {
         &self,
         reference_point: &[f32],
         n: NonZeroUsize,
-        accept_list: Option<HashSet<VecF32Ordered>>,
-    ) -> Result<Vec<(Vec<f32>, f32)>, Error> {
+        accept_list: Option<HashSet<EmbeddingKey>>,
+    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
         self.assert_shape(reference_point)?;
         let guard = epoch::pin();
         let mut heap = BinaryHeap::new();
@@ -664,17 +669,20 @@ mod tests {
         let res = kdtree
             .n_nearest(&vec![1.0, 2.0, 3.0], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(vec![1.0, 2.0, 3.0], 0.0)]);
+        assert_eq!(res, vec![(EmbeddingKey::new(vec![1.0, 2.0, 3.0]), 0.0)]);
         let res = kdtree
             .n_nearest(&vec![1.3, 2.1, 3.2], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(vec![1.3, 2.1, 3.2], 0.0)]);
+        assert_eq!(res, vec![(EmbeddingKey::new(vec![1.3, 2.1, 3.2]), 0.0)]);
 
         // Close matches
         let res = kdtree
             .n_nearest(&vec![1.3, 2.1, 3.0], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(vec![1.3, 2.1, 3.2], 0.040000018)]);
+        assert_eq!(
+            res,
+            vec![(EmbeddingKey::new(vec![1.3, 2.1, 3.2]), 0.040000018)]
+        );
 
         // check insertion length remained 4 despite 4 inserts
         let res = kdtree
@@ -725,14 +733,20 @@ mod tests {
                 &vec![0.9, 2.0, 3.0],
                 closest_n,
                 Some(HashSet::from_iter([
-                    VecF32Ordered(arr_1.clone()),
-                    VecF32Ordered(arr_2.clone()),
+                    EmbeddingKey::new(arr_1.clone()),
+                    EmbeddingKey::new(arr_2.clone()),
                 ])),
             )
             .unwrap();
         // we asked for the 4 closest but we restricted to 2
         assert_eq!(res.len(), 2);
-        assert_eq!(res, vec![(arr_2, 0.0), (arr_1, 0.010000004)]);
+        assert_eq!(
+            res,
+            vec![
+                (EmbeddingKey::new(arr_2), 0.0),
+                (EmbeddingKey::new(arr_1), 0.010000004),
+            ]
+        );
     }
 
     #[test]
@@ -750,7 +764,7 @@ mod tests {
         let res = kdtree
             .n_nearest(&vec![0.9, 2.0, 3.0], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(vec![0.9, 2.0, 3.0], 0.0)]);
+        assert_eq!(res, vec![(EmbeddingKey::new(vec![0.9, 2.0, 3.0]), 0.0)]);
     }
 
     #[test]
@@ -767,7 +781,7 @@ mod tests {
         let res = kdtree
             .n_nearest(&vec![0.9, 2.0, 3.0], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(vec![0.9, 2.0, 3.0], 0.0)]);
+        assert_eq!(res, vec![(EmbeddingKey::new(vec![0.9, 2.0, 3.0]), 0.0)]);
         let res = kdtree
             .n_nearest(&vec![0.9, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
@@ -784,7 +798,7 @@ mod tests {
 
         // Delete a non-leaf/non-root node
         let res = kdtree.delete(&vec![0.9, 2.0, 3.0]).unwrap().unwrap();
-        assert_eq!(res, vec![0.9, 2.0, 3.0]);
+        assert_eq!(res, EmbeddingKey::new(vec![0.9, 2.0, 3.0]));
         let res = kdtree
             .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
@@ -792,14 +806,14 @@ mod tests {
         assert_eq!(
             res,
             vec![
-                (vec![1.0, 2.0, 3.0], 0.0),
-                (vec![1.1, 2.0, 3.0], 0.010000004),
-                (vec![0.95, 2.0, 3.2], 0.04250002),
+                (EmbeddingKey::new(vec![1.0, 2.0, 3.0]), 0.0),
+                (EmbeddingKey::new(vec![1.1, 2.0, 3.0]), 0.010000004),
+                (EmbeddingKey::new(vec![0.95, 2.0, 3.2]), 0.04250002),
             ]
         );
         // Delete a leaf node
         let res = kdtree.delete(&vec![0.95, 2.0, 3.2]).unwrap().unwrap();
-        assert_eq!(res, vec![0.95, 2.0, 3.2]);
+        assert_eq!(res, EmbeddingKey::new(vec![0.95, 2.0, 3.2]));
         let res = kdtree
             .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
@@ -807,17 +821,20 @@ mod tests {
         assert_eq!(
             res,
             vec![
-                (vec![1.0, 2.0, 3.0], 0.0),
-                (vec![1.1, 2.0, 3.0], 0.010000004),
+                (EmbeddingKey::new(vec![1.0, 2.0, 3.0]), 0.0),
+                (EmbeddingKey::new(vec![1.1, 2.0, 3.0]), 0.010000004),
             ]
         );
         // Delete root node
         let res = kdtree.delete(&vec![1.0, 2.0, 3.0]).unwrap().unwrap();
-        assert_eq!(res, vec![1.0, 2.0, 3.0]);
+        assert_eq!(res, EmbeddingKey::new(vec![1.0, 2.0, 3.0]));
         let res = kdtree
             .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size changes but only one node got removed
-        assert_eq!(res, vec![(vec![1.1, 2.0, 3.0], 0.010000004),]);
+        assert_eq!(
+            res,
+            vec![(EmbeddingKey::new(vec![1.1, 2.0, 3.0]), 0.010000004)]
+        );
     }
 }

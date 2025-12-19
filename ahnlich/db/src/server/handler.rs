@@ -98,8 +98,10 @@ impl DbService for Server {
                 keys,
             )?
             .into_iter()
-            .map(|(store_key, store_value)| DbStoreEntry {
-                key: Some(Arc::unwrap_or_clone(store_key)),
+            .map(|(embedding_key, store_value)| DbStoreEntry {
+                key: Some(StoreKey {
+                    key: embedding_key.as_slice().to_vec(),
+                }),
                 value: Some(Arc::unwrap_or_clone(store_value)),
             })
             .collect();
@@ -126,8 +128,10 @@ impl DbService for Server {
                 &condition,
             )?
             .into_iter()
-            .map(|(store_key, store_value)| DbStoreEntry {
-                key: Some(Arc::unwrap_or_clone(store_key)),
+            .map(|(embedding_key, store_value)| DbStoreEntry {
+                key: Some(StoreKey {
+                    key: embedding_key.as_slice().to_vec(),
+                }),
                 value: Some(Arc::unwrap_or_clone(store_value)),
             })
             .collect();
@@ -164,8 +168,10 @@ impl DbService for Server {
                 params.condition,
             )?
             .into_iter()
-            .map(|(store_key, store_value, sim)| GetSimNEntry {
-                key: Some(Arc::unwrap_or_clone(store_key)),
+            .map(|(embedding_key, store_value, sim)| GetSimNEntry {
+                key: Some(StoreKey {
+                    key: embedding_key.as_slice().to_vec(),
+                }),
                 value: Some(Arc::unwrap_or_clone(store_value)),
                 similarity: Some(sim),
             })
