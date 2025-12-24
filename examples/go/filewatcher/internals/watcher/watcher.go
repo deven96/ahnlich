@@ -50,6 +50,7 @@ func (w *Watcher) Watch(dir string) error {
 
 func (w *Watcher) handleEvent(event fsnotify.Event) {
 	if !strings.HasSuffix(strings.ToLower(event.Name), ".pdf") {
+		w.logger.Info("Ignoring non-PDF file", zap.String("file", event.Name))
 		return
 	}
 
