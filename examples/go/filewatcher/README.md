@@ -109,7 +109,7 @@ Each detected file event is sent as JSON:
 Example logs:
 
 ```text
-[INFO] Watching directory: /Users/michael/Documents
+[INFO] Watching directory: /Users/chijooke/Documents
 [INFO] FILE_ADDED: invoice.pdf
 [INFO] Posted event to API
 ```
