@@ -64,9 +64,16 @@ message AIStoreInfo {
   uint64 embedding_size = 4;
 }
 
+message MultipleEmbedding {
+  repeated keyval.StoreKey embeddings = 1;
+}
+
 message SingleInputToEmbedding {
   keyval.StoreInput input = 1;
-  keyval.StoreKey embedding = 2;
+  oneof variant {
+    MultipleEmbedding multiple = 2;
+    keyval.StoreKey single = 3;
+  }
 }
 
 message StoreInputToEmbeddingsList {

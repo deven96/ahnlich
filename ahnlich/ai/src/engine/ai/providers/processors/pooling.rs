@@ -12,7 +12,7 @@ pub enum Pooling {
 pub struct RegularPooling;
 
 impl Postprocessor for RegularPooling {
-    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData, AIProxyError> {
+    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData<'_, '_>, AIProxyError> {
         match data {
             PostprocessorData::NdArray3(array) => {
                 let processed = array.slice(s![.., 0, ..]).to_owned();
@@ -41,7 +41,7 @@ pub struct MeanPooling {
 }
 
 impl Postprocessor for MeanPooling {
-    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData, AIProxyError> {
+    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData<'_, '_>, AIProxyError> {
         match data {
             PostprocessorData::NdArray3(array) => {
                 let attention_mask = {

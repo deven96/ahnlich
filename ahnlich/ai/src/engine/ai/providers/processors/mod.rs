@@ -22,7 +22,7 @@ pub trait Preprocessor: Send + Sync {
 }
 
 pub trait Postprocessor: Send + Sync {
-    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData, AIProxyError>;
+    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData<'_, '_>, AIProxyError>;
 }
 
 pub enum PreprocessorData {

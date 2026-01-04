@@ -28,6 +28,7 @@ use utils::parallel;
 use utils::persistence::AhnlichPersistenceUtils;
 
 use super::ai::models::ModelDetails;
+use super::ai::models::ModelResponse;
 
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]
@@ -277,9 +278,18 @@ impl AIStoreHandler {
             .await?;
 
         let output = std::iter::zip(store_keys.into_iter(), store_values.into_iter())
-            .map(|(k, v)| DbStoreEntry {
-                key: Some(k),
-                value: Some(v),
+            .flat_map(|(k, v)| match k {
+                ModelResponse::OneToOne(key) => vec![DbStoreEntry {
+                    key: Some(key),
+                    value: Some(v),
+                }],
+                ModelResponse::OneToMany(keys) => keys
+                    .into_iter()
+                    .map(|single_key| DbStoreEntry {
+                        key: Some(single_key),
+                        value: Some(v.clone()),
+                    })
+                    .collect(),
             })
             .collect();
         Ok((output, delete_hashset))
@@ -353,7 +363,18 @@ impl AIStoreHandler {
             )
             .await?;
 
-        Ok(store_keys.pop().expect("Expected an embedding value."))
+        // TODO: Document the fact that for OneToMany models, GetSimN would only compare against
+        // the first ever embedding found out of the many embeddings
+        match store_keys.pop() {
+            Some(first_store_key) => match first_store_key {
+                ModelResponse::OneToOne(resp) => Ok(resp),
+                ModelResponse::OneToMany(mut many) => match many.pop() {
+                    Some(first) => Ok(first),
+                    None => Err(AIProxyError::ModelInputToEmbeddingError),
+                },
+            },
+            None => Err(AIProxyError::ModelInputToEmbeddingError),
+        }
     }
 
     /// Matches DROPSTORE - Drops a store if exist, else returns an error

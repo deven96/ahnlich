@@ -73,11 +73,11 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
             Rule::create_store => {
                 let mut inner_pairs = statement.into_inner().peekable();
                 let mut error_if_exists = true;
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::if_not_exists {
-                        inner_pairs.next(); // Consume rule
-                        error_if_exists = false;
-                    }
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::if_not_exists
+                {
+                    inner_pairs.next(); // Consume rule
+                    error_if_exists = false;
                 };
                 let store = inner_pairs
                     .next()
@@ -91,29 +91,29 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     .parse::<NonZeroUsize>()?
                     .get() as u32;
                 let mut create_predicates = Vec::new();
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::metadata_keys {
-                        let index_name_pairs = inner_pairs
-                            .next()
-                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
-                        create_predicates = index_name_pairs
-                            .into_inner()
-                            .map(|index_pair| index_pair.as_str().to_string())
-                            .collect();
-                    }
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::metadata_keys
+                {
+                    let index_name_pairs = inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
+                    create_predicates = index_name_pairs
+                        .into_inner()
+                        .map(|index_pair| index_pair.as_str().to_string())
+                        .collect();
                 };
                 let mut non_linear_indices = Vec::new();
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::non_linear_algorithms {
-                        let index_name_pairs = inner_pairs
-                            .next()
-                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
-                        non_linear_indices = index_name_pairs
-                            .into_inner()
-                            .flat_map(|index_pair| to_non_linear(index_pair.as_str()))
-                            .map(|a| a as i32)
-                            .collect();
-                    }
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::non_linear_algorithms
+                {
+                    let index_name_pairs = inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
+                    non_linear_indices = index_name_pairs
+                        .into_inner()
+                        .flat_map(|index_pair| to_non_linear(index_pair.as_str()))
+                        .map(|a| a as i32)
+                        .collect();
                 };
                 DBQuery::CreateStore(CreateStore {
                     store,

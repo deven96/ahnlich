@@ -40,7 +40,7 @@ pub struct ServerUtilsConfig<'a> {
 pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Debug {
     type PersistenceTask: AhnlichPersistenceUtils;
 
-    fn config(&self) -> ServerUtilsConfig;
+    fn config(&self) -> ServerUtilsConfig<'_>;
 
     fn store_handler(&self) -> &Arc<Self::PersistenceTask>;
     fn write_flag(&self) -> Arc<AtomicBool> {

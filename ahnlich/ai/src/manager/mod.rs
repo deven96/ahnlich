@@ -2,7 +2,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::cli::server::{ModelConfig, SupportedModels};
-use crate::engine::ai::models::{ImageArray, InputAction};
+use crate::engine::ai::models::{ImageArray, InputAction, ModelResponse};
 /// The ModelManager is a wrapper around all the AI models running on various green threads. It
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
@@ -14,8 +14,8 @@ use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider;
 use ahnlich_types::ai::models::AiModel;
 use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::keyval::StoreInput;
 use ahnlich_types::keyval::store_input::Value;
-use ahnlich_types::keyval::{StoreInput, StoreKey};
 use fallible_collections::FallibleVec;
 use moka::future::Cache;
 use ndarray::{Array, Ix4};
@@ -29,7 +29,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::Duration;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
-type ModelThreadResponse = Result<Vec<StoreKey>, AIProxyError>;
+type ModelThreadResponse = Result<Vec<ModelResponse>, AIProxyError>;
 
 struct ModelThreadRequest {
     inputs: Vec<StoreInput>,
@@ -294,11 +294,11 @@ impl ModelManager {
     pub async fn handle_request(
         &self,
         model: &AiModel,
-        inputs: Vec<StoreInput>, // FIXME: optimise usage here to avaoid cloning if possible
+        inputs: Vec<StoreInput>,
         preprocess_action: PreprocessAction,
         action_type: InputAction,
         execution_provider: Option<ExecutionProvider>,
-    ) -> Result<Vec<StoreKey>, AIProxyError> {
+    ) -> Result<Vec<ModelResponse>, AIProxyError> {
         let supported = model.into();
 
         if !self.supported_models.contains(&supported) {

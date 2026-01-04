@@ -5,6 +5,7 @@ use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::InputAction;
 use crate::engine::ai::models::Model;
 use crate::engine::ai::models::ModelDetails;
+use crate::engine::ai::models::ModelResponse;
 use crate::engine::store::AIStoreHandler;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
@@ -38,11 +39,13 @@ use ahnlich_types::ai::server::ClientList;
 use ahnlich_types::ai::server::CreateIndex;
 use ahnlich_types::ai::server::Del;
 use ahnlich_types::ai::server::Get;
+use ahnlich_types::ai::server::MultipleEmbedding;
 use ahnlich_types::ai::server::Pong;
 use ahnlich_types::ai::server::SingleInputToEmbedding;
 use ahnlich_types::ai::server::StoreInputToEmbeddingsList;
 use ahnlich_types::ai::server::StoreList;
 use ahnlich_types::ai::server::Unit;
+use ahnlich_types::ai::server::single_input_to_embedding::Variant;
 use ahnlich_types::db::pipeline::DbServerResponse;
 use ahnlich_types::db::pipeline::db_server_response::Response as DbResponse;
 use ahnlich_types::db::query::CreateNonLinearAlgorithmIndex as DbCreateNonLinearAlgorithmIndex;
@@ -681,7 +684,12 @@ impl AiService for AIProxyServer {
                 .zip(store_keys)
                 .map(|(input, key)| SingleInputToEmbedding {
                     input: Some(input),
-                    embedding: Some(key),
+                    variant: Some(match key {
+                        ModelResponse::OneToOne(one) => Variant::Single(one),
+                        ModelResponse::OneToMany(embeddings) => {
+                            Variant::Multiple(MultipleEmbedding { embeddings })
+                        }
+                    }),
                 })
                 .collect(),
         }))
@@ -954,7 +962,7 @@ impl AiService for AIProxyServer {
 impl AhnlichServerUtils for AIProxyServer {
     type PersistenceTask = AIStoreHandler;
 
-    fn config(&self) -> ServerUtilsConfig {
+    fn config(&self) -> ServerUtilsConfig<'_> {
         ServerUtilsConfig {
             service_name: SERVICE_NAME,
             persist_location: &self.config.common.persist_location,

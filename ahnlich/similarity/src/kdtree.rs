@@ -454,13 +454,14 @@ impl KDTree {
             let distance = self.squared_distance(reference_point, &shared.point);
             if heap.len() < n.get() && Self::is_in_accept_list(accept_list, &shared.point) {
                 heap.push(Reverse(OrderedArray(shared.point.clone(), distance)));
-            } else if let Some(Reverse(OrderedArray(_, max_distance))) = heap.peek() {
-                if distance < *max_distance && Self::is_in_accept_list(accept_list, &shared.point) {
-                    if heap.len() >= n.get() {
-                        heap.pop();
-                    }
-                    heap.push(Reverse(OrderedArray(shared.point.clone(), distance)));
+            } else if let Some(Reverse(OrderedArray(_, max_distance))) = heap.peek()
+                && distance < *max_distance
+                && Self::is_in_accept_list(accept_list, &shared.point)
+            {
+                if heap.len() >= n.get() {
+                    heap.pop();
                 }
+                heap.push(Reverse(OrderedArray(shared.point.clone(), distance)));
             }
 
             let dim = depth % self.depth.get();
