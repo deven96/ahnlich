@@ -13,7 +13,7 @@ impl OnnxOutputTransform {
 }
 
 impl Postprocessor for OnnxOutputTransform {
-    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData, AIProxyError> {
+    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData<'_, '_>, AIProxyError> {
         match data {
             PostprocessorData::OnnxOutput(onnx_output) => {
                 let output = onnx_output.get(self.output_key).ok_or_else(|| {

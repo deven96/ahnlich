@@ -115,6 +115,9 @@ pub enum AIProxyError {
     #[error("Error initializing a model thread {0}.")]
     ModelInitializationError(String),
 
+    #[error("Model returned unexpected number of embeddings 0 for input")]
+    ModelInputToEmbeddingError,
+
     #[error("Bytes could not be successfully decoded into an image.")]
     ImageBytesDecodeError,
 
@@ -196,7 +199,8 @@ impl From<AIProxyError> for Status {
             AIProxyError::TokenExceededError {
                 max_token_size: _,
                 input_token_size: _,
-            } => Code::OutOfRange,
+            }
+            | AIProxyError::ModelInputToEmbeddingError => Code::OutOfRange,
             _others => Code::Internal,
         };
         Status::new(code, message)

@@ -668,19 +668,70 @@ func (x *AIStoreInfo) GetEmbeddingSize() uint64 {
 	return 0
 }
 
+type MultipleEmbedding struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Embeddings []*keyval.StoreKey `protobuf:"bytes,1,rep,name=embeddings,proto3" json:"embeddings,omitempty"`
+}
+
+func (x *MultipleEmbedding) Reset() {
+	*x = MultipleEmbedding{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_ai_server_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *MultipleEmbedding) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MultipleEmbedding) ProtoMessage() {}
+
+func (x *MultipleEmbedding) ProtoReflect() protoreflect.Message {
+	mi := &file_ai_server_proto_msgTypes[13]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MultipleEmbedding.ProtoReflect.Descriptor instead.
+func (*MultipleEmbedding) Descriptor() ([]byte, []int) {
+	return file_ai_server_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *MultipleEmbedding) GetEmbeddings() []*keyval.StoreKey {
+	if x != nil {
+		return x.Embeddings
+	}
+	return nil
+}
+
 type SingleInputToEmbedding struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Input     *keyval.StoreInput `protobuf:"bytes,1,opt,name=input,proto3" json:"input,omitempty"`
-	Embedding *keyval.StoreKey   `protobuf:"bytes,2,opt,name=embedding,proto3" json:"embedding,omitempty"`
+	Input *keyval.StoreInput `protobuf:"bytes,1,opt,name=input,proto3" json:"input,omitempty"`
+	// Types that are assignable to Variant:
+	//
+	//	*SingleInputToEmbedding_Multiple
+	//	*SingleInputToEmbedding_Single
+	Variant isSingleInputToEmbedding_Variant `protobuf_oneof:"variant"`
 }
 
 func (x *SingleInputToEmbedding) Reset() {
 	*x = SingleInputToEmbedding{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_server_proto_msgTypes[13]
+		mi := &file_ai_server_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -693,7 +744,7 @@ func (x *SingleInputToEmbedding) String() string {
 func (*SingleInputToEmbedding) ProtoMessage() {}
 
 func (x *SingleInputToEmbedding) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_server_proto_msgTypes[13]
+	mi := &file_ai_server_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -706,7 +757,7 @@ func (x *SingleInputToEmbedding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SingleInputToEmbedding.ProtoReflect.Descriptor instead.
 func (*SingleInputToEmbedding) Descriptor() ([]byte, []int) {
-	return file_ai_server_proto_rawDescGZIP(), []int{13}
+	return file_ai_server_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *SingleInputToEmbedding) GetInput() *keyval.StoreInput {
@@ -716,12 +767,42 @@ func (x *SingleInputToEmbedding) GetInput() *keyval.StoreInput {
 	return nil
 }
 
-func (x *SingleInputToEmbedding) GetEmbedding() *keyval.StoreKey {
-	if x != nil {
-		return x.Embedding
+func (m *SingleInputToEmbedding) GetVariant() isSingleInputToEmbedding_Variant {
+	if m != nil {
+		return m.Variant
 	}
 	return nil
 }
+
+func (x *SingleInputToEmbedding) GetMultiple() *MultipleEmbedding {
+	if x, ok := x.GetVariant().(*SingleInputToEmbedding_Multiple); ok {
+		return x.Multiple
+	}
+	return nil
+}
+
+func (x *SingleInputToEmbedding) GetSingle() *keyval.StoreKey {
+	if x, ok := x.GetVariant().(*SingleInputToEmbedding_Single); ok {
+		return x.Single
+	}
+	return nil
+}
+
+type isSingleInputToEmbedding_Variant interface {
+	isSingleInputToEmbedding_Variant()
+}
+
+type SingleInputToEmbedding_Multiple struct {
+	Multiple *MultipleEmbedding `protobuf:"bytes,2,opt,name=multiple,proto3,oneof"`
+}
+
+type SingleInputToEmbedding_Single struct {
+	Single *keyval.StoreKey `protobuf:"bytes,3,opt,name=single,proto3,oneof"`
+}
+
+func (*SingleInputToEmbedding_Multiple) isSingleInputToEmbedding_Variant() {}
+
+func (*SingleInputToEmbedding_Single) isSingleInputToEmbedding_Variant() {}
 
 type StoreInputToEmbeddingsList struct {
 	state         protoimpl.MessageState
@@ -734,7 +815,7 @@ type StoreInputToEmbeddingsList struct {
 func (x *StoreInputToEmbeddingsList) Reset() {
 	*x = StoreInputToEmbeddingsList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_ai_server_proto_msgTypes[14]
+		mi := &file_ai_server_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -747,7 +828,7 @@ func (x *StoreInputToEmbeddingsList) String() string {
 func (*StoreInputToEmbeddingsList) ProtoMessage() {}
 
 func (x *StoreInputToEmbeddingsList) ProtoReflect() protoreflect.Message {
-	mi := &file_ai_server_proto_msgTypes[14]
+	mi := &file_ai_server_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -760,7 +841,7 @@ func (x *StoreInputToEmbeddingsList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StoreInputToEmbeddingsList.ProtoReflect.Descriptor instead.
 func (*StoreInputToEmbeddingsList) Descriptor() ([]byte, []int) {
-	return file_ai_server_proto_rawDescGZIP(), []int{14}
+	return file_ai_server_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *StoreInputToEmbeddingsList) GetValues() []*SingleInputToEmbedding {
@@ -837,24 +918,33 @@ var file_ai_server_proto_rawDesc = []byte{
 	0x64, 0x65, 0x78, 0x4d, 0x6f, 0x64, 0x65, 0x6c, 0x12, 0x25, 0x0a, 0x0e, 0x65, 0x6d, 0x62, 0x65,
 	0x64, 0x64, 0x69, 0x6e, 0x67, 0x5f, 0x73, 0x69, 0x7a, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x04,
 	0x52, 0x0d, 0x65, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x53, 0x69, 0x7a, 0x65, 0x22,
-	0x72, 0x0a, 0x16, 0x53, 0x69, 0x6e, 0x67, 0x6c, 0x65, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x54, 0x6f,
-	0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x12, 0x28, 0x0a, 0x05, 0x69, 0x6e, 0x70,
-	0x75, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x6b, 0x65, 0x79, 0x76, 0x61,
-	0x6c, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x52, 0x05, 0x69, 0x6e,
-	0x70, 0x75, 0x74, 0x12, 0x2e, 0x0a, 0x09, 0x65, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67,
-	0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x6b, 0x65, 0x79, 0x76, 0x61, 0x6c, 0x2e,
-	0x53, 0x74, 0x6f, 0x72, 0x65, 0x4b, 0x65, 0x79, 0x52, 0x09, 0x65, 0x6d, 0x62, 0x65, 0x64, 0x64,
-	0x69, 0x6e, 0x67, 0x22, 0x57, 0x0a, 0x1a, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x49, 0x6e, 0x70, 0x75,
-	0x74, 0x54, 0x6f, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x4c, 0x69, 0x73,
-	0x74, 0x12, 0x39, 0x0a, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
-	0x0b, 0x32, 0x21, 0x2e, 0x61, 0x69, 0x2e, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x53, 0x69,
-	0x6e, 0x67, 0x6c, 0x65, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x54, 0x6f, 0x45, 0x6d, 0x62, 0x65, 0x64,
-	0x64, 0x69, 0x6e, 0x67, 0x52, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x42, 0x48, 0x5a, 0x46,
-	0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x76, 0x65, 0x6e,
-	0x39, 0x36, 0x2f, 0x61, 0x68, 0x6e, 0x6c, 0x69, 0x63, 0x68, 0x2f, 0x73, 0x64, 0x6b, 0x2f, 0x61,
-	0x68, 0x6e, 0x6c, 0x69, 0x63, 0x68, 0x2d, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2d, 0x67, 0x6f,
-	0x2f, 0x67, 0x72, 0x70, 0x63, 0x2f, 0x61, 0x69, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x3b,
-	0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x45, 0x0a, 0x11, 0x4d, 0x75, 0x6c, 0x74, 0x69, 0x70, 0x6c, 0x65, 0x45, 0x6d, 0x62, 0x65, 0x64,
+	0x64, 0x69, 0x6e, 0x67, 0x12, 0x30, 0x0a, 0x0a, 0x65, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e,
+	0x67, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x6b, 0x65, 0x79, 0x76, 0x61,
+	0x6c, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x4b, 0x65, 0x79, 0x52, 0x0a, 0x65, 0x6d, 0x62, 0x65,
+	0x64, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x22, 0xb5, 0x01, 0x0a, 0x16, 0x53, 0x69, 0x6e, 0x67, 0x6c,
+	0x65, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x54, 0x6f, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e,
+	0x67, 0x12, 0x28, 0x0a, 0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x12, 0x2e, 0x6b, 0x65, 0x79, 0x76, 0x61, 0x6c, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x49,
+	0x6e, 0x70, 0x75, 0x74, 0x52, 0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x12, 0x3a, 0x0a, 0x08, 0x6d,
+	0x75, 0x6c, 0x74, 0x69, 0x70, 0x6c, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1c, 0x2e,
+	0x61, 0x69, 0x2e, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x4d, 0x75, 0x6c, 0x74, 0x69, 0x70,
+	0x6c, 0x65, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x48, 0x00, 0x52, 0x08, 0x6d,
+	0x75, 0x6c, 0x74, 0x69, 0x70, 0x6c, 0x65, 0x12, 0x2a, 0x0a, 0x06, 0x73, 0x69, 0x6e, 0x67, 0x6c,
+	0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x6b, 0x65, 0x79, 0x76, 0x61, 0x6c,
+	0x2e, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x4b, 0x65, 0x79, 0x48, 0x00, 0x52, 0x06, 0x73, 0x69, 0x6e,
+	0x67, 0x6c, 0x65, 0x42, 0x09, 0x0a, 0x07, 0x76, 0x61, 0x72, 0x69, 0x61, 0x6e, 0x74, 0x22, 0x57,
+	0x0a, 0x1a, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x54, 0x6f, 0x45, 0x6d,
+	0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x73, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x39, 0x0a, 0x06,
+	0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x21, 0x2e, 0x61,
+	0x69, 0x2e, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x53, 0x69, 0x6e, 0x67, 0x6c, 0x65, 0x49,
+	0x6e, 0x70, 0x75, 0x74, 0x54, 0x6f, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64, 0x69, 0x6e, 0x67, 0x52,
+	0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x42, 0x48, 0x5a, 0x46, 0x67, 0x69, 0x74, 0x68, 0x75,
+	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x76, 0x65, 0x6e, 0x39, 0x36, 0x2f, 0x61, 0x68,
+	0x6e, 0x6c, 0x69, 0x63, 0x68, 0x2f, 0x73, 0x64, 0x6b, 0x2f, 0x61, 0x68, 0x6e, 0x6c, 0x69, 0x63,
+	0x68, 0x2d, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2d, 0x67, 0x6f, 0x2f, 0x67, 0x72, 0x70, 0x63,
+	0x2f, 0x61, 0x69, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x3b, 0x73, 0x65, 0x72, 0x76, 0x65,
+	0x72, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -869,7 +959,7 @@ func file_ai_server_proto_rawDescGZIP() []byte {
 	return file_ai_server_proto_rawDescData
 }
 
-var file_ai_server_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_ai_server_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_ai_server_proto_goTypes = []any{
 	(*Unit)(nil),                       // 0: ai.server.Unit
 	(*Pong)(nil),                       // 1: ai.server.Pong
@@ -884,39 +974,42 @@ var file_ai_server_proto_goTypes = []any{
 	(*Del)(nil),                        // 10: ai.server.Del
 	(*CreateIndex)(nil),                // 11: ai.server.CreateIndex
 	(*AIStoreInfo)(nil),                // 12: ai.server.AIStoreInfo
-	(*SingleInputToEmbedding)(nil),     // 13: ai.server.SingleInputToEmbedding
-	(*StoreInputToEmbeddingsList)(nil), // 14: ai.server.StoreInputToEmbeddingsList
-	(*client.ConnectedClient)(nil),     // 15: client.ConnectedClient
-	(*info.ServerInfo)(nil),            // 16: shared.info.ServerInfo
-	(*info.StoreUpsert)(nil),           // 17: shared.info.StoreUpsert
-	(*keyval.StoreInput)(nil),          // 18: keyval.StoreInput
-	(*keyval.StoreValue)(nil),          // 19: keyval.StoreValue
-	(*similarity.Similarity)(nil),      // 20: similarity.Similarity
-	(models.AIModel)(0),                // 21: ai.models.AIModel
-	(*keyval.StoreKey)(nil),            // 22: keyval.StoreKey
+	(*MultipleEmbedding)(nil),          // 13: ai.server.MultipleEmbedding
+	(*SingleInputToEmbedding)(nil),     // 14: ai.server.SingleInputToEmbedding
+	(*StoreInputToEmbeddingsList)(nil), // 15: ai.server.StoreInputToEmbeddingsList
+	(*client.ConnectedClient)(nil),     // 16: client.ConnectedClient
+	(*info.ServerInfo)(nil),            // 17: shared.info.ServerInfo
+	(*info.StoreUpsert)(nil),           // 18: shared.info.StoreUpsert
+	(*keyval.StoreInput)(nil),          // 19: keyval.StoreInput
+	(*keyval.StoreValue)(nil),          // 20: keyval.StoreValue
+	(*similarity.Similarity)(nil),      // 21: similarity.Similarity
+	(models.AIModel)(0),                // 22: ai.models.AIModel
+	(*keyval.StoreKey)(nil),            // 23: keyval.StoreKey
 }
 var file_ai_server_proto_depIdxs = []int32{
-	15, // 0: ai.server.ClientList.clients:type_name -> client.ConnectedClient
+	16, // 0: ai.server.ClientList.clients:type_name -> client.ConnectedClient
 	12, // 1: ai.server.StoreList.stores:type_name -> ai.server.AIStoreInfo
-	16, // 2: ai.server.InfoServer.info:type_name -> shared.info.ServerInfo
-	17, // 3: ai.server.Set.upsert:type_name -> shared.info.StoreUpsert
-	18, // 4: ai.server.GetEntry.key:type_name -> keyval.StoreInput
-	19, // 5: ai.server.GetEntry.value:type_name -> keyval.StoreValue
+	17, // 2: ai.server.InfoServer.info:type_name -> shared.info.ServerInfo
+	18, // 3: ai.server.Set.upsert:type_name -> shared.info.StoreUpsert
+	19, // 4: ai.server.GetEntry.key:type_name -> keyval.StoreInput
+	20, // 5: ai.server.GetEntry.value:type_name -> keyval.StoreValue
 	6,  // 6: ai.server.Get.entries:type_name -> ai.server.GetEntry
-	18, // 7: ai.server.GetSimNEntry.key:type_name -> keyval.StoreInput
-	19, // 8: ai.server.GetSimNEntry.value:type_name -> keyval.StoreValue
-	20, // 9: ai.server.GetSimNEntry.similarity:type_name -> similarity.Similarity
+	19, // 7: ai.server.GetSimNEntry.key:type_name -> keyval.StoreInput
+	20, // 8: ai.server.GetSimNEntry.value:type_name -> keyval.StoreValue
+	21, // 9: ai.server.GetSimNEntry.similarity:type_name -> similarity.Similarity
 	8,  // 10: ai.server.GetSimN.entries:type_name -> ai.server.GetSimNEntry
-	21, // 11: ai.server.AIStoreInfo.query_model:type_name -> ai.models.AIModel
-	21, // 12: ai.server.AIStoreInfo.index_model:type_name -> ai.models.AIModel
-	18, // 13: ai.server.SingleInputToEmbedding.input:type_name -> keyval.StoreInput
-	22, // 14: ai.server.SingleInputToEmbedding.embedding:type_name -> keyval.StoreKey
-	13, // 15: ai.server.StoreInputToEmbeddingsList.values:type_name -> ai.server.SingleInputToEmbedding
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	22, // 11: ai.server.AIStoreInfo.query_model:type_name -> ai.models.AIModel
+	22, // 12: ai.server.AIStoreInfo.index_model:type_name -> ai.models.AIModel
+	23, // 13: ai.server.MultipleEmbedding.embeddings:type_name -> keyval.StoreKey
+	19, // 14: ai.server.SingleInputToEmbedding.input:type_name -> keyval.StoreInput
+	13, // 15: ai.server.SingleInputToEmbedding.multiple:type_name -> ai.server.MultipleEmbedding
+	23, // 16: ai.server.SingleInputToEmbedding.single:type_name -> keyval.StoreKey
+	14, // 17: ai.server.StoreInputToEmbeddingsList.values:type_name -> ai.server.SingleInputToEmbedding
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_ai_server_proto_init() }
@@ -1082,7 +1175,7 @@ func file_ai_server_proto_init() {
 			}
 		}
 		file_ai_server_proto_msgTypes[13].Exporter = func(v any, i int) any {
-			switch v := v.(*SingleInputToEmbedding); i {
+			switch v := v.(*MultipleEmbedding); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1094,6 +1187,18 @@ func file_ai_server_proto_init() {
 			}
 		}
 		file_ai_server_proto_msgTypes[14].Exporter = func(v any, i int) any {
+			switch v := v.(*SingleInputToEmbedding); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_ai_server_proto_msgTypes[15].Exporter = func(v any, i int) any {
 			switch v := v.(*StoreInputToEmbeddingsList); i {
 			case 0:
 				return &v.state
@@ -1107,13 +1212,17 @@ func file_ai_server_proto_init() {
 		}
 	}
 	file_ai_server_proto_msgTypes[8].OneofWrappers = []any{}
+	file_ai_server_proto_msgTypes[14].OneofWrappers = []any{
+		(*SingleInputToEmbedding_Multiple)(nil),
+		(*SingleInputToEmbedding_Single)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_ai_server_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

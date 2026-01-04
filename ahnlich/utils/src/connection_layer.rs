@@ -7,10 +7,9 @@ pub fn trace_with_parent(req: &http::Request<()>) -> tracing::Span {
         .headers()
         .get(TRACE_HEADER)
         .and_then(|val| val.to_str().ok())
+        && let Ok(parent_context) = tracer::trace_parent_to_span(trace_parent)
     {
-        if let Ok(parent_context) = tracer::trace_parent_to_span(trace_parent) {
-            span.set_parent(parent_context);
-        };
+        span.set_parent(parent_context);
     }
     span
 }

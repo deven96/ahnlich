@@ -40,11 +40,11 @@ pub(crate) fn parse_drop_non_linear_algorithm_index(
             let end_pos = statement.as_span().end_pos().pos();
             let mut inner_pairs = statement.into_inner().peekable();
             let mut if_exists = false;
-            if let Some(next_pair) = inner_pairs.peek() {
-                if next_pair.as_rule() == Rule::if_exists {
-                    inner_pairs.next(); // Consume rule
-                    if_exists = true;
-                }
+            if let Some(next_pair) = inner_pairs.peek()
+                && next_pair.as_rule() == Rule::if_exists
+            {
+                inner_pairs.next(); // Consume rule
+                if_exists = true;
             };
             let index_names_pair = inner_pairs
                 .next()
@@ -73,11 +73,11 @@ pub(crate) fn parse_drop_pred_index(
             let end_pos = statement.as_span().end_pos().pos();
             let mut inner_pairs = statement.into_inner().peekable();
             let mut if_exists = false;
-            if let Some(next_pair) = inner_pairs.peek() {
-                if next_pair.as_rule() == Rule::if_exists {
-                    inner_pairs.next();
-                    if_exists = true;
-                }
+            if let Some(next_pair) = inner_pairs.peek()
+                && next_pair.as_rule() == Rule::if_exists
+            {
+                inner_pairs.next();
+                if_exists = true;
             };
             let index_names_pair = inner_pairs
                 .next()

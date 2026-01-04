@@ -787,11 +787,11 @@ async fn test_convert_store_input_to_embeddings(index: usize, model: i32) {
 
     // Verify all expected entries are present (order-independent)
     for input in store_inputs {
-        assert!(response_entries.iter().any(|e| {
-            e.input == Some(input.clone())
-                && e.embedding.is_some()
-                && e.embedding.as_ref().unwrap().key.len() > 0
-        }))
+        assert!(
+            response_entries
+                .iter()
+                .any(|e| { e.input == Some(input.clone()) && e.variant.is_some() })
+        )
     }
 }
 
@@ -935,11 +935,11 @@ async fn test_convert_store_input_to_embeddings_without_db(index: usize, model: 
 
     // Verify all expected entries are present (order-independent)
     for input in store_inputs {
-        assert!(response_entries.iter().any(|e| {
-            e.input == Some(input.clone())
-                && e.embedding.is_some()
-                && e.embedding.as_ref().unwrap().key.len() > 0
-        }))
+        assert!(
+            response_entries
+                .iter()
+                .any(|e| { e.input == Some(input.clone()) && e.variant.is_some() })
+        )
     }
 }
 

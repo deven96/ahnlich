@@ -41,9 +41,25 @@ pub enum ModelType {
     },
 }
 
+#[derive(Debug)]
+pub(crate) enum ModelResponse {
+    OneToOne(StoreKey),
+    // FIXME: Remove once OneToMany gets constructed
+    #[allow(dead_code)]
+    OneToMany(Vec<StoreKey>),
+}
+
 pub struct Model {
     pub provider: ModelProviders,
     pub model_details: ModelDetails,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum InputToEmbeddingMode {
+    #[serde(rename = "one to one")]
+    OneToOne,
+    #[serde(rename = "one to many")]
+    OneToMany,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -52,6 +68,7 @@ pub struct ModelDetails {
     pub description: String,
     pub supported_model: SupportedModels,
     pub embedding_size: NonZeroUsize,
+    pub input_to_embedding_mode: InputToEmbeddingMode,
 }
 
 impl SupportedModels {
@@ -64,6 +81,7 @@ impl SupportedModels {
                 supported_model: SupportedModels::AllMiniLML6V2,
                 description: String::from("Sentence Transformer model, with 6 layers, version 2"),
                 embedding_size: nonzero!(384usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
             SupportedModels::AllMiniLML12V2 => ModelDetails {
                 model_type: ModelType::Text {
@@ -73,6 +91,7 @@ impl SupportedModels {
                 supported_model: SupportedModels::AllMiniLML12V2,
                 description: String::from("Sentence Transformer model, with 12 layers, version 2."),
                 embedding_size: nonzero!(384usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
             SupportedModels::BGEBaseEnV15 => ModelDetails {
                 model_type: ModelType::Text {
@@ -84,6 +103,7 @@ impl SupportedModels {
                     "BAAI General Embedding model with English support, base scale, version 1.5.",
                 ),
                 embedding_size: nonzero!(768usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
             SupportedModels::BGELargeEnV15 => ModelDetails {
                 model_type: ModelType::Text {
@@ -94,6 +114,7 @@ impl SupportedModels {
                     "BAAI General Embedding model with English support, large scale, version 1.5.",
                 ),
                 embedding_size: nonzero!(1024usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
             SupportedModels::Resnet50 => ModelDetails {
                 model_type: ModelType::Image {
@@ -102,6 +123,7 @@ impl SupportedModels {
                 supported_model: SupportedModels::Resnet50,
                 description: String::from("Residual Networks model, with 50 layers."),
                 embedding_size: nonzero!(2048usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
             SupportedModels::ClipVitB32Image => ModelDetails {
                 model_type: ModelType::Image {
@@ -112,18 +134,20 @@ impl SupportedModels {
                     "Contrastive Language-Image Pre-Training Vision transformer model, base scale.",
                 ),
                 embedding_size: nonzero!(512usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
             SupportedModels::ClipVitB32Text => ModelDetails {
+                model_type: ModelType::Text {
+                    // Token size source: https://github.com/UKPLab/sentence-transformers/issues/1269
+                    max_input_tokens: nonzero!(77usize),
+                },
                 supported_model: SupportedModels::ClipVitB32Text,
                 description: String::from(
                     "Contrastive Language-Image Pre-Training Text transformer model, base scale. \
                             Ideal for embedding very short text and using in combination with ClipVitB32Image",
                 ),
                 embedding_size: nonzero!(512usize),
-                model_type: ModelType::Text {
-                    // Token size source: https://github.com/UKPLab/sentence-transformers/issues/1269
-                    max_input_tokens: nonzero!(77usize),
-                },
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
         }
     }
@@ -196,7 +220,7 @@ impl Model {
         modelinput: ModelInput,
         action_type: &InputAction,
         execution_provider: Option<ExecutionProvider>,
-    ) -> Result<Vec<StoreKey>, AIProxyError> {
+    ) -> Result<Vec<ModelResponse>, AIProxyError> {
         let store_keys = match &self.provider {
             ModelProviders::ORT(provider) => {
                 provider
@@ -268,7 +292,7 @@ pub struct OnnxTransformResult {
 }
 
 impl OnnxTransformResult {
-    pub fn view(&self) -> ArrayView<f32, Ix3> {
+    pub fn view(&self) -> ArrayView<'_, f32, Ix3> {
         self.array.view()
     }
 
@@ -340,7 +364,7 @@ impl TryFrom<&[u8]> for ImageArray {
 }
 
 impl ImageArray {
-    fn array_view(&self) -> ArrayView<u8, Ix3> {
+    fn array_view(&self) -> ArrayView<'_, u8, Ix3> {
         let shape = (
             self.image.height() as usize,
             self.image.width() as usize,

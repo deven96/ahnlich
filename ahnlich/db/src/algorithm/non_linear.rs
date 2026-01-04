@@ -21,7 +21,7 @@ pub(crate) enum NonLinearAlgorithmWithIndex {
 }
 
 impl NonLinearAlgorithmWithIndex {
-    fn get_inner(&self) -> &impl NonLinearAlgorithmWithIndexImpl {
+    fn get_inner(&self) -> &impl NonLinearAlgorithmWithIndexImpl<'_> {
         match self {
             Self::KDTree(kdtree) => kdtree,
         }

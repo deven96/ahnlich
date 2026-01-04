@@ -2,7 +2,7 @@ mod executor;
 pub(crate) mod helper;
 
 use crate::cli::server::SupportedModels;
-use crate::engine::ai::models::{ImageArray, InputAction, ModelInput};
+use crate::engine::ai::models::{ImageArray, InputAction, ModelInput, ModelResponse};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
@@ -449,7 +449,7 @@ impl ProviderTrait for ORTProvider {
         input: ModelInput,
         _action_type: &InputAction,
         execution_provider: Option<AIExecutionProvider>,
-    ) -> Result<Vec<StoreKey>, AIProxyError> {
+    ) -> Result<Vec<ModelResponse>, AIProxyError> {
         let session = match &self.model.executor_session_cache {
             Some(executor_session_cache) => {
                 if let Some(execution_provider) = execution_provider {
@@ -476,16 +476,21 @@ impl ProviderTrait for ORTProvider {
         };
         match input {
             ModelInput::Images(images) => {
-                let mut store_keys: Vec<StoreKey> = FallibleVec::try_with_capacity(images.len())?;
+                let mut store_keys: Vec<ModelResponse> =
+                    FallibleVec::try_with_capacity(images.len())?;
 
                 for batch_image in images.axis_chunks_iter(Axis(0), self.model.model_batch_size) {
+                    // TODO: (HAKSOAT) Fix batch_inference_image to be able to send back
+                    // ModelResponse::OneToOne or ModelResponse::OneToMany (for insightface)
                     let embeddings =
                         self.batch_inference_image(batch_image.to_owned(), &session)?;
-                    let new_store_keys: Vec<StoreKey> = embeddings
+                    let new_store_keys: Vec<ModelResponse> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()
-                        .map(|embedding| StoreKey {
-                            key: embedding.to_vec(),
+                        .map(|embedding| {
+                            ModelResponse::OneToOne(StoreKey {
+                                key: embedding.to_vec(),
+                            })
                         })
                         .collect();
                     store_keys.extend(new_store_keys);
@@ -493,7 +498,7 @@ impl ProviderTrait for ORTProvider {
                 Ok(store_keys)
             }
             ModelInput::Texts(encodings) => {
-                let mut store_keys: Vec<StoreKey> =
+                let mut store_keys: Vec<ModelResponse> =
                     FallibleVec::try_with_capacity(encodings.len())?;
 
                 for batch_encoding in encodings
@@ -503,11 +508,13 @@ impl ProviderTrait for ORTProvider {
                 {
                     let embeddings =
                         self.batch_inference_text(batch_encoding.collect(), &session)?;
-                    let new_store_keys: Vec<StoreKey> = embeddings
+                    let new_store_keys: Vec<ModelResponse> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()
-                        .map(|embedding| StoreKey {
-                            key: embedding.to_vec(),
+                        .map(|embedding| {
+                            ModelResponse::OneToOne(StoreKey {
+                                key: embedding.to_vec(),
+                            })
                         })
                         .collect();
                     store_keys.extend(new_store_keys);
