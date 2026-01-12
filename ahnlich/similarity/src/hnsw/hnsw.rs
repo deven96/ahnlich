@@ -1,66 +1,20 @@
 #![allow(dead_code)]
+use crate::hnsw::SimpleQueue;
+
+pub use super::{LayerIndex, Node, NodeId};
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
 /// similarity function. It then navigates between these localised lists in DFS manner until it
 /// gets the values it needs to
 use std::{
-    collections::{BinaryHeap, HashMap, HashSet, btree_map::BTreeMap},
-    hash::Hash,
+    cmp::min,
+    collections::{HashMap, HashSet, btree_map::BTreeMap},
+    num::NonZeroUsize,
 };
-
-/// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
-#[derive(Debug, Clone)]
-pub struct LayerIndex(pub u16);
-
-impl PartialEq for LayerIndex {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&(other.0))
-    }
-}
-impl Eq for LayerIndex {}
-
-impl PartialOrd for LayerIndex {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.partial_cmp(&(other.0))
-    }
-}
-impl Ord for LayerIndex {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.cmp(&(other.0))
-    }
-}
-
-/// NodeId wraps String(hash of node embeddings) to uniquely identify a node across all layers.
-#[derive(Debug, Clone)]
-pub struct NodeId(pub String);
-
-impl PartialEq for NodeId {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&(other.0))
-    }
-}
-impl Eq for NodeId {}
-
-impl PartialOrd for NodeId {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.0.partial_cmp(&(other.0))
-    }
-}
-impl Ord for NodeId {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.cmp(&(other.0))
-    }
-}
-
-impl Hash for NodeId {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
 
 /// HNSW represents a Hierarchical Navigable Small World graph.
 ///
 /// The graph is organized into multiple layers. Each layer contains a set of node IDs,
-/// and each node holds its neighbors per layer along with its embedding vector.
+/// and each node holds its neighbours per layer along with its embedding vector.
 /// This separation allows efficient lookups, prevents duplicate nodes per layer,
 /// and supports deletion operations.
 ///
@@ -71,7 +25,7 @@ impl Hash for NodeId {
 /// 3. Deletion is fully supported:
 ///    - Remove the node ID from the `graph` for all layers where it exists.
 ///    - Remove the node from `nodes`.
-///    - Remove the node ID from all neighbors of other nodes (using back-links/referrals).
+///    - Remove the node ID from all neighbours of other nodes (using back-links/referrals).
 ///      This ensures no stale references remain in the graph.
 ///
 /// Example of usage:
@@ -81,7 +35,7 @@ impl Hash for NodeId {
 /// Layer 2: {42, 88}
 /// Layer 3: {42, 200, 201}
 ///
-/// Node 42 participates in layers 0–3, with neighbors stored per layer and
+/// Node 42 participates in layers 0–3, with neighbours stored per layer and
 /// back-links automatically updated upon deletion.
 /// ```
 #[derive(Default)]
@@ -95,6 +49,9 @@ pub struct HNSW {
     /// Maximum number of connections per node (M)
     pub maximum_connections: u8,
 
+    /// Maximum number of connections per node (M) at layer 0
+    pub maximum_connections_zero: u8,
+
     /// Precomputed value 1 / ln(M) used in level generation
     pub inv_log_m: f64,
 
@@ -107,56 +64,196 @@ pub struct HNSW {
     /// All nodes in the HNSW
     ///
     /// The single source of truth for all node data.
-    /// Keys are NodeId, values are the Node structs containing embeddings and neighbors.
+    /// Keys are NodeId, values are the Node structs containing embeddings and neighbours.
     nodes: HashMap<NodeId, Node>,
+
+    /// node id of the starting point usually the element at the top most layer
+    /// TODO: should this be saved or randomly selected since we know the topmost layer
+    enter_point: NodeId,
+}
+
+fn similarity_function(first: &Vec<f32>, second: &Vec<f32>) -> f32 {
+    todo!()
 }
 
 impl HNSW {
-    /// Insert a new element into the HNSW graph
-    /// Corresponds to Algorithm 1 (INSERT)
-    pub fn insert(&mut self, value: Node) -> NodeId {
-        // internally uses SEARCH-LAYER, SELECT-NEIGHBORS
+    /// Returns a random level for a given element.
+    /// TODO: element hashed node id would be used to determine an elements level.
+    /// We have to make this determinable that a node would always return a certain level all the
+    /// time. Would there be any issues with this??
+    fn get_element_level(&self) -> u8 {
         todo!()
     }
 
-    /// Search for ef nearest neighbors in a specific layer
+    /// Insert a new element into the HNSW graph
+    /// Corresponds to Algorithm 1 (INSERT)
+    pub fn insert(&mut self, mut value: Node) {
+        // internally uses SEARCH-LAYER, SELECT-neighbourS
+        let inital_ef = 1;
+
+        let mut enter_point = self.enter_point.clone();
+        let new_elements_lvl = self.get_element_level();
+
+        // NOTE: think of this as finding the best hallway in different floors in a building with
+        // muiltiple hallways in a floor...
+        // We keep finding the best flow until we get to the `new_elements_lvl+1`
+        for level_current in (new_elements_lvl + 1..=self.top_most_layer).rev() {
+            let nearest_neighbours = self.search_layer(
+                &value.value,
+                &[enter_point.clone()],
+                inital_ef,
+                &LayerIndex(level_current as u16),
+            );
+
+            let nearest_neighbours_nodes = nearest_neighbours
+                .iter()
+                .filter_map(|node_id| self.get_node(node_id).cloned())
+                .collect::<Vec<Node>>();
+
+            // NOTE: get the nearest element from W to q
+            let enter_points =
+                SimpleQueue::from_nodes(&nearest_neighbours_nodes, &value, similarity_function)
+                    .pop_n(NonZeroUsize::new(1).unwrap());
+
+            assert!(enter_points.len() == 1);
+
+            let tmp_enterpoint = enter_points.first().unwrap();
+            enter_point = tmp_enterpoint.0.0.0.clone();
+        }
+
+        // Deeper search
+        for level_current in (0..min(self.top_most_layer, new_elements_lvl)).rev() {
+            let layer_index = LayerIndex(level_current as u16);
+
+            //NOTE: insert node to graph
+            self.graph
+                .entry(layer_index.clone())
+                .or_insert_with(HashSet::new)
+                .insert(value.id.clone());
+
+            // NOTE: W = search-layer(q, ep, efConstruction, lc)
+            let nearest_neighbours = self
+                .search_layer(
+                    &value.value,
+                    &[enter_point.clone()],
+                    self.ef_construction.unwrap(),
+                    &layer_index,
+                )
+                .into_iter()
+                .collect();
+
+            // NOTE: neighbours =  SELECT-neighbourS(q, W, M, lc)
+            let neighbours = self.select_neighbours_heuristic(
+                &value.id,
+                &nearest_neighbours,
+                // TODO: is M and Mmax same here?
+                self.maximum_connections,
+                &layer_index,
+                false,
+                false,
+            );
+
+            // TODO: add bidirectional connections from neighbours to q at layer lc
+            for neighbour_id in neighbours.iter() {
+                let neighbour_node = self.get_node_mut(neighbour_id).unwrap();
+                neighbour_node
+                    .neighbours
+                    .entry(layer_index.clone())
+                    .or_insert_with(HashSet::new)
+                    .insert(value.id.clone());
+
+                value
+                    .neighbours
+                    .entry(layer_index.clone())
+                    .or_insert_with(HashSet::new)
+                    .insert(neighbour_id.clone());
+
+                // NOTE: invert for backlinks
+                value.back_links.insert(neighbour_id.clone());
+                neighbour_node.back_links.insert(value.id.clone());
+            }
+
+            // NOTE: for each neighbours
+            for neighbour in neighbours.iter() {
+                // NOTE: if lc = 0, mmax = mmax0
+                let maximum_connections = if level_current == 0 {
+                    self.maximum_connections_zero
+                } else {
+                    self.maximum_connections
+                };
+
+                let neighbour_node = self.get_node_mut(neighbour).unwrap();
+
+                let e_conn = neighbour_node.neighbours_at(&layer_index).unwrap();
+
+                if e_conn.len() > maximum_connections as usize {
+                    let new_neighbour_connections = self.select_neighbours_heuristic(
+                        &neighbour,
+                        &e_conn,
+                        // TODO: should be Mmax, so we need to know if M and Mmax are diff
+                        maximum_connections,
+                        &layer_index,
+                        false,
+                        false,
+                    );
+
+                    neighbour_node
+                        .neighbours
+                        .entry(layer_index.clone())
+                        .insert_entry(HashSet::from_iter(new_neighbour_connections));
+                }
+            }
+
+            // NOTE: Find Best Enter Point
+            enter_point = {
+                let nearest_neighbours_nodes = nearest_neighbours
+                    .iter()
+                    .filter_map(|node_id| self.get_node(node_id).cloned())
+                    .collect::<Vec<Node>>();
+
+                let enter_points =
+                    SimpleQueue::from_nodes(&nearest_neighbours_nodes, &value, similarity_function)
+                        .pop_n(NonZeroUsize::new(1).unwrap());
+
+                assert!(enter_points.len() == 1);
+
+                let tmp_enterpoint = enter_points.first().unwrap();
+                tmp_enterpoint.0.0.0.clone()
+            };
+        }
+
+        if new_elements_lvl > self.top_most_layer {
+            self.enter_point = value.id.clone()
+        }
+    }
+
+    /// Search for ef nearest neighbours in a specific layer
     /// Corresponds to Algorithm 2 (SEARCH-LAYER)
     pub fn search_layer(
         &self,
-        query: &Vec<f64>,
+        query: &[f32],
         entry_points: &[NodeId],
-        ef: usize,
-        layer: LayerIndex,
+        ef: u8,
+        layer: &LayerIndex,
     ) -> Vec<NodeId> {
         todo!()
     }
 
-    /// Select M neighbors simply based on distance
-    /// Corresponds to Algorithm 3 (SELECT-NEIGHBORS-SIMPLE)
-    pub fn select_neighbors_simple(
+    /// Select M neighbours using heuristic for diversity and pruning
+    /// Corresponds to Algorithm 4 (SELECT-neighbourS-HEURISTIC)
+    pub fn select_neighbours_heuristic(
         &self,
-        base: NodeId,
-        candidates: &[NodeId],
-        m: usize,
-    ) -> Vec<NodeId> {
-        todo!()
-    }
-
-    /// Select M neighbors using heuristic for diversity and pruning
-    /// Corresponds to Algorithm 4 (SELECT-NEIGHBORS-HEURISTIC)
-    pub fn select_neighbors_heuristic(
-        &self,
-        base: NodeId,
-        candidates: &[NodeId],
-        m: usize,
-        layer: LayerIndex,
+        base: &NodeId,
+        candidates: &HashSet<NodeId>,
+        m: u8,
+        layer: &LayerIndex,
         extend_candidates: bool,
         keep_pruned_connections: bool,
     ) -> Vec<NodeId> {
         todo!()
     }
 
-    /// K-Nearest Neighbor Search
+    /// K-Nearest neighbour Search
     /// Corresponds to Algorithm 5 (K-NN-SEARCH)
     pub fn knn_search(&self, query: &Vec<f64>, k: usize, ef: Option<usize>) -> Vec<NodeId> {
         todo!()
@@ -171,57 +268,10 @@ impl HNSW {
     pub fn get_node(&self, id: &NodeId) -> Option<&Node> {
         todo!()
     }
-}
 
-/// Node represents a single element in the HNSW graph.
-///
-/// Each node stores:
-/// - `id`: unique identifier
-/// - `value`: embedding vector
-/// - `neighbours`: map from layer to set of NodeIds of neighbors in that layer
-/// - `back_links`: set of NodeIds of nodes that consider us a neighbor.
-///   Used to efficiently update the graph when deleting this node.
-///
-/// Example of a node:
-/// ```text
-/// Node {
-///     id: 42,
-///     value: [0.12, 0.55, 0.77],
-///     neighbours: {
-///         0: [10, 55, 71],
-///         1: [9, 11],
-///         2: [88],
-///         3: [200, 201]
-///     },
-///     back_links: [9, 88]
-/// }
-/// ```
-/// This shows that Node 42 participates in layers 0 through 3.
-pub struct Node {
-    id: NodeId,
-    value: Vec<f64>,
-    neighbours: BTreeMap<LayerIndex, HashSet<NodeId>>,
-    back_links: HashSet<NodeId>,
-}
-
-impl Node {
-    /// Optional helper: get neighbors at a specific layer
-    pub fn neighbors_at(&self, layer: LayerIndex) -> Option<&HashSet<NodeId>> {
-        self.neighbours.get(&layer)
-    }
-
-    /// Optional helper: add a neighbor at a specific layer
-    pub fn add_neighbor(&mut self, layer: LayerIndex, neighbor: NodeId) {
-        self.neighbours
-            .entry(layer)
-            .or_insert(HashSet::from_iter([neighbor]));
-    }
-
-    /// Optional helper: remove a neighbor at a specific layer
-    pub fn remove_neighbor(&mut self, layer: LayerIndex, neighbor: NodeId) {
-        if let Some(set) = self.neighbours.get_mut(&layer) {
-            set.remove(&neighbor);
-        }
+    /// Optional helper to get a node by NodeId efficiently
+    pub fn get_node_mut(&mut self, id: &NodeId) -> Option<&mut Node> {
+        todo!()
     }
 }
 
@@ -282,7 +332,7 @@ mod tests {
         let a_node = hnsw.get_node(&a).unwrap();
         let b_node = hnsw.get_node(&b).unwrap();
 
-        // Layer 0 neighbors
+        // Layer 0 neighbours
         assert!(a_node.neighbours.get(&LayerIndex(0)).unwrap().contains(&b));
         assert!(b_node.neighbours.get(&LayerIndex(0)).unwrap().contains(&a));
 
@@ -312,7 +362,7 @@ mod tests {
         for id in &ids {
             let node = hnsw.get_node(id).unwrap();
             let n = node.neighbours.get(&LayerIndex(0)).unwrap();
-            assert_eq!(n.len(), 2, "each node must have 2 neighbors");
+            assert_eq!(n.len(), 2, "each node must have 2 neighbours");
 
             for other in &ids {
                 if other != id {
@@ -379,7 +429,7 @@ mod tests {
     }
 
     #[test]
-    fn test_delete_multi_neighbor_node() {
+    fn test_delete_multi_neighbour_node() {
         let mut hnsw = HNSW::default();
 
         let ids = ["A", "B", "C", "D"]
@@ -413,7 +463,7 @@ mod tests {
 
     fn assert_hnsw_invariants(hnsw: &HNSW) {
         for (id, node) in &hnsw.nodes {
-            // Neighbors must exist
+            // neighbours must exist
             for neighbours in node.neighbours.values() {
                 for n in neighbours {
                     assert!(hnsw.nodes.contains_key(n));
