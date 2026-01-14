@@ -131,17 +131,66 @@ impl Ord for OrderedNode {
     }
 }
 
-struct SimpleQueue<F>
+struct MaxHeapQueue<F>
 where
-    F: Fn(&Vec<f32>, &Vec<f32>) -> f32,
+    F: Fn(&[f32], &[f32]) -> f32,
+{
+    heap: BinaryHeap<OrderedNode>,
+    similarity: F,
+}
+
+impl<F> MaxHeapQueue<F>
+where
+    F: Fn(&[f32], &[f32]) -> f32,
+{
+    fn from_nodes(nodes: &[Node], query: &Node, similarity_function: F) -> Self {
+        let heap = nodes
+            .iter()
+            .map(|node| {
+                let similarity = similarity_function(&node.value, &query.value);
+                let ordered_node = OrderedNode((node.id.clone(), similarity));
+                ordered_node
+            })
+            .collect::<BinaryHeap<_>>();
+        Self {
+            heap,
+            similarity: similarity_function,
+        }
+    }
+
+    fn pop(&mut self) -> Option<OrderedNode> {
+        self.heap.pop()
+    }
+
+    fn pop_n(&mut self, n: NonZeroUsize) -> Vec<OrderedNode> {
+        (0..n.get()).filter_map(|_| self.heap.pop()).collect()
+    }
+
+    fn len(&self) -> usize {
+        self.heap.len()
+    }
+
+    fn peak(&self) -> Option<&OrderedNode> {
+        self.heap.peek()
+    }
+
+    fn push(&mut self, node: &Node) {
+        // TODO: compute the distance between query
+        //self.heap.push(Reverse(node))
+    }
+}
+
+struct MinHeapQueue<F>
+where
+    F: Fn(&[f32], &[f32]) -> f32,
 {
     heap: BinaryHeap<Reverse<OrderedNode>>,
     similarity: F,
 }
 
-impl<F> SimpleQueue<F>
+impl<F> MinHeapQueue<F>
 where
-    F: Fn(&Vec<f32>, &Vec<f32>) -> f32,
+    F: Fn(&[f32], &[f32]) -> f32,
 {
     fn from_nodes(nodes: &[Node], query: &Node, similarity_function: F) -> Self {
         let heap = nodes
@@ -158,7 +207,24 @@ where
         }
     }
 
+    fn push(&mut self, node: &Node) {
+        // TODO: compute the distance between query
+        //self.heap.push(Reverse(node))
+    }
+
+    fn pop(&mut self) -> Option<Reverse<OrderedNode>> {
+        self.heap.pop()
+    }
+
     fn pop_n(&mut self, n: NonZeroUsize) -> Vec<Reverse<OrderedNode>> {
         (0..n.get()).filter_map(|_| self.heap.pop()).collect()
+    }
+
+    fn len(&self) -> usize {
+        self.heap.len()
+    }
+
+    fn peak(&self) -> Option<&Reverse<OrderedNode>> {
+        self.heap.peek()
     }
 }

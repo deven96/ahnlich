@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::hnsw::SimpleQueue;
+use crate::hnsw::{MaxHeapQueue, MinHeapQueue};
 
 pub use super::{LayerIndex, Node, NodeId};
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
@@ -72,7 +72,7 @@ pub struct HNSW {
     enter_point: NodeId,
 }
 
-fn similarity_function(first: &Vec<f32>, second: &Vec<f32>) -> f32 {
+fn similarity_function(first: &[f32], second: &[f32]) -> f32 {
     todo!()
 }
 
@@ -98,9 +98,11 @@ impl HNSW {
         // muiltiple hallways in a floor...
         // We keep finding the best flow until we get to the `new_elements_lvl+1`
         for level_current in (new_elements_lvl + 1..=self.top_most_layer).rev() {
+            let enter_points = &[enter_point.clone()];
+
             let nearest_neighbours = self.search_layer(
-                &value.value,
-                &[enter_point.clone()],
+                &value,
+                enter_points,
                 inital_ef,
                 &LayerIndex(level_current as u16),
             );
@@ -112,7 +114,7 @@ impl HNSW {
 
             // NOTE: get the nearest element from W to q
             let enter_points =
-                SimpleQueue::from_nodes(&nearest_neighbours_nodes, &value, similarity_function)
+                MinHeapQueue::from_nodes(&nearest_neighbours_nodes, &value, similarity_function)
                     .pop_n(NonZeroUsize::new(1).unwrap());
 
             assert!(enter_points.len() == 1);
@@ -134,12 +136,13 @@ impl HNSW {
             // NOTE: W = search-layer(q, ep, efConstruction, lc)
             let nearest_neighbours = self
                 .search_layer(
-                    &value.value,
+                    &value,
                     &[enter_point.clone()],
                     self.ef_construction.unwrap(),
                     &layer_index,
                 )
                 .into_iter()
+                .map(|d| d.clone())
                 .collect();
 
             // NOTE: neighbours =  SELECT-neighbourS(q, W, M, lc)
@@ -211,9 +214,12 @@ impl HNSW {
                     .filter_map(|node_id| self.get_node(node_id).cloned())
                     .collect::<Vec<Node>>();
 
-                let enter_points =
-                    SimpleQueue::from_nodes(&nearest_neighbours_nodes, &value, similarity_function)
-                        .pop_n(NonZeroUsize::new(1).unwrap());
+                let enter_points = MinHeapQueue::from_nodes(
+                    &nearest_neighbours_nodes,
+                    &value,
+                    similarity_function,
+                )
+                .pop_n(NonZeroUsize::new(1).unwrap());
 
                 assert!(enter_points.len() == 1);
 
@@ -229,14 +235,82 @@ impl HNSW {
 
     /// Search for ef nearest neighbours in a specific layer
     /// Corresponds to Algorithm 2 (SEARCH-LAYER)
-    pub fn search_layer(
-        &self,
-        query: &[f32],
-        entry_points: &[NodeId],
+    pub fn search_layer<'a>(
+        &'a self,
+        query: &Node,
+        entry_points: &'a [NodeId],
         ef: u8,
         layer: &LayerIndex,
-    ) -> Vec<NodeId> {
-        todo!()
+    ) -> HashSet<NodeId> {
+        //
+        let nodes = entry_points
+            .iter()
+            .filter_map(|id| self.nodes.get(id))
+            .map(|node| node.clone())
+            .collect::<Vec<Node>>();
+        // v
+        let mut visited_items: HashSet<&NodeId> = HashSet::from_iter(entry_points);
+        // C
+
+        let mut candidates = MinHeapQueue::from_nodes(&nodes, query, similarity_function);
+        // W
+        let mut nearest_neighbours = MaxHeapQueue::from_nodes(&nodes, query, similarity_function);
+
+        while candidates.len() > 0 {
+            let nearest_ele_from_c_and_to_q = candidates.pop().unwrap().0.0.0;
+            let mut furthest_ele_from_nearest_neighbours_to_q =
+                nearest_neighbours.peak().unwrap().0.0.clone();
+
+            let closest_node = self.nodes.get(&nearest_ele_from_c_and_to_q).unwrap();
+            let mut furthest_node = self
+                .nodes
+                .get(&furthest_ele_from_nearest_neighbours_to_q)
+                .unwrap();
+
+            let furthest_distance = similarity_function(&furthest_node.value, &query.value);
+
+            if similarity_function(&query.value, &closest_node.value) > furthest_distance {
+                break;
+            }
+
+            let visited_node = self.get_node(&nearest_ele_from_c_and_to_q).unwrap();
+
+            for e in visited_node.neighbours_at(layer).unwrap() {
+                if visited_items.contains(e) {
+                    continue;
+                }
+                visited_items.insert(e);
+
+                furthest_ele_from_nearest_neighbours_to_q =
+                    nearest_neighbours.peak().unwrap().0.0.clone();
+
+                furthest_node = self
+                    .nodes
+                    .get(&furthest_ele_from_nearest_neighbours_to_q)
+                    .unwrap();
+
+                let neighbour_node = self.get_node(e).unwrap();
+
+                if (similarity_function(&neighbour_node.value, &query.value)
+                    < similarity_function(&furthest_node.value, &query.value))
+                    || (nearest_neighbours.len() < ef as usize)
+                {
+                    candidates.push(neighbour_node);
+                    nearest_neighbours.push(neighbour_node);
+
+                    if nearest_neighbours.len() > ef as usize {
+                        // NOTE: remove the furthest node from W(nearest_neighbours) to Q
+                        nearest_neighbours.pop().unwrap();
+                    }
+                }
+            }
+        }
+
+        return nearest_neighbours
+            .heap
+            .iter()
+            .map(|ordered| ordered.0.0.clone())
+            .collect();
     }
 
     /// Select M neighbours using heuristic for diversity and pruning
