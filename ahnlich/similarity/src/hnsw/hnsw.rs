@@ -392,8 +392,41 @@ impl HNSW {
 
     /// K-Nearest neighbour Search
     /// Corresponds to Algorithm 5 (K-NN-SEARCH)
-    pub fn knn_search(&self, query: &Vec<f64>, k: usize, ef: Option<usize>) -> Vec<NodeId> {
-        todo!()
+    pub fn knn_search(&self, query: &Node, k: usize, ef: Option<u8>) -> Vec<NodeId> {
+        let ef = ef.unwrap_or(self.ef_construction.unwrap_or_default());
+
+        let mut enter_point = self.enter_point.clone();
+        let ep_level = self.top_most_layer;
+
+        for level_current in (1..=ep_level).rev() {
+            let layer = LayerIndex(level_current as u16);
+            let entry_points = &[enter_point.clone()];
+
+            let searched = self.search_layer(query, entry_points, 1, &layer);
+
+            let nodes = searched
+                .iter()
+                .filter_map(|id| self.get_node(id).cloned())
+                .collect::<Vec<_>>();
+
+            let tmp_heap = MinHeapQueue::from_nodes(&nodes, query, similarity_function);
+            enter_point = tmp_heap.peak().unwrap().0.0.0.clone();
+        }
+
+        let level_zero_nodes = self
+            .search_layer(query, &[enter_point], ef, &LayerIndex(0))
+            .iter()
+            .filter_map(|id| self.get_node(id).cloned())
+            .collect::<Vec<_>>();
+
+        let mut current_nearest_elements =
+            MinHeapQueue::from_nodes(&level_zero_nodes, query, similarity_function);
+
+        current_nearest_elements
+            .pop_n(NonZeroUsize::new(k).unwrap())
+            .into_iter()
+            .map(|id| id.0.0.0.clone())
+            .collect()
     }
 
     /// delete an new element from HNSW graph
@@ -403,12 +436,12 @@ impl HNSW {
 
     /// Optional helper to get a node by NodeId efficiently
     pub fn get_node(&self, id: &NodeId) -> Option<&Node> {
-        todo!()
+        self.nodes.get(id)
     }
 
     /// Optional helper to get a node by NodeId efficiently
     pub fn get_node_mut(&mut self, id: &NodeId) -> Option<&mut Node> {
-        todo!()
+        self.nodes.get_mut(id)
     }
 }
 
