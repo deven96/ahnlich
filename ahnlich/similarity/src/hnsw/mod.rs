@@ -178,6 +178,10 @@ where
         // TODO: compute the distance between query
         //self.heap.push(Reverse(node))
     }
+
+    fn contains(&self, node_id: &NodeId) -> bool {
+        self.heap.iter().find(|x| &(x.0.0) == node_id).is_some()
+    }
 }
 
 struct MinHeapQueue<F>
@@ -226,5 +230,9 @@ where
 
     fn peak(&self) -> Option<&Reverse<OrderedNode>> {
         self.heap.peek()
+    }
+
+    fn contains(&self, node_id: &NodeId) -> bool {
+        self.heap.iter().find(|x| &(x.0.0.0) == node_id).is_some()
     }
 }

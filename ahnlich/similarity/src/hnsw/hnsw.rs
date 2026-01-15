@@ -47,10 +47,10 @@ pub struct HNSW {
     pub top_most_layer: u8,
 
     /// Maximum number of connections per node (M)
-    pub maximum_connections: u8,
+    pub maximum_connections: usize,
 
     /// Maximum number of connections per node (M) at layer 0
-    pub maximum_connections_zero: u8,
+    pub maximum_connections_zero: usize,
 
     /// Precomputed value 1 / ln(M) used in level generation
     pub inv_log_m: f64,
@@ -147,7 +147,7 @@ impl HNSW {
 
             // NOTE: neighbours =  SELECT-neighbourS(q, W, M, lc)
             let neighbours = self.select_neighbours_heuristic(
-                &value.id,
+                &value,
                 &nearest_neighbours,
                 // TODO: is M and Mmax same here?
                 self.maximum_connections,
@@ -183,15 +183,15 @@ impl HNSW {
                     self.maximum_connections_zero
                 } else {
                     self.maximum_connections
-                };
+                } as usize;
 
                 let neighbour_node = self.get_node_mut(neighbour).unwrap();
 
                 let e_conn = neighbour_node.neighbours_at(&layer_index).unwrap();
 
-                if e_conn.len() > maximum_connections as usize {
+                if e_conn.len() > maximum_connections {
                     let new_neighbour_connections = self.select_neighbours_heuristic(
-                        &neighbour,
+                        &neighbour_node,
                         &e_conn,
                         // TODO: should be Mmax, so we need to know if M and Mmax are diff
                         maximum_connections,
@@ -317,14 +317,74 @@ impl HNSW {
     /// Corresponds to Algorithm 4 (SELECT-neighbourS-HEURISTIC)
     pub fn select_neighbours_heuristic(
         &self,
-        base: &NodeId,
+        query: &Node,
         candidates: &HashSet<NodeId>,
-        m: u8,
+        m: usize,
         layer: &LayerIndex,
         extend_candidates: bool,
         keep_pruned_connections: bool,
     ) -> Vec<NodeId> {
-        todo!()
+        let mut response = MinHeapQueue::from_nodes(&vec![], query, similarity_function);
+
+        let nodes = candidates
+            .iter()
+            .filter_map(|id| self.get_node(id).cloned())
+            .collect::<Vec<_>>();
+        let mut working_queue = MinHeapQueue::from_nodes(&nodes, query, similarity_function);
+
+        if extend_candidates {
+            for candidate in candidates {
+                let candidate_node = self.get_node(candidate).unwrap();
+                for neighbour_id in candidate_node.neighbours_at(layer).unwrap() {
+                    if !working_queue.contains(neighbour_id) {
+                        let neighbour_node = self.get_node(neighbour_id).unwrap();
+                        working_queue.push(&neighbour_node);
+                    }
+                }
+            }
+        }
+
+        let mut discarded_candidates =
+            MinHeapQueue::from_nodes(&vec![], query, similarity_function);
+
+        // NOTE: if nearest_element_from_w_to_q is closer to q compared to any
+        // element in R(use the argmin from R and if nearest_ele_from_w_to_q is closer to q than
+        // the argmin then it's assumed it's closer to q than any element in R)
+        while working_queue.len() > 0 && response.len() < m {
+            let nearest_ele_from_w_to_q = working_queue.pop().unwrap();
+
+            // NOTE: edge case
+            if response.len() == 0 {
+                let node_id = &(nearest_ele_from_w_to_q.0.0.0);
+                response.push(self.get_node(node_id).unwrap());
+                continue;
+            }
+
+            let arg_min_res = response.peak().unwrap();
+
+            if (nearest_ele_from_w_to_q.0.0.1) < (arg_min_res.0.0.1) {
+                let node_id = &(nearest_ele_from_w_to_q.0.0.0);
+                response.push(self.get_node(node_id).unwrap());
+            } else {
+                let node_id = &(nearest_ele_from_w_to_q.0.0.0);
+                discarded_candidates.push(self.get_node(node_id).unwrap());
+            }
+        }
+
+        if keep_pruned_connections {
+            while discarded_candidates.len() > 0 && response.len() < m {
+                let nearest_from_wd_to_q = discarded_candidates.pop().unwrap();
+
+                let node_id = &(nearest_from_wd_to_q.0.0.0);
+                response.push(self.get_node(node_id).unwrap());
+            }
+        }
+
+        response
+            .heap
+            .iter()
+            .map(|node| node.0.0.0.clone())
+            .collect::<Vec<NodeId>>()
     }
 
     /// K-Nearest neighbour Search
