@@ -156,7 +156,7 @@ impl HNSW {
                 false,
             );
 
-            // TODO: add bidirectional connections from neighbours to q at layer lc
+            // NOTE: add bidirectional connections from neighbours to q at layer lc
             for neighbour_id in neighbours.iter() {
                 let neighbour_node = self.get_node_mut(neighbour_id).unwrap();
                 neighbour_node
@@ -176,7 +176,7 @@ impl HNSW {
                 neighbour_node.back_links.insert(value.id.clone());
             }
 
-            // NOTE: for each neighbours
+            // NOTE: for each neighbours prune if each exceeds Mmax
             for neighbour in neighbours.iter() {
                 // NOTE: if lc = 0, mmax = mmax0
                 let maximum_connections = if level_current == 0 {
@@ -229,8 +229,11 @@ impl HNSW {
         }
 
         if new_elements_lvl > self.top_most_layer {
+            self.top_most_layer = new_elements_lvl;
             self.enter_point = value.id.clone()
         }
+
+        self.nodes.insert(value.id.clone(), value);
     }
 
     /// Search for ef nearest neighbours in a specific layer
