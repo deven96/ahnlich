@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod hnsw;
 
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
@@ -137,6 +139,8 @@ where
 {
     heap: BinaryHeap<OrderedNode>,
     similarity: F,
+
+    query: Vec<f32>,
 }
 
 impl<F> MaxHeapQueue<F>
@@ -155,6 +159,7 @@ where
         Self {
             heap,
             similarity: similarity_function,
+            query: query.value.clone(),
         }
     }
 
@@ -175,8 +180,9 @@ where
     }
 
     fn push(&mut self, node: &Node) {
-        // TODO: compute the distance between query
-        //self.heap.push(Reverse(node))
+        let distance = (self.similarity)(&node.value, &self.query);
+        let ordered = OrderedNode((node.id.clone(), distance));
+        self.heap.push(ordered)
     }
 
     fn contains(&self, node_id: &NodeId) -> bool {
@@ -190,6 +196,7 @@ where
 {
     heap: BinaryHeap<Reverse<OrderedNode>>,
     similarity: F,
+    query: Vec<f32>,
 }
 
 impl<F> MinHeapQueue<F>
@@ -208,12 +215,14 @@ where
         Self {
             heap,
             similarity: similarity_function,
+            query: query.value.clone(),
         }
     }
 
     fn push(&mut self, node: &Node) {
-        // TODO: compute the distance between query
-        //self.heap.push(Reverse(node))
+        let distance = (self.similarity)(&node.value, &self.query);
+        let ordered = OrderedNode((node.id.clone(), distance));
+        self.heap.push(Reverse(ordered))
     }
 
     fn pop(&mut self) -> Option<Reverse<OrderedNode>> {
@@ -235,4 +244,24 @@ where
     fn contains(&self, node_id: &NodeId) -> bool {
         self.heap.iter().find(|x| &(x.0.0.0) == node_id).is_some()
     }
+}
+
+fn euclidean_distance_comp(first: &[f32], second: &[f32]) -> f32 {
+    // Calculate the sum of squared differences for each dimension
+    let mut sum_of_squared_differences = 0.0;
+    for (&coord1, &coord2) in first.iter().zip(second.iter()) {
+        let diff = coord1 - coord2;
+        sum_of_squared_differences += diff * diff;
+    }
+
+    // Calculate the square root of the sum of squared differences
+    f32::sqrt(sum_of_squared_differences)
+}
+
+fn dot_product_comp(first: &[f32], second: &[f32]) -> f32 {
+    first
+        .iter()
+        .zip(&second.to_vec())
+        .map(|(&x, &y)| x * y)
+        .sum::<f32>()
 }

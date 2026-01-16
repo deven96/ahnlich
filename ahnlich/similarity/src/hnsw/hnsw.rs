@@ -1,10 +1,13 @@
+// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
+// similarity function. It then navigates between these localised lists in DFS manner until it
+// gets the values it needs to
+
 #![allow(dead_code)]
 use crate::hnsw::{MaxHeapQueue, MinHeapQueue};
+use rand::Rng;
 
-pub use super::{LayerIndex, Node, NodeId};
-/// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
-/// similarity function. It then navigates between these localised lists in DFS manner until it
-/// gets the values it needs to
+use super::{LayerIndex, Node, NodeId, euclidean_distance_comp};
+
 use std::{
     cmp::min,
     collections::{HashMap, HashSet, btree_map::BTreeMap},
@@ -72,17 +75,17 @@ pub struct HNSW {
     enter_point: NodeId,
 }
 
-fn similarity_function(first: &[f32], second: &[f32]) -> f32 {
-    todo!()
-}
-
 impl HNSW {
     /// Returns a random level for a given element.
     /// TODO: element hashed node id would be used to determine an elements level.
     /// We have to make this determinable that a node would always return a certain level all the
     /// time. Would there be any issues with this??
+    ///l = floor(-ln(uniform(0,1)) * mL)
     fn get_element_level(&self) -> u8 {
-        todo!()
+        let mut rng = rand::thread_rng();
+        let unif: f64 = rng.r#gen(); // uniform hopefully
+        let level = (-unif.ln() * self.inv_log_m).floor() as u8;
+        level
     }
 
     /// Insert a new element into the HNSW graph
@@ -113,9 +116,12 @@ impl HNSW {
                 .collect::<Vec<Node>>();
 
             // NOTE: get the nearest element from W to q
-            let enter_points =
-                MinHeapQueue::from_nodes(&nearest_neighbours_nodes, &value, similarity_function)
-                    .pop_n(NonZeroUsize::new(1).unwrap());
+            let enter_points = MinHeapQueue::from_nodes(
+                &nearest_neighbours_nodes,
+                &value,
+                euclidean_distance_comp,
+            )
+            .pop_n(NonZeroUsize::new(1).unwrap());
 
             assert!(enter_points.len() == 1);
 
@@ -185,7 +191,7 @@ impl HNSW {
                     self.maximum_connections
                 } as usize;
 
-                let neighbour_node = self.get_node_mut(neighbour).unwrap();
+                let neighbour_node = self.get_node(neighbour).unwrap();
 
                 let e_conn = neighbour_node.neighbours_at(&layer_index).unwrap();
 
@@ -199,6 +205,8 @@ impl HNSW {
                         false,
                         false,
                     );
+
+                    let neighbour_node = self.get_node_mut(neighbour).unwrap();
 
                     neighbour_node
                         .neighbours
@@ -217,7 +225,7 @@ impl HNSW {
                 let enter_points = MinHeapQueue::from_nodes(
                     &nearest_neighbours_nodes,
                     &value,
-                    similarity_function,
+                    euclidean_distance_comp,
                 )
                 .pop_n(NonZeroUsize::new(1).unwrap());
 
@@ -255,9 +263,10 @@ impl HNSW {
         let mut visited_items: HashSet<&NodeId> = HashSet::from_iter(entry_points);
         // C
 
-        let mut candidates = MinHeapQueue::from_nodes(&nodes, query, similarity_function);
+        let mut candidates = MinHeapQueue::from_nodes(&nodes, query, euclidean_distance_comp);
         // W
-        let mut nearest_neighbours = MaxHeapQueue::from_nodes(&nodes, query, similarity_function);
+        let mut nearest_neighbours =
+            MaxHeapQueue::from_nodes(&nodes, query, euclidean_distance_comp);
 
         while candidates.len() > 0 {
             let nearest_ele_from_c_and_to_q = candidates.pop().unwrap().0.0.0;
@@ -270,9 +279,9 @@ impl HNSW {
                 .get(&furthest_ele_from_nearest_neighbours_to_q)
                 .unwrap();
 
-            let furthest_distance = similarity_function(&furthest_node.value, &query.value);
+            let furthest_distance = euclidean_distance_comp(&furthest_node.value, &query.value);
 
-            if similarity_function(&query.value, &closest_node.value) > furthest_distance {
+            if euclidean_distance_comp(&query.value, &closest_node.value) > furthest_distance {
                 break;
             }
 
@@ -294,8 +303,8 @@ impl HNSW {
 
                 let neighbour_node = self.get_node(e).unwrap();
 
-                if (similarity_function(&neighbour_node.value, &query.value)
-                    < similarity_function(&furthest_node.value, &query.value))
+                if (euclidean_distance_comp(&neighbour_node.value, &query.value)
+                    < euclidean_distance_comp(&furthest_node.value, &query.value))
                     || (nearest_neighbours.len() < ef as usize)
                 {
                     candidates.push(neighbour_node);
@@ -327,13 +336,13 @@ impl HNSW {
         extend_candidates: bool,
         keep_pruned_connections: bool,
     ) -> Vec<NodeId> {
-        let mut response = MinHeapQueue::from_nodes(&vec![], query, similarity_function);
+        let mut response = MinHeapQueue::from_nodes(&vec![], query, euclidean_distance_comp);
 
         let nodes = candidates
             .iter()
             .filter_map(|id| self.get_node(id).cloned())
             .collect::<Vec<_>>();
-        let mut working_queue = MinHeapQueue::from_nodes(&nodes, query, similarity_function);
+        let mut working_queue = MinHeapQueue::from_nodes(&nodes, query, euclidean_distance_comp);
 
         if extend_candidates {
             for candidate in candidates {
@@ -348,7 +357,7 @@ impl HNSW {
         }
 
         let mut discarded_candidates =
-            MinHeapQueue::from_nodes(&vec![], query, similarity_function);
+            MinHeapQueue::from_nodes(&vec![], query, euclidean_distance_comp);
 
         // NOTE: if nearest_element_from_w_to_q is closer to q compared to any
         // element in R(use the argmin from R and if nearest_ele_from_w_to_q is closer to q than
@@ -409,7 +418,7 @@ impl HNSW {
                 .filter_map(|id| self.get_node(id).cloned())
                 .collect::<Vec<_>>();
 
-            let tmp_heap = MinHeapQueue::from_nodes(&nodes, query, similarity_function);
+            let tmp_heap = MinHeapQueue::from_nodes(&nodes, query, euclidean_distance_comp);
             enter_point = tmp_heap.peak().unwrap().0.0.0.clone();
         }
 
@@ -420,7 +429,7 @@ impl HNSW {
             .collect::<Vec<_>>();
 
         let mut current_nearest_elements =
-            MinHeapQueue::from_nodes(&level_zero_nodes, query, similarity_function);
+            MinHeapQueue::from_nodes(&level_zero_nodes, query, euclidean_distance_comp);
 
         current_nearest_elements
             .pop_n(NonZeroUsize::new(k).unwrap())
@@ -431,7 +440,36 @@ impl HNSW {
 
     /// delete an new element from HNSW graph
     pub fn delete(&mut self, node_id: &NodeId) {
-        todo!()
+        //let node = self.get_node_mut(node_id).unwrap();
+
+        let (backlinks, neighbour_keys) = {
+            let node = self.get_node(node_id).unwrap();
+            (
+                node.back_links.clone(),
+                node.neighbours.keys().cloned().collect::<Vec<_>>(),
+            )
+        };
+
+        for backlink in &backlinks {
+            let related_node = self.get_node_mut(backlink).unwrap();
+            let neighbour_keys = related_node.neighbours.keys().cloned().collect::<Vec<_>>();
+            for layer_index in neighbour_keys {
+                related_node
+                    .neighbours
+                    .entry(layer_index)
+                    .and_modify(|set| {
+                        set.remove(node_id);
+                    });
+            }
+        }
+
+        for layer_index in neighbour_keys.iter() {
+            self.graph.entry(layer_index.clone()).and_modify(|set| {
+                set.remove(node_id);
+            });
+        }
+
+        self.nodes.remove(node_id);
     }
 
     /// Optional helper to get a node by NodeId efficiently
@@ -564,7 +602,15 @@ mod tests {
             back_links: HashSet::new(),
         });
 
-        let res = hnsw.knn_search(&vec![1.0], 1, Some(10));
+        let node_id = NodeId("Q".into());
+        let query_node = Node {
+            id: node_id.clone(),
+            value: vec![1.0],
+            neighbours: BTreeMap::new(),
+            back_links: HashSet::new(),
+        };
+
+        let res = hnsw.knn_search(&query_node, 1, Some(10));
         assert_eq!(res[0], a);
     }
 
