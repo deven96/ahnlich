@@ -41,7 +41,7 @@ use std::{
 /// Node 42 participates in layers 0–3, with neighbours stored per layer and
 /// back-links automatically updated upon deletion.
 /// ```
-#[derive(Default)]
+#[derive(Debug)]
 pub struct HNSW {
     /// Breadth of search during insertion (efConstruction)
     pub ef_construction: Option<u8>,
@@ -72,7 +72,7 @@ pub struct HNSW {
 
     /// node id of the starting point usually the element at the top most layer
     /// TODO: should this be saved or randomly selected since we know the topmost layer
-    enter_point: NodeId,
+    enter_point: Vec<NodeId>,
 }
 
 impl HNSW {
@@ -101,11 +101,11 @@ impl HNSW {
         // muiltiple hallways in a floor...
         // We keep finding the best flow until we get to the `new_elements_lvl+1`
         for level_current in (new_elements_lvl + 1..=self.top_most_layer).rev() {
-            let enter_points = &[enter_point.clone()];
+            let enter_points = self.enter_point.clone();
 
             let nearest_neighbours = self.search_layer(
                 &value,
-                enter_points,
+                &enter_points,
                 inital_ef,
                 &LayerIndex(level_current as u16),
             );
@@ -116,7 +116,7 @@ impl HNSW {
                 .collect::<Vec<Node>>();
 
             // NOTE: get the nearest element from W to q
-            let enter_points = MinHeapQueue::from_nodes(
+            let output = MinHeapQueue::from_nodes(
                 &nearest_neighbours_nodes,
                 &value,
                 euclidean_distance_comp,
@@ -125,12 +125,12 @@ impl HNSW {
 
             assert!(enter_points.len() == 1);
 
-            let tmp_enterpoint = enter_points.first().unwrap();
-            enter_point = tmp_enterpoint.0.0.0.clone();
+            let tmp_enterpoint = output.first().unwrap();
+            enter_point = vec![tmp_enterpoint.0.0.0.clone()];
         }
 
         // Deeper search
-        for level_current in (0..min(self.top_most_layer, new_elements_lvl)).rev() {
+        for level_current in (0..=min(self.top_most_layer, new_elements_lvl)).rev() {
             let layer_index = LayerIndex(level_current as u16);
 
             //NOTE: insert node to graph
@@ -143,7 +143,7 @@ impl HNSW {
             let nearest_neighbours = self
                 .search_layer(
                     &value,
-                    &[enter_point.clone()],
+                    &enter_point,
                     self.ef_construction.unwrap(),
                     &layer_index,
                 )
@@ -216,32 +216,39 @@ impl HNSW {
             }
 
             // NOTE: Find Best Enter Point
+            // TODO: fix this line here
             enter_point = {
-                let nearest_neighbours_nodes = nearest_neighbours
-                    .iter()
-                    .filter_map(|node_id| self.get_node(node_id).cloned())
-                    .collect::<Vec<Node>>();
+                if self.nodes.len() <= 1 {
+                    vec![]
+                } else {
+                    let nearest_neighbours_nodes = nearest_neighbours
+                        .iter()
+                        .filter_map(|node_id| self.get_node(node_id).cloned())
+                        .collect::<Vec<Node>>();
 
-                let enter_points = MinHeapQueue::from_nodes(
-                    &nearest_neighbours_nodes,
-                    &value,
-                    euclidean_distance_comp,
-                )
-                .pop_n(NonZeroUsize::new(1).unwrap());
+                    let enter_points = MinHeapQueue::from_nodes(
+                        &nearest_neighbours_nodes,
+                        &value,
+                        euclidean_distance_comp,
+                    )
+                    .pop_n(NonZeroUsize::new(1).unwrap());
 
-                assert!(enter_points.len() == 1);
-
-                let tmp_enterpoint = enter_points.first().unwrap();
-                tmp_enterpoint.0.0.0.clone()
+                    let tmp_enterpoint = enter_points.first().unwrap();
+                    vec![tmp_enterpoint.0.0.0.clone()]
+                }
             };
         }
 
-        if new_elements_lvl > self.top_most_layer {
-            self.top_most_layer = new_elements_lvl;
-            self.enter_point = value.id.clone()
-        }
+        self.nodes.insert(value.id.clone(), value.clone());
 
-        self.nodes.insert(value.id.clone(), value);
+        // NOTE: given that we use u8 for topmost layer, we want that on first insertion we always
+        // set enterpoint else this would be a pain
+        //
+        // TODO: should topmost layer of empty hnsw be -1 ??
+        if new_elements_lvl > self.top_most_layer || self.nodes.len() == 1 {
+            self.top_most_layer = new_elements_lvl;
+            self.enter_point = vec![value.id.clone()]
+        }
     }
 
     /// Search for ef nearest neighbours in a specific layer
@@ -409,9 +416,8 @@ impl HNSW {
 
         for level_current in (1..=ep_level).rev() {
             let layer = LayerIndex(level_current as u16);
-            let entry_points = &[enter_point.clone()];
 
-            let searched = self.search_layer(query, entry_points, 1, &layer);
+            let searched = self.search_layer(query, &enter_point, 1, &layer);
 
             let nodes = searched
                 .iter()
@@ -419,11 +425,11 @@ impl HNSW {
                 .collect::<Vec<_>>();
 
             let tmp_heap = MinHeapQueue::from_nodes(&nodes, query, euclidean_distance_comp);
-            enter_point = tmp_heap.peak().unwrap().0.0.0.clone();
+            enter_point = vec![tmp_heap.peak().unwrap().0.0.0.clone()];
         }
 
         let level_zero_nodes = self
-            .search_layer(query, &[enter_point], ef, &LayerIndex(0))
+            .search_layer(query, &enter_point, ef, &LayerIndex(0))
             .iter()
             .filter_map(|id| self.get_node(id).cloned())
             .collect::<Vec<_>>();
@@ -483,6 +489,24 @@ impl HNSW {
     }
 }
 
+impl Default for HNSW {
+    fn default() -> Self {
+        let maximum_connections = 48;
+        let inv_log_m = 1.0 / f64::ln(maximum_connections as f64);
+
+        Self {
+            ef_construction: Some(100),
+            top_most_layer: 0,
+            maximum_connections,
+            maximum_connections_zero: 100,
+            inv_log_m, // ln(1/M)
+            graph: BTreeMap::new(),
+            nodes: HashMap::new(),
+            enter_point: Vec::with_capacity(1),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -499,10 +523,8 @@ mod tests {
         };
 
         let mut hnsw = HNSW::default();
-
         hnsw.insert(node);
         let graph_values: Vec<_> = hnsw.graph.values().collect();
-
         assert_eq!(hnsw.nodes.len(), 1, "Nodes size does not match");
         let node_hashset = graph_values.first().cloned().unwrap().clone();
         assert_eq!(node_hashset, HashSet::from_iter([node_id.clone()]));
