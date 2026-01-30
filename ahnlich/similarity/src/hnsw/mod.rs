@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-pub mod hnsw;
+pub mod index;
 
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
 /// similarity function. It then navigates between these localised lists in DFS manner until it
