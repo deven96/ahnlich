@@ -20,7 +20,7 @@ impl Eq for LayerIndex {}
 
 impl PartialOrd for LayerIndex {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.0.cmp(&other.0))
+        Some(self.cmp(other))
     }
 }
 impl Ord for LayerIndex {
@@ -37,7 +37,7 @@ impl Eq for NodeId {}
 
 impl PartialOrd for NodeId {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.0.cmp(&other.0))
+        Some(self.cmp(other))
     }
 }
 impl Ord for NodeId {
@@ -87,7 +87,7 @@ pub struct Node {
 impl Node {
     /// Optional helper: get neighbours at a specific layer
     pub fn neighbours_at(&self, layer: &LayerIndex) -> Option<&HashSet<NodeId>> {
-        self.neighbours.get(&layer)
+        self.neighbours.get(layer)
     }
 
     /// Optional helper: add a neighbour at a specific layer
@@ -152,8 +152,7 @@ where
             .iter()
             .map(|node| {
                 let similarity = similarity_function(&node.value, &query.value);
-                let ordered_node = OrderedNode((node.id.clone(), similarity));
-                ordered_node
+                OrderedNode((node.id.clone(), similarity))
             })
             .collect::<BinaryHeap<_>>();
         Self {
@@ -186,7 +185,7 @@ where
     }
 
     fn contains(&self, node_id: &NodeId) -> bool {
-        self.heap.iter().find(|x| &(x.0.0) == node_id).is_some()
+        self.heap.iter().any(|x| &(x.0.0) == node_id)
     }
 }
 
@@ -242,7 +241,7 @@ where
     }
 
     fn contains(&self, node_id: &NodeId) -> bool {
-        self.heap.iter().find(|x| &(x.0.0.0) == node_id).is_some()
+        self.heap.iter().any(|x| &(x.0.0.0) == node_id)
     }
 }
 

@@ -87,8 +87,7 @@ impl HNSW {
     fn get_element_level(&self) -> u8 {
         let mut rng = rand::thread_rng();
         let unif: f64 = rng.r#gen(); // uniform hopefully
-        let level = (-unif.ln() * self.inv_log_m).floor() as u8;
-        level
+        (-unif.ln() * self.inv_log_m).floor() as u8
     }
 
     /// Insert a new element into the HNSW graph
@@ -141,7 +140,7 @@ impl HNSW {
             //NOTE: insert node to graph
             self.graph
                 .entry(layer_index.clone())
-                .or_insert_with(HashSet::new)
+                .or_default()
                 .insert(value.id.clone());
 
             // TODO: error handling in loop??
@@ -149,7 +148,6 @@ impl HNSW {
             let nearest_neighbours = self
                 .search_layer(&value, &enter_point, ef_construction, &layer_index)?
                 .into_iter()
-                .map(|d| d.clone())
                 .collect();
 
             // NOTE: neighbours =  SELECT-neighbourS(q, W, M, lc)
@@ -174,13 +172,13 @@ impl HNSW {
                 neighbour_node
                     .neighbours
                     .entry(layer_index.clone())
-                    .or_insert_with(HashSet::new)
+                    .or_default()
                     .insert(value.id.clone());
 
                 value
                     .neighbours
                     .entry(layer_index.clone())
-                    .or_insert_with(HashSet::new)
+                    .or_default()
                     .insert(neighbour_id.clone());
 
                 // NOTE: invert for backlinks
@@ -195,7 +193,7 @@ impl HNSW {
                     self.maximum_connections_zero
                 } else {
                     self.maximum_connections
-                } as usize;
+                };
 
                 // TODO: shouldn't return here, we can handle this and move on with the loop,
                 // could be a node marked for deletion??
@@ -209,8 +207,8 @@ impl HNSW {
 
                 if e_conn.len() > maximum_connections {
                     let new_neighbour_connections = self.select_neighbours_heuristic(
-                        &neighbour_node,
-                        &e_conn,
+                        neighbour_node,
+                        e_conn,
                         // TODO: should be Mmax, so we need to know if M and Mmax are diff
                         maximum_connections,
                         &layer_index,
@@ -283,7 +281,7 @@ impl HNSW {
         let nodes = entry_points
             .iter()
             .filter_map(|id| self.nodes.get(id))
-            .map(|node| node.clone())
+            .cloned()
             .collect::<Vec<Node>>();
 
         // v
@@ -363,11 +361,11 @@ impl HNSW {
             }
         }
 
-        return Ok(nearest_neighbours
+        Ok(nearest_neighbours
             .heap
             .iter()
             .map(|ordered| ordered.0.0.clone())
-            .collect());
+            .collect())
     }
 
     /// Select M neighbours using heuristic for diversity and pruning
@@ -381,7 +379,7 @@ impl HNSW {
         extend_candidates: bool,
         keep_pruned_connections: bool,
     ) -> Result<Vec<NodeId>, Error> {
-        let mut response = MinHeapQueue::from_nodes(&vec![], query, euclidean_distance_comp);
+        let mut response = MinHeapQueue::from_nodes(&[], query, euclidean_distance_comp);
 
         let nodes = candidates
             .iter()
@@ -405,14 +403,14 @@ impl HNSW {
                         let neighbour_node = self
                             .get_node(neighbour_id)
                             .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?;
-                        working_queue.push(&neighbour_node);
+                        working_queue.push(neighbour_node);
                     }
                 }
             }
         }
 
         let mut discarded_candidates =
-            MinHeapQueue::from_nodes(&vec![], query, euclidean_distance_comp);
+            MinHeapQueue::from_nodes(&[], query, euclidean_distance_comp);
 
         // NOTE: if nearest_element_from_w_to_q is closer to q compared to any
         // element in R(use the argmin from R and if nearest_ele_from_w_to_q is closer to q than
@@ -513,8 +511,6 @@ impl HNSW {
 
     /// delete an new element from HNSW graph
     pub fn delete(&mut self, node_id: &NodeId) {
-        //let node = self.get_node_mut(node_id).unwrap();
-
         let (backlinks, neighbour_keys) = {
             let node = self.get_node(node_id).unwrap();
             (
@@ -534,6 +530,8 @@ impl HNSW {
                         set.remove(node_id);
                     });
             }
+
+            related_node.back_links.remove(node_id);
         }
 
         for layer_index in neighbour_keys.iter() {
@@ -639,7 +637,7 @@ mod tests {
     }
 
     #[test]
-    fn test_triangle_graph() {
+    fn test_hnsw_basic_invariants() {
         let ids = ["A", "B", "C"]
             .iter()
             .map(|s| NodeId((*s).into()))
@@ -657,15 +655,25 @@ mod tests {
             .unwrap();
         }
 
-        for id in &ids {
-            let node = hnsw.get_node(id).unwrap();
-            let n = node.neighbours.get(&LayerIndex(0)).unwrap();
-            assert_eq!(n.len(), 2, "each node must have 2 neighbours");
+        let layer0 = LayerIndex(0);
 
-            for other in &ids {
-                if other != id {
-                    assert!(n.contains(other));
-                    assert!(node.back_links.contains(other));
+        for (id, node) in &hnsw.nodes {
+            // Degree bound
+            if let Some(neighbours) = node.neighbours.get(&layer0) {
+                assert!(neighbours.len() <= hnsw.maximum_connections_zero as usize);
+
+                for n in neighbours {
+                    // Neighbour exists
+                    assert!(hnsw.nodes.contains_key(n));
+
+                    // Backlink exists
+                    let other = hnsw.get_node(n).unwrap();
+                    assert!(
+                        other.back_links.contains(id),
+                        "missing backlink: {:?} <- {:?}",
+                        n,
+                        id
+                    );
                 }
             }
         }
