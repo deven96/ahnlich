@@ -93,6 +93,8 @@ impl HNSW {
     /// Insert a new element into the HNSW graph
     /// Corresponds to Algorithm 1 (INSERT)
     pub fn insert(&mut self, mut value: Node) -> Result<(), Error> {
+        // TODO: Research what happens if we try inserting a value multiple times
+
         // internally uses SEARCH-LAYER, SELECT-neighbourS
         let inital_ef = 1;
 
