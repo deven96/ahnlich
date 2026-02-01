@@ -8,7 +8,7 @@ pub mod index;
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashSet, btree_map::BTreeMap},
-    hash::Hash,
+    hash::{DefaultHasher, Hash, Hasher},
     num::NonZeroUsize,
 };
 
@@ -85,6 +85,20 @@ pub struct Node {
 }
 
 impl Node {
+    pub fn new(value: Vec<f32>) -> Self {
+        Self {
+            id: get_node_id(&value),
+            value,
+            neighbours: BTreeMap::new(),
+            back_links: HashSet::with_capacity(1),
+        }
+    }
+
+    /// get identifier
+    pub fn id(&self) -> &NodeId {
+        &self.id
+    }
+
     /// Optional helper: get neighbours at a specific layer
     pub fn neighbours_at(&self, layer: &LayerIndex) -> Option<&HashSet<NodeId>> {
         self.neighbours.get(layer)
@@ -263,4 +277,14 @@ fn dot_product_comp(first: &[f32], second: &[f32]) -> f32 {
         .zip(&second.to_vec())
         .map(|(&x, &y)| x * y)
         .sum::<f32>()
+}
+
+fn get_node_id(value: &[f32]) -> NodeId {
+    let mut hasher = DefaultHasher::new();
+    for element in value.iter() {
+        let bytes = element.to_ne_bytes();
+        hasher.write(&bytes);
+    }
+    let value = hasher.finish();
+    NodeId(format!("{:x}", value))
 }

@@ -573,6 +573,34 @@ impl Default for HNSW {
 }
 
 #[cfg(test)]
+pub fn brute_knn(query: &Node, data: &[Node], k: usize) -> Vec<(NodeId, f32)> {
+    use itertools::Itertools;
+
+    debug_assert!(k <= data.len());
+
+    data.iter()
+        .map(|n| {
+            (
+                n.id.clone(),
+                euclidean_distance_comp(&n.value, &query.value),
+            )
+        })
+        .sorted_by(|a, b| {
+            a.1.partial_cmp(&b.1).unwrap_or_else(|| {
+                if a.1.is_nan() && b.1.is_nan() {
+                    std::cmp::Ordering::Equal
+                } else if a.1.is_nan() {
+                    std::cmp::Ordering::Greater
+                } else {
+                    std::cmp::Ordering::Less
+                }
+            })
+        })
+        .take(k)
+        .collect()
+}
+
+#[cfg(test)]
 mod tests {
 
     use super::*;

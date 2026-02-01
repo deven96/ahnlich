@@ -19,9 +19,10 @@ crossbeam = "0.8.4"
 serde = { workspace = true, features = ["derive"], optional = true }
 tracing.workspace = true
 rand.workspace = true
+itertools.workspace = true
 
 [features]
-default = []
+default = ["serde"]
 serde = ["dep:serde"]
 
 

@@ -8,6 +8,9 @@ pub mod hnsw;
 pub mod kdtree;
 pub mod utils;
 
+#[cfg(test)]
+pub mod tests;
+
 pub trait NonLinearAlgorithmWithIndexImpl<'a>: Serialize + Deserialize<'a> {
     // insert a batch of new inputs
     fn insert(&self, new: Vec<Vec<f32>>) -> Result<(), error::Error>;

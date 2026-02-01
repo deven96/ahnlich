@@ -57,6 +57,7 @@ name = "ahnlich_similarity"
 version = "0.0.1"
 dependencies = [
  "crossbeam",
+ "itertools 0.10.5",
  "pretty_assertions",
  "rand 0.8.5",
  "serde",
