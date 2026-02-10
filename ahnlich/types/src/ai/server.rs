@@ -71,11 +71,26 @@ pub struct AiStoreInfo {
     pub embedding_size: u64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MultipleEmbedding {
+    #[prost(message, repeated, tag = "1")]
+    pub embeddings: ::prost::alloc::vec::Vec<super::super::keyval::StoreKey>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SingleInputToEmbedding {
     #[prost(message, optional, tag = "1")]
     pub input: ::core::option::Option<super::super::keyval::StoreInput>,
-    #[prost(message, optional, tag = "2")]
-    pub embedding: ::core::option::Option<super::super::keyval::StoreKey>,
+    #[prost(oneof = "single_input_to_embedding::Variant", tags = "2, 3")]
+    pub variant: ::core::option::Option<single_input_to_embedding::Variant>,
+}
+/// Nested message and enum types in `SingleInputToEmbedding`.
+pub mod single_input_to_embedding {
+    #[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Variant {
+        #[prost(message, tag = "2")]
+        Multiple(super::MultipleEmbedding),
+        #[prost(message, tag = "3")]
+        Single(super::super::super::keyval::StoreKey),
+    }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StoreInputToEmbeddingsList {

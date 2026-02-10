@@ -266,8 +266,8 @@ func TestConvertInputsToEmbeddings(t *testing.T) {
 
 			if okInputToEmbedding && okInput &&
 				rawStringInputToEmbedding.RawString == rawStringInput.RawString &&
-				inputToEmbedding.Embedding != nil &&
-				len(inputToEmbedding.Embedding.Key) > 0 {
+				inputToEmbedding.GetSingle() != nil &&
+				len(inputToEmbedding.GetSingle().Key) > 0 {
 				found = true
 				break
 			}

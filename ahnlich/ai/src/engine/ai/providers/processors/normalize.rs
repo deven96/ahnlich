@@ -80,7 +80,7 @@ impl Preprocessor for ImageNormalize {
 pub struct VectorNormalize;
 
 impl Postprocessor for VectorNormalize {
-    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData, AIProxyError> {
+    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData<'_, '_>, AIProxyError> {
         match data {
             PostprocessorData::NdArray2(array) => {
                 let norm = (&array * &array).sum_axis(Axis(1)).sqrt();

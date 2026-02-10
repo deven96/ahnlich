@@ -717,7 +717,7 @@ impl DbService for Server {
 impl AhnlichServerUtils for Server {
     type PersistenceTask = StoreHandler;
 
-    fn config(&self) -> ServerUtilsConfig {
+    fn config(&self) -> ServerUtilsConfig<'_> {
         ServerUtilsConfig {
             service_name: SERVICE_NAME,
             persist_location: &self.config.common.persist_location,

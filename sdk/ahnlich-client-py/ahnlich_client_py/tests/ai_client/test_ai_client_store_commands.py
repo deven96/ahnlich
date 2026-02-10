@@ -351,9 +351,7 @@ async def test_ai_client_convert_store_input_to_embeddings_succeeds(spin_up_ahnl
 
         for input in inputs:
             assert any(
-                e.input == input
-                and e.embedding is not None
-                and len(e.embedding.key) > 0
+                e.input == input and e.single is not None and len(e.single.key) > 0
                 for e in response.values
             )
     finally:

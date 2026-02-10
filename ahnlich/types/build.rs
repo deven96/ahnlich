@@ -116,38 +116,37 @@ fn restructure_generated_code(out_dir: &PathBuf, file: &mut std::fs::File) {
     let mut module_names = HashSet::new();
 
     for file in &generated_code {
-        if let Some(file_name) = file.file_name().and_then(|n| n.to_str()) {
-            if file_name.contains(".") {
-                let parts: Vec<&str> = file_name.split('.').collect();
-                module_names.insert(parts[0]);
+        if let Some(file_name) = file.file_name().and_then(|n| n.to_str())
+            && file_name.contains(".")
+        {
+            let parts: Vec<&str> = file_name.split('.').collect();
+            module_names.insert(parts[0]);
 
-                if parts.len() > 2 {
-                    let module_name = parts[0];
-                    let struct_file = format!("{}.rs", parts[1]);
+            if parts.len() > 2 {
+                let module_name = parts[0];
+                let struct_file = format!("{}.rs", parts[1]);
 
-                    let module_path = out_dir.join(module_name);
-                    let final_file_path = module_path.join(struct_file);
+                let module_path = out_dir.join(module_name);
+                let final_file_path = module_path.join(struct_file);
 
-                    // create module dir if missing
-                    std::fs::create_dir_all(&module_path)
-                        .expect("Failed to create module directory");
+                // create module dir if missing
+                std::fs::create_dir_all(&module_path).expect("Failed to create module directory");
 
-                    std::fs::rename(file, &final_file_path)
-                        .expect("Failed to move generated file to new location");
+                std::fs::rename(file, &final_file_path)
+                    .expect("Failed to move generated file to new location");
 
-                    let mod_rs_path = module_path.join("mod.rs");
+                let mod_rs_path = module_path.join("mod.rs");
 
-                    let mut file = std::fs::OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open(&mod_rs_path)
-                        .expect("Failed to create mod file");
+                let mut file = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&mod_rs_path)
+                    .expect("Failed to create mod file");
 
-                    let buffer = format!("pub mod {};\n", parts[1]);
+                let buffer = format!("pub mod {};\n", parts[1]);
 
-                    file.write_all(buffer.as_bytes())
-                        .expect("Failed to write to mod file");
-                }
+                file.write_all(buffer.as_bytes())
+                    .expect("Failed to write to mod file");
             }
         }
     }

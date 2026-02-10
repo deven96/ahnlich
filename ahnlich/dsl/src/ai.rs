@@ -105,16 +105,16 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                 )? as i32;
 
                 let mut execution_provider = None;
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::execution_provider_optional {
-                        let mut pair = inner_pairs
-                            .next()
-                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                            .into_inner();
-                        execution_provider = Some(parse_to_execution_provider(
-                            pair.next().map(|a| a.as_str()).unwrap(),
-                        )? as i32);
-                    }
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::execution_provider_optional
+                {
+                    let mut pair = inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                        .into_inner();
+                    execution_provider = Some(parse_to_execution_provider(
+                        pair.next().map(|a| a.as_str()).unwrap(),
+                    )? as i32);
                 };
 
                 AiQuery::Set(Set {
@@ -127,11 +127,11 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
             Rule::ai_create_store => {
                 let mut inner_pairs = statement.into_inner().peekable();
                 let mut error_if_exists = true;
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::if_not_exists {
-                        inner_pairs.next(); // Consume rule
-                        error_if_exists = false;
-                    }
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::if_not_exists
+                {
+                    inner_pairs.next(); // Consume rule
+                    error_if_exists = false;
                 };
                 let store = inner_pairs
                     .next()
@@ -151,35 +151,35 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                         .as_str(),
                 )? as i32;
                 let mut predicates = Vec::new();
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::metadata_keys {
-                        let index_name_pairs = inner_pairs
-                            .next()
-                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
-                        predicates = index_name_pairs
-                            .into_inner()
-                            .map(|index_pair| index_pair.as_str().to_string())
-                            .collect();
-                    }
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::metadata_keys
+                {
+                    let index_name_pairs = inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
+                    predicates = index_name_pairs
+                        .into_inner()
+                        .map(|index_pair| index_pair.as_str().to_string())
+                        .collect();
                 };
                 let mut non_linear_indices = Vec::new();
                 let mut store_original = false;
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::non_linear_algorithms {
-                        let index_name_pairs = inner_pairs
-                            .next()
-                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
-                        non_linear_indices = index_name_pairs
-                            .into_inner()
-                            .flat_map(|index_pair| to_non_linear(index_pair.as_str()))
-                            .map(|a| a as i32)
-                            .collect();
-                    }
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::non_linear_algorithms
+                {
+                    let index_name_pairs = inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?; // Consume rule
+                    non_linear_indices = index_name_pairs
+                        .into_inner()
+                        .flat_map(|index_pair| to_non_linear(index_pair.as_str()))
+                        .map(|a| a as i32)
+                        .collect();
                 };
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::store_original {
-                        store_original = true;
-                    }
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::store_original
+                {
+                    store_original = true;
                 }
                 AiQuery::CreateStore(CreateStore {
                     store,
@@ -211,27 +211,27 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                 )? as i32;
                 let mut preprocess_action = PreprocessAction::NoPreprocessing;
                 let mut execution_provider = None;
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::preprocess_optional {
-                        let mut pair = inner_pairs
-                            .next()
-                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                            .into_inner();
-                        preprocess_action = parse_to_preprocess_action(
-                            pair.next().map(|a| a.as_str()).unwrap_or("nopreprocessing"),
-                        )?;
-                    }
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::preprocess_optional
+                {
+                    let mut pair = inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                        .into_inner();
+                    preprocess_action = parse_to_preprocess_action(
+                        pair.next().map(|a| a.as_str()).unwrap_or("nopreprocessing"),
+                    )?;
                 };
-                if let Some(next_pair) = inner_pairs.peek() {
-                    if next_pair.as_rule() == Rule::execution_provider_optional {
-                        let mut pair = inner_pairs
-                            .next()
-                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
-                            .into_inner();
-                        execution_provider = Some(parse_to_execution_provider(
-                            pair.next().map(|a| a.as_str()).unwrap(),
-                        )? as i32);
-                    }
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::execution_provider_optional
+                {
+                    let mut pair = inner_pairs
+                        .next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                        .into_inner();
+                    execution_provider = Some(parse_to_execution_provider(
+                        pair.next().map(|a| a.as_str()).unwrap(),
+                    )? as i32);
                 };
                 let store = inner_pairs
                     .next()
