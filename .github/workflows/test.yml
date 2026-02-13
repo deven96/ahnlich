@@ -28,7 +28,7 @@ jobs:
 
     - name: Set up cargo and rustup tools
       run: |
-        which cargo-nextest || cargo install cargo-nextest
+        which cargo-nextest || cargo install --locked cargo-nextest
 
     - name: Install protoc
       run: |

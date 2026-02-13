@@ -27,6 +27,7 @@ message AIQuery {
     ai.query.PurgeStores purge_stores = 15;
     ai.query.Ping ping = 16;
     ai.query.ConvertStoreInputToEmbeddings convert_store_input_to_embeddings = 17;
+    ai.query.DelPred del_pred = 18;
   }
 }
 

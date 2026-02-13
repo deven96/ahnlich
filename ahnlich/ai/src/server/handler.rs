@@ -22,6 +22,7 @@ use ahnlich_types::ai::query::CreateNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::CreatePredIndex;
 use ahnlich_types::ai::query::CreateStore;
 use ahnlich_types::ai::query::DelKey;
+use ahnlich_types::ai::query::DelPred as AiDelPred;
 use ahnlich_types::ai::query::DropNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::DropPredIndex;
 use ahnlich_types::ai::query::DropStore;
@@ -572,6 +573,28 @@ impl AiService for AIProxyServer {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn del_pred(
+        &self,
+        request: tonic::Request<AiDelPred>,
+    ) -> Result<tonic::Response<Del>, tonic::Status> {
+        let params = request.into_inner();
+        let del_pred_params = DelPred {
+            store: params.store,
+            condition: params.condition,
+        };
+        let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
+        let db_client = self
+            .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let res = db_client.del_pred(del_pred_params, parent_id).await?;
+        Ok(tonic::Response::new(Del {
+            deleted_count: res.deleted_count,
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn drop_store(
         &self,
         request: tonic::Request<DropStore>,
@@ -847,6 +870,18 @@ impl AiService for AIProxyServer {
                 },
 
                 Query::DelKey(params) => match self.del_key(tonic::Request::new(params)).await {
+                    Ok(res) => {
+                        response_vec.push(ai_server_response::Response::Del(res.into_inner()))
+                    }
+                    Err(err) => {
+                        response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                            message: err.message().to_string(),
+                            code: err.code().into(),
+                        }));
+                    }
+                },
+
+                Query::DelPred(params) => match self.del_pred(tonic::Request::new(params)).await {
                     Ok(res) => {
                         response_vec.push(ai_server_response::Response::Del(res.into_inner()))
                     }

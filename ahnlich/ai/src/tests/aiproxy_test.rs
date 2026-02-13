@@ -1225,6 +1225,138 @@ async fn test_ai_proxy_del_key_drop_store() {
 }
 
 #[tokio::test]
+async fn test_ai_proxy_del_pred() {
+    let address = provision_test_servers().await;
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let store_name = "Sports Store".to_string();
+    let category_key = "category".to_string();
+    let archived_value = MetadataValue {
+        value: Some(MValue::RawString("archived".into())),
+    };
+    let active_value = MetadataValue {
+        value: Some(MValue::RawString("active".into())),
+    };
+
+    let archived_store_value = StoreValue {
+        value: HashMap::from_iter([(category_key.clone(), archived_value.clone())]),
+    };
+
+    let active_store_value = StoreValue {
+        value: HashMap::from_iter([(category_key.clone(), active_value.clone())]),
+    };
+
+    let store_data = vec![
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Old Soccer Ball".into())),
+            }),
+            value: Some(archived_store_value.clone()),
+        },
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("New Basketball".into())),
+            }),
+            value: Some(active_store_value.clone()),
+        },
+        AiStoreEntry {
+            key: Some(StoreInput {
+                value: Some(Value::RawString("Vintage Tennis Racket".into())),
+            }),
+            value: Some(archived_store_value.clone()),
+        },
+    ];
+
+    let archived_condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: category_key.clone(),
+                value: Some(archived_value.clone()),
+            })),
+        })),
+    };
+
+    // Create pipeline request
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![category_key.clone()],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: store_data,
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DelPred(ai_query_types::DelPred {
+                store: store_name.clone(),
+                condition: Some(archived_condition.clone()),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::GetPred(ai_query_types::GetPred {
+                store: store_name.clone(),
+                condition: Some(archived_condition),
+            })),
+        },
+    ];
+
+    let pipelined_request = ai_pipeline::AiRequestPipeline { queries };
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to send pipeline request");
+
+    let expected = ai_pipeline::AiResponsePipeline {
+        responses: vec![
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Unit(
+                    ai_response_types::Unit {},
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Set(
+                    ai_response_types::Set {
+                        upsert: Some(StoreUpsert {
+                            inserted: 3,
+                            updated: 0,
+                        }),
+                    },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Del(
+                    ai_response_types::Del { deleted_count: 2 },
+                )),
+            },
+            ai_pipeline::AiServerResponse {
+                response: Some(ai_pipeline::ai_server_response::Response::Get(
+                    ai_response_types::Get { entries: vec![] },
+                )),
+            },
+        ],
+    };
+
+    assert_eq!(response.into_inner(), expected);
+}
+
+#[tokio::test]
 async fn test_ai_proxy_test_with_persistence() {
     // Setup servers with persistence
     let server = Server::new(&CONFIG)
