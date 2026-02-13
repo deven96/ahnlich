@@ -201,6 +201,81 @@ func TestDeleteAndGetKey(t *testing.T) {
 	require.EqualValues(t, 1, del.DeletedCount)
 }
 
+func TestDelPred(t *testing.T) {
+	proc := startAI(t)
+	defer proc.Kill()
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := aisvc.NewAIServiceClient(conn)
+
+	_, _ = client.CreateStore(context.Background(), storeWithPred)
+
+	entries := []*keyval.AiStoreEntry{
+		{
+			Key: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "Old Soccer Ball"}},
+			Value: &keyval.StoreValue{
+				Value: map[string]*metadata.MetadataValue{
+					"category": {Value: &metadata.MetadataValue_RawString{RawString: "archived"}},
+				},
+			},
+		},
+		{
+			Key: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "New Basketball"}},
+			Value: &keyval.StoreValue{
+				Value: map[string]*metadata.MetadataValue{
+					"category": {Value: &metadata.MetadataValue_RawString{RawString: "active"}},
+				},
+			},
+		},
+		{
+			Key: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "Vintage Tennis Racket"}},
+			Value: &keyval.StoreValue{
+				Value: map[string]*metadata.MetadataValue{
+					"category": {Value: &metadata.MetadataValue_RawString{RawString: "archived"}},
+				},
+			},
+		},
+	}
+
+	_, _ = client.Set(context.Background(), &aiquery.Set{
+		Store:            storeWithPred.Store,
+		Inputs:           entries,
+		PreprocessAction: preprocess.PreprocessAction_NoPreprocessing,
+	})
+
+	// Delete by predicate (category == "archived")
+	condition := &predicates.PredicateCondition{
+		Kind: &predicates.PredicateCondition_Value{
+			Value: &predicates.Predicate{
+				Kind: &predicates.Predicate_Equals{
+					Equals: &predicates.Equals{
+						Key: "category",
+						Value: &metadata.MetadataValue{
+							Value: &metadata.MetadataValue_RawString{
+								RawString: "archived",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	del, _ := client.DelPred(context.Background(), &aiquery.DelPred{
+		Store:     storeWithPred.Store,
+		Condition: condition,
+	})
+	require.EqualValues(t, 2, del.DeletedCount)
+
+	// Verify that archived items are deleted
+	getResp, _ := client.GetPred(context.Background(), &aiquery.GetPred{
+		Store:     storeWithPred.Store,
+		Condition: condition,
+	})
+	require.EqualValues(t, 0, len(getResp.Entries))
+}
+
 func TestConvertInputsToEmbeddings(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()

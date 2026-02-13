@@ -191,6 +191,23 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def del_pred(
+        self,
+        ai_query_del_pred: "__ai_query__.DelPred",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__ai_server__.Del":
+        return await self._unary_unary(
+            "/services.ai_service.AIService/DelPred",
+            ai_query_del_pred,
+            __ai_server__.Del,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def drop_store(
         self,
         ai_query_drop_store: "__ai_query__.DropStore",
@@ -380,6 +397,11 @@ class AiServiceBase(ServiceBase):
     ) -> "__ai_server__.Del":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def del_pred(
+        self, ai_query_del_pred: "__ai_query__.DelPred"
+    ) -> "__ai_server__.Del":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def drop_store(
         self, ai_query_drop_store: "__ai_query__.DropStore"
     ) -> "__ai_server__.Del":
@@ -493,6 +515,13 @@ class AiServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.del_key(request)
+        await stream.send_message(response)
+
+    async def __rpc_del_pred(
+        self, stream: "grpclib.server.Stream[__ai_query__.DelPred, __ai_server__.Del]"
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.del_pred(request)
         await stream.send_message(response)
 
     async def __rpc_drop_store(
@@ -617,6 +646,12 @@ class AiServiceBase(ServiceBase):
                 self.__rpc_del_key,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __ai_query__.DelKey,
+                __ai_server__.Del,
+            ),
+            "/services.ai_service.AIService/DelPred": grpclib.const.Handler(
+                self.__rpc_del_pred,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __ai_query__.DelPred,
                 __ai_server__.Del,
             ),
             "/services.ai_service.AIService/DropStore": grpclib.const.Handler(

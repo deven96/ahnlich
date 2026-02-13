@@ -152,6 +152,19 @@ pub struct DelKey {
     pub keys: ::prost::alloc::vec::Vec<super::super::keyval::StoreInput>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DelPred {
+    /// Deletes values from the store based on the provided predicate condition
+    /// This is a passthrough to the underlying DB service
+    /// Updates indices non-blocking after deletion
+    ///
+    /// Store name
+    #[prost(string, tag = "1")]
+    pub store: ::prost::alloc::string::String,
+    /// The condition for the predicate deletion
+    #[prost(message, optional, tag = "2")]
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DropStore {
     /// Deletes the entire store and removes all associated data
     /// Destroys the store, and updates indices accordingly

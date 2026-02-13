@@ -129,6 +129,18 @@ class DelKey(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class DelPred(betterproto.Message):
+    store: str = betterproto.string_field(1)
+    """
+    Deletes values from the store based on the provided predicate condition
+     This is a passthrough to the underlying DB service
+     Updates indices non-blocking after deletion
+    """
+
+    condition: "__predicates__.PredicateCondition" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class DropStore(betterproto.Message):
     store: str = betterproto.string_field(1)
     """

@@ -6,7 +6,7 @@ title: Delete Predicate
 
 ## Description
 
-The `DeletePredicate` request removes entries from a store that match a given predicate condition. Instead of deleting by vector key, this operation lets you **filter deletions based on metadata values** (e.g., labels, tags, or custom attributes).
+The `DeletePredicate` request removes entries from an AI store that match a given predicate condition. This is a passthrough operation to the underlying DB service. Instead of deleting by vector key, this operation lets you **filter deletions based on metadata values** (e.g., labels, tags, or custom attributes).
 
 ## Source Code Example
 
@@ -28,49 +28,49 @@ import (
     "google.golang.org/grpc/credentials/insecure"
 
 
-    dbsvc      "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
-    dbquery    "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    aisvc      "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+    aiquery    "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
     metadata   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
     predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
 )
 
 
-const ServerAddr = "127.0.0.1:1369"
+const ServerAddr = "127.0.0.1:1370"
 
 
-type ExampleDBClient struct {
+type ExampleAIClient struct {
     conn   *grpc.ClientConn
-    client dbsvc.DBServiceClient
+    client aisvc.AIServiceClient
     ctx    context.Context
 }
 
 
-func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+func NewAIClient(ctx context.Context) (*ExampleAIClient, error) {
     conn, err := grpc.DialContext(ctx, ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
     if err != nil {
-        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+        return nil, fmt.Errorf("failed to dial AI server %q: %w", ServerAddr, err)
     }
-    client := dbsvc.NewDBServiceClient(conn)
-    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+    client := aisvc.NewAIServiceClient(conn)
+    return &ExampleAIClient{conn: conn, client: client, ctx: ctx}, nil
 }
 
 
-func (c *ExampleDBClient) Close() error {
+func (c *ExampleAIClient) Close() error {
     return c.conn.Close()
 }
 
 
 // -------------------- Delete Predicate --------------------
-func (c *ExampleDBClient) exampleDeletePredicate() error {
+func (c *ExampleAIClient) exampleDeletePredicate() error {
     condition := &predicates.PredicateCondition{
         Kind: &predicates.PredicateCondition_Value{
             Value: &predicates.Predicate{
                 Kind: &predicates.Predicate_Equals{
                     Equals: &predicates.Equals{
-                        Key: "label",
+                        Key: "category",
                         Value: &metadata.MetadataValue{
                             Value: &metadata.MetadataValue_RawString{
-                                RawString: "A",
+                                RawString: "archived",
                             },
                         },
                     },
@@ -79,14 +79,14 @@ func (c *ExampleDBClient) exampleDeletePredicate() error {
         },
     }
 
-    _, err := c.client.DelPred(c.ctx, &dbquery.DelPred{
-        Store:     "my_store",
+    _, err := c.client.DelPred(c.ctx, &aiquery.DelPred{
+        Store:     "my_ai_store",
         Condition: condition,
     })
     if err != nil {
         return err
     }
-    fmt.Println("Deleted entries matching predicate from store: my_store")
+    fmt.Println("Deleted entries matching predicate from AI store: my_ai_store")
     return nil
 }
 
@@ -97,9 +97,9 @@ func main() {
     defer cancel()
 
 
-    client, err := NewDBClient(ctx)
+    client, err := NewAIClient(ctx)
     if err != nil {
-        log.Fatalf("Failed to create DB client: %v", err)
+        log.Fatalf("Failed to create AI client: %v", err)
     }
     defer client.Close()
 
@@ -114,8 +114,8 @@ func main() {
 
 ## What the code does
 
-- Builds a predicate condition to match all entries where label == "A".
+- Builds a predicate condition to match all entries where category == "archived".
 
-- Sends a DelPred request against the store "my_store".
+- Sends a DelPred request against the AI store "my_ai_store".
 
-- Removes all vectors/entries that satisfy the predicate.
+- This is a passthrough to the underlying DB service, removing all vectors/entries that satisfy the predicate.

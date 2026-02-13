@@ -26,6 +26,7 @@ service AIService {
   rpc DropPredIndex(ai.query.DropPredIndex) returns (ai.server.Del);
   rpc DropNonLinearAlgorithmIndex(ai.query.DropNonLinearAlgorithmIndex) returns (ai.server.Del);
   rpc DelKey(ai.query.DelKey) returns (ai.server.Del);
+  rpc DelPred(ai.query.DelPred) returns (ai.server.Del);
   rpc DropStore(ai.query.DropStore) returns (ai.server.Del);
 
   /** Ancillary info methods **/

@@ -49,6 +49,7 @@ type AIQuery struct {
 	//	*AIQuery_PurgeStores
 	//	*AIQuery_Ping
 	//	*AIQuery_ConvertStoreInputToEmbeddings
+	//	*AIQuery_DelPred
 	Query isAIQuery_Query `protobuf_oneof:"query"`
 }
 
@@ -210,6 +211,13 @@ func (x *AIQuery) GetConvertStoreInputToEmbeddings() *query.ConvertStoreInputToE
 	return nil
 }
 
+func (x *AIQuery) GetDelPred() *query.DelPred {
+	if x, ok := x.GetQuery().(*AIQuery_DelPred); ok {
+		return x.DelPred
+	}
+	return nil
+}
+
 type isAIQuery_Query interface {
 	isAIQuery_Query()
 }
@@ -282,6 +290,10 @@ type AIQuery_ConvertStoreInputToEmbeddings struct {
 	ConvertStoreInputToEmbeddings *query.ConvertStoreInputToEmbeddings `protobuf:"bytes,17,opt,name=convert_store_input_to_embeddings,json=convertStoreInputToEmbeddings,proto3,oneof"`
 }
 
+type AIQuery_DelPred struct {
+	DelPred *query.DelPred `protobuf:"bytes,18,opt,name=del_pred,json=delPred,proto3,oneof"`
+}
+
 func (*AIQuery_CreateStore) isAIQuery_Query() {}
 
 func (*AIQuery_GetPred) isAIQuery_Query() {}
@@ -315,6 +327,8 @@ func (*AIQuery_PurgeStores) isAIQuery_Query() {}
 func (*AIQuery_Ping) isAIQuery_Query() {}
 
 func (*AIQuery_ConvertStoreInputToEmbeddings) isAIQuery_Query() {}
+
+func (*AIQuery_DelPred) isAIQuery_Query() {}
 
 type AIRequestPipeline struct {
 	state         protoimpl.MessageState
@@ -639,7 +653,7 @@ var file_ai_pipeline_proto_rawDesc = []byte{
 	0x1a, 0x0e, 0x61, 0x69, 0x2f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
 	0x1a, 0x0f, 0x61, 0x69, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x70, 0x72, 0x6f, 0x74,
 	0x6f, 0x1a, 0x11, 0x73, 0x68, 0x61, 0x72, 0x65, 0x64, 0x2f, 0x69, 0x6e, 0x66, 0x6f, 0x2e, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x22, 0xd7, 0x08, 0x0a, 0x07, 0x41, 0x49, 0x51, 0x75, 0x65, 0x72, 0x79,
+	0x72, 0x6f, 0x74, 0x6f, 0x22, 0x87, 0x09, 0x0a, 0x07, 0x41, 0x49, 0x51, 0x75, 0x65, 0x72, 0x79,
 	0x12, 0x3a, 0x0a, 0x0c, 0x63, 0x72, 0x65, 0x61, 0x74, 0x65, 0x5f, 0x73, 0x74, 0x6f, 0x72, 0x65,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x61, 0x69, 0x2e, 0x71, 0x75, 0x65, 0x72,
 	0x79, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x48, 0x00, 0x52,
@@ -708,7 +722,10 @@ var file_ai_pipeline_proto_rawDesc = []byte{
 	0x6f, 0x72, 0x65, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x54, 0x6f, 0x45, 0x6d, 0x62, 0x65, 0x64, 0x64,
 	0x69, 0x6e, 0x67, 0x73, 0x48, 0x00, 0x52, 0x1d, 0x63, 0x6f, 0x6e, 0x76, 0x65, 0x72, 0x74, 0x53,
 	0x74, 0x6f, 0x72, 0x65, 0x49, 0x6e, 0x70, 0x75, 0x74, 0x54, 0x6f, 0x45, 0x6d, 0x62, 0x65, 0x64,
-	0x64, 0x69, 0x6e, 0x67, 0x73, 0x42, 0x07, 0x0a, 0x05, 0x71, 0x75, 0x65, 0x72, 0x79, 0x22, 0x43,
+	0x64, 0x69, 0x6e, 0x67, 0x73, 0x12, 0x2e, 0x0a, 0x08, 0x64, 0x65, 0x6c, 0x5f, 0x70, 0x72, 0x65,
+	0x64, 0x18, 0x12, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x61, 0x69, 0x2e, 0x71, 0x75, 0x65,
+	0x72, 0x79, 0x2e, 0x44, 0x65, 0x6c, 0x50, 0x72, 0x65, 0x64, 0x48, 0x00, 0x52, 0x07, 0x64, 0x65,
+	0x6c, 0x50, 0x72, 0x65, 0x64, 0x42, 0x07, 0x0a, 0x05, 0x71, 0x75, 0x65, 0x72, 0x79, 0x22, 0x43,
 	0x0a, 0x11, 0x41, 0x49, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x50, 0x69, 0x70, 0x65, 0x6c,
 	0x69, 0x6e, 0x65, 0x12, 0x2e, 0x0a, 0x07, 0x71, 0x75, 0x65, 0x72, 0x69, 0x65, 0x73, 0x18, 0x01,
 	0x20, 0x03, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x61, 0x69, 0x2e, 0x70, 0x69, 0x70, 0x65, 0x6c, 0x69,
@@ -803,18 +820,19 @@ var file_ai_pipeline_proto_goTypes = []any{
 	(*query.PurgeStores)(nil),                   // 18: ai.query.PurgeStores
 	(*query.Ping)(nil),                          // 19: ai.query.Ping
 	(*query.ConvertStoreInputToEmbeddings)(nil), // 20: ai.query.ConvertStoreInputToEmbeddings
-	(*server.Unit)(nil),                         // 21: ai.server.Unit
-	(*server.Pong)(nil),                         // 22: ai.server.Pong
-	(*server.ClientList)(nil),                   // 23: ai.server.ClientList
-	(*server.StoreList)(nil),                    // 24: ai.server.StoreList
-	(*server.InfoServer)(nil),                   // 25: ai.server.InfoServer
-	(*server.Set)(nil),                          // 26: ai.server.Set
-	(*server.Get)(nil),                          // 27: ai.server.Get
-	(*server.GetSimN)(nil),                      // 28: ai.server.GetSimN
-	(*server.Del)(nil),                          // 29: ai.server.Del
-	(*server.CreateIndex)(nil),                  // 30: ai.server.CreateIndex
-	(*info.ErrorResponse)(nil),                  // 31: shared.info.ErrorResponse
-	(*server.StoreInputToEmbeddingsList)(nil),   // 32: ai.server.StoreInputToEmbeddingsList
+	(*query.DelPred)(nil),                       // 21: ai.query.DelPred
+	(*server.Unit)(nil),                         // 22: ai.server.Unit
+	(*server.Pong)(nil),                         // 23: ai.server.Pong
+	(*server.ClientList)(nil),                   // 24: ai.server.ClientList
+	(*server.StoreList)(nil),                    // 25: ai.server.StoreList
+	(*server.InfoServer)(nil),                   // 26: ai.server.InfoServer
+	(*server.Set)(nil),                          // 27: ai.server.Set
+	(*server.Get)(nil),                          // 28: ai.server.Get
+	(*server.GetSimN)(nil),                      // 29: ai.server.GetSimN
+	(*server.Del)(nil),                          // 30: ai.server.Del
+	(*server.CreateIndex)(nil),                  // 31: ai.server.CreateIndex
+	(*info.ErrorResponse)(nil),                  // 32: shared.info.ErrorResponse
+	(*server.StoreInputToEmbeddingsList)(nil),   // 33: ai.server.StoreInputToEmbeddingsList
 }
 var file_ai_pipeline_proto_depIdxs = []int32{
 	4,  // 0: ai.pipeline.AIQuery.create_store:type_name -> ai.query.CreateStore
@@ -834,25 +852,26 @@ var file_ai_pipeline_proto_depIdxs = []int32{
 	18, // 14: ai.pipeline.AIQuery.purge_stores:type_name -> ai.query.PurgeStores
 	19, // 15: ai.pipeline.AIQuery.ping:type_name -> ai.query.Ping
 	20, // 16: ai.pipeline.AIQuery.convert_store_input_to_embeddings:type_name -> ai.query.ConvertStoreInputToEmbeddings
-	0,  // 17: ai.pipeline.AIRequestPipeline.queries:type_name -> ai.pipeline.AIQuery
-	21, // 18: ai.pipeline.AIServerResponse.unit:type_name -> ai.server.Unit
-	22, // 19: ai.pipeline.AIServerResponse.pong:type_name -> ai.server.Pong
-	23, // 20: ai.pipeline.AIServerResponse.client_list:type_name -> ai.server.ClientList
-	24, // 21: ai.pipeline.AIServerResponse.store_list:type_name -> ai.server.StoreList
-	25, // 22: ai.pipeline.AIServerResponse.info_server:type_name -> ai.server.InfoServer
-	26, // 23: ai.pipeline.AIServerResponse.set:type_name -> ai.server.Set
-	27, // 24: ai.pipeline.AIServerResponse.get:type_name -> ai.server.Get
-	28, // 25: ai.pipeline.AIServerResponse.get_sim_n:type_name -> ai.server.GetSimN
-	29, // 26: ai.pipeline.AIServerResponse.del:type_name -> ai.server.Del
-	30, // 27: ai.pipeline.AIServerResponse.create_index:type_name -> ai.server.CreateIndex
-	31, // 28: ai.pipeline.AIServerResponse.error:type_name -> shared.info.ErrorResponse
-	32, // 29: ai.pipeline.AIServerResponse.store_input_to_embeddings_list:type_name -> ai.server.StoreInputToEmbeddingsList
-	2,  // 30: ai.pipeline.AIResponsePipeline.responses:type_name -> ai.pipeline.AIServerResponse
-	31, // [31:31] is the sub-list for method output_type
-	31, // [31:31] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	21, // 17: ai.pipeline.AIQuery.del_pred:type_name -> ai.query.DelPred
+	0,  // 18: ai.pipeline.AIRequestPipeline.queries:type_name -> ai.pipeline.AIQuery
+	22, // 19: ai.pipeline.AIServerResponse.unit:type_name -> ai.server.Unit
+	23, // 20: ai.pipeline.AIServerResponse.pong:type_name -> ai.server.Pong
+	24, // 21: ai.pipeline.AIServerResponse.client_list:type_name -> ai.server.ClientList
+	25, // 22: ai.pipeline.AIServerResponse.store_list:type_name -> ai.server.StoreList
+	26, // 23: ai.pipeline.AIServerResponse.info_server:type_name -> ai.server.InfoServer
+	27, // 24: ai.pipeline.AIServerResponse.set:type_name -> ai.server.Set
+	28, // 25: ai.pipeline.AIServerResponse.get:type_name -> ai.server.Get
+	29, // 26: ai.pipeline.AIServerResponse.get_sim_n:type_name -> ai.server.GetSimN
+	30, // 27: ai.pipeline.AIServerResponse.del:type_name -> ai.server.Del
+	31, // 28: ai.pipeline.AIServerResponse.create_index:type_name -> ai.server.CreateIndex
+	32, // 29: ai.pipeline.AIServerResponse.error:type_name -> shared.info.ErrorResponse
+	33, // 30: ai.pipeline.AIServerResponse.store_input_to_embeddings_list:type_name -> ai.server.StoreInputToEmbeddingsList
+	2,  // 31: ai.pipeline.AIResponsePipeline.responses:type_name -> ai.pipeline.AIServerResponse
+	32, // [32:32] is the sub-list for method output_type
+	32, // [32:32] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_ai_pipeline_proto_init() }
@@ -928,6 +947,7 @@ func file_ai_pipeline_proto_init() {
 		(*AIQuery_PurgeStores)(nil),
 		(*AIQuery_Ping)(nil),
 		(*AIQuery_ConvertStoreInputToEmbeddings)(nil),
+		(*AIQuery_DelPred)(nil),
 	}
 	file_ai_pipeline_proto_msgTypes[2].OneofWrappers = []any{
 		(*AIServerResponse_Unit)(nil),
