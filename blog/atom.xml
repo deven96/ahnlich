@@ -193,6 +193,10 @@
             <name>Diretnan Domnan</name>
             <uri>https://github.com/deven96</uri>
         </author>
+        <author>
+            <name>David Onuh</name>
+            <uri>https://github.com/iamdavidonuh</uri>
+        </author>
         <category label="Ahnlich" term="Ahnlich"/>
         <category label="Performance" term="Performance"/>
         <category label="simd" term="simd"/>
