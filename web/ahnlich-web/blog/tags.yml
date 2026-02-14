@@ -1,19 +1,29 @@
-facebook:
-  label: Facebook
-  permalink: /facebook
-  description: Facebook tag description
+ahnlich:
+  label: Ahnlich
+  permalink: /ahnlich
+  description: Posts about Ahnlich vector database
 
-hello:
-  label: Hello
-  permalink: /hello
-  description: Hello tag description
+announcement:
+  label: Announcement
+  permalink: /announcement
+  description: Product announcements and updates
 
-docusaurus:
-  label: Docusaurus
-  permalink: /docusaurus
-  description: Docusaurus tag description
+tutorial:
+  label: Tutorial
+  permalink: /tutorial
+  description: Tutorials and how-to guides
 
-hola:
-  label: Hola
-  permalink: /hola
-  description: Hola tag description
+feature:
+  label: Feature
+  permalink: /feature
+  description: Feature releases and updates
+
+performance:
+  label: Performance
+  permalink: /performance
+  description: Performance benchmarks and optimization tips
+
+community:
+  label: Community
+  permalink: /community
+  description: Community highlights and contributions
