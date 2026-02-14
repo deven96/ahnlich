@@ -7,3 +7,13 @@ diretnan:
   socials:
     x: _deven96
     github: deven96
+
+david:
+  name: David Onuh
+  title: Senior Software Engineer @ Aleph Alpha
+  url: https://github.com/iamdavidonuh
+  image_url: https://github.com/iamdavidonuh.png
+  page: true
+  socials:
+    x: iamdavidonuh
+    github: iamdavidonuh
