@@ -3,7 +3,7 @@ slug: simd-optimization-vector-database
 title: "Making Ahnlich Faster with SIMD: A 4.7x Speedup Story"
 authors: [diretnan]
 tags: [ahnlich, performance, simd, rust]
-image: /img/blog/simd-hero.svg
+image: /img/blog/simd-hero.png
 ---
 
 Vector databases power modern search, from finding similar images to semantic document retrieval. But there's a hidden performance bottleneck: calculating distances between millions of high-dimensional vectors requires billions of operations per query. In this post, I'll show you how we used SIMD (Single Instruction, Multiple Data) to make [Ahnlich](https://github.com/deven96/ahnlich) **4.7x faster** at these calculations.
