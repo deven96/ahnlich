@@ -1,7 +1,7 @@
 ---
 slug: simd-optimization-vector-database
 title: "Making Ahnlich Faster with SIMD: A 4.7x Speedup Story"
-authors: [diretnan]
+authors: [diretnan, davidonuh]
 tags: [ahnlich, performance, simd, rust]
 image: /img/blog/simd-hero.svg
 ---
