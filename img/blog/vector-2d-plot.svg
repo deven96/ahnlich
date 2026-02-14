@@ -1,0 +1,77 @@
+<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#94a3b8" />
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="800" height="600" fill="#0f172a"/>
+  
+  <!-- Title -->
+  <text x="400" y="35" font-family="Arial, sans-serif" font-size="20" fill="#f1f5f9" text-anchor="middle" font-weight="bold">Vector Similarity in 2D Space</text>
+  
+  <!-- Plot area background -->
+  <rect x="80" y="70" width="450" height="450" fill="#1e293b" opacity="0.3" rx="4"/>
+  
+  <!-- Grid lines -->
+  <line x1="80" y1="520" x2="530" y2="520" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
+  <line x1="80" y1="295" x2="530" y2="295" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
+  <line x1="80" y1="70" x2="80" y2="520" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
+  <line x1="305" y1="70" x2="305" y2="520" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
+  <line x1="530" y1="70" x2="530" y2="520" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
+  
+  <!-- Axes -->
+  <line x1="80" y1="70" x2="80" y2="520" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrowhead)"/>
+  <line x1="80" y1="520" x2="530" y2="520" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#arrowhead)"/>
+  
+  <!-- Y axis labels -->
+  <text x="50" y="75" font-family="monospace" font-size="15" fill="#cbd5e1" font-weight="bold">1.0</text>
+  <text x="50" y="300" font-family="monospace" font-size="15" fill="#cbd5e1" font-weight="bold">0.5</text>
+  <text x="50" y="525" font-family="monospace" font-size="15" fill="#cbd5e1" font-weight="bold">0.0</text>
+  
+  <!-- X axis labels -->
+  <text x="75" y="545" font-family="monospace" font-size="15" fill="#cbd5e1" font-weight="bold">0.0</text>
+  <text x="295" y="545" font-family="monospace" font-size="15" fill="#cbd5e1" font-weight="bold">0.5</text>
+  <text x="520" y="545" font-family="monospace" font-size="15" fill="#cbd5e1" font-weight="bold">1.0</text>
+  
+  <!-- Axis titles -->
+  <text x="305" y="575" font-family="Arial, sans-serif" font-size="17" fill="#e2e8f0" text-anchor="middle" font-weight="bold">Dimension 1</text>
+  <text x="25" y="295" font-family="Arial, sans-serif" font-size="17" fill="#e2e8f0" text-anchor="middle" font-weight="bold" transform="rotate(-90 25 295)">Dimension 2</text>
+  
+  <!-- Plot area: x range [80, 530] = 450px for [0.0, 1.0]
+                  y range [520, 70] = 450px for [0.0, 1.0] (inverted) -->
+  
+  <!-- Point: "I ate pizza" [0.1, 0.9] -> x=80+0.1*450=125, y=520-0.9*450=115 -->
+  <!-- Leader line to label box - now dotted -->
+  <line x1="125" y1="115" x2="200" y2="115" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.5"/>
+  <circle cx="125" cy="115" r="4" fill="#3b82f6" stroke="#60a5fa" stroke-width="1.5"/>
+  <rect x="200" y="95" width="150" height="45" fill="#1e293b" stroke="#60a5fa" stroke-width="2" rx="4"/>
+  <text x="275" y="113" font-family="Arial, sans-serif" font-size="14" fill="#60a5fa" text-anchor="middle" font-weight="bold">"I ate pizza"</text>
+  <text x="275" y="130" font-family="monospace" font-size="13" fill="#94a3b8" text-anchor="middle">[0.1, 0.9]</text>
+  
+  <!-- Point: "dog sleeping" [0.7, 0.3] -> x=80+0.7*450=395, y=520-0.3*450=385 -->
+  <!-- Leader line to label box - now dotted -->
+  <line x1="395" y1="385" x2="560" y2="300" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.5"/>
+  <circle cx="395" cy="385" r="4" fill="#3b82f6" stroke="#60a5fa" stroke-width="1.5"/>
+  <rect x="560" y="280" width="160" height="45" fill="#1e293b" stroke="#60a5fa" stroke-width="2" rx="4"/>
+  <text x="640" y="298" font-family="Arial, sans-serif" font-size="14" fill="#60a5fa" text-anchor="middle" font-weight="bold">"dog sleeping"</text>
+  <text x="640" y="315" font-family="monospace" font-size="13" fill="#94a3b8" text-anchor="middle">[0.7, 0.3]</text>
+  
+  <!-- Point: "cat sleeps" [0.77, 0.23] -> x=80+0.77*450=426.5, y=520-0.23*450=416.5 -->
+  <!-- Leader line to label box - now dotted -->
+  <line x1="426.5" y1="416.5" x2="560" y2="430" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.5"/>
+  <circle cx="426.5" cy="416.5" r="4" fill="#3b82f6" stroke="#60a5fa" stroke-width="1.5"/>
+  <rect x="560" y="410" width="160" height="45" fill="#1e293b" stroke="#60a5fa" stroke-width="2" rx="4"/>
+  <text x="640" y="428" font-family="Arial, sans-serif" font-size="14" fill="#60a5fa" text-anchor="middle" font-weight="bold">"cat sleeps"</text>
+  <text x="640" y="445" font-family="monospace" font-size="13" fill="#94a3b8" text-anchor="middle">[0.77, 0.23]</text>
+  
+  <!-- Query Point: "kitten napping" [0.75, 0.25] -> x=80+0.75*450=417.5, y=520-0.25*450=407.5 -->
+  <!-- Leader line to label box - now dotted -->
+  <line x1="417.5" y1="407.5" x2="560" y2="520" stroke="#10b981" stroke-width="2" stroke-dasharray="3,3" opacity="0.6"/>
+  <circle cx="417.5" cy="407.5" r="5" fill="#10b981" stroke="#34d399" stroke-width="2"/>
+  <rect x="560" y="500" width="220" height="65" fill="#065f46" stroke="#10b981" stroke-width="2.5" rx="4"/>
+  <text x="670" y="520" font-family="Arial, sans-serif" font-size="15" fill="#10b981" text-anchor="middle" font-weight="bold">QUERY: "kitten napping"</text>
+  <text x="670" y="540" font-family="monospace" font-size="13" fill="#6ee7b7" text-anchor="middle">[0.75, 0.25]</text>
+  <text x="670" y="556" font-family="monospace" font-size="11" fill="#6ee7b7" text-anchor="middle">Finding nearest neighbors...</text>
+</svg>

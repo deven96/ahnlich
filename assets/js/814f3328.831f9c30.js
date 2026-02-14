@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkahnlich_web=self.webpackChunkahnlich_web||[]).push([[7472],{55513:e=>{e.exports=JSON.parse('{"title":"Recent posts","items":[{"title":"Making Ahnlich Faster with SIMD: A 4.7x Speedup Story","permalink":"/blog/simd-optimization-vector-database","unlisted":false,"date":"2026-02-14T00:00:00.000Z"}]}')}}]);
