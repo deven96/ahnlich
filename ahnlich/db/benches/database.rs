@@ -3,6 +3,8 @@ use ahnlich_types::algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgori
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
+use ahnlich_types::metadata::MetadataValue;
+use ahnlich_types::predicates::{Predicate, PredicateCondition, predicate::Kind as PredicateKind};
 use criterion::{Criterion, criterion_group, criterion_main};
 
 use rayon::iter::ParallelIterator;
@@ -241,6 +243,189 @@ fn bench_insertion(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_predicate_queries(c: &mut Criterion) {
+    let store_name = "TestPredicate";
+    let sizes = [100, 1000, 10000, 100000];
+
+    // Benchmark non-indexed predicate queries (should benefit from parallelization)
+    let mut group_no_index = c.benchmark_group("predicate_query_without_index");
+    for size in sizes {
+        let handler = initialize_store_handler();
+        let dimension = 1024;
+
+        // Create store WITHOUT predicate index
+        handler
+            .create_store(
+                StoreName {
+                    value: store_name.to_string(),
+                },
+                NonZeroUsize::new(dimension).unwrap(),
+                vec![], // No predicate indices
+                HashSet::new(),
+                true,
+            )
+            .unwrap();
+
+        // Insert data with metadata
+        let bulk_insert: Vec<_> = (0..size)
+            .map(|i| {
+                let random_array: Vec<f32> = (0..dimension).map(|_| rand::random()).collect();
+                let category = if i % 3 == 0 {
+                    "categoryA"
+                } else if i % 3 == 1 {
+                    "categoryB"
+                } else {
+                    "categoryC"
+                };
+                (
+                    StoreKey { key: random_array },
+                    StoreValue {
+                        value: HashMap::from_iter([(
+                            "category".to_string(),
+                            MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        category.to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
+                )
+            })
+            .collect();
+
+        handler
+            .set_in_store(
+                &StoreName {
+                    value: store_name.to_string(),
+                },
+                bulk_insert,
+            )
+            .unwrap();
+
+        // Create predicate condition
+        let condition = PredicateCondition {
+            kind: Some(ahnlich_types::predicates::predicate_condition::Kind::Value(
+                Predicate {
+                    kind: Some(PredicateKind::Equals(ahnlich_types::predicates::Equals {
+                        key: "category".to_string(),
+                        value: Some(MetadataValue {
+                            value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                                "categoryA".to_string(),
+                            )),
+                        }),
+                    })),
+                },
+            )),
+        };
+
+        group_no_index.sampling_mode(criterion::SamplingMode::Flat);
+        group_no_index.bench_function(format!("size_{size}"), |b| {
+            b.iter(|| {
+                handler
+                    .get_pred_in_store(
+                        &StoreName {
+                            value: store_name.to_string(),
+                        },
+                        &condition,
+                    )
+                    .unwrap();
+            });
+        });
+    }
+    group_no_index.finish();
+
+    // Benchmark indexed predicate queries (for comparison)
+    let mut group_with_index = c.benchmark_group("predicate_query_with_index");
+    for size in sizes {
+        let handler = initialize_store_handler();
+        let dimension = 1024;
+
+        // Create store WITH predicate index
+        handler
+            .create_store(
+                StoreName {
+                    value: store_name.to_string(),
+                },
+                NonZeroUsize::new(dimension).unwrap(),
+                vec!["category".to_string()], // WITH predicate index
+                HashSet::new(),
+                true,
+            )
+            .unwrap();
+
+        // Insert data with metadata
+        let bulk_insert: Vec<_> = (0..size)
+            .map(|i| {
+                let random_array: Vec<f32> = (0..dimension).map(|_| rand::random()).collect();
+                let category = if i % 3 == 0 {
+                    "categoryA"
+                } else if i % 3 == 1 {
+                    "categoryB"
+                } else {
+                    "categoryC"
+                };
+                (
+                    StoreKey { key: random_array },
+                    StoreValue {
+                        value: HashMap::from_iter([(
+                            "category".to_string(),
+                            MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        category.to_string(),
+                                    ),
+                                ),
+                            },
+                        )]),
+                    },
+                )
+            })
+            .collect();
+
+        handler
+            .set_in_store(
+                &StoreName {
+                    value: store_name.to_string(),
+                },
+                bulk_insert,
+            )
+            .unwrap();
+
+        // Create predicate condition
+        let condition = PredicateCondition {
+            kind: Some(ahnlich_types::predicates::predicate_condition::Kind::Value(
+                Predicate {
+                    kind: Some(PredicateKind::Equals(ahnlich_types::predicates::Equals {
+                        key: "category".to_string(),
+                        value: Some(MetadataValue {
+                            value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                                "categoryA".to_string(),
+                            )),
+                        }),
+                    })),
+                },
+            )),
+        };
+
+        group_with_index.sampling_mode(criterion::SamplingMode::Flat);
+        group_with_index.bench_function(format!("size_{size}"), |b| {
+            b.iter(|| {
+                handler
+                    .get_pred_in_store(
+                        &StoreName {
+                            value: store_name.to_string(),
+                        },
+                        &condition,
+                    )
+                    .unwrap();
+            });
+        });
+    }
+    group_with_index.finish();
+}
+
 fn criterion_config(seconds: u64, sample_size: usize) -> Criterion {
     Criterion::default()
         .measurement_time(std::time::Duration::new(seconds, 0))
@@ -260,4 +445,12 @@ criterion_group! {
     config = criterion_config(30, 10);
     targets = bench_retrieval
 }
-criterion_main!(insertion, retrieval);
+
+// group to measure predicate query time
+criterion_group! {
+    name = predicate;
+    config = criterion_config(30, 10);
+    targets = bench_predicate_queries
+}
+
+criterion_main!(insertion, retrieval, predicate);
