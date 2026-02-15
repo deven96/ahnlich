@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en" dir="ltr" class="docs-wrapper plugin-docs plugin-id-default docs-version-current docs-doc-page docs-doc-id-reference/error-codes" data-has-hydrated="false">
+<head>
+<meta charset="UTF-8">
+<meta name="generator" content="Docusaurus v3.9.2">
+<title data-rh="true">Error Codes Reference | Ahnlich</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://ahnlich.dev/docs/reference/error-codes"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="twitter:image" content="img/logo.jpg"><meta data-rh="true" property="og:image" content="img/logo.jpg"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="Error Codes Reference | Ahnlich"><meta data-rh="true" name="description" content="This page documents all error codes, messages, and their solutions in Ahnlich DB and AI."><meta data-rh="true" property="og:description" content="This page documents all error codes, messages, and their solutions in Ahnlich DB and AI."><link data-rh="true" rel="icon" href="/img/logo.png"><link data-rh="true" rel="canonical" href="https://ahnlich.dev/docs/reference/error-codes"><link data-rh="true" rel="alternate" href="https://ahnlich.dev/docs/reference/error-codes" hreflang="en"><link data-rh="true" rel="alternate" href="https://ahnlich.dev/docs/reference/error-codes" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Error Codes Reference","item":"https://ahnlich.dev/docs/reference/error-codes"}]}</script><link rel="alternate" type="application/rss+xml" href="/blog/rss.xml" title="Ahnlich RSS Feed">
+<link rel="alternate" type="application/atom+xml" href="/blog/atom.xml" title="Ahnlich Atom Feed">
+
+<link rel="preconnect" href="https://www.google-analytics.com">
+<link rel="preconnect" href="https://www.googletagmanager.com">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3BGX6E99T1"></script>
+<script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-3BGX6E99T1",{anonymize_ip:!0})</script><link rel="stylesheet" href="/assets/css/styles.e950c118.css">
+<script src="/assets/js/runtime~main.8c134628.js" defer="defer"></script>
+<script src="/assets/js/main.bceedeff.js" defer="defer"></script>
+</head>
+<body class="navigation-with-keyboard">
+<svg style="display: none;"><defs>
+<symbol id="theme-svg-external-link" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
+</defs></svg>
+<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{const c=new URLSearchParams(window.location.search).entries();for(var[t,e]of c)if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id="__docusaurus"><link rel="preload" as="image" href="/img/logo.png"><div role="region" aria-label="Skip to main content"><a class="skipToContent_fXgn" href="#__docusaurus_skipToContent_fallback">Skip to main content</a></div><nav aria-label="Main" class="theme-layout-navbar navbar navbar--fixed-top"><div class="navbar__inner"><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded="false" class="navbar__toggle clean-btn" type="button"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2" d="M4 7h22M4 15h22M4 23h22"></path></svg></button><a class="navbar__brand" href="/"><div class="navbar__logo"><img src="/img/logo.png" alt="Ahnlich Logo" class="themedComponent_mlkZ themedComponent--light_NVdE"><img src="/img/logo.png" alt="Ahnlich Logo" class="themedComponent_mlkZ themedComponent--dark_xIcU"></div><b class="navbar__title text--truncate">AHNLICH</b></a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><a aria-current="page" class="navbar__item navbar__link navbar__link--active" href="/docs/overview">Docs</a><a class="navbar__item navbar__link" href="/blog">Blog</a><a class="navbar__item navbar__link" href="/docs/guides">Guides</a><a href="https://github.com/deven96/ahnlich" target="_blank" rel="noopener noreferrer" class="navbar__item navbar__link">GitHub<svg width="13.5" height="13.5" aria-label="(opens in new tab)" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type="button" disabled="" title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill="currentColor" d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"></path></svg><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill="currentColor" d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"></path></svg><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill="currentColor" d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"></path></svg></button></div><div class="navbarSearchContainer_Bca1"><div class="navbar__search searchBarContainer_NW3z" dir="ltr"><input placeholder="Search" aria-label="Search" class="navbar__search-input searchInput_YFbd" value=""><div class="loadingRing_RJI3 searchBarLoadingRing_YnHq"><div></div><div></div><div></div><div></div></div></div></div></div></div><div role="presentation" class="navbar-sidebar__backdrop"></div></nav><div id="__docusaurus_skipToContent_fallback" class="theme-layout-main main-wrapper mainWrapper_z2l0"><div class="docsWrapper_hBAB"><button aria-label="Scroll back to top" class="clean-btn theme-back-to-top-button backToTopButton_sjWU" type="button"></button><div class="docRoot_UBD9"><aside class="theme-doc-sidebar-container docSidebarContainer_YfHR"><div class="sidebarViewport_aRkj"><div class="sidebar_njMd"><nav aria-label="Docs sidebar" class="menu thin-scrollbar menu_SIkG"><ul class="theme-doc-sidebar-menu menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link" href="/docs/overview"><span title="📋 Overview" class="linkLabel_WmDU">📋 Overview</span></a></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist" href="/docs/getting-started/">🚀 Getting Started</a><button aria-label="Expand sidebar category &#x27;🚀 Getting Started&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist" href="/docs/components/">🧩 Components</a><button aria-label="Expand sidebar category &#x27;🧩 Components&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist" href="/docs/client-libraries/">📚 Client Libraries</a><button aria-label="Expand sidebar category &#x27;📚 Client Libraries&#x27;" aria-expanded="false" type="button" class="clean-btn menu__caret"></button></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist menu__link--sublist-caret" role="button" aria-expanded="false" href="/docs/ahnlich-in-production/deployment">⚡Ahnlich in production</a></div></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist menu__link--sublist-caret menu__link--active" role="button" aria-expanded="true" href="/docs/reference/error-codes">📖 Reference</a></div><ul class="menu__list"><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link menu__link--active" aria-current="page" tabindex="0" href="/docs/reference/error-codes"><span title="Error Codes Reference" class="linkLabel_WmDU">Error Codes Reference</span></a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-2 menu__list-item"><a class="menu__link" tabindex="0" href="/docs/reference/configuration"><span title="Configuration Reference" class="linkLabel_WmDU">Configuration Reference</span></a></li></ul></li><li class="theme-doc-sidebar-item-category theme-doc-sidebar-item-category-level-1 menu__list-item menu__list-item--collapsed"><div class="menu__list-item-collapsible"><a class="menu__link menu__link--sublist menu__link--sublist-caret" role="button" aria-expanded="false" href="/docs/troubleshooting/common-issues">🔧 Troubleshooting</a></div></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link" href="/docs/architecture"><span title="🏛️ Architecture" class="linkLabel_WmDU">🏛️ Architecture</span></a></li><li class="theme-doc-sidebar-item-link theme-doc-sidebar-item-link-level-1 menu__list-item"><a class="menu__link" href="/docs/community"><span title="🌍 Community" class="linkLabel_WmDU">🌍 Community</span></a></li></ul></nav></div></div></aside><main class="docMainContainer_TBSr"><div class="container padding-top--md padding-bottom--lg"><div class="row"><div class="col docItemCol_VOVn"><div class="docItemContainer_Djhp"><article><nav class="theme-doc-breadcrumbs breadcrumbsContainer_Alpn" aria-label="Breadcrumbs"><ul class="breadcrumbs"><li class="breadcrumbs__item"><a aria-label="Home page" class="breadcrumbs__link" href="/"><svg viewBox="0 0 24 24" class="breadcrumbHomeIcon_xK9p"><path d="M10 19v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87L12.67 3.6c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87H5v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z" fill="currentColor"></path></svg></a></li><li class="breadcrumbs__item"><span class="breadcrumbs__link">📖 Reference</span></li><li class="breadcrumbs__item breadcrumbs__item--active"><span class="breadcrumbs__link">Error Codes Reference</span></li></ul></nav><div class="tocCollapsible_ETCw theme-doc-toc-mobile tocMobile_ITEo"><button type="button" class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div><div class="theme-doc-markdown markdown"><header><h1>Error Codes Reference</h1></header>
+<p>This page documents all error codes, messages, and their solutions in Ahnlich DB and AI.</p>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="grpc-status-codes">gRPC Status Codes<a href="#grpc-status-codes" class="hash-link" aria-label="Direct link to gRPC Status Codes" title="Direct link to gRPC Status Codes" translate="no">​</a></h2>
+<p>Ahnlich uses standard gRPC status codes for error responses:</p>
+<table><thead><tr><th>gRPC Code</th><th>HTTP Code</th><th>When Used</th></tr></thead><tbody><tr><td><code>NotFound</code></td><td>404</td><td>Store, predicate, or index not found</td></tr><tr><td><code>AlreadyExists</code></td><td>409</td><td>Store already exists</td></tr><tr><td><code>InvalidArgument</code></td><td>400</td><td>Invalid input, dimension mismatch, type errors</td></tr><tr><td><code>ResourceExhausted</code></td><td>429</td><td>Memory allocation failures</td></tr><tr><td><code>FailedPrecondition</code></td><td>400</td><td>Missing dependencies or prerequisites</td></tr><tr><td><code>OutOfRange</code></td><td>400</td><td>Token limits, invalid ranges</td></tr><tr><td><code>Internal</code></td><td>500</td><td>Model errors, runtime failures</td></tr></tbody></table>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="database-ahnlich-db-errors">Database (ahnlich-db) Errors<a href="#database-ahnlich-db-errors" class="hash-link" aria-label="Direct link to Database (ahnlich-db) Errors" title="Direct link to Database (ahnlich-db) Errors" translate="no">​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="store-errors">Store Errors<a href="#store-errors" class="hash-link" aria-label="Direct link to Store Errors" title="Direct link to Store Errors" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="storenotfound">StoreNotFound<a href="#storenotfound" class="hash-link" aria-label="Direct link to StoreNotFound" title="Direct link to StoreNotFound" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Store &quot;store_name&quot; not found</code></p>
+<p><strong>gRPC Code:</strong> <code>NotFound</code></p>
+<p><strong>Cause:</strong> Attempting to access a store that doesn&#x27;t exist.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li class="">Create the store first using <code>CREATESTORE</code></li>
+<li class="">Verify store name spelling</li>
+<li class="">Use <code>LISTSTORES</code> to check available stores</li>
+<li class="">Check if persistence file loaded correctly on restart</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">LISTSTORES</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">CREATESTORE mystore DIMENSION 128</span><br></span></code></pre></div></div>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="storealreadyexists">StoreAlreadyExists<a href="#storealreadyexists" class="hash-link" aria-label="Direct link to StoreAlreadyExists" title="Direct link to StoreAlreadyExists" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Store &quot;store_name&quot; already exists</code></p>
+<p><strong>gRPC Code:</strong> <code>AlreadyExists</code></p>
+<p><strong>Cause:</strong> Creating a store when one with that name already exists and <code>error_if_exists=true</code>.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li class="">Use a different store name</li>
+<li class="">Set <code>error_if_exists=false</code> to silently skip creation</li>
+<li class="">Drop the existing store first if you want to recreate it</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="language-rust codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-rust codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token class-name">CreateStore</span><span class="token plain"> </span><span class="token punctuation" style="color:rgb(248, 248, 242)">{</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    store</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> </span><span class="token string" style="color:rgb(255, 121, 198)">&quot;my_store&quot;</span><span class="token punctuation" style="color:rgb(248, 248, 242)">.</span><span class="token function" style="color:rgb(80, 250, 123)">to_string</span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    dimension</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> </span><span class="token number">128</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    create_predicates</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> </span><span class="token macro property">vec!</span><span class="token punctuation" style="color:rgb(248, 248, 242)">[</span><span class="token punctuation" style="color:rgb(248, 248, 242)">]</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    non_linear_indices</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> </span><span class="token macro property">vec!</span><span class="token punctuation" style="color:rgb(248, 248, 242)">[</span><span class="token punctuation" style="color:rgb(248, 248, 242)">]</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    error_if_exists</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain"> </span><span class="token boolean">false</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain">  </span><span class="token comment" style="color:rgb(98, 114, 164)">// Won&#x27;t error if exists</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token punctuation" style="color:rgb(248, 248, 242)">}</span><br></span></code></pre></div></div>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="storedimensionmismatch">StoreDimensionMismatch<a href="#storedimensionmismatch" class="hash-link" aria-label="Direct link to StoreDimensionMismatch" title="Direct link to StoreDimensionMismatch" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Store dimension is [128], input dimension of [256] was specified</code></p>
+<p><strong>gRPC Code:</strong> <code>InvalidArgument</code></p>
+<p><strong>Cause:</strong> Vector dimensions don&#x27;t match the store&#x27;s configured dimension.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li class="">Ensure all vectors match store dimension</li>
+<li class="">Check embedding model output dimensions</li>
+<li class="">For AI stores, verify query and index models have same embedding size</li>
+</ul>
+<p><strong>Common Model Dimensions:</strong></p>
+<ul>
+<li class=""><code>all-minilm-l6-v2</code>: 384</li>
+<li class=""><code>all-minilm-l12-v2</code>: 384</li>
+<li class=""><code>bge-base-en-v1.5</code>: 768</li>
+<li class=""><code>bge-large-en-v1.5</code>: 1024</li>
+<li class=""><code>resnet-50</code>: 2048</li>
+<li class=""><code>clip-vit-b32-*</code>: 512</li>
+</ul>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="index-errors">Index Errors<a href="#index-errors" class="hash-link" aria-label="Direct link to Index Errors" title="Direct link to Index Errors" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="predicatenotfound">PredicateNotFound<a href="#predicatenotfound" class="hash-link" aria-label="Direct link to PredicateNotFound" title="Direct link to PredicateNotFound" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Predicate &quot;field_name&quot; not found in store, attempt CREATEPREDINDEX with predicate</code></p>
+<p><strong>gRPC Code:</strong> <code>NotFound</code></p>
+<p><strong>Cause:</strong> Querying using a predicate that hasn&#x27;t been indexed.</p>
+<p><strong>Solution:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">CREATEPREDINDEX my_store PREDICATES (field_name)</span><br></span></code></pre></div></div>
+<p>Or include predicates when creating store:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">CREATESTORE my_store DIMENSION 128 PREDICATES (author, category)</span><br></span></code></pre></div></div>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="nonlinearindexnotfound">NonLinearIndexNotFound<a href="#nonlinearindexnotfound" class="hash-link" aria-label="Direct link to NonLinearIndexNotFound" title="Direct link to NonLinearIndexNotFound" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Non linear algorithm KDTree not found in store, create store with support</code></p>
+<p><strong>gRPC Code:</strong> <code>NotFound</code></p>
+<p><strong>Cause:</strong> Attempting to use a non-linear algorithm (KDTree) not created with the store.</p>
+<p><strong>Solution:</strong></p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">CREATE_NON_LINEAR_ALGORITHM_INDEX my_store NONLINEARALGORITHMINDEX (KDTree)</span><br></span></code></pre></div></div>
+<p>Or include when creating store:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">CREATESTORE my_store DIMENSION 128 NONLINEARALGORITHMINDEX (KDTree)</span><br></span></code></pre></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="resource-errors">Resource Errors<a href="#resource-errors" class="hash-link" aria-label="Direct link to Resource Errors" title="Direct link to Resource Errors" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="allocation">Allocation<a href="#allocation" class="hash-link" aria-label="Direct link to Allocation" title="Direct link to Allocation" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>allocation error: CapacityOverflow</code></p>
+<p><strong>gRPC Code:</strong> <code>ResourceExhausted</code></p>
+<p><strong>Cause:</strong> Memory allocation failed - hit the <code>--allocator-size</code> limit.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li class="">Increase <code>--allocator-size</code> when starting server</li>
+<li class="">Reduce batch sizes</li>
+<li class="">Monitor memory usage</li>
+<li class="">For images, use <code>--enable-streaming</code> in AI proxy</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">ahnlich-db run --allocator-size 21474836480  # 20 GiB</span><br></span></code></pre></div></div>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="ai-proxy-ahnlich-ai-errors">AI Proxy (ahnlich-ai) Errors<a href="#ai-proxy-ahnlich-ai-errors" class="hash-link" aria-label="Direct link to AI Proxy (ahnlich-ai) Errors" title="Direct link to AI Proxy (ahnlich-ai) Errors" translate="no">​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="store-errors-1">Store Errors<a href="#store-errors-1" class="hash-link" aria-label="Direct link to Store Errors" title="Direct link to Store Errors" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="storenotfound--storealreadyexists">StoreNotFound / StoreAlreadyExists<a href="#storenotfound--storealreadyexists" class="hash-link" aria-label="Direct link to StoreNotFound / StoreAlreadyExists" title="Direct link to StoreNotFound / StoreAlreadyExists" translate="no">​</a></h4>
+<p>Same as DB errors above, but for AI stores.</p>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="storetypemismatcherror">StoreTypeMismatchError<a href="#storetypemismatcherror" class="hash-link" aria-label="Direct link to StoreTypeMismatchError" title="Direct link to StoreTypeMismatchError" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Cannot query Input. Store expects [RawString], input type [Image] was provided</code></p>
+<p><strong>gRPC Code:</strong> <code>InvalidArgument</code></p>
+<p><strong>Cause:</strong> Sending wrong input type (text to image model or vice versa).</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li class="">Use text (RawString) for text models: <code>all-minilm-*</code>, <code>bge-*</code>, <code>clip-vit-b32-text</code></li>
+<li class="">Use images (Image bytes) for image models: <code>resnet-50</code>, <code>clip-vit-b32-image</code></li>
+</ul>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="input-errors">Input Errors<a href="#input-errors" class="hash-link" aria-label="Direct link to Input Errors" title="Direct link to Input Errors" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="inputnotspecified">InputNotSpecified<a href="#inputnotspecified" class="hash-link" aria-label="Direct link to InputNotSpecified" title="Direct link to InputNotSpecified" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>&quot;search_input&quot; input not specified</code></p>
+<p><strong>gRPC Code:</strong> <code>InvalidArgument</code></p>
+<p><strong>Cause:</strong> Required input field is missing or empty.</p>
+<p><strong>Solution:</strong> Provide the required input (text or image).</p>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="tokenexceedederror">TokenExceededError<a href="#tokenexceedederror" class="hash-link" aria-label="Direct link to TokenExceededError" title="Direct link to TokenExceededError" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Max Token Exceeded. Model Expects [256], input type was [512]</code></p>
+<p><strong>gRPC Code:</strong> <code>OutOfRange</code></p>
+<p><strong>Cause:</strong> Input text exceeds model&#x27;s maximum token limit.</p>
+<p><strong>Token Limits:</strong></p>
+<ul>
+<li class=""><code>all-minilm-l6-v2</code>: 256 tokens</li>
+<li class=""><code>all-minilm-l12-v2</code>: 256 tokens</li>
+<li class=""><code>bge-base-en-v1.5</code>: 512 tokens</li>
+<li class=""><code>bge-large-en-v1.5</code>: 512 tokens</li>
+<li class=""><code>clip-vit-b32-text</code>: 77 tokens</li>
+</ul>
+<p><strong>Solution:</strong></p>
+<ul>
+<li class="">Truncate text to fit within limit</li>
+<li class="">Split long documents into chunks</li>
+<li class="">Use model with larger token limit (BGE models support 512 tokens)</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-python codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token comment" style="color:rgb(98, 114, 164)"># Truncate text</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">text </span><span class="token operator">=</span><span class="token plain"> long_text</span><span class="token punctuation" style="color:rgb(248, 248, 242)">[</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token number">500</span><span class="token punctuation" style="color:rgb(248, 248, 242)">]</span><span class="token plain">  </span><span class="token comment" style="color:rgb(98, 114, 164)"># Rough approximation</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token comment" style="color:rgb(98, 114, 164)"># Or split into chunks</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">chunks </span><span class="token operator">=</span><span class="token plain"> </span><span class="token punctuation" style="color:rgb(248, 248, 242)">[</span><span class="token plain">text</span><span class="token punctuation" style="color:rgb(248, 248, 242)">[</span><span class="token plain">i</span><span class="token punctuation" style="color:rgb(248, 248, 242)">:</span><span class="token plain">i</span><span class="token operator">+</span><span class="token number">500</span><span class="token punctuation" style="color:rgb(248, 248, 242)">]</span><span class="token plain"> </span><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">for</span><span class="token plain"> i </span><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">in</span><span class="token plain"> </span><span class="token builtin" style="color:rgb(189, 147, 249)">range</span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token number">0</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain"> </span><span class="token builtin" style="color:rgb(189, 147, 249)">len</span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token plain">text</span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain"> </span><span class="token number">500</span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><span class="token punctuation" style="color:rgb(248, 248, 242)">]</span><br></span></code></pre></div></div>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="imagedimensionsmismatcherror">ImageDimensionsMismatchError<a href="#imagedimensionsmismatcherror" class="hash-link" aria-label="Direct link to ImageDimensionsMismatchError" title="Direct link to ImageDimensionsMismatchError" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Image Dimensions [(512, 512)] does not match the expected model dimensions [(224, 224)]</code></p>
+<p><strong>gRPC Code:</strong> <code>InvalidArgument</code></p>
+<p><strong>Cause:</strong> Image size doesn&#x27;t match model requirements.</p>
+<p><strong>Model Requirements:</strong></p>
+<ul>
+<li class=""><code>resnet-50</code>: 224x224 pixels</li>
+<li class=""><code>clip-vit-b32-image</code>: 224x224 pixels</li>
+</ul>
+<p><strong>Solution:</strong></p>
+<ul>
+<li class="">Resize images to 224x224 before sending</li>
+<li class="">Use <code>PreprocessAction.ModelPreprocessing</code> to auto-resize</li>
+</ul>
+<p><strong>Example (Python):</strong></p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-python codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">from</span><span class="token plain"> PIL </span><span class="token keyword" style="color:rgb(189, 147, 249);font-style:italic">import</span><span class="token plain"> Image</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">img </span><span class="token operator">=</span><span class="token plain"> Image</span><span class="token punctuation" style="color:rgb(248, 248, 242)">.</span><span class="token builtin" style="color:rgb(189, 147, 249)">open</span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token string" style="color:rgb(255, 121, 198)">&quot;photo.jpg&quot;</span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">img </span><span class="token operator">=</span><span class="token plain"> img</span><span class="token punctuation" style="color:rgb(248, 248, 242)">.</span><span class="token plain">resize</span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token number">224</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain"> </span><span class="token number">224</span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><br></span></code></pre></div></div>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="reservederror">ReservedError<a href="#reservederror" class="hash-link" aria-label="Direct link to ReservedError" title="Direct link to ReservedError" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Reserved key &quot;_ahnlich_input_key&quot; used</code></p>
+<p><strong>gRPC Code:</strong> <code>InvalidArgument</code></p>
+<p><strong>Cause:</strong> Using reserved metadata key <code>_ahnlich_input_key</code>.</p>
+<p><strong>Solution:</strong> Avoid using <code>_ahnlich_input_key</code> in your metadata - this key is reserved for internal use when <code>store_original=true</code>.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="model-errors">Model Errors<a href="#model-errors" class="hash-link" aria-label="Direct link to Model Errors" title="Direct link to Model Errors" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="aimodelnotinitialized">AIModelNotInitialized<a href="#aimodelnotinitialized" class="hash-link" aria-label="Direct link to AIModelNotInitialized" title="Direct link to AIModelNotInitialized" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>index_model or query_model not selected or loaded during aiproxy startup</code></p>
+<p><strong>gRPC Code:</strong> <code>Internal</code></p>
+<p><strong>Cause:</strong> Models not loaded at AI proxy startup.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li class="">Ensure models are specified in <code>--supported-models</code></li>
+<li class="">Check model cache location has write permissions</li>
+<li class="">Verify network connectivity for model downloads (first use)</li>
+<li class="">Check disk space in model cache directory</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">ahnlich-ai run \</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">  --supported-models all-minilm-l6-v2,resnet-50 \</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">  --model-cache-location /path/to/models</span><br></span></code></pre></div></div>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="aimodelnotsupported">AIModelNotSupported<a href="#aimodelnotsupported" class="hash-link" aria-label="Direct link to AIModelNotSupported" title="Direct link to AIModelNotSupported" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>index_model or query_model &quot;model_name&quot; not supported</code></p>
+<p><strong>gRPC Code:</strong> <code>Internal</code></p>
+<p><strong>Cause:</strong> Using a model not in the supported models list.</p>
+<p><strong>Supported Models:</strong></p>
+<ul>
+<li class=""><code>all-minilm-l6-v2</code></li>
+<li class=""><code>all-minilm-l12-v2</code></li>
+<li class=""><code>bge-base-en-v1.5</code></li>
+<li class=""><code>bge-large-en-v1.5</code></li>
+<li class=""><code>resnet-50</code></li>
+<li class=""><code>clip-vit-b32-image</code></li>
+<li class=""><code>clip-vit-b32-text</code></li>
+</ul>
+<p><strong>Solution:</strong> Use one of the supported models above.</p>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="dimensionsmismatcherror">DimensionsMismatchError<a href="#dimensionsmismatcherror" class="hash-link" aria-label="Direct link to DimensionsMismatchError" title="Direct link to DimensionsMismatchError" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Dimensions Mismatch between index [768], and Query [1024] Models</code></p>
+<p><strong>gRPC Code:</strong> <code>InvalidArgument</code></p>
+<p><strong>Cause:</strong> Index and query models have different embedding dimensions.</p>
+<p><strong>Solution:</strong> Use compatible models with same embedding dimensions:</p>
+<ul>
+<li class="">AllMiniLM (L6/L12): both 384-dim</li>
+<li class="">BGE-Base: 768-dim</li>
+<li class="">BGE-Large: 1024-dim</li>
+<li class="">ClipVit-B32: both (text/image) 512-dim</li>
+</ul>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="modelinitializationerror">ModelInitializationError<a href="#modelinitializationerror" class="hash-link" aria-label="Direct link to ModelInitializationError" title="Direct link to ModelInitializationError" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Error initializing a model thread: failed to download model</code></p>
+<p><strong>gRPC Code:</strong> <code>Internal</code></p>
+<p><strong>Cause:</strong> Model initialization failed during download or loading.</p>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li class="">Check internet connectivity (models download from HuggingFace on first use)</li>
+<li class="">Verify disk space in model cache location</li>
+<li class="">Check firewall allows HuggingFace Hub access</li>
+<li class="">Clear corrupted model cache and retry</li>
+</ul>
+<p><strong>Cache Location:</strong> Default <code>~/.ahnlich/models</code></p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="database-connection-errors">Database Connection Errors<a href="#database-connection-errors" class="hash-link" aria-label="Direct link to Database Connection Errors" title="Direct link to Database Connection Errors" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="databaseclienterror">DatabaseClientError<a href="#databaseclienterror" class="hash-link" aria-label="Direct link to DatabaseClientError" title="Direct link to DatabaseClientError" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Proxy Errored with connection refused</code></p>
+<p><strong>gRPC Code:</strong> <code>FailedPrecondition</code></p>
+<p><strong>Cause:</strong> AI proxy cannot connect to database.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li class="">Ensure database is running before starting AI proxy</li>
+<li class="">Verify <code>--db-host</code> and <code>--db-port</code> settings</li>
+<li class="">Check firewall rules</li>
+<li class="">For standalone mode, use <code>--without-db</code> flag</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="language-bash codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-bash codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain"># Start DB first</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">ahnlich-db run --port 1369</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"># Then start AI</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">ahnlich-ai run --db-host 127.0.0.1 --db-port 1369</span><br></span></code></pre></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="operation-errors">Operation Errors<a href="#operation-errors" class="hash-link" aria-label="Direct link to Operation Errors" title="Direct link to Operation Errors" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="delkeyerror">DelKeyError<a href="#delkeyerror" class="hash-link" aria-label="Direct link to DelKeyError" title="Direct link to DelKeyError" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Cannot call DelKey on store with store_original as false</code></p>
+<p><strong>gRPC Code:</strong> <code>FailedPrecondition</code></p>
+<p><strong>Cause:</strong> Attempting to delete keys when <code>store_original=false</code>.</p>
+<p><strong>Solution:</strong> Recreate store with <code>store_original=true</code> if you need to delete original inputs:</p>
+<div class="language-python codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-python codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">CreateStore</span><span class="token punctuation" style="color:rgb(248, 248, 242)">(</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    store</span><span class="token operator">=</span><span class="token string" style="color:rgb(255, 121, 198)">&quot;my_store&quot;</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    query_model</span><span class="token operator">=</span><span class="token plain">AiModel</span><span class="token punctuation" style="color:rgb(248, 248, 242)">.</span><span class="token plain">ALL_MINI_LM_L6_V2</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    index_model</span><span class="token operator">=</span><span class="token plain">AiModel</span><span class="token punctuation" style="color:rgb(248, 248, 242)">.</span><span class="token plain">ALL_MINI_LM_L6_V2</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">    store_original</span><span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation" style="color:rgb(248, 248, 242)">,</span><span class="token plain">  </span><span class="token comment" style="color:rgb(98, 114, 164)"># Required for DelKey</span><span class="token plain"></span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain"></span><span class="token punctuation" style="color:rgb(248, 248, 242)">)</span><br></span></code></pre></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="image-processing-errors">Image Processing Errors<a href="#image-processing-errors" class="hash-link" aria-label="Direct link to Image Processing Errors" title="Direct link to Image Processing Errors" translate="no">​</a></h3>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="imagebytesdecodeerror">ImageBytesDecodeError<a href="#imagebytesdecodeerror" class="hash-link" aria-label="Direct link to ImageBytesDecodeError" title="Direct link to ImageBytesDecodeError" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Bytes could not be successfully decoded into an image</code></p>
+<p><strong>gRPC Code:</strong> <code>Internal</code></p>
+<p><strong>Cause:</strong> Invalid or corrupted image bytes.</p>
+<p><strong>Solution:</strong></p>
+<ul>
+<li class="">Use standard image formats: JPEG, PNG, BMP, GIF</li>
+<li class="">Validate image files aren&#x27;t corrupted</li>
+<li class="">Ensure proper encoding if using base64</li>
+</ul>
+<hr>
+<h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="imagenonzerodimensionerror">ImageNonzeroDimensionError<a href="#imagenonzerodimensionerror" class="hash-link" aria-label="Direct link to ImageNonzeroDimensionError" title="Direct link to ImageNonzeroDimensionError" translate="no">​</a></h4>
+<p><strong>Error Message:</strong> <code>Image can&#x27;t have zero value in any dimension. Found height: 0, width: 100</code></p>
+<p><strong>gRPC Code:</strong> <code>Internal</code></p>
+<p><strong>Cause:</strong> Image has zero width or height.</p>
+<p><strong>Solution:</strong> Validate image dimensions before sending - both width and height must be &gt; 0.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="client-errors">Client Errors<a href="#client-errors" class="hash-link" aria-label="Direct link to Client Errors" title="Direct link to Client Errors" translate="no">​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="invaliduri">InvalidURI<a href="#invaliduri" class="hash-link" aria-label="Direct link to InvalidURI" title="Direct link to InvalidURI" translate="no">​</a></h3>
+<p><strong>Error Message:</strong> <code>Invalid URI &quot;invalid-uri&quot;</code></p>
+<p><strong>gRPC Code:</strong> <code>InvalidArgument</code></p>
+<p><strong>Cause:</strong> Malformed connection URI.</p>
+<p><strong>Solution:</strong> Use valid URI format:</p>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">http://127.0.0.1:1369  (DB)</span><br></span><span class="token-line" style="color:#F8F8F2"><span class="token plain">http://127.0.0.1:1370  (AI)</span><br></span></code></pre></div></div>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tonic-transport-error">Tonic (Transport Error)<a href="#tonic-transport-error" class="hash-link" aria-label="Direct link to Tonic (Transport Error)" title="Direct link to Tonic (Transport Error)" translate="no">​</a></h3>
+<p><strong>Error Message:</strong> <code>Transport issues with tonic: connection error</code></p>
+<p><strong>gRPC Code:</strong> <code>Internal</code></p>
+<p><strong>Cause:</strong> Network or transport layer error.</p>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li class="">Check server is running and accessible</li>
+<li class="">Verify network connectivity</li>
+<li class="">Check firewall rules</li>
+<li class="">Ensure correct host/port configuration</li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="dslcli-errors">DSL/CLI Errors<a href="#dslcli-errors" class="hash-link" aria-label="Direct link to DSL/CLI Errors" title="Direct link to DSL/CLI Errors" translate="no">​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="unsupportedalgorithm">UnsupportedAlgorithm<a href="#unsupportedalgorithm" class="hash-link" aria-label="Direct link to UnsupportedAlgorithm" title="Direct link to UnsupportedAlgorithm" translate="no">​</a></h3>
+<p><strong>Error Message:</strong> <code>Found unsupported algorithm &quot;invalid_algo&quot;</code></p>
+<p><strong>Cause:</strong> Unknown algorithm name in DSL command.</p>
+<p><strong>Valid Algorithms:</strong></p>
+<ul>
+<li class=""><code>EuclideanDistance</code></li>
+<li class=""><code>DotProductSimilarity</code></li>
+<li class=""><code>CosineSimilarity</code></li>
+<li class=""><code>KDTree</code></li>
+</ul>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="unsupportedaimodel">UnsupportedAIModel<a href="#unsupportedaimodel" class="hash-link" aria-label="Direct link to UnsupportedAIModel" title="Direct link to UnsupportedAIModel" translate="no">​</a></h3>
+<p><strong>Error Message:</strong> <code>Found unsupported ai model &quot;invalid_model&quot;</code></p>
+<p><strong>Cause:</strong> Unknown AI model name.</p>
+<p><strong>Solution:</strong> Use one of the 7 supported models listed above.</p>
+<hr>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="unsupportedpreprocessingmode">UnsupportedPreprocessingMode<a href="#unsupportedpreprocessingmode" class="hash-link" aria-label="Direct link to UnsupportedPreprocessingMode" title="Direct link to UnsupportedPreprocessingMode" translate="no">​</a></h3>
+<p><strong>Error Message:</strong> <code>Unexpected preprocessing mode</code></p>
+<p><strong>Cause:</strong> Invalid preprocessing option.</p>
+<p><strong>Valid Options:</strong></p>
+<ul>
+<li class=""><code>NoPreprocessing</code></li>
+<li class=""><code>ModelPreprocessing</code></li>
+</ul>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="common-error-combinations">Common Error Combinations<a href="#common-error-combinations" class="hash-link" aria-label="Direct link to Common Error Combinations" title="Direct link to Common Error Combinations" translate="no">​</a></h2>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="connection-refused--storenotfound">&quot;Connection Refused&quot; + &quot;StoreNotFound&quot;<a href="#connection-refused--storenotfound" class="hash-link" aria-label="Direct link to &quot;Connection Refused&quot; + &quot;StoreNotFound&quot;" title="Direct link to &quot;Connection Refused&quot; + &quot;StoreNotFound&quot;" translate="no">​</a></h3>
+<p>Indicates server connectivity issues. Check:</p>
+<ol>
+<li class="">Server is running</li>
+<li class="">Host/port configuration is correct</li>
+<li class="">Firewall allows connections</li>
+</ol>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="dimensionmismatch--ai-store">&quot;DimensionMismatch&quot; + AI Store<a href="#dimensionmismatch--ai-store" class="hash-link" aria-label="Direct link to &quot;DimensionMismatch&quot; + AI Store" title="Direct link to &quot;DimensionMismatch&quot; + AI Store" translate="no">​</a></h3>
+<p>Check that query_model and index_model have same embedding dimensions.</p>
+<h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="tokenexceeded--long-text">&quot;TokenExceeded&quot; + Long Text<a href="#tokenexceeded--long-text" class="hash-link" aria-label="Direct link to &quot;TokenExceeded&quot; + Long Text" title="Direct link to &quot;TokenExceeded&quot; + Long Text" translate="no">​</a></h3>
+<p>Split text into smaller chunks or use model with larger token limit.</p>
+<hr>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="getting-help">Getting Help<a href="#getting-help" class="hash-link" aria-label="Direct link to Getting Help" title="Direct link to Getting Help" translate="no">​</a></h2>
+<p>If you encounter an error not listed here:</p>
+<ol>
+<li class="">Check server logs for detailed stack traces</li>
+<li class="">Enable tracing: <code>--enable-tracing --otel-endpoint http://jaeger:4317</code></li>
+<li class="">Report issues: <a href="https://github.com/deven96/ahnlich/issues" target="_blank" rel="noopener noreferrer" class="">GitHub Issues</a></li>
+<li class="">Ask in: <a href="https://chat.whatsapp.com/E4CP7VZ1lNH9dJUxpsZVvD" target="_blank" rel="noopener noreferrer" class="">WhatsApp Community</a></li>
+</ol></div><footer class="theme-doc-footer docusaurus-mt-lg"><div class="row margin-top--sm theme-doc-footer-edit-meta-row"><div class="col noPrint_WFHX"><a href="https://github.com/deven96/ahnlich/tree/main/web/ahnlich-web/docs/reference/error-codes.md" target="_blank" rel="noopener noreferrer" class="theme-edit-this-page"><svg fill="currentColor" height="20" width="20" viewBox="0 0 40 40" class="iconEdit_Z9Sw" aria-hidden="true"><g><path d="m34.5 11.7l-3 3.1-6.3-6.3 3.1-3q0.5-0.5 1.2-0.5t1.1 0.5l3.9 3.9q0.5 0.4 0.5 1.1t-0.5 1.2z m-29.5 17.1l18.4-18.5 6.3 6.3-18.4 18.4h-6.3v-6.2z"></path></g></svg>Edit this page</a></div><div class="col lastUpdated_JAkA"></div></div></footer></article><nav class="docusaurus-mt-lg pagination-nav" aria-label="Docs pages"><a class="pagination-nav__link pagination-nav__link--prev" href="/docs/ahnlich-in-production/"><div class="pagination-nav__sublabel">Previous</div><div class="pagination-nav__label">⚡Ahnlich in production</div></a><a class="pagination-nav__link pagination-nav__link--next" href="/docs/reference/configuration"><div class="pagination-nav__sublabel">Next</div><div class="pagination-nav__label">Configuration Reference</div></a></nav></div></div><div class="col col--3"><div class="tableOfContents_bqdL thin-scrollbar theme-doc-toc-desktop"><ul class="table-of-contents table-of-contents__left-border"><li><a href="#grpc-status-codes" class="table-of-contents__link toc-highlight">gRPC Status Codes</a></li><li><a href="#database-ahnlich-db-errors" class="table-of-contents__link toc-highlight">Database (ahnlich-db) Errors</a><ul><li><a href="#store-errors" class="table-of-contents__link toc-highlight">Store Errors</a></li><li><a href="#index-errors" class="table-of-contents__link toc-highlight">Index Errors</a></li><li><a href="#resource-errors" class="table-of-contents__link toc-highlight">Resource Errors</a></li></ul></li><li><a href="#ai-proxy-ahnlich-ai-errors" class="table-of-contents__link toc-highlight">AI Proxy (ahnlich-ai) Errors</a><ul><li><a href="#store-errors-1" class="table-of-contents__link toc-highlight">Store Errors</a></li><li><a href="#input-errors" class="table-of-contents__link toc-highlight">Input Errors</a></li><li><a href="#model-errors" class="table-of-contents__link toc-highlight">Model Errors</a></li><li><a href="#database-connection-errors" class="table-of-contents__link toc-highlight">Database Connection Errors</a></li><li><a href="#operation-errors" class="table-of-contents__link toc-highlight">Operation Errors</a></li><li><a href="#image-processing-errors" class="table-of-contents__link toc-highlight">Image Processing Errors</a></li></ul></li><li><a href="#client-errors" class="table-of-contents__link toc-highlight">Client Errors</a><ul><li><a href="#invaliduri" class="table-of-contents__link toc-highlight">InvalidURI</a></li><li><a href="#tonic-transport-error" class="table-of-contents__link toc-highlight">Tonic (Transport Error)</a></li></ul></li><li><a href="#dslcli-errors" class="table-of-contents__link toc-highlight">DSL/CLI Errors</a><ul><li><a href="#unsupportedalgorithm" class="table-of-contents__link toc-highlight">UnsupportedAlgorithm</a></li><li><a href="#unsupportedaimodel" class="table-of-contents__link toc-highlight">UnsupportedAIModel</a></li><li><a href="#unsupportedpreprocessingmode" class="table-of-contents__link toc-highlight">UnsupportedPreprocessingMode</a></li></ul></li><li><a href="#common-error-combinations" class="table-of-contents__link toc-highlight">Common Error Combinations</a><ul><li><a href="#connection-refused--storenotfound" class="table-of-contents__link toc-highlight">&quot;Connection Refused&quot; + &quot;StoreNotFound&quot;</a></li><li><a href="#dimensionmismatch--ai-store" class="table-of-contents__link toc-highlight">&quot;DimensionMismatch&quot; + AI Store</a></li><li><a href="#tokenexceeded--long-text" class="table-of-contents__link toc-highlight">&quot;TokenExceeded&quot; + Long Text</a></li></ul></li><li><a href="#getting-help" class="table-of-contents__link toc-highlight">Getting Help</a></li></ul></div></div></div></div></main></div></div></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class="footer__title">Docs</div><ul class="footer__items clean-list"><li class="footer__item"><a class="footer__link-item" href="/docs/guides">Guides</a></li><li class="footer__item"><a class="footer__link-item" href="/docs/overview">Overview</a></li><li class="footer__item"><a class="footer__link-item" href="/docs/getting-started">Getting Started</a></li><li class="footer__item"><a class="footer__link-item" href="/docs/components">Components</a></li><li class="footer__item"><a class="footer__link-item" href="/docs/client-libraries">Client Libraries</a></li><li class="footer__item"><a class="footer__link-item" href="/docs/ahnlich-in-production">Ahnlich In Production</a></li><li class="footer__item"><a class="footer__link-item" href="/docs/architecture">Architecture</a></li></ul></div><div class="theme-layout-footer-column col footer__col"><div class="footer__title">Community</div><ul class="footer__items clean-list"><li class="footer__item"><a href="https://chat.whatsapp.com/E4CP7VZ1lNH9dJUxpsZVvD" target="_blank" rel="noopener noreferrer" class="footer__link-item">WhatsApp<svg width="13.5" height="13.5" aria-label="(opens in new tab)" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li><li class="footer__item"><a href="https://github.com/deven96/ahnlich/discussions" target="_blank" rel="noopener noreferrer" class="footer__link-item">GitHub Discussions<svg width="13.5" height="13.5" aria-label="(opens in new tab)" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li></ul></div><div class="theme-layout-footer-column col footer__col"><div class="footer__title">More</div><ul class="footer__items clean-list"><li class="footer__item"><a class="footer__link-item" href="/blog">Blog</a></li><li class="footer__item"><a href="https://github.com/deven96/ahnlich" target="_blank" rel="noopener noreferrer" class="footer__link-item">GitHub<svg width="13.5" height="13.5" aria-label="(opens in new tab)" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li></ul></div></div><div class="footer__bottom text--center"><div class="footer__copyright">Copyright © 2026 |  Ahnlich | Built with Docusaurus.</div></div></div></footer></div>
+</body>
+</html>
