@@ -190,7 +190,7 @@ impl StoreHandler {
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
-    ) -> Result<Vec<(StoreKey, StoreValue, Similarity)>, ServerError> {
+    ) -> Result<Vec<(StoreKey, Arc<StoreValue>, Similarity)>, ServerError> {
         let store = self.get(store_name)?;
         let store_dimension = store.dimension.get();
         let input_dimension = search_input.key.len();
@@ -234,7 +234,7 @@ impl StoreHandler {
             }
         };
 
-        let mut keys_to_value_map: StdHashMap<StoreKeyId, &StoreValue> = StdHashMap::from_iter(
+        let mut keys_to_value_map: StdHashMap<StoreKeyId, &Arc<StoreValue>> = StdHashMap::from_iter(
             filtered
                 .iter()
                 .map(|(store_key, store_value)| (StoreKeyId::from(store_key), store_value)),
@@ -245,7 +245,13 @@ impl StoreHandler {
             .flat_map(|(store_key, similarity)| {
                 keys_to_value_map
                     .remove(&StoreKeyId::from(&store_key))
-                    .map(|value| (store_key, value.clone(), Similarity { value: similarity }))
+                    .map(|value| {
+                        (
+                            store_key,
+                            Arc::clone(value),
+                            Similarity { value: similarity },
+                        )
+                    })
             })
             .collect())
     }
@@ -256,7 +262,7 @@ impl StoreHandler {
         &self,
         store_name: &StoreName,
         condition: &PredicateCondition,
-    ) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
+    ) -> Result<Vec<(StoreKey, Arc<StoreValue>)>, ServerError> {
         let store = self.get(store_name)?;
         store.get_matches(condition)
     }
@@ -267,7 +273,7 @@ impl StoreHandler {
         &self,
         store_name: &StoreName,
         keys: Vec<StoreKey>,
-    ) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
+    ) -> Result<Vec<(StoreKey, Arc<StoreValue>)>, ServerError> {
         let store = self.get(store_name)?;
         store.get_keys(keys)
     }
@@ -390,7 +396,7 @@ impl StoreHandler {
 pub struct Store {
     dimension: NonZeroUsize,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
-    id_to_value: ConcurrentHashMap<StoreKeyId, (StoreKey, StoreValue)>,
+    id_to_value: ConcurrentHashMap<StoreKeyId, (StoreKey, Arc<StoreValue>)>,
     /// Indices to filter for the store
     predicate_indices: PredicateIndices,
     /// Non linear Indices
@@ -475,7 +481,10 @@ impl Store {
 
     /// Gets a bunch of store keys from the store
     #[tracing::instrument(skip(self, val), fields(key_length=val.len()))]
-    fn get_keys(&self, val: Vec<StoreKey>) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
+    fn get_keys(
+        &self,
+        val: Vec<StoreKey>,
+    ) -> Result<Vec<(StoreKey, Arc<StoreValue>)>, ServerError> {
         if val.is_empty() {
             return Ok(vec![]);
         }
@@ -489,7 +498,7 @@ impl Store {
     fn get_matches(
         &self,
         condition: &PredicateCondition,
-    ) -> Result<Vec<(StoreKey, StoreValue)>, ServerError> {
+    ) -> Result<Vec<(StoreKey, Arc<StoreValue>)>, ServerError> {
         let matches = self.predicate_indices.matches(condition, self)?.into_iter();
         Ok(self.get(matches))
     }
@@ -613,17 +622,17 @@ impl Store {
     }
 
     #[tracing::instrument(skip_all)]
-    fn get(&self, keys: impl Iterator<Item = StoreKeyId>) -> Vec<(StoreKey, StoreValue)> {
+    fn get(&self, keys: impl Iterator<Item = StoreKeyId>) -> Vec<(StoreKey, Arc<StoreValue>)> {
         let pinned = self.id_to_value.pin();
         keys.flat_map(|k| pinned.get(&k).cloned()).collect()
     }
 
     #[tracing::instrument(skip(self))]
-    fn get_all(&self) -> Vec<(StoreKey, StoreValue)> {
+    fn get_all(&self) -> Vec<(StoreKey, Arc<StoreValue>)> {
         let pinned = self.id_to_value.pin();
         pinned
             .into_iter()
-            .map(|(_key, (store_key, store_value))| (store_key.clone(), store_value.clone()))
+            .map(|(_key, (store_key, store_value))| (store_key.clone(), Arc::clone(store_value)))
             .collect()
     }
 
@@ -649,9 +658,9 @@ impl Store {
         };
         let res: Vec<(StoreKeyId, (StoreKey, StoreValue))> =
             new.par_iter().map(check_bounds).collect::<Result<_, _>>()?;
-        let predicate_insert = res
+        let predicate_insert: Vec<(StoreKeyId, Arc<StoreValue>)> = res
             .par_iter()
-            .map(|(k, (_, v))| (k.clone(), v.clone()))
+            .map(|(k, (_, v))| (k.clone(), Arc::new(v.clone())))
             .collect();
         let inserted = AtomicUsize::new(0);
         let updated = AtomicUsize::new(0);
@@ -659,11 +668,13 @@ impl Store {
             .into_par_iter()
             .flat_map_iter(|(k, v)| {
                 let pinned = self.id_to_value.pin();
-                if pinned.insert(k, v.clone()).is_some() {
+                // Wrap StoreValue in Arc
+                let arc_value = (v.0.clone(), Arc::new(v.1));
+                if pinned.insert(k, arc_value.clone()).is_some() {
                     updated.fetch_add(1, Ordering::SeqCst);
                 } else {
                     inserted.fetch_add(1, Ordering::SeqCst);
-                    return Some(v.0.key);
+                    return Some(arc_value.0.key);
                 }
                 None
             })
