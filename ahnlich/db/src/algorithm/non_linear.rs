@@ -1,5 +1,6 @@
 use super::super::errors::ServerError;
 use super::FindSimilarN;
+use crate::engine::store::StoreKeyId;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_similarity::utils::VecF32Ordered;
@@ -65,7 +66,7 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
         search_list: impl ParallelIterator<Item = &'a StoreKey>,
         used_all: bool,
         n: NonZeroUsize,
-    ) -> Vec<(StoreKey, f32)> {
+    ) -> Vec<(StoreKeyId, f32)> {
         let accept_list = if used_all {
             None
         } else {
@@ -79,7 +80,7 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
             .n_nearest(&search_vector.key, n, accept_list)
             .expect("Index does not have the same size as reference_point")
             .into_par_iter()
-            .map(|(arr, sim)| (StoreKey { key: arr }, sim))
+            .map(|(arr, sim)| (StoreKeyId::from(&StoreKey { key: arr }), sim))
             .collect()
     }
 }
