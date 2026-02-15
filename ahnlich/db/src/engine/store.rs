@@ -31,33 +31,27 @@ use utils::persistence::AhnlichPersistenceUtils;
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub(crate) struct StoreKeyId(String);
+pub(crate) struct StoreKeyId(u64);
 
 #[cfg(test)]
-impl From<String> for StoreKeyId {
-    fn from(value: String) -> Self {
+impl From<u64> for StoreKeyId {
+    fn from(value: u64) -> Self {
         Self(value)
-    }
-}
-
-#[cfg(test)]
-impl From<&str> for StoreKeyId {
-    fn from(value: &str) -> Self {
-        Self(value.into())
     }
 }
 
 impl From<&StoreKey> for StoreKeyId {
     fn from(value: &StoreKey) -> Self {
-        // compute a fast blake hash of the vector to ensure it always gives us the same value
+        // compute a fast ahash of the vector to ensure it always gives us the same value
         // and use that as a reference to the vector
-        let mut hasher = blake3::Hasher::new();
+        use ahash::AHasher;
+        use std::hash::Hasher;
+
+        let mut hasher = AHasher::default();
         for element in value.key.iter() {
-            let bytes = element.to_ne_bytes();
-            hasher.update(&bytes);
+            hasher.write_u32(element.to_bits());
         }
-        let result = hasher.finalize();
-        Self(format!("{result}"))
+        Self(hasher.finish())
     }
 }
 
@@ -258,7 +252,7 @@ impl StoreHandler {
 
     /// Matches GETPRED - gets all matching predicates from a store
     #[tracing::instrument(skip(self, condition))]
-    pub(crate) fn get_pred_in_store(
+    pub fn get_pred_in_store(
         &self,
         store_name: &StoreName,
         condition: &PredicateCondition,
@@ -507,48 +501,111 @@ impl Store {
         predicate: &Predicate,
     ) -> Result<StdHashSet<StoreKeyId>, ServerError> {
         let store_val_pinned = self.id_to_value.pin();
-        let res = match &predicate.kind {
-            Some(PredicateKind::Equals(predicates::Equals { key, value })) => store_val_pinned
-                .into_iter()
-                .filter(|(_, (_, store_value))| {
-                    let metadata_value = store_value.value.get(key);
+        // Collect into Vec for iteration
+        let entries: Vec<_> = store_val_pinned.into_iter().collect();
 
-                    metadata_value.eq(&value.as_ref())
-                })
-                .map(|(k, _)| k.clone())
-                .collect(),
-            Some(PredicateKind::NotEquals(predicates::NotEquals { key, value })) => {
-                store_val_pinned
-                    .into_iter()
-                    .filter(|(_, (_, store_value))| {
-                        let metdata_value = store_value.value.get(key);
-                        !metdata_value.eq(&value.as_ref())
-                    })
-                    .map(|(k, _)| k.clone())
-                    .collect()
+        // Use parallel iteration only for large datasets (> 1000 entries)
+        // to avoid parallelization overhead on small datasets
+        const PARALLEL_THRESHOLD: usize = 1000;
+        let use_parallel = entries.len() > PARALLEL_THRESHOLD;
+
+        let res = match &predicate.kind {
+            Some(PredicateKind::Equals(predicates::Equals { key, value })) => {
+                if use_parallel {
+                    entries
+                        .par_iter()
+                        .filter(|(_, (_, store_value))| {
+                            let metadata_value = store_value.value.get(key);
+                            metadata_value.eq(&value.as_ref())
+                        })
+                        .map(|(k, _)| (*k).clone())
+                        .collect()
+                } else {
+                    entries
+                        .iter()
+                        .filter(|(_, (_, store_value))| {
+                            let metadata_value = store_value.value.get(key);
+                            metadata_value.eq(&value.as_ref())
+                        })
+                        .map(|(k, _)| (*k).clone())
+                        .collect()
+                }
             }
-            Some(PredicateKind::In(predicates::In { key, values })) => store_val_pinned
-                .into_iter()
-                .filter(|(_, (_, store_value))| {
-                    store_value
-                        .value
-                        .get(key)
-                        .map(|v| values.contains(v))
-                        .unwrap_or(false)
-                })
-                .map(|(k, _)| k.clone())
-                .collect(),
-            Some(PredicateKind::NotIn(predicates::NotIn { key, values })) => store_val_pinned
-                .into_iter()
-                .filter(|(_, (_, store_value))| {
-                    store_value
-                        .value
-                        .get(key)
-                        .map(|v| !values.contains(v))
-                        .unwrap_or(true)
-                })
-                .map(|(k, _)| k.clone())
-                .collect(),
+            Some(PredicateKind::NotEquals(predicates::NotEquals { key, value })) => {
+                if use_parallel {
+                    entries
+                        .par_iter()
+                        .filter(|(_, (_, store_value))| {
+                            let metdata_value = store_value.value.get(key);
+                            !metdata_value.eq(&value.as_ref())
+                        })
+                        .map(|(k, _)| (*k).clone())
+                        .collect()
+                } else {
+                    entries
+                        .iter()
+                        .filter(|(_, (_, store_value))| {
+                            let metdata_value = store_value.value.get(key);
+                            !metdata_value.eq(&value.as_ref())
+                        })
+                        .map(|(k, _)| (*k).clone())
+                        .collect()
+                }
+            }
+            Some(PredicateKind::In(predicates::In { key, values })) => {
+                if use_parallel {
+                    entries
+                        .par_iter()
+                        .filter(|(_, (_, store_value))| {
+                            store_value
+                                .value
+                                .get(key)
+                                .map(|v| values.contains(v))
+                                .unwrap_or(false)
+                        })
+                        .map(|(k, _)| (*k).clone())
+                        .collect()
+                } else {
+                    entries
+                        .iter()
+                        .filter(|(_, (_, store_value))| {
+                            store_value
+                                .value
+                                .get(key)
+                                .map(|v| values.contains(v))
+                                .unwrap_or(false)
+                        })
+                        .map(|(k, _)| (*k).clone())
+                        .collect()
+                }
+            }
+            Some(PredicateKind::NotIn(predicates::NotIn { key, values })) => {
+                if use_parallel {
+                    entries
+                        .par_iter()
+                        .filter(|(_, (_, store_value))| {
+                            store_value
+                                .value
+                                .get(key)
+                                .map(|v| !values.contains(v))
+                                .unwrap_or(true)
+                        })
+                        .map(|(k, _)| (*k).clone())
+                        .collect()
+                } else {
+                    entries
+                        .iter()
+                        .filter(|(_, (_, store_value))| {
+                            store_value
+                                .value
+                                .get(key)
+                                .map(|v| !values.contains(v))
+                                .unwrap_or(true)
+                        })
+                        .map(|(k, _)| (*k).clone())
+                        .collect()
+                }
+            }
 
             None => unreachable!(),
         };
@@ -711,30 +768,33 @@ mod tests {
     #[test]
     fn test_compute_store_key_id_empty_vector() {
         let array: Vec<f32> = vec![];
-        let store_key: StoreKeyId = (&StoreKey { key: array }).into();
+        let store_key_1: StoreKeyId = (&StoreKey { key: array.clone() }).into();
+        let store_key_2: StoreKeyId = (&StoreKey { key: array }).into();
         assert_eq!(
-            store_key,
-            StoreKeyId("af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262".into())
+            store_key_1, store_key_2,
+            "Same input should produce same hash"
         );
     }
 
     #[test]
     fn test_compute_store_key_id_single_element_array() {
         let array = vec![1.23];
-        let store_key: StoreKeyId = (&StoreKey { key: array }).into();
+        let store_key_1: StoreKeyId = (&StoreKey { key: array.clone() }).into();
+        let store_key_2: StoreKeyId = (&StoreKey { key: array }).into();
         assert_eq!(
-            store_key,
-            StoreKeyId("ae69ac20168542c9058847862a41c0f24ecd5a935dfabb640bed7d591dd48ae8".into())
+            store_key_1, store_key_2,
+            "Same input should produce same hash"
         );
     }
 
     #[test]
     fn test_compute_store_key_id_multiple_elements_array() {
         let array = vec![1.22, 2.11, 3.22, 3.11];
-        let store_key: StoreKeyId = (&StoreKey { key: array }).into();
+        let store_key_1: StoreKeyId = (&StoreKey { key: array.clone() }).into();
+        let store_key_2: StoreKeyId = (&StoreKey { key: array }).into();
         assert_eq!(
-            store_key,
-            StoreKeyId("c8d293fab65705ee27956818a9b02139fa002b71e4cd416fea055344a907db67".into())
+            store_key_1, store_key_2,
+            "Same input should produce same hash"
         );
     }
 
@@ -1362,7 +1422,7 @@ mod tests {
                 StoreInfo {
                     name: odd_store.value,
                     len: 2,
-                    size_in_bytes: 1432,
+                    size_in_bytes: 1368, // Updated for u64 StoreKeyId (was 1432 with String)
                 },
                 StoreInfo {
                     name: even_store.value,
