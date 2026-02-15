@@ -26,32 +26,33 @@ fn main() {
     println!("  - dog.jpg: {} bytes", dog_jpg.len());
     println!("  - test.webp: {} bytes\n", test_webp.len());
 
-    // Profile the current "decode all at once" approach
-    println!("=== CURRENT APPROACH: Decode ALL images at once ===\n");
+    // Profile the OLD "decode all at once" approach (for comparison)
+    println!("=== OLD APPROACH: Decode ALL images at once (BEFORE streaming) ===\n");
 
-    profile_image_batch("Small batch", vec![cat_png, dog_jpg, test_webp], 3);
-    profile_image_batch(
+    profile_image_batch_all_at_once("Small batch", vec![cat_png, dog_jpg, test_webp], 3);
+    profile_image_batch_all_at_once(
         "Medium batch",
         vec![cat_png, dog_jpg, test_webp],
         25, // 25 copies = 75 images total
     );
-    profile_image_batch(
+    profile_image_batch_all_at_once(
         "Large batch",
         vec![cat_png, dog_jpg, test_webp],
         50, // 50 copies = 150 images total
     );
 
-    // Theoretical comparison
-    println!("\n=== STREAMING APPROACH (theoretical) ===");
-    println!("If we decode in chunks of 16 (ONNX batch size):");
-    println!("  - Small batch (9 images): 9 ImageArrays in memory");
-    println!("  - Medium batch (75 images): 16 ImageArrays max at once (5x reduction)");
-    println!("  - Large batch (150 images): 16 ImageArrays max at once (9x reduction)\n");
+    // NEW streaming approach
+    println!("\n=== NEW STREAMING APPROACH (AFTER streaming implementation) ===");
+    println!("Decodes images in chunks of 16 (matching ONNX batch size)\n");
 
-    println!("=== Profiling Complete ===\n");
+    profile_image_batch_chunked("Small batch", vec![cat_png, dog_jpg, test_webp], 3, 16);
+    profile_image_batch_chunked("Medium batch", vec![cat_png, dog_jpg, test_webp], 25, 16);
+    profile_image_batch_chunked("Large batch", vec![cat_png, dog_jpg, test_webp], 50, 16);
+
+    println!("\n=== Profiling Complete ===\n");
 }
 
-fn profile_image_batch(label: &str, images: Vec<&[u8]>, copies: usize) {
+fn profile_image_batch_all_at_once(label: &str, images: Vec<&[u8]>, copies: usize) {
     // Create batch by replicating the base images
     let mut batch = Vec::new();
     for _ in 0..copies {
@@ -110,6 +111,89 @@ fn profile_image_batch(label: &str, images: Vec<&[u8]>, copies: usize) {
         estimated_decoded_mb,
         if total_compressed > 0 {
             (estimated_decoded_mb * 1024) / (total_compressed / 1024)
+        } else {
+            0
+        }
+    );
+    println!();
+}
+
+fn profile_image_batch_chunked(label: &str, images: Vec<&[u8]>, copies: usize, batch_size: usize) {
+    // Create batch by replicating the base images
+    let mut batch = Vec::new();
+    for _ in 0..copies {
+        for img_bytes in &images {
+            batch.push(StoreInput {
+                value: Some(Value::Image(img_bytes.to_vec())),
+            });
+        }
+    }
+
+    let total_images = batch.len();
+    let total_compressed: usize = batch
+        .iter()
+        .map(|input| match &input.value {
+            Some(Value::Image(bytes)) => bytes.len(),
+            _ => 0,
+        })
+        .sum();
+
+    println!(
+        "{} ({} images, {}KB compressed):",
+        label,
+        total_images,
+        total_compressed / 1024
+    );
+
+    let arc_inputs = Arc::new(batch);
+
+    // NEW STREAMING APPROACH: Decode in chunks
+    let start = std::time::Instant::now();
+    let mut total_decoded = 0;
+    let mut peak_chunk_size = 0;
+
+    for chunk_start in (0..total_images).step_by(batch_size) {
+        let chunk_end = (chunk_start + batch_size).min(total_images);
+        let chunk = &arc_inputs[chunk_start..chunk_end];
+
+        // Decode this chunk only
+        let decoded_chunk: Vec<ImageArray> = chunk
+            .par_iter()
+            .filter_map(|input| match &input.value {
+                Some(Value::Image(image_bytes)) => {
+                    Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
+                }
+                _ => None,
+            })
+            .collect();
+
+        total_decoded += decoded_chunk.len();
+        peak_chunk_size = peak_chunk_size.max(decoded_chunk.len());
+
+        // decoded_chunk is dropped here before next iteration
+    }
+
+    let decode_time = start.elapsed();
+
+    // Calculate peak memory with chunking
+    let estimated_peak_mb = (peak_chunk_size * 224 * 224 * 3) / (1024 * 1024);
+    let total_possible_mb = (total_images * 224 * 224 * 3) / (1024 * 1024);
+
+    println!(
+        "  - Decoded {} images in {} chunks of {} in {:?}",
+        total_decoded,
+        (total_images + batch_size - 1) / batch_size,
+        batch_size,
+        decode_time
+    );
+    println!(
+        "  - Peak memory: ~{}MB (vs {}MB if decoded all at once)",
+        estimated_peak_mb, total_possible_mb
+    );
+    println!(
+        "  - Memory reduction: {}x",
+        if estimated_peak_mb > 0 {
+            total_possible_mb / estimated_peak_mb
         } else {
             0
         }

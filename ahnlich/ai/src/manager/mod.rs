@@ -112,16 +112,10 @@ impl ModelThread {
                 Ok(ModelInput::Texts(output))
             }
             Value::Image(_) => {
-                let inputs = inputs
-                    .par_iter()
-                    .filter_map(|input| match &input.value {
-                        Some(Value::Image(image_bytes)) => {
-                            Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
-                        }
-                        _ => None,
-                    })
-                    .collect();
-                let output = self.preprocess_image(inputs, process_action)?;
+                // Stream image decoding and preprocessing in chunks matching the model's batch size
+                // This prevents memory spikes from decoding all images at once (10-13x expansion)
+                let batch_size = self.model.batch_size();
+                let output = self.preprocess_images_chunked(inputs, process_action, batch_size)?;
                 Ok(ModelInput::Images(output))
             }
         }
@@ -160,6 +154,60 @@ impl ModelThread {
                 }
             }
         }
+    }
+
+    /// Process images in chunks to reduce memory usage
+    /// Decodes, preprocesses, and accumulates results in batches matching model batch_size
+    #[tracing::instrument(skip(self, inputs), fields(batch_size = batch_size, total_images = inputs.len()))]
+    fn preprocess_images_chunked(
+        &self,
+        inputs: Arc<Vec<StoreInput>>,
+        process_action: PreprocessAction,
+        batch_size: usize,
+    ) -> Result<Array<f32, Ix4>, AIProxyError> {
+        let total_images = inputs.len();
+        let mut all_preprocessed: Vec<Array<f32, Ix4>> =
+            Vec::with_capacity((total_images + batch_size - 1) / batch_size);
+
+        // Process images in chunks of batch_size
+        for chunk_start in (0..total_images).step_by(batch_size) {
+            let chunk_end = (chunk_start + batch_size).min(total_images);
+            let chunk = &inputs[chunk_start..chunk_end];
+
+            // Decode chunk: compressed bytes -> ImageArrays (memory spike happens here, but limited to batch_size)
+            let decoded_chunk: Vec<ImageArray> = chunk
+                .par_iter()
+                .filter_map(|input| match &input.value {
+                    Some(Value::Image(image_bytes)) => {
+                        Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
+                    }
+                    _ => None,
+                })
+                .collect();
+
+            // Preprocess this chunk
+            let preprocessed_chunk = self.preprocess_image(decoded_chunk, process_action)?;
+            all_preprocessed.push(preprocessed_chunk);
+
+            // decoded_chunk is dropped here, freeing memory before next iteration
+        }
+
+        // Concatenate all chunks along batch dimension (axis 0)
+        if all_preprocessed.is_empty() {
+            return Err(AIProxyError::ModelPreprocessingError {
+                model_name: self.model.model_name(),
+                message: "No images were successfully decoded".to_string(),
+            });
+        }
+
+        // Use ndarray's concatenate to merge along axis 0
+        let views: Vec<_> = all_preprocessed.iter().map(|arr| arr.view()).collect();
+        ndarray::concatenate(ndarray::Axis(0), &views).map_err(|e| {
+            AIProxyError::ModelPreprocessingError {
+                model_name: self.model.model_name(),
+                message: format!("Failed to concatenate preprocessed chunks: {}", e),
+            }
+        })
     }
 
     #[tracing::instrument(skip(self, inputs))]
