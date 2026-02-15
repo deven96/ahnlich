@@ -98,7 +98,7 @@ impl DbService for Server {
             .into_iter()
             .map(|(store_key, store_value)| DbStoreEntry {
                 key: Some(store_key),
-                value: Some(store_value),
+                value: Some(Arc::unwrap_or_clone(store_value)),
             })
             .collect();
 
@@ -126,7 +126,7 @@ impl DbService for Server {
             .into_iter()
             .map(|(store_key, store_value)| DbStoreEntry {
                 key: Some(store_key),
-                value: Some(store_value),
+                value: Some(Arc::unwrap_or_clone(store_value)),
             })
             .collect();
 
@@ -164,7 +164,7 @@ impl DbService for Server {
             .into_iter()
             .map(|(store_key, store_value, sim)| GetSimNEntry {
                 key: Some(store_key),
-                value: Some(store_value),
+                value: Some(Arc::unwrap_or_clone(store_value)),
                 similarity: Some(sim),
             })
             .collect();

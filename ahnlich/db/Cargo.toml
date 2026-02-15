@@ -48,6 +48,7 @@ pretty_assertions.workspace = true
 criterion = "0.4"
 rand.workspace = true
 fastrand = "1.9"
+dhat = "0.3"
 
 [[bench]]
 name = "database"
