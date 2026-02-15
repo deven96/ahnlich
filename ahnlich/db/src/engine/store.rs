@@ -682,6 +682,15 @@ impl Store {
         }
         let store_dimension: usize = self.dimension.into();
 
+        let entry_size = size_of_val(&StoreKey {
+            key: vec![0.0; store_dimension],
+        }) + size_of_val(&StoreValue {
+            value: StdHashMap::new(),
+        }) + 64;
+        let estimated_bytes = new.len() * entry_size * 3;
+        utils::allocator::check_memory_available(estimated_bytes)
+            .map_err(|e| ServerError::Allocation(e.into()))?;
+
         // Validate dimensions and wrap in Arc immediately - single allocation per entry
         let check_and_wrap = |(store_key, store_val): (StoreKey, StoreValue)| -> Result<
             (StoreKeyId, Arc<StoreKey>, Arc<StoreValue>),

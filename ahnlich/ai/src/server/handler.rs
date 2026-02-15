@@ -732,6 +732,11 @@ impl AiService for AIProxyServer {
         request: tonic::Request<AiRequestPipeline>,
     ) -> Result<tonic::Response<AiResponsePipeline>, tonic::Status> {
         let params = request.into_inner();
+
+        let estimated_bytes = params.queries.len() * 1024;
+        utils::allocator::check_memory_available(estimated_bytes)
+            .map_err(|e| AIProxyError::Allocation(e.into()))?;
+
         let mut response_vec = Vec::with_capacity(params.queries.len());
 
         for pipeline_query in params.queries {

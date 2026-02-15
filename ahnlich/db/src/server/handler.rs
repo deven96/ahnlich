@@ -1,5 +1,6 @@
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
+use crate::errors::ServerError;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::db::pipeline::db_query::Query;
 use ahnlich_types::db::server::GetSimNEntry;
@@ -457,6 +458,11 @@ impl DbService for Server {
         request: tonic::Request<pipeline::DbRequestPipeline>,
     ) -> std::result::Result<tonic::Response<pipeline::DbResponsePipeline>, tonic::Status> {
         let params = request.into_inner();
+
+        let estimated_bytes = params.queries.len() * 1024;
+        utils::allocator::check_memory_available(estimated_bytes)
+            .map_err(|e| ServerError::Allocation(e.into()))?;
+
         let mut response_vec = Vec::with_capacity(params.queries.len());
 
         for pipeline_query in params.queries {
