@@ -32,7 +32,7 @@ use tracing_opentelemetry::OpenTelemetrySpanExt;
 type ModelThreadResponse = Result<Vec<ModelResponse>, AIProxyError>;
 
 struct ModelThreadRequest {
-    inputs: Vec<StoreInput>,
+    inputs: Arc<Vec<StoreInput>>,
     response: oneshot::Sender<ModelThreadResponse>,
     preprocess_action: PreprocessAction,
     action_type: InputAction,
@@ -68,7 +68,7 @@ impl ModelThread {
     #[tracing::instrument(skip(self, inputs))]
     async fn input_to_response(
         &self,
-        inputs: Vec<StoreInput>,
+        inputs: Arc<Vec<StoreInput>>,
         process_action: PreprocessAction,
         action_type: InputAction,
         execution_provider: Option<ExecutionProvider>,
@@ -87,7 +87,7 @@ impl ModelThread {
     pub(crate) fn preprocess_store_input(
         &self,
         process_action: PreprocessAction,
-        inputs: Vec<StoreInput>,
+        inputs: Arc<Vec<StoreInput>>,
     ) -> Result<ModelInput, AIProxyError> {
         let sample = inputs
             .first()
@@ -102,9 +102,9 @@ impl ModelThread {
         match sample_type {
             Value::RawString(_) => {
                 let inputs: Vec<String> = inputs
-                    .into_par_iter()
-                    .filter_map(|input| match input.value {
-                        Some(Value::RawString(string)) => Some(string),
+                    .par_iter()
+                    .filter_map(|input| match &input.value {
+                        Some(Value::RawString(string)) => Some(string.clone()),
                         _ => None,
                     })
                     .collect();
@@ -113,8 +113,8 @@ impl ModelThread {
             }
             Value::Image(_) => {
                 let inputs = inputs
-                    .into_par_iter()
-                    .filter_map(|input| match input.value {
+                    .par_iter()
+                    .filter_map(|input| match &input.value {
                         Some(Value::Image(image_bytes)) => {
                             Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
                         }
@@ -312,7 +312,7 @@ impl ModelManager {
 
         let (response_tx, response_rx) = oneshot::channel();
         let request = ModelThreadRequest {
-            inputs,
+            inputs: Arc::new(inputs),
             response: response_tx,
             preprocess_action,
             action_type,
