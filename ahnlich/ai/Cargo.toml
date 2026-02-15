@@ -79,3 +79,7 @@ harness = false
 [[bench]]
 name = "realistic_memory_profile"
 harness = false
+
+[[bench]]
+name = "speed_comparison"
+harness = false
