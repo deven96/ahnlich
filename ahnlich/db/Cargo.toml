@@ -17,7 +17,7 @@ bench = false
 
 [dependencies]
 serde.workspace = true
-blake3.workspace = true
+ahash.workspace = true
 ndarray.workspace = true
 bincode.workspace = true
 itertools.workspace = true

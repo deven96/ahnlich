@@ -473,7 +473,7 @@ async fn test_del_pred() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1264,
+                        size_in_bytes: 1232, // Updated for u64 StoreKeyId (different metadata than other tests)
                     }],
                 },
             )),
@@ -672,7 +672,7 @@ async fn test_del_key() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1176,
+                        size_in_bytes: 1144, // Updated for u64 StoreKeyId
                     }],
                 },
             )),
@@ -696,7 +696,7 @@ async fn test_del_key() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 1,
-                        size_in_bytes: 1128,
+                        size_in_bytes: 1112, // Updated for u64 StoreKeyId
                     }],
                 },
             )),
@@ -865,7 +865,7 @@ async fn test_server_with_persistence() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1320,
+                        size_in_bytes: 1272,
                     }],
                 },
             )),
@@ -889,7 +889,7 @@ async fn test_server_with_persistence() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 1,
-                        size_in_bytes: 1272,
+                        size_in_bytes: 1240, // Updated for u64 StoreKeyId
                     }],
                 },
             )),
@@ -1181,7 +1181,7 @@ async fn test_set_in_store() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1320,
+                        size_in_bytes: 1272,
                     }],
                 },
             )),
