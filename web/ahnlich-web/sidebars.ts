@@ -347,6 +347,21 @@ const sidebars: SidebarsConfig = {
         },
       ],
     },
+    {
+      type: 'category',
+      label: '📖 Reference',
+      items: [
+        'reference/error-codes',
+        'reference/configuration',
+      ],
+    },
+    {
+      type: 'category',
+      label: '🔧 Troubleshooting',
+      items: [
+        'troubleshooting/common-issues',
+      ],
+    },
     "architecture",
     "community",
   ],
