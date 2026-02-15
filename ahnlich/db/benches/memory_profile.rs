@@ -4,12 +4,12 @@ use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
-use ahnlich_types::predicates::{predicate::Kind as PredicateKind, Predicate, PredicateCondition};
+use ahnlich_types::predicates::{Predicate, PredicateCondition, predicate::Kind as PredicateKind};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 fn main() {
     #[cfg(feature = "dhat-heap")]
