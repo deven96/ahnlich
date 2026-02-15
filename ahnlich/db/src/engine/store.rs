@@ -206,18 +206,21 @@ impl StoreHandler {
             });
         }
 
-        let (filtered, used_all) = if let Some(ref condition) = condition {
-            (store.get_matches(condition)?, false)
+        // Get filtered entries with their IDs to avoid recomputing hashes
+        let (filtered_with_ids, used_all) = if let Some(ref condition) = condition {
+            (store.get_matches_with_ids(condition)?, false)
         } else {
-            (store.get_all(), true)
+            (store.get_all_with_ids(), true)
         };
 
         // early stopping: predicate filters everything out so no need to search
-        if filtered.is_empty() {
+        if filtered_with_ids.is_empty() {
             return Ok(vec![]);
         }
 
-        let filtered_iter = filtered.par_iter().map(|(key, _)| key.as_ref());
+        let filtered_iter = filtered_with_ids
+            .par_iter()
+            .map(|(_, (key, _))| key.as_ref());
 
         let algorithm_by_type: AlgorithmByType = algorithm.into();
         let similar_result = match algorithm_by_type {
@@ -238,26 +241,19 @@ impl StoreHandler {
             }
         };
 
-        let mut keys_to_entry_map: StdHashMap<StoreKeyId, (&Arc<StoreKey>, &Arc<StoreValue>)> =
-            StdHashMap::from_iter(filtered.iter().map(|(store_key, store_value)| {
-                (
-                    StoreKeyId::from(store_key.as_ref()),
-                    (store_key, store_value),
-                )
-            }));
+        // Build lookup map without recomputing StoreKeyId hashes
+        let mut keys_to_entry_map: StdHashMap<StoreKeyId, (Arc<StoreKey>, Arc<StoreValue>)> =
+            StdHashMap::with_capacity(filtered_with_ids.len());
+        for (key_id, (store_key, store_value)) in filtered_with_ids {
+            keys_to_entry_map.insert(key_id, (store_key, store_value));
+        }
 
         Ok(similar_result
             .into_iter()
-            .flat_map(|(store_key, similarity)| {
+            .flat_map(|(store_key_id, similarity)| {
                 keys_to_entry_map
-                    .remove(&StoreKeyId::from(&store_key))
-                    .map(|(key, value)| {
-                        (
-                            Arc::clone(key),
-                            Arc::clone(value),
-                            Similarity { value: similarity },
-                        )
-                    })
+                    .remove(&store_key_id)
+                    .map(|(key, value)| (key, value, Similarity { value: similarity }))
             })
             .collect())
     }
@@ -640,6 +636,39 @@ impl Store {
             .collect()
     }
 
+    /// Like get_all, but also returns the StoreKeyId to avoid recomputing hashes
+    #[tracing::instrument(skip(self))]
+    fn get_all_with_ids(&self) -> Vec<(StoreKeyId, StoreEntry)> {
+        let pinned = self.id_to_value.pin();
+        pinned
+            .into_iter()
+            .map(|(key_id, (store_key, store_value))| {
+                (
+                    key_id.clone(),
+                    (Arc::clone(store_key), Arc::clone(store_value)),
+                )
+            })
+            .collect()
+    }
+
+    /// Like get_matches, but also returns the StoreKeyId to avoid recomputing hashes
+    #[tracing::instrument(skip_all)]
+    fn get_matches_with_ids(
+        &self,
+        condition: &PredicateCondition,
+    ) -> Result<Vec<(StoreKeyId, StoreEntry)>, ServerError> {
+        let matches = self.predicate_indices.matches(condition, self)?;
+        let pinned = self.id_to_value.pin();
+        Ok(matches
+            .into_iter()
+            .flat_map(|key_id| {
+                pinned
+                    .get(&key_id)
+                    .map(|(k, v)| (key_id.clone(), (Arc::clone(k), Arc::clone(v))))
+            })
+            .collect())
+    }
+
     /// Adds a bunch of entries into the store if they match the dimensions
     /// Returns the len of values added, if a value already existed it is updated but not counted
     /// as a new insert
@@ -652,37 +681,61 @@ impl Store {
             });
         }
         let store_dimension: usize = self.dimension.into();
-        let check_bounds = |(store_key, store_val): &(StoreKey, StoreValue)| -> Result<(StoreKeyId, (StoreKey, StoreValue)), ServerError> {
+
+        // Validate dimensions and wrap in Arc immediately - single allocation per entry
+        let check_and_wrap = |(store_key, store_val): (StoreKey, StoreValue)| -> Result<
+            (StoreKeyId, Arc<StoreKey>, Arc<StoreValue>),
+            ServerError,
+        > {
             let input_dimension = store_key.key.len();
             if input_dimension != store_dimension {
-                Err(ServerError::StoreDimensionMismatch { store_dimension, input_dimension  })
+                Err(ServerError::StoreDimensionMismatch {
+                    store_dimension,
+                    input_dimension,
+                })
             } else {
-                Ok(((store_key).into(), (store_key.to_owned(), store_val.to_owned())))
+                let key_id = StoreKeyId::from(&store_key);
+                let arc_key = Arc::new(store_key);
+                let arc_val = Arc::new(store_val);
+                Ok((key_id, arc_key, arc_val))
             }
         };
-        let res: Vec<(StoreKeyId, (StoreKey, StoreValue))> =
-            new.par_iter().map(check_bounds).collect::<Result<_, _>>()?;
+
+        // Consume input vec, wrapping each entry in Arc once
+        let res: Vec<(StoreKeyId, Arc<StoreKey>, Arc<StoreValue>)> = new
+            .into_par_iter()
+            .map(check_and_wrap)
+            .collect::<Result<_, _>>()?;
+
+        // Build predicate insert list using Arc clones (cheap)
         let predicate_insert: Vec<(StoreKeyId, Arc<StoreValue>)> = res
             .par_iter()
-            .map(|(k, (_, v))| (k.clone(), Arc::new(v.clone())))
+            .map(|(k, _, v)| (k.clone(), Arc::clone(v)))
             .collect();
+
         let inserted = AtomicUsize::new(0);
         let updated = AtomicUsize::new(0);
+
+        // Insert into main store, collecting keys for non-linear indices
         let inserted_keys = res
             .into_par_iter()
-            .flat_map_iter(|(k, v)| {
+            .flat_map_iter(|(k, arc_key, arc_val)| {
                 let pinned = self.id_to_value.pin();
-                // Wrap both StoreKey and StoreValue in Arc
-                let arc_entry = (Arc::new(v.0.clone()), Arc::new(v.1));
-                if pinned.insert(k, arc_entry.clone()).is_some() {
+                // Both key and value are already in Arc, just clone Arc references
+                if pinned
+                    .insert(k, (Arc::clone(&arc_key), Arc::clone(&arc_val)))
+                    .is_some()
+                {
                     updated.fetch_add(1, Ordering::SeqCst);
+                    None
                 } else {
                     inserted.fetch_add(1, Ordering::SeqCst);
-                    return Some(arc_entry.0.key.clone());
+                    // Only clone the Vec<f32> for newly inserted keys (not updates)
+                    Some(arc_key.key.clone())
                 }
-                None
             })
             .collect();
+
         self.predicate_indices.add(predicate_insert);
         if !self.non_linear_indices.is_empty() {
             self.non_linear_indices.insert(inserted_keys);
