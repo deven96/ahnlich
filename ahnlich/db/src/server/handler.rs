@@ -97,7 +97,7 @@ impl DbService for Server {
             )?
             .into_iter()
             .map(|(store_key, store_value)| DbStoreEntry {
-                key: Some(store_key),
+                key: Some(Arc::unwrap_or_clone(store_key)),
                 value: Some(Arc::unwrap_or_clone(store_value)),
             })
             .collect();
@@ -125,7 +125,7 @@ impl DbService for Server {
             )?
             .into_iter()
             .map(|(store_key, store_value)| DbStoreEntry {
-                key: Some(store_key),
+                key: Some(Arc::unwrap_or_clone(store_key)),
                 value: Some(Arc::unwrap_or_clone(store_value)),
             })
             .collect();
@@ -163,7 +163,7 @@ impl DbService for Server {
             )?
             .into_iter()
             .map(|(store_key, store_value, sim)| GetSimNEntry {
-                key: Some(store_key),
+                key: Some(Arc::unwrap_or_clone(store_key)),
                 value: Some(Arc::unwrap_or_clone(store_value)),
                 similarity: Some(sim),
             })
@@ -394,12 +394,23 @@ impl DbService for Server {
         _request: tonic::Request<query::InfoServer>,
     ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
         let version = env!("CARGO_PKG_VERSION").to_string();
+
+        // When using dhat-heap profiling, report 0 for limit/remaining as dhat::Alloc doesn't track these
+        #[cfg(feature = "dhat-heap")]
+        let (limit, remaining) = (0, 0);
+
+        #[cfg(not(feature = "dhat-heap"))]
+        let (limit, remaining) = (
+            GLOBAL_ALLOCATOR.limit() as u64,
+            GLOBAL_ALLOCATOR.remaining() as u64,
+        );
+
         let server_info = ahnlich_types::shared::info::ServerInfo {
             address: format!("{:?}", self.listener.local_addr()?),
             version,
             r#type: ahnlich_types::server_types::ServerType::Database.into(),
-            limit: GLOBAL_ALLOCATOR.limit() as u64,
-            remaining: GLOBAL_ALLOCATOR.remaining() as u64,
+            limit,
+            remaining,
         };
 
         let info_server = server::InfoServer {

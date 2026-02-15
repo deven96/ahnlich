@@ -38,6 +38,13 @@ where
     }
 }
 
+// When dhat-heap feature is enabled, use dhat's global allocator for memory profiling
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+pub static GLOBAL_ALLOCATOR: dhat::Alloc = dhat::Alloc;
+
+// Otherwise, use the custom AhnlichAllocator
+#[cfg(not(feature = "dhat-heap"))]
 #[global_allocator]
 pub static GLOBAL_ALLOCATOR: AhnlichAllocator<alloc::System> =
     AhnlichAllocator::new(alloc::System, usize::MAX);

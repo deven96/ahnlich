@@ -63,10 +63,19 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
         // WARNING: `set_limit` fails if the global allocator has already allocated memory beyond
         // the size being set, therefore might point to a need to bump up the default
         // `allocator_size`
-        GLOBAL_ALLOCATOR
-            .set_limit(global_allocator_cap)
-            .unwrap_or_else(|_| panic!("Could not set up {service_name} with allocator_size"));
-        log::debug!("Set max size for global allocator to: {global_allocator_cap}");
+        // Note: When using dhat-heap feature, the global allocator is dhat::Alloc which doesn't
+        // support set_limit, so we skip this step during profiling
+        #[cfg(not(feature = "dhat-heap"))]
+        {
+            GLOBAL_ALLOCATOR
+                .set_limit(global_allocator_cap)
+                .unwrap_or_else(|_| panic!("Could not set up {service_name} with allocator_size"));
+            log::debug!("Set max size for global allocator to: {global_allocator_cap}");
+        }
+        #[cfg(feature = "dhat-heap")]
+        log::debug!(
+            "Memory profiling enabled - skipping allocator limit (would be: {global_allocator_cap})"
+        );
         parallel::init_threadpool(self.config().threadpool_size);
         let task_manager = self.task_manager();
 
