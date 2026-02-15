@@ -492,7 +492,7 @@ mod tests {
                         value: StdHashMap::new(),
                     },
                 };
-                let store_key: StoreKeyId = format!("{i}").into();
+                let store_key: StoreKeyId = i.into();
                 let data = vec![(store_key, values)];
                 shared_data.add(data);
             });
@@ -516,7 +516,7 @@ mod tests {
                             key.into(),
                         )),
                     },
-                    format!("{i}").into(),
+                    i.into(),
                 )]);
             });
             handle
@@ -552,9 +552,9 @@ mod tests {
         shared_pred.add_predicates(
             vec!["country".into(), "name".into()],
             Some(vec![
-                ("0".into(), store_value_0()),
-                ("1".into(), store_value_1()),
-                ("2".into(), store_value_2()),
+                (0.into(), store_value_0()),
+                (1.into(), store_value_1()),
+                (2.into(), store_value_2()),
             ]),
         );
 
@@ -565,7 +565,7 @@ mod tests {
             )
             .unwrap();
         // Now we expect index to be up to date
-        assert_eq!(result, StdHashSet::from_iter(["0".into(), "1".into()]),);
+        assert_eq!(result, StdHashSet::from_iter([0.into(), 1.into()]),);
     }
 
     #[test]
@@ -617,7 +617,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is not from Nigeria
-        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        assert_eq!(result, StdHashSet::from_iter([1.into()]));
         let condition = &PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
@@ -637,7 +637,7 @@ mod tests {
                 &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
-        assert_eq!(result, StdHashSet::from_iter(["0".into(), "2".into()]),);
+        assert_eq!(result, StdHashSet::from_iter([0.into(), 2.into()]),);
 
         let check = &PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
@@ -671,7 +671,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is from Washington
-        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        assert_eq!(result, StdHashSet::from_iter([1.into()]));
 
         let check = PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
@@ -705,7 +705,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is fulfills all
-        assert_eq!(result, StdHashSet::from_iter(["2".into()]));
+        assert_eq!(result, StdHashSet::from_iter([2.into()]));
 
         let check = PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
@@ -741,7 +741,7 @@ mod tests {
         // all 3 fulfill this
         assert_eq!(
             result,
-            StdHashSet::from_iter(["2".into(), "0".into(), "1".into(),]),
+            StdHashSet::from_iter([2.into(), 0.into(), 1.into(),]),
         );
 
         let check = check.and(PredicateCondition {
@@ -763,10 +763,10 @@ mod tests {
             )
             .unwrap();
         // only person 1 is from Washington with any of those names
-        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        assert_eq!(result, StdHashSet::from_iter([1.into()]));
         // remove all Nigerians from the predicate and check that conditions working before no
         // longer work and those working before still work
-        shared_pred.remove_store_keys(&["0".into(), "2".into()]);
+        shared_pred.remove_store_keys(&[0.into(), 2.into()]);
 
         let result = shared_pred
             .matches(
@@ -807,7 +807,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is from Washington with any of those names
-        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        assert_eq!(result, StdHashSet::from_iter([1.into()]));
     }
 
     #[test]
@@ -840,7 +840,7 @@ mod tests {
                 .len(),
             2
         );
-        shared_pred.remove_store_keys(&["1".into(), "0".into()]);
+        shared_pred.remove_store_keys(&[1.into(), 0.into()]);
         assert_eq!(
             shared_pred
                 .0
