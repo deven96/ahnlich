@@ -27,10 +27,13 @@ import (
   "google.golang.org/grpc/credentials/insecure"
 
 
-  aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
-  aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
-  keyval "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
-  metadata "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+  aiquery    "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+  aisvc      "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+  keyval     "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+  metadata   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+  algorithms "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms"
+  preprocess "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess"
+  predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
 )
 
 
@@ -94,9 +97,13 @@ func unwrapValue(v *keyval.StoreValue) map[string]string {
 // ---- GetSimN  ----
 func (c *ExampleAIClient) exampleGetSimNAI() error {
   resp, err := c.client.GetSimN(c.ctx, &aiquery.GetSimN{
-      Store:       "ai_store01", // must already exist and have data
-      SearchInput: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "X"}},
-      ClosestN:    3,
+      Store:            "ai_store01", // must already exist and have data
+      SearchInput:      &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "X"}},
+      Condition:        nil, // Optional: filter results using predicates
+      ClosestN:         3,
+      Algorithm:        algorithms.Algorithm_CosineSimilarity,
+      PreprocessAction: preprocess.PreprocessAction_ModelPreprocessing, // Apply model's preprocessing
+      ExecutionProvider: nil, // Optional: e.g., ExecutionProvider_CUDA for GPU acceleration
   })
   if err != nil {
       return err
@@ -133,9 +140,25 @@ func main() {
 
 ## Behavior
 
-- The AI proxy **embeds** the raw `SearchInput` with the store’s **QueryModel** and forwards the search to the DB.
+- **Store** – The target AI store that must already exist.
 
-- The response contains up to `ClosestN` matching entries (`resp.Entries`) from the store (entries include stored vectors’ associated data/metadata).
+- **SearchInput** – Raw input (text or image) that gets embedded using the store's QueryModel.
+
+- **Condition** – Optional predicate filter to restrict which vectors are considered. Set to `nil` to search all vectors. See [Predicates documentation](/components/predicates/predicates).
+
+- **ClosestN** – Number of top matches to return.
+
+- **Algorithm** – Similarity metric to use (`CosineSimilarity`, `EuclideanDistance`, `DotProductSimilarity`).
+
+- **PreprocessAction** – Controls input preprocessing:
+  - `ModelPreprocessing` – Apply model's built-in preprocessing (recommended for most cases)
+  - `NoPreprocessing` – Skip preprocessing (use if you've already preprocessed the input)
+
+- **ExecutionProvider** – Optional hardware acceleration (e.g., `CUDA`, `TensorRT`, `CoreML`). Set to `nil` to use default CPU execution.
+
+- The AI proxy **embeds** the raw `SearchInput` with the store's **QueryModel** and forwards the search to the DB.
+
+- The response contains up to `ClosestN` matching entries (`resp.Entries`) from the store (entries include stored vectors' associated data/metadata).
 
 - Results depend on what has been previously ingested (e.g., via AI `Set` or direct DB ingestion).
 

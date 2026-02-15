@@ -27,9 +27,11 @@ import (
     "google.golang.org/grpc/credentials/insecure"
 
 
-    dbsvc   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
-    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
-    keyval  "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+    dbsvc      "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery    "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    keyval     "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+    algorithms "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms"
+    predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
 )
 
 
@@ -72,6 +74,8 @@ func (c *ExampleDBClient) exampleGetSimN() error {
         Store:       "my_store",
         SearchInput: &keyval.StoreKey{Key: []float32{1, 2, 3, 4}},
         ClosestN:    3,
+        Algorithm:   algorithms.Algorithm_CosineSimilarity,
+        Condition:   nil, // Optional: filter results using predicates
     })
     if err != nil {
         return err
@@ -111,6 +115,10 @@ func main() {
 - **SearchInput** – A vector `[1, 2, 3, 4]` is used as the query input. This must match the dimensionality of the store.
 
 - **ClosestN** – The request asks for the 3 most similar vectors.
+
+- **Algorithm** – Uses `CosineSimilarity` to compute vector similarity. Other options: `EuclideanDistance`, `DotProductSimilarity`.
+
+- **Condition** – Optional predicate filter to restrict which vectors are considered in the search. Set to `nil` to search all vectors. See [Predicates documentation](/components/predicates/predicates) for filtering examples.
 
 - **Response** – The server returns the top matches as `resp.Entries`, including both the stored vectors and any metadata associated with them.
 

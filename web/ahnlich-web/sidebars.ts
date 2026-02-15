@@ -93,6 +93,17 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
+          label: '🔍 Predicates',
+          link: {
+            type: 'doc',
+            id: 'components/predicates/predicates'
+          },
+          items: [
+            'components/predicates/quick-reference',
+          ],
+        },
+        {
+          type: 'category',
           label: '🕸️ Distributed Tracing',
           link: {
             type: 'doc',
