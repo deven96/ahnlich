@@ -681,6 +681,7 @@ impl AiService for AIProxyServer {
         }
 
         let inputs = params.store_inputs;
+        let input_len = inputs.len();
 
         let store_keys = ModelManager::handle_request(
             &self.model_manager,
@@ -692,17 +693,16 @@ impl AiService for AIProxyServer {
         )
         .await?;
 
-        if inputs.len() != store_keys.len() {
+        if input_len != store_keys.len() {
             return Err(tonic::Status::failed_precondition(format!(
                 "Mismatched lengths: inputs has {} elements, but store_keys has {}.",
-                inputs.len(),
+                input_len,
                 store_keys.len()
             )));
         }
 
         Ok(tonic::Response::new(StoreInputToEmbeddingsList {
             values: inputs
-                .clone()
                 .into_iter()
                 .zip(store_keys)
                 .map(|(input, key)| SingleInputToEmbedding {
