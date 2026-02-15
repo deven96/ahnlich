@@ -3,7 +3,11 @@ name = "utils"
 version = "0.0.0"
 edition = "2024"
 
+[features]
+dhat-heap = ["dhat"]
+
 [dependencies]
+dhat = { version = "0.3", optional = true }
 ahnlich_types = { path = "../types", version = "*"  }
 task-manager = { path = "../task-manager", version = "*" }
 tracing.workspace = true

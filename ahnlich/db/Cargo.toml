@@ -3,6 +3,9 @@ name = "db"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+dhat-heap = ["utils/dhat-heap"]
+
 [[bin]]
 name = "ahnlich-db"
 path = "src/main.rs"
@@ -52,4 +55,8 @@ dhat = "0.3"
 
 [[bench]]
 name = "database"
+harness = false
+
+[[bench]]
+name = "memory_profile"
 harness = false
