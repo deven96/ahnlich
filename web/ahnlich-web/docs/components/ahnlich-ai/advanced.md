@@ -11,15 +11,15 @@ Unlike Ahnlich DB, which is concerned with similarity algorithms and indexing, *
 
 Ahnlich AI includes several pre-trained models that can be configured depending on your workload. These cover both **text embeddings** and **image embeddings**:
 
-| Model Name | String Name | Type | Description |
-| ----- | ----- | ----- | ----- |
-| ALL\_MINI\_LM\_L6\_V2 | all-minilm-l6-v2 | Text | Lightweight sentence transformer. Fast and memory-efficient, ideal for semantic similarity in applications like FAQ search or chatbots. |
-| ALL\_MINI\_LM\_L12\_V2 | all-minilm-l12-v2 | Text | Larger variant of MiniLM. Higher accuracy for nuanced text similarity tasks, but with increased compute requirements. |
-| BGE\_BASE\_EN\_V15 |  bge-base-en-v1.5 | Text | Base version of the BGE (English v1.5) model. Balanced performance and speed, suitable for production-scale applications. |
-| BGE\_LARGE\_EN\_V15 | bge-large-en-v1.5 | Text | High-accuracy embedding model for semantic search and retrieval. Best choice when precision is more important than latency. |
-| RESNET50 | resnet-50 | Image | Convolutional Neural Network (CNN) for extracting embeddings from images. Useful for content-based image retrieval and clustering. |
-| CLIP\_VIT\_B32\_IMAGE | clip-vit-b32-image | Image | Vision Transformer encoder from the CLIP model. Produces embeddings aligned with its paired text encoder for multimodal tasks. |
-| CLIP\_VIT\_B32\_TEXT | clip-vit-b32-text | Text | Text encoder from CLIP. Designed to map textual inputs into the same space as CLIP image embeddings for text-to-image or image-to-text search. |
+| Model Name | String Name | Type | Max Input | Description |
+| ----- | ----- | ----- | ----- | ----- |
+| ALL\_MINI\_LM\_L6\_V2 | all-minilm-l6-v2 | Text | 256 tokens | Lightweight sentence transformer. Fast and memory-efficient, ideal for semantic similarity in applications like FAQ search or chatbots. |
+| ALL\_MINI\_LM\_L12\_V2 | all-minilm-l12-v2 | Text | 256 tokens | Larger variant of MiniLM. Higher accuracy for nuanced text similarity tasks, but with increased compute requirements. |
+| BGE\_BASE\_EN\_V15 |  bge-base-en-v1.5 | Text | 512 tokens | Base version of the BGE (English v1.5) model. Balanced performance and speed, suitable for production-scale applications. |
+| BGE\_LARGE\_EN\_V15 | bge-large-en-v1.5 | Text | 512 tokens | High-accuracy embedding model for semantic search and retrieval. Best choice when precision is more important than latency. |
+| RESNET50 | resnet-50 | Image | 224x224 px | Convolutional Neural Network (CNN) for extracting embeddings from images. Useful for content-based image retrieval and clustering. |
+| CLIP\_VIT\_B32\_IMAGE | clip-vit-b32-image | Image | 224x224 px | Vision Transformer encoder from the CLIP model. Produces embeddings aligned with its paired text encoder for multimodal tasks. |
+| CLIP\_VIT\_B32\_TEXT | clip-vit-b32-text | Text | 77 tokens | Text encoder from CLIP. Designed to map textual inputs into the same space as CLIP image embeddings for text-to-image or image-to-text search. |
 
 ## Supported Input Types
 

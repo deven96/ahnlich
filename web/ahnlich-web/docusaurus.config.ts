@@ -13,7 +13,19 @@ const config: Config = {
   markdown: {
       mermaid: true,
     },
-    themes: ['@docusaurus/theme-mermaid'],
+    themes: [
+      '@docusaurus/theme-mermaid',
+      [
+        require.resolve("@easyops-cn/docusaurus-search-local"),
+        {
+          hashed: true,
+          language: ["en"],
+          highlightSearchTermsOnTargetPage: true,
+          explicitSearchResultPath: true,
+          docsRouteBasePath: '/docs',
+        },
+      ],
+    ],
 
   // Set the production url of your site here
   url: 'https://ahnlich.dev',

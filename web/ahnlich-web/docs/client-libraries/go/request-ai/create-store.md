@@ -84,11 +84,13 @@ func (c *ExampleAIClient) Close() error {
 // Create a new store for AI operations.
 func (c *ExampleAIClient) exampleCreateStoreAI() error {
     _, err := c.client.CreateStore(c.ctx, &aiquery.CreateStore{
-        Store:         "ai_store",
-        QueryModel:    aimodel.AIModel_ALL_MINI_LM_L6_V2,
-        IndexModel:    aimodel.AIModel_ALL_MINI_LM_L6_V2,
-        ErrorIfExists: true,  // Logs warning if store already exists
-        StoreOriginal: true,  // Needed to allow deletion of keys later
+        Store:            "ai_store",
+        QueryModel:       aimodel.AIModel_ALL_MINI_LM_L6_V2,
+        IndexModel:       aimodel.AIModel_ALL_MINI_LM_L6_V2,
+        Predicates:       []string{},  // Optional: metadata fields to index for filtering
+        NonLinearIndices: []int32{},   // Optional: non-linear algorithms for faster search
+        ErrorIfExists:    true,         // Return error if store already exists
+        StoreOriginal:    true,         // Store original input (needed for key deletion)
     })
     if err != nil {
         return err
