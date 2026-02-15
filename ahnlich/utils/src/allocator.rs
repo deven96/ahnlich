@@ -48,3 +48,62 @@ pub static GLOBAL_ALLOCATOR: dhat::Alloc = dhat::Alloc;
 #[global_allocator]
 pub static GLOBAL_ALLOCATOR: AhnlichAllocator<alloc::System> =
     AhnlichAllocator::new(alloc::System, usize::MAX);
+
+#[cfg(not(feature = "dhat-heap"))]
+pub fn check_memory_available(estimated_bytes: usize) -> Result<(), AllocationError> {
+    let current = GLOBAL_ALLOCATOR.allocated();
+    let limit = GLOBAL_ALLOCATOR.limit();
+
+    // Add 10% safety margin to account for allocation overhead
+    let needed = estimated_bytes + (estimated_bytes / 10);
+
+    if current + needed > limit {
+        return Err(AllocationError::ExceedsLimit {
+            requested: estimated_bytes,
+            available: limit.saturating_sub(current),
+        });
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "dhat-heap")]
+pub fn check_memory_available(_estimated_bytes: usize) -> Result<(), AllocationError> {
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AllocationError {
+    ExceedsLimit { requested: usize, available: usize },
+}
+
+impl std::fmt::Display for AllocationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AllocationError::ExceedsLimit {
+                requested,
+                available,
+            } => {
+                write!(
+                    f,
+                    "allocation of {} bytes would exceed limit (only {} bytes available)",
+                    requested, available
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for AllocationError {}
+
+impl From<AllocationError> for std::collections::TryReserveError {
+    fn from(_: AllocationError) -> Self {
+        Vec::<u8>::new().try_reserve(usize::MAX).unwrap_err()
+    }
+}
+
+impl From<AllocationError> for fallible_collections::TryReserveError {
+    fn from(_: AllocationError) -> Self {
+        fallible_collections::TryReserveError::CapacityOverflow
+    }
+}
