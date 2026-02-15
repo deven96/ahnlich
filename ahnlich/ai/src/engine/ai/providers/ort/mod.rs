@@ -107,6 +107,13 @@ impl Default for ORTModel {
     }
 }
 
+impl ORTModel {
+    /// Returns the batch size for this model
+    pub fn batch_size(&self) -> usize {
+        self.model_batch_size
+    }
+}
+
 impl TryFrom<&SupportedModels> for ORTModel {
     type Error = AIProxyError;
 
