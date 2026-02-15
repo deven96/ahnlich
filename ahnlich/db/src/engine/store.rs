@@ -25,6 +25,10 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use utils::persistence::AhnlichPersistenceUtils;
+
+type StoreEntry = (Arc<StoreKey>, Arc<StoreValue>);
+type StoreEntryWithSimilarity = (Arc<StoreKey>, Arc<StoreValue>, Similarity);
+
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
@@ -190,7 +194,7 @@ impl StoreHandler {
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
-    ) -> Result<Vec<(Arc<StoreKey>, Arc<StoreValue>, Similarity)>, ServerError> {
+    ) -> Result<Vec<StoreEntryWithSimilarity>, ServerError> {
         let store = self.get(store_name)?;
         let store_dimension = store.dimension.get();
         let input_dimension = search_input.key.len();
@@ -264,7 +268,7 @@ impl StoreHandler {
         &self,
         store_name: &StoreName,
         condition: &PredicateCondition,
-    ) -> Result<Vec<(Arc<StoreKey>, Arc<StoreValue>)>, ServerError> {
+    ) -> Result<Vec<StoreEntry>, ServerError> {
         let store = self.get(store_name)?;
         store.get_matches(condition)
     }
@@ -275,7 +279,7 @@ impl StoreHandler {
         &self,
         store_name: &StoreName,
         keys: Vec<StoreKey>,
-    ) -> Result<Vec<(Arc<StoreKey>, Arc<StoreValue>)>, ServerError> {
+    ) -> Result<Vec<StoreEntry>, ServerError> {
         let store = self.get(store_name)?;
         store.get_keys(keys)
     }
@@ -484,10 +488,7 @@ impl Store {
 
     /// Gets a bunch of store keys from the store
     #[tracing::instrument(skip(self, val), fields(key_length=val.len()))]
-    fn get_keys(
-        &self,
-        val: Vec<StoreKey>,
-    ) -> Result<Vec<(Arc<StoreKey>, Arc<StoreValue>)>, ServerError> {
+    fn get_keys(&self, val: Vec<StoreKey>) -> Result<Vec<StoreEntry>, ServerError> {
         if val.is_empty() {
             return Ok(vec![]);
         }
@@ -498,10 +499,7 @@ impl Store {
 
     /// Gets a bunch of store entries that matches a predicate condition
     #[tracing::instrument(skip_all)]
-    fn get_matches(
-        &self,
-        condition: &PredicateCondition,
-    ) -> Result<Vec<(Arc<StoreKey>, Arc<StoreValue>)>, ServerError> {
+    fn get_matches(&self, condition: &PredicateCondition) -> Result<Vec<StoreEntry>, ServerError> {
         let matches = self.predicate_indices.matches(condition, self)?.into_iter();
         Ok(self.get(matches))
     }
@@ -625,14 +623,14 @@ impl Store {
     }
 
     #[tracing::instrument(skip_all)]
-    fn get(&self, keys: impl Iterator<Item = StoreKeyId>) -> Vec<(Arc<StoreKey>, Arc<StoreValue>)> {
+    fn get(&self, keys: impl Iterator<Item = StoreKeyId>) -> Vec<StoreEntry> {
         let pinned = self.id_to_value.pin();
         keys.flat_map(|k| pinned.get(&k).map(|(k, v)| (Arc::clone(k), Arc::clone(v))))
             .collect()
     }
 
     #[tracing::instrument(skip(self))]
-    fn get_all(&self) -> Vec<(Arc<StoreKey>, Arc<StoreValue>)> {
+    fn get_all(&self) -> Vec<StoreEntry> {
         let pinned = self.id_to_value.pin();
         pinned
             .into_iter()
