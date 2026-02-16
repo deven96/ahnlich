@@ -758,8 +758,10 @@ impl AhnlichServerUtils for Server {
         self.task_manager.clone()
     }
 
-    async fn spawn_additional_tasks(&self, _task_manager: &Arc<TaskManager>) {
-        let task_manager = _task_manager;
+    async fn spawn_tasks_before_server(
+        &self,
+        task_manager: &Arc<TaskManager>,
+    ) -> std::io::Result<()> {
         use crate::engine::store::StoresSnapshot;
         use utils::size_calculation::SizeCalculation;
 
@@ -770,6 +772,7 @@ impl AhnlichServerUtils for Server {
             StoresSnapshot::new(self.store_handler.get_stores()),
         );
         task_manager.spawn_task_loop(size_calculation_task).await;
+        Ok(())
     }
 }
 

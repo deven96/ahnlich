@@ -999,6 +999,7 @@ impl AiService for AIProxyServer {
     }
 }
 
+#[async_trait::async_trait]
 impl AhnlichServerUtils for AIProxyServer {
     type PersistenceTask = AIStoreHandler;
 
@@ -1007,6 +1008,7 @@ impl AhnlichServerUtils for AIProxyServer {
             service_name: SERVICE_NAME,
             persist_location: &self.config.common.persist_location,
             persistence_interval: self.config.common.persistence_interval,
+            size_calculation_interval: 0, // Not used by AI - only DB calculates sizes
             allocator_size: self.config.common.allocator_size,
             threadpool_size: self.config.common.threadpool_size,
         }
@@ -1022,6 +1024,26 @@ impl AhnlichServerUtils for AIProxyServer {
 
     fn task_manager(&self) -> Arc<TaskManager> {
         self.task_manager.clone()
+    }
+
+    async fn spawn_tasks_before_server(
+        &self,
+        _task_manager: &Arc<TaskManager>,
+    ) -> std::io::Result<()> {
+        // Spawn model threads for all supported models
+        // This includes downloading models if not in cache
+        self.model_manager
+            .spawn_model_threads()
+            .await
+            .map_err(|e| {
+                log::error!("Failed to spawn model threads: {}", e);
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to spawn model threads: {}", e),
+                )
+            })?;
+        log::info!("Successfully spawned model threads for all supported models");
+        Ok(())
     }
 }
 
@@ -1081,7 +1103,9 @@ impl AIProxyServer {
         }
 
         let model_config = ModelConfig::from(&config);
-        let model_manager = ModelManager::new(model_config, task_manager.clone()).await?;
+        // Create ModelManager without spawning model threads yet
+        // Threads will be spawned in spawn_tasks_before_server hook
+        let model_manager = ModelManager::new_without_spawn(model_config, task_manager.clone());
 
         Ok(Self {
             listener,

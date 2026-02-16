@@ -3,8 +3,6 @@ use crate::client::ClientHandler;
 use crate::parallel;
 use crate::persistence::AhnlichPersistenceUtils;
 use crate::persistence::Persistence;
-use crate::size_calculation::SizeCalculation;
-use crate::size_calculation::SizeCalculationHandler;
 use ahnlich_types::client::ConnectedClient;
 use async_trait::async_trait;
 use futures::Stream;
@@ -55,10 +53,17 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
 
     fn task_manager(&self) -> Arc<TaskManager>;
 
-    /// Hook for spawning additional background tasks (e.g., size calculation)
-    /// Default implementation does nothing
-    async fn spawn_additional_tasks(&self, _task_manager: &Arc<TaskManager>) {
+    /// Hook for spawning background tasks BEFORE server starts accepting connections
+    /// Use this for tasks that should be ready before the server is operational
+    /// Examples: model threads (AI), size calculation (DB), background indexing
+    ///
+    /// Returns IoResult to allow implementations to fail fast if critical tasks cannot spawn
+    /// (e.g., model download failures, initialization errors)
+    ///
+    /// Default implementation does nothing and returns Ok
+    async fn spawn_tasks_before_server(&self, _task_manager: &Arc<TaskManager>) -> IoResult<()> {
         // Default: no additional tasks
+        Ok(())
     }
 
     /// Runs through several processes to start up the server
@@ -89,6 +94,7 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
         parallel::init_threadpool(self.config().threadpool_size);
         let task_manager = self.task_manager();
 
+        // Spawn persistence task if enabled
         if let Some(persist_location) = self.config().persist_location {
             let persistence_task = Persistence::task(
                 self.write_flag(),
@@ -99,9 +105,15 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
             task_manager.spawn_task_loop(persistence_task).await;
         };
 
-        self.spawn_additional_tasks(&task_manager).await;
+        // Spawn implementation-specific background tasks before server starts
+        // Examples: model threads for AI, size calculation for DB
+        // This can fail if critical tasks cannot initialize (e.g., model download failures)
+        self.spawn_tasks_before_server(&task_manager).await?;
 
+        // Start the server (blocking task that accepts connections)
         task_manager.spawn_blocking(self).await;
+
+        // Wait for all tasks to complete (triggered by cancellation token)
         task_manager.wait().await;
         tracer::shutdown_tracing();
         log::info!("Shutdown complete");
