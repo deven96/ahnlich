@@ -78,11 +78,31 @@ impl SingleStageModel {
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
-        let embeddings = output_tensor
+        let mut embeddings = output_tensor
             .to_owned()
             .into_dimensionality::<Ix2>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+
+        // Apply normalization if needed (Resnet50 and Buffalo_L need it)
+        if matches!(
+            self.supported_models,
+            SupportedModels::Resnet50 | SupportedModels::BuffaloL
+        ) {
+            self.normalize_embeddings(&mut embeddings);
+        }
+
         Ok(embeddings)
+    }
+
+    /// Normalize embeddings to unit vectors (L2 normalization)
+    fn normalize_embeddings(&self, embeddings: &mut Array<f32, Ix2>) {
+        use ndarray::Axis;
+        for mut row in embeddings.axis_iter_mut(Axis(0)) {
+            let norm: f32 = row.iter().map(|x| x * x).sum::<f32>().sqrt();
+            if norm > 0.0 {
+                row.mapv_inplace(|x| x / norm);
+            }
+        }
     }
 
     #[tracing::instrument(skip(self, encodings, session))]
@@ -106,6 +126,8 @@ impl SingleStageModel {
             .iter()
             .any(|input| input.name == "token_type_ids");
 
+        // Memory check: Allocating Vec<i64> for tokenized text inputs
+        // 2 or 3 arrays: input_ids, attention_mask, and token_type_ids (if model requires it)
         let num_arrays = if need_token_type_ids { 3 } else { 2 };
         let estimated_bytes = max_size * size_of::<i64>() * num_arrays;
         utils::allocator::check_memory_available(estimated_bytes)
@@ -216,6 +238,17 @@ impl SingleStageModel {
             }
         }
 
+        // Apply normalization if needed
+        if matches!(
+            self.supported_models,
+            SupportedModels::AllMiniLML6V2
+                | SupportedModels::AllMiniLML12V2
+                | SupportedModels::BGEBaseEnV15
+                | SupportedModels::BGELargeEnV15
+        ) {
+            self.normalize_embeddings(&mut pooled);
+        }
+
         Ok(pooled)
     }
 }
@@ -270,6 +303,17 @@ impl SingleStageModel {
                     let embeddings =
                         self.batch_inference_image(batch_image.to_owned(), &session)?;
 
+                    // Memory check: Converting embeddings to Vec<ModelResponse>
+                    // + 64: Vec overhead for StoreKey
+                    let batch_size = embeddings.shape()[0];
+                    let embedding_dim = embeddings.shape()[1];
+                    let bytes_per_response = size_of::<ModelResponse>()
+                        + size_of::<StoreKey>()
+                        + (embedding_dim * size_of::<f32>())
+                        + 64;
+                    utils::allocator::check_memory_available(batch_size * bytes_per_response)
+                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
+
                     let new_store_keys: Vec<ModelResponse> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()
@@ -294,6 +338,17 @@ impl SingleStageModel {
                 {
                     let embeddings =
                         self.batch_inference_text(batch_encoding.collect(), &session)?;
+
+                    // Memory check: Converting embeddings to Vec<ModelResponse>
+                    // + 64: Vec overhead for StoreKey
+                    let batch_size = embeddings.shape()[0];
+                    let embedding_dim = embeddings.shape()[1];
+                    let bytes_per_response = size_of::<ModelResponse>()
+                        + size_of::<StoreKey>()
+                        + (embedding_dim * size_of::<f32>())
+                        + 64;
+                    utils::allocator::check_memory_available(batch_size * bytes_per_response)
+                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
 
                     let new_store_keys: Vec<ModelResponse> = embeddings
                         .axis_iter(Axis(0))

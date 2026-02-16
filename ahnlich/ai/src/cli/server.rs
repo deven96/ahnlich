@@ -41,6 +41,8 @@ pub enum SupportedModels {
     ClipVitB32Image,
     #[clap(name = "clip-vit-b32-text")]
     ClipVitB32Text,
+    #[clap(name = "buffalo-l")]
+    BuffaloL,
 }
 
 #[derive(Parser)]
@@ -243,6 +245,7 @@ impl fmt::Display for SupportedModels {
             SupportedModels::Resnet50 => write!(f, "Resnet-50"),
             SupportedModels::ClipVitB32Image => write!(f, "ClipVit-B32-Image"),
             SupportedModels::ClipVitB32Text => write!(f, "ClipVit-B32-Text"),
+            SupportedModels::BuffaloL => write!(f, "Buffalo-L"),
         }
     }
 }
@@ -257,6 +260,7 @@ impl From<&AiModel> for SupportedModels {
             AiModel::Resnet50 => SupportedModels::Resnet50,
             AiModel::ClipVitB32Image => SupportedModels::ClipVitB32Image,
             AiModel::ClipVitB32Text => SupportedModels::ClipVitB32Text,
+            AiModel::BuffaloL => SupportedModels::BuffaloL,
         }
     }
 }
@@ -271,6 +275,7 @@ impl From<&SupportedModels> for AiModel {
             SupportedModels::Resnet50 => AiModel::Resnet50,
             SupportedModels::ClipVitB32Image => AiModel::ClipVitB32Image,
             SupportedModels::ClipVitB32Text => AiModel::ClipVitB32Text,
+            SupportedModels::BuffaloL => AiModel::BuffaloL,
         }
     }
 }

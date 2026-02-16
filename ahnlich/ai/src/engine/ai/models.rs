@@ -149,6 +149,18 @@ impl SupportedModels {
                 embedding_size: nonzero!(512usize),
                 input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
+            SupportedModels::BuffaloL => ModelDetails {
+                model_type: ModelType::Image {
+                    expected_image_dimensions: (nonzero!(640usize), nonzero!(640usize)),
+                },
+                supported_model: SupportedModels::BuffaloL,
+                description: String::from(
+                    "InsightFace Buffalo_L face recognition model. Multi-stage detection and recognition \
+                            producing one embedding per detected face (OneToMany mode).",
+                ),
+                embedding_size: nonzero!(512usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToMany,
+            },
         }
     }
 
@@ -206,6 +218,16 @@ impl ModelDetails {
     pub fn model_name(&self) -> String {
         self.supported_model.to_string()
     }
+
+    /// Returns true if this model produces multiple embeddings from a single input (OneToMany mode)
+    /// Currently used by face recognition models to indicate multiple face embeddings per image
+    #[tracing::instrument(skip(self))]
+    pub fn is_one_to_many(&self) -> bool {
+        matches!(
+            self.input_to_embedding_mode,
+            InputToEmbeddingMode::OneToMany
+        )
+    }
 }
 
 impl Model {
@@ -252,6 +274,12 @@ impl Model {
         match &self.provider {
             ModelProviders::ORT(provider) => provider.model.batch_size(),
         }
+    }
+
+    /// Returns true if this model produces multiple embeddings from a single input (OneToMany mode)
+    /// Currently used by face recognition models to indicate multiple face embeddings per image
+    pub fn is_one_to_many(&self) -> bool {
+        self.model_details.is_one_to_many()
     }
 
     pub async fn get(&self) -> Result<(), AIProxyError> {
@@ -390,12 +418,12 @@ impl ImageArray {
         filter: Option<image::imageops::FilterType>,
     ) -> Result<Self, AIProxyError> {
         // Create container for data of destination image
-        let (width, height) = self.image.dimensions();
+        let (src_width, src_height) = self.image.dimensions();
         let mut dest_image = Image::new(width, height, PixelType::U8x3);
         let mut resizer = Resizer::new();
         resizer
             .resize(
-                &ImageRef::new(width, height, self.image.as_raw(), PixelType::U8x3)
+                &ImageRef::new(src_width, src_height, self.image.as_raw(), PixelType::U8x3)
                     .map_err(|e| AIProxyError::ImageResizeError(e.to_string()))?,
                 &mut dest_image,
                 &ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::CatmullRom)),

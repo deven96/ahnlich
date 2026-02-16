@@ -11,6 +11,14 @@ impl Preprocessor for ImageArrayToNdArray {
     fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
             PreprocessorData::ImageArray(arrays) => {
+                if arrays.is_empty() {
+                    // Return properly shaped empty array for zero inputs
+                    // Shape: (batch=0, channels=3, height=640, width=640) to match expected dims
+                    return Ok(PreprocessorData::NdArray3C(ndarray::Array::zeros((
+                        0, 3, 640, 640,
+                    ))));
+                }
+
                 let arrays = arrays
                     .into_par_iter()
                     .map(OnnxTransformResult::try_from)
