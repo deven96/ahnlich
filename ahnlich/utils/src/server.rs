@@ -53,16 +53,9 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
 
     fn task_manager(&self) -> Arc<TaskManager>;
 
-    /// Hook for spawning background tasks BEFORE server starts accepting connections
-    /// Use this for tasks that should be ready before the server is operational
-    /// Examples: model threads (AI), size calculation (DB), background indexing
-    ///
-    /// Returns IoResult to allow implementations to fail fast if critical tasks cannot spawn
-    /// (e.g., model download failures, initialization errors)
-    ///
-    /// Default implementation does nothing and returns Ok
+    /// Spawn background tasks before server starts (e.g., model threads, size calculation)
+    /// Returns error to fail fast if critical initialization fails
     async fn spawn_tasks_before_server(&self, _task_manager: &Arc<TaskManager>) -> IoResult<()> {
-        // Default: no additional tasks
         Ok(())
     }
 
@@ -94,7 +87,6 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
         parallel::init_threadpool(self.config().threadpool_size);
         let task_manager = self.task_manager();
 
-        // Spawn persistence task if enabled
         if let Some(persist_location) = self.config().persist_location {
             let persistence_task = Persistence::task(
                 self.write_flag(),
@@ -105,15 +97,8 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
             task_manager.spawn_task_loop(persistence_task).await;
         };
 
-        // Spawn implementation-specific background tasks before server starts
-        // Examples: model threads for AI, size calculation for DB
-        // This can fail if critical tasks cannot initialize (e.g., model download failures)
         self.spawn_tasks_before_server(&task_manager).await?;
-
-        // Start the server (blocking task that accepts connections)
         task_manager.spawn_blocking(self).await;
-
-        // Wait for all tasks to complete (triggered by cancellation token)
         task_manager.wait().await;
         tracer::shutdown_tracing();
         log::info!("Shutdown complete");

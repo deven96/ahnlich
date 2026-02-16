@@ -1030,8 +1030,6 @@ impl AhnlichServerUtils for AIProxyServer {
         &self,
         _task_manager: &Arc<TaskManager>,
     ) -> std::io::Result<()> {
-        // Spawn model threads for all supported models
-        // This includes downloading models if not in cache
         self.model_manager
             .spawn_model_threads()
             .await
@@ -1042,7 +1040,7 @@ impl AhnlichServerUtils for AIProxyServer {
                     format!("Failed to spawn model threads: {}", e),
                 )
             })?;
-        log::info!("Successfully spawned model threads for all supported models");
+        log::info!("Successfully spawned model threads");
         Ok(())
     }
 }
@@ -1103,9 +1101,7 @@ impl AIProxyServer {
         }
 
         let model_config = ModelConfig::from(&config);
-        // Create ModelManager without spawning model threads yet
-        // Threads will be spawned in spawn_tasks_before_server hook
-        let model_manager = ModelManager::new_without_spawn(model_config, task_manager.clone());
+        let model_manager = ModelManager::new(model_config, task_manager.clone());
 
         Ok(Self {
             listener,
