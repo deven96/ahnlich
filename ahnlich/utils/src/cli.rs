@@ -68,6 +68,13 @@ pub struct CommandLineConfig {
     #[arg(long, default_value_t =
     DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).threadpool_size.clone())]
     pub threadpool_size: usize,
+
+    /// Size calculation interval in milliseconds
+    /// Controls how frequently store sizes are recalculated in the background
+    /// Defaults to 60ms
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).size_calculation_interval.clone())]
+    pub size_calculation_interval: u64,
 }
 
 impl Default for CommandLineConfig {
@@ -85,6 +92,7 @@ impl Default for CommandLineConfig {
             log_level: String::from("info,hf_hub=warn"),
             maximum_clients: 1000,
             threadpool_size: 16,
+            size_calculation_interval: 60,
         }
     }
 }
