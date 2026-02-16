@@ -765,7 +765,6 @@ impl AhnlichServerUtils for Server {
         use crate::engine::store::StoresSnapshot;
         use utils::size_calculation::SizeCalculation;
 
-        // Spawn size calculation task to periodically update cached store sizes
         let size_calculation_task = SizeCalculation::task(
             self.write_flag(),
             self.config.common.size_calculation_interval,

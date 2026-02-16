@@ -306,20 +306,7 @@ pub struct ModelManager {
 }
 
 impl ModelManager {
-    /// Creates a new ModelManager and immediately spawns all model threads
-    /// This is the legacy method - prefer `new_without_spawn` + `spawn_model_threads` for better control
-    pub async fn new(
-        model_config: ModelConfig,
-        task_manager: Arc<TaskManager>,
-    ) -> Result<Self, AIProxyError> {
-        let model_manager = Self::new_without_spawn(model_config, task_manager);
-        model_manager.spawn_model_threads().await?;
-        Ok(model_manager)
-    }
-
-    /// Creates a new ModelManager WITHOUT spawning model threads
-    /// Call `spawn_model_threads()` separately when ready to initialize models
-    pub fn new_without_spawn(model_config: ModelConfig, task_manager: Arc<TaskManager>) -> Self {
+    pub fn new(model_config: ModelConfig, task_manager: Arc<TaskManager>) -> Self {
         let models = Cache::builder()
             .max_capacity(model_config.supported_models.len() as u64)
             .time_to_idle(Duration::from_secs(model_config.model_idle_time))
@@ -332,8 +319,6 @@ impl ModelManager {
         }
     }
 
-    /// Spawns model threads for all supported models
-    /// Should be called once after construction if using `new_without_spawn`
     pub async fn spawn_model_threads(&self) -> Result<(), AIProxyError> {
         for model in &self.supported_models {
             let _ = self
@@ -425,7 +410,8 @@ mod tests {
             model_idle_time: time_to_idle,
             ..Default::default()
         };
-        let model_manager = ModelManager::new(model_config, task_manager).await.unwrap();
+        let model_manager = ModelManager::new(model_config, task_manager);
+        model_manager.spawn_model_threads().await.unwrap();
 
         for model in supported_models {
             let recreated_model = model_manager.models.get(&model).await;
@@ -449,7 +435,8 @@ mod tests {
             model_idle_time: time_to_idle,
             ..Default::default()
         };
-        let model_manager = ModelManager::new(model_config, task_manager).await.unwrap();
+        let model_manager = ModelManager::new(model_config, task_manager);
+        model_manager.spawn_model_threads().await.unwrap();
         let _ = tokio::time::sleep(Duration::from_secs(2)).await;
 
         let evicted_model = model_manager.models.get(&sample_supported_model).await;
