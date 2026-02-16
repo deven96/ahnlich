@@ -35,6 +35,11 @@ impl ORTImagePreprocessor {
     ) -> Result<Self, AIProxyError> {
         let imagearray_to_ndarray = ImageArrayToNdArray;
 
+        // Special handling for Buffalo_L - use hardcoded config
+        if supported_model == SupportedModels::BuffaloL {
+            return Self::load_buffalo_l(supported_model);
+        }
+
         let mut config_reader = HFConfigReader::new(model_repo);
         let config = config_reader.read("preprocessor_config.json")?;
 
@@ -53,9 +58,42 @@ impl ORTImagePreprocessor {
         })
     }
 
+    /// Buffalo_L-specific preprocessor - resize to 640x640 for RetinaFace detection
+    fn load_buffalo_l(supported_model: SupportedModels) -> Result<Self, AIProxyError> {
+        use serde_json::json;
+
+        let imagearray_to_ndarray = ImageArrayToNdArray;
+
+        // Create config for RetinaFace detection (640x640 input)
+        let config = json!({
+            "do_resize": true,
+            "size": {
+                "width": 640,
+                "height": 640
+            },
+            "image_processor_type": "CLIPImageProcessor",
+            "do_normalize": true,
+            "image_mean": [127.5, 127.5, 127.5],
+            "image_std": [128.0, 128.0, 128.0]
+        });
+
+        let resize = Resize::initialize(&config)?;
+        let normalize = ImageNormalize::initialize(&config)?;
+
+        Ok(Self {
+            model: supported_model,
+            imagearray_to_ndarray,
+            normalize,
+            resize,
+            rescale: None,
+            center_crop: None,
+        })
+    }
+
     #[tracing::instrument(skip_all)]
     pub fn process(&self, data: Vec<ImageArray>) -> Result<Array<f32, Ix4>, AIProxyError> {
         let mut data = PreprocessorData::ImageArray(data);
+
         data = match self.resize {
             Some(ref resize) => {
                 resize

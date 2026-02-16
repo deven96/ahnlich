@@ -203,10 +203,9 @@ impl BuffaloLModel {
         let embeddings = if all_cropped_faces.is_empty() {
             Array::zeros((0, 512))
         } else {
-            // Check memory before stacking faces into batch array
-            // Each face is 112x112x3 channels of f32 values
-            // Memory needed: num_faces * 3 * 112 * 112 * sizeof(f32)
-            // + overhead for ndarray structure (~64 bytes per array)
+            // Memory check: Stacking all detected faces into a single batch array
+            // 112×112×3: Face alignment normalizes all faces to this fixed size (ArcFace standard)
+            // + 64: ndarray struct overhead
             let num_faces = all_cropped_faces.len();
             let face_pixels = 112 * 112 * 3;
             let estimated_bytes = num_faces * face_pixels * size_of::<f32>() + 64;
@@ -226,10 +225,9 @@ impl BuffaloLModel {
         };
 
         // Step 3: Map embeddings back to source images
-        // Check memory before building response vectors
-        // Each response contains: ModelResponse enum + Vec<StoreKey> + embedding data
-        // Memory per face: size_of::<ModelResponse>() + size_of::<StoreKey>()
-        //                  + 512 f32 values + 64 bytes Vec overhead
+        // Memory check: Building ModelResponse for each face embedding
+        // 512: ResNet50 embedding dimension (fixed by model architecture)
+        // + 64: Vec overhead for StoreKey
         let total_faces: usize = face_counts.iter().sum();
         let bytes_per_face =
             size_of::<ModelResponse>() + size_of::<StoreKey>() + (512 * size_of::<f32>()) + 64;
@@ -298,11 +296,9 @@ impl BuffaloLModel {
 
         const CONFIDENCE_THRESHOLD: f32 = 0.5;
 
-        // Check memory before allocating detection arrays
-        // Estimate: assume up to 50 faces could be detected (conservative upper bound)
-        // Each FaceDetection contains: bbox (4 f32) + landmarks (10 f32) + confidence (1 f32)
-        // = 15 f32 values = 15 * 4 = 60 bytes, plus struct overhead ~4 bytes = 64 bytes
-        // Total: 50 * 64 = 3200 bytes + Vec overhead (64 bytes)
+        // Memory check: Allocating Vec for face detection results
+        // 50: Conservative upper bound (typical images have 1-10 faces, but group photos can have more)
+        // + 64: Vec overhead
         let max_expected_faces = 50;
         let bytes_per_detection = size_of::<FaceDetection>();
         let estimated_bytes = max_expected_faces * bytes_per_detection + 64;
@@ -658,10 +654,9 @@ impl BuffaloLModel {
         let src_height = img_shape[2];
         let src_width = img_shape[3];
 
-        // Check memory before allocating warped face array
-        // Output dimensions: channels × output_height × output_width of f32 values
-        // Typically: 3 × 112 × 112 = 37,632 f32 values = 150,528 bytes
-        // + ndarray overhead (~64 bytes)
+        // Memory check: Allocating transformed face image array
+        // output_width/output_height: Typically 112×112 (ArcFace standard face size)
+        // + 64: ndarray struct overhead
         let output_pixels = channels * output_height * output_width;
         let estimated_bytes = output_pixels * size_of::<f32>() + 64;
         utils::allocator::check_memory_available(estimated_bytes)

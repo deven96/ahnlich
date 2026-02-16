@@ -230,6 +230,11 @@ impl AiService for AIProxyServer {
             .try_into()
             .map_err(|_| AIProxyError::InputNotSpecified("Query model".to_string()))?;
         let model: ModelDetails = SupportedModels::from(&index_model).to_model_details();
+        // OneToMany models return multiple embeddings per input - add index predicate
+        // Currently used by face recognition models like Buffalo_L
+        if model.is_one_to_many() {
+            predicates.push(crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY.to_string());
+        }
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let db_client = self
             .db_client
@@ -783,6 +788,8 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<AiResponsePipeline>, tonic::Status> {
         let params = request.into_inner();
 
+        // Memory check: Pre-allocating Vec for pipeline responses
+        // 1024: Conservative estimate per response (varies by query type: Ping ~100 bytes, GetSimN ~several KB)
         let estimated_bytes = params.queries.len() * 1024;
         utils::allocator::check_memory_available(estimated_bytes)
             .map_err(|e| AIProxyError::Allocation(e.into()))?;
