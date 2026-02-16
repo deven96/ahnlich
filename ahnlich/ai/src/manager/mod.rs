@@ -306,29 +306,43 @@ pub struct ModelManager {
 }
 
 impl ModelManager {
+    /// Creates a new ModelManager and immediately spawns all model threads
+    /// This is the legacy method - prefer `new_without_spawn` + `spawn_model_threads` for better control
     pub async fn new(
         model_config: ModelConfig,
         task_manager: Arc<TaskManager>,
     ) -> Result<Self, AIProxyError> {
+        let model_manager = Self::new_without_spawn(model_config, task_manager);
+        model_manager.spawn_model_threads().await?;
+        Ok(model_manager)
+    }
+
+    /// Creates a new ModelManager WITHOUT spawning model threads
+    /// Call `spawn_model_threads()` separately when ready to initialize models
+    pub fn new_without_spawn(model_config: ModelConfig, task_manager: Arc<TaskManager>) -> Self {
         let models = Cache::builder()
             .max_capacity(model_config.supported_models.len() as u64)
             .time_to_idle(Duration::from_secs(model_config.model_idle_time))
             .build();
-        let model_manager = ModelManager {
+        ModelManager {
             models,
             task_manager,
             supported_models: model_config.supported_models.to_vec(),
             config: model_config,
-        };
+        }
+    }
 
-        for model in &model_manager.supported_models {
-            let _ = model_manager
+    /// Spawns model threads for all supported models
+    /// Should be called once after construction if using `new_without_spawn`
+    pub async fn spawn_model_threads(&self) -> Result<(), AIProxyError> {
+        for model in &self.supported_models {
+            let _ = self
                 .models
-                .try_get_with(*model, model_manager.try_initialize_model(model))
+                .try_get_with(*model, self.try_initialize_model(model))
                 .await
                 .map_err(|err| AIProxyError::ModelInitializationError(err.to_string()))?;
         }
-        Ok(model_manager)
+        Ok(())
     }
 
     #[tracing::instrument(skip(self))]
