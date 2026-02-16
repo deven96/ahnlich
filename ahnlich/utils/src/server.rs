@@ -3,6 +3,8 @@ use crate::client::ClientHandler;
 use crate::parallel;
 use crate::persistence::AhnlichPersistenceUtils;
 use crate::persistence::Persistence;
+use crate::size_calculation::SizeCalculation;
+use crate::size_calculation::SizeCalculationHandler;
 use ahnlich_types::client::ConnectedClient;
 use async_trait::async_trait;
 use futures::Stream;
@@ -31,6 +33,8 @@ pub struct ServerUtilsConfig<'a> {
     // persistence stuff
     pub persistence_interval: u64,
     pub persist_location: &'a Option<std::path::PathBuf>,
+    // size calculation stuff
+    pub size_calculation_interval: u64,
     // global allocator
     pub allocator_size: usize,
     pub threadpool_size: usize,
@@ -50,6 +54,12 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
     fn cancellation_token(&self) -> CancellationToken;
 
     fn task_manager(&self) -> Arc<TaskManager>;
+
+    /// Hook for spawning additional background tasks (e.g., size calculation)
+    /// Default implementation does nothing
+    async fn spawn_additional_tasks(&self, _task_manager: &Arc<TaskManager>) {
+        // Default: no additional tasks
+    }
 
     /// Runs through several processes to start up the server
     /// - Sets global allocator cap
@@ -88,6 +98,9 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
             );
             task_manager.spawn_task_loop(persistence_task).await;
         };
+
+        self.spawn_additional_tasks(&task_manager).await;
+
         task_manager.spawn_blocking(self).await;
         task_manager.wait().await;
         tracer::shutdown_tracing();
