@@ -15,15 +15,33 @@ use ahnlich_types::{
     shared::info::ServerInfo,
     utils::add_trace_parent,
 };
+use std::sync::{Arc, RwLock};
 use tonic::transport::Channel;
 
 use crate::error::AhnlichError;
+
+const AUTH_HEADER: &str = "authorization";
+
+/// Helper function to add authorization header to requests
+fn add_auth_header<T>(
+    req: &mut tonic::Request<T>,
+    auth_token: &Option<Arc<RwLock<Option<String>>>>,
+) {
+    if let Some(token_lock) = auth_token
+        && let Ok(token_guard) = token_lock.read()
+        && let Some(ref token) = *token_guard
+        && let Ok(header_value) = format!("Bearer {}", token).parse()
+    {
+        req.metadata_mut().insert(AUTH_HEADER, header_value);
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct DbPipeline {
     queries: Vec<Query>,
     tracing_id: Option<String>,
     client: DbServiceClient<Channel>,
+    auth_token: Option<Arc<RwLock<Option<String>>>>,
 }
 
 impl DbPipeline {
@@ -103,6 +121,7 @@ impl DbPipeline {
                 .collect(),
         });
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.pipeline(req).await?.into_inner())
     }
 
@@ -121,6 +140,7 @@ impl DbPipeline {
 #[derive(Debug, Clone)]
 pub struct DbClient {
     client: DbServiceClient<Channel>,
+    auth_token: Option<Arc<RwLock<Option<String>>>>,
 }
 
 impl DbClient {
@@ -132,7 +152,26 @@ impl DbClient {
         };
         let channel = Channel::from_shared(addr)?;
         let client = DbServiceClient::connect(channel).await?;
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            auth_token: None,
+        })
+    }
+
+    /// Create a DbClient from a pre-configured channel (e.g. with TLS)
+    pub fn new_with_channel(channel: Channel) -> Self {
+        Self {
+            client: DbServiceClient::new(channel),
+            auth_token: None,
+        }
+    }
+
+    pub fn set_auth_token(&mut self, token: String) {
+        self.auth_token = Some(Arc::new(RwLock::new(Some(token))));
+    }
+
+    pub fn clear_auth_token(&mut self) {
+        self.auth_token = None;
     }
 
     pub async fn create_store(
@@ -142,6 +181,7 @@ impl DbClient {
     ) -> Result<Unit, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().create_store(req).await?.into_inner())
     }
 
@@ -152,6 +192,7 @@ impl DbClient {
     ) -> Result<CreateIndex, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self
             .client
             .clone()
@@ -167,6 +208,7 @@ impl DbClient {
     ) -> Result<CreateIndex, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self
             .client
             .clone()
@@ -182,6 +224,7 @@ impl DbClient {
     ) -> Result<Get, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().get_key(req).await?.into_inner())
     }
 
@@ -192,6 +235,7 @@ impl DbClient {
     ) -> Result<Get, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().get_pred(req).await?.into_inner())
     }
 
@@ -202,6 +246,7 @@ impl DbClient {
     ) -> Result<GetSimNResult, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().get_sim_n(req).await?.into_inner())
     }
 
@@ -212,6 +257,7 @@ impl DbClient {
     ) -> Result<SetResult, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().set(req).await?.into_inner())
     }
 
@@ -222,6 +268,7 @@ impl DbClient {
     ) -> Result<Del, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().drop_pred_index(req).await?.into_inner())
     }
 
@@ -232,6 +279,7 @@ impl DbClient {
     ) -> Result<Del, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self
             .client
             .clone()
@@ -247,6 +295,7 @@ impl DbClient {
     ) -> Result<Del, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().del_key(req).await?.into_inner())
     }
 
@@ -257,6 +306,7 @@ impl DbClient {
     ) -> Result<Del, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().drop_store(req).await?.into_inner())
     }
 
@@ -267,6 +317,7 @@ impl DbClient {
     ) -> Result<Del, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().del_pred(req).await?.into_inner())
     }
 
@@ -276,6 +327,7 @@ impl DbClient {
     ) -> Result<ServerInfo, AhnlichError> {
         let mut req = tonic::Request::new(InfoServer {});
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self
             .client
             .clone()
@@ -289,6 +341,7 @@ impl DbClient {
     pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
         let mut req = tonic::Request::new(ListStores {});
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().list_stores(req).await?.into_inner())
     }
 
@@ -298,12 +351,14 @@ impl DbClient {
     ) -> Result<ClientList, AhnlichError> {
         let mut req = tonic::Request::new(ListClients {});
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().list_clients(req).await?.into_inner())
     }
 
     pub async fn ping(&self, tracing_id: Option<String>) -> Result<Pong, AhnlichError> {
         let mut req = tonic::Request::new(Ping {});
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().ping(req).await?.into_inner())
     }
 
@@ -314,6 +369,7 @@ impl DbClient {
             queries: vec![],
             client: self.client.clone(),
             tracing_id,
+            auth_token: self.auth_token.clone(),
         }
     }
 }

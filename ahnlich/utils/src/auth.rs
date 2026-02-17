@@ -141,6 +141,7 @@ impl AuthInterceptor {
         Self { config }
     }
 
+    #[allow(clippy::result_large_err)] // tonic::Status size is fixed by the tonic API contract
     pub fn intercept<T>(&self, request: Request<T>) -> Result<Request<T>, Status> {
         let metadata = request.metadata();
 
