@@ -1028,17 +1028,23 @@ impl AhnlichServerUtils for AIProxyServer {
 
     async fn spawn_tasks_before_server(
         &self,
-        _task_manager: &Arc<TaskManager>,
+        task_manager: &Arc<TaskManager>,
     ) -> std::io::Result<()> {
+        self.model_manager
+            .initialize_task_manager(task_manager.clone())
+            .map_err(|_| {
+                std::io::Error::new(
+                    std::io::ErrorKind::AlreadyExists,
+                    "task_manager already initialized",
+                )
+            })?;
+
         self.model_manager
             .spawn_model_threads()
             .await
             .map_err(|e| {
                 log::error!("Failed to spawn model threads: {}", e);
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Failed to spawn model threads: {}", e),
-                )
+                std::io::Error::other(format!("Failed to spawn model threads: {}", e))
             })?;
         log::info!("Successfully spawned model threads");
         Ok(())
@@ -1101,7 +1107,7 @@ impl AIProxyServer {
         }
 
         let model_config = ModelConfig::from(&config);
-        let model_manager = ModelManager::new(model_config, task_manager.clone());
+        let model_manager = ModelManager::new(model_config);
 
         Ok(Self {
             listener,
