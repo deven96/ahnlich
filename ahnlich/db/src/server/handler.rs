@@ -24,6 +24,7 @@ use task_manager::TaskManager;
 
 use tokio_util::sync::CancellationToken;
 use utils::allocator::GLOBAL_ALLOCATOR;
+use utils::auth::{AuthConfig, AuthInterceptor, load_tls_config};
 use utils::connection_layer::trace_with_parent;
 
 use utils::server::{AhnlichServerUtils, ListenerStreamOrAddress, ServerUtilsConfig};
@@ -829,6 +830,11 @@ impl BlockingTask for Server {
             panic!("listener must be of type listener stream")
         };
         let max_message_size = self.config.common.message_size;
+        let enable_auth = self.config.common.enable_auth;
+        let auth_config_path = self.config.common.auth_config.clone();
+        let tls_cert = self.config.common.tls_cert.clone();
+        let tls_key = self.config.common.tls_key.clone();
+
         self.listener = ListenerStreamOrAddress::Address(
             listener_stream
                 .as_ref()
@@ -838,9 +844,53 @@ impl BlockingTask for Server {
 
         let db_service = DbServiceServer::new(self).max_decoding_message_size(max_message_size);
 
-        let _ = tonic::transport::Server::builder()
+        let mut server_builder = tonic::transport::Server::builder();
+
+        if enable_auth {
+            let cert_path = tls_cert
+                .as_ref()
+                .expect("TLS cert required when auth is enabled");
+            let key_path = tls_key
+                .as_ref()
+                .expect("TLS key required when auth is enabled");
+
+            let tls_config =
+                load_tls_config(cert_path, key_path).expect("Failed to load TLS configuration");
+
+            server_builder = tonic::transport::Server::builder()
+                .tls_config(tls_config)
+                .expect("Failed to configure TLS");
+
+            log::info!("TLS enabled for DB server");
+        }
+
+        let auth_interceptor = if enable_auth {
+            let config_path = auth_config_path
+                .as_ref()
+                .expect("Auth config required when auth is enabled");
+
+            let auth_config = Arc::new(
+                AuthConfig::from_file(config_path).expect("Failed to load auth configuration"),
+            );
+
+            log::info!("Authentication enabled for DB server");
+            Some(AuthInterceptor::new(auth_config))
+        } else {
+            log::info!("Authentication disabled for DB server");
+            None
+        };
+
+        let service = tonic::codegen::InterceptedService::new(db_service, move |req| {
+            if let Some(ref interceptor) = auth_interceptor {
+                interceptor.intercept(req)
+            } else {
+                Ok(req)
+            }
+        });
+
+        let _ = server_builder
             .trace_fn(trace_with_parent)
-            .add_service(db_service)
+            .add_service(service)
             .serve_with_incoming_shutdown(listener_stream, shutdown_signal)
             .await;
     }

@@ -1,4 +1,5 @@
 pub mod allocator;
+pub mod auth;
 pub mod cli;
 pub mod client;
 pub mod connection_layer;
