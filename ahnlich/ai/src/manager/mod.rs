@@ -345,7 +345,7 @@ impl ModelManager {
             request_receiver,
         )
         .await?;
-        let _ = &self.task_manager.spawn_task_loop(model_thread).await;
+        let _ = self.task_manager.spawn_task_loop(model_thread).await;
         Ok(request_sender)
     }
 
