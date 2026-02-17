@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use crate::cli::server::{ModelConfig, SupportedModels};
 use crate::engine::ai::models::{ImageArray, InputAction, ModelResponse};
@@ -301,22 +302,29 @@ impl Task for ModelThread {
 pub struct ModelManager {
     models: Cache<SupportedModels, mpsc::Sender<ModelThreadRequest>>,
     supported_models: Vec<SupportedModels>,
-    task_manager: Arc<TaskManager>,
+    task_manager: OnceLock<Arc<TaskManager>>,
     config: ModelConfig,
 }
 
 impl ModelManager {
-    pub fn new(model_config: ModelConfig, task_manager: Arc<TaskManager>) -> Self {
+    pub fn new(model_config: ModelConfig) -> Self {
         let models = Cache::builder()
             .max_capacity(model_config.supported_models.len() as u64)
             .time_to_idle(Duration::from_secs(model_config.model_idle_time))
             .build();
         ModelManager {
             models,
-            task_manager,
+            task_manager: OnceLock::new(),
             supported_models: model_config.supported_models.to_vec(),
             config: model_config,
         }
+    }
+
+    pub fn initialize_task_manager(
+        &self,
+        task_manager: Arc<TaskManager>,
+    ) -> Result<(), Arc<TaskManager>> {
+        self.task_manager.set(task_manager)
     }
 
     pub async fn spawn_model_threads(&self) -> Result<(), AIProxyError> {
@@ -335,6 +343,11 @@ impl ModelManager {
         &self,
         model: &SupportedModels,
     ) -> Result<mpsc::Sender<ModelThreadRequest>, AIProxyError> {
+        let task_manager = self.task_manager.get().ok_or_else(|| {
+            AIProxyError::ModelInitializationError(
+                "task_manager must be initialized via spawn_model_threads".to_string(),
+            )
+        })?;
         let (request_sender, request_receiver) = mpsc::channel(10000);
         // There may be other things needed to load a model thread
         let model_thread = ModelThread::new(
@@ -345,7 +358,7 @@ impl ModelManager {
             request_receiver,
         )
         .await?;
-        let _ = self.task_manager.spawn_task_loop(model_thread).await;
+        let _ = task_manager.spawn_task_loop(model_thread).await;
         Ok(request_sender)
     }
 
@@ -410,7 +423,10 @@ mod tests {
             model_idle_time: time_to_idle,
             ..Default::default()
         };
-        let model_manager = ModelManager::new(model_config, task_manager);
+        let model_manager = ModelManager::new(model_config);
+        model_manager
+            .initialize_task_manager(task_manager)
+            .expect("task_manager should not be set yet");
         model_manager.spawn_model_threads().await.unwrap();
 
         for model in supported_models {
@@ -435,7 +451,10 @@ mod tests {
             model_idle_time: time_to_idle,
             ..Default::default()
         };
-        let model_manager = ModelManager::new(model_config, task_manager);
+        let model_manager = ModelManager::new(model_config);
+        model_manager
+            .initialize_task_manager(task_manager)
+            .expect("task_manager should not be set yet");
         model_manager.spawn_model_threads().await.unwrap();
         let _ = tokio::time::sleep(Duration::from_secs(2)).await;
 
