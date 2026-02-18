@@ -118,6 +118,9 @@ pub enum AIProxyError {
     #[error("Model returned unexpected number of embeddings 0 for input")]
     ModelInputToEmbeddingError,
 
+    #[error("Query input produced {0} embeddings — query input must produce exactly 1 embedding")]
+    MultipleEmbeddingsForQuery(usize),
+
     #[error("Bytes could not be successfully decoded into an image.")]
     ImageBytesDecodeError,
 
@@ -201,7 +204,8 @@ impl From<AIProxyError> for Status {
                 preprocess_action: _,
             }
             | AIProxyError::UnknownEnumValue(_)
-            | AIProxyError::InputNotSpecified(_) => Code::InvalidArgument,
+            | AIProxyError::InputNotSpecified(_)
+            | AIProxyError::MultipleEmbeddingsForQuery(_) => Code::InvalidArgument,
             AIProxyError::TokenExceededError {
                 max_token_size: _,
                 input_token_size: _,

@@ -161,7 +161,10 @@ impl SupportedModels {
                 supported_model: SupportedModels::BuffaloL,
                 description: String::from(
                     "InsightFace Buffalo_L face recognition model. Multi-stage detection and recognition \
-                            producing one embedding per detected face (OneToMany mode).",
+                            producing one embedding per detected face (OneToMany mode). \
+                            ⚠️🚨 NOT FOR COMMERCIAL USE 🚨⚠️ — the underlying model weights are \
+                            restricted to non-commercial research only. See \
+                            https://github.com/deepinsight/insightface/issues/2587",
                 ),
                 embedding_size: nonzero!(512usize),
                 input_to_embedding_mode: InputToEmbeddingMode::OneToMany,
