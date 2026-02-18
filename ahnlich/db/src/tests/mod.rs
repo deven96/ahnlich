@@ -1,3 +1,4 @@
+mod auth_tests;
 mod server_tests;
 
 use ahnlich_types::keyval::StoreKey;

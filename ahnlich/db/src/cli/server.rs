@@ -58,4 +58,17 @@ impl ServerConfig {
         self.common.maximum_clients = maximum_clients;
         self
     }
+
+    pub fn with_auth(
+        mut self,
+        auth_config: std::path::PathBuf,
+        tls_cert: std::path::PathBuf,
+        tls_key: std::path::PathBuf,
+    ) -> Self {
+        self.common.enable_auth = true;
+        self.common.auth_config = Some(auth_config);
+        self.common.tls_cert = Some(tls_cert);
+        self.common.tls_key = Some(tls_key);
+        self
+    }
 }
