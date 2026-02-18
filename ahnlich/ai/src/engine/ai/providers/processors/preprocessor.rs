@@ -35,9 +35,12 @@ impl ORTImagePreprocessor {
     ) -> Result<Self, AIProxyError> {
         let imagearray_to_ndarray = ImageArrayToNdArray;
 
-        // Special handling for Buffalo_L - use hardcoded config
+        // Multi-stage models use hardcoded configs — no preprocessor_config.json in their repos
         if supported_model == SupportedModels::BuffaloL {
             return Self::load_buffalo_l(supported_model);
+        }
+        if supported_model == SupportedModels::SfaceYunet {
+            return Self::load_sface_yunet(supported_model);
         }
 
         let mut config_reader = HFConfigReader::new(model_repo);
@@ -55,6 +58,38 @@ impl ORTImagePreprocessor {
             resize,
             rescale,
             center_crop,
+        })
+    }
+
+    /// SFace+YuNet-specific preprocessor — resize to 640×640 for YuNet detection
+    ///
+    /// YuNet accepts dynamic input sizes; 640×640 matches its training resolution.
+    /// YuNet expects raw BGR pixel values in range [0, 255] — no normalization.
+    /// Channel order swap (RGB→BGR) is handled inside detect_faces() at inference time.
+    fn load_sface_yunet(supported_model: SupportedModels) -> Result<Self, AIProxyError> {
+        use serde_json::json;
+
+        let imagearray_to_ndarray = ImageArrayToNdArray;
+
+        let config = json!({
+            "do_resize": true,
+            "size": {
+                "width": 640,
+                "height": 640
+            },
+            "image_processor_type": "CLIPImageProcessor",
+            "do_normalize": false
+        });
+
+        let resize = Resize::initialize(&config)?;
+
+        Ok(Self {
+            model: supported_model,
+            imagearray_to_ndarray,
+            normalize: None,
+            resize,
+            rescale: None,
+            center_crop: None,
         })
     }
 

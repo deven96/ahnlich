@@ -149,6 +149,24 @@ impl SupportedModels {
                 embedding_size: nonzero!(512usize),
                 input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
+            SupportedModels::SfaceYunet => ModelDetails {
+                model_type: ModelType::Image {
+                    // YuNet accepts dynamic input sizes; we normalise to 640×640 for consistency
+                    // with the detection model's preferred resolution before passing to SFace
+                    expected_image_dimensions: (nonzero!(640usize), nonzero!(640usize)),
+                },
+                supported_model: SupportedModels::SfaceYunet,
+                description: String::from(
+                    "OpenCV SFace face recognition model paired with YuNet face detector. \
+                    Multi-stage detection and recognition producing one embedding per detected \
+                    face (OneToMany mode). Apache 2.0 / MIT licensed — commercially usable. \
+                    128-dimensional embeddings, 99.40% LFW accuracy. \
+                    Models: https://huggingface.co/deven96/face_recognition_sface and \
+                    https://huggingface.co/deven96/face_detection_yunet",
+                ),
+                embedding_size: nonzero!(128usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToMany,
+            },
             SupportedModels::BuffaloL => ModelDetails {
                 model_type: ModelType::Image {
                     expected_image_dimensions: (nonzero!(640usize), nonzero!(640usize)),

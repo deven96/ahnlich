@@ -48,6 +48,11 @@ export enum AIModel {
    * @generated from enum value: BUFFALO_L = 7;
    */
   BUFFALO_L = 7,
+
+  /**
+   * @generated from enum value: SFACE_YUNET = 8;
+   */
+  SFACE_YUNET = 8,
 }
 // Retrieve enum metadata with: proto3.getEnumType(AIModel)
 proto3.util.setEnumType(AIModel, "ai.models.AIModel", [
@@ -59,6 +64,7 @@ proto3.util.setEnumType(AIModel, "ai.models.AIModel", [
   { no: 5, name: "CLIP_VIT_B32_IMAGE" },
   { no: 6, name: "CLIP_VIT_B32_TEXT" },
   { no: 7, name: "BUFFALO_L" },
+  { no: 8, name: "SFACE_YUNET" },
 ]);
 
 /**
@@ -82,3 +88,4 @@ proto3.util.setEnumType(AIStoreInputType, "ai.models.AIStoreInputType", [
   { no: 0, name: "RAW_STRING" },
   { no: 1, name: "IMAGE" },
 ]);
+
