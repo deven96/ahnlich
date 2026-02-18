@@ -43,6 +43,11 @@ export enum AIModel {
    * @generated from enum value: CLIP_VIT_B32_TEXT = 6;
    */
   CLIP_VIT_B32_TEXT = 6,
+
+  /**
+   * @generated from enum value: BUFFALO_L = 7;
+   */
+  BUFFALO_L = 7,
 }
 // Retrieve enum metadata with: proto3.getEnumType(AIModel)
 proto3.util.setEnumType(AIModel, "ai.models.AIModel", [
@@ -53,6 +58,7 @@ proto3.util.setEnumType(AIModel, "ai.models.AIModel", [
   { no: 4, name: "RESNET50" },
   { no: 5, name: "CLIP_VIT_B32_IMAGE" },
   { no: 6, name: "CLIP_VIT_B32_TEXT" },
+  { no: 7, name: "BUFFALO_L" },
 ]);
 
 /**
