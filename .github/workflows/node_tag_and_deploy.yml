@@ -1,0 +1,88 @@
+name: Ahnlich Node Client Tag and Deploy
+
+on:
+  pull_request:
+    branches: ["main"]
+    types:
+      - closed
+
+jobs:
+  check_version_changes_and_tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      client_version: ${{ steps.get_version.outputs.CLIENT_VERSION }}
+      client_version_changed: ${{ steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED }}
+      tag_version: ${{ steps.get_version.outputs.TAG_VERSION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for version change in package.json
+        id: check_version_changes
+        working-directory: ./sdk/ahnlich-client-node
+        run: |
+          if git diff HEAD^ HEAD --exit-code package.json > /dev/null; then
+            echo "No version change in package.json."
+            echo "CLIENT_VERSION_CHANGED=false" >> $GITHUB_OUTPUT
+          else
+            OLD=$(git show HEAD^:sdk/ahnlich-client-node/package.json | node -pe "JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).version" 2>/dev/null || echo "")
+            NEW=$(node -pe "require('./package.json').version")
+            if [ "$OLD" != "$NEW" ]; then
+              echo "Version changed from $OLD to $NEW."
+              echo "CLIENT_VERSION_CHANGED=true" >> $GITHUB_OUTPUT
+            else
+              echo "package.json changed but version is unchanged."
+              echo "CLIENT_VERSION_CHANGED=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Get client version
+        id: get_version
+        working-directory: ./sdk/ahnlich-client-node
+        if: steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
+        run: |
+          CLIENT_VERSION=$(node -pe "require('./package.json').version")
+          echo "CLIENT_VERSION=${CLIENT_VERSION}" >> $GITHUB_OUTPUT
+          echo "TAG_VERSION=client/node/${CLIENT_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Create new tag
+        if: steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED == 'true'
+        run: |
+          git config --global user.name '${{github.actor}}'
+          git config --global user.email '${{github.actor}}@users.noreply.github.com'
+          git tag -a "${{ steps.get_version.outputs.TAG_VERSION }}" \
+            -m "ahnlich-client-node v${{ steps.get_version.outputs.CLIENT_VERSION }}"
+          git push origin "${{ steps.get_version.outputs.TAG_VERSION }}"
+
+  deploy_tag:
+    runs-on: ubuntu-latest
+    needs: check_version_changes_and_tag
+    if: ${{ needs.check_version_changes_and_tag.outputs.client_version_changed == 'true' }}
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{needs.check_version_changes_and_tag.outputs.tag_version}}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        working-directory: ./sdk/ahnlich-client-node
+        run: npm install
+
+      - name: Build
+        working-directory: ./sdk/ahnlich-client-node
+        run: npm run build
+
+      - name: Publish to npm
+        working-directory: ./sdk/ahnlich-client-node
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

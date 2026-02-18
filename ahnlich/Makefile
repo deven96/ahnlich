@@ -38,7 +38,7 @@ check: ## cargo check
 test: ## cargo test
 	cargo nextest run --no-capture
 
-grpc-update-clients: grpc-update-rust grpc-update-python ## updates client generated code after proto change
+grpc-update-clients: grpc-update-rust grpc-update-python grpc-update-go grpc-update-node ## updates client generated code after proto change
 	@echo "Updated clients"
 
 grpc-update-python: ## updates python generated code after proto change
@@ -50,6 +50,14 @@ grpc-update-python: ## updates python generated code after proto change
 grpc-update-rust: ## updates rust generated code after proto change
 	@cargo build -p ahnlich_types
 	@make format
+
+grpc-update-go: ## updates Go generated code after proto change
+	@cd ../protos && buf generate
+
+grpc-update-node: ## updates Node.js generated code after proto change
+	@cd ../protos && buf generate
+	@cd ../sdk/ahnlich-client-node \
+		&& npx prettier --write "grpc/**/*.ts"
 
 run-db: ## Run ahnlich_db bin 
 	cargo run --bin ahnlich-db run
