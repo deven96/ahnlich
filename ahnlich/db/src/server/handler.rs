@@ -732,6 +732,7 @@ impl DbService for Server {
     }
 }
 
+#[async_trait::async_trait]
 impl AhnlichServerUtils for Server {
     type PersistenceTask = StoreHandler;
 
@@ -740,6 +741,7 @@ impl AhnlichServerUtils for Server {
             service_name: SERVICE_NAME,
             persist_location: &self.config.common.persist_location,
             persistence_interval: self.config.common.persistence_interval,
+            size_calculation_interval: self.config.common.size_calculation_interval,
             allocator_size: self.config.common.allocator_size,
             threadpool_size: self.config.common.threadpool_size,
         }
@@ -755,6 +757,22 @@ impl AhnlichServerUtils for Server {
 
     fn task_manager(&self) -> Arc<TaskManager> {
         self.task_manager.clone()
+    }
+
+    async fn spawn_tasks_before_server(
+        &self,
+        task_manager: &Arc<TaskManager>,
+    ) -> std::io::Result<()> {
+        use crate::engine::store::StoresSnapshot;
+        use utils::size_calculation::SizeCalculation;
+
+        let size_calculation_task = SizeCalculation::task(
+            self.write_flag(),
+            self.config.common.size_calculation_interval,
+            StoresSnapshot::new(self.store_handler.get_stores()),
+        );
+        task_manager.spawn_task_loop(size_calculation_task).await;
+        Ok(())
     }
 }
 

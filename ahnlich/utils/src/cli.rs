@@ -85,6 +85,13 @@ pub struct CommandLineConfig {
     /// Path to TLS private key file (required when auth is enabled)
     #[arg(long, requires_if("true", "enable_auth"))]
     pub tls_key: Option<std::path::PathBuf>,
+
+    /// Size calculation interval in milliseconds
+    /// Controls how frequently store sizes are recalculated in the background
+    /// Defaults to 60ms
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).size_calculation_interval.clone())]
+    pub size_calculation_interval: u64,
 }
 
 impl Default for CommandLineConfig {
@@ -106,6 +113,7 @@ impl Default for CommandLineConfig {
             auth_config: None,
             tls_cert: None,
             tls_key: None,
+            size_calculation_interval: 60,
         }
     }
 }

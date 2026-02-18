@@ -31,6 +31,8 @@ pub struct ServerUtilsConfig<'a> {
     // persistence stuff
     pub persistence_interval: u64,
     pub persist_location: &'a Option<std::path::PathBuf>,
+    // size calculation stuff
+    pub size_calculation_interval: u64,
     // global allocator
     pub allocator_size: usize,
     pub threadpool_size: usize,
@@ -50,6 +52,12 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
     fn cancellation_token(&self) -> CancellationToken;
 
     fn task_manager(&self) -> Arc<TaskManager>;
+
+    /// Spawn background tasks before server starts (e.g., model threads, size calculation)
+    /// Returns error to fail fast if critical initialization fails
+    async fn spawn_tasks_before_server(&self, _task_manager: &Arc<TaskManager>) -> IoResult<()> {
+        Ok(())
+    }
 
     /// Runs through several processes to start up the server
     /// - Sets global allocator cap
@@ -88,6 +96,8 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
             );
             task_manager.spawn_task_loop(persistence_task).await;
         };
+
+        self.spawn_tasks_before_server(&task_manager).await?;
         task_manager.spawn_blocking(self).await;
         task_manager.wait().await;
         tracer::shutdown_tracing();
