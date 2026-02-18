@@ -154,7 +154,7 @@ impl ModelThread {
         &self,
         inputs: Vec<Vec<u8>>,
         _process_action: PreprocessAction,
-    ) -> Result<ndarray::Array<f32, ndarray::Ix2>, AIProxyError> {
+    ) -> Result<crate::engine::ai::providers::processors::AudioInput, AIProxyError> {
         match &self.model.provider {
             ModelProviders::ORT(provider) => provider.preprocess_audios(inputs),
         }

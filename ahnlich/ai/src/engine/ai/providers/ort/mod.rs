@@ -21,6 +21,7 @@ use ort::{
 };
 use strum::EnumIter;
 
+use crate::engine::ai::providers::processors::AudioInput;
 use crate::engine::ai::providers::processors::postprocessor::{
     ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor,
 };
@@ -146,13 +147,13 @@ impl ModelConfig {
             },
             SupportedModels::ClapAudio => Self {
                 modality: ORTModality::Audio,
-                repo_name: "laion/larger_clap_music_and_speech".to_string(),
+                repo_name: "Xenova/larger_clap_music_and_speech".to_string(),
                 weights_file: "onnx/audio_model.onnx".to_string(),
                 batch_size: 8,
             },
             SupportedModels::ClapText => Self {
                 modality: ORTModality::Text,
-                repo_name: "laion/larger_clap_music_and_speech".to_string(),
+                repo_name: "Xenova/larger_clap_music_and_speech".to_string(),
                 weights_file: "onnx/text_model.onnx".to_string(),
                 batch_size: 128,
             },
@@ -261,8 +262,8 @@ impl ORTProvider {
                             48_000,
                             10.0,
                         ));
-                        let postprocessor =
-                            ORTPostprocessor::Text(ORTTextPostprocessor::load(*supported_models)?);
+                        // Audio postprocessing is handled inline in batch_inference_audio
+                        let postprocessor = ORTPostprocessor::Audio;
                         (preprocessor, postprocessor)
                     }
                 };
@@ -371,10 +372,7 @@ impl ORTProvider {
     }
 
     #[tracing::instrument(skip(self, data))]
-    pub fn preprocess_audios(
-        &self,
-        data: Vec<Vec<u8>>,
-    ) -> Result<ndarray::Array<f32, ndarray::Ix2>, AIProxyError> {
+    pub fn preprocess_audios(&self, data: Vec<Vec<u8>>) -> Result<AudioInput, AIProxyError> {
         match &self.preprocessor {
             ORTPreprocessor::Audio(preprocessor) => preprocessor.process(data).map_err(|e| {
                 AIProxyError::ModelProviderPreprocessingError(format!(

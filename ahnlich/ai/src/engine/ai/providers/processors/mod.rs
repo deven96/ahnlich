@@ -4,7 +4,16 @@ use ndarray::{Array, Ix2, Ix3, Ix4};
 use ort::SessionOutputs;
 use tokenizers::Encoding;
 
-pub type AudioWaveform = Array<f32, Ix2>;
+/// CLAP audio features ready for the audio encoder.
+///
+/// `input_features`: shape `(batch, 1, nb_max_frames, n_mels)` — log-Mel spectrogram
+///   using the `rand_trunc` strategy: one view per clip, no fusion crops.
+/// `is_longer`: one bool per sample; always `false` in `rand_trunc` mode.
+#[derive(Debug)]
+pub struct AudioInput {
+    pub input_features: Array<f32, Ix4>,
+    pub is_longer: Vec<bool>,
+}
 
 pub mod center_crop;
 pub mod imagearray_to_ndarray;
@@ -34,8 +43,8 @@ pub enum PreprocessorData {
     EncodedText(Vec<Encoding>),
     /// Raw audio bytes (one Vec<u8> per clip, any container format)
     AudioBytes(Vec<Vec<u8>>),
-    /// Decoded + resampled PCM waveforms: shape (batch, samples)
-    AudioWaveforms(AudioWaveform),
+    /// CLAP-ready log-Mel spectrogram features
+    AudioFeatures(AudioInput),
 }
 
 impl PreprocessorData {

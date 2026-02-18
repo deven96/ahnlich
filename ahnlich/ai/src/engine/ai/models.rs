@@ -2,6 +2,7 @@ use crate::cli::server::SupportedModels;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::ProviderTrait;
 use crate::engine::ai::providers::ort::ORTProvider;
+use crate::engine::ai::providers::processors::AudioInput;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider;
 use ahnlich_types::ai::models::AiStoreInputType;
@@ -349,8 +350,8 @@ impl fmt::Display for InputAction {
 pub enum ModelInput {
     Texts(Vec<Encoding>),
     Images(Array<f32, Ix4>),
-    /// Batch of audio waveforms: shape (batch, samples), f32 PCM at model's sample rate
-    Audios(ndarray::Array<f32, ndarray::Ix2>),
+    /// CLAP-ready log-Mel spectrogram features for a batch of audio clips
+    Audios(AudioInput),
 }
 
 #[derive(Debug)]
