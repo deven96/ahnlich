@@ -25,7 +25,7 @@ use crate::engine::ai::providers::processors::postprocessor::{
     ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor,
 };
 use crate::engine::ai::providers::processors::preprocessor::{
-    ORTImagePreprocessor, ORTPreprocessor, ORTTextPreprocessor,
+    ORTAudioPreprocessor, ORTImagePreprocessor, ORTPreprocessor, ORTTextPreprocessor,
 };
 use ndarray::{Array, Ix2, Ix4};
 use std::default::Default;
@@ -144,6 +144,18 @@ impl ModelConfig {
                 weights_file: "onnx/model.onnx".to_string(),
                 batch_size: 128,
             },
+            SupportedModels::ClapAudio => Self {
+                modality: ORTModality::Audio,
+                repo_name: "laion/larger_clap_music_and_speech".to_string(),
+                weights_file: "onnx/audio_model.onnx".to_string(),
+                batch_size: 8,
+            },
+            SupportedModels::ClapText => Self {
+                modality: ORTModality::Text,
+                repo_name: "laion/larger_clap_music_and_speech".to_string(),
+                weights_file: "onnx/text_model.onnx".to_string(),
+                batch_size: 128,
+            },
             SupportedModels::BuffaloL => {
                 // BuffaloL is a multi-stage model and doesn't use ModelConfig
                 // This branch should never be reached as Buffalo_L is handled separately
@@ -238,6 +250,17 @@ impl ORTProvider {
                             *supported_models,
                             model_repo,
                         )?);
+                        let postprocessor =
+                            ORTPostprocessor::Text(ORTTextPostprocessor::load(*supported_models)?);
+                        (preprocessor, postprocessor)
+                    }
+                    ORTModality::Audio => {
+                        // CLAP: 48kHz, 10-second clips
+                        let preprocessor = ORTPreprocessor::Audio(ORTAudioPreprocessor::new(
+                            *supported_models,
+                            48_000,
+                            10.0,
+                        ));
                         let postprocessor =
                             ORTPostprocessor::Text(ORTTextPostprocessor::load(*supported_models)?);
                         (preprocessor, postprocessor)
@@ -347,7 +370,25 @@ impl ORTProvider {
         }
     }
 
-    // TODO: Move batch_inference methods to SingleStageModel
+    #[tracing::instrument(skip(self, data))]
+    pub fn preprocess_audios(
+        &self,
+        data: Vec<Vec<u8>>,
+    ) -> Result<ndarray::Array<f32, ndarray::Ix2>, AIProxyError> {
+        match &self.preprocessor {
+            ORTPreprocessor::Audio(preprocessor) => preprocessor.process(data).map_err(|e| {
+                AIProxyError::ModelProviderPreprocessingError(format!(
+                    "Audio preprocessing failed for {:?}: {}",
+                    self.supported_models.to_string(),
+                    e
+                ))
+            }),
+            _ => Err(AIProxyError::ModelPreprocessingError {
+                model_name: self.supported_models.to_string(),
+                message: "Audio preprocessor not initialized".to_string(),
+            }),
+        }
+    }
 }
 
 #[async_trait::async_trait]

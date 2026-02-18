@@ -90,9 +90,11 @@ impl ORTInferenceModel for BuffaloLModel {
                     self.detect_and_recognize_batch(images, execution_provider)
                         .await
                 }
-                ModelInput::Texts(_) => Err(AIProxyError::AIModelNotSupported {
-                    model_name: "Buffalo_L (image-only model)".to_string(),
-                }),
+                ModelInput::Texts(_) | ModelInput::Audios(_) => {
+                    Err(AIProxyError::AIModelNotSupported {
+                        model_name: "Buffalo_L (image-only model)".to_string(),
+                    })
+                }
             }
         })
     }

@@ -133,6 +133,12 @@ pub enum AIProxyError {
     #[error("Image could not be cropped.")]
     ImageCropError,
 
+    #[error("Bytes could not be successfully decoded into audio: {0}")]
+    AudioBytesDecodeError(String),
+
+    #[error("Audio could not be resampled: {0}")]
+    AudioResampleError(String),
+
     #[error("Model provider failed on preprocessing the input {0}")]
     ModelProviderPreprocessingError(String),
 

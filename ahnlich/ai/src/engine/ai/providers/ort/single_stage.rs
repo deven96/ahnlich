@@ -284,14 +284,14 @@ impl SingleStageModel {
         };
 
         match (self.model_type, &input) {
-            (ORTModality::Text, ModelInput::Images(_))
-            | (ORTModality::Image, ModelInput::Texts(_)) => {
+            (ORTModality::Audio, ModelInput::Audios(_))
+            | (ORTModality::Image, ModelInput::Images(_))
+            | (ORTModality::Text, ModelInput::Texts(_)) => (),
+            _ => {
                 return Err(AIProxyError::AIModelNotSupported {
                     model_name: format!("{:?} model", self.model_type),
                 });
             }
-            (ORTModality::Image, ModelInput::Images(_))
-            | (ORTModality::Text, ModelInput::Texts(_)) => (),
         };
 
         match input {
@@ -363,6 +363,75 @@ impl SingleStageModel {
                 }
                 Ok(store_keys)
             }
+            ModelInput::Audios(waveforms) => {
+                let mut store_keys: Vec<ModelResponse> =
+                    FallibleVec::try_with_capacity(waveforms.shape()[0])?;
+
+                for batch in waveforms.axis_chunks_iter(Axis(0), self.model_batch_size) {
+                    let embeddings = self.batch_inference_audio(batch.to_owned(), &session)?;
+
+                    let batch_size = embeddings.shape()[0];
+                    let embedding_dim = embeddings.shape()[1];
+                    let bytes_per_response = size_of::<ModelResponse>()
+                        + size_of::<StoreKey>()
+                        + (embedding_dim * size_of::<f32>())
+                        + 64;
+                    utils::allocator::check_memory_available(batch_size * bytes_per_response)
+                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
+
+                    let new_store_keys: Vec<ModelResponse> = embeddings
+                        .axis_iter(Axis(0))
+                        .into_par_iter()
+                        .map(|embedding: ArrayView1<f32>| -> ModelResponse {
+                            ModelResponse::OneToOne(StoreKey {
+                                key: embedding.to_vec(),
+                            })
+                        })
+                        .collect();
+                    store_keys.extend(new_store_keys);
+                }
+                Ok(store_keys)
+            }
         }
+    }
+
+    #[tracing::instrument(skip(self, waveforms, session))]
+    fn batch_inference_audio(
+        &self,
+        waveforms: ndarray::Array<f32, ndarray::Ix2>,
+        session: &Session,
+    ) -> Result<Array<f32, Ix2>, AIProxyError> {
+        // CLAP audio encoder expects input named "input_features" with shape (B, samples)
+        let session_inputs = ort::inputs![
+            "input_features" => waveforms.view(),
+        ]
+        .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+
+        let child_span = tracing::info_span!("audio-model-session-run");
+        child_span.set_parent(tracing::Span::current().context());
+        let child_guard = child_span.enter();
+        let outputs = session
+            .run(session_inputs)
+            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
+        drop(child_guard);
+
+        let output_tensor = outputs
+            .values()
+            .next()
+            .ok_or_else(|| {
+                AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
+            })?
+            .try_extract_tensor::<f32>()
+            .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+
+        let mut embeddings = output_tensor
+            .to_owned()
+            .into_dimensionality::<Ix2>()
+            .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+
+        // L2-normalise so audio and text embeddings are comparable
+        self.normalize_embeddings(&mut embeddings);
+
+        Ok(embeddings)
     }
 }

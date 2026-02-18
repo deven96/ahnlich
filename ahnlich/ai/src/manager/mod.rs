@@ -135,6 +135,28 @@ impl ModelThread {
                     Ok(ModelInput::Images(output))
                 }
             }
+            Value::Audio(_) => {
+                let audio_bytes: Vec<Vec<u8>> = inputs
+                    .par_iter()
+                    .filter_map(|input| match &input.value {
+                        Some(Value::Audio(bytes)) => Some(bytes.clone()),
+                        _ => None,
+                    })
+                    .collect();
+                let output = self.preprocess_audio(audio_bytes, process_action)?;
+                Ok(ModelInput::Audios(output))
+            }
+        }
+    }
+
+    #[tracing::instrument(skip(self, inputs))]
+    fn preprocess_audio(
+        &self,
+        inputs: Vec<Vec<u8>>,
+        _process_action: PreprocessAction,
+    ) -> Result<ndarray::Array<f32, ndarray::Ix2>, AIProxyError> {
+        match &self.model.provider {
+            ModelProviders::ORT(provider) => provider.preprocess_audios(inputs),
         }
     }
     #[tracing::instrument(skip(self, inputs))]

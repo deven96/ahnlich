@@ -7,14 +7,12 @@
 package db_service
 
 import (
-	reflect "reflect"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-
 	pipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/pipeline"
 	query "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
 	server "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/server"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
 )
 
 const (

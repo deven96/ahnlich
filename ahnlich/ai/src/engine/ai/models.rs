@@ -39,6 +39,10 @@ pub enum ModelType {
         // width, height
         expected_image_dimensions: (NonZeroUsize, NonZeroUsize),
     },
+    Audio {
+        /// Expected sample rate in Hz (e.g. 48000 for CLAP)
+        sample_rate: u32,
+    },
 }
 
 #[derive(Debug)]
@@ -161,6 +165,29 @@ impl SupportedModels {
                 embedding_size: nonzero!(512usize),
                 input_to_embedding_mode: InputToEmbeddingMode::OneToMany,
             },
+            SupportedModels::ClapAudio => ModelDetails {
+                model_type: ModelType::Audio { sample_rate: 48000 },
+                supported_model: SupportedModels::ClapAudio,
+                description: String::from(
+                    "CLAP (Contrastive Language-Audio Pretraining) audio encoder. Embeds audio \
+                     clips into a shared 512-dim space with ClapText for multimodal audio+text search.",
+                ),
+                embedding_size: nonzero!(512usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
+            },
+            SupportedModels::ClapText => ModelDetails {
+                model_type: ModelType::Text {
+                    // CLAP text encoder uses a 77-token context window (same as CLIP)
+                    max_input_tokens: nonzero!(77usize),
+                },
+                supported_model: SupportedModels::ClapText,
+                description: String::from(
+                    "CLAP (Contrastive Language-Audio Pretraining) text encoder. Embeds text \
+                     queries into a shared 512-dim space with ClapAudio for multimodal audio+text search.",
+                ),
+                embedding_size: nonzero!(512usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
+            },
         }
     }
 
@@ -190,6 +217,7 @@ impl ModelDetails {
         match self.model_type {
             ModelType::Text { .. } => AiStoreInputType::RawString,
             ModelType::Image { .. } => AiStoreInputType::Image,
+            ModelType::Audio { .. } => AiStoreInputType::Audio,
         }
     }
 
@@ -199,14 +227,14 @@ impl ModelDetails {
             ModelType::Text {
                 max_input_tokens, ..
             } => Some(max_input_tokens),
-            ModelType::Image { .. } => None,
+            ModelType::Image { .. } | ModelType::Audio { .. } => None,
         }
     }
 
     #[tracing::instrument(skip(self))]
     pub fn expected_image_dimensions(&self) -> Option<(NonZeroUsize, NonZeroUsize)> {
         match self.model_type {
-            ModelType::Text { .. } => None,
+            ModelType::Text { .. } | ModelType::Audio { .. } => None,
             ModelType::Image {
                 expected_image_dimensions: (width, height),
                 ..
@@ -297,6 +325,7 @@ impl From<&Model> for AiStoreInputType {
         match value.model_details.model_type {
             ModelType::Text { .. } => AiStoreInputType::RawString,
             ModelType::Image { .. } => AiStoreInputType::Image,
+            ModelType::Audio { .. } => AiStoreInputType::Audio,
         }
     }
 }
@@ -320,6 +349,8 @@ impl fmt::Display for InputAction {
 pub enum ModelInput {
     Texts(Vec<Encoding>),
     Images(Array<f32, Ix4>),
+    /// Batch of audio waveforms: shape (batch, samples), f32 PCM at model's sample rate
+    Audios(ndarray::Array<f32, ndarray::Ix2>),
 }
 
 #[derive(Debug)]
@@ -456,6 +487,7 @@ impl From<&ModelInput> for AiStoreInputType {
         match value {
             ModelInput::Texts(_) => AiStoreInputType::RawString,
             ModelInput::Images(_) => AiStoreInputType::Image,
+            ModelInput::Audios(_) => AiStoreInputType::Audio,
         }
     }
 }

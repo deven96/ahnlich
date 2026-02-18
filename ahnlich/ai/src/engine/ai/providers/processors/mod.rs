@@ -4,6 +4,8 @@ use ndarray::{Array, Ix2, Ix3, Ix4};
 use ort::SessionOutputs;
 use tokenizers::Encoding;
 
+pub type AudioWaveform = Array<f32, Ix2>;
+
 pub mod center_crop;
 pub mod imagearray_to_ndarray;
 pub mod normalize;
@@ -30,6 +32,10 @@ pub enum PreprocessorData {
     NdArray3C(Array<f32, Ix4>),
     Text(Vec<String>),
     EncodedText(Vec<Encoding>),
+    /// Raw audio bytes (one Vec<u8> per clip, any container format)
+    AudioBytes(Vec<Vec<u8>>),
+    /// Decoded + resampled PCM waveforms: shape (batch, samples)
+    AudioWaveforms(AudioWaveform),
 }
 
 impl PreprocessorData {

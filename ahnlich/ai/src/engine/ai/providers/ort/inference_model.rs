@@ -8,6 +8,7 @@ use std::pin::Pin;
 pub(crate) enum ORTModality {
     Image,
     Text,
+    Audio,
 }
 
 /// Trait for all ORT-based inference models (single-stage, multi-stage, etc.)

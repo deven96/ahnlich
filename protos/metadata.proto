@@ -8,5 +8,6 @@ message MetadataValue {
   oneof value {
     string raw_string = 2;
     bytes image = 3;
+    bytes audio = 4;
   }
 }

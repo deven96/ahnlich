@@ -22,6 +22,8 @@ pub enum AiModel {
     ClipVitB32Image = 5,
     ClipVitB32Text = 6,
     BuffaloL = 7,
+    ClapAudio = 8,
+    ClapText = 9,
 }
 impl AiModel {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -38,6 +40,8 @@ impl AiModel {
             Self::ClipVitB32Image => "CLIP_VIT_B32_IMAGE",
             Self::ClipVitB32Text => "CLIP_VIT_B32_TEXT",
             Self::BuffaloL => "BUFFALO_L",
+            Self::ClapAudio => "CLAP_AUDIO",
+            Self::ClapText => "CLAP_TEXT",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -51,6 +55,8 @@ impl AiModel {
             "CLIP_VIT_B32_IMAGE" => Some(Self::ClipVitB32Image),
             "CLIP_VIT_B32_TEXT" => Some(Self::ClipVitB32Text),
             "BUFFALO_L" => Some(Self::BuffaloL),
+            "CLAP_AUDIO" => Some(Self::ClapAudio),
+            "CLAP_TEXT" => Some(Self::ClapText),
             _ => None,
         }
     }
@@ -61,6 +67,7 @@ impl AiModel {
 pub enum AiStoreInputType {
     RawString = 0,
     Image = 1,
+    Audio = 2,
 }
 impl AiStoreInputType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -71,6 +78,7 @@ impl AiStoreInputType {
         match self {
             Self::RawString => "RAW_STRING",
             Self::Image => "IMAGE",
+            Self::Audio => "AUDIO",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -78,6 +86,7 @@ impl AiStoreInputType {
         match value {
             "RAW_STRING" => Some(Self::RawString),
             "IMAGE" => Some(Self::Image),
+            "AUDIO" => Some(Self::Audio),
             _ => None,
         }
     }
