@@ -57,9 +57,13 @@ fn main() -> Result<()> {
         .expect("Failed to create mod file");
 
     // nonlinear algorthim, storekeyid, storevalue, metadatakey and value,
+    let descriptor_path = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR not set"))
+        .join("ahnlich_descriptor.bin");
+
     tonic_build::configure()
         .build_client(true)
         .build_client(true)
+        .file_descriptor_set_path(&descriptor_path)
         .out_dir(out_dir.clone())
         .type_attribute(
             "algorithm.nonlinear.NonLinearAlgorithm",
@@ -96,6 +100,16 @@ fn main() -> Result<()> {
         .expect("failed");
 
     restructure_generated_code(&out_dir, &mut file);
+
+    // Emit the FILE_DESCRIPTOR_SET const so downstream crates can use it for
+    // tonic server reflection without needing to know the OUT_DIR path.
+    file.write_all(
+        b"\n/// Binary file descriptor set for all Ahnlich proto services.\n\
+          /// Used to register gRPC server reflection via `tonic-reflection`.\n\
+          pub const FILE_DESCRIPTOR_SET: &[u8] =\n\
+          \x20   include_bytes!(concat!(env!(\"OUT_DIR\"), \"/ahnlich_descriptor.bin\"));\n",
+    )
+    .expect("Failed to write FILE_DESCRIPTOR_SET to lib.rs");
 
     Ok(())
 }

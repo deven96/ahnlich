@@ -7,6 +7,7 @@ use ahnlich_types::db::server::GetSimNEntry;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName, StoreValue};
 use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use ahnlich_types::shared::info::ErrorResponse;
+use tonic_reflection::server::Builder as ReflectionBuilder;
 
 use ahnlich_types::db::{pipeline, query, server};
 use ahnlich_types::{client as types_client, utils as types_utils};
@@ -906,9 +907,16 @@ impl BlockingTask for Server {
             }
         });
 
+        let reflection_service = ReflectionBuilder::configure()
+            .register_encoded_file_descriptor_set(ahnlich_types::FILE_DESCRIPTOR_SET)
+            .with_service_name("services.db_service.DBService")
+            .build_v1()
+            .expect("Failed to build gRPC reflection service");
+
         let _ = server_builder
             .trace_fn(trace_with_parent)
             .add_service(service)
+            .add_service(reflection_service)
             .serve_with_incoming_shutdown(listener_stream, shutdown_signal)
             .await;
     }

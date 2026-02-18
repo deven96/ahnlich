@@ -80,6 +80,7 @@ use std::sync::atomic::AtomicBool;
 use task_manager::BlockingTask;
 use task_manager::TaskManager;
 use tokio_util::sync::CancellationToken;
+use tonic_reflection::server::Builder as ReflectionBuilder;
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::auth::{AuthConfig, AuthInterceptor, load_tls_config};
 use utils::client::ClientHandler;
@@ -180,9 +181,16 @@ impl BlockingTask for AIProxyServer {
             }
         });
 
+        let reflection_service = ReflectionBuilder::configure()
+            .register_encoded_file_descriptor_set(ahnlich_types::FILE_DESCRIPTOR_SET)
+            .with_service_name("services.ai_service.AIService")
+            .build_v1()
+            .expect("Failed to build gRPC reflection service");
+
         let _ = server_builder
             .trace_fn(trace_with_parent)
             .add_service(service)
+            .add_service(reflection_service)
             .serve_with_incoming_shutdown(listener_stream, shutdown_signal)
             .await;
     }

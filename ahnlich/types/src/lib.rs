@@ -11,3 +11,7 @@ pub mod shared;
 pub mod similarity;
 pub mod utils;
 pub mod version;
+/// Binary file descriptor set for all Ahnlich proto services.
+/// Used to register gRPC server reflection via `tonic-reflection`.
+pub const FILE_DESCRIPTOR_SET: &[u8] =
+    include_bytes!(concat!(env!("OUT_DIR"), "/ahnlich_descriptor.bin"));
