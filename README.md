@@ -37,7 +37,7 @@ create_store(
 - [`ahnlich-client-rs`](ahnlich/client/): Rust client for `ahnlich-db` and `ahnlich-ai`.
 - [`ahnlich-client-py`](sdk/ahnlich-client-py/): Python client for `ahnlich-db` and `ahnlich-ai`.
 - [`ahnlich-client-go`](sdk/ahnlich-client-go/): Go client for `ahnlich-db` and `ahnlich-ai`.
-- [`ahnlich-client-node`](sdk/ahnlich-client-node/): Node.js/TypeScript client for `ahnlich-db` and `ahnlich-ai`. Available on [npm](https://www.npmjs.com/package/ahnlich-client-node).
+- [`ahnlich-client-node`](sdk/ahnlich-client-node/): Node.js/TypeScript client for `ahnlich-db` and `ahnlich-ai`.
 
 - [`ahnlich-cli`](ahnlich/cli/): CLI for querying `ahnlich-db` and `ahnlich-ai`
 
