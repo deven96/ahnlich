@@ -178,8 +178,8 @@ impl SupportedModels {
             },
             SupportedModels::ClapText => ModelDetails {
                 model_type: ModelType::Text {
-                    // CLAP text encoder uses a 77-token context window (same as CLIP)
-                    max_input_tokens: nonzero!(77usize),
+                    // RoBERTa BPE tokenizer; model_max_length from tokenizer_config.json
+                    max_input_tokens: nonzero!(512usize),
                 },
                 supported_model: SupportedModels::ClapText,
                 description: String::from(
