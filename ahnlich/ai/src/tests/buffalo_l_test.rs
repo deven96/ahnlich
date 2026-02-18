@@ -52,6 +52,8 @@ async fn provision_test_servers() -> SocketAddr {
 
 #[tokio::test]
 async fn test_buffalo_l_face_detection() {
+    // Scenario: one image with multiple faces is indexed.
+    // Each detected face produces one embedding and is stored as a separate entry.
     let ai_address = provision_test_servers().await;
     let channel =
         Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
@@ -122,6 +124,9 @@ async fn test_buffalo_l_face_detection() {
 
 #[tokio::test]
 async fn test_buffalo_l_batch_multiple_images() {
+    // Scenario: multiple copies of the same multi-face image are sent in one Set call.
+    // Duplicate face embeddings are updated rather than re-inserted, so the inserted
+    // count equals the number of unique faces (6), not total faces across all images.
     let ai_address = provision_test_servers().await;
     let channel =
         Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
@@ -213,6 +218,8 @@ async fn test_buffalo_l_batch_multiple_images() {
 
 #[tokio::test]
 async fn test_buffalo_l_no_faces() {
+    // Scenario: an image with no detectable faces is indexed.
+    // Buffalo_L returns zero embeddings for that image; the Set succeeds with 0 insertions.
     let ai_address = provision_test_servers().await;
     let channel =
         Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
@@ -285,6 +292,8 @@ async fn test_buffalo_l_no_faces() {
 
 #[tokio::test]
 async fn test_buffalo_l_single_face() {
+    // Scenario: an image with exactly one face is indexed.
+    // Exactly one embedding is stored; the Set reports inserted=1.
     let ai_address = provision_test_servers().await;
     let channel =
         Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
@@ -354,6 +363,9 @@ async fn test_buffalo_l_single_face() {
 
 #[tokio::test]
 async fn test_buffalo_l_get_sim_n() {
+    // Scenario: a single-face image and a multi-face image are indexed together (7 faces total).
+    // Querying with the single-face image returns itself as the top result with cosine
+    // similarity > 0.99, and all other (different) faces with similarity < 0.7.
     let ai_address = provision_test_servers().await;
     let channel =
         Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
@@ -535,7 +547,92 @@ async fn test_buffalo_l_get_sim_n() {
 }
 
 #[tokio::test]
+async fn test_buffalo_l_get_sim_n_multi_face_query_errors() {
+    // Scenario: a GetSimN query is issued with a multi-face image.
+    // A query must produce exactly one embedding; multiple faces make it ambiguous.
+    // The server must reject this with InvalidArgument rather than silently picking a face.
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_multi_face_query_error".to_string();
+    let single_face_image = include_bytes!("../../test_data/single_face.jpg").to_vec();
+    let multi_face_image = include_bytes!("../../test_data/faces_multiple.jpg").to_vec();
+
+    // Create store and insert a single face so the store is non-empty
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![
+            ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store_name.clone(),
+                    query_model: AiModel::BuffaloL.into(),
+                    index_model: AiModel::BuffaloL.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    store_original: false,
+                })),
+            },
+            ai_pipeline::AiQuery {
+                query: Some(Query::Set(ai_query_types::Set {
+                    store: store_name.clone(),
+                    inputs: vec![AiStoreEntry {
+                        key: Some(StoreInput {
+                            value: Some(Value::Image(single_face_image)),
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::new(),
+                        }),
+                    }],
+                    preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                    execution_provider: None,
+                })),
+            },
+        ],
+    };
+    client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Setup pipeline failed");
+
+    // Now query with a multi-face image — must return InvalidArgument
+    let err = client
+        .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            store: store_name.clone(),
+            search_input: Some(StoreInput {
+                value: Some(Value::Image(multi_face_image)),
+            }),
+            condition: None,
+            closest_n: 3,
+            algorithm: Algorithm::CosineSimilarity.into(),
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+        }))
+        .await
+        .expect_err("Expected error when querying with multi-face image");
+
+    assert_eq!(
+        err.code(),
+        tonic::Code::InvalidArgument,
+        "Multi-face query should return InvalidArgument, got: {:?}",
+        err
+    );
+    assert!(
+        err.message().contains("embeddings"),
+        "Error message should mention embedding count, got: {}",
+        err.message()
+    );
+}
+
+#[tokio::test]
 async fn test_buffalo_l_face_index_metadata() {
+    // Scenario: a multi-face image is indexed; each stored face embedding gets an
+    // auto-injected `one_to_many_index` metadata field with a sequential integer (0, 1, 2, …).
+    // A single-face query is used to retrieve all entries and verify the indices are present
+    // and sequential. A multi-face query is intentionally avoided — it would be rejected.
     let address = provision_test_servers().await;
     let address = format!("http://{}", address);
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -549,6 +646,9 @@ async fn test_buffalo_l_face_index_metadata() {
     // Load image with multiple faces (should detect at least 2 faces)
     let image_bytes =
         std::fs::read("./test_data/faces_multiple.jpg").expect("Could not read test image");
+    // Single-face image used as query — querying with a multi-face image is ambiguous
+    let query_image_bytes =
+        std::fs::read("./test_data/single_face.jpg").expect("Could not read query image");
 
     // Create store without predicates - Buffalo_L should auto-add face_index predicate
     let create_store = ai_query_types::CreateStore {
@@ -622,7 +722,7 @@ async fn test_buffalo_l_face_index_metadata() {
         let get_query = ai_query_types::GetSimN {
             store: store_name.clone(),
             search_input: Some(StoreInput {
-                value: Some(Value::Image(image_bytes)),
+                value: Some(Value::Image(query_image_bytes)),
             }),
             condition: None,
             closest_n: 10, // Get all faces
@@ -683,5 +783,103 @@ async fn test_buffalo_l_face_index_metadata() {
             "Expected Set response, got: {:?}",
             pipeline_response.responses.get(1)
         );
+    }
+}
+
+#[tokio::test]
+async fn test_buffalo_l_mixed_batch_no_face_does_not_fail_batch() {
+    // Scenario: a batch contains two entries — one image with detectable faces and one
+    // with none. The no-face image produces zero embeddings and is silently skipped.
+    // The batch as a whole must succeed, storing only the faces from the valid image.
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_mixed_batch".to_string();
+
+    let single_face_image = include_bytes!("../../test_data/single_face.jpg").to_vec();
+    let no_face_image = include_bytes!("../../test_data/no_face.jpg").to_vec();
+
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![
+            ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store_name.clone(),
+                    query_model: AiModel::BuffaloL.into(),
+                    index_model: AiModel::BuffaloL.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    store_original: false,
+                })),
+            },
+            ai_pipeline::AiQuery {
+                query: Some(Query::Set(ai_query_types::Set {
+                    store: store_name.clone(),
+                    inputs: vec![
+                        // First entry: one detectable face — should produce 1 stored embedding.
+                        AiStoreEntry {
+                            key: Some(StoreInput {
+                                value: Some(Value::Image(single_face_image)),
+                            }),
+                            value: Some(StoreValue {
+                                value: HashMap::from([(
+                                    "source".to_string(),
+                                    MetadataValue {
+                                        value: Some(metadata_value::Value::RawString(
+                                            "has_face".to_string(),
+                                        )),
+                                    },
+                                )]),
+                            }),
+                        },
+                        // Second entry: no detectable faces — produces zero embeddings and is
+                        // skipped. The batch must not fail because of this entry.
+                        AiStoreEntry {
+                            key: Some(StoreInput {
+                                value: Some(Value::Image(no_face_image)),
+                            }),
+                            value: Some(StoreValue {
+                                value: HashMap::from([(
+                                    "source".to_string(),
+                                    MetadataValue {
+                                        value: Some(metadata_value::Value::RawString(
+                                            "no_face".to_string(),
+                                        )),
+                                    },
+                                )]),
+                            }),
+                        },
+                    ],
+                    preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                    execution_provider: None,
+                })),
+            },
+        ],
+    };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Mixed batch Set must not fail even when one entry has no faces");
+
+    let responses = response.into_inner().responses;
+    assert_eq!(responses.len(), 2);
+
+    if let Some(ai_pipeline::AiServerResponse {
+        response: Some(ai_pipeline::ai_server_response::Response::Set(set_response)),
+    }) = responses.get(1)
+    {
+        let upsert = set_response.upsert.as_ref().expect("Expected upsert info");
+        assert_eq!(
+            upsert.inserted, 1,
+            "Only the face from the valid image should be stored; no-face image is skipped"
+        );
+        assert_eq!(upsert.updated, 0);
+    } else {
+        panic!("Expected Set response, got: {:?}", responses.get(1));
     }
 }
