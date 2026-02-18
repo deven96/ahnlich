@@ -12,11 +12,9 @@ impl Preprocessor for ImageArrayToNdArray {
         match data {
             PreprocessorData::ImageArray(arrays) => {
                 if arrays.is_empty() {
-                    // Return properly shaped empty array for zero inputs
-                    // Shape: (batch=0, channels=3, height=640, width=640) to match expected dims
-                    return Ok(PreprocessorData::NdArray3C(ndarray::Array::zeros((
-                        0, 3, 640, 640,
-                    ))));
+                    return Err(AIProxyError::ImageArrayToNdArrayError {
+                        message: "ImageArrayToNdArray received empty image array".to_string(),
+                    });
                 }
 
                 let arrays = arrays
