@@ -105,13 +105,13 @@ impl ModelConfig {
         Ok(match model {
             SupportedModels::Resnet50 => Self {
                 modality: ORTModality::Image,
-                repo_name: "Qdrant/resnet50-onnx".to_string(),
+                repo_name: "deven96/resnet50-onnx".to_string(),
                 weights_file: "model.onnx".to_string(),
                 batch_size: 16,
             },
             SupportedModels::ClipVitB32Image => Self {
                 modality: ORTModality::Image,
-                repo_name: "Qdrant/clip-ViT-B-32-vision".to_string(),
+                repo_name: "deven96/clip-ViT-B-32-vision".to_string(),
                 weights_file: "model.onnx".to_string(),
                 batch_size: 16,
             },
@@ -123,37 +123,37 @@ impl ModelConfig {
             },
             SupportedModels::AllMiniLML6V2 => Self {
                 modality: ORTModality::Text,
-                repo_name: "Qdrant/all-MiniLM-L6-v2-onnx".to_string(),
+                repo_name: "deven96/all-MiniLM-L6-v2-onnx".to_string(),
                 weights_file: "model.onnx".to_string(),
                 batch_size: 128,
             },
             SupportedModels::AllMiniLML12V2 => Self {
                 modality: ORTModality::Text,
-                repo_name: "Xenova/all-MiniLM-L12-v2".to_string(),
+                repo_name: "deven96/all-MiniLM-L12-v2".to_string(),
                 weights_file: "onnx/model.onnx".to_string(),
                 batch_size: 128,
             },
             SupportedModels::BGEBaseEnV15 => Self {
                 modality: ORTModality::Text,
-                repo_name: "Xenova/bge-base-en-v1.5".to_string(),
+                repo_name: "deven96/bge-base-en-v1.5".to_string(),
                 weights_file: "onnx/model.onnx".to_string(),
                 batch_size: 128,
             },
             SupportedModels::BGELargeEnV15 => Self {
                 modality: ORTModality::Text,
-                repo_name: "Xenova/bge-large-en-v1.5".to_string(),
+                repo_name: "deven96/bge-large-en-v1.5".to_string(),
                 weights_file: "onnx/model.onnx".to_string(),
                 batch_size: 128,
             },
             SupportedModels::ClapAudio => Self {
                 modality: ORTModality::Audio,
-                repo_name: "Xenova/larger_clap_music_and_speech".to_string(),
+                repo_name: "deven96/larger_clap_music_and_speech".to_string(),
                 weights_file: "onnx/audio_model.onnx".to_string(),
                 batch_size: 8,
             },
             SupportedModels::ClapText => Self {
                 modality: ORTModality::Text,
-                repo_name: "Xenova/larger_clap_music_and_speech".to_string(),
+                repo_name: "deven96/larger_clap_music_and_speech".to_string(),
                 weights_file: "onnx/text_model.onnx".to_string(),
                 batch_size: 128,
             },
@@ -195,7 +195,7 @@ impl ORTProvider {
                 let inner = BuffaloLModel::build(api.clone(), session_profiling).await?;
                 let model = ORTModel { inner };
 
-                let model_repo = api.model("immich-app/buffalo_l".to_string());
+                let model_repo = api.model("deven96/buffalo_l".to_string());
                 let preprocessor = ORTPreprocessor::Image(ORTImagePreprocessor::load(
                     *supported_models,
                     model_repo,

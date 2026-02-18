@@ -47,7 +47,7 @@ impl BuffaloLModel {
         api: Api,
         session_profiling: bool,
     ) -> Result<Box<dyn ORTInferenceModel>, AIProxyError> {
-        let repo = api.model("immich-app/buffalo_l".to_string());
+        let repo = api.model("deven96/buffalo_l".to_string());
 
         let det_file = repo
             .get("detection/model.onnx")
