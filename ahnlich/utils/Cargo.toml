@@ -31,6 +31,8 @@ papaya.workspace = true
 tower = "0.5.2"
 pin-project = "1"
 tower-layer = "0.3.3"
-tonic.workspace = true
+tonic = { workspace = true, features = ["tls"] }
 http.workspace = true
 hyper = { version = "1", features = ["full"] }
+sha2 = "0.10"
+toml = "0.8"

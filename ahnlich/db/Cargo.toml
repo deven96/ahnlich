@@ -52,6 +52,9 @@ criterion = "0.4"
 rand.workspace = true
 fastrand = "1.9"
 dhat = "0.3"
+rcgen = "0.13"
+tempfile = "3"
+ahnlich_client_rs = { path = "../client", version = "*" }
 
 [[bench]]
 name = "database"
