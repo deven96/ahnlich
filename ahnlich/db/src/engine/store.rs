@@ -23,7 +23,7 @@ use std::mem::size_of_val;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use utils::persistence::AhnlichPersistenceUtils;
 
 type StoreEntry = (Arc<StoreKey>, Arc<StoreValue>);
@@ -81,7 +81,53 @@ impl AhnlichPersistenceUtils for StoreHandler {
     }
 }
 
+impl utils::size_calculation::SizeCalculationHandler for StoresSnapshot {
+    #[tracing::instrument(skip(self))]
+    fn recalculate_all_sizes(&self) {
+        for (store_name, store) in self.0.iter(&self.0.guard()) {
+            // Only recalculate if this store has been modified
+            if store
+                .size_dirty
+                .compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
+                .is_ok()
+            {
+                let len = store.len();
+                let size = store.size();
+                store.cached_len.store(len as u64, Ordering::Relaxed);
+                store
+                    .cached_size_bytes
+                    .store(size as u64, Ordering::Relaxed);
+                log::trace!(
+                    "Recalculated size for store '{}': {} entries, {} bytes",
+                    store_name.value,
+                    len,
+                    size
+                );
+            }
+        }
+    }
+}
+
 pub type Stores = Arc<ConcurrentHashMap<StoreName, Arc<Store>>>;
+
+/// Newtype wrapper around Stores to implement SizeCalculationHandler
+/// (orphan rule prevents implementing foreign traits on Arc directly)
+#[derive(Debug, Clone)]
+pub struct StoresSnapshot(Stores);
+
+impl StoresSnapshot {
+    pub fn new(stores: Stores) -> Self {
+        Self(stores)
+    }
+}
+
+impl std::ops::Deref for StoresSnapshot {
+    type Target = Stores;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl StoreHandler {
     pub fn new(write_flag: Arc<AtomicBool>) -> Self {
@@ -300,10 +346,30 @@ impl StoreHandler {
     pub(crate) fn list_stores(&self) -> StdHashSet<StoreInfo> {
         self.stores
             .iter(&self.stores.guard())
-            .map(|(store_name, store)| StoreInfo {
-                name: store_name.clone().value,
-                len: store.len() as u64,
-                size_in_bytes: store.size() as u64,
+            .map(|(store_name, store)| {
+                // Lazy initialization: if size is dirty (e.g., newly created store),
+                // calculate it immediately. Background task will handle future updates.
+                let (len, size_in_bytes) = if store.size_dirty.load(Ordering::Relaxed) {
+                    let len = store.len();
+                    let size = store.size();
+                    store.cached_len.store(len as u64, Ordering::Relaxed);
+                    store
+                        .cached_size_bytes
+                        .store(size as u64, Ordering::Relaxed);
+                    store.size_dirty.store(false, Ordering::Relaxed);
+                    (len as u64, size as u64)
+                } else {
+                    (
+                        store.cached_len.load(Ordering::Relaxed),
+                        store.cached_size_bytes.load(Ordering::Relaxed),
+                    )
+                };
+
+                StoreInfo {
+                    name: store_name.clone().value,
+                    len,
+                    size_in_bytes,
+                }
             })
             .collect()
     }
@@ -404,6 +470,12 @@ pub struct Store {
     predicate_indices: PredicateIndices,
     /// Non linear Indices
     non_linear_indices: NonLinearAlgorithmIndices,
+    /// Cached count of entries in the store (updated by background task)
+    cached_len: AtomicU64,
+    /// Cached size in bytes of the store (updated by background task)
+    cached_size_bytes: AtomicU64,
+    /// Flag indicating this store needs size recalculation (set on mutations)
+    size_dirty: AtomicBool,
 }
 
 impl Store {
@@ -418,7 +490,16 @@ impl Store {
             id_to_value: ConcurrentHashMap::new(),
             predicate_indices: PredicateIndices::init(predicates),
             non_linear_indices: NonLinearAlgorithmIndices::create(non_linear_indices, dimension),
+            cached_len: AtomicU64::new(0),
+            cached_size_bytes: AtomicU64::new(0),
+            size_dirty: AtomicBool::new(true), // Mark as dirty initially to trigger first calculation
         }
+    }
+
+    /// Mark this store as needing size recalculation (called on any mutation)
+    #[inline]
+    fn mark_size_dirty(&self) {
+        self.size_dirty.store(true, Ordering::Relaxed);
     }
 
     #[tracing::instrument(skip(self))]
@@ -427,8 +508,14 @@ impl Store {
         predicates: Vec<String>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
-        self.predicate_indices
-            .remove_predicates(predicates, error_if_not_exists)
+        let removed = self
+            .predicate_indices
+            .remove_predicates(predicates, error_if_not_exists)?;
+        if removed > 0 {
+            // Mark store as needing size recalculation (indices affect size)
+            self.mark_size_dirty();
+        }
+        Ok(removed)
     }
 
     #[tracing::instrument(skip_all)]
@@ -442,7 +529,13 @@ impl Store {
             .collect::<Vec<_>>();
         self.predicate_indices.remove_store_keys(&keys);
         self.non_linear_indices.delete(&removed);
-        removed.len()
+
+        let removed_count = removed.len();
+        if removed_count > 0 {
+            // Mark store as needing size recalculation
+            self.mark_size_dirty();
+        }
+        removed_count
     }
 
     /// filters input dimension to make sure it matches store dimension
@@ -749,6 +842,10 @@ impl Store {
         if !self.non_linear_indices.is_empty() {
             self.non_linear_indices.insert(inserted_keys);
         }
+
+        // Mark store as needing size recalculation
+        self.mark_size_dirty();
+
         Ok(StoreUpsert {
             inserted: inserted.into_inner() as u64,
             updated: updated.into_inner() as u64,
@@ -772,6 +869,8 @@ impl Store {
                 .collect();
             self.predicate_indices
                 .add_predicates(new_predicates, Some(values));
+            // Mark store as needing size recalculation (indices affect size)
+            self.mark_size_dirty();
         };
         new_predicates_len
     }
@@ -796,6 +895,8 @@ impl Store {
                 .collect();
             self.non_linear_indices
                 .insert_indices(new_predicates, &values, self.dimension);
+            // Mark store as needing size recalculation (indices affect size)
+            self.mark_size_dirty();
         };
         new_predicates_len
     }
