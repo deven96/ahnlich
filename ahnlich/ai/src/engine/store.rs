@@ -385,14 +385,13 @@ impl AIStoreHandler {
             )
             .await?;
 
-        // TODO: Document the fact that for OneToMany models, GetSimN would only compare against
-        // the first ever embedding found out of the many embeddings
         match store_keys.pop() {
             Some(first_store_key) => match first_store_key {
                 ModelResponse::OneToOne(resp) => Ok(resp),
-                ModelResponse::OneToMany(mut many) => match many.pop() {
-                    Some(first) => Ok(first),
-                    None => Err(AIProxyError::ModelInputToEmbeddingError),
+                ModelResponse::OneToMany(mut many) => match many.len() {
+                    0 => Err(AIProxyError::ModelInputToEmbeddingError),
+                    1 => Ok(many.pop().unwrap()),
+                    n => Err(AIProxyError::MultipleEmbeddingsForQuery(n)),
                 },
             },
             None => Err(AIProxyError::ModelInputToEmbeddingError),

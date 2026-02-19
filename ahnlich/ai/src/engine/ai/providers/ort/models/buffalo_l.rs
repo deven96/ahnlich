@@ -296,6 +296,9 @@ impl BuffaloLModel {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
+        // TODO: (deven96) We need to think about how to pass custom special arguments to various
+        // models ... perhaps given an always extensible KV which each model then validates against
+        // or else picks a reasonable default.
         const CONFIDENCE_THRESHOLD: f32 = 0.5;
 
         // Memory check: Allocating Vec for face detection results

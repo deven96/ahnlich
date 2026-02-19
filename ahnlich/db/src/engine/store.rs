@@ -1425,7 +1425,7 @@ mod tests {
             .unwrap();
         assert_eq!(ret.len(), 2);
         assert_eq!(
-            ret[0].1.value.get("author".into()).cloned().unwrap(),
+            ret[0].1.value.get("author").cloned().unwrap(),
             MetadataValue {
                 value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
                     "Lex Luthor".to_string(),
@@ -1433,7 +1433,7 @@ mod tests {
             },
         );
         assert_eq!(
-            ret[1].1.value.get("author".into()).cloned().unwrap(),
+            ret[1].1.value.get("author").cloned().unwrap(),
             MetadataValue {
                 value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
                     "Clark Kent".to_string(),
