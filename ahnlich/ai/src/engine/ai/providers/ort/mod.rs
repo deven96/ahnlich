@@ -30,6 +30,7 @@ use crate::engine::ai::providers::processors::preprocessor::{
 use ndarray::{Array, Axis, Ix2, Ix4};
 use std::convert::TryFrom;
 use std::default::Default;
+use std::mem::size_of;
 use std::path::{Path, PathBuf};
 use tokenizers::Encoding;
 
@@ -104,6 +105,13 @@ impl Default for ORTModel {
             executor_session_cache: None,
             model_batch_size: 128,
         }
+    }
+}
+
+impl ORTModel {
+    /// Returns the batch size for this model
+    pub fn batch_size(&self) -> usize {
+        self.model_batch_size
     }
 }
 
@@ -365,7 +373,11 @@ impl ORTProvider {
             .inputs
             .iter()
             .any(|input| input.name == "token_type_ids");
-        // Preallocate arrays with the maximum size
+
+        let num_arrays = if need_token_type_ids { 3 } else { 2 };
+        let estimated_bytes = max_size * size_of::<i64>() * num_arrays;
+        utils::allocator::check_memory_available(estimated_bytes)
+            .map_err(|e| AIProxyError::Allocation(e.into()))?;
         let mut ids_array = Vec::with_capacity(max_size);
         let mut mask_array = Vec::with_capacity(max_size);
         let mut token_type_ids_array: Option<Vec<i64>> = None;
@@ -484,6 +496,16 @@ impl ProviderTrait for ORTProvider {
                     // ModelResponse::OneToOne or ModelResponse::OneToMany (for insightface)
                     let embeddings =
                         self.batch_inference_image(batch_image.to_owned(), &session)?;
+
+                    let batch_size = embeddings.shape()[0];
+                    let embedding_dim = embeddings.shape()[1];
+                    let bytes_per_response = size_of::<ModelResponse>()
+                        + size_of::<StoreKey>()
+                        + (embedding_dim * size_of::<f32>())
+                        + 64;
+                    utils::allocator::check_memory_available(batch_size * bytes_per_response)
+                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
+
                     let new_store_keys: Vec<ModelResponse> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()
@@ -508,6 +530,16 @@ impl ProviderTrait for ORTProvider {
                 {
                     let embeddings =
                         self.batch_inference_text(batch_encoding.collect(), &session)?;
+
+                    let batch_size = embeddings.shape()[0];
+                    let embedding_dim = embeddings.shape()[1];
+                    let bytes_per_response = size_of::<ModelResponse>()
+                        + size_of::<StoreKey>()
+                        + (embedding_dim * size_of::<f32>())
+                        + 64;
+                    utils::allocator::check_memory_available(batch_size * bytes_per_response)
+                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
+
                     let new_store_keys: Vec<ModelResponse> = embeddings
                         .axis_iter(Axis(0))
                         .into_par_iter()

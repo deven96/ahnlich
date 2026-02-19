@@ -68,6 +68,30 @@ pub struct CommandLineConfig {
     #[arg(long, default_value_t =
     DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).threadpool_size.clone())]
     pub threadpool_size: usize,
+
+    /// Enable authentication (requires TLS)
+    #[arg(long, action=ArgAction::SetTrue, default_value_t =
+    DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).enable_auth.clone())]
+    pub enable_auth: bool,
+
+    /// Path to authentication config file (TOML format)
+    #[arg(long, requires_if("true", "enable_auth"))]
+    pub auth_config: Option<std::path::PathBuf>,
+
+    /// Path to TLS certificate file (required when auth is enabled)
+    #[arg(long, requires_if("true", "enable_auth"))]
+    pub tls_cert: Option<std::path::PathBuf>,
+
+    /// Path to TLS private key file (required when auth is enabled)
+    #[arg(long, requires_if("true", "enable_auth"))]
+    pub tls_key: Option<std::path::PathBuf>,
+
+    /// Size calculation interval in milliseconds
+    /// Controls how frequently store sizes are recalculated in the background
+    /// Defaults to 60ms
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).size_calculation_interval.clone())]
+    pub size_calculation_interval: u64,
 }
 
 impl Default for CommandLineConfig {
@@ -85,6 +109,11 @@ impl Default for CommandLineConfig {
             log_level: String::from("info,hf_hub=warn"),
             maximum_clients: 1000,
             threadpool_size: 16,
+            enable_auth: false,
+            auth_config: None,
+            tls_cert: None,
+            tls_key: None,
+            size_calculation_interval: 60,
         }
     }
 }

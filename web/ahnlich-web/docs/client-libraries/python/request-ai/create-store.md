@@ -30,6 +30,7 @@ This means you don’t have to manage vectors manually — the AI service will a
                 query_model=AiModel.ALL_MINI_LM_L6_V2,
                 index_model=AiModel.ALL_MINI_LM_L6_V2,
                 predicates=["job"],
+                non_linear_indices=[],  # Optional: non-linear algorithms for faster search
                 error_if_exists=True,
                 # Store original controls if we choose to store the raw inputs
                 # within the DB in order to be able to retrieve the originals again
@@ -52,6 +53,8 @@ This means you don’t have to manage vectors manually — the AI service will a
 * `index_model` - model used for encoding stored data vectors.
 
 * `predicates` - metadata fields that can be filtered against (e.g., "`job`").
+
+* `non_linear_indices` - list of non-linear algorithms for approximate search (can be empty list).
 
 * `store_original` - if `True`, the original raw input is stored alongside embeddings for later retrieval.
 

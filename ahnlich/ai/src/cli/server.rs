@@ -117,6 +117,19 @@ pub struct AIProxyConfig {
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).session_profiling)]
     pub(crate) session_profiling: bool,
 
+    /// Decode images in chunks (10x less memory, 40% slower)
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).enable_streaming)]
+    pub(crate) enable_streaming: bool,
+
+    /// DB service account username (when DB has auth enabled)
+    #[arg(long, conflicts_with = "without_db")]
+    pub db_auth_username: Option<String>,
+
+    /// DB service account API key (when DB has auth enabled)
+    #[arg(long, conflicts_with = "without_db")]
+    pub db_auth_key: Option<String>,
+
     #[clap(flatten)]
     pub common: CommandLineConfig,
 }
@@ -127,6 +140,7 @@ pub struct ModelConfig {
     pub(crate) model_cache_location: std::path::PathBuf,
     pub(crate) model_idle_time: u64,
     pub(crate) session_profiling: bool,
+    pub(crate) enable_streaming: bool,
 }
 
 impl Default for ModelConfig {
@@ -142,6 +156,7 @@ impl Default for ModelConfig {
                 .expect("Default directory could not be resolved."),
             model_idle_time: 60 * 5,
             session_profiling: false,
+            enable_streaming: false,
         }
     }
 }
@@ -153,6 +168,7 @@ impl From<&AIProxyConfig> for ModelConfig {
             model_cache_location: config.model_cache_location.clone(),
             model_idle_time: config.ai_model_idle_time,
             session_profiling: config.session_profiling,
+            enable_streaming: config.enable_streaming,
         }
     }
 }
@@ -184,6 +200,9 @@ impl Default for AIProxyConfig {
                 .expect("Default directory could not be resolved."),
             ai_model_idle_time: 60 * 5,
             session_profiling: false,
+            enable_streaming: false,
+            db_auth_username: None,
+            db_auth_key: None,
             common: CommandLineConfig::default(),
         }
     }
@@ -220,6 +239,25 @@ impl AIProxyConfig {
     #[cfg(test)]
     pub fn set_supported_models(mut self, models: Vec<SupportedModels>) -> Self {
         self.supported_models = models;
+        self
+    }
+
+    pub fn with_auth(
+        mut self,
+        auth_config: std::path::PathBuf,
+        tls_cert: std::path::PathBuf,
+        tls_key: std::path::PathBuf,
+    ) -> Self {
+        self.common.enable_auth = true;
+        self.common.auth_config = Some(auth_config);
+        self.common.tls_cert = Some(tls_cert);
+        self.common.tls_key = Some(tls_key);
+        self
+    }
+
+    pub fn with_db_auth(mut self, username: String, api_key: String) -> Self {
+        self.db_auth_username = Some(username);
+        self.db_auth_key = Some(api_key);
         self
     }
 }

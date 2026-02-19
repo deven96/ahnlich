@@ -246,6 +246,14 @@ impl Model {
         self.model_details.model_name()
     }
 
+    /// Returns the batch size used for inference
+    /// This is used for chunking inputs during preprocessing to reduce memory usage
+    pub fn batch_size(&self) -> usize {
+        match &self.provider {
+            ModelProviders::ORT(provider) => provider.model.batch_size(),
+        }
+    }
+
     pub async fn get(&self) -> Result<(), AIProxyError> {
         match &self.provider {
             ModelProviders::ORT(provider) => {

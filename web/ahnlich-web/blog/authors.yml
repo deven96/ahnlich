@@ -1,23 +1,19 @@
-yangshun:
-  name: Yangshun Tay
-  title: Front End Engineer @ Facebook
-  url: https://github.com/yangshun
-  image_url: https://github.com/yangshun.png
+diretnan:
+  name: Diretnan Domnan
+  title: Senior Systems Engineer @ Cloudflare
+  url: https://github.com/deven96
+  image_url: https://github.com/deven96.png
   page: true
   socials:
-    x: yangshunz
-    github: yangshun
+    x: _deven96
+    github: deven96
 
-slorber:
-  name: Sébastien Lorber
-  title: Docusaurus maintainer
-  url: https://sebastienlorber.com
-  image_url: https://github.com/slorber.png
-  page:
-    # customize the url of the author page at /blog/authors/<permalink>
-    permalink: '/all-sebastien-lorber-articles'
+davidonuh:
+  name: David Onuh
+  title: Senior Software Engineer @ Aleph Alpha
+  url: https://github.com/iamdavidonuh
+  image_url: https://github.com/iamdavidonuh.png
+  page: true
   socials:
-    x: sebastienlorber
-    linkedin: sebastienlorber
-    github: slorber
-    newsletter: https://thisweekinreact.com
+    x: iamdavidonuh
+    github: iamdavidonuh

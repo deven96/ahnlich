@@ -15,15 +15,32 @@ use ahnlich_types::{
     shared::info::ServerInfo,
     utils::add_trace_parent,
 };
+use std::sync::{Arc, RwLock};
 use tonic::transport::Channel;
 
 use crate::error::AhnlichError;
+
+const AUTH_HEADER: &str = "authorization";
+
+fn add_auth_header<T>(
+    req: &mut tonic::Request<T>,
+    auth_token: &Option<Arc<RwLock<Option<String>>>>,
+) {
+    if let Some(token_lock) = auth_token
+        && let Ok(token_guard) = token_lock.read()
+        && let Some(ref token) = *token_guard
+        && let Ok(header_value) = format!("Bearer {}", token).parse()
+    {
+        req.metadata_mut().insert(AUTH_HEADER, header_value);
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct AiPipeline {
     queries: Vec<Query>,
     tracing_id: Option<String>,
     client: AiServiceClient<Channel>,
+    auth_token: Option<Arc<RwLock<Option<String>>>>,
 }
 
 impl AiPipeline {
@@ -108,6 +125,7 @@ impl AiPipeline {
                 .collect(),
         });
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.pipeline(req).await?.into_inner())
     }
 
@@ -126,6 +144,7 @@ impl AiPipeline {
 #[derive(Debug, Clone)]
 pub struct AiClient {
     client: AiServiceClient<Channel>,
+    auth_token: Option<Arc<RwLock<Option<String>>>>,
 }
 
 impl AiClient {
@@ -137,7 +156,25 @@ impl AiClient {
         };
         let channel = Channel::from_shared(addr)?;
         let client = AiServiceClient::connect(channel).await?;
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            auth_token: None,
+        })
+    }
+
+    pub fn new_with_channel(channel: Channel) -> Self {
+        Self {
+            client: AiServiceClient::new(channel),
+            auth_token: None,
+        }
+    }
+
+    pub fn set_auth_token(&mut self, token: String) {
+        self.auth_token = Some(Arc::new(RwLock::new(Some(token))));
+    }
+
+    pub fn clear_auth_token(&mut self) {
+        self.auth_token = None;
     }
 
     pub async fn create_store(
@@ -147,6 +184,7 @@ impl AiClient {
     ) -> Result<Unit, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().create_store(req).await?.into_inner())
     }
 
@@ -157,6 +195,7 @@ impl AiClient {
     ) -> Result<CreateIndex, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self
             .client
             .clone()
@@ -172,6 +211,7 @@ impl AiClient {
     ) -> Result<CreateIndex, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self
             .client
             .clone()
@@ -187,6 +227,7 @@ impl AiClient {
     ) -> Result<Get, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().get_key(req).await?.into_inner())
     }
 
@@ -197,6 +238,7 @@ impl AiClient {
     ) -> Result<Get, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().get_pred(req).await?.into_inner())
     }
 
@@ -207,6 +249,7 @@ impl AiClient {
     ) -> Result<GetSimNResult, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().get_sim_n(req).await?.into_inner())
     }
 
@@ -217,6 +260,7 @@ impl AiClient {
     ) -> Result<SetResult, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().set(req).await?.into_inner())
     }
 
@@ -227,6 +271,7 @@ impl AiClient {
     ) -> Result<Del, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().drop_pred_index(req).await?.into_inner())
     }
 
@@ -237,6 +282,7 @@ impl AiClient {
     ) -> Result<Del, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self
             .client
             .clone()
@@ -252,6 +298,7 @@ impl AiClient {
     ) -> Result<Del, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().del_key(req).await?.into_inner())
     }
 
@@ -262,20 +309,24 @@ impl AiClient {
     ) -> Result<Del, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().drop_store(req).await?.into_inner())
     }
+
     pub async fn list_clients(
         &self,
         tracing_id: Option<String>,
     ) -> Result<ClientList, AhnlichError> {
         let mut req = tonic::Request::new(ListClients {});
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().list_clients(req).await?.into_inner())
     }
 
     pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
         let mut req = tonic::Request::new(ListStores {});
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().list_stores(req).await?.into_inner())
     }
 
@@ -285,6 +336,7 @@ impl AiClient {
     ) -> Result<ServerInfo, AhnlichError> {
         let mut req = tonic::Request::new(InfoServer {});
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self
             .client
             .clone()
@@ -298,6 +350,7 @@ impl AiClient {
     pub async fn purge_stores(&self, tracing_id: Option<String>) -> Result<Del, AhnlichError> {
         let mut req = tonic::Request::new(PurgeStores {});
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().purge_stores(req).await?.into_inner())
     }
 
@@ -308,6 +361,7 @@ impl AiClient {
     ) -> Result<StoreInputToEmbeddingsList, AhnlichError> {
         let mut req = tonic::Request::new(params);
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self
             .client
             .clone()
@@ -319,6 +373,7 @@ impl AiClient {
     pub async fn ping(&self, tracing_id: Option<String>) -> Result<Pong, AhnlichError> {
         let mut req = tonic::Request::new(Ping {});
         add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().ping(req).await?.into_inner())
     }
 
@@ -329,6 +384,7 @@ impl AiClient {
             queries: vec![],
             client: self.client.clone(),
             tracing_id,
+            auth_token: self.auth_token.clone(),
         }
     }
 }
@@ -1215,5 +1271,172 @@ mod test {
         let res = pipeline.exec().await.expect("Could not execute pipeline");
 
         assert_eq!(res, expected);
+    }
+
+    // --- Auth tests ---
+
+    fn generate_test_tls(
+        dir: &tempfile::TempDir,
+    ) -> (std::path::PathBuf, std::path::PathBuf, String) {
+        let cert = rcgen::generate_simple_self_signed(vec![
+            "localhost".to_string(),
+            "127.0.0.1".to_string(),
+        ])
+        .expect("Failed to generate cert");
+        let cert_pem = cert.cert.pem();
+        let key_pem = cert.key_pair.serialize_pem();
+        let cert_path = dir.path().join("server.crt");
+        let key_path = dir.path().join("server.key");
+        std::fs::write(&cert_path, &cert_pem).unwrap();
+        std::fs::write(&key_path, &key_pem).unwrap();
+        (cert_path, key_path, cert_pem)
+    }
+
+    fn write_auth_config(
+        dir: &tempfile::TempDir,
+        users: std::collections::HashMap<&str, &str>,
+    ) -> std::path::PathBuf {
+        let path = dir.path().join("auth.toml");
+        let mut content = String::from("[users]\n");
+        for (username, api_key) in users {
+            let hashed = utils::auth::hash_api_key(api_key);
+            content.push_str(&format!("{} = \"{}\"\n", username, hashed));
+        }
+        content.push_str("\n[security]\nmin_key_length = 8\n");
+        std::fs::write(&path, content).unwrap();
+        path
+    }
+
+    async fn tls_ai_channel(addr: std::net::SocketAddr, cert_pem: &str) -> Channel {
+        let ca = tonic::transport::Certificate::from_pem(cert_pem);
+        let tls = tonic::transport::ClientTlsConfig::new()
+            .ca_certificate(ca)
+            .domain_name("localhost");
+        Channel::from_shared(format!("https://localhost:{}", addr.port()))
+            .unwrap()
+            .tls_config(tls)
+            .unwrap()
+            .connect()
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_ai_server_no_auth_db_no_auth() {
+        let address = provision_test_servers().await;
+        let ai_client = AiClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+        assert!(ai_client.ping(None).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_ai_server_with_auth_rejects_unauthenticated_client() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let (ai_cert, ai_key, ai_cert_pem) = generate_test_tls(&tmp);
+        let ai_auth_config = write_auth_config(&tmp, [("aiuser", "aipassword")].into());
+
+        let db_config = ServerConfig::default().os_select_port();
+        let db_server = Server::new(&db_config)
+            .await
+            .expect("Could not initialize DB server");
+        let db_port = db_server.local_addr().unwrap().port();
+        tokio::spawn(async move { db_server.start().await });
+
+        let ai_config =
+            AIProxyConfig::default()
+                .os_select_port()
+                .with_auth(ai_auth_config, ai_cert, ai_key);
+        let mut ai_config = ai_config;
+        ai_config.db_port = db_port;
+
+        let ai_server = AIProxyServer::new(ai_config)
+            .await
+            .expect("Could not initialize AI server");
+        let ai_addr = ai_server.local_addr().unwrap();
+        tokio::spawn(async move { ai_server.start().await });
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        let channel = tls_ai_channel(ai_addr, &ai_cert_pem).await;
+        let mut raw_client =
+            ahnlich_types::services::ai_service::ai_service_client::AiServiceClient::new(channel);
+
+        let result = raw_client
+            .ping(tonic::Request::new(ahnlich_types::ai::query::Ping {}))
+            .await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().code(), tonic::Code::Unauthenticated);
+    }
+
+    #[tokio::test]
+    async fn test_ai_server_with_auth_accepts_authenticated_client() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let (ai_cert, ai_key, ai_cert_pem) = generate_test_tls(&tmp);
+        let ai_auth_config = write_auth_config(&tmp, [("aiuser", "aipassword")].into());
+
+        let db_config = ServerConfig::default().os_select_port();
+        let db_server = Server::new(&db_config)
+            .await
+            .expect("Could not initialize DB server");
+        let db_port = db_server.local_addr().unwrap().port();
+        tokio::spawn(async move { db_server.start().await });
+
+        let ai_config =
+            AIProxyConfig::default()
+                .os_select_port()
+                .with_auth(ai_auth_config, ai_cert, ai_key);
+        let mut ai_config = ai_config;
+        ai_config.db_port = db_port;
+
+        let ai_server = AIProxyServer::new(ai_config)
+            .await
+            .expect("Could not initialize AI server");
+        let ai_addr = ai_server.local_addr().unwrap();
+        tokio::spawn(async move { ai_server.start().await });
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        let channel = tls_ai_channel(ai_addr, &ai_cert_pem).await;
+        let mut ai_client = AiClient::new_with_channel(channel);
+        ai_client.set_auth_token("aiuser:aipassword".to_string());
+
+        assert!(ai_client.ping(None).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_ai_with_auth_and_db_without_auth() {
+        // AI server has auth enabled; DB does not. AI client must authenticate
+        // to AI, but AI can reach DB freely.
+        let tmp = tempfile::TempDir::new().unwrap();
+        let (ai_cert, ai_key, ai_cert_pem) = generate_test_tls(&tmp);
+        let ai_auth_config = write_auth_config(&tmp, [("aiuser", "aipassword")].into());
+
+        let db_config = ServerConfig::default().os_select_port();
+        let db_server = Server::new(&db_config)
+            .await
+            .expect("Could not initialize DB server");
+        let db_port = db_server.local_addr().unwrap().port();
+        tokio::spawn(async move { db_server.start().await });
+
+        let ai_config =
+            AIProxyConfig::default()
+                .os_select_port()
+                .with_auth(ai_auth_config, ai_cert, ai_key);
+        let mut ai_config = ai_config;
+        ai_config.db_port = db_port;
+
+        let ai_server = AIProxyServer::new(ai_config)
+            .await
+            .expect("Could not initialize AI server");
+        let ai_addr = ai_server.local_addr().unwrap();
+        tokio::spawn(async move { ai_server.start().await });
+        tokio::time::sleep(Duration::from_millis(200)).await;
+
+        // Authenticated AI client can reach through to DB
+        let channel = tls_ai_channel(ai_addr, &ai_cert_pem).await;
+        let mut ai_client = AiClient::new_with_channel(channel);
+        ai_client.set_auth_token("aiuser:aipassword".to_string());
+
+        assert!(ai_client.ping(None).await.is_ok());
+        assert!(ai_client.list_stores(None).await.is_ok());
     }
 }

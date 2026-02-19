@@ -8,6 +8,13 @@ title: Drop Store
 
 The `DropStore` request deletes an entire store from the database. Once a store is dropped, all of its vectors, embeddings, and associated metadata are permanently removed. This operation is **destructive** and cannot be undone.
 
+## Parameters
+
+- **Store** - Name of the store to delete
+- **ErrorIfNotExists** - Controls behavior when store doesn't exist:
+  - `true` - Returns an error if the store is not found
+  - `false` - Silently succeeds even if store doesn't exist
+
 ## Source Code Example
 
 <details>
@@ -61,7 +68,8 @@ func (c *ExampleDBClient) Close() error {
 // -------------------- Drop Store --------------------
 func (c *ExampleDBClient) exampleDropStore() error {
     _, err := c.client.DropStore(c.ctx, &dbquery.DropStore{
-        Store: "my_store",
+        Store:             "my_store",
+        ErrorIfNotExists:  true,  // Return error if store doesn't exist
     })
     if err != nil {
         return err

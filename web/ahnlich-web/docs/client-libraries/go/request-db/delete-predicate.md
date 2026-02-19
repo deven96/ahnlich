@@ -28,9 +28,10 @@ import (
     "google.golang.org/grpc/credentials/insecure"
 
 
-    dbsvc   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
-    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
-    keyval  "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+    dbsvc      "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery    "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    metadata   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+    predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
 )
 
 
@@ -59,16 +60,33 @@ func (c *ExampleDBClient) Close() error {
 }
 
 
-// -------------------- Delete Key --------------------
-func (c *ExampleDBClient) exampleDeleteKey() error {
-    _, err := c.client.DelKey(c.ctx, &dbquery.DelKey{
-        Store: "my_stores",
-        Keys:  []*keyval.StoreKey{{Key: []float32{1, 2, 3, 4}}},
+// -------------------- Delete Predicate --------------------
+func (c *ExampleDBClient) exampleDeletePredicate() error {
+    condition := &predicates.PredicateCondition{
+        Kind: &predicates.PredicateCondition_Value{
+            Value: &predicates.Predicate{
+                Kind: &predicates.Predicate_Equals{
+                    Equals: &predicates.Equals{
+                        Key: "label",
+                        Value: &metadata.MetadataValue{
+                            Value: &metadata.MetadataValue_RawString{
+                                RawString: "A",
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+
+    _, err := c.client.DelPred(c.ctx, &dbquery.DelPred{
+        Store:     "my_store",
+        Condition: condition,
     })
     if err != nil {
         return err
     }
-    fmt.Println("Deleted key from store: my_stores")
+    fmt.Println("Deleted entries matching predicate from store: my_store")
     return nil
 }
 
@@ -86,8 +104,8 @@ func main() {
     defer client.Close()
 
 
-    if err := client.exampleDeleteKey(); err != nil {
-        log.Fatalf("DeleteKey failed: %v", err)
+    if err := client.exampleDeletePredicate(); err != nil {
+        log.Fatalf("DeletePredicate failed: %v", err)
     }
 }
 ```

@@ -14,6 +14,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: "sccache"
 
 jobs:
   run-rust-tests:
@@ -21,14 +23,19 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set up sccache
+      uses: mozilla-actions/sccache-action@v0.0.9
+
     - name: Set up Rust cache
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: ahnlich
+        shared-key: ahnlich-rust
 
     - name: Set up cargo and rustup tools
       run: |
-        which cargo-nextest || cargo install cargo-nextest --locked
+        which cargo-nextest || cargo install --locked cargo-nextest
 
     - name: Install protoc
       run: |
@@ -45,6 +52,7 @@ jobs:
       with:
         path: ~/.ahnlich
         key: ${{ runner.os }}-ahnlich-models
+
     - name: Format and Lint
       working-directory: ./ahnlich
       run: |
@@ -85,13 +93,25 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set up sccache
+      uses: mozilla-actions/sccache-action@v0.0.9
+
+    - name: Set up Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ahnlich
+        shared-key: ahnlich-rust
+
     - uses: actions/setup-python@v5
       with:
         python-version: 3.11
+
     - name: Run image
       uses: abatilo/actions-poetry@v3
       with:
         poetry-version: 1.7.0
+
     - name: View poetry --help
       run: poetry --help
 
@@ -154,13 +174,21 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
+
+        - name: Set up sccache
+          uses: mozilla-actions/sccache-action@v0.0.9
+
         - name: Set up Rust cache
           uses: Swatinem/rust-cache@v2
           with:
             workspaces: ahnlich
-        
+            shared-key: ahnlich-rust
+
         - name: Install Protoc
           uses: arduino/setup-protoc@v3
+
+        - name: Setup buf
+          uses: bufbuild/buf-setup-action@v1
 
         - name: Setup Go Environment
           uses: actions/setup-go@v5
@@ -176,6 +204,17 @@ jobs:
           working-directory: ./sdk/ahnlich-client-go
           run: make pre-commit-check
 
+        # TODO: enable once Go grpc formatting is stabilised
+        # - name: Check Go client is up to date
+        #   working-directory: ./ahnlich
+        #   run: |
+        #     make grpc-update-go
+        #     if [[ -n "$(git status ../sdk/ahnlich-client-go --porcelain)" ]]; then
+        #       echo "::error::Running 'make grpc-update-go' caused changes. Please check that the Go client is up to date"
+        #       git --no-pager diff ../sdk/ahnlich-client-go
+        #       exit 1
+        #     fi
+
         - name: Run Tests
           working-directory: ./sdk/ahnlich-client-go
           run: |
@@ -188,10 +227,78 @@ jobs:
             name: go
             path: sdk/ahnlich-client-go/go.xml
 
+  run-node-tests:
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Set up Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ahnlich
+          shared-key: ahnlich-rust
+
+      - name: Cache Ahnlich Home directory
+        uses: actions/cache@v4
+        with:
+          path: ~/.ahnlich
+          key: ${{ runner.os }}-ahnlich-models
+
+      - name: Install Protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Setup buf
+        uses: bufbuild/buf-setup-action@v1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        working-directory: ./sdk/ahnlich-client-node
+        run: make install-dependencies
+
+      - name: Format Check
+        working-directory: ./sdk/ahnlich-client-node
+        run: make pre-commit-check
+
+      - name: Check Node client is up to date
+        working-directory: ./ahnlich
+        run: |
+          make grpc-update-node
+          if [[ -n "$(git status ../sdk/ahnlich-client-node/grpc --porcelain)" ]]; then
+            echo "::error::Running 'make grpc-update-node' caused changes. Please check that the Node client is up to date"
+            git --no-pager diff ../sdk/ahnlich-client-node/grpc
+            exit 1
+          fi
+
+      - name: Build Binaries
+        working-directory: ./ahnlich
+        run: cargo build --bin ahnlich-db --bin ahnlich-ai
+
+      - name: Run Tests
+        working-directory: ./sdk/ahnlich-client-node
+        run: make test REPORT=1
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: node
+          path: sdk/ahnlich-client-node/node.xml
+
   upload-test-results:
     if: always()
     runs-on: ubuntu-latest
-    needs: ["run-rust-tests", "run-python-tests", "run-go-tests"]
+    needs: ["run-rust-tests", "run-python-tests", "run-go-tests", "run-node-tests"]
 
     steps:
     - name: Download Rust Test Output
@@ -212,6 +319,12 @@ jobs:
         name: go
         path: ./go
 
+    - name: Download Node Test Output
+      uses: actions/download-artifact@v4
+      with:
+        name: node
+        path: ./node
+
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action/macos@v2
       if: always()
@@ -220,3 +333,4 @@ jobs:
           rust/*.xml
           python/*.xml
           go/*.xml
+          node/*.xml

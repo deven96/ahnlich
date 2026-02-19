@@ -18,6 +18,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
+use std::sync::Arc;
 use utils::parallel;
 
 /// Predicates are essentially nested hashmaps that let us retrieve original keys that match a
@@ -138,7 +139,7 @@ impl PredicateIndices {
     pub(super) fn add_predicates(
         &self,
         predicates: Vec<String>,
-        refresh_with_values: Option<Vec<(StoreKeyId, StoreValue)>>,
+        refresh_with_values: Option<Vec<(StoreKeyId, Arc<StoreValue>)>>,
     ) {
         let pinned_keys = self.allowed_predicates.pin();
         let pinned_inner = self.inner.pin();
@@ -175,16 +176,22 @@ impl PredicateIndices {
 
     /// Adds predicates if the key is within allowed_predicates
     #[tracing::instrument(skip_all, fields(new_len = new.len()))]
-    pub(super) fn add(&self, new: Vec<(StoreKeyId, StoreValue)>) {
+    pub(super) fn add(&self, new: Vec<(StoreKeyId, Arc<StoreValue>)>) {
         let iter = new
             .into_par_iter()
             .flat_map(|(store_key_id, store_value)| {
-                store_value.value.into_par_iter().map(move |(key, val)| {
-                    let allowed_keys = self.allowed_predicates.pin();
-                    allowed_keys
-                        .contains(&key)
-                        .then_some((store_key_id.clone(), key, val))
-                })
+                // Clone the Arc to get access to the inner value
+                let value_clone = Arc::clone(&store_value);
+                value_clone
+                    .value
+                    .clone()
+                    .into_par_iter()
+                    .map(move |(key, val)| {
+                        let allowed_keys = self.allowed_predicates.pin();
+                        allowed_keys
+                            .contains(&key)
+                            .then_some((store_key_id.clone(), key, val))
+                    })
             })
             .flatten()
             .map(|(store_key_id, key, val)| (key, (val.to_owned(), store_key_id)))
@@ -492,8 +499,8 @@ mod tests {
                         value: StdHashMap::new(),
                     },
                 };
-                let store_key: StoreKeyId = format!("{i}").into();
-                let data = vec![(store_key, values)];
+                let store_key: StoreKeyId = i.into();
+                let data = vec![(store_key, Arc::new(values))];
                 shared_data.add(data);
             });
             handle
@@ -516,7 +523,7 @@ mod tests {
                             key.into(),
                         )),
                     },
-                    format!("{i}").into(),
+                    i.into(),
                 )]);
             });
             handle
@@ -552,9 +559,9 @@ mod tests {
         shared_pred.add_predicates(
             vec!["country".into(), "name".into()],
             Some(vec![
-                ("0".into(), store_value_0()),
-                ("1".into(), store_value_1()),
-                ("2".into(), store_value_2()),
+                (0.into(), Arc::new(store_value_0())),
+                (1.into(), Arc::new(store_value_1())),
+                (2.into(), Arc::new(store_value_2())),
             ]),
         );
 
@@ -565,7 +572,7 @@ mod tests {
             )
             .unwrap();
         // Now we expect index to be up to date
-        assert_eq!(result, StdHashSet::from_iter(["0".into(), "1".into()]),);
+        assert_eq!(result, StdHashSet::from_iter([0.into(), 1.into()]),);
     }
 
     #[test]
@@ -617,7 +624,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is not from Nigeria
-        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        assert_eq!(result, StdHashSet::from_iter([1.into()]));
         let condition = &PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
@@ -637,7 +644,7 @@ mod tests {
                 &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
-        assert_eq!(result, StdHashSet::from_iter(["0".into(), "2".into()]),);
+        assert_eq!(result, StdHashSet::from_iter([0.into(), 2.into()]),);
 
         let check = &PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
@@ -671,7 +678,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is from Washington
-        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        assert_eq!(result, StdHashSet::from_iter([1.into()]));
 
         let check = PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
@@ -705,7 +712,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is fulfills all
-        assert_eq!(result, StdHashSet::from_iter(["2".into()]));
+        assert_eq!(result, StdHashSet::from_iter([2.into()]));
 
         let check = PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
@@ -741,7 +748,7 @@ mod tests {
         // all 3 fulfill this
         assert_eq!(
             result,
-            StdHashSet::from_iter(["2".into(), "0".into(), "1".into(),]),
+            StdHashSet::from_iter([2.into(), 0.into(), 1.into(),]),
         );
 
         let check = check.and(PredicateCondition {
@@ -763,10 +770,10 @@ mod tests {
             )
             .unwrap();
         // only person 1 is from Washington with any of those names
-        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        assert_eq!(result, StdHashSet::from_iter([1.into()]));
         // remove all Nigerians from the predicate and check that conditions working before no
         // longer work and those working before still work
-        shared_pred.remove_store_keys(&["0".into(), "2".into()]);
+        shared_pred.remove_store_keys(&[0.into(), 2.into()]);
 
         let result = shared_pred
             .matches(
@@ -807,7 +814,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is from Washington with any of those names
-        assert_eq!(result, StdHashSet::from_iter(["1".into()]));
+        assert_eq!(result, StdHashSet::from_iter([1.into()]));
     }
 
     #[test]
@@ -840,7 +847,7 @@ mod tests {
                 .len(),
             2
         );
-        shared_pred.remove_store_keys(&["1".into(), "0".into()]);
+        shared_pred.remove_store_keys(&[1.into(), 0.into()]);
         assert_eq!(
             shared_pred
                 .0

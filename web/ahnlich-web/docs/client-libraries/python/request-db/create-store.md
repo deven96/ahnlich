@@ -8,6 +8,13 @@ A Store in Ahnlich is like a logical dataset or collection. Each store holds vec
 
 * **Behavior**: Creates a new isolated vector store. Multiple stores can coexist, enabling different workloads.
 
+* **Parameters**:
+  - `store`: Unique name for the store
+  - `dimension`: Vector dimensionality (all vectors must match this)
+  - `create_predicates`: List of metadata field names to enable filtering (can be empty)
+  - `non_linear_indices`: List of non-linear algorithms for approximate search (can be empty)
+  - `error_if_exists`: If True, returns error when store already exists
+
 * **Response**: A confirmation message (Unit).
 
 <details>
@@ -28,6 +35,7 @@ async def create_store():
         store="test store 006",
         dimension=5,  # Fixed vector dimension
         create_predicates=["job"],  # Index these metadata fields
+        non_linear_indices=[],  # Optional: non-linear algorithms for faster search
         error_if_exists=True
       )
     )

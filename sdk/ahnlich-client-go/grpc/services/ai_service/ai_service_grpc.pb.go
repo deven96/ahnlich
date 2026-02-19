@@ -34,6 +34,7 @@ const (
 	AIService_DropPredIndex_FullMethodName                 = "/services.ai_service.AIService/DropPredIndex"
 	AIService_DropNonLinearAlgorithmIndex_FullMethodName   = "/services.ai_service.AIService/DropNonLinearAlgorithmIndex"
 	AIService_DelKey_FullMethodName                        = "/services.ai_service.AIService/DelKey"
+	AIService_DelPred_FullMethodName                       = "/services.ai_service.AIService/DelPred"
 	AIService_DropStore_FullMethodName                     = "/services.ai_service.AIService/DropStore"
 	AIService_ListClients_FullMethodName                   = "/services.ai_service.AIService/ListClients"
 	AIService_ListStores_FullMethodName                    = "/services.ai_service.AIService/ListStores"
@@ -62,6 +63,7 @@ type AIServiceClient interface {
 	DropPredIndex(ctx context.Context, in *query.DropPredIndex, opts ...grpc.CallOption) (*server.Del, error)
 	DropNonLinearAlgorithmIndex(ctx context.Context, in *query.DropNonLinearAlgorithmIndex, opts ...grpc.CallOption) (*server.Del, error)
 	DelKey(ctx context.Context, in *query.DelKey, opts ...grpc.CallOption) (*server.Del, error)
+	DelPred(ctx context.Context, in *query.DelPred, opts ...grpc.CallOption) (*server.Del, error)
 	DropStore(ctx context.Context, in *query.DropStore, opts ...grpc.CallOption) (*server.Del, error)
 	// * Ancillary info methods *
 	ListClients(ctx context.Context, in *query.ListClients, opts ...grpc.CallOption) (*server.ClientList, error)
@@ -182,6 +184,16 @@ func (c *aIServiceClient) DelKey(ctx context.Context, in *query.DelKey, opts ...
 	return out, nil
 }
 
+func (c *aIServiceClient) DelPred(ctx context.Context, in *query.DelPred, opts ...grpc.CallOption) (*server.Del, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(server.Del)
+	err := c.cc.Invoke(ctx, AIService_DelPred_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *aIServiceClient) DropStore(ctx context.Context, in *query.DropStore, opts ...grpc.CallOption) (*server.Del, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(server.Del)
@@ -280,6 +292,7 @@ type AIServiceServer interface {
 	DropPredIndex(context.Context, *query.DropPredIndex) (*server.Del, error)
 	DropNonLinearAlgorithmIndex(context.Context, *query.DropNonLinearAlgorithmIndex) (*server.Del, error)
 	DelKey(context.Context, *query.DelKey) (*server.Del, error)
+	DelPred(context.Context, *query.DelPred) (*server.Del, error)
 	DropStore(context.Context, *query.DropStore) (*server.Del, error)
 	// * Ancillary info methods *
 	ListClients(context.Context, *query.ListClients) (*server.ClientList, error)
@@ -329,6 +342,9 @@ func (UnimplementedAIServiceServer) DropNonLinearAlgorithmIndex(context.Context,
 }
 func (UnimplementedAIServiceServer) DelKey(context.Context, *query.DelKey) (*server.Del, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DelKey not implemented")
+}
+func (UnimplementedAIServiceServer) DelPred(context.Context, *query.DelPred) (*server.Del, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DelPred not implemented")
 }
 func (UnimplementedAIServiceServer) DropStore(context.Context, *query.DropStore) (*server.Del, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DropStore not implemented")
@@ -555,6 +571,24 @@ func _AIService_DelKey_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AIService_DelPred_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(query.DelPred)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).DelPred(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_DelPred_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).DelPred(ctx, req.(*query.DelPred))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AIService_DropStore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(query.DropStore)
 	if err := dec(in); err != nil {
@@ -745,6 +779,10 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DelKey",
 			Handler:    _AIService_DelKey_Handler,
+		},
+		{
+			MethodName: "DelPred",
+			Handler:    _AIService_DelPred_Handler,
 		},
 		{
 			MethodName: "DropStore",

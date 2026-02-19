@@ -31,6 +31,8 @@ pub struct ServerUtilsConfig<'a> {
     // persistence stuff
     pub persistence_interval: u64,
     pub persist_location: &'a Option<std::path::PathBuf>,
+    // size calculation stuff
+    pub size_calculation_interval: u64,
     // global allocator
     pub allocator_size: usize,
     pub threadpool_size: usize,
@@ -51,6 +53,12 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
 
     fn task_manager(&self) -> Arc<TaskManager>;
 
+    /// Spawn background tasks before server starts (e.g., model threads, size calculation)
+    /// Returns error to fail fast if critical initialization fails
+    async fn spawn_tasks_before_server(&self, _task_manager: &Arc<TaskManager>) -> IoResult<()> {
+        Ok(())
+    }
+
     /// Runs through several processes to start up the server
     /// - Sets global allocator cap
     /// - Spawns Persistence listeneer thread
@@ -63,10 +71,19 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
         // WARNING: `set_limit` fails if the global allocator has already allocated memory beyond
         // the size being set, therefore might point to a need to bump up the default
         // `allocator_size`
-        GLOBAL_ALLOCATOR
-            .set_limit(global_allocator_cap)
-            .unwrap_or_else(|_| panic!("Could not set up {service_name} with allocator_size"));
-        log::debug!("Set max size for global allocator to: {global_allocator_cap}");
+        // Note: When using dhat-heap feature, the global allocator is dhat::Alloc which doesn't
+        // support set_limit, so we skip this step during profiling
+        #[cfg(not(feature = "dhat-heap"))]
+        {
+            GLOBAL_ALLOCATOR
+                .set_limit(global_allocator_cap)
+                .unwrap_or_else(|_| panic!("Could not set up {service_name} with allocator_size"));
+            log::debug!("Set max size for global allocator to: {global_allocator_cap}");
+        }
+        #[cfg(feature = "dhat-heap")]
+        log::debug!(
+            "Memory profiling enabled - skipping allocator limit (would be: {global_allocator_cap})"
+        );
         parallel::init_threadpool(self.config().threadpool_size);
         let task_manager = self.task_manager();
 
@@ -79,6 +96,8 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
             );
             task_manager.spawn_task_loop(persistence_task).await;
         };
+
+        self.spawn_tasks_before_server(&task_manager).await?;
         task_manager.spawn_blocking(self).await;
         task_manager.wait().await;
         tracer::shutdown_tracing();
