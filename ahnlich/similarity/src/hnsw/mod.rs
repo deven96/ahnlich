@@ -8,7 +8,7 @@ pub mod index;
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashSet, btree_map::BTreeMap},
-    hash::{DefaultHasher, Hash, Hasher},
+    hash::Hasher,
     num::NonZeroUsize,
 };
 
@@ -29,28 +29,9 @@ impl Ord for LayerIndex {
     }
 }
 
-/// NodeId wraps String(hash of node embeddings) to uniquely identify a node across all layers.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct NodeId(pub String);
-
-impl Eq for NodeId {}
-
-impl PartialOrd for NodeId {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for NodeId {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.cmp(&(other.0))
-    }
-}
-
-impl Hash for NodeId {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state);
-    }
-}
+/// NodeId wraps a u64 hash of the node's embedding to uniquely identify a node across all layers.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct NodeId(pub u64);
 
 /// Node represents a single element in the HNSW graph.
 ///
@@ -280,11 +261,10 @@ fn dot_product_comp(first: &[f32], second: &[f32]) -> f32 {
 }
 
 fn get_node_id(value: &[f32]) -> NodeId {
-    let mut hasher = DefaultHasher::new();
+    use ahash::AHasher;
+    let mut hasher = AHasher::default();
     for element in value.iter() {
-        let bytes = element.to_ne_bytes();
-        hasher.write(&bytes);
+        hasher.write_u32(element.to_bits());
     }
-    let value = hasher.finish();
-    NodeId(format!("{:x}", value))
+    NodeId(hasher.finish())
 }

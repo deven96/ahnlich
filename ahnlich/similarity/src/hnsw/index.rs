@@ -609,7 +609,7 @@ mod tests {
 
     #[test]
     fn test_simple_hnsw_state() {
-        let node_id = NodeId(String::from("Node1"));
+        let node_id = NodeId(1);
         let node = Node {
             id: node_id.clone(),
             value: vec![3.2],
@@ -633,8 +633,8 @@ mod tests {
 
     #[test]
     fn test_two_nodes_bidirectional() {
-        let a = NodeId("A".into());
-        let b = NodeId("B".into());
+        let a = NodeId(10);
+        let b = NodeId(20);
 
         let node_a = Node {
             id: a.clone(),
@@ -668,10 +668,7 @@ mod tests {
 
     #[test]
     fn test_hnsw_basic_invariants() {
-        let ids = ["A", "B", "C"]
-            .iter()
-            .map(|s| NodeId((*s).into()))
-            .collect::<Vec<_>>();
+        let ids = [NodeId(1), NodeId(2), NodeId(3)].to_vec();
 
         let mut hnsw = HNSW::default();
 
@@ -713,8 +710,8 @@ mod tests {
     fn test_search_single_nearest() {
         let mut hnsw = HNSW::default();
 
-        let a = NodeId("A".into());
-        let b = NodeId("B".into());
+        let a = NodeId(10);
+        let b = NodeId(20);
 
         hnsw.insert(Node {
             id: a.clone(),
@@ -732,7 +729,7 @@ mod tests {
         })
         .unwrap();
 
-        let node_id = NodeId("Q".into());
+        let node_id = NodeId(99);
         let query_node = Node {
             id: node_id.clone(),
             value: vec![1.0],
@@ -748,8 +745,8 @@ mod tests {
     fn test_delete_leaf_node() {
         let mut hnsw = HNSW::default();
 
-        let a = NodeId("A".into());
-        let b = NodeId("B".into());
+        let a = NodeId(10);
+        let b = NodeId(20);
 
         hnsw.insert(Node {
             id: a.clone(),
@@ -780,10 +777,7 @@ mod tests {
     fn test_delete_multi_neighbour_node() {
         let mut hnsw = HNSW::default();
 
-        let ids = ["A", "B", "C", "D"]
-            .iter()
-            .map(|s| NodeId((*s).into()))
-            .collect::<Vec<_>>();
+        let ids = [NodeId(10), NodeId(20), NodeId(30), NodeId(40)].to_vec();
 
         for id in &ids {
             hnsw.insert(Node {

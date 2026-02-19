@@ -20,6 +20,7 @@ serde = { workspace = true, features = ["derive"], optional = true }
 tracing.workspace = true
 rand.workspace = true
 itertools.workspace = true
+ahash.workspace = true
 
 [features]
 default = ["serde"]
