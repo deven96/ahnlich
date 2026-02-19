@@ -358,27 +358,6 @@ impl ORTAudioPreprocessor {
         Ok(output)
     }
 
-    /// Pads short audio by repeating the waveform (then zero-padding the remainder),
-    /// matching the `repeatpad` strategy from `ClapFeatureExtractor`.
-    /// Returns the adjusted waveform and whether the original exceeded `max_samples`.
-    fn pad_repeat(pcm: Vec<f32>, max_samples: usize) -> (Vec<f32>, bool) {
-        let longer = pcm.len() > max_samples;
-        if longer {
-            let mut out = pcm;
-            out.truncate(max_samples);
-            (out, true)
-        } else {
-            let n = pcm.len();
-            if n == max_samples {
-                return (pcm, false);
-            }
-            let n_repeat = max_samples / n;
-            let mut out = pcm.repeat(n_repeat);
-            out.resize(max_samples, 0.0);
-            (out, false)
-        }
-    }
-
     /// Computes a log-Mel spectrogram using a Hann-windowed STFT.
     ///
     /// Returns up to `nb_max_frames` frames, each of shape `(n_mels,)`.
@@ -427,26 +406,45 @@ impl ORTAudioPreprocessor {
     #[tracing::instrument(skip(self, data))]
     pub fn process(&self, data: Vec<Vec<u8>>) -> Result<AudioInput, AIProxyError> {
         let batch = data.len();
+        let max_ms =
+            (self.max_samples as f32 / self.target_sample_rate as f32 * 1000.0).ceil() as u32;
         let mut all_features: Vec<f32> =
             Vec::with_capacity(batch * self.nb_max_frames * self.n_mels);
 
         for bytes in &data {
             let (pcm, src_sr) = Self::decode_audio(bytes)?;
             let pcm = self.resample(pcm, src_sr)?;
-            let (pcm, _longer) = Self::pad_repeat(pcm, self.max_samples);
+
+            // Reject clips that exceed the model's context window. Callers must trim
+            // or split their audio before indexing.
+            if pcm.len() > self.max_samples {
+                let duration_ms =
+                    (pcm.len() as f32 / self.target_sample_rate as f32 * 1000.0).ceil() as u32;
+                return Err(AIProxyError::AudioTooLongError {
+                    duration_ms,
+                    max_ms,
+                });
+            }
+
+            // Pad short clips using the `repeatpad` strategy: repeat the waveform as many
+            // whole times as fit, then zero-pad the remainder. This keeps the mel spectrogram
+            // filled with real audio structure rather than silence, matching the strategy used
+            // during CLAP training (ClapFeatureExtractor with truncation="rand_trunc").
+            let pcm = Self::pad_repeat(pcm, self.max_samples);
 
             let mel = self.log_mel_spectrogram(&pcm);
 
-            // Flatten frames into a single vector, zero-padding to nb_max_frames if short
+            // Flatten frames into a single vector.
             let mut flat = Vec::with_capacity(self.nb_max_frames * self.n_mels);
             for frame in &mel {
                 flat.extend_from_slice(frame);
             }
+            // Guard against rounding producing slightly fewer frames than expected.
             flat.resize(self.nb_max_frames * self.n_mels, 0.0);
             all_features.extend_from_slice(&flat);
         }
 
-        // Shape: (batch, 1, nb_max_frames, n_mels) — the leading 1 is the view dimension
+        // Shape: (batch, 1, nb_max_frames, n_mels) — the leading 1 is the channel dimension
         // expected by the ONNX audio encoder's `input_features` input.
         let input_features =
             Array::from_shape_vec((batch, 1, self.nb_max_frames, self.n_mels), all_features)
@@ -455,10 +453,23 @@ impl ORTAudioPreprocessor {
                     message: format!("Failed to stack audio features: {e}"),
                 })?;
 
-        Ok(AudioInput {
-            input_features,
-            is_longer: vec![false; batch],
-        })
+        Ok(AudioInput { input_features })
+    }
+
+    /// Pads short audio using the `repeatpad` strategy: repeat the waveform as many whole
+    /// times as fit, then zero-pad the remainder to reach exactly `max_samples`.
+    /// For audio that is already exactly `max_samples` long, returns it unchanged.
+    /// Callers are expected to have already rejected audio longer than `max_samples`.
+    fn pad_repeat(pcm: Vec<f32>, max_samples: usize) -> Vec<f32> {
+        let n = pcm.len();
+        if n == max_samples {
+            return pcm;
+        }
+        // n < max_samples: repeat whole copies then zero-pad the tail
+        let n_repeat = max_samples / n;
+        let mut out = pcm.repeat(n_repeat);
+        out.resize(max_samples, 0.0);
+        out
     }
 }
 

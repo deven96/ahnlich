@@ -404,12 +404,10 @@ impl SingleStageModel {
                         .input_features
                         .slice(ndarray::s![batch_start..batch_end, .., .., ..])
                         .to_owned();
-                    let is_longer_slice = audio_input.is_longer[batch_start..batch_end].to_vec();
 
                     let embeddings = self.batch_inference_audio(
                         AudioInput {
                             input_features: features_slice,
-                            is_longer: is_longer_slice,
                         },
                         &session,
                     )?;

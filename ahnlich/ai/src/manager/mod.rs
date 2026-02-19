@@ -153,8 +153,19 @@ impl ModelThread {
     fn preprocess_audio(
         &self,
         inputs: Vec<Vec<u8>>,
-        _process_action: PreprocessAction,
+        process_action: PreprocessAction,
     ) -> Result<crate::engine::ai::providers::processors::AudioInput, AIProxyError> {
+        // CLAP (and any future model whose preprocessor converts raw bytes → mel spectrogram)
+        // cannot meaningfully skip preprocessing: there is no tensor format a caller could
+        // supply that would bypass decode → resample → mel. Reject early rather than
+        // silently producing garbage embeddings.
+        if matches!(
+            self.model.model_details.supported_model,
+            SupportedModels::ClapAudio
+        ) && matches!(process_action, PreprocessAction::NoPreprocessing)
+        {
+            return Err(AIProxyError::AudioNoPreprocessingError);
+        }
         match &self.model.provider {
             ModelProviders::ORT(provider) => provider.preprocess_audios(inputs),
         }
@@ -264,9 +275,21 @@ impl ModelThread {
             ModelProviders::ORT(provider) => {
                 let outputs = match process_action {
                     PreprocessAction::ModelPreprocessing => provider.preprocess_images(inputs)?,
-                    PreprocessAction::NoPreprocessing => ImageArrayToNdArray
-                        .process(PreprocessorData::ImageArray(inputs))?
-                        .into_ndarray3c()?,
+                    PreprocessAction::NoPreprocessing => {
+                        // Face recognition models (BuffaloL and future equivalents) run a
+                        // baked-in multi-stage pipeline (detection → alignment → recognition)
+                        // that cannot be bypassed. Passing raw pixels would produce silent
+                        // garbage embeddings, so we reject early with a clear error.
+                        if matches!(
+                            self.model.model_details.supported_model,
+                            SupportedModels::BuffaloL
+                        ) {
+                            return Err(AIProxyError::FaceModelNoPreprocessingError);
+                        }
+                        ImageArrayToNdArray
+                            .process(PreprocessorData::ImageArray(inputs))?
+                            .into_ndarray3c()?
+                    }
                 };
                 let outputs_shape = outputs.shape();
                 let width = *outputs_shape.get(2).expect("Must exist");

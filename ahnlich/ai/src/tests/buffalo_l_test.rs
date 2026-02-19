@@ -685,3 +685,169 @@ async fn test_buffalo_l_face_index_metadata() {
         );
     }
 }
+
+/// NoPreprocessing is rejected for BuffaloL: the model runs a baked-in multi-stage
+/// pipeline (detection → alignment → recognition) that cannot be bypassed.
+/// Passing raw pixels without preprocessing would produce silent garbage embeddings.
+#[tokio::test]
+async fn test_buffalo_l_no_preprocessing_rejected() {
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_no_preprocess_store".to_string();
+    let image_bytes = include_bytes!("../../test_data/single_face.jpg").to_vec();
+
+    // Create the store first
+    client
+        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
+            queries: vec![ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store_name.clone(),
+                    query_model: AiModel::BuffaloL.into(),
+                    index_model: AiModel::BuffaloL.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: false,
+                    store_original: false,
+                })),
+            }],
+        }))
+        .await
+        .expect("pipeline failed");
+
+    let result = client
+        .set(tonic::Request::new(ai_query_types::Set {
+            store: store_name.clone(),
+            inputs: vec![AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(image_bytes)),
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::new(),
+                }),
+            }],
+            preprocess_action: PreprocessAction::NoPreprocessing.into(),
+            execution_provider: None,
+        }))
+        .await;
+
+    assert!(
+        result.is_err(),
+        "Expected error for NoPreprocessing on BuffaloL"
+    );
+    let status = result.unwrap_err();
+    assert_eq!(
+        status.code(),
+        tonic::Code::InvalidArgument,
+        "Expected InvalidArgument, got {:?}: {}",
+        status.code(),
+        status.message()
+    );
+    assert!(
+        status
+            .message()
+            .contains("NoPreprocessing is not supported for face recognition"),
+        "Unexpected error message: {}",
+        status.message()
+    );
+}
+async fn test_buffalo_l_mixed_batch_no_face_does_not_fail_batch() {
+    // Scenario: a batch contains two entries — one image with detectable faces and one
+    // with none. The no-face image produces zero embeddings and is silently skipped.
+    // The batch as a whole must succeed, storing only the faces from the valid image.
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_mixed_batch".to_string();
+
+    let single_face_image = include_bytes!("../../test_data/single_face.jpg").to_vec();
+    let no_face_image = include_bytes!("../../test_data/no_face.jpg").to_vec();
+
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![
+            ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store_name.clone(),
+                    query_model: AiModel::BuffaloL.into(),
+                    index_model: AiModel::BuffaloL.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    store_original: false,
+                })),
+            },
+            ai_pipeline::AiQuery {
+                query: Some(Query::Set(ai_query_types::Set {
+                    store: store_name.clone(),
+                    inputs: vec![
+                        // First entry: one detectable face — should produce 1 stored embedding.
+                        AiStoreEntry {
+                            key: Some(StoreInput {
+                                value: Some(Value::Image(single_face_image)),
+                            }),
+                            value: Some(StoreValue {
+                                value: HashMap::from([(
+                                    "source".to_string(),
+                                    MetadataValue {
+                                        value: Some(metadata_value::Value::RawString(
+                                            "has_face".to_string(),
+                                        )),
+                                    },
+                                )]),
+                            }),
+                        },
+                        // Second entry: no detectable faces — produces zero embeddings and is
+                        // skipped. The batch must not fail because of this entry.
+                        AiStoreEntry {
+                            key: Some(StoreInput {
+                                value: Some(Value::Image(no_face_image)),
+                            }),
+                            value: Some(StoreValue {
+                                value: HashMap::from([(
+                                    "source".to_string(),
+                                    MetadataValue {
+                                        value: Some(metadata_value::Value::RawString(
+                                            "no_face".to_string(),
+                                        )),
+                                    },
+                                )]),
+                            }),
+                        },
+                    ],
+                    preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                    execution_provider: None,
+                })),
+            },
+        ],
+    };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Mixed batch Set must not fail even when one entry has no faces");
+
+    let responses = response.into_inner().responses;
+    assert_eq!(responses.len(), 2);
+
+    if let Some(ai_pipeline::AiServerResponse {
+        response: Some(ai_pipeline::ai_server_response::Response::Set(set_response)),
+    }) = responses.get(1)
+    {
+        let upsert = set_response.upsert.as_ref().expect("Expected upsert info");
+        assert_eq!(
+            upsert.inserted, 1,
+            "Only the face from the valid image should be stored; no-face image is skipped"
+        );
+        assert_eq!(upsert.updated, 0);
+    } else {
+        panic!("Expected Set response, got: {:?}", responses.get(1));
+    }
+}

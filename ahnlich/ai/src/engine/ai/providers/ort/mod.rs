@@ -375,11 +375,17 @@ impl ORTProvider {
     pub fn preprocess_audios(&self, data: Vec<Vec<u8>>) -> Result<AudioInput, AIProxyError> {
         match &self.preprocessor {
             ORTPreprocessor::Audio(preprocessor) => preprocessor.process(data).map_err(|e| {
-                AIProxyError::ModelProviderPreprocessingError(format!(
-                    "Audio preprocessing failed for {:?}: {}",
-                    self.supported_models.to_string(),
-                    e
-                ))
+                // Preserve caller-facing errors (InvalidArgument) so they are not obscured
+                // by the generic Internal wrapper used for unexpected preprocessing failures.
+                match e {
+                    AIProxyError::AudioTooLongError { .. } => e,
+                    AIProxyError::AudioNoPreprocessingError => e,
+                    other => AIProxyError::ModelProviderPreprocessingError(format!(
+                        "Audio preprocessing failed for {:?}: {}",
+                        self.supported_models.to_string(),
+                        other
+                    )),
+                }
             }),
             _ => Err(AIProxyError::ModelPreprocessingError {
                 model_name: self.supported_models.to_string(),

@@ -6,13 +6,12 @@ use tokenizers::Encoding;
 
 /// CLAP audio features ready for the audio encoder.
 ///
-/// `input_features`: shape `(batch, 1, nb_max_frames, n_mels)` — log-Mel spectrogram
-///   using the `rand_trunc` strategy: one view per clip, no fusion crops.
-/// `is_longer`: one bool per sample; always `false` in `rand_trunc` mode.
+/// `input_features`: shape `(batch, 1, nb_max_frames, n_mels)` — log-Mel spectrogram.
+/// Each clip must be at most `max_secs` long (currently 10 s); longer clips are rejected
+/// at preprocessing time rather than silently truncated.
 #[derive(Debug)]
 pub struct AudioInput {
     pub input_features: Array<f32, Ix4>,
-    pub is_longer: Vec<bool>,
 }
 
 pub mod center_crop;

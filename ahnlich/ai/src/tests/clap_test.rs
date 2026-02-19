@@ -338,3 +338,222 @@ async fn test_clap_text_to_text_retrieval() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Helper: build a minimal valid WAV file with silence at 48 kHz mono.
+// The WAV header is exactly 44 bytes; samples are 16-bit PCM zeros.
+// ---------------------------------------------------------------------------
+fn make_silent_wav(duration_secs: f32) -> Vec<u8> {
+    let sample_rate: u32 = 48_000;
+    let num_channels: u16 = 1;
+    let bits_per_sample: u16 = 16;
+    let num_samples = (sample_rate as f32 * duration_secs).ceil() as u32;
+    let data_size = num_samples * u32::from(bits_per_sample / 8);
+    let file_size = 36 + data_size; // RIFF chunk size
+
+    let mut buf = Vec::with_capacity(44 + data_size as usize);
+    // RIFF header
+    buf.extend_from_slice(b"RIFF");
+    buf.extend_from_slice(&file_size.to_le_bytes());
+    buf.extend_from_slice(b"WAVE");
+    // fmt sub-chunk
+    buf.extend_from_slice(b"fmt ");
+    buf.extend_from_slice(&16u32.to_le_bytes()); // sub-chunk size
+    buf.extend_from_slice(&1u16.to_le_bytes()); // PCM format
+    buf.extend_from_slice(&num_channels.to_le_bytes());
+    buf.extend_from_slice(&sample_rate.to_le_bytes());
+    let byte_rate = sample_rate * u32::from(num_channels) * u32::from(bits_per_sample / 8);
+    buf.extend_from_slice(&byte_rate.to_le_bytes());
+    let block_align = num_channels * (bits_per_sample / 8);
+    buf.extend_from_slice(&block_align.to_le_bytes());
+    buf.extend_from_slice(&bits_per_sample.to_le_bytes());
+    // data sub-chunk
+    buf.extend_from_slice(b"data");
+    buf.extend_from_slice(&data_size.to_le_bytes());
+    buf.extend(std::iter::repeat_n(0u8, data_size as usize)); // silence
+    buf
+}
+
+/// NoPreprocessing is rejected immediately for ClapAudio — the caller cannot
+/// supply a mel spectrogram over the wire; raw bytes always require the pipeline.
+#[tokio::test]
+async fn test_clap_audio_no_preprocessing_rejected() {
+    let ai_address = provision_clap_servers().await;
+    let mut client = connect(ai_address).await;
+
+    let store = "clap_no_preprocess_store".to_string();
+    let dog_bytes = include_bytes!("../../test_data/audio/dog_bark.ogg").to_vec();
+
+    // Create the store first
+    client
+        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
+            queries: vec![ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store.clone(),
+                    query_model: AiModel::ClapAudio.into(),
+                    index_model: AiModel::ClapAudio.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: false,
+                    store_original: false,
+                })),
+            }],
+        }))
+        .await
+        .expect("pipeline failed");
+
+    let result = client
+        .set(tonic::Request::new(ai_query_types::Set {
+            store: store.clone(),
+            inputs: vec![AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Audio(dog_bytes)),
+                }),
+                value: None,
+            }],
+            preprocess_action: PreprocessAction::NoPreprocessing.into(),
+            execution_provider: None,
+        }))
+        .await;
+
+    assert!(
+        result.is_err(),
+        "Expected error for NoPreprocessing on audio"
+    );
+    let status = result.unwrap_err();
+    assert_eq!(
+        status.code(),
+        tonic::Code::InvalidArgument,
+        "Expected InvalidArgument, got {:?}: {}",
+        status.code(),
+        status.message()
+    );
+    assert!(
+        status
+            .message()
+            .contains("NoPreprocessing is not supported for audio"),
+        "Unexpected error message: {}",
+        status.message()
+    );
+}
+
+/// Audio clips longer than 10 seconds are rejected with a clear error so callers
+/// know to trim before indexing rather than getting a silently truncated embedding.
+#[tokio::test]
+async fn test_clap_audio_too_long_rejected() {
+    let ai_address = provision_clap_servers().await;
+    let mut client = connect(ai_address).await;
+
+    let store = "clap_too_long_store".to_string();
+
+    // Build a silent WAV that is 11 seconds — just over the 10s limit.
+    let long_audio = make_silent_wav(11.0);
+
+    client
+        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
+            queries: vec![ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store.clone(),
+                    query_model: AiModel::ClapAudio.into(),
+                    index_model: AiModel::ClapAudio.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: false,
+                    store_original: false,
+                })),
+            }],
+        }))
+        .await
+        .expect("pipeline failed");
+
+    let result = client
+        .set(tonic::Request::new(ai_query_types::Set {
+            store: store.clone(),
+            inputs: vec![AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Audio(long_audio)),
+                }),
+                value: None,
+            }],
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+        }))
+        .await;
+
+    assert!(result.is_err(), "Expected error for audio > 10s");
+    let status = result.unwrap_err();
+    assert_eq!(
+        status.code(),
+        tonic::Code::InvalidArgument,
+        "Expected InvalidArgument, got {:?}: {}",
+        status.code(),
+        status.message()
+    );
+    assert!(
+        status.message().contains("Audio input is too long"),
+        "Unexpected error message: {}",
+        status.message()
+    );
+    assert!(
+        status.message().contains("10000ms"),
+        "Error message should state the 10000ms limit, got: {}",
+        status.message()
+    );
+}
+
+/// Audio clips shorter than 10 seconds should still work — they are padded via
+/// the repeatpad strategy rather than zero-padded.
+#[tokio::test]
+async fn test_clap_short_audio_accepted() {
+    let ai_address = provision_clap_servers().await;
+    let mut client = connect(ai_address).await;
+
+    let store = "clap_short_audio_store".to_string();
+
+    // 3-second silent WAV — well under the 10s limit.
+    let short_audio = make_silent_wav(3.0);
+
+    let result = client
+        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
+            queries: vec![
+                ai_pipeline::AiQuery {
+                    query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                        store: store.clone(),
+                        query_model: AiModel::ClapAudio.into(),
+                        index_model: AiModel::ClapAudio.into(),
+                        predicates: vec![],
+                        non_linear_indices: vec![],
+                        error_if_exists: false,
+                        store_original: false,
+                    })),
+                },
+                ai_pipeline::AiQuery {
+                    query: Some(Query::Set(ai_query_types::Set {
+                        store: store.clone(),
+                        inputs: vec![AiStoreEntry {
+                            key: Some(StoreInput {
+                                value: Some(Value::Audio(short_audio)),
+                            }),
+                            value: None,
+                        }],
+                        preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                        execution_provider: None,
+                    })),
+                },
+            ],
+        }))
+        .await
+        .expect("pipeline failed")
+        .into_inner();
+
+    // Both CreateStore and Set should succeed
+    assert_eq!(result.responses.len(), 2);
+    assert!(
+        matches!(
+            result.responses[1].response,
+            Some(ai_pipeline::ai_server_response::Response::Set(_))
+        ),
+        "Expected Set response, got: {:?}",
+        result.responses[1]
+    );
+}
