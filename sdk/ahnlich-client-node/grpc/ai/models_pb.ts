@@ -88,4 +88,3 @@ proto3.util.setEnumType(AIStoreInputType, "ai.models.AIStoreInputType", [
   { no: 0, name: "RAW_STRING" },
   { no: 1, name: "IMAGE" },
 ]);
-
