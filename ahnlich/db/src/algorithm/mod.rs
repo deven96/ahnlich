@@ -2,18 +2,16 @@ mod heap;
 pub mod non_linear;
 mod similarity;
 
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
 use std::num::NonZeroUsize;
 
 use ahnlich_types::algorithm::algorithms::Algorithm;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::keyval::StoreKey;
-use heap::HeapOrder;
-use rayon::iter::IntoParallelIterator;
+use heap::{BoundedMaxHeap, BoundedMinHeap, HeapOrder};
 use rayon::iter::ParallelIterator;
 
 use self::similarity::SimilarityFunc;
+use crate::engine::store::StoreKeyId;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) enum AlgorithmByType {
@@ -46,40 +44,35 @@ pub(crate) enum LinearAlgorithm {
 }
 
 #[derive(Debug)]
-pub(crate) struct SimilarityVector<'a>((&'a StoreKey, f32));
+pub(crate) struct SimilarityVector((StoreKeyId, f32));
 
-impl<'a> From<(&'a StoreKey, f32)> for SimilarityVector<'a> {
-    fn from(value: (&'a StoreKey, f32)) -> SimilarityVector<'a> {
+impl From<(StoreKeyId, f32)> for SimilarityVector {
+    fn from(value: (StoreKeyId, f32)) -> SimilarityVector {
         SimilarityVector((value.0, value.1))
     }
 }
 
-impl PartialEq for SimilarityVector<'_> {
+impl PartialEq for SimilarityVector {
     fn eq(&self, other: &Self) -> bool {
-        *((self.0).0) == *((other.0).0)
+        (self.0).0 == (other.0).0
     }
 }
 
-impl Eq for SimilarityVector<'_> {}
+impl Eq for SimilarityVector {}
 
-impl PartialOrd for SimilarityVector<'_> {
+impl PartialOrd for SimilarityVector {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for SimilarityVector<'_> {
+impl Ord for SimilarityVector {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         (self.0)
             .1
             .partial_cmp(&(other.0).1)
             .unwrap_or(std::cmp::Ordering::Less)
     }
-}
-
-// Pop the topmost N from a generic binary tree
-fn pop_n<T: Ord>(heap: &mut BinaryHeap<T>, n: NonZeroUsize) -> Vec<T> {
-    (0..n.get()).filter_map(|_| heap.pop()).collect()
 }
 
 pub(crate) trait FindSimilarN {
@@ -89,7 +82,7 @@ pub(crate) trait FindSimilarN {
         search_list: impl ParallelIterator<Item = &'a StoreKey>,
         _used_all: bool,
         n: NonZeroUsize,
-    ) -> Vec<(StoreKey, f32)>;
+    ) -> Vec<(StoreKeyId, f32)>;
 }
 
 impl FindSimilarN for LinearAlgorithm {
@@ -100,37 +93,69 @@ impl FindSimilarN for LinearAlgorithm {
         search_list: impl ParallelIterator<Item = &'a StoreKey>,
         _used_all: bool,
         n: NonZeroUsize,
-    ) -> Vec<(StoreKey, f32)> {
+    ) -> Vec<(StoreKeyId, f32)> {
         let heap_order: HeapOrder = self.into();
         let similarity_function: SimilarityFunc = self.into();
 
         match heap_order {
-            HeapOrder::Min => pop_n(
-                &mut search_list
-                    .map(|second_vector| {
-                        let similarity = similarity_function(search_vector, second_vector);
-                        let heap_value: SimilarityVector = (second_vector, similarity).into();
-                        Reverse(heap_value)
-                    })
-                    .collect::<BinaryHeap<_>>(),
-                n,
-            )
-            .into_par_iter()
-            .map(|a| (a.0.0.0.clone(), a.0.0.1))
-            .collect(),
-            HeapOrder::Max => pop_n(
-                &mut search_list
-                    .map(|second_vector| {
-                        let similarity = similarity_function(search_vector, second_vector);
-                        let heap_value: SimilarityVector = (second_vector, similarity).into();
-                        heap_value
-                    })
-                    .collect::<BinaryHeap<_>>(),
-                n,
-            )
-            .into_par_iter()
-            .map(|a| (a.0.0.clone(), a.0.1))
-            .collect(),
+            HeapOrder::Min => {
+                // Use bounded min heap for minimum similarity (Euclidean distance)
+                let bounded_heap = search_list
+                    .fold(
+                        || BoundedMinHeap::new(n),
+                        |mut heap, second_vector| {
+                            let similarity = similarity_function(search_vector, second_vector);
+                            let key_id = StoreKeyId::from(second_vector);
+                            let heap_value: SimilarityVector = (key_id, similarity).into();
+                            heap.push(heap_value);
+                            heap
+                        },
+                    )
+                    .reduce(
+                        || BoundedMinHeap::new(n),
+                        |mut heap1, heap2| {
+                            for item in heap2.into_sorted_vec() {
+                                heap1.push(item);
+                            }
+                            heap1
+                        },
+                    );
+
+                bounded_heap
+                    .into_sorted_vec()
+                    .into_iter()
+                    .map(|sv| (sv.0.0, sv.0.1))
+                    .collect()
+            }
+            HeapOrder::Max => {
+                // Use bounded max heap for maximum similarity (Cosine, Dot Product)
+                let bounded_heap = search_list
+                    .fold(
+                        || BoundedMaxHeap::new(n),
+                        |mut heap, second_vector| {
+                            let similarity = similarity_function(search_vector, second_vector);
+                            let key_id = StoreKeyId::from(second_vector);
+                            let heap_value: SimilarityVector = (key_id, similarity).into();
+                            heap.push(heap_value);
+                            heap
+                        },
+                    )
+                    .reduce(
+                        || BoundedMaxHeap::new(n),
+                        |mut heap1, heap2| {
+                            for item in heap2.into_sorted_vec() {
+                                heap1.push(item);
+                            }
+                            heap1
+                        },
+                    );
+
+                bounded_heap
+                    .into_sorted_vec()
+                    .into_iter()
+                    .map(|sv| (sv.0.0, sv.0.1))
+                    .collect()
+            }
         }
     }
 }
@@ -160,6 +185,12 @@ mod tests {
 
         let cosine_algorithm = LinearAlgorithm::CosineSimilarity;
 
+        // Build a mapping from StoreKeyId to StoreKey for test verification
+        let key_map: std::collections::HashMap<StoreKeyId, &StoreKey> = search_list
+            .iter()
+            .map(|key| (StoreKeyId::from(key), key))
+            .collect();
+
         let similar_n_search = cosine_algorithm.find_similar_n(
             &first_vector,
             search_list.par_iter(),
@@ -169,7 +200,7 @@ mod tests {
 
         let similar_n_vecs: Vec<StoreKey> = similar_n_search
             .into_iter()
-            .map(|(vector, _)| vector.to_owned())
+            .map(|(key_id, _)| key_map.get(&key_id).unwrap().to_owned().to_owned())
             .collect();
 
         let most_similar_sentences_vec: Vec<StoreKey> = MOST_SIMILAR

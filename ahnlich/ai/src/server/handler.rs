@@ -22,6 +22,7 @@ use ahnlich_types::ai::query::CreateNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::CreatePredIndex;
 use ahnlich_types::ai::query::CreateStore;
 use ahnlich_types::ai::query::DelKey;
+use ahnlich_types::ai::query::DelPred as AiDelPred;
 use ahnlich_types::ai::query::DropNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::DropPredIndex;
 use ahnlich_types::ai::query::DropStore;
@@ -80,6 +81,7 @@ use task_manager::BlockingTask;
 use task_manager::TaskManager;
 use tokio_util::sync::CancellationToken;
 use utils::allocator::GLOBAL_ALLOCATOR;
+use utils::auth::{AuthConfig, AuthInterceptor, load_tls_config};
 use utils::client::ClientHandler;
 use utils::connection_layer::trace_with_parent;
 use utils::persistence::Persistence;
@@ -147,6 +149,7 @@ impl BlockingTask for AIProxyServer {
     ) {
         let token = self.cancellation_token();
         let token_clone = token.clone();
+
         tokio::spawn(async move {
             shutdown_signal.await;
             token_clone.cancel();
@@ -159,7 +162,13 @@ impl BlockingTask for AIProxyServer {
             log::error!("listener must be of type listener stream");
             panic!("listener must be of type listener stream")
         };
+
         let max_message_size = self.config.common.message_size;
+        let enable_auth = self.config.common.enable_auth;
+        let auth_config_path = self.config.common.auth_config.clone();
+        let tls_cert = self.config.common.tls_cert.clone();
+        let tls_key = self.config.common.tls_key.clone();
+
         self.listener = ListenerStreamOrAddress::Address(
             listener_stream
                 .as_ref()
@@ -203,6 +212,7 @@ impl BlockingTask for AIProxyServer {
                 admin_addr: self.config.admin_addr.clone(),
                 service_addr: format!("{}:{}", &self.config.common.host, &self.config.port),
             };
+
             tokio::spawn(async move {
                 if let Ok(mut client) =
                     ClusterAdminServiceClient::connect(format!("http://{join}")).await
@@ -214,11 +224,55 @@ impl BlockingTask for AIProxyServer {
             });
         }
 
-        let db_service = AiServiceServer::new(self).max_decoding_message_size(max_message_size);
+        let ai_service = AiServiceServer::new(self).max_decoding_message_size(max_message_size);
 
-        let _ = tonic::transport::Server::builder()
+        let mut server_builder = tonic::transport::Server::builder();
+
+        if enable_auth {
+            let cert_path = tls_cert
+                .as_ref()
+                .expect("TLS cert required when auth is enabled");
+            let key_path = tls_key
+                .as_ref()
+                .expect("TLS key required when auth is enabled");
+
+            let tls_config =
+                load_tls_config(cert_path, key_path).expect("Failed to load TLS configuration");
+
+            server_builder = tonic::transport::Server::builder()
+                .tls_config(tls_config)
+                .expect("Failed to configure TLS");
+
+            log::info!("TLS enabled for AI server");
+        }
+
+        let auth_interceptor = if enable_auth {
+            let config_path = auth_config_path
+                .as_ref()
+                .expect("Auth config required when auth is enabled");
+
+            let auth_config = Arc::new(
+                AuthConfig::from_file(config_path).expect("Failed to load auth configuration"),
+            );
+
+            log::info!("Authentication enabled for AI server");
+            Some(AuthInterceptor::new(auth_config))
+        } else {
+            log::info!("Authentication disabled for AI server");
+            None
+        };
+
+        let service = tonic::codegen::InterceptedService::new(ai_service, move |req| {
+            if let Some(ref interceptor) = auth_interceptor {
+                interceptor.intercept(req)
+            } else {
+                Ok(req)
+            }
+        });
+
+        let _ = server_builder
             .trace_fn(trace_with_parent)
-            .add_service(db_service)
+            .add_service(service)
             .serve_with_incoming_shutdown(listener_stream, token.cancelled())
             .await;
     }
@@ -270,6 +324,11 @@ impl AiService for AIProxyServer {
             .try_into()
             .map_err(|_| AIProxyError::InputNotSpecified("Query model".to_string()))?;
         let model: ModelDetails = SupportedModels::from(&index_model).to_model_details();
+        // OneToMany models return multiple embeddings per input - add index predicate
+        // Currently used by face recognition models like Buffalo_L
+        if model.is_one_to_many() {
+            predicates.push(crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY.to_string());
+        }
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let db_client = self
             .db_client
@@ -449,6 +508,7 @@ impl AiService for AIProxyServer {
         let search_input = params
             .search_input
             .ok_or_else(|| AIProxyError::InputNotSpecified("Search".to_string()))?;
+        let model_params = params.model_params;
         let search_input = self
             .store_handler
             .get_ndarray_repr_for_store(
@@ -460,6 +520,7 @@ impl AiService for AIProxyServer {
                 TryInto::<PreprocessAction>::try_into(params.preprocess_action)
                     .map_err(AIProxyError::from)?,
                 params.execution_provider.and_then(|a| a.try_into().ok()),
+                model_params,
             )
             .await?;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
@@ -510,6 +571,7 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<server::Set>, tonic::Status> {
         let params = request.into_inner();
         let model_manager = &self.model_manager;
+        let model_params = params.model_params;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let (db_inputs, delete_hashset) = self
             .store_handler
@@ -535,6 +597,7 @@ impl AiService for AIProxyServer {
                 TryInto::<PreprocessAction>::try_into(params.preprocess_action)
                     .map_err(AIProxyError::from)?,
                 params.execution_provider.and_then(|a| a.try_into().ok()),
+                model_params,
             )
             .await?;
         let db_client = self
@@ -682,6 +745,28 @@ impl AiService for AIProxyServer {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn del_pred(
+        &self,
+        request: tonic::Request<AiDelPred>,
+    ) -> Result<tonic::Response<Del>, tonic::Status> {
+        let params = request.into_inner();
+        let del_pred_params = DelPred {
+            store: params.store,
+            condition: params.condition,
+        };
+        let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
+        let db_client = self
+            .db_client
+            .as_ref()
+            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
+            .clone();
+        let res = db_client.del_pred(del_pred_params, parent_id).await?;
+        Ok(tonic::Response::new(Del {
+            deleted_count: res.deleted_count,
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn drop_store(
         &self,
         request: tonic::Request<DropStore>,
@@ -808,6 +893,8 @@ impl AiService for AIProxyServer {
         }
 
         let inputs = params.store_inputs;
+        let input_len = inputs.len();
+        let model_params = params.model_params;
 
         let store_keys = ModelManager::handle_request(
             &self.model_manager,
@@ -816,20 +903,20 @@ impl AiService for AIProxyServer {
             preprocess_action,
             InputAction::Index,
             None,
+            model_params,
         )
         .await?;
 
-        if inputs.len() != store_keys.len() {
+        if input_len != store_keys.len() {
             return Err(tonic::Status::failed_precondition(format!(
                 "Mismatched lengths: inputs has {} elements, but store_keys has {}.",
-                inputs.len(),
+                input_len,
                 store_keys.len()
             )));
         }
 
         Ok(tonic::Response::new(StoreInputToEmbeddingsList {
             values: inputs
-                .clone()
                 .into_iter()
                 .zip(store_keys)
                 .map(|(input, key)| SingleInputToEmbedding {
@@ -860,6 +947,13 @@ impl AiService for AIProxyServer {
         request: tonic::Request<AiRequestPipeline>,
     ) -> Result<tonic::Response<AiResponsePipeline>, tonic::Status> {
         let params = request.into_inner();
+
+        // Memory check: Pre-allocating Vec for pipeline responses
+        // 1024: Conservative estimate per response (varies by query type: Ping ~100 bytes, GetSimN ~several KB)
+        let estimated_bytes = params.queries.len() * 1024;
+        utils::allocator::check_memory_available(estimated_bytes)
+            .map_err(|e| AIProxyError::Allocation(e.into()))?;
+
         let mut response_vec = Vec::with_capacity(params.queries.len());
 
         for pipeline_query in params.queries {
@@ -1009,6 +1103,18 @@ impl AiService for AIProxyServer {
                     }
                 },
 
+                Query::DelPred(params) => match self.del_pred(tonic::Request::new(params)).await {
+                    Ok(res) => {
+                        response_vec.push(ai_server_response::Response::Del(res.into_inner()))
+                    }
+                    Err(err) => {
+                        response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                            message: err.message().to_string(),
+                            code: err.code().into(),
+                        }));
+                    }
+                },
+
                 Query::DropPredIndex(params) => {
                     match self.drop_pred_index(tonic::Request::new(params)).await {
                         Ok(res) => {
@@ -1110,6 +1216,7 @@ impl AiService for AIProxyServer {
     }
 }
 
+#[async_trait::async_trait]
 impl AhnlichServerUtils for AIProxyServer {
     type PersistenceTask = AIStoreHandler;
 
@@ -1118,6 +1225,7 @@ impl AhnlichServerUtils for AIProxyServer {
             service_name: SERVICE_NAME,
             persist_location: &self.config.common.persist_location,
             persistence_interval: self.config.common.persistence_interval,
+            size_calculation_interval: 0, // Not used by AI - only DB calculates sizes
             allocator_size: self.config.common.allocator_size,
             threadpool_size: self.config.common.threadpool_size,
         }
@@ -1133,6 +1241,30 @@ impl AhnlichServerUtils for AIProxyServer {
 
     fn task_manager(&self) -> Arc<TaskManager> {
         self.task_manager.clone()
+    }
+
+    async fn spawn_tasks_before_server(
+        &self,
+        task_manager: &Arc<TaskManager>,
+    ) -> std::io::Result<()> {
+        self.model_manager
+            .initialize_task_manager(task_manager.clone())
+            .map_err(|_| {
+                std::io::Error::new(
+                    std::io::ErrorKind::AlreadyExists,
+                    "task_manager already initialized",
+                )
+            })?;
+
+        self.model_manager
+            .spawn_model_threads()
+            .await
+            .map_err(|e| {
+                log::error!("Failed to spawn model threads: {}", e);
+                std::io::Error::other(format!("Failed to spawn model threads: {}", e))
+            })?;
+        log::info!("Successfully spawned model threads");
+        Ok(())
     }
 }
 
@@ -1247,7 +1379,7 @@ impl AIProxyServer {
         }
 
         let model_config = ModelConfig::from(&config);
-        let model_manager = ModelManager::new(model_config, task_manager.clone()).await?;
+        let model_manager = ModelManager::new(model_config);
 
         Ok(Self {
             listener,
@@ -1267,7 +1399,13 @@ impl AIProxyServer {
     async fn build_db_client(config: &AIProxyConfig) -> DbClient {
         let scheme = if config.db_https { "https" } else { "http" };
         let addr = format!("{scheme}://{}:{}", config.db_host, config.db_port);
-        DbClient::new(addr).await.expect("Cannot start DB client")
+        let mut client = DbClient::new(addr).await.expect("Cannot start DB client");
+
+        if let (Some(username), Some(api_key)) = (&config.db_auth_username, &config.db_auth_key) {
+            client.set_auth_token(format!("{}:{}", username, api_key));
+        }
+
+        client
     }
 
     pub fn local_addr(&self) -> IoResult<SocketAddr> {

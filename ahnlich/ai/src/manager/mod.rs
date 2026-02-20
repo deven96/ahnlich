@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::OnceLock;
 
 use crate::cli::server::{ModelConfig, SupportedModels};
 use crate::engine::ai::models::{ImageArray, InputAction, ModelResponse};
@@ -32,17 +33,19 @@ use tracing_opentelemetry::OpenTelemetrySpanExt;
 type ModelThreadResponse = Result<Vec<ModelResponse>, AIProxyError>;
 
 struct ModelThreadRequest {
-    inputs: Vec<StoreInput>,
+    inputs: Arc<Vec<StoreInput>>,
     response: oneshot::Sender<ModelThreadResponse>,
     preprocess_action: PreprocessAction,
     action_type: InputAction,
     execution_provider: Option<ExecutionProvider>,
+    model_params: std::collections::HashMap<String, String>,
     trace_span: tracing::Span,
 }
 
 struct ModelThread {
     model: Model,
     request_receiver: Mutex<mpsc::Receiver<ModelThreadRequest>>,
+    enable_streaming: bool,
 }
 
 impl ModelThread {
@@ -50,6 +53,7 @@ impl ModelThread {
         supported_model: SupportedModels,
         cache_location: &Path,
         session_profiling: bool,
+        enable_streaming: bool,
         request_receiver: mpsc::Receiver<ModelThreadRequest>,
     ) -> Result<Self, AIProxyError> {
         let model = supported_model
@@ -58,6 +62,7 @@ impl ModelThread {
         Ok(Self {
             request_receiver: Mutex::new(request_receiver),
             model,
+            enable_streaming,
         })
     }
 
@@ -68,16 +73,22 @@ impl ModelThread {
     #[tracing::instrument(skip(self, inputs))]
     async fn input_to_response(
         &self,
-        inputs: Vec<StoreInput>,
+        inputs: Arc<Vec<StoreInput>>,
         process_action: PreprocessAction,
         action_type: InputAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> ModelThreadResponse {
         let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let processed_inputs = self.preprocess_store_input(process_action, inputs)?;
         let mut store_key = self
             .model
-            .model_ndarray(processed_inputs, &action_type, execution_provider)
+            .model_ndarray(
+                processed_inputs,
+                &action_type,
+                execution_provider,
+                model_params,
+            )
             .await?;
         response.append(&mut store_key);
         Ok(response)
@@ -87,7 +98,7 @@ impl ModelThread {
     pub(crate) fn preprocess_store_input(
         &self,
         process_action: PreprocessAction,
-        inputs: Vec<StoreInput>,
+        inputs: Arc<Vec<StoreInput>>,
     ) -> Result<ModelInput, AIProxyError> {
         let sample = inputs
             .first()
@@ -102,9 +113,9 @@ impl ModelThread {
         match sample_type {
             Value::RawString(_) => {
                 let inputs: Vec<String> = inputs
-                    .into_par_iter()
-                    .filter_map(|input| match input.value {
-                        Some(Value::RawString(string)) => Some(string),
+                    .par_iter()
+                    .filter_map(|input| match &input.value {
+                        Some(Value::RawString(string)) => Some(string.clone()),
                         _ => None,
                     })
                     .collect();
@@ -112,17 +123,24 @@ impl ModelThread {
                 Ok(ModelInput::Texts(output))
             }
             Value::Image(_) => {
-                let inputs = inputs
-                    .into_par_iter()
-                    .filter_map(|input| match input.value {
-                        Some(Value::Image(image_bytes)) => {
-                            Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
-                        }
-                        _ => None,
-                    })
-                    .collect();
-                let output = self.preprocess_image(inputs, process_action)?;
-                Ok(ModelInput::Images(output))
+                if self.enable_streaming {
+                    let batch_size = self.model.batch_size();
+                    let output =
+                        self.preprocess_images_chunked(inputs, process_action, batch_size)?;
+                    Ok(ModelInput::Images(output))
+                } else {
+                    let image_arrays = inputs
+                        .par_iter()
+                        .filter_map(|input| match &input.value {
+                            Some(Value::Image(image_bytes)) => {
+                                Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
+                            }
+                            _ => None,
+                        })
+                        .collect();
+                    let output = self.preprocess_image(image_arrays, process_action)?;
+                    Ok(ModelInput::Images(output))
+                }
             }
         }
     }
@@ -160,6 +178,55 @@ impl ModelThread {
                 }
             }
         }
+    }
+
+    #[tracing::instrument(skip(self, inputs), fields(batch_size = batch_size, total_images = inputs.len()))]
+    fn preprocess_images_chunked(
+        &self,
+        inputs: Arc<Vec<StoreInput>>,
+        process_action: PreprocessAction,
+        batch_size: usize,
+    ) -> Result<Array<f32, Ix4>, AIProxyError> {
+        let total_images = inputs.len();
+        let mut all_preprocessed: Vec<Array<f32, Ix4>> =
+            Vec::with_capacity(total_images.div_ceil(batch_size));
+
+        // Process in chunks to limit peak memory
+        for chunk_start in (0..total_images).step_by(batch_size) {
+            let chunk_end = (chunk_start + batch_size).min(total_images);
+            let chunk = &inputs[chunk_start..chunk_end];
+
+            // Decode chunk
+            let decoded_chunk: Vec<ImageArray> = chunk
+                .par_iter()
+                .filter_map(|input| match &input.value {
+                    Some(Value::Image(image_bytes)) => {
+                        Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
+                    }
+                    _ => None,
+                })
+                .collect();
+
+            let preprocessed_chunk = self.preprocess_image(decoded_chunk, process_action)?;
+            all_preprocessed.push(preprocessed_chunk);
+            // decoded_chunk dropped here
+        }
+
+        if all_preprocessed.is_empty() {
+            return Err(AIProxyError::ModelPreprocessingError {
+                model_name: self.model.model_name(),
+                message: "No images were successfully decoded".to_string(),
+            });
+        }
+
+        // Concatenate chunks
+        let views: Vec<_> = all_preprocessed.iter().map(|arr| arr.view()).collect();
+        ndarray::concatenate(ndarray::Axis(0), &views).map_err(|e| {
+            AIProxyError::ModelPreprocessingError {
+                model_name: self.model.model_name(),
+                message: format!("Failed to concatenate preprocessed chunks: {}", e),
+            }
+        })
     }
 
     #[tracing::instrument(skip(self, inputs))]
@@ -219,6 +286,7 @@ impl Task for ModelThread {
                 preprocess_action,
                 action_type,
                 execution_provider,
+                model_params,
                 trace_span,
             } = model_request;
             let child_span = tracing::info_span!("model-thread-run", model = self.task_name());
@@ -226,7 +294,13 @@ impl Task for ModelThread {
 
             let child_guard = child_span.enter();
             let responses = self
-                .input_to_response(inputs, preprocess_action, action_type, execution_provider)
+                .input_to_response(
+                    inputs,
+                    preprocess_action,
+                    action_type,
+                    execution_provider,
+                    &model_params,
+                )
                 .await;
             if let Err(e) = response.send(responses) {
                 log::error!("{} could not send response to channel {e:?}", self.name());
@@ -242,34 +316,40 @@ impl Task for ModelThread {
 pub struct ModelManager {
     models: Cache<SupportedModels, mpsc::Sender<ModelThreadRequest>>,
     supported_models: Vec<SupportedModels>,
-    task_manager: Arc<TaskManager>,
+    task_manager: OnceLock<Arc<TaskManager>>,
     config: ModelConfig,
 }
 
 impl ModelManager {
-    pub async fn new(
-        model_config: ModelConfig,
-        task_manager: Arc<TaskManager>,
-    ) -> Result<Self, AIProxyError> {
+    pub fn new(model_config: ModelConfig) -> Self {
         let models = Cache::builder()
             .max_capacity(model_config.supported_models.len() as u64)
             .time_to_idle(Duration::from_secs(model_config.model_idle_time))
             .build();
-        let model_manager = ModelManager {
+        ModelManager {
             models,
-            task_manager,
+            task_manager: OnceLock::new(),
             supported_models: model_config.supported_models.to_vec(),
             config: model_config,
-        };
+        }
+    }
 
-        for model in &model_manager.supported_models {
-            let _ = model_manager
+    pub fn initialize_task_manager(
+        &self,
+        task_manager: Arc<TaskManager>,
+    ) -> Result<(), Arc<TaskManager>> {
+        self.task_manager.set(task_manager)
+    }
+
+    pub async fn spawn_model_threads(&self) -> Result<(), AIProxyError> {
+        for model in &self.supported_models {
+            let _ = self
                 .models
-                .try_get_with(*model, model_manager.try_initialize_model(model))
+                .try_get_with(*model, self.try_initialize_model(model))
                 .await
                 .map_err(|err| AIProxyError::ModelInitializationError(err.to_string()))?;
         }
-        Ok(model_manager)
+        Ok(())
     }
 
     #[tracing::instrument(skip(self))]
@@ -277,16 +357,22 @@ impl ModelManager {
         &self,
         model: &SupportedModels,
     ) -> Result<mpsc::Sender<ModelThreadRequest>, AIProxyError> {
+        let task_manager = self.task_manager.get().ok_or_else(|| {
+            AIProxyError::ModelInitializationError(
+                "task_manager must be initialized via spawn_model_threads".to_string(),
+            )
+        })?;
         let (request_sender, request_receiver) = mpsc::channel(10000);
         // There may be other things needed to load a model thread
         let model_thread = ModelThread::new(
             *model,
             &self.config.model_cache_location,
             self.config.session_profiling,
+            self.config.enable_streaming,
             request_receiver,
         )
         .await?;
-        let _ = &self.task_manager.spawn_task_loop(model_thread).await;
+        let _ = task_manager.spawn_task_loop(model_thread).await;
         Ok(request_sender)
     }
 
@@ -298,6 +384,7 @@ impl ModelManager {
         preprocess_action: PreprocessAction,
         action_type: InputAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
         let supported = model.into();
 
@@ -312,11 +399,12 @@ impl ModelManager {
 
         let (response_tx, response_rx) = oneshot::channel();
         let request = ModelThreadRequest {
-            inputs,
+            inputs: Arc::new(inputs),
             response: response_tx,
             preprocess_action,
             action_type,
             execution_provider,
+            model_params,
             trace_span: tracing::Span::current(),
         };
         // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
@@ -351,7 +439,11 @@ mod tests {
             model_idle_time: time_to_idle,
             ..Default::default()
         };
-        let model_manager = ModelManager::new(model_config, task_manager).await.unwrap();
+        let model_manager = ModelManager::new(model_config);
+        model_manager
+            .initialize_task_manager(task_manager)
+            .expect("task_manager should not be set yet");
+        model_manager.spawn_model_threads().await.unwrap();
 
         for model in supported_models {
             let recreated_model = model_manager.models.get(&model).await;
@@ -375,7 +467,11 @@ mod tests {
             model_idle_time: time_to_idle,
             ..Default::default()
         };
-        let model_manager = ModelManager::new(model_config, task_manager).await.unwrap();
+        let model_manager = ModelManager::new(model_config);
+        model_manager
+            .initialize_task_manager(task_manager)
+            .expect("task_manager should not be set yet");
+        model_manager.spawn_model_threads().await.unwrap();
         let _ = tokio::time::sleep(Duration::from_secs(2)).await;
 
         let evicted_model = model_manager.models.get(&sample_supported_model).await;
@@ -385,7 +481,14 @@ mod tests {
         }];
         let action = PreprocessAction::ModelPreprocessing;
         let _ = model_manager
-            .handle_request(&sample_ai_model, inputs, action, InputAction::Query, None)
+            .handle_request(
+                &sample_ai_model,
+                inputs,
+                action,
+                InputAction::Query,
+                None,
+                std::collections::HashMap::new(),
+            )
             .await
             .unwrap();
         let recreated_model = model_manager.models.get(&sample_supported_model).await;

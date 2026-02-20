@@ -4,9 +4,9 @@ title: Delete Key
 
 # Delete Key
 
-How to delete a key and its associated value from a store using the Ahnlich AI Client.
+How to delete keys and their associated values from a store using the Ahnlich AI Client.
 
-The `Delete Key` operation removes a single entry from a store. A key uniquely identifies a vector-value pair in the store, and deleting it permanently removes both the key and the stored value.
+The `Delete Key` operation removes one or more entries from a store. Each key uniquely identifies a vector-value pair in the store, and deleting it permanently removes both the key and the stored value.
 
 This operation is useful when:
 
@@ -35,7 +35,7 @@ If the specified key does not exist, the behavior depends on the server configur
         response = await client.del_key(
             ai_query.DelKey(
                 store="test store 1",
-                keys=keyval.StoreInput(raw_string="Custom Made Jordan 4")
+                keys=[keyval.StoreInput(raw_string="Custom Made Jordan 4")]
             )
         )
         print(response) # Del()

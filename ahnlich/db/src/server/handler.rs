@@ -1,5 +1,6 @@
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
+use crate::errors::ServerError;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::db::pipeline::db_query::Query;
 use ahnlich_types::db::server::GetSimNEntry;
@@ -32,6 +33,7 @@ use task_manager::TaskManager;
 
 use tokio_util::sync::CancellationToken;
 use utils::allocator::GLOBAL_ALLOCATOR;
+use utils::auth::{AuthConfig, AuthInterceptor, load_tls_config};
 use utils::connection_layer::trace_with_parent;
 
 use openraft::storage::Adaptor;
@@ -148,8 +150,8 @@ impl DbService for Server {
             )?
             .into_iter()
             .map(|(store_key, store_value)| DbStoreEntry {
-                key: Some(store_key),
-                value: Some(store_value),
+                key: Some(Arc::unwrap_or_clone(store_key)),
+                value: Some(Arc::unwrap_or_clone(store_value)),
             })
             .collect();
 
@@ -177,8 +179,8 @@ impl DbService for Server {
             )?
             .into_iter()
             .map(|(store_key, store_value)| DbStoreEntry {
-                key: Some(store_key),
-                value: Some(store_value),
+                key: Some(Arc::unwrap_or_clone(store_key)),
+                value: Some(Arc::unwrap_or_clone(store_value)),
             })
             .collect();
 
@@ -216,8 +218,8 @@ impl DbService for Server {
             )?
             .into_iter()
             .map(|(store_key, store_value, sim)| GetSimNEntry {
-                key: Some(store_key),
-                value: Some(store_value),
+                key: Some(Arc::unwrap_or_clone(store_key)),
+                value: Some(Arc::unwrap_or_clone(store_value)),
                 similarity: Some(sim),
             })
             .collect();
@@ -568,12 +570,23 @@ impl DbService for Server {
     ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
         self.ensure_linearizable().await?;
         let version = env!("CARGO_PKG_VERSION").to_string();
+
+        // When using dhat-heap profiling, report 0 for limit/remaining as dhat::Alloc doesn't track these
+        #[cfg(feature = "dhat-heap")]
+        let (limit, remaining) = (0, 0);
+
+        #[cfg(not(feature = "dhat-heap"))]
+        let (limit, remaining) = (
+            GLOBAL_ALLOCATOR.limit() as u64,
+            GLOBAL_ALLOCATOR.remaining() as u64,
+        );
+
         let server_info = ahnlich_types::shared::info::ServerInfo {
             address: format!("{:?}", self.listener.local_addr()?),
             version,
             r#type: ahnlich_types::server_types::ServerType::Database.into(),
-            limit: GLOBAL_ALLOCATOR.limit() as u64,
-            remaining: GLOBAL_ALLOCATOR.remaining() as u64,
+            limit,
+            remaining,
         };
 
         let info_server = server::InfoServer {
@@ -636,6 +649,11 @@ impl DbService for Server {
         request: tonic::Request<pipeline::DbRequestPipeline>,
     ) -> std::result::Result<tonic::Response<pipeline::DbResponsePipeline>, tonic::Status> {
         let params = request.into_inner();
+
+        let estimated_bytes = params.queries.len() * 1024;
+        utils::allocator::check_memory_available(estimated_bytes)
+            .map_err(|e| ServerError::Allocation(e.into()))?;
+
         let mut response_vec = Vec::with_capacity(params.queries.len());
 
         for pipeline_query in params.queries {
@@ -904,6 +922,7 @@ impl DbService for Server {
     }
 }
 
+#[async_trait::async_trait]
 impl AhnlichServerUtils for Server {
     type PersistenceTask = StoreHandler;
 
@@ -912,6 +931,7 @@ impl AhnlichServerUtils for Server {
             service_name: SERVICE_NAME,
             persist_location: &self.config.common.persist_location,
             persistence_interval: self.config.common.persistence_interval,
+            size_calculation_interval: self.config.common.size_calculation_interval,
             allocator_size: self.config.common.allocator_size,
             threadpool_size: self.config.common.threadpool_size,
         }
@@ -927,6 +947,22 @@ impl AhnlichServerUtils for Server {
 
     fn task_manager(&self) -> Arc<TaskManager> {
         self.task_manager.clone()
+    }
+
+    async fn spawn_tasks_before_server(
+        &self,
+        task_manager: &Arc<TaskManager>,
+    ) -> std::io::Result<()> {
+        use crate::engine::store::StoresSnapshot;
+        use utils::size_calculation::SizeCalculation;
+
+        let size_calculation_task = SizeCalculation::task(
+            self.write_flag(),
+            self.config.common.size_calculation_interval,
+            StoresSnapshot::new(self.store_handler.get_stores()),
+        );
+        task_manager.spawn_task_loop(size_calculation_task).await;
+        Ok(())
     }
 }
 
@@ -1079,10 +1115,12 @@ impl BlockingTask for Server {
     ) {
         let token = self.cancellation_token();
         let token_clone = token.clone();
+
         tokio::spawn(async move {
             shutdown_signal.await;
             token_clone.cancel();
         });
+
         let listener_stream = if let ListenerStreamOrAddress::ListenerStream(stream) = self.listener
         {
             stream
@@ -1090,7 +1128,13 @@ impl BlockingTask for Server {
             log::error!("listener must be of type listener stream");
             panic!("listener must be of type listener stream")
         };
+
         let max_message_size = self.config.common.message_size;
+        let enable_auth = self.config.common.enable_auth;
+        let auth_config_path = self.config.common.auth_config.clone();
+        let tls_cert = self.config.common.tls_cert.clone();
+        let tls_key = self.config.common.tls_key.clone();
+
         self.listener = ListenerStreamOrAddress::Address(
             listener_stream
                 .as_ref()
@@ -1147,9 +1191,53 @@ impl BlockingTask for Server {
 
         let db_service = DbServiceServer::new(self).max_decoding_message_size(max_message_size);
 
-        let _ = tonic::transport::Server::builder()
+        let mut server_builder = tonic::transport::Server::builder();
+
+        if enable_auth {
+            let cert_path = tls_cert
+                .as_ref()
+                .expect("TLS cert required when auth is enabled");
+            let key_path = tls_key
+                .as_ref()
+                .expect("TLS key required when auth is enabled");
+
+            let tls_config =
+                load_tls_config(cert_path, key_path).expect("Failed to load TLS configuration");
+
+            server_builder = tonic::transport::Server::builder()
+                .tls_config(tls_config)
+                .expect("Failed to configure TLS");
+
+            log::info!("TLS enabled for DB server");
+        }
+
+        let auth_interceptor = if enable_auth {
+            let config_path = auth_config_path
+                .as_ref()
+                .expect("Auth config required when auth is enabled");
+
+            let auth_config = Arc::new(
+                AuthConfig::from_file(config_path).expect("Failed to load auth configuration"),
+            );
+
+            log::info!("Authentication enabled for DB server");
+            Some(AuthInterceptor::new(auth_config))
+        } else {
+            log::info!("Authentication disabled for DB server");
+            None
+        };
+
+        let service = tonic::codegen::InterceptedService::new(db_service, move |req| {
+            if let Some(ref interceptor) = auth_interceptor {
+                interceptor.intercept(req)
+            } else {
+                Ok(req)
+            }
+        });
+
+        let _ = server_builder
             .trace_fn(trace_with_parent)
-            .add_service(db_service)
+            .add_service(service)
             .serve_with_incoming_shutdown(listener_stream, token.cancelled())
             .await;
     }

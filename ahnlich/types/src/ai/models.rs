@@ -21,6 +21,8 @@ pub enum AiModel {
     Resnet50 = 4,
     ClipVitB32Image = 5,
     ClipVitB32Text = 6,
+    BuffaloL = 7,
+    SfaceYunet = 8,
 }
 impl AiModel {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -36,6 +38,8 @@ impl AiModel {
             Self::Resnet50 => "RESNET50",
             Self::ClipVitB32Image => "CLIP_VIT_B32_IMAGE",
             Self::ClipVitB32Text => "CLIP_VIT_B32_TEXT",
+            Self::BuffaloL => "BUFFALO_L",
+            Self::SfaceYunet => "SFACE_YUNET",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -48,6 +52,8 @@ impl AiModel {
             "RESNET50" => Some(Self::Resnet50),
             "CLIP_VIT_B32_IMAGE" => Some(Self::ClipVitB32Image),
             "CLIP_VIT_B32_TEXT" => Some(Self::ClipVitB32Text),
+            "BUFFALO_L" => Some(Self::BuffaloL),
+            "SFACE_YUNET" => Some(Self::SfaceYunet),
             _ => None,
         }
     }

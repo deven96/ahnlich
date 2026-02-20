@@ -42,6 +42,7 @@ class AiQuery(betterproto.Message):
     convert_store_input_to_embeddings: "_query__.ConvertStoreInputToEmbeddings" = (
         betterproto.message_field(17, group="query")
     )
+    del_pred: "_query__.DelPred" = betterproto.message_field(18, group="query")
 
 
 @dataclass(eq=False, repr=False)

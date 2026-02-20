@@ -13,7 +13,19 @@ const config: Config = {
   markdown: {
       mermaid: true,
     },
-    themes: ['@docusaurus/theme-mermaid'],
+    themes: [
+      '@docusaurus/theme-mermaid',
+      [
+        require.resolve("@easyops-cn/docusaurus-search-local"),
+        {
+          hashed: true,
+          language: ["en"],
+          highlightSearchTermsOnTargetPage: true,
+          explicitSearchResultPath: true,
+          docsRouteBasePath: '/docs',
+        },
+      ],
+    ],
 
   // Set the production url of your site here
   url: 'https://ahnlich.dev',
@@ -118,7 +130,7 @@ const config: Config = {
           position: 'right',
           label: 'Docs',
         },
-        // {to: '/blog', label: 'Blog', position: 'right'},
+        {to: '/blog', label: 'Blog', position: 'right'},
         {to: '/docs/guides', label: 'Guides', position: 'right'},
         {
           href: 'https://github.com/deven96/ahnlich',
@@ -179,10 +191,10 @@ const config: Config = {
         {
           title: 'More',
           items: [
-            // {
-            //   label: 'Blog',
-            //   to: '/blog',
-            // },
+            {
+              label: 'Blog',
+              to: '/blog',
+            },
             {
               label: 'GitHub',
               href: 'https://github.com/deven96/ahnlich',

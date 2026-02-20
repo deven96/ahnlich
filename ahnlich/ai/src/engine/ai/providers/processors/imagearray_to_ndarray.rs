@@ -11,6 +11,12 @@ impl Preprocessor for ImageArrayToNdArray {
     fn process(&self, data: PreprocessorData) -> Result<PreprocessorData, AIProxyError> {
         match data {
             PreprocessorData::ImageArray(arrays) => {
+                if arrays.is_empty() {
+                    return Err(AIProxyError::ImageArrayToNdArrayError {
+                        message: "ImageArrayToNdArray received empty image array".to_string(),
+                    });
+                }
+
                 let arrays = arrays
                     .into_par_iter()
                     .map(OnnxTransformResult::try_from)

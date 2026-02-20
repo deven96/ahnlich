@@ -42,6 +42,10 @@ pub enum SupportedModels {
     ClipVitB32Image,
     #[clap(name = "clip-vit-b32-text")]
     ClipVitB32Text,
+    #[clap(name = "buffalo-l")]
+    BuffaloL,
+    #[clap(name = "sface-yunet")]
+    SfaceYunet,
 }
 
 #[derive(Parser)]
@@ -160,6 +164,19 @@ pub struct AIProxyConfig {
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).session_profiling)]
     pub(crate) session_profiling: bool,
 
+    /// Decode images in chunks (10x less memory, 40% slower)
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).enable_streaming)]
+    pub(crate) enable_streaming: bool,
+
+    /// DB service account username (when DB has auth enabled)
+    #[arg(long, conflicts_with = "without_db")]
+    pub db_auth_username: Option<String>,
+
+    /// DB service account API key (when DB has auth enabled)
+    #[arg(long, conflicts_with = "without_db")]
+    pub db_auth_key: Option<String>,
+
     #[clap(flatten)]
     pub common: CommandLineConfig,
 }
@@ -170,6 +187,7 @@ pub struct ModelConfig {
     pub(crate) model_cache_location: std::path::PathBuf,
     pub(crate) model_idle_time: u64,
     pub(crate) session_profiling: bool,
+    pub(crate) enable_streaming: bool,
 }
 
 impl Default for ModelConfig {
@@ -185,6 +203,7 @@ impl Default for ModelConfig {
                 .expect("Default directory could not be resolved."),
             model_idle_time: 60 * 5,
             session_profiling: false,
+            enable_streaming: false,
         }
     }
 }
@@ -196,6 +215,7 @@ impl From<&AIProxyConfig> for ModelConfig {
             model_cache_location: config.model_cache_location.clone(),
             model_idle_time: config.ai_model_idle_time,
             session_profiling: config.session_profiling,
+            enable_streaming: config.enable_streaming,
         }
     }
 }
@@ -235,6 +255,9 @@ impl Default for AIProxyConfig {
                 .expect("Default directory could not be resolved."),
             ai_model_idle_time: 60 * 5,
             session_profiling: false,
+            enable_streaming: false,
+            db_auth_username: None,
+            db_auth_key: None,
             common: CommandLineConfig::default(),
         }
     }
@@ -273,6 +296,25 @@ impl AIProxyConfig {
         self.supported_models = models;
         self
     }
+
+    pub fn with_auth(
+        mut self,
+        auth_config: std::path::PathBuf,
+        tls_cert: std::path::PathBuf,
+        tls_key: std::path::PathBuf,
+    ) -> Self {
+        self.common.enable_auth = true;
+        self.common.auth_config = Some(auth_config);
+        self.common.tls_cert = Some(tls_cert);
+        self.common.tls_key = Some(tls_key);
+        self
+    }
+
+    pub fn with_db_auth(mut self, username: String, api_key: String) -> Self {
+        self.db_auth_username = Some(username);
+        self.db_auth_key = Some(api_key);
+        self
+    }
 }
 
 impl fmt::Display for SupportedModels {
@@ -285,6 +327,8 @@ impl fmt::Display for SupportedModels {
             SupportedModels::Resnet50 => write!(f, "Resnet-50"),
             SupportedModels::ClipVitB32Image => write!(f, "ClipVit-B32-Image"),
             SupportedModels::ClipVitB32Text => write!(f, "ClipVit-B32-Text"),
+            SupportedModels::BuffaloL => write!(f, "Buffalo-L"),
+            SupportedModels::SfaceYunet => write!(f, "SFace-YuNet"),
         }
     }
 }
@@ -299,6 +343,8 @@ impl From<&AiModel> for SupportedModels {
             AiModel::Resnet50 => SupportedModels::Resnet50,
             AiModel::ClipVitB32Image => SupportedModels::ClipVitB32Image,
             AiModel::ClipVitB32Text => SupportedModels::ClipVitB32Text,
+            AiModel::BuffaloL => SupportedModels::BuffaloL,
+            AiModel::SfaceYunet => SupportedModels::SfaceYunet,
         }
     }
 }
@@ -313,6 +359,8 @@ impl From<&SupportedModels> for AiModel {
             SupportedModels::Resnet50 => AiModel::Resnet50,
             SupportedModels::ClipVitB32Image => AiModel::ClipVitB32Image,
             SupportedModels::ClipVitB32Text => AiModel::ClipVitB32Text,
+            SupportedModels::BuffaloL => AiModel::BuffaloL,
+            SupportedModels::SfaceYunet => AiModel::SfaceYunet,
         }
     }
 }

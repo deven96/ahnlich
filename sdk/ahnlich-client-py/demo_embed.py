@@ -177,7 +177,6 @@ class VeryShortText2TextDemo:
         return await self.client.pipeline(pipeline_request, metadata=self.metadata)
 
     async def query(self):
-
         response = await self.client.get_sim_n(
             ai_query.GetSimN(
                 store=self.store_name,
@@ -227,7 +226,6 @@ class Text2ImageDemo:
         self.channel.close()
 
     async def insert(self):
-
         image_urls_and_athletes = [
             [
                 (
@@ -318,7 +316,6 @@ class Image2ImageDemo:
         self.channel.close()
 
     async def insert(self):
-
         image_urls_and_labels = [
             (
                 "https://cdn.britannica.com/96/195196-050-3909D5BD/Michael-Jordan-1988.jpg",

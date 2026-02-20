@@ -78,6 +78,10 @@ pub struct GetSimN {
         tag = "7"
     )]
     pub execution_provider: ::core::option::Option<i32>,
+    /// Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+    #[prost(map = "string, string", tag = "8")]
+    pub model_params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreatePredIndex {
@@ -152,6 +156,19 @@ pub struct DelKey {
     pub keys: ::prost::alloc::vec::Vec<super::super::keyval::StoreInput>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DelPred {
+    /// Deletes values from the store based on the provided predicate condition
+    /// This is a passthrough to the underlying DB service
+    /// Updates indices non-blocking after deletion
+    ///
+    /// Store name
+    #[prost(string, tag = "1")]
+    pub store: ::prost::alloc::string::String,
+    /// The condition for the predicate deletion
+    #[prost(message, optional, tag = "2")]
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DropStore {
     /// Deletes the entire store and removes all associated data
     /// Destroys the store, and updates indices accordingly
@@ -210,6 +227,10 @@ pub struct Set {
         tag = "4"
     )]
     pub execution_provider: ::core::option::Option<i32>,
+    /// Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+    #[prost(map = "string, string", tag = "5")]
+    pub model_params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConvertStoreInputToEmbeddings {
@@ -228,4 +249,8 @@ pub struct ConvertStoreInputToEmbeddings {
     /// AI model used for querying (string or image-based)
     #[prost(enumeration = "super::models::AiModel", tag = "3")]
     pub model: i32,
+    /// Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+    #[prost(map = "string, string", tag = "4")]
+    pub model_params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }

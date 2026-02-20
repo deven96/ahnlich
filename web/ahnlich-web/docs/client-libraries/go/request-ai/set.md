@@ -75,9 +75,10 @@ func main() {
 
   // perform Set operation
   _, err = client.Set(ctx, &aiquery.Set{
-      Store:            "ai_store", // must already exist
-      Inputs:           inputs,
-      PreprocessAction: preprocess.PreprocessAction_NoPreprocessing,
+      Store:             "ai_store", // must already exist
+      Inputs:            inputs,
+      PreprocessAction:  preprocess.PreprocessAction_NoPreprocessing,
+      ExecutionProvider: nil, // Optional: e.g., ExecutionProvider_CUDA for GPU acceleration
   })
   if err != nil {
       log.Fatalf(" Set failed: %v", err)

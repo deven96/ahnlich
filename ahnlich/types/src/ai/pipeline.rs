@@ -3,7 +3,7 @@
 pub struct AiQuery {
     #[prost(
         oneof = "ai_query::Query",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18"
     )]
     pub query: ::core::option::Option<ai_query::Query>,
 }
@@ -45,6 +45,8 @@ pub mod ai_query {
         Ping(super::super::query::Ping),
         #[prost(message, tag = "17")]
         ConvertStoreInputToEmbeddings(super::super::query::ConvertStoreInputToEmbeddings),
+        #[prost(message, tag = "18")]
+        DelPred(super::super::query::DelPred),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

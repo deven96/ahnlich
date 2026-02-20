@@ -19,7 +19,7 @@
 //! ---
 //!
 //! ## Example: DB Client
-//! ```rust
+//! ```rust,no_run
 //! use ahnlich_client_rs::db::DbClient;
 //!
 //! #[tokio::main]
@@ -33,12 +33,12 @@
 //! ```
 //!
 //! ## Example: AI Client
-//! ```rust
-//! use ahnlich_client_rs::ai::AIClient;
+//! ```rust,no_run
+//! use ahnlich_client_rs::ai::AiClient;
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let ai_client = AIClient::new("127.0.0.1:1369".to_string()).await?;
+//!     let ai_client = AiClient::new("127.0.0.1:1369".to_string()).await?;
 //!     let tracing_id: Option<String> = None;
 //!
 //!     ai_client.ping(tracing_id).await?;
@@ -53,7 +53,7 @@
 //! Pipelines enable multiple ordered operations to be issued in a batch. This ensures the operations are executed in sequence and allows for consistent read-after-write semantics.
 //!
 //! ### Example: DB Pipeline
-//! ```rust
+//! ```rust,no_run
 //! use ahnlich_client_rs::db::DbClient;
 //!
 //! #[tokio::main]

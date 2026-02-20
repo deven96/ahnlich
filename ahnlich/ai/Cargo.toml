@@ -69,8 +69,22 @@ coreml = ["ort/coreml"]
 directml = ["ort/directml"]
 
 [dev-dependencies]
+bincode.workspace = true
+criterion = "0.4"
 db = { path = "../db", version = "*" }
+dhat = "0.3"
 pretty_assertions.workspace = true
 regex = "1.11.1"
 test-case = "3.3.1"
-bincode.workspace = true
+
+[[bench]]
+name = "memory_profile"
+harness = false
+
+[[bench]]
+name = "realistic_memory_profile"
+harness = false
+
+[[bench]]
+name = "speed_comparison"
+harness = false

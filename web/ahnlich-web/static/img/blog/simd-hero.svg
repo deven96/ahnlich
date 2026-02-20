@@ -1,0 +1,75 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e3a8a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#312e81;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="highlight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  
+  <!-- Title -->
+  <text x="600" y="100" font-family="Arial, sans-serif" font-size="56" font-weight="bold" fill="white" text-anchor="middle">
+    SIMD Optimization in Ahnlich
+  </text>
+  
+  <text x="600" y="150" font-family="Arial, sans-serif" font-size="32" fill="#93c5fd" text-anchor="middle">
+    4.7x Faster Vector Search
+  </text>
+  
+  <!-- Scalar Processing -->
+  <text x="200" y="240" font-family="monospace" font-size="24" font-weight="bold" fill="#fbbf24">
+    Scalar
+  </text>
+  
+  <!-- Scalar boxes - vertical -->
+  <rect x="150" y="260" width="100" height="50" fill="#374151" stroke="#60a5fa" stroke-width="2" rx="4"/>
+  <text x="200" y="292" font-family="monospace" font-size="18" fill="white" text-anchor="middle">1.0 × 2.0</text>
+  
+  <rect x="150" y="320" width="100" height="50" fill="#374151" stroke="#60a5fa" stroke-width="2" rx="4"/>
+  <text x="200" y="352" font-family="monospace" font-size="18" fill="white" text-anchor="middle">1.5 × 2.5</text>
+  
+  <rect x="150" y="380" width="100" height="50" fill="#374151" stroke="#60a5fa" stroke-width="2" rx="4"/>
+  <text x="200" y="412" font-family="monospace" font-size="18" fill="white" text-anchor="middle">2.0 × 3.0</text>
+  
+  <rect x="150" y="440" width="100" height="50" fill="#374151" stroke="#60a5fa" stroke-width="2" rx="4"/>
+  <text x="200" y="472" font-family="monospace" font-size="18" fill="white" text-anchor="middle">2.5 × 3.5</text>
+  
+  <!-- Arrow -->
+  <text x="320" y="380" font-family="Arial" font-size="36" fill="#9ca3af">→</text>
+  
+  <text x="380" y="380" font-family="monospace" font-size="20" fill="#fbbf24">
+    4 cycles
+  </text>
+  
+  <!-- SIMD Processing -->
+  <text x="800" y="240" font-family="monospace" font-size="24" font-weight="bold" fill="#10b981">
+    SIMD (4-wide)
+  </text>
+  
+  <!-- SIMD single box -->
+  <rect x="650" y="300" width="300" height="120" fill="#374151" stroke="#10b981" stroke-width="3" rx="4"/>
+  
+  <text x="800" y="340" font-family="monospace" font-size="16" fill="white" text-anchor="middle">[1.0, 1.5, 2.0, 2.5]</text>
+  <text x="800" y="365" font-family="monospace" font-size="24" fill="#10b981" text-anchor="middle">×</text>
+  <text x="800" y="395" font-family="monospace" font-size="16" fill="white" text-anchor="middle">[2.0, 2.5, 3.0, 3.5]</text>
+  
+  <!-- Arrow -->
+  <text x="990" y="365" font-family="Arial" font-size="36" fill="#9ca3af">→</text>
+  
+  <text x="1040" y="365" font-family="monospace" font-size="20" fill="#10b981">
+    1 cycle
+  </text>
+  
+  <!-- Performance label -->
+  <rect x="400" y="530" width="400" height="60" fill="#065f46" rx="8"/>
+  <text x="600" y="570" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#10b981" text-anchor="middle">
+    ⚡ 4.7x Speedup on ARM NEON
+  </text>
+</svg>

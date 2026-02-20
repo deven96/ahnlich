@@ -15,6 +15,7 @@ use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
+use ahnlich_types::metadata::metadata_value;
 use fallible_collections::FallibleVec;
 use papaya::HashMap as ConcurrentHashMap;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
@@ -275,6 +276,7 @@ impl AIStoreHandler {
         model_manager: &ModelManager,
         preprocess_action: PreprocessAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: std::collections::HashMap<String, String>,
     ) -> Result<StoreSetResponse, AIProxyError> {
         let store = self.get(store_name)?;
         if inputs.is_empty() {
@@ -291,6 +293,7 @@ impl AIStoreHandler {
                 preprocess_action,
                 InputAction::Index,
                 execution_provider,
+                model_params,
             )
             .await?;
 
@@ -300,13 +303,34 @@ impl AIStoreHandler {
                     key: Some(key),
                     value: Some(v),
                 }],
-                ModelResponse::OneToMany(keys) => keys
-                    .into_iter()
-                    .map(|single_key| DbStoreEntry {
-                        key: Some(single_key),
-                        value: Some(v.clone()),
-                    })
-                    .collect(),
+                ModelResponse::OneToMany(keys) => {
+                    // For OneToMany models (e.g., Buffalo_L face recognition), add sequential
+                    // index metadata to each output for identification and deletion
+                    let model_details =
+                        SupportedModels::from(&store.index_model).to_model_details();
+                    let is_one_to_many = model_details.is_one_to_many();
+                    keys.into_iter()
+                        .enumerate()
+                        .map(|(output_idx, single_key)| {
+                            let mut value = v.clone();
+                            if is_one_to_many {
+                                // Add index as metadata for OneToMany models
+                                value.value.insert(
+                                    crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY.to_string(),
+                                    MetadataValue {
+                                        value: Some(metadata_value::Value::RawString(
+                                            output_idx.to_string(),
+                                        )),
+                                    },
+                                );
+                            }
+                            DbStoreEntry {
+                                key: Some(single_key),
+                                value: Some(value),
+                            }
+                        })
+                        .collect()
+                }
             })
             .collect();
         Ok((output, delete_hashset))
@@ -368,6 +392,7 @@ impl AIStoreHandler {
         model_manager: &ModelManager,
         preprocess_action: PreprocessAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: std::collections::HashMap<String, String>,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
         let mut store_keys = model_manager
@@ -377,17 +402,17 @@ impl AIStoreHandler {
                 preprocess_action,
                 InputAction::Query,
                 execution_provider,
+                model_params,
             )
             .await?;
 
-        // TODO: Document the fact that for OneToMany models, GetSimN would only compare against
-        // the first ever embedding found out of the many embeddings
         match store_keys.pop() {
             Some(first_store_key) => match first_store_key {
                 ModelResponse::OneToOne(resp) => Ok(resp),
-                ModelResponse::OneToMany(mut many) => match many.pop() {
-                    Some(first) => Ok(first),
-                    None => Err(AIProxyError::ModelInputToEmbeddingError),
+                ModelResponse::OneToMany(mut many) => match many.len() {
+                    0 => Err(AIProxyError::ModelInputToEmbeddingError),
+                    1 => Ok(many.pop().unwrap()),
+                    n => Err(AIProxyError::MultipleEmbeddingsForQuery(n)),
                 },
             },
             None => Err(AIProxyError::ModelInputToEmbeddingError),

@@ -18,8 +18,9 @@ target/
 *.swo
 *.swn
 
-# persistence file for test
+# persistence files for test
 ahnlich.dat
+*.dat
 
 # docker-compose ignore
 ahnlich_ai_model_cache/

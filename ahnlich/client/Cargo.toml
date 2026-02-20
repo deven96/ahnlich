@@ -32,3 +32,5 @@ pretty_assertions.workspace = true
 ndarray.workspace = true
 utils = { path = "../utils", version = "*" }
 test-case = "3.3.1"
+rcgen = "0.13"
+tempfile = "3"

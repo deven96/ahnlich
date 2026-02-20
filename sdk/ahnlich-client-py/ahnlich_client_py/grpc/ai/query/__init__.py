@@ -4,7 +4,7 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import betterproto
 
@@ -66,6 +66,9 @@ class GetSimN(betterproto.Message):
     preprocess_action: "_preprocess__.PreprocessAction" = betterproto.enum_field(6)
     execution_provider: Optional["_execution_provider__.ExecutionProvider"] = (
         betterproto.enum_field(7, optional=True)
+    )
+    model_params: Dict[str, str] = betterproto.map_field(
+        8, betterproto.TYPE_STRING, betterproto.TYPE_STRING
     )
 
 
@@ -129,6 +132,18 @@ class DelKey(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class DelPred(betterproto.Message):
+    store: str = betterproto.string_field(1)
+    """
+    Deletes values from the store based on the provided predicate condition
+     This is a passthrough to the underlying DB service
+     Updates indices non-blocking after deletion
+    """
+
+    condition: "__predicates__.PredicateCondition" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class DropStore(betterproto.Message):
     store: str = betterproto.string_field(1)
     """
@@ -187,6 +202,9 @@ class Set(betterproto.Message):
     execution_provider: Optional["_execution_provider__.ExecutionProvider"] = (
         betterproto.enum_field(4, optional=True)
     )
+    model_params: Dict[str, str] = betterproto.map_field(
+        5, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
 
 
 @dataclass(eq=False, repr=False)
@@ -198,3 +216,6 @@ class ConvertStoreInputToEmbeddings(betterproto.Message):
         betterproto.enum_field(2, optional=True)
     )
     model: "_models__.AiModel" = betterproto.enum_field(3)
+    model_params: Dict[str, str] = betterproto.map_field(
+        4, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )

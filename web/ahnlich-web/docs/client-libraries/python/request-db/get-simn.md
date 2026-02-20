@@ -17,6 +17,8 @@ It retrieves the N closest vectors to a given query vector.
 
   * `algorithm`: similarity metric (e.g. CosineSimilarity, EuclideanDistance).
 
+  * `condition`: optional predicate filter to restrict which vectors are considered. Set to `None` to search all vectors. See [Predicates documentation](/components/predicates/predicates) for filtering examples.
+
 * **Behavior**: The server compares the query vector with stored vectors using the chosen similarity metric.
 
 * **Response**: A list of entries with:
@@ -35,7 +37,7 @@ It retrieves the N closest vectors to a given query vector.
   from grpclib.client import Channel
   from ahnlich_client_py.grpc.services.db_service import DbServiceStub
   from ahnlich_client_py.grpc.db import query as db_query
-  from ahnlich_client_py.grpc import keyval
+  from ahnlich_client_py.grpc import keyval, predicates
   from ahnlich_client_py.grpc.algorithm.algorithms import Algorithm
 
 
@@ -52,7 +54,8 @@ It retrieves the N closest vectors to a given query vector.
           store="test store",
           search_input=search_key,
           closest_n=3,
-          algorithm=Algorithm.CosineSimilarity
+          algorithm=Algorithm.CosineSimilarity,
+          condition=None  # Optional: filter results using predicates
         )
       )
 

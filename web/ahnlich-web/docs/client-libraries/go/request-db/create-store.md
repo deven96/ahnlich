@@ -10,9 +10,15 @@ title: Create Store
 
 ## Behavior
 
-- A store must have a **unique name** within the server instance. If you try to create a store with an existing name, the server will reject it.
+- A store must have a **unique name** within the server instance. If you try to create a store with an existing name and `ErrorIfExists` is true, the server will reject it.
 
 - The **dimension parameter** is mandatory and must match the size of vectors you plan to insert.
+
+- **CreatePredicates** - Optional list of metadata field names to enable predicate-based filtering. Leave empty if you don't need metadata filtering.
+
+- **NonLinearIndices** - Optional list of non-linear algorithms for faster approximate search. Leave empty to use only linear search.
+
+- **ErrorIfExists** - Controls behavior when store already exists. Set to `true` to get an error, `false` to silently skip creation.
 
 - Once created, a store can be queried, listed, and populated with embeddings.
 
@@ -67,8 +73,11 @@ func (c *ExampleDBClient) Close() error { return c.conn.Close() }
 // CreateStore example
 func (c *ExampleDBClient) exampleCreateStore(store string, dimension int32) error {
     _, err := c.client.CreateStore(c.ctx, &dbquery.CreateStore{
-        Store:     store,
-        Dimension: uint32(dimension),
+        Store:             store,
+        Dimension:         uint32(dimension),
+        CreatePredicates:  []string{}, // Optional: list of metadata fields to index for filtering
+        NonLinearIndices:  []int32{},  // Optional: non-linear algorithms (e.g., KdTree) for faster search
+        ErrorIfExists:     true,        // Return error if store already exists
     })
     if err != nil {
         return err

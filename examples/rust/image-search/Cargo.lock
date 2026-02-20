@@ -48,6 +48,7 @@ dependencies = [
 name = "ahnlich_types"
 version = "0.1.0"
 dependencies = [
+ "ascii85",
  "prost",
  "prost-build",
  "prost-types",
@@ -158,6 +159,12 @@ name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+
+[[package]]
+name = "ascii85"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f7b2cc50ccfca05cc3e99a014901ae232948108082a2eecebc3ab6544ebd938"
 
 [[package]]
 name = "async-stream"

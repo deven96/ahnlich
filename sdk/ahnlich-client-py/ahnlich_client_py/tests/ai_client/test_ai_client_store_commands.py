@@ -221,6 +221,75 @@ async def test_ai_client_del_key(spin_up_ahnlich_ai):
 
 
 @pytest.mark.asyncio
+async def test_ai_client_del_pred(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
+    try:
+        # Create store with predicates
+        await client.create_store(
+            ai_query.CreateStore(**ai_store_payload_with_predicates)
+        )
+
+        # Insert multiple entries with different categories
+        entries = [
+            keyval.AiStoreEntry(
+                key=keyval.StoreInput(raw_string="Old Soccer Ball"),
+                value=keyval.StoreValue(
+                    value={"category": metadata.MetadataValue(raw_string="archived")}
+                ),
+            ),
+            keyval.AiStoreEntry(
+                key=keyval.StoreInput(raw_string="New Basketball"),
+                value=keyval.StoreValue(
+                    value={"category": metadata.MetadataValue(raw_string="active")}
+                ),
+            ),
+            keyval.AiStoreEntry(
+                key=keyval.StoreInput(raw_string="Vintage Tennis Racket"),
+                value=keyval.StoreValue(
+                    value={"category": metadata.MetadataValue(raw_string="archived")}
+                ),
+            ),
+        ]
+        await client.set(
+            ai_query.Set(
+                store=ai_store_payload_with_predicates["store"],
+                inputs=entries,
+                preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+            )
+        )
+
+        # Delete by predicate (category == "archived")
+        condition = predicates.PredicateCondition(
+            value=predicates.Predicate(
+                equals=predicates.Equals(
+                    key="category", value=metadata.MetadataValue(raw_string="archived")
+                )
+            )
+        )
+
+        response = await client.del_pred(
+            ai_query.DelPred(
+                store=ai_store_payload_with_predicates["store"],
+                condition=condition,
+            )
+        )
+
+        assert response.deleted_count == 2
+
+        # Verify that archived items are deleted
+        get_response = await client.get_pred(
+            ai_query.GetPred(
+                store=ai_store_payload_with_predicates["store"],
+                condition=condition,
+            )
+        )
+        assert len(get_response.entries) == 0
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
 async def test_ai_client_get_key(spin_up_ahnlich_ai):
     channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
     client = ai_service.AiServiceStub(channel)

@@ -41,7 +41,8 @@ The AI service will automatically **embed these inputs** using the store’s con
                         ),
                     )
                 ],
-                preprocess_action=preprocess.PreprocessAction.NoPreprocessing
+                preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+                execution_provider=None  # Optional: e.g., ExecutionProvider.CUDA for GPU acceleration
             )
         )
         print(response) #Set(upsert=StoreUpsert(inserted=2))
@@ -68,5 +69,7 @@ The AI service will automatically **embed these inputs** using the store’s con
   * `NoPreprocessing` - raw text is passed as-is to the embedding model.
 
   * Other preprocessing options (like normalization or tokenization) can be applied depending on the use case.
+
+* **`execution_provider`** - Optional hardware acceleration for model inference (e.g., `CUDA`, `TensorRT`, `CoreML`). Set to `None` for default CPU execution.
 
 * **Response** → returns counts of inserted vs. updated items (`upsert counts`).  

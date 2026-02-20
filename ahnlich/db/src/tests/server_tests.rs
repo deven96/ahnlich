@@ -1546,7 +1546,7 @@ async fn test_server_with_persistence() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1320,
+                        size_in_bytes: 1304,
                     }],
                 },
             )),
@@ -1570,7 +1570,7 @@ async fn test_server_with_persistence() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 1,
-                        size_in_bytes: 1272,
+                        size_in_bytes: 1256,
                     }],
                 },
             )),
@@ -1862,7 +1862,7 @@ async fn test_set_in_store() {
                     stores: vec![db_response_types::StoreInfo {
                         name: "Main".to_string(),
                         len: 2,
-                        size_in_bytes: 1320,
+                        size_in_bytes: 1304,
                     }],
                 },
             )),
