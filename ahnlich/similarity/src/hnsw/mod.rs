@@ -142,9 +142,12 @@ impl<F> MaxHeapQueue<F>
 where
     F: Fn(&[f32], &[f32]) -> f32,
 {
-    fn from_nodes(nodes: &[Node], query: &Node, similarity_function: F) -> Self {
+    fn from_nodes<'a>(
+        nodes: impl Iterator<Item = &'a Node>,
+        query: &Node,
+        similarity_function: F,
+    ) -> Self {
         let heap = nodes
-            .iter()
             .map(|node| {
                 let similarity = similarity_function(&node.value, &query.value);
                 OrderedNode((node.id.clone(), similarity))
@@ -197,9 +200,12 @@ impl<F> MinHeapQueue<F>
 where
     F: Fn(&[f32], &[f32]) -> f32,
 {
-    fn from_nodes(nodes: &[Node], query: &Node, similarity_function: F) -> Self {
+    fn from_nodes<'a>(
+        nodes: impl Iterator<Item = &'a Node>,
+        query: &Node,
+        similarity_function: F,
+    ) -> Self {
         let heap = nodes
-            .iter()
             .map(|node| {
                 let similarity = similarity_function(&node.value, &query.value);
                 let ordered_node = OrderedNode((node.id.clone(), similarity));

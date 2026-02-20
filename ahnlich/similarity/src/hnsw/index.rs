@@ -115,14 +115,11 @@ impl HNSW {
                 &LayerIndex(level_current as u16),
             )?;
 
-            let nearest_neighbours_nodes = nearest_neighbours
-                .iter()
-                .filter_map(|node_id| self.get_node(node_id).cloned())
-                .collect::<Vec<Node>>();
-
             // NOTE: get the nearest element from W to q
             let nearest_ele = MinHeapQueue::from_nodes(
-                &nearest_neighbours_nodes,
+                nearest_neighbours
+                    .iter()
+                    .filter_map(|node_id| self.get_node(node_id)),
                 &value,
                 euclidean_distance_comp,
             )
@@ -236,13 +233,10 @@ impl HNSW {
                 if self.nodes.len() <= 1 {
                     vec![]
                 } else {
-                    let nearest_neighbours_nodes = nearest_neighbours
-                        .iter()
-                        .filter_map(|node_id| self.get_node(node_id).cloned())
-                        .collect::<Vec<Node>>();
-
                     let enter_point = MinHeapQueue::from_nodes(
-                        &nearest_neighbours_nodes,
+                        nearest_neighbours
+                            .iter()
+                            .filter_map(|node_id| self.get_node(node_id)),
                         &value,
                         euclidean_distance_comp,
                     )
@@ -280,21 +274,22 @@ impl HNSW {
         layer: &LayerIndex,
     ) -> Result<HashSet<NodeId>, Error> {
         //
-        let nodes = entry_points
-            .iter()
-            .filter_map(|id| self.nodes.get(id))
-            .cloned()
-            .collect::<Vec<Node>>();
-
         // v
         let mut visited_items: HashSet<&NodeId> = HashSet::from_iter(entry_points);
 
         // C
-        let mut candidates = MinHeapQueue::from_nodes(&nodes, query, euclidean_distance_comp);
+        let mut candidates = MinHeapQueue::from_nodes(
+            entry_points.iter().filter_map(|id| self.nodes.get(id)),
+            query,
+            euclidean_distance_comp,
+        );
 
         // W
-        let mut nearest_neighbours =
-            MaxHeapQueue::from_nodes(&nodes, query, euclidean_distance_comp);
+        let mut nearest_neighbours = MaxHeapQueue::from_nodes(
+            entry_points.iter().filter_map(|id| self.nodes.get(id)),
+            query,
+            euclidean_distance_comp,
+        );
 
         while candidates.len() > 0 {
             let nearest_ele_from_c_and_to_q = candidates
@@ -381,13 +376,14 @@ impl HNSW {
         extend_candidates: bool,
         keep_pruned_connections: bool,
     ) -> Result<Vec<NodeId>, Error> {
-        let mut response = MinHeapQueue::from_nodes(&[], query, euclidean_distance_comp);
+        let mut response =
+            MinHeapQueue::from_nodes(std::iter::empty(), query, euclidean_distance_comp);
 
-        let nodes = candidates
-            .iter()
-            .filter_map(|id| self.get_node(id).cloned())
-            .collect::<Vec<_>>();
-        let mut working_queue = MinHeapQueue::from_nodes(&nodes, query, euclidean_distance_comp);
+        let mut working_queue = MinHeapQueue::from_nodes(
+            candidates.iter().filter_map(|id| self.get_node(id)),
+            query,
+            euclidean_distance_comp,
+        );
 
         if extend_candidates {
             for candidate in candidates {
@@ -412,7 +408,7 @@ impl HNSW {
         }
 
         let mut discarded_candidates =
-            MinHeapQueue::from_nodes(&[], query, euclidean_distance_comp);
+            MinHeapQueue::from_nodes(std::iter::empty(), query, euclidean_distance_comp);
 
         // NOTE: if nearest_element_from_w_to_q is closer to q compared to any
         // element in R(use the argmin from R and if nearest_ele_from_w_to_q is closer to q than
@@ -483,26 +479,23 @@ impl HNSW {
 
             let searched = self.search_layer(query, &enter_point, 1, &layer)?;
 
-            let nodes = searched
-                .iter()
-                .filter_map(|id| self.get_node(id).cloned())
-                .collect::<Vec<_>>();
-
-            let ep = MinHeapQueue::from_nodes(&nodes, query, euclidean_distance_comp)
-                .peak()
-                .map(|ele| ele.0.0.0.clone())
-                .ok_or(Error::QueueEmpty)?;
+            let ep = MinHeapQueue::from_nodes(
+                searched.iter().filter_map(|id| self.get_node(id)),
+                query,
+                euclidean_distance_comp,
+            )
+            .peak()
+            .map(|ele| ele.0.0.0.clone())
+            .ok_or(Error::QueueEmpty)?;
             enter_point = vec![ep];
         }
 
-        let level_zero_nodes = self
-            .search_layer(query, &enter_point, ef, &LayerIndex(0))?
-            .iter()
-            .filter_map(|id| self.get_node(id).cloned())
-            .collect::<Vec<_>>();
-
-        let mut current_nearest_elements =
-            MinHeapQueue::from_nodes(&level_zero_nodes, query, euclidean_distance_comp);
+        let level_zero = self.search_layer(query, &enter_point, ef, &LayerIndex(0))?;
+        let mut current_nearest_elements = MinHeapQueue::from_nodes(
+            level_zero.iter().filter_map(|id| self.get_node(id)),
+            query,
+            euclidean_distance_comp,
+        );
 
         Ok(current_nearest_elements
             .pop_n(valid_len)
