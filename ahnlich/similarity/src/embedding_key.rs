@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -5,6 +6,19 @@ use std::sync::Arc;
 /// across the non-linear index pipeline. Cloning is a cheap pointer bump.
 #[derive(Debug, Clone)]
 pub struct EmbeddingKey(pub Arc<Vec<f32>>);
+
+impl Serialize for EmbeddingKey {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for EmbeddingKey {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let v = Vec::<f32>::deserialize(deserializer)?;
+        Ok(Self::new(v))
+    }
+}
 
 impl EmbeddingKey {
     pub fn new(v: Vec<f32>) -> Self {

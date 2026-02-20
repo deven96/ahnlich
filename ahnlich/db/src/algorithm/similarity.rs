@@ -1,9 +1,8 @@
 use super::LinearAlgorithm;
-use ahnlich_types::keyval::StoreKey;
 use pulp::{Arch, Simd, WithSimd};
 use std::ops::Deref;
 
-type SimFuncSig = fn(&StoreKey, &StoreKey) -> f32;
+type SimFuncSig = fn(&[f32], &[f32]) -> f32;
 
 pub(crate) struct SimilarityFunc(SimFuncSig);
 
@@ -106,22 +105,19 @@ impl WithSimd for Magnitude<'_> {
 ///  We are looking the closest number to one meaning Max
 ///  The smaller the distance between two points, denotes higher similarity.
 #[tracing::instrument(skip_all)]
-fn cosine_similarity(first: &StoreKey, second: &StoreKey) -> f32 {
+fn cosine_similarity(first: &[f32], second: &[f32]) -> f32 {
     assert_eq!(
-        first.key.len(),
-        second.key.len(),
+        first.len(),
+        second.len(),
         "Vectors must have the same length!"
     );
 
-    let dot_product = dot_product(first, second);
+    let dot = dot_product(first, second);
 
     let arch = Arch::new();
-    let magnitude = arch.dispatch(Magnitude {
-        first: first.key.as_slice(),
-        second: second.key.as_slice(),
-    });
+    let magnitude = arch.dispatch(Magnitude { first, second });
 
-    dot_product / magnitude
+    dot / magnitude
 }
 
 ///
@@ -162,18 +158,15 @@ impl WithSimd for DotProduct<'_> {
 }
 
 #[tracing::instrument(skip_all)]
-fn dot_product(first: &StoreKey, second: &StoreKey) -> f32 {
+fn dot_product(first: &[f32], second: &[f32]) -> f32 {
     assert_eq!(
-        first.key.len(),
-        second.key.len(),
+        first.len(),
+        second.len(),
         "Vectors must have the same length!"
     );
 
     let arch = Arch::new();
-    arch.dispatch(DotProduct {
-        first: first.key.as_slice(),
-        second: second.key.as_slice(),
-    })
+    arch.dispatch(DotProduct { first, second })
 }
 
 ///  
@@ -231,20 +224,17 @@ impl WithSimd for EuclideanDistance<'_> {
 }
 
 #[tracing::instrument(skip_all)]
-fn euclidean_distance(first: &StoreKey, second: &StoreKey) -> f32 {
+fn euclidean_distance(first: &[f32], second: &[f32]) -> f32 {
     // Calculate the sum of squared differences for each dimension
     assert_eq!(
-        first.key.len(),
-        second.key.len(),
+        first.len(),
+        second.len(),
         "Vectors must have the same length!"
     );
 
     let arch = Arch::new();
 
-    arch.dispatch(EuclideanDistance {
-        first: first.key.as_slice(),
-        second: second.key.as_slice(),
-    })
+    arch.dispatch(EuclideanDistance { first, second })
 }
 
 #[cfg(test)]
@@ -253,13 +243,14 @@ mod tests {
 
     use super::*;
     use crate::tests::*;
+    use ahnlich_types::keyval::StoreKey;
 
     use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 
-    fn euclidean_distance_comp(first: &StoreKey, second: &StoreKey) -> f32 {
+    fn euclidean_distance_comp(first: &[f32], second: &[f32]) -> f32 {
         // Calculate the sum of squared differences for each dimension
         let mut sum_of_squared_differences = 0.0;
-        for (&coord1, &coord2) in first.key.iter().zip(second.key.iter()) {
+        for (&coord1, &coord2) in first.iter().zip(second.iter()) {
             let diff = coord1 - coord2;
             sum_of_squared_differences += diff * diff;
         }
@@ -268,31 +259,26 @@ mod tests {
         f32::sqrt(sum_of_squared_differences)
     }
 
-    fn dot_product_comp(first: &StoreKey, second: &StoreKey) -> f32 {
-        first
-            .key
-            .iter()
-            .zip(&second.key)
-            .map(|(&x, &y)| x * y)
-            .sum::<f32>()
+    fn dot_product_comp(first: &[f32], second: &[f32]) -> f32 {
+        first.iter().zip(second).map(|(&x, &y)| x * y).sum::<f32>()
     }
 
     // simple cosine similarity for correctness comparison against simd variant
-    fn cosine_similarity_comp(first: &StoreKey, second: &StoreKey) -> f32 {
+    fn cosine_similarity_comp(first: &[f32], second: &[f32]) -> f32 {
         // formular = dot product of vectors / product of the magnitude of the vectors
         // maginiture of a vector can be calcuated using pythagoras theorem.
         // sqrt of sum of vector values
         //
         //
 
-        let dot_product = dot_product(first, second);
+        let dot = dot_product(first, second);
 
         // the magnitude can be calculated using the arr.norm method.
-        let mag_first = &first.key.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
+        let mag_first = &first.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
 
-        let mag_second = &second.key.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
+        let mag_second = &second.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
 
-        dot_product / (mag_first.sqrt() * mag_second.sqrt())
+        dot / (mag_first.sqrt() * mag_second.sqrt())
     }
 
     fn time_execution<F>(mut func: F) -> Duration
@@ -335,13 +321,13 @@ mod tests {
 
         let without_simd_duration = time_execution(|| {
             for val in &store_values {
-                cosine_similarity_comp(&comp_array, val);
+                cosine_similarity_comp(&comp_array.key, &val.key);
             }
         });
 
         let with_simd_duration = time_execution(|| {
             for val in &store_values {
-                cosine_similarity(&comp_array, val);
+                cosine_similarity(&comp_array.key, &val.key);
             }
         });
 
@@ -355,12 +341,8 @@ mod tests {
 
     #[test]
     fn test_verify_dot_product_simd() {
-        let array_one = StoreKey {
-            key: vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1],
-        };
-        let array_two = StoreKey {
-            key: vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1],
-        };
+        let array_one = vec![1.0f32, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1];
+        let array_two = vec![2.0f32, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1];
 
         let scalar_dot_product = dot_product_comp(&array_one, &array_two);
         let simd_dot_product = dot_product(&array_one, &array_two);
@@ -383,13 +365,13 @@ mod tests {
 
         let without_simd_duration = time_execution(|| {
             for val in &store_values {
-                dot_product_comp(&comp_array, val);
+                dot_product_comp(&comp_array.key, &val.key);
             }
         });
 
         let with_simd_duration = time_execution(|| {
             for val in &store_values {
-                dot_product(&comp_array, val);
+                dot_product(&comp_array.key, &val.key);
             }
         });
 
@@ -403,12 +385,8 @@ mod tests {
 
     #[test]
     fn test_verify_simd_cosine_sim() {
-        let array_one = StoreKey {
-            key: vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1],
-        };
-        let array_two = StoreKey {
-            key: vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1],
-        };
+        let array_one = vec![1.0f32, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1];
+        let array_two = vec![2.0f32, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1];
 
         let scalar_cos_sim = cosine_similarity_comp(&array_one, &array_two);
         let simd_cos_sim = cosine_similarity(&array_one, &array_two);
@@ -418,12 +396,8 @@ mod tests {
 
     #[test]
     fn test_verify_euclidean_distance_simd() {
-        let array_one = StoreKey {
-            key: vec![1.0, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1],
-        };
-        let array_two = StoreKey {
-            key: vec![2.0, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1],
-        };
+        let array_one = vec![1.0f32, 1.1, 1.2, 1.3, 2.0, 3.1, 3.2, 4.1, 5.1];
+        let array_two = vec![2.0f32, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1];
 
         let scalar_euclid = euclidean_distance_comp(&array_one, &array_two);
         let simd_euclid = euclidean_distance(&array_one, &array_two);
@@ -446,13 +420,13 @@ mod tests {
 
         let without_simd_duration = time_execution(|| {
             for val in &store_values {
-                euclidean_distance_comp(&comp_array, val);
+                euclidean_distance_comp(&comp_array.key, &val.key);
             }
         });
 
         let with_simd_duration = time_execution(|| {
             for val in &store_values {
-                euclidean_distance(&comp_array, val);
+                euclidean_distance(&comp_array.key, &val.key);
             }
         });
 
@@ -475,7 +449,7 @@ mod tests {
         for sentence in SENTENCES.iter() {
             let second_vector = sentences_vectors.get(*sentence).unwrap().to_owned();
 
-            let similarity = cosine_similarity(&first_vector, &second_vector);
+            let similarity = cosine_similarity(&first_vector.key, &second_vector.key);
 
             most_similar_result.push((*sentence, similarity))
         }
@@ -498,7 +472,7 @@ mod tests {
         for sentence in SENTENCES.iter() {
             let second_vector = sentences_vectors.get(*sentence).unwrap().to_owned();
 
-            let similarity = euclidean_distance(&first_vector, &second_vector);
+            let similarity = euclidean_distance(&first_vector.key, &second_vector.key);
 
             most_similar_result.push((*sentence, similarity))
         }
@@ -522,7 +496,7 @@ mod tests {
         for sentence in SENTENCES.iter() {
             let second_vector = sentences_vectors.get(*sentence).unwrap().to_owned();
 
-            let similarity = dot_product(&first_vector, &second_vector);
+            let similarity = dot_product(&first_vector.key, &second_vector.key);
 
             most_similar_result.push((*sentence, similarity))
         }

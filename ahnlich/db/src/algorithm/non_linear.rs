@@ -6,7 +6,6 @@ use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_similarity::utils::VecF32Ordered;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
-use ahnlich_types::keyval::StoreKey;
 use papaya::HashMap as ConcurrentHashMap;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -63,8 +62,8 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
     #[tracing::instrument(skip_all)]
     fn find_similar_n<'a>(
         &'a self,
-        search_vector: &StoreKey,
-        search_list: impl ParallelIterator<Item = &'a StoreKey>,
+        search_vector: &EmbeddingKey,
+        search_list: impl ParallelIterator<Item = &'a EmbeddingKey>,
         used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)> {
@@ -73,12 +72,12 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
         } else {
             Some(
                 search_list
-                    .map(|key| VecF32Ordered(key.key.clone()))
+                    .map(|key| VecF32Ordered(key.as_slice().to_vec()))
                     .collect(),
             )
         };
         self.get_inner()
-            .n_nearest(&search_vector.key, n, accept_list)
+            .n_nearest(search_vector.as_slice(), n, accept_list)
             .expect("Index does not have the same size as reference_point")
             .into_par_iter()
             .map(|(arr, sim)| (StoreKeyId::from(&arr), sim))
