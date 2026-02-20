@@ -310,9 +310,12 @@ impl HNSW {
                 .get_node(&furthest_ele_from_nearest_neighbours_to_q)
                 .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
 
-            let furthest_distance = euclidean_distance_comp(&furthest_node.value, &query.value);
+            let furthest_distance =
+                euclidean_distance_comp(furthest_node.value.as_slice(), query.value.as_slice());
 
-            if euclidean_distance_comp(&query.value, &closest_node.value) > furthest_distance {
+            if euclidean_distance_comp(query.value.as_slice(), closest_node.value.as_slice())
+                > furthest_distance
+            {
                 break;
             }
 
@@ -342,9 +345,13 @@ impl HNSW {
                         .get_node(e)
                         .ok_or(Error::NotFoundError(" Node Ref not Found".to_string()))?;
 
-                    if (euclidean_distance_comp(&neighbour_node.value, &query.value)
-                        < euclidean_distance_comp(&furthest_node.value, &query.value))
-                        || (nearest_neighbours.len() < ef as usize)
+                    if (euclidean_distance_comp(
+                        neighbour_node.value.as_slice(),
+                        query.value.as_slice(),
+                    ) < euclidean_distance_comp(
+                        furthest_node.value.as_slice(),
+                        query.value.as_slice(),
+                    )) || (nearest_neighbours.len() < ef as usize)
                     {
                         candidates.push(neighbour_node);
                         nearest_neighbours.push(neighbour_node);
@@ -577,7 +584,7 @@ pub fn brute_knn(query: &Node, data: &[Node], k: usize) -> Vec<(NodeId, f32)> {
         .map(|n| {
             (
                 n.id.clone(),
-                euclidean_distance_comp(&n.value, &query.value),
+                euclidean_distance_comp(n.value.as_slice(), query.value.as_slice()),
             )
         })
         .sorted_by(|a, b| {
@@ -599,13 +606,14 @@ pub fn brute_knn(query: &Node, data: &[Node], k: usize) -> Vec<(NodeId, f32)> {
 mod tests {
 
     use super::*;
+    use crate::EmbeddingKey;
 
     #[test]
     fn test_simple_hnsw_state() {
         let node_id = NodeId(1);
         let node = Node {
             id: node_id.clone(),
-            value: vec![3.2],
+            value: EmbeddingKey::new(vec![3.2]),
             back_links: HashSet::new(),
             neighbours: BTreeMap::new(),
         };
@@ -631,14 +639,14 @@ mod tests {
 
         let node_a = Node {
             id: a.clone(),
-            value: vec![0.0],
+            value: EmbeddingKey::new(vec![0.0]),
             neighbours: BTreeMap::new(),
             back_links: HashSet::new(),
         };
 
         let node_b = Node {
             id: b.clone(),
-            value: vec![1.0],
+            value: EmbeddingKey::new(vec![1.0]),
             neighbours: BTreeMap::new(),
             back_links: HashSet::new(),
         };
@@ -668,7 +676,7 @@ mod tests {
         for id in &ids {
             hnsw.insert(Node {
                 id: id.clone(),
-                value: vec![0.0],
+                value: EmbeddingKey::new(vec![0.0]),
                 neighbours: BTreeMap::new(),
                 back_links: HashSet::new(),
             })
@@ -708,7 +716,7 @@ mod tests {
 
         hnsw.insert(Node {
             id: a.clone(),
-            value: vec![0.0],
+            value: EmbeddingKey::new(vec![0.0]),
             neighbours: BTreeMap::new(),
             back_links: HashSet::new(),
         })
@@ -716,7 +724,7 @@ mod tests {
 
         hnsw.insert(Node {
             id: b.clone(),
-            value: vec![10.0],
+            value: EmbeddingKey::new(vec![10.0]),
             neighbours: BTreeMap::new(),
             back_links: HashSet::new(),
         })
@@ -725,7 +733,7 @@ mod tests {
         let node_id = NodeId(99);
         let query_node = Node {
             id: node_id.clone(),
-            value: vec![1.0],
+            value: EmbeddingKey::new(vec![1.0]),
             neighbours: BTreeMap::new(),
             back_links: HashSet::new(),
         };
@@ -743,7 +751,7 @@ mod tests {
 
         hnsw.insert(Node {
             id: a.clone(),
-            value: vec![0.0],
+            value: EmbeddingKey::new(vec![0.0]),
             neighbours: BTreeMap::new(),
             back_links: HashSet::new(),
         })
@@ -751,7 +759,7 @@ mod tests {
 
         hnsw.insert(Node {
             id: b.clone(),
-            value: vec![1.0],
+            value: EmbeddingKey::new(vec![1.0]),
             neighbours: BTreeMap::new(),
             back_links: HashSet::new(),
         })
@@ -775,7 +783,7 @@ mod tests {
         for id in &ids {
             hnsw.insert(Node {
                 id: id.clone(),
-                value: vec![0.0],
+                value: EmbeddingKey::new(vec![0.0]),
                 neighbours: BTreeMap::new(),
                 back_links: HashSet::new(),
             })

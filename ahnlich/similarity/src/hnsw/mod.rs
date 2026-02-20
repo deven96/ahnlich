@@ -5,6 +5,7 @@ pub mod index;
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
 /// similarity function. It then navigates between these localised lists in DFS manner until it
 /// gets the values it needs to
+use crate::EmbeddingKey;
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashSet, btree_map::BTreeMap},
@@ -60,16 +61,17 @@ pub struct NodeId(pub u64);
 #[derive(Debug, Clone)]
 pub struct Node {
     id: NodeId,
-    value: Vec<f32>,
+    value: EmbeddingKey,
     neighbours: BTreeMap<LayerIndex, HashSet<NodeId>>,
     back_links: HashSet<NodeId>,
 }
 
 impl Node {
     pub fn new(value: Vec<f32>) -> Self {
+        let id = get_node_id(&value);
         Self {
-            id: get_node_id(&value),
-            value,
+            id,
+            value: EmbeddingKey::new(value),
             neighbours: BTreeMap::new(),
             back_links: HashSet::with_capacity(1),
         }
@@ -149,14 +151,14 @@ where
     ) -> Self {
         let heap = nodes
             .map(|node| {
-                let similarity = similarity_function(&node.value, &query.value);
+                let similarity = similarity_function(node.value.as_slice(), query.value.as_slice());
                 OrderedNode((node.id.clone(), similarity))
             })
             .collect::<BinaryHeap<_>>();
         Self {
             heap,
             similarity: similarity_function,
-            query: query.value.clone(),
+            query: query.value.as_slice().to_vec(),
         }
     }
 
@@ -177,7 +179,7 @@ where
     }
 
     fn push(&mut self, node: &Node) {
-        let distance = (self.similarity)(&node.value, &self.query);
+        let distance = (self.similarity)(node.value.as_slice(), &self.query);
         let ordered = OrderedNode((node.id.clone(), distance));
         self.heap.push(ordered)
     }
@@ -207,7 +209,7 @@ where
     ) -> Self {
         let heap = nodes
             .map(|node| {
-                let similarity = similarity_function(&node.value, &query.value);
+                let similarity = similarity_function(node.value.as_slice(), query.value.as_slice());
                 let ordered_node = OrderedNode((node.id.clone(), similarity));
                 Reverse(ordered_node)
             })
@@ -215,12 +217,12 @@ where
         Self {
             heap,
             similarity: similarity_function,
-            query: query.value.clone(),
+            query: query.value.as_slice().to_vec(),
         }
     }
 
     fn push(&mut self, node: &Node) {
-        let distance = (self.similarity)(&node.value, &self.query);
+        let distance = (self.similarity)(node.value.as_slice(), &self.query);
         let ordered = OrderedNode((node.id.clone(), distance));
         self.heap.push(Reverse(ordered))
     }

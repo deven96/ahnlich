@@ -1,6 +1,7 @@
 use super::super::errors::ServerError;
 use super::FindSimilarN;
 use crate::engine::store::StoreKeyId;
+use ahnlich_similarity::EmbeddingKey;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_similarity::utils::VecF32Ordered;
@@ -39,14 +40,14 @@ impl NonLinearAlgorithmWithIndex {
     }
 
     #[tracing::instrument(skip_all)]
-    fn insert(&self, new: &[Vec<f32>]) {
+    fn insert(&self, new: &[EmbeddingKey]) {
         self.get_inner()
             .insert(new.to_vec())
             .expect("Error inserting into index");
     }
 
     #[tracing::instrument(skip_all)]
-    fn delete(&self, del: &[Vec<f32>]) {
+    fn delete(&self, del: &[EmbeddingKey]) {
         self.get_inner()
             .delete(del)
             .expect("Error deleting from index");
@@ -80,7 +81,7 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
             .n_nearest(&search_vector.key, n, accept_list)
             .expect("Index does not have the same size as reference_point")
             .into_par_iter()
-            .map(|(arr, sim)| (StoreKeyId::from(&StoreKey { key: arr }), sim))
+            .map(|(arr, sim)| (StoreKeyId::from(&arr), sim))
             .collect()
     }
 }
@@ -117,7 +118,7 @@ impl NonLinearAlgorithmIndices {
     pub fn insert_indices(
         &self,
         indices: HashSet<NonLinearAlgorithm>,
-        values: &[Vec<f32>],
+        values: &[EmbeddingKey],
         dimension: NonZeroUsize,
     ) {
         let pinned = self.algorithm_to_index.pin();
@@ -152,7 +153,7 @@ impl NonLinearAlgorithmIndices {
 
     /// insert new entries into the non linear algorithm indices
     #[tracing::instrument(skip_all)]
-    pub(crate) fn insert(&self, new: Vec<Vec<f32>>) {
+    pub(crate) fn insert(&self, new: Vec<EmbeddingKey>) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {
             algo.insert(&new);
@@ -161,7 +162,7 @@ impl NonLinearAlgorithmIndices {
 
     /// delete old entries from the non linear algorithm indices
     #[tracing::instrument(skip_all)]
-    pub(crate) fn delete(&self, old: &[Vec<f32>]) {
+    pub(crate) fn delete(&self, old: &[EmbeddingKey]) {
         let pinned = self.algorithm_to_index.pin();
         for (_, algo) in pinned.iter() {
             algo.delete(old);

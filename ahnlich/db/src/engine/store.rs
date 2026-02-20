@@ -1,4 +1,5 @@
 use crate::errors::ServerError;
+use ahnlich_similarity::EmbeddingKey;
 use rayon::prelude::*;
 
 use super::super::algorithm::non_linear::NonLinearAlgorithmIndices;
@@ -55,6 +56,18 @@ impl From<&StoreKey> for StoreKeyId {
         use std::hash::{BuildHasher, Hasher};
         let mut hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
         for element in value.key.iter() {
+            hasher.write_u32(element.to_bits());
+        }
+        Self(hasher.finish())
+    }
+}
+
+impl From<&EmbeddingKey> for StoreKeyId {
+    fn from(value: &EmbeddingKey) -> Self {
+        use ahash::RandomState;
+        use std::hash::{BuildHasher, Hasher};
+        let mut hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
+        for element in value.0.iter() {
             hasher.write_u32(element.to_bits());
         }
         Self(hasher.finish())
@@ -527,7 +540,7 @@ impl Store {
         let removed = keys
             .iter()
             .flat_map(|k| pinned.remove(k))
-            .map(|(k, _)| k.key.clone())
+            .map(|(k, _)| EmbeddingKey::new(k.key.clone()))
             .collect::<Vec<_>>();
         self.predicate_indices.remove_store_keys(&keys);
         self.non_linear_indices.delete(&removed);
@@ -834,8 +847,9 @@ impl Store {
                     None
                 } else {
                     inserted.fetch_add(1, Ordering::SeqCst);
-                    // Only clone the Vec<f32> for newly inserted keys (not updates)
-                    Some(arc_key.key.clone())
+                    // Clone the Vec<f32> once here; Arc wrapping means all downstream
+                    // consumers (multiple non-linear indices) share the same allocation.
+                    Some(EmbeddingKey::new(arc_key.key.clone()))
                 }
             })
             .collect();
@@ -890,10 +904,10 @@ impl Store {
         let new_predicates_len = new_predicates.len();
         if !new_predicates.is_empty() {
             // get all the values and reindex
-            let values: Vec<_> = self
+            let values: Vec<EmbeddingKey> = self
                 .get_all()
                 .into_iter()
-                .map(|(k, _)| k.key.clone())
+                .map(|(k, _)| EmbeddingKey::new(k.key.clone()))
                 .collect();
             self.non_linear_indices
                 .insert_indices(new_predicates, &values, self.dimension);
