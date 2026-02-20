@@ -1,41 +1,183 @@
-# Ahnlich replication RFC
+# Ahnlich replication RFC (implementation status)
 
-The first thing we want to do is to identify the components we need to implement.
+This document records what has been implemented on the current replication branch, what behavior exists today, and what remains open.
 
-They are (NOTE: these names are tentative):
+## Scope and goals
 
-- `LogStore` - This is where the logs from the Raft cluster activities will be stored. Here is an in-memory impl from the openraft guys that they used in their example: <https://github.com/databendlabs/openraft/blob/4f0fd5fa034413d2f367306da4a0016f7603fb7e/examples/mem-log/src/log_store.rs>, and I believe we can easily co-opt this into a write-to-disk-log file service, or any other log storage we settle on.
+- Add horizontal scalability via Raft replication.
+- Keep DB and AI as separate Raft clusters (separate node ids/addresses/membership).
+- Keep default mode as non-clustered (`cluster_enabled = false`).
+- Keep existing `utils::Persistence` independent from cluster mode (if configured, it still runs).
 
-- `StateMachineStore` - This is where the last known state (snapshot) is stored and read from. They have a neat impl here as well: <https://github.com/databendlabs/openraft/blob/4f0fd5fa034413d2f367306da4a0016f7603fb7e/examples/raft-kv-memstore-grpc/src/store/mod.rs>, and I think the bit we need to figure out are where we want to 'store' the state machine.
+## Implemented architecture
 
-- `Network` - This is the communication layer for the nodes. They have a tonic gRPC impl here: <https://github.com/databendlabs/openraft/blob/4f0fd5fa034413d2f367306da4a0016f7603fb7e/examples/raft-kv-memstore-grpc/src/network/mod.rs>, we can adopt from.
+### 1) Shared replication crate
 
-- `Raft` - This is the openraft-rs algorithm impl. Here's were just simply importing from their package and passing in our stores and network, as een here: <https://github.com/databendlabs/openraft/blob/4f0fd5fa034413d2f367306da4a0016f7603fb7e/examples/raft-kv-memstore-grpc/src/app.rs#L35>.
+A new crate was added at `ahnlich/replication/` to host shared Raft plumbing used by DB and AI:
 
-- `RaftService` - This is the Raft consensus gRPC service. Basically the voting, log replication and snapshot application, as you can see here: <https://github.com/databendlabs/openraft/blob/4f0fd5fa034413d2f367306da4a0016f7603fb7e/examples/raft-kv-memstore-grpc/src/grpc/raft_service.rs>.
+- `src/config.rs`
+  - `RaftStorageEngine` enum (`memory`, `rocksdb`) used by CLI/runtime.
+  - `RaftConfig` shape for node/address/storage/snapshot/join settings.
+- `src/types.rs`
+  - shared `ClientWriteRequest`/`ClientWriteResponse`.
+  - command/response types for DB and AI.
+- `src/network.rs`
+  - tonic-based Openraft network transport.
+  - `GrpcRaftNetworkFactory` and `GrpcRaftService`.
+- `src/storage/mod.rs`
+  - shared storage adaptor layer, mem + rocksdb log/state-machine support.
+- `src/admin.rs`
+  - `ClusterAdminService` implementation (init/add learner/change membership/remove/metrics/leader/snapshot).
 
-- `AppService` - This is the client/application gRPC service. Here, the agent/app running the Raft cluster can issue commands to change the state, behaviour and roles of the nodes in the cluster. Impl here: <https://github.com/databendlabs/openraft/blob/4f0fd5fa034413d2f367306da4a0016f7603fb7e/examples/raft-kv-memstore-grpc/src/grpc/app_service.rs>.
+### 2) New protobuf services
 
-- `Server` - This is the server to add the above services to, and essentially listen for the requests. It's a `tonic` Server, so we're just importing from tonic, adding our services and giving it a port to listen to requests at, like they do in their example here: <https://github.com/databendlabs/openraft/blob/4f0fd5fa034413d2f367306da4a0016f7603fb7e/examples/raft-kv-memstore-grpc/src/app.rs#L47>
+New proto definitions were added:
 
-For the App and Raft Service, they have a bunch of types defined in protobuf, as seen here: <https://github.com/databendlabs/openraft/tree/4f0fd5fa034413d2f367306da4a0016f7603fb7e/examples/raft-kv-memstore-grpc/proto>, and they seem to be importing them directly (without a pre-generation step) into their Rust code using tonic, as shown here: <https://github.com/databendlabs/openraft/blob/4f0fd5fa034413d2f367306da4a0016f7603fb7e/examples/raft-kv-memstore-grpc/src/lib.rs#L8>
+- `protos/services/raft_internal.proto`
+- `protos/services/cluster_admin.proto`
 
-`AhnlichRaftService` - this is where were are going to plug in Ahnlich, by adding some service that will instantiate the Faft service based on some config/commands passed by the CLI. I'm not sure exactly what goes here yet, but i think some of the things we would want to do here are:
+And types were wired in:
 
-- Allow for Raft nodes to be created based on some config/command issued via the CLI
+- `ahnlich/types/src/services/raft_internal.rs`
+- `ahnlich/types/src/services/cluster_admin.rs`
+- `ahnlich/types/src/services/mod.rs`
 
-- Pass some Ahnlich data to the Raft cluster that it would replicate through out the cluster
+### 3) Server integration (DB + AI)
 
-- Allow for the cluster to be started and stopped
+DB and AI now support cluster mode initialization and runtime wiring:
 
-- Allow for the cluster to be restarted
+- Create Raft node and storage in cluster mode.
+- Start 3 service surfaces:
+  - existing public service (`DbService` / `AiService`)
+  - `RaftInternalService`
+  - `ClusterAdminService`
+- Support pending join flow via admin endpoint.
 
-The next step I think is answering the following questions.
+### 4) Admin CLI
 
-1. Where/how are we storing the logs?
+A new cluster admin path was added to the CLI:
 
-1. Where/how are we storing the state machine snapshots?
+- `ahnlich/cli/src/cluster.rs`
+- `ahnlich/cli/src/config/cli.rs`
 
-1. What/what else goes in `AhnlichRaftService`?
+Supported admin commands:
 
-Then we can chose one of the above components to start implementing, to help us gain clarity.
+- `init`
+- `join`
+- `add-learner`
+- `change-membership`
+- `remove`
+- `metrics`
+- `leader`
+- `snapshot`
+
+## Current API/config behavior
+
+### DB/AI server flags
+
+Both DB and AI CLIs now include cluster flags:
+
+- `--cluster-enabled`
+- `--raft-node-id`
+- `--raft-addr`
+- `--admin-addr`
+- `--raft-storage` (`memory` or `rocksdb`)
+- `--raft-data-dir` (required when `--raft-storage rocksdb`)
+- `--raft-snapshot-logs`
+- `--raft-join`
+
+### Storage
+
+Two storage engines for the Raft snapshots were implemented, one in-memory and one with RocksDB, and the storage engine type is shared from `ahnlich_replication::config::RaftStorageEngine`.
+
+## Replication boundary (current behavior)
+
+### DB (Raft-routed mutating operations)
+
+In cluster mode, the following DB mutators are routed through Raft:
+
+- `CreateStore`
+- `CreatePredIndex`
+- `CreateNonLinearAlgorithmIndex`
+- `Set`
+- `DropPredIndex`
+- `DropNonLinearAlgorithmIndex`
+- `DelKey`
+- `DelPred`
+- `DropStore`
+
+### AI (Raft-routed mutating operations)
+
+In cluster mode, the following AI mutators are routed through Raft:
+
+- `CreateStore`
+- `DropStore`
+- `PurgeStores`
+
+Other AI mutators are currently not routed through Raft in the same way.
+
+### Read semantics
+
+In cluster mode, read RPCs call `ensure_linearizable()`. Reads are leader-gated and followers can return `UNAVAILABLE`/forwarding-related errors.
+
+## Persistence and snapshot behavior
+
+- Raft snapshot/log durability is provided by selected raft storage (`memory` or `rocksdb`).
+- Existing `utils::Persistence` remains independent and still runs when configured.
+- Startup flow keeps existing persistence load behavior; Raft reconciliation still applies via log/snapshot replication once cluster is active.
+
+## Testing implemented
+
+### Unit tests
+
+#### AI state machine (`ahnlich/ai/src/replication/mod.rs`)
+
+- `apply_create_store_writes_store`
+- `apply_drop_store_deletes_store`
+- `apply_purge_stores_deletes_all`
+- `apply_idempotent_replay_returns_cached_response`
+- `apply_unsupported_command_returns_error`
+
+#### DB state machine (`ahnlich/db/src/replication/mod.rs`)
+
+- `apply_create_store_writes_store`
+- `apply_drop_store_deletes_store`
+- `apply_set_writes_entries`
+- `apply_del_key_deletes_expected_count`
+- `apply_del_pred_deletes_expected_count`
+- `apply_create_pred_index_returns_created_count`
+- `apply_drop_pred_index_returns_deleted_count`
+- `apply_create_non_linear_algorithm_index_returns_created_count`
+- `apply_drop_non_linear_algorithm_index_returns_deleted_count`
+- `apply_idempotent_replay_returns_cached_response`
+- `apply_malformed_payload_returns_error`
+
+### Integration tests
+
+#### AI integration (`ahnlich/ai/src/tests/aiproxy_test.rs`)
+
+- single-node clustered create/drop/purge path.
+- 3-node single failover test.
+- 3-node double failover test:
+  - quorum-loss expectations,
+  - optional stronger step restoring quorum and re-verifying committed state.
+
+#### DB integration (`ahnlich/db/src/tests/server_tests.rs`)
+
+- single-node clustered create/set/drop path.
+- 3-node single failover test.
+- 3-node double failover test:
+  - quorum-loss expectations,
+  - optional stronger step restoring quorum and re-verifying committed state.
+
+## Validation status
+
+All tests are passing.
+Note: running full AI tests in default parallel mode in this environment intermittently hit `SIGKILL`; single-thread execution was stable.
+
+## Open items
+
+- Deduplicate service handler and raft handler logic. Currently we're copying the logic from the service handler into the raft handler, which can introduce drift/bugs.
+- Decide and codify final behavior for AI mutators that are not fully Raft-routed yet (explicit fail-fast vs supported path).
+- Add/lock explicit boundary tests for that final behavior.
+- Keep failover suites under repeated runs in CI to monitor flakiness.

@@ -24,3 +24,4 @@ ahnlich_types = { path = "../types", version = "*"  }
 serde_json.workspace = true
 serde.workspace = true
 tonic.workspace = true
+ahnlich-replication = { path = "../replication", version = "*" }

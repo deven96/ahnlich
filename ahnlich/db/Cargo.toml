@@ -40,6 +40,9 @@ pulp = "0.21.4"
 papaya.workspace = true
 ahnlich_types = { path = "../types", version = "*"  }
 tonic.workspace = true
+prost.workspace = true
+ahnlich-replication = { path = "../replication", version = "*", features = ["rocksdb"] }
+openraft.workspace = true
 
 [dev-dependencies]
 futures.workspace = true

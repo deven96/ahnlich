@@ -7,6 +7,14 @@ use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName, StoreValue};
 use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use ahnlich_types::shared::info::ErrorResponse;
 
+use ahnlich_replication::admin::{ClusterAdmin, NodeRegistry};
+use ahnlich_replication::config::RaftStorageEngine;
+use ahnlich_replication::network::{GrpcRaftNetworkFactory, GrpcRaftService, map_raft_error};
+use ahnlich_replication::proto::cluster_admin::cluster_admin_service_client::ClusterAdminServiceClient;
+use ahnlich_replication::proto::cluster_admin::cluster_admin_service_server::ClusterAdminServiceServer;
+use ahnlich_replication::proto::cluster_admin::{AddLearnerRequest, NodeInfo};
+use ahnlich_replication::proto::raft_internal::raft_internal_service_server::RaftInternalServiceServer;
+use ahnlich_replication::types::{ClientWriteRequest, DbCommand, DbResponse, DbResponseKind};
 use ahnlich_types::db::{pipeline, query, server};
 use ahnlich_types::{client as types_client, utils as types_utils};
 use itertools::Itertools;
@@ -18,6 +26,7 @@ use std::net::SocketAddr;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicU64, Ordering};
 use task_manager::BlockingTask;
 use task_manager::TaskManager;
 
@@ -25,18 +34,40 @@ use tokio_util::sync::CancellationToken;
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::connection_layer::trace_with_parent;
 
+use openraft::storage::Adaptor;
+use openraft::{Config as RaftConfig, Raft, SnapshotPolicy};
+use prost::Message;
 use utils::server::{AhnlichServerUtils, ListenerStreamOrAddress, ServerUtilsConfig};
 use utils::{client::ClientHandler, persistence::Persistence};
 
 const SERVICE_NAME: &str = "ahnlich-db";
 
-#[derive(Debug)]
 pub struct Server {
     listener: ListenerStreamOrAddress,
     store_handler: Arc<StoreHandler>,
     client_handler: Arc<ClientHandler>,
     task_manager: Arc<TaskManager>,
     config: ServerConfig,
+    raft: Option<Arc<Raft<crate::replication::TypeConfig>>>,
+    raft_registry: Option<NodeRegistry>,
+    request_seq: AtomicU64,
+    pending_join: Option<String>,
+}
+
+impl std::fmt::Debug for Server {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AIProxyServer")
+            .field("listener", &self.listener)
+            .field("store_handler", &self.store_handler)
+            .field("client_handler", &self.client_handler)
+            .field("task_manager", &self.task_manager)
+            .field("config", &self.config)
+            .field("raft", &self.raft.as_ref().map(|_| "Raft<...>"))
+            .field("raft_registry", &self.raft_registry)
+            .field("request_seq", &self.request_seq)
+            .field("pending_join", &self.pending_join)
+            .finish()
+    }
 }
 
 #[tonic::async_trait]
@@ -46,7 +77,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateStore>,
     ) -> std::result::Result<tonic::Response<server::Unit>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let create_store_params = request.into_inner();
+        let raft_payload = self
+            .raft
+            .is_some()
+            .then(|| create_store_params.encode_to_vec());
         let dimensions = match NonZeroUsize::new(create_store_params.dimension as usize) {
             Some(val) => val,
             None => {
@@ -60,6 +96,20 @@ impl DbService for Server {
             .into_iter()
             .filter_map(|index| NonLinearAlgorithm::try_from(index).ok())
             .collect();
+
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: DbCommand::CreateStore(raft_payload.unwrap()),
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let _: server::Unit =
+                Self::decode_db_response(response.data.response, DbResponseKind::Unit)?;
+            return Ok(tonic::Response::new(server::Unit {}));
+        }
 
         self.store_handler
             .create_store(
@@ -80,6 +130,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::GetKey>,
     ) -> std::result::Result<tonic::Response<server::Get>, tonic::Status> {
+        self.ensure_linearizable().await?;
         let params = request.into_inner();
         let keys = params
             .keys
@@ -110,6 +161,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::GetPred>,
     ) -> std::result::Result<tonic::Response<server::Get>, tonic::Status> {
+        self.ensure_linearizable().await?;
         let params = request.into_inner();
 
         let condition =
@@ -138,6 +190,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::GetSimN>,
     ) -> std::result::Result<tonic::Response<server::GetSimN>, tonic::Status> {
+        self.ensure_linearizable().await?;
         let params = request.into_inner();
         let search_input =
             ahnlich_types::unwrap_or_invalid!(params.search_input, "search input is required");
@@ -177,6 +230,7 @@ impl DbService for Server {
         &self,
         _request: tonic::Request<query::Ping>,
     ) -> std::result::Result<tonic::Response<server::Pong>, tonic::Status> {
+        self.ensure_linearizable().await?;
         Ok(tonic::Response::new(server::Pong {}))
     }
 
@@ -185,13 +239,29 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreatePredIndex>,
     ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let params = request.into_inner();
+        let raft_payload = self.raft.is_some().then(|| params.encode_to_vec());
 
         let predicates = params
             .predicates
             .into_iter()
             // .map(MetadataKey::new)
             .collect();
+
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: DbCommand::CreatePredIndex(raft_payload.unwrap()),
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let out: server::CreateIndex =
+                Self::decode_db_response(response.data.response, DbResponseKind::CreateIndex)?;
+            return Ok(tonic::Response::new(out));
+        }
 
         let created = self.store_handler.create_pred_index(
             &StoreName {
@@ -210,7 +280,9 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateNonLinearAlgorithmIndex>,
     ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let params = request.into_inner();
+        let raft_payload = self.raft.is_some().then(|| params.encode_to_vec());
 
         let non_linear_indices = params
             .non_linear_indices
@@ -219,6 +291,20 @@ impl DbService for Server {
                 ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm::try_from(val).ok()
             })
             .collect();
+
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: DbCommand::CreateNonLinearAlgorithmIndex(raft_payload.unwrap()),
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let out: server::CreateIndex =
+                Self::decode_db_response(response.data.response, DbResponseKind::CreateIndex)?;
+            return Ok(tonic::Response::new(out));
+        }
 
         let created = self.store_handler.create_non_linear_algorithm_index(
             &StoreName {
@@ -237,13 +323,29 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropPredIndex>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let params = request.into_inner();
+        let raft_payload = self.raft.is_some().then(|| params.encode_to_vec());
 
         let predicates = params
             .predicates
             .into_iter()
             // .map(MetadataKey::new)
             .collect();
+
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: DbCommand::DropPredIndex(raft_payload.unwrap()),
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let out: server::Del =
+                Self::decode_db_response(response.data.response, DbResponseKind::Del)?;
+            return Ok(tonic::Response::new(out));
+        }
 
         let del = self.store_handler.drop_pred_index_in_store(
             &StoreName {
@@ -263,7 +365,9 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropNonLinearAlgorithmIndex>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let params = request.into_inner();
+        let raft_payload = self.raft.is_some().then(|| params.encode_to_vec());
 
         let non_linear_indices = params
             .non_linear_indices
@@ -272,6 +376,20 @@ impl DbService for Server {
                 ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm::try_from(val).ok()
             })
             .collect();
+
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: DbCommand::DropNonLinearAlgorithmIndex(raft_payload.unwrap()),
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let out: server::Del =
+                Self::decode_db_response(response.data.response, DbResponseKind::Del)?;
+            return Ok(tonic::Response::new(out));
+        }
 
         let del = self.store_handler.drop_non_linear_algorithm_index(
             &StoreName {
@@ -291,13 +409,30 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DelKey>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let params = request.into_inner();
+        let raft_payload = self.raft.is_some().then(|| params.encode_to_vec());
 
         let keys = params
             .keys
             .into_iter()
             .map(|key| StoreKey { key: key.key })
             .collect();
+
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: DbCommand::DelKey(raft_payload.unwrap()),
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let out: server::Del =
+                Self::decode_db_response(response.data.response, DbResponseKind::Del)?;
+            return Ok(tonic::Response::new(out));
+        }
+
         let del = self.store_handler.del_key_in_store(
             &StoreName {
                 value: params.store,
@@ -315,10 +450,26 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DelPred>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let params = request.into_inner();
+        let raft_payload = self.raft.is_some().then(|| params.encode_to_vec());
 
         let condition =
             ahnlich_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
+
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: DbCommand::DelPred(raft_payload.unwrap()),
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let out: server::Del =
+                Self::decode_db_response(response.data.response, DbResponseKind::Del)?;
+            return Ok(tonic::Response::new(out));
+        }
 
         let del = self.store_handler.del_pred_in_store(
             &StoreName {
@@ -337,7 +488,27 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropStore>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let drop_store_params = request.into_inner();
+        let raft_payload = self
+            .raft
+            .is_some()
+            .then(|| drop_store_params.encode_to_vec());
+
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: DbCommand::DropStore(raft_payload.unwrap()),
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let out: server::Del =
+                Self::decode_db_response(response.data.response, DbResponseKind::Del)?;
+            return Ok(tonic::Response::new(out));
+        }
+
         let dropped = self.store_handler.drop_store(
             StoreName {
                 value: drop_store_params.store,
@@ -355,6 +526,7 @@ impl DbService for Server {
         &self,
         _request: tonic::Request<query::ListClients>,
     ) -> std::result::Result<tonic::Response<server::ClientList>, tonic::Status> {
+        self.ensure_linearizable().await?;
         let clients = self
             .client_handler
             .list()
@@ -373,6 +545,7 @@ impl DbService for Server {
         &self,
         _request: tonic::Request<query::ListStores>,
     ) -> std::result::Result<tonic::Response<server::StoreList>, tonic::Status> {
+        self.ensure_linearizable().await?;
         let stores = self
             .store_handler
             .list_stores()
@@ -393,6 +566,7 @@ impl DbService for Server {
         &self,
         _request: tonic::Request<query::InfoServer>,
     ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
+        self.ensure_linearizable().await?;
         let version = env!("CARGO_PKG_VERSION").to_string();
         let server_info = ahnlich_types::shared::info::ServerInfo {
             address: format!("{:?}", self.listener.local_addr()?),
@@ -414,7 +588,9 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::Set>,
     ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let params = request.into_inner();
+        let raft_payload = self.raft.is_some().then(|| params.encode_to_vec());
         let inputs = params
             .inputs
             .into_par_iter()
@@ -429,6 +605,20 @@ impl DbService for Server {
                 _ => None,
             })
             .collect();
+
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: DbCommand::Set(raft_payload.unwrap()),
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let out: server::Set =
+                Self::decode_db_response(response.data.response, DbResponseKind::Set)?;
+            return Ok(tonic::Response::new(out));
+        }
 
         let set = self.store_handler.set_in_store(
             &StoreName {
@@ -750,7 +940,7 @@ impl Server {
         )
         .await?;
         let write_flag = Arc::new(AtomicBool::new(false));
-        let mut store_handler = StoreHandler::new(write_flag.clone());
+        let store_handler = Arc::new(StoreHandler::new(write_flag.clone()));
         if let Some(persist_location) = &config.common.persist_location {
             match Persistence::load_snapshot(persist_location) {
                 Err(e) => {
@@ -764,12 +954,67 @@ impl Server {
                 }
             }
         };
+        let mut raft: Option<Arc<Raft<crate::replication::TypeConfig>>> = None;
+        let mut raft_registry: Option<NodeRegistry> = None;
+        let mut pending_join: Option<String> = None;
+        if config.cluster_enabled {
+            let raft_storage = match config.raft_storage {
+                RaftStorageEngine::Memory => crate::replication::DbStorage::Mem(
+                    crate::replication::make_mem_storage(store_handler.clone()),
+                ),
+                RaftStorageEngine::RocksDb => {
+                    let dir = config.raft_data_dir.clone().ok_or_else(|| {
+                        std::io::Error::other("raft_data_dir required for rocksdb storage")
+                    })?;
+                    let storage =
+                        crate::replication::make_rocks_storage(store_handler.clone(), dir)
+                            .map_err(|e| std::io::Error::other(e.to_string()))?;
+                    crate::replication::DbStorage::Rocks(storage)
+                }
+            };
+            let mut raft_config = RaftConfig::default();
+            raft_config.cluster_name = "ahnlich-db".to_string();
+            raft_config.snapshot_policy = SnapshotPolicy::LogsSinceLast(config.raft_snapshot_logs);
+            let raft_config = Arc::new(
+                raft_config
+                    .validate()
+                    .map_err(|e| std::io::Error::other(format!("invalid raft config: {e}")))?,
+            );
+            let network = GrpcRaftNetworkFactory::<crate::replication::TypeConfig>::default();
+            let (log_store, state_machine) = Adaptor::<
+                crate::replication::TypeConfig,
+                crate::replication::DbStorage,
+            >::new(raft_storage);
+            let raft_node = Raft::new(
+                config.raft_node_id,
+                raft_config,
+                network,
+                log_store,
+                state_machine,
+            )
+            .await
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+            let registry = NodeRegistry::new();
+            registry.insert(&NodeInfo {
+                id: config.raft_node_id,
+                raft_addr: config.raft_addr.clone(),
+                admin_addr: config.admin_addr.clone(),
+                service_addr: format!("{}:{}", &config.common.host, &config.port),
+            });
+            pending_join = config.raft_join.clone();
+            raft = Some(Arc::new(raft_node));
+            raft_registry = Some(registry);
+        }
         Ok(Self {
             listener,
-            store_handler: Arc::new(store_handler),
+            store_handler,
             client_handler,
             task_manager: Arc::new(TaskManager::new()),
             config: config.clone(),
+            raft,
+            raft_registry,
+            request_seq: AtomicU64::new(0),
+            pending_join,
         })
     }
 
@@ -792,6 +1037,34 @@ impl Server {
         );
         Self::new_with_config(config).await
     }
+
+    fn next_request_id(&self) -> u64 {
+        self.request_seq.fetch_add(1, Ordering::SeqCst)
+    }
+
+    fn client_id<T>(request: &tonic::Request<T>) -> String {
+        request
+            .remote_addr()
+            .map(|addr| addr.to_string())
+            .unwrap_or_else(|| "unknown".to_string())
+    }
+
+    fn decode_db_response<T: Message + Default>(
+        response: DbResponse,
+        expected: DbResponseKind,
+    ) -> Result<T, tonic::Status> {
+        if response.kind != expected {
+            return Err(tonic::Status::internal("unexpected raft response type"));
+        }
+        T::decode(response.payload.as_slice()).map_err(|e| tonic::Status::internal(e.to_string()))
+    }
+
+    async fn ensure_linearizable(&self) -> Result<(), tonic::Status> {
+        if let Some(raft) = &self.raft {
+            raft.ensure_linearizable().await.map_err(map_raft_error)?;
+        }
+        Ok(())
+    }
 }
 
 #[async_trait::async_trait]
@@ -804,6 +1077,12 @@ impl BlockingTask for Server {
         mut self,
         shutdown_signal: std::pin::Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>,
     ) {
+        let token = self.cancellation_token();
+        let token_clone = token.clone();
+        tokio::spawn(async move {
+            shutdown_signal.await;
+            token_clone.cancel();
+        });
         let listener_stream = if let ListenerStreamOrAddress::ListenerStream(stream) = self.listener
         {
             stream
@@ -819,12 +1098,59 @@ impl BlockingTask for Server {
                 .expect("Could not get local address"),
         );
 
+        if let Some(raft) = &self.raft {
+            let raft_addr: SocketAddr = self.config.raft_addr.parse().expect("invalid raft_addr");
+            let admin_addr: SocketAddr =
+                self.config.admin_addr.parse().expect("invalid admin_addr");
+            let raft_service = GrpcRaftService::new(raft.clone());
+            let raft_svc = RaftInternalServiceServer::new(raft_service);
+            let admin_registry = self.raft_registry.clone().unwrap_or_else(NodeRegistry::new);
+            let admin_service = ClusterAdmin::new(raft.clone(), admin_registry);
+            let admin_svc = ClusterAdminServiceServer::new(admin_service);
+
+            let token_raft = token.clone();
+            tokio::spawn(async move {
+                let _ = tonic::transport::Server::builder()
+                    .trace_fn(trace_with_parent)
+                    .add_service(raft_svc)
+                    .serve_with_shutdown(raft_addr, token_raft.cancelled())
+                    .await;
+            });
+
+            let token_admin = token.clone();
+            tokio::spawn(async move {
+                let _ = tonic::transport::Server::builder()
+                    .trace_fn(trace_with_parent)
+                    .add_service(admin_svc)
+                    .serve_with_shutdown(admin_addr, token_admin.cancelled())
+                    .await;
+            });
+        }
+
+        if let Some(join) = self.pending_join.clone() {
+            let node = NodeInfo {
+                id: self.config.raft_node_id,
+                raft_addr: self.config.raft_addr.clone(),
+                admin_addr: self.config.admin_addr.clone(),
+                service_addr: format!("{}:{}", &self.config.common.host, &self.config.port),
+            };
+            tokio::spawn(async move {
+                if let Ok(mut client) =
+                    ClusterAdminServiceClient::connect(format!("http://{join}")).await
+                {
+                    let _ = client
+                        .add_learner(tonic::Request::new(AddLearnerRequest { node: Some(node) }))
+                        .await;
+                }
+            });
+        }
+
         let db_service = DbServiceServer::new(self).max_decoding_message_size(max_message_size);
 
         let _ = tonic::transport::Server::builder()
             .trace_fn(trace_with_parent)
             .add_service(db_service)
-            .serve_with_incoming_shutdown(listener_stream, shutdown_signal)
+            .serve_with_incoming_shutdown(listener_stream, token.cancelled())
             .await;
     }
 }

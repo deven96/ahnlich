@@ -1,5 +1,10 @@
 use crate::server::handler::Server;
 use crate::{cli::ServerConfig, errors::ServerError};
+use ahnlich_replication::config::RaftStorageEngine;
+use ahnlich_replication::proto::cluster_admin::cluster_admin_service_client::ClusterAdminServiceClient;
+use ahnlich_replication::proto::cluster_admin::{
+    AddLearnerRequest, ChangeMembershipRequest, GetMetricsRequest, InitClusterRequest, NodeInfo,
+};
 use ahnlich_types::algorithm::algorithms::Algorithm;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreValue};
@@ -13,11 +18,15 @@ use ahnlich_types::server_types::ServerType;
 use ahnlich_types::shared::info::StoreUpsert;
 use ahnlich_types::similarity::Similarity;
 use once_cell::sync::Lazy;
+use openraft::{BasicNode, RaftMetrics, ServerState};
 use pretty_assertions::assert_eq;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::net::{SocketAddr, TcpListener};
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
+use tokio::task::JoinHandle;
 use tokio::time::Duration;
+use tokio_util::sync::CancellationToken;
 use utils::server::AhnlichServerUtils;
 
 use ahnlich_types::{
@@ -28,6 +37,7 @@ use ahnlich_types::{
     keyval::StoreName,
     services::db_service::db_service_client::DbServiceClient,
 };
+use bincode::deserialize;
 use tonic::transport::Channel;
 
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
@@ -44,6 +54,677 @@ static CONFIG_WITH_PERSISTENCE: Lazy<ServerConfig> = Lazy::new(|| {
         .persistence_interval(200)
         .persist_location((*PERSISTENCE_FILE).clone())
 });
+
+fn reserve_ephemeral_addr() -> SocketAddr {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("failed to reserve local port");
+    listener
+        .local_addr()
+        .expect("failed to read reserved local addr")
+}
+
+struct ClusteredDbNode {
+    node_id: u64,
+    raft_addr: SocketAddr,
+    admin_addr: SocketAddr,
+    service_addr: SocketAddr,
+    shutdown: CancellationToken,
+    handle: JoinHandle<std::io::Result<()>>,
+}
+
+async fn cluster_admin_client(
+    admin_addr: SocketAddr,
+) -> ClusterAdminServiceClient<tonic::transport::Channel> {
+    ClusterAdminServiceClient::connect(format!("http://{admin_addr}"))
+        .await
+        .expect("failed to connect cluster admin")
+}
+
+async fn db_client(service_addr: SocketAddr) -> DbServiceClient<tonic::transport::Channel> {
+    DbServiceClient::connect(
+        Channel::from_shared(format!("http://{service_addr}")).expect("Failed to get channel"),
+    )
+    .await
+    .expect("Failure")
+}
+
+async fn wait_for_node_ready(admin_addr: SocketAddr, node_id: u64) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    loop {
+        let mut metrics_ok = false;
+        if let Ok(mut admin) =
+            ClusterAdminServiceClient::connect(format!("http://{admin_addr}")).await
+        {
+            metrics_ok = admin
+                .get_metrics(tonic::Request::new(GetMetricsRequest {}))
+                .await
+                .is_ok();
+        }
+
+        if metrics_ok {
+            return;
+        }
+
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for node readiness: node_id={node_id} admin={admin_addr}"
+        );
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
+async fn spawn_clustered_db_node(node_id: u64) -> ClusteredDbNode {
+    let mut config = ServerConfig::default().os_select_port();
+    config.cluster_enabled = true;
+    config.raft_storage = RaftStorageEngine::Memory;
+    config.raft_node_id = node_id;
+    config.raft_join = None;
+    let raft_addr = reserve_ephemeral_addr();
+    let admin_addr = reserve_ephemeral_addr();
+    config.raft_addr = raft_addr.to_string();
+    config.admin_addr = admin_addr.to_string();
+
+    let server = Server::new(&config)
+        .await
+        .expect("Could not initialize clustered db server");
+    let service_addr = server.local_addr().expect("Could not get local addr");
+    let shutdown = server.cancellation_token();
+    let handle = tokio::spawn(async move { server.start().await });
+
+    wait_for_node_ready(admin_addr, node_id).await;
+
+    ClusteredDbNode {
+        node_id,
+        raft_addr,
+        admin_addr,
+        service_addr,
+        shutdown,
+        handle,
+    }
+}
+
+async fn init_single_node_cluster(node: &ClusteredDbNode) {
+    let mut admin = cluster_admin_client(node.admin_addr).await;
+    admin
+        .init_cluster(tonic::Request::new(InitClusterRequest {
+            nodes: vec![NodeInfo {
+                id: node.node_id,
+                raft_addr: node.raft_addr.to_string(),
+                admin_addr: node.admin_addr.to_string(),
+                service_addr: node.service_addr.to_string(),
+            }],
+        }))
+        .await
+        .expect("init single-node cluster");
+}
+
+async fn init_three_node_cluster(nodes: &[ClusteredDbNode]) {
+    let n1 = &nodes[0];
+    let mut admin = cluster_admin_client(n1.admin_addr).await;
+    admin
+        .init_cluster(tonic::Request::new(InitClusterRequest {
+            nodes: vec![NodeInfo {
+                id: n1.node_id,
+                raft_addr: n1.raft_addr.to_string(),
+                admin_addr: n1.admin_addr.to_string(),
+                service_addr: n1.service_addr.to_string(),
+            }],
+        }))
+        .await
+        .expect("init cluster");
+
+    for n in &nodes[1..] {
+        admin
+            .add_learner(tonic::Request::new(AddLearnerRequest {
+                node: Some(NodeInfo {
+                    id: n.node_id,
+                    raft_addr: n.raft_addr.to_string(),
+                    admin_addr: n.admin_addr.to_string(),
+                    service_addr: n.service_addr.to_string(),
+                }),
+            }))
+            .await
+            .expect("add learner");
+    }
+
+    admin
+        .change_membership(tonic::Request::new(ChangeMembershipRequest {
+            node_ids: nodes.iter().map(|n| n.node_id).collect(),
+        }))
+        .await
+        .expect("change membership");
+}
+
+async fn wait_for_exact_voter_set(
+    nodes: &[ClusteredDbNode],
+    expected_voters: &HashSet<u64>,
+    phase: &str,
+) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    loop {
+        let mut matching = 0usize;
+        for node in nodes {
+            let mut admin = cluster_admin_client(node.admin_addr).await;
+            let metrics = admin
+                .get_metrics(tonic::Request::new(GetMetricsRequest {}))
+                .await
+                .expect("get_metrics should succeed")
+                .into_inner();
+            let m: RaftMetrics<u64, BasicNode> =
+                deserialize(&metrics.metrics).expect("metrics decode should succeed");
+            let voters: HashSet<u64> = m.membership_config.membership().voter_ids().collect();
+            if voters == *expected_voters {
+                matching += 1;
+            }
+        }
+        if matching == nodes.len() {
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for exact voter set during phase={phase}"
+        );
+        tokio::time::sleep(Duration::from_millis(120)).await;
+    }
+}
+
+async fn wait_for_leader_from_any(
+    nodes: &[ClusteredDbNode],
+    allowed: &HashSet<u64>,
+    excluded: &HashSet<u64>,
+    phase: &str,
+) -> (u64, u64) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+    loop {
+        for node in nodes {
+            if !allowed.contains(&node.node_id) || excluded.contains(&node.node_id) {
+                continue;
+            }
+            let Ok(mut admin_client) =
+                ClusterAdminServiceClient::connect(format!("http://{}", node.admin_addr)).await
+            else {
+                continue;
+            };
+            let Ok(resp) = admin_client
+                .get_metrics(tonic::Request::new(GetMetricsRequest {}))
+                .await
+            else {
+                continue;
+            };
+            let m: RaftMetrics<u64, BasicNode> =
+                deserialize(&resp.into_inner().metrics).expect("metrics decode should succeed");
+            if m.state == ServerState::Leader
+                && m.current_leader == Some(node.node_id)
+                && allowed.contains(&node.node_id)
+                && !excluded.contains(&node.node_id)
+            {
+                if db_client(node.service_addr)
+                    .await
+                    .ping(tonic::Request::new(db_query_types::Ping {}))
+                    .await
+                    .is_ok()
+                {
+                    return (node.node_id, m.current_term);
+                }
+            }
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for leader during phase={phase}"
+        );
+        tokio::time::sleep(Duration::from_millis(120)).await;
+    }
+}
+
+async fn wait_for_leader_replication_targets(
+    leader_admin_addr: SocketAddr,
+    expected_followers: &HashSet<u64>,
+    phase: &str,
+) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+    loop {
+        let mut admin = cluster_admin_client(leader_admin_addr).await;
+        let metrics = admin
+            .get_metrics(tonic::Request::new(GetMetricsRequest {}))
+            .await
+            .expect("get_metrics should succeed")
+            .into_inner();
+        let m: RaftMetrics<u64, BasicNode> =
+            deserialize(&metrics.metrics).expect("metrics decode should succeed");
+        if m.state == ServerState::Leader {
+            let replication_targets: HashSet<u64> = m
+                .replication
+                .as_ref()
+                .map(|r| r.keys().copied().collect())
+                .unwrap_or_default();
+            if expected_followers.is_subset(&replication_targets) {
+                return;
+            }
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for replication targets during phase={phase}"
+        );
+        tokio::time::sleep(Duration::from_millis(120)).await;
+    }
+}
+
+async fn wait_for_store_presence(service_addr: SocketAddr, store_name: &str, should_exist: bool) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        let mut client = db_client(service_addr).await;
+        let listed = match client
+            .list_stores(tonic::Request::new(db_query_types::ListStores {}))
+            .await
+        {
+            Ok(v) => v.into_inner(),
+            Err(_) => {
+                assert!(
+                    tokio::time::Instant::now() < deadline,
+                    "timed out waiting for store presence check: store={store_name} should_exist={should_exist}"
+                );
+                tokio::time::sleep(Duration::from_millis(120)).await;
+                continue;
+            }
+        };
+        let exists = listed.stores.iter().any(|s| s.name == store_name);
+        if exists == should_exist {
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for store presence check: store={store_name} should_exist={should_exist}"
+        );
+        tokio::time::sleep(Duration::from_millis(120)).await;
+    }
+}
+
+fn assert_unavailable(err: tonic::Status, context: &str) {
+    assert_eq!(
+        err.code(),
+        tonic::Code::Unavailable,
+        "{context}: expected UNAVAILABLE, got {:?}: {}",
+        err.code(),
+        err.message()
+    );
+}
+
+async fn wait_for_consistent_survivor_view(
+    nodes: &[ClusteredDbNode],
+    excluded: &HashSet<u64>,
+    expected_voters: &HashSet<u64>,
+    expected_leader: u64,
+    phase: &str,
+) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    loop {
+        let mut all_match = true;
+        let mut common_term: Option<u64> = None;
+        for node in nodes {
+            if excluded.contains(&node.node_id) {
+                continue;
+            }
+            let mut admin = cluster_admin_client(node.admin_addr).await;
+            let metrics = admin
+                .get_metrics(tonic::Request::new(GetMetricsRequest {}))
+                .await
+                .expect("get_metrics should succeed")
+                .into_inner();
+            let m: RaftMetrics<u64, BasicNode> =
+                deserialize(&metrics.metrics).expect("metrics decode should succeed");
+            let voters: HashSet<u64> = m.membership_config.membership().voter_ids().collect();
+            if voters != *expected_voters || m.current_leader != Some(expected_leader) {
+                all_match = false;
+                break;
+            }
+            match common_term {
+                Some(term) if term != m.current_term => {
+                    all_match = false;
+                    break;
+                }
+                None => common_term = Some(m.current_term),
+                _ => {}
+            }
+        }
+        if all_match {
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for consistent survivor view during phase={phase}"
+        );
+        tokio::time::sleep(Duration::from_millis(120)).await;
+    }
+}
+
+async fn restart_clustered_db_node(node: &mut ClusteredDbNode, service_port: Option<u16>) {
+    node.shutdown.cancel();
+    node.handle.abort();
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    let mut config = ServerConfig::default().os_select_port();
+    config.cluster_enabled = true;
+    config.raft_storage = RaftStorageEngine::Memory;
+    config.raft_node_id = node.node_id;
+    config.raft_join = None;
+    config.raft_addr = node.raft_addr.to_string();
+    config.admin_addr = node.admin_addr.to_string();
+    if let Some(port) = service_port {
+        config.port = port;
+    } else {
+        config.port = 0;
+    }
+
+    let server = Server::new(&config)
+        .await
+        .expect("Could not restart clustered db server");
+    node.service_addr = server
+        .local_addr()
+        .expect("Could not get restarted local addr");
+    node.shutdown = server.cancellation_token();
+    node.handle = tokio::spawn(async move { server.start().await });
+
+    wait_for_node_ready(node.admin_addr, node.node_id).await;
+}
+
+#[tokio::test]
+async fn test_db_clustered_create_set_drop_via_raft() {
+    let node = spawn_clustered_db_node(1).await;
+    init_single_node_cluster(&node).await;
+
+    let allowed_ids = HashSet::from([node.node_id]);
+    let excluded_ids = HashSet::new();
+    let (leader_id, _term) = wait_for_leader_from_any(
+        std::slice::from_ref(&node),
+        &allowed_ids,
+        &excluded_ids,
+        "single-node-init",
+    )
+    .await;
+    assert_eq!(leader_id, node.node_id);
+
+    let mut client = db_client(node.service_addr).await;
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "cluster-store-a".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        }))
+        .await
+        .expect("create_store should succeed");
+
+    wait_for_store_presence(node.service_addr, "cluster-store-a", true).await;
+
+    let set = client
+        .set(tonic::Request::new(db_query_types::Set {
+            store: "cluster-store-a".to_string(),
+            inputs: vec![DbStoreEntry {
+                key: Some(StoreKey {
+                    key: vec![1.0, 2.0, 3.0],
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::new(),
+                }),
+            }],
+        }))
+        .await
+        .expect("set should succeed")
+        .into_inner();
+    assert!(set.upsert.is_some(), "set should return upsert metadata");
+
+    let dropped = client
+        .drop_store(tonic::Request::new(db_query_types::DropStore {
+            store: "cluster-store-a".to_string(),
+            error_if_not_exists: true,
+        }))
+        .await
+        .expect("drop_store should succeed")
+        .into_inner();
+    assert_eq!(dropped.deleted_count, 1);
+
+    wait_for_store_presence(node.service_addr, "cluster-store-a", false).await;
+
+    node.shutdown.cancel();
+    node.handle.abort();
+}
+
+#[tokio::test]
+async fn test_db_cluster_replication_and_single_failover() {
+    let mut nodes = vec![
+        spawn_clustered_db_node(1).await,
+        spawn_clustered_db_node(2).await,
+        spawn_clustered_db_node(3).await,
+    ];
+
+    init_three_node_cluster(&nodes).await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    let allowed_ids: HashSet<u64> = nodes.iter().map(|n| n.node_id).collect();
+    let expected_voters = allowed_ids.clone();
+    let mut excluded_ids = HashSet::new();
+    wait_for_exact_voter_set(
+        &nodes,
+        &expected_voters,
+        "db-single-pre-failover-membership",
+    )
+    .await;
+
+    let (leader_id, leader_term) =
+        wait_for_leader_from_any(&nodes, &allowed_ids, &excluded_ids, "db-single-initial").await;
+    let leader_idx = nodes
+        .iter()
+        .position(|n| n.node_id == leader_id)
+        .expect("leader node not found");
+    let leader_service = nodes[leader_idx].service_addr;
+
+    let mut leader_client = db_client(leader_service).await;
+    leader_client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "replicated_store".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        }))
+        .await
+        .expect("leader create_store should succeed");
+
+    let expected_followers: HashSet<u64> = nodes
+        .iter()
+        .filter(|n| n.node_id != leader_id)
+        .map(|n| n.node_id)
+        .collect();
+    wait_for_leader_replication_targets(
+        nodes[leader_idx].admin_addr,
+        &expected_followers,
+        "db-single-post-create-store",
+    )
+    .await;
+
+    excluded_ids.insert(leader_id);
+    nodes[leader_idx].shutdown.cancel();
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    let (new_leader_id, new_leader_term) = wait_for_leader_from_any(
+        &nodes,
+        &allowed_ids,
+        &excluded_ids,
+        "db-single-post-first-failover",
+    )
+    .await;
+    assert_ne!(new_leader_id, leader_id);
+    assert!(new_leader_term > leader_term);
+    let new_leader_service = nodes
+        .iter()
+        .find(|n| n.node_id == new_leader_id)
+        .expect("new leader node not found")
+        .service_addr;
+    wait_for_store_presence(new_leader_service, "replicated_store", true).await;
+
+    let mut new_leader_client = db_client(new_leader_service).await;
+    let dropped = new_leader_client
+        .drop_store(tonic::Request::new(db_query_types::DropStore {
+            store: "replicated_store".to_string(),
+            error_if_not_exists: true,
+        }))
+        .await
+        .expect("drop_store on new leader should succeed")
+        .into_inner();
+    assert_eq!(dropped.deleted_count, 1);
+    wait_for_store_presence(new_leader_service, "replicated_store", false).await;
+
+    for n in &mut nodes {
+        n.shutdown.cancel();
+        n.handle.abort();
+    }
+}
+
+#[tokio::test]
+async fn test_db_cluster_replication_and_double_failover() {
+    let mut nodes = vec![
+        spawn_clustered_db_node(1).await,
+        spawn_clustered_db_node(2).await,
+        spawn_clustered_db_node(3).await,
+    ];
+
+    init_three_node_cluster(&nodes).await;
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    let allowed_ids: HashSet<u64> = nodes.iter().map(|n| n.node_id).collect();
+    let expected_voters = allowed_ids.clone();
+    let mut excluded_ids = HashSet::new();
+    wait_for_exact_voter_set(&nodes, &expected_voters, "db-double-pre-membership").await;
+
+    let (leader_id_1, term_1) =
+        wait_for_leader_from_any(&nodes, &allowed_ids, &excluded_ids, "db-double-initial").await;
+    let leader_idx_1 = nodes
+        .iter()
+        .position(|n| n.node_id == leader_id_1)
+        .expect("initial leader node not found");
+    let leader_service_1 = nodes[leader_idx_1].service_addr;
+
+    let mut leader_client_1 = db_client(leader_service_1).await;
+    leader_client_1
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "replicated_store".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        }))
+        .await
+        .expect("leader create_store should succeed");
+
+    let expected_followers: HashSet<u64> = nodes
+        .iter()
+        .filter(|n| n.node_id != leader_id_1)
+        .map(|n| n.node_id)
+        .collect();
+    wait_for_leader_replication_targets(
+        nodes[leader_idx_1].admin_addr,
+        &expected_followers,
+        "db-double-post-create",
+    )
+    .await;
+    wait_for_store_presence(leader_service_1, "replicated_store", true).await;
+
+    excluded_ids.insert(leader_id_1);
+    nodes[leader_idx_1].shutdown.cancel();
+    tokio::time::sleep(Duration::from_millis(400)).await;
+
+    let (leader_id_2, term_2) = wait_for_leader_from_any(
+        &nodes,
+        &allowed_ids,
+        &excluded_ids,
+        "db-double-post-first-failover",
+    )
+    .await;
+    assert_ne!(leader_id_2, leader_id_1);
+    assert!(term_2 > term_1);
+    let leader_idx_2 = nodes
+        .iter()
+        .position(|n| n.node_id == leader_id_2)
+        .expect("second leader node not found");
+    let leader_service_2 = nodes[leader_idx_2].service_addr;
+    wait_for_store_presence(leader_service_2, "replicated_store", true).await;
+
+    let mut leader_client_2 = db_client(leader_service_2).await;
+    let dropped = leader_client_2
+        .drop_store(tonic::Request::new(db_query_types::DropStore {
+            store: "replicated_store".to_string(),
+            error_if_not_exists: true,
+        }))
+        .await
+        .expect("drop_store on second leader should succeed")
+        .into_inner();
+    assert_eq!(dropped.deleted_count, 1);
+    wait_for_store_presence(leader_service_2, "replicated_store", false).await;
+
+    wait_for_consistent_survivor_view(
+        &nodes,
+        &excluded_ids,
+        &expected_voters,
+        leader_id_2,
+        "db-double-before-second-failover",
+    )
+    .await;
+
+    excluded_ids.insert(leader_id_2);
+    nodes[leader_idx_2].shutdown.cancel();
+    tokio::time::sleep(Duration::from_millis(400)).await;
+
+    let lone_node = nodes
+        .iter()
+        .find(|n| !excluded_ids.contains(&n.node_id))
+        .expect("expected one surviving node");
+    let mut lone_client = db_client(lone_node.service_addr).await;
+
+    let read_err = lone_client
+        .list_stores(tonic::Request::new(db_query_types::ListStores {}))
+        .await
+        .expect_err("list_stores should fail without quorum");
+    assert_unavailable(read_err, "list_stores without quorum");
+
+    let write_err = lone_client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "should_fail_without_quorum".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+        }))
+        .await
+        .expect_err("create_store should fail without quorum");
+    assert_unavailable(write_err, "create_store without quorum");
+
+    let restart_target_id = leader_id_1;
+    let restart_idx = nodes
+        .iter()
+        .position(|n| n.node_id == restart_target_id)
+        .expect("restart target node not found");
+    restart_clustered_db_node(&mut nodes[restart_idx], None).await;
+    excluded_ids.remove(&restart_target_id);
+
+    let (leader_id_3, _term_3) = wait_for_leader_from_any(
+        &nodes,
+        &allowed_ids,
+        &excluded_ids,
+        "db-double-post-quorum-restore",
+    )
+    .await;
+    let leader_service_3 = nodes
+        .iter()
+        .find(|n| n.node_id == leader_id_3)
+        .expect("restored leader not found")
+        .service_addr;
+    wait_for_store_presence(leader_service_3, "replicated_store", false).await;
+
+    for n in &mut nodes {
+        n.shutdown.cancel();
+        n.handle.abort();
+    }
+}
 
 #[tokio::test]
 async fn test_grpc_ping_test() {

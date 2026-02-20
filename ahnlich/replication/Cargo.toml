@@ -1,0 +1,27 @@
+[package]
+name = "ahnlich-replication"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+openraft.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+serde.workspace = true
+bincode.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+futures.workspace = true
+tonic.workspace = true
+prost.workspace = true
+http.workspace = true
+log.workspace = true
+
+rocksdb = { version = "0.22", optional = true }
+
+[features]
+rocksdb = ["dep:rocksdb"]
+
+[build-dependencies]
+tonic-build.workspace = true

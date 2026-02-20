@@ -5,9 +5,10 @@ members = [
   "dsl",
   "cli",
   "client",
+  "replication",
   "similarity",
   "task-manager",
-  "tracer", 
+  "tracer",
   "utils",
   "types",
 ]
@@ -34,12 +35,12 @@ tokio = { version = "1.37.0", features = [
   "io-util",
   "rt-multi-thread",
   "sync",
-  "signal"
-]}
+  "signal",
+] }
 tokio-util = { version = "0.7.11", features = ["rt"] }
 rand = "0.8"
 rayon = "1.10"
-opentelemetry =  { version = "0.23.0", features = ["trace"] }
+opentelemetry = { version = "0.23.0", features = ["trace"] }
 tracing-opentelemetry = "0.24.0"
 log = "0.4"
 fallible_collections = "0.4.9"
@@ -49,6 +50,8 @@ papaya = { version = "0.2.0", features = ["serde"] }
 tonic = "0.12.3"
 http = "1.2.0"
 prost = "0.13"
+tonic-build = "0.12"
+openraft = { version = "0.9", features = ["serde"] }
 
 [profile.release]
 lto = true

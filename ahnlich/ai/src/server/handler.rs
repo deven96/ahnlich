@@ -88,10 +88,21 @@ use utils::server::ListenerStreamOrAddress;
 use utils::server::ServerUtilsConfig;
 
 use ahnlich_client_rs::db::DbClient;
+use ahnlich_replication::admin::{ClusterAdmin, NodeRegistry};
+use ahnlich_replication::config::RaftStorageEngine;
+use ahnlich_replication::network::{GrpcRaftNetworkFactory, GrpcRaftService, map_raft_error};
+use ahnlich_replication::proto::cluster_admin::cluster_admin_service_client::ClusterAdminServiceClient;
+use ahnlich_replication::proto::cluster_admin::cluster_admin_service_server::ClusterAdminServiceServer;
+use ahnlich_replication::proto::cluster_admin::{AddLearnerRequest, NodeInfo};
+use ahnlich_replication::proto::raft_internal::raft_internal_service_server::RaftInternalServiceServer;
+use ahnlich_replication::types::{AiCommand, AiResponse, AiResponseKind, ClientWriteRequest};
+use openraft::storage::Adaptor;
+use openraft::{Config as RaftConfig, Raft, SnapshotPolicy};
+use prost::Message;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 const SERVICE_NAME: &str = "ahnlich-ai";
 
-#[derive(Debug)]
 pub struct AIProxyServer {
     listener: ListenerStreamOrAddress,
     config: AIProxyConfig,
@@ -100,6 +111,28 @@ pub struct AIProxyServer {
     task_manager: Arc<TaskManager>,
     db_client: Option<Arc<DbClient>>,
     model_manager: Arc<ModelManager>,
+    raft: Option<Arc<Raft<crate::replication::TypeConfig>>>,
+    raft_registry: Option<NodeRegistry>,
+    request_seq: AtomicU64,
+    pending_join: Option<String>,
+}
+
+impl std::fmt::Debug for AIProxyServer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AIProxyServer")
+            .field("listener", &self.listener)
+            .field("config", &self.config)
+            .field("client_handler", &self.client_handler)
+            .field("store_handler", &self.store_handler)
+            .field("task_manager", &self.task_manager)
+            .field("db_client", &self.db_client)
+            .field("model_manager", &self.model_manager)
+            .field("raft", &self.raft.as_ref().map(|_| "Raft<...>"))
+            .field("raft_registry", &self.raft_registry)
+            .field("request_seq", &self.request_seq)
+            .field("pending_join", &self.pending_join)
+            .finish()
+    }
 }
 
 #[async_trait::async_trait]
@@ -112,6 +145,13 @@ impl BlockingTask for AIProxyServer {
         mut self,
         shutdown_signal: std::pin::Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>,
     ) {
+        let token = self.cancellation_token();
+        let token_clone = token.clone();
+        tokio::spawn(async move {
+            shutdown_signal.await;
+            token_clone.cancel();
+        });
+
         let listener_stream = if let ListenerStreamOrAddress::ListenerStream(stream) = self.listener
         {
             stream
@@ -127,12 +167,59 @@ impl BlockingTask for AIProxyServer {
                 .expect("Could not get local address"),
         );
 
+        if let Some(raft) = &self.raft {
+            let raft_addr: SocketAddr = self.config.raft_addr.parse().expect("invalid raft_addr");
+            let admin_addr: SocketAddr =
+                self.config.admin_addr.parse().expect("invalid admin_addr");
+            let raft_service = GrpcRaftService::new(raft.clone());
+            let raft_svc = RaftInternalServiceServer::new(raft_service);
+            let admin_registry = self.raft_registry.clone().unwrap_or_else(NodeRegistry::new);
+            let admin_service = ClusterAdmin::new(raft.clone(), admin_registry);
+            let admin_svc = ClusterAdminServiceServer::new(admin_service);
+
+            let token_raft = token.clone();
+            tokio::spawn(async move {
+                let _ = tonic::transport::Server::builder()
+                    .trace_fn(trace_with_parent)
+                    .add_service(raft_svc)
+                    .serve_with_shutdown(raft_addr, token_raft.cancelled())
+                    .await;
+            });
+
+            let token_admin = token.clone();
+            tokio::spawn(async move {
+                let _ = tonic::transport::Server::builder()
+                    .trace_fn(trace_with_parent)
+                    .add_service(admin_svc)
+                    .serve_with_shutdown(admin_addr, token_admin.cancelled())
+                    .await;
+            });
+        }
+
+        if let Some(join) = self.pending_join.clone() {
+            let node = NodeInfo {
+                id: self.config.raft_node_id,
+                raft_addr: self.config.raft_addr.clone(),
+                admin_addr: self.config.admin_addr.clone(),
+                service_addr: format!("{}:{}", &self.config.common.host, &self.config.port),
+            };
+            tokio::spawn(async move {
+                if let Ok(mut client) =
+                    ClusterAdminServiceClient::connect(format!("http://{join}")).await
+                {
+                    let _ = client
+                        .add_learner(tonic::Request::new(AddLearnerRequest { node: Some(node) }))
+                        .await;
+                }
+            });
+        }
+
         let db_service = AiServiceServer::new(self).max_decoding_message_size(max_message_size);
 
         let _ = tonic::transport::Server::builder()
             .trace_fn(trace_with_parent)
             .add_service(db_service)
-            .serve_with_incoming_shutdown(listener_stream, shutdown_signal)
+            .serve_with_incoming_shutdown(listener_stream, token.cancelled())
             .await;
     }
 }
@@ -144,6 +231,7 @@ impl AiService for AIProxyServer {
         &self,
         _request: tonic::Request<InfoServer>,
     ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
+        self.ensure_linearizable().await?;
         let version = env!("CARGO_PKG_VERSION").to_string();
         let server_info = ahnlich_types::shared::info::ServerInfo {
             address: format!("{:?}", self.listener.local_addr()),
@@ -165,7 +253,10 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<CreateStore>,
     ) -> Result<tonic::Response<Unit>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let params = request.into_inner();
+        let raft_payload = self.raft.is_some().then(|| params.encode_to_vec());
+
         let mut predicates = params.predicates;
         if params.store_original {
             predicates.push(AHNLICH_AI_RESERVED_META_KEY.to_string());
@@ -197,6 +288,22 @@ impl AiService for AIProxyServer {
                 parent_id,
             )
             .await?;
+
+        // Branch only at point of difference
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: AiCommand::CreateStore(raft_payload.unwrap()),
+                })
+                .await
+                .map_err(map_raft_error)?;
+
+            let _: Unit = Self::decode_ai_response(response.data.response, AiResponseKind::Unit)?;
+            return Ok(tonic::Response::new(Unit {}));
+        }
+
         let _ = self.store_handler.create_store(
             StoreName {
                 value: params.store,
@@ -268,6 +375,7 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<GetKey>,
     ) -> Result<tonic::Response<Get>, tonic::Status> {
+        self.ensure_linearizable().await?;
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let values = params
@@ -308,6 +416,7 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<GetPred>,
     ) -> Result<tonic::Response<Get>, tonic::Status> {
+        self.ensure_linearizable().await?;
         let params = request.into_inner();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let db_client = self
@@ -335,6 +444,7 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<GetSimN>,
     ) -> Result<tonic::Response<server::GetSimN>, tonic::Status> {
+        self.ensure_linearizable().await?;
         let params = request.into_inner();
         let search_input = params
             .search_input
@@ -576,7 +686,28 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<DropStore>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
+        let client_id = Self::client_id(&request);
         let drop_store_params = request.into_inner();
+        let raft_payload = self
+            .raft
+            .is_some()
+            .then(|| drop_store_params.encode_to_vec());
+
+        if let Some(raft) = &self.raft {
+            let command = AiCommand::DropStore(raft_payload.unwrap());
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command,
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let out: Del = Self::decode_ai_response(response.data.response, AiResponseKind::Del)?;
+            return Ok(tonic::Response::new(Del {
+                deleted_count: out.deleted_count,
+            }));
+        }
         let dropped = self.store_handler.drop_store(
             StoreName {
                 value: drop_store_params.store,
@@ -593,6 +724,7 @@ impl AiService for AIProxyServer {
         &self,
         _request: tonic::Request<ListClients>,
     ) -> Result<tonic::Response<ClientList>, tonic::Status> {
+        self.ensure_linearizable().await?;
         Ok(tonic::Response::new(server::ClientList {
             clients: self.client_handler.list().into_iter().collect(),
         }))
@@ -603,6 +735,7 @@ impl AiService for AIProxyServer {
         &self,
         _request: tonic::Request<ListStores>,
     ) -> Result<tonic::Response<StoreList>, tonic::Status> {
+        self.ensure_linearizable().await?;
         Ok(tonic::Response::new(server::StoreList {
             stores: self
                 .store_handler
@@ -616,8 +749,25 @@ impl AiService for AIProxyServer {
     #[tracing::instrument(skip_all)]
     async fn purge_stores(
         &self,
-        _request: tonic::Request<PurgeStores>,
+        request: tonic::Request<PurgeStores>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
+        let client_id = Self::client_id(&request);
+
+        if let Some(raft) = &self.raft {
+            let response = raft
+                .client_write(ClientWriteRequest {
+                    client_id,
+                    request_id: self.next_request_id(),
+                    command: AiCommand::PurgeStores(vec![]),
+                })
+                .await
+                .map_err(map_raft_error)?;
+            let out: Del = Self::decode_ai_response(response.data.response, AiResponseKind::Del)?;
+            return Ok(tonic::Response::new(Del {
+                deleted_count: out.deleted_count,
+            }));
+        }
+
         let deleted_count = self.store_handler.purge_stores();
         Ok(tonic::Response::new(Del {
             deleted_count: deleted_count as u64,
@@ -700,6 +850,7 @@ impl AiService for AIProxyServer {
         &self,
         _request: tonic::Request<Ping>,
     ) -> Result<tonic::Response<Pong>, tonic::Status> {
+        self.ensure_linearizable().await?;
         Ok(tonic::Response::new(Pong {}))
     }
 
@@ -1011,8 +1162,11 @@ impl AIProxyServer {
             Some(Arc::new(Self::build_db_client(&config).await))
         };
 
-        let mut store_handler =
-            AIStoreHandler::new(write_flag.clone(), config.supported_models.clone());
+        let store_handler = Arc::new(AIStoreHandler::new(
+            write_flag.clone(),
+            config.supported_models.clone(),
+        ));
+
         if let Some(ref persist_location) = config.common.persist_location {
             match Persistence::load_snapshot(persist_location) {
                 Err(e) => {
@@ -1026,6 +1180,58 @@ impl AIProxyServer {
                 }
             }
         };
+
+        let mut raft: Option<Arc<Raft<crate::replication::TypeConfig>>> = None;
+        let mut raft_registry: Option<NodeRegistry> = None;
+        let mut pending_join: Option<String> = None;
+        if config.cluster_enabled {
+            let raft_storage = match config.raft_storage {
+                RaftStorageEngine::Memory => crate::replication::AiStorage::Mem(
+                    crate::replication::make_mem_storage(store_handler.clone()),
+                ),
+                RaftStorageEngine::RocksDb => {
+                    let dir = config.raft_data_dir.clone().ok_or_else(|| {
+                        std::io::Error::other("raft_data_dir required for rocksdb storage")
+                    })?;
+                    let storage =
+                        crate::replication::make_rocks_storage(store_handler.clone(), dir)
+                            .map_err(|e| std::io::Error::other(e.to_string()))?;
+                    crate::replication::AiStorage::Rocks(storage)
+                }
+            };
+            let mut raft_config = RaftConfig::default();
+            raft_config.cluster_name = "ahnlich-ai".to_string();
+            raft_config.snapshot_policy = SnapshotPolicy::LogsSinceLast(config.raft_snapshot_logs);
+            let raft_config = Arc::new(
+                raft_config
+                    .validate()
+                    .map_err(|e| std::io::Error::other(format!("invalid raft config: {e}")))?,
+            );
+            let network = GrpcRaftNetworkFactory::<crate::replication::TypeConfig>::default();
+            let (log_store, state_machine) = Adaptor::<
+                crate::replication::TypeConfig,
+                crate::replication::AiStorage,
+            >::new(raft_storage);
+            let raft_node = Raft::new(
+                config.raft_node_id,
+                raft_config,
+                network,
+                log_store,
+                state_machine,
+            )
+            .await
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+            let registry = NodeRegistry::new();
+            registry.insert(&NodeInfo {
+                id: config.raft_node_id,
+                raft_addr: config.raft_addr.clone(),
+                admin_addr: config.admin_addr.clone(),
+                service_addr: format!("{}:{}", &config.common.host, &config.port),
+            });
+            pending_join = config.raft_join.clone();
+            raft = Some(Arc::new(raft_node));
+            raft_registry = Some(registry);
+        }
         let task_manager = Arc::new(TaskManager::new());
         let mut models: Vec<Model> = Vec::with_capacity(config.supported_models.len());
         for supported_model in &config.supported_models {
@@ -1046,11 +1252,15 @@ impl AIProxyServer {
         Ok(Self {
             listener,
             client_handler,
-            store_handler: Arc::new(store_handler),
+            store_handler,
             config,
             db_client,
             task_manager,
             model_manager: Arc::new(model_manager),
+            raft,
+            raft_registry,
+            request_seq: AtomicU64::new(0),
+            pending_join,
         })
     }
 
@@ -1062,5 +1272,33 @@ impl AIProxyServer {
 
     pub fn local_addr(&self) -> IoResult<SocketAddr> {
         self.listener.local_addr()
+    }
+
+    fn next_request_id(&self) -> u64 {
+        self.request_seq.fetch_add(1, Ordering::SeqCst)
+    }
+
+    fn client_id<T>(request: &tonic::Request<T>) -> String {
+        request
+            .remote_addr()
+            .map(|addr| addr.to_string())
+            .unwrap_or_else(|| "unknown".to_string())
+    }
+
+    fn decode_ai_response<T: Message + Default>(
+        response: AiResponse,
+        expected: AiResponseKind,
+    ) -> Result<T, tonic::Status> {
+        if response.kind != expected {
+            return Err(tonic::Status::internal("unexpected raft response type"));
+        }
+        T::decode(response.payload.as_slice()).map_err(|e| tonic::Status::internal(e.to_string()))
+    }
+
+    async fn ensure_linearizable(&self) -> Result<(), tonic::Status> {
+        if let Some(raft) = &self.raft {
+            raft.ensure_linearizable().await.map_err(map_raft_error)?;
+        }
+        Ok(())
     }
 }
