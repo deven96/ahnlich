@@ -386,10 +386,11 @@ impl ProviderTrait for ORTProvider {
         input: ModelInput,
         _action_type: &InputAction,
         execution_provider: Option<AIExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
         self.model
             .inner
-            .infer_batch(input, execution_provider)
+            .infer_batch(input, execution_provider, model_params)
             .await
     }
 }

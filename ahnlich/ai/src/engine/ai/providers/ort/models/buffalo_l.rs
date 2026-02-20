@@ -84,11 +84,13 @@ impl ORTInferenceModel for BuffaloLModel {
         &self,
         input: ModelInput,
         execution_provider: Option<AIExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Pin<Box<dyn Future<Output = Result<Vec<ModelResponse>, AIProxyError>> + Send + '_>> {
+        let model_params = model_params.clone();
         Box::pin(async move {
             match input {
                 ModelInput::Images(images) => {
-                    self.detect_and_recognize_batch(images, execution_provider)
+                    self.detect_and_recognize_batch(images, execution_provider, &model_params)
                         .await
                 }
                 ModelInput::Texts(_) => Err(AIProxyError::AIModelNotSupported {
@@ -168,6 +170,7 @@ impl BuffaloLModel {
         &self,
         images: Array<f32, Ix4>,
         execution_provider: Option<AIExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
         let exec_prov = execution_provider
             .map(|ep| ep.into())
@@ -182,7 +185,8 @@ impl BuffaloLModel {
         // Stage 1: Detect and extract faces from each input image
         for image_idx in 0..batch_size {
             let single_image = images.slice(s![image_idx..image_idx + 1, .., .., ..]);
-            let detections = self.detect_faces(single_image.to_owned(), &det_session)?;
+            let detections =
+                self.detect_faces(single_image.to_owned(), &det_session, model_params)?;
 
             if detections.is_empty() {
                 face_counts.push(0);
@@ -263,6 +267,7 @@ impl BuffaloLModel {
         &self,
         image: Array<f32, Ix4>,
         session: &Session,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<FaceDetection>, AIProxyError> {
         // RetinaFace detection model expects "input.1" tensor (not "input")
         let session_inputs = ort::inputs!["input.1" => image.view()]
@@ -272,7 +277,7 @@ impl BuffaloLModel {
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
 
-        self.parse_detections(outputs)
+        self.parse_detections(outputs, model_params)
     }
 
     /// Parse RetinaFace outputs and decode bounding boxes using anchor-based regression
@@ -284,10 +289,11 @@ impl BuffaloLModel {
     ///
     /// The model outputs DELTAS (offsets), not absolute positions. We must decode
     /// them using the pre-generated anchors to get actual pixel coordinates.
-    #[tracing::instrument(skip(self, outputs))]
+    #[tracing::instrument(skip(self, outputs, model_params))]
     fn parse_detections(
         &self,
         outputs: ort::SessionOutputs,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<FaceDetection>, AIProxyError> {
         let output_tensors: Vec<_> = outputs
             .values()
@@ -295,10 +301,12 @@ impl BuffaloLModel {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
-        // TODO: (deven96) We need to think about how to pass custom special arguments to various
-        // models ... perhaps given an always extensible KV which each model then validates against
-        // or else picks a reasonable default.
-        const CONFIDENCE_THRESHOLD: f32 = 0.5;
+        // Extract confidence threshold from model_params or use default
+        const DEFAULT_CONFIDENCE_THRESHOLD: f32 = 0.5;
+        let confidence_threshold = model_params
+            .get("confidence_threshold")
+            .and_then(|v| v.parse::<f32>().ok())
+            .unwrap_or(DEFAULT_CONFIDENCE_THRESHOLD);
 
         // Memory check: Allocating Vec for face detection results
         // 50: Conservative upper bound (typical images have 1-10 faces, but group photos can have more)
@@ -333,7 +341,7 @@ impl BuffaloLModel {
             for i in 0..num_anchors {
                 let confidence = scores_slice[i];
 
-                if confidence < CONFIDENCE_THRESHOLD {
+                if confidence < confidence_threshold {
                     continue;
                 }
 

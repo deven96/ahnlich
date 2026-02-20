@@ -78,6 +78,10 @@ pub struct GetSimN {
         tag = "7"
     )]
     pub execution_provider: ::core::option::Option<i32>,
+    /// Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+    #[prost(map = "string, string", tag = "8")]
+    pub model_params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreatePredIndex {
@@ -223,6 +227,10 @@ pub struct Set {
         tag = "4"
     )]
     pub execution_provider: ::core::option::Option<i32>,
+    /// Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+    #[prost(map = "string, string", tag = "5")]
+    pub model_params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConvertStoreInputToEmbeddings {
@@ -241,4 +249,8 @@ pub struct ConvertStoreInputToEmbeddings {
     /// AI model used for querying (string or image-based)
     #[prost(enumeration = "super::models::AiModel", tag = "3")]
     pub model: i32,
+    /// Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+    #[prost(map = "string, string", tag = "4")]
+    pub model_params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }

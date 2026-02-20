@@ -259,6 +259,7 @@ impl AIStoreHandler {
         model_manager: &ModelManager,
         preprocess_action: PreprocessAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: std::collections::HashMap<String, String>,
     ) -> Result<StoreSetResponse, AIProxyError> {
         let store = self.get(store_name)?;
         if inputs.is_empty() {
@@ -275,6 +276,7 @@ impl AIStoreHandler {
                 preprocess_action,
                 InputAction::Index,
                 execution_provider,
+                model_params,
             )
             .await?;
 
@@ -373,6 +375,7 @@ impl AIStoreHandler {
         model_manager: &ModelManager,
         preprocess_action: PreprocessAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: std::collections::HashMap<String, String>,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name)?;
         let mut store_keys = model_manager
@@ -382,6 +385,7 @@ impl AIStoreHandler {
                 preprocess_action,
                 InputAction::Query,
                 execution_provider,
+                model_params,
             )
             .await?;
 

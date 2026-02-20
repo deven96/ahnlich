@@ -68,11 +68,13 @@ impl ORTInferenceModel for SfaceYunetModel {
         &self,
         input: ModelInput,
         execution_provider: Option<AIExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Pin<Box<dyn Future<Output = Result<Vec<ModelResponse>, AIProxyError>> + Send + '_>> {
+        let model_params = model_params.clone();
         Box::pin(async move {
             match input {
                 ModelInput::Images(images) => {
-                    self.detect_and_recognize_batch(images, execution_provider)
+                    self.detect_and_recognize_batch(images, execution_provider, &model_params)
                         .await
                 }
                 ModelInput::Texts(_) => Err(AIProxyError::AIModelNotSupported {
@@ -94,6 +96,7 @@ impl SfaceYunetModel {
         &self,
         images: Array<f32, Ix4>,
         execution_provider: Option<AIExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
         let exec_prov = execution_provider
             .map(|ep| ep.into())
@@ -108,7 +111,8 @@ impl SfaceYunetModel {
         // Stage 1: Detect and align faces from each image using YuNet
         for image_idx in 0..batch_size {
             let single_image = images.slice(s![image_idx..image_idx + 1, .., .., ..]);
-            let detections = self.detect_faces(single_image.to_owned(), &det_session)?;
+            let detections =
+                self.detect_faces(single_image.to_owned(), &det_session, model_params)?;
 
             if detections.is_empty() {
                 face_counts.push(0);
@@ -189,11 +193,12 @@ impl SfaceYunetModel {
     ///
     /// Input image arrives as RGB 0-255. YuNet was trained with OpenCV's blobFromImage which
     /// produces BGR 0-255, so we swap channels R↔B before inference.
-    #[tracing::instrument(skip(self, image, session))]
+    #[tracing::instrument(skip(self, image, session, model_params))]
     fn detect_faces(
         &self,
         image: Array<f32, Ix4>,
         session: &Session,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<FaceDetection>, AIProxyError> {
         let img_h = image.shape()[2] as f32;
         let img_w = image.shape()[3] as f32;
@@ -213,7 +218,12 @@ impl SfaceYunetModel {
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
 
-        const CONFIDENCE_THRESHOLD: f32 = 0.6;
+        // Extract confidence threshold from model_params or use default
+        const DEFAULT_CONFIDENCE_THRESHOLD: f32 = 0.6;
+        let confidence_threshold = model_params
+            .get("confidence_threshold")
+            .and_then(|v| v.parse::<f32>().ok())
+            .unwrap_or(DEFAULT_CONFIDENCE_THRESHOLD);
 
         // Extract all 12 tensors
         let cls_8 = outputs["cls_8"]
@@ -271,7 +281,7 @@ impl SfaceYunetModel {
                 let obj_score = obj[[0, i, 0]];
                 let score = cls_score * obj_score;
 
-                if score < CONFIDENCE_THRESHOLD {
+                if score < confidence_threshold {
                     continue;
                 }
 

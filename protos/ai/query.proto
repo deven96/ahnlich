@@ -48,6 +48,7 @@ message GetSimN {
   algorithm.algorithms.Algorithm algorithm = 5; // Algorithm to use for similarity search
   ai.preprocess.PreprocessAction preprocess_action = 6; // Preprocessing actions to apply to input before querying
   optional ai.execution_provider.ExecutionProvider execution_provider = 7; // Optional execution provider for specific optimizations
+  map<string, string> model_params = 8; // Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
 }
 
 message CreatePredIndex {
@@ -133,6 +134,7 @@ message Set {
   repeated keyval.AiStoreEntry inputs = 2; // List of entries to set
   ai.preprocess.PreprocessAction preprocess_action = 3; // Preprocessing action to apply to inputs before setting
   optional ai.execution_provider.ExecutionProvider execution_provider = 4; // Optional execution provider for optimizations
+  map<string, string> model_params = 5; // Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
 }
 
 message ConvertStoreInputToEmbeddings {
@@ -140,4 +142,5 @@ message ConvertStoreInputToEmbeddings {
   repeated keyval.StoreInput store_inputs = 1; // Input keys to retrieve from the store
   optional ai.preprocess.PreprocessAction preprocess_action = 2; // Preprocessing actions to apply to input before querying
   ai.models.AIModel model = 3; // AI model used for querying (string or image-based)
+  map<string, string> model_params = 4; // Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
 }
