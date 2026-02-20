@@ -177,7 +177,7 @@ Note: running full AI tests in default parallel mode in this environment intermi
 
 ## Open items
 
-- Deduplicate service handler and raft handler logic. Currently we're copying the logic from the service handler into the raft handler, which can introduce drift/bugs.
+- Deduplicate service handlers (ahnlich/ai/src/server/handler.rs & ahnlich/db/src/server/handler.rs) and raft handlers (ahnlich/ai/src/replication/mod.rs & ahnlich/db/src/replication/mod.rs) logic. Currently we're copying the logic from the service handler into the raft handler, which can introduce drift/bugs.
 - Decide and codify final behavior for AI mutators that are not fully Raft-routed yet (explicit fail-fast vs supported path).
 - Add/lock explicit boundary tests for that final behavior.
 - Keep failover suites under repeated runs in CI to monitor flakiness.
