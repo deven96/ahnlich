@@ -2,6 +2,7 @@ pub mod cli;
 pub mod engine;
 pub mod error;
 mod manager;
+pub mod replication;
 pub mod server;
 #[cfg(test)]
 mod tests;

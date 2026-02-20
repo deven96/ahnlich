@@ -1,5 +1,6 @@
+use ahnlich_replication::config::RaftStorageEngine;
 use ahnlich_types::ai::models::AiModel;
-use clap::{Args, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 use dirs::home_dir;
 use std::fmt;
 use strum::VariantArray;
@@ -72,6 +73,48 @@ pub struct AIProxyConfig {
     #[arg(long, default_value_t =
     DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).port.clone())]
     pub port: u16,
+
+    /// Enable Raft clustering
+    #[arg(long, action=ArgAction::SetTrue, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).cluster_enabled.clone())]
+    pub cluster_enabled: bool,
+
+    /// Raft node id
+    #[arg(long, requires = "cluster_enabled", default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).raft_node_id.clone())]
+    pub raft_node_id: u64,
+
+    /// Raft internal address host:port
+    #[arg(long, requires = "cluster_enabled", default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).raft_addr.clone())]
+    pub raft_addr: String,
+
+    /// Raft admin address host:port
+    #[arg(long, requires = "cluster_enabled", default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).admin_addr.clone())]
+    pub admin_addr: String,
+
+    /// Raft storage: memory or rocksdb
+    #[arg(long, requires = "cluster_enabled", value_enum, default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).raft_storage.clone())]
+    pub raft_storage: RaftStorageEngine,
+
+    /// Raft data dir (required for rocksdb storage)
+    #[arg(
+        long,
+        requires = "cluster_enabled",
+        required_if_eq("raft_storage", "rocksdb")
+    )]
+    pub raft_data_dir: Option<std::path::PathBuf>,
+
+    /// Snapshot after N logs
+    #[arg(long, requires = "cluster_enabled", default_value_t =
+    DEFAULT_CONFIG.get_or_init(AIProxyConfig::default).raft_snapshot_logs.clone())]
+    pub raft_snapshot_logs: u64,
+
+    /// Join existing cluster via admin addr host:port
+    #[arg(long)]
+    pub raft_join: Option<String>,
 
     /// Start Ahnlich AI Proxy without Database connection
     /// #[arg(long, group = "action")]
@@ -181,6 +224,14 @@ impl Default for AIProxyConfig {
     fn default() -> Self {
         Self {
             port: 1370,
+            cluster_enabled: false,
+            raft_node_id: 0,
+            raft_addr: String::from("127.0.0.1:0"),
+            admin_addr: String::from("127.0.0.1:0"),
+            raft_storage: RaftStorageEngine::Memory,
+            raft_data_dir: None,
+            raft_snapshot_logs: 1000,
+            raft_join: None,
             without_db: false,
             db_host: String::from("127.0.0.1"),
             db_https: false,

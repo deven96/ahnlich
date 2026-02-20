@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package services.cluster_admin;
+
+message NodeInfo {
+  uint64 id = 1;
+  string raft_addr = 2;
+  string admin_addr = 3;
+  string service_addr = 4;
+}
+
+message InitClusterRequest {
+  repeated NodeInfo nodes = 1;
+}
+
+message InitClusterResponse {}
+
+message AddLearnerRequest {
+  NodeInfo node = 1;
+}
+
+message AddLearnerResponse {}
+
+message ChangeMembershipRequest {
+  repeated uint64 node_ids = 1;
+}
+
+message ChangeMembershipResponse {}
+
+message RemoveNodeRequest {
+  uint64 node_id = 1;
+}
+
+message RemoveNodeResponse {}
+
+message GetMetricsRequest {}
+
+message GetMetricsResponse {
+  bytes metrics = 1;
+}
+
+message GetLeaderRequest {}
+
+message GetLeaderResponse {
+  uint64 leader_id = 1;
+  string leader_addr = 2;
+}
+
+message TriggerSnapshotRequest {}
+
+message TriggerSnapshotResponse {}
+
+service ClusterAdminService {
+  rpc InitCluster(InitClusterRequest) returns (InitClusterResponse);
+  rpc AddLearner(AddLearnerRequest) returns (AddLearnerResponse);
+  rpc ChangeMembership(ChangeMembershipRequest) returns (ChangeMembershipResponse);
+  rpc RemoveNode(RemoveNodeRequest) returns (RemoveNodeResponse);
+  rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
+  rpc GetLeader(GetLeaderRequest) returns (GetLeaderResponse);
+  rpc TriggerSnapshot(TriggerSnapshotRequest) returns (TriggerSnapshotResponse);
+}

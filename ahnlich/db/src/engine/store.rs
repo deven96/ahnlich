@@ -155,8 +155,20 @@ impl StoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn use_snapshot(&mut self, stores_snapshot: Stores) {
-        self.stores = stores_snapshot;
+    pub(crate) fn use_snapshot(&self, stores_snapshot: Stores) {
+        let guard = self.stores.guard();
+        let keys: Vec<StoreName> = self
+            .stores
+            .iter(&guard)
+            .map(|(name, _)| name.clone())
+            .collect();
+        for key in keys {
+            let _ = self.stores.remove(&key, &guard);
+        }
+        let snap_guard = stores_snapshot.guard();
+        for (key, value) in stores_snapshot.iter(&snap_guard) {
+            let _ = self.stores.try_insert(key.clone(), value.clone(), &guard);
+        }
     }
 
     /// Returns a store using the store name, else returns an error

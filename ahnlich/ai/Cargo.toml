@@ -53,6 +53,10 @@ tiktoken-rs = "0.5.9"
 itertools.workspace = true
 tokenizers = { version = "0.21" }
 papaya.workspace = true
+ahnlich-replication = { path = "../replication", version = "*", features = [
+  "rocksdb",
+] }
+openraft.workspace = true
 
 [features]
 # ORT Execution providers
@@ -65,12 +69,13 @@ coreml = ["ort/coreml"]
 directml = ["ort/directml"]
 
 [dev-dependencies]
+bincode.workspace = true
+criterion = "0.4"
 db = { path = "../db", version = "*" }
+dhat = "0.3"
 pretty_assertions.workspace = true
 regex = "1.11.1"
 test-case = "3.3.1"
-dhat = "0.3"
-criterion = "0.4"
 
 [[bench]]
 name = "memory_profile"
