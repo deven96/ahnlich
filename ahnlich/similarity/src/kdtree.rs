@@ -336,9 +336,9 @@ impl KDTree {
 
     /// Delete an entry matching delete_point from KD tree
     #[tracing::instrument(skip_all)]
-    pub fn delete(&self, delete_point: &Vec<f32>) -> Result<Option<EmbeddingKey>, Error> {
+    pub fn delete(&self, delete_point: &[f32]) -> Result<Option<EmbeddingKey>, Error> {
         self.assert_shape(delete_point)?;
-        let key = EmbeddingKey::new(delete_point.clone());
+        let key = EmbeddingKey::new(delete_point.to_owned());
         let guard = epoch::pin();
         Ok(self.delete_recursive(&self.root, &key, 0, &guard))
     }
@@ -568,7 +568,7 @@ impl NonLinearAlgorithmWithIndexImpl<'_> for KDTree {
         }
         let res = delete_multi
             .iter()
-            .map(|del| self.delete(&del.as_slice().to_vec()))
+            .map(|del| self.delete(del.as_slice()))
             .collect::<Result<Vec<_>, Error>>()?;
         let deleted_count = res.into_iter().flatten().count();
         Ok(deleted_count)

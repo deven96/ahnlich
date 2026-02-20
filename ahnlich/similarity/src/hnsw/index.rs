@@ -3,18 +3,16 @@
 // gets the values it needs to
 
 #![allow(dead_code)]
-use crate::{
-    error::Error,
-    hnsw::{MaxHeapQueue, MinHeapQueue},
-};
+use crate::{error::Error, hnsw::MinHeapQueue};
 use rand::Rng;
 
-use super::{LayerIndex, Node, NodeId};
+use super::{LayerIndex, Node, NodeId, OrderedNode};
 use crate::distance::euclidean_distance;
+use crate::heap::BoundedMinHeap;
 
 use std::{
-    cmp::min,
-    collections::{HashMap, HashSet, btree_map::BTreeMap},
+    cmp::{Reverse, min},
+    collections::{BinaryHeap, HashMap, HashSet, btree_map::BTreeMap},
     num::NonZeroUsize,
 };
 
@@ -125,7 +123,7 @@ impl HNSW {
                 euclidean_distance,
             )
             .pop()
-            .map(|ele| ele.0.0.0.clone())
+            .map(|ele| ele.0.0.0)
             .ok_or(Error::NotFoundError(
                 "nearest element not found".to_string(),
             ))?;
@@ -141,7 +139,7 @@ impl HNSW {
             self.graph
                 .entry(layer_index.clone())
                 .or_default()
-                .insert(value.id.clone());
+                .insert(value.id);
 
             // TODO: error handling in loop??
             // NOTE: W = search-layer(q, ep, efConstruction, lc)
@@ -173,17 +171,17 @@ impl HNSW {
                     .neighbours
                     .entry(layer_index.clone())
                     .or_default()
-                    .insert(value.id.clone());
+                    .insert(value.id);
 
                 value
                     .neighbours
                     .entry(layer_index.clone())
                     .or_default()
-                    .insert(neighbour_id.clone());
+                    .insert(*neighbour_id);
 
                 // NOTE: invert for backlinks
-                value.back_links.insert(neighbour_id.clone());
-                neighbour_node.back_links.insert(value.id.clone());
+                value.back_links.insert(*neighbour_id);
+                neighbour_node.back_links.insert(value.id);
             }
 
             // NOTE: for each neighbours prune if each exceeds Mmax
@@ -242,7 +240,7 @@ impl HNSW {
                         euclidean_distance,
                     )
                     .pop()
-                    .map(|ele| ele.0.0.0.clone())
+                    .map(|ele| ele.0.0.0)
                     .ok_or(Error::NotFoundError(
                         "Nearest Element Not Found".to_string(),
                     ))?;
@@ -252,7 +250,7 @@ impl HNSW {
             };
         }
 
-        self.nodes.insert(value.id.clone(), value.clone());
+        self.nodes.insert(value.id, value.clone());
 
         // NOTE: given that we use u8 for topmost layer, we want that on first insertion we always
         // set enterpoint else this would be a pain
@@ -260,7 +258,7 @@ impl HNSW {
         // TODO: should topmost layer of empty hnsw be -1 ??
         if new_elements_lvl > self.top_most_layer || self.nodes.len() == 1 {
             self.top_most_layer = new_elements_lvl;
-            self.enter_point = vec![value.id.clone()];
+            self.enter_point = vec![value.id];
         }
         Ok(())
     }
@@ -274,101 +272,75 @@ impl HNSW {
         ef: u8,
         layer: &LayerIndex,
     ) -> Result<HashSet<NodeId>, Error> {
-        //
-        // v
         let mut visited_items: HashSet<&NodeId> = HashSet::from_iter(entry_points);
 
-        // C
-        let mut candidates = MinHeapQueue::from_nodes(
-            entry_points.iter().filter_map(|id| self.nodes.get(id)),
-            query,
-            euclidean_distance,
-        );
+        // C - candidates (min heap via Reverse: smallest distance pops first)
+        let mut candidates: BinaryHeap<Reverse<OrderedNode>> = entry_points
+            .iter()
+            .filter_map(|id| self.nodes.get(id))
+            .map(|node| {
+                let distance = euclidean_distance(node.value.as_slice(), query.value.as_slice());
+                Reverse(OrderedNode((node.id, distance)))
+            })
+            .collect();
 
-        // W
-        let mut nearest_neighbours = MaxHeapQueue::from_nodes(
-            entry_points.iter().filter_map(|id| self.nodes.get(id)),
-            query,
-            euclidean_distance,
-        );
+        // W - bounded min heap: keeps ef nearest (smallest distance) neighbors
+        let ef_nonzero = NonZeroUsize::new(ef as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
+        let mut nearest_neighbours: BoundedMinHeap<OrderedNode> = BoundedMinHeap::new(ef_nonzero);
+        for node in entry_points.iter().filter_map(|id| self.nodes.get(id)) {
+            let distance = euclidean_distance(node.value.as_slice(), query.value.as_slice());
+            nearest_neighbours.push(OrderedNode((node.id, distance)));
+        }
 
-        while candidates.len() > 0 {
-            let nearest_ele_from_c_and_to_q = candidates
-                .pop()
-                .map(|ele| ele.0.0.0)
-                .ok_or(Error::QueueEmpty)?;
+        while !candidates.is_empty() {
+            let Reverse(OrderedNode((nearest_id, nearest_dist))) =
+                candidates.pop().ok_or(Error::QueueEmpty)?;
 
-            let mut furthest_ele_from_nearest_neighbours_to_q = nearest_neighbours
-                .peak()
-                .map(|ele| ele.0.0.clone())
-                .ok_or(Error::NotFoundError("Peaked Node not found".to_string()))?;
-
-            let closest_node = self
-                .get_node(&nearest_ele_from_c_and_to_q)
-                .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
-
-            let mut furthest_node = self
-                .get_node(&furthest_ele_from_nearest_neighbours_to_q)
-                .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
-
-            let furthest_distance =
-                euclidean_distance(furthest_node.value.as_slice(), query.value.as_slice());
-
-            if euclidean_distance(query.value.as_slice(), closest_node.value.as_slice())
-                > furthest_distance
+            // Check stopping condition: if candidate is further than worst in nearest_neighbours
+            if let Some(OrderedNode((_, furthest_dist))) = nearest_neighbours.peek()
+                && nearest_dist > *furthest_dist
             {
                 break;
             }
 
             let visited_node = self
-                .get_node(&nearest_ele_from_c_and_to_q)
-                .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
+                .get_node(&nearest_id)
+                .ok_or(Error::NotFoundError("Node not found".to_string()))?;
 
-            // NOTE:this would return none in alot of instances and we can't end or break the
-            // processing so we have to handle it...
+            // Explore neighbors
             if let Some(visited_node_neighbours) = visited_node.neighbours_at(layer) {
-                for e in visited_node_neighbours {
-                    if visited_items.contains(e) {
+                for neighbour_id in visited_node_neighbours {
+                    if visited_items.contains(neighbour_id) {
                         continue;
                     }
-                    visited_items.insert(e);
-
-                    furthest_ele_from_nearest_neighbours_to_q =
-                        nearest_neighbours.peak().map(|ele| ele.0.0.clone()).ok_or(
-                            Error::NotFoundError(" Peaked Element not Found".to_string()),
-                        )?;
-
-                    furthest_node = self
-                        .get_node(&furthest_ele_from_nearest_neighbours_to_q)
-                        .ok_or(Error::NotFoundError(" Node Ref not Found".to_string()))?;
+                    visited_items.insert(neighbour_id);
 
                     let neighbour_node = self
-                        .get_node(e)
-                        .ok_or(Error::NotFoundError(" Node Ref not Found".to_string()))?;
+                        .get_node(neighbour_id)
+                        .ok_or(Error::NotFoundError("Neighbor not found".to_string()))?;
 
-                    if (euclidean_distance(neighbour_node.value.as_slice(), query.value.as_slice())
-                        < euclidean_distance(
-                            furthest_node.value.as_slice(),
-                            query.value.as_slice(),
-                        ))
-                        || (nearest_neighbours.len() < ef as usize)
-                    {
-                        candidates.push(neighbour_node);
-                        nearest_neighbours.push(neighbour_node);
+                    let neighbour_dist =
+                        euclidean_distance(neighbour_node.value.as_slice(), query.value.as_slice());
 
-                        if nearest_neighbours.len() > ef as usize {
-                            // NOTE: remove the furthest node from W(nearest_neighbours) to Q
-                            nearest_neighbours.pop().ok_or(Error::QueueEmpty)?;
-                        }
+                    // Add if better than worst in nearest_neighbours OR if we haven't filled ef yet
+                    let should_add =
+                        if let Some(OrderedNode((_, worst_dist))) = nearest_neighbours.peek() {
+                            neighbour_dist < *worst_dist || nearest_neighbours.len() < ef as usize
+                        } else {
+                            true
+                        };
+
+                    if should_add {
+                        candidates.push(Reverse(OrderedNode((neighbour_node.id, neighbour_dist))));
+                        nearest_neighbours.push(OrderedNode((neighbour_node.id, neighbour_dist)));
                     }
                 }
             }
         }
 
         Ok(nearest_neighbours
-            .heap
             .iter()
-            .map(|ordered| ordered.0.0.clone())
+            .map(|ordered_node| ordered_node.0.0)
             .collect())
     }
 
@@ -465,7 +437,7 @@ impl HNSW {
         Ok(response
             .heap
             .iter()
-            .map(|node| node.0.0.0.clone())
+            .map(|node| node.0.0.0)
             .collect::<Vec<NodeId>>())
     }
 
@@ -491,7 +463,7 @@ impl HNSW {
                 euclidean_distance,
             )
             .peak()
-            .map(|ele| ele.0.0.0.clone())
+            .map(|ele| ele.0.0.0)
             .ok_or(Error::QueueEmpty)?;
             enter_point = vec![ep];
         }
@@ -506,7 +478,7 @@ impl HNSW {
         Ok(current_nearest_elements
             .pop_n(valid_len)
             .into_iter()
-            .map(|id| id.0.0.0.clone())
+            .map(|id| id.0.0.0)
             .collect())
     }
 

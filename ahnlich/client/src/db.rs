@@ -836,7 +836,7 @@ mod test {
                 stores: vec![StoreInfo {
                     name: "Main".to_string(),
                     len: 2,
-                    size_in_bytes: 1356,
+                    size_in_bytes: 1340,
                 }]
             }
         );
@@ -870,7 +870,7 @@ mod test {
                 stores: vec![StoreInfo {
                     name: "Main".to_string(),
                     len: 1,
-                    size_in_bytes: 1244,
+                    size_in_bytes: 1236,
                 }]
             }
         );

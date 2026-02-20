@@ -105,7 +105,7 @@ impl Node {
 // TODO: Hnsw needs to define a similarity algorithm to compare two nodes
 // - Queues needs
 
-struct OrderedNode((NodeId, f32));
+pub(crate) struct OrderedNode(pub(crate) (NodeId, f32));
 
 impl PartialEq for OrderedNode {
     fn eq(&self, other: &Self) -> bool {
@@ -152,7 +152,7 @@ where
         let heap = nodes
             .map(|node| {
                 let similarity = similarity_function(node.value.as_slice(), query.value.as_slice());
-                OrderedNode((node.id.clone(), similarity))
+                OrderedNode((node.id, similarity))
             })
             .collect::<BinaryHeap<_>>();
         Self {
@@ -180,7 +180,7 @@ where
 
     fn push(&mut self, node: &Node) {
         let distance = (self.similarity)(node.value.as_slice(), &self.query);
-        let ordered = OrderedNode((node.id.clone(), distance));
+        let ordered = OrderedNode((node.id, distance));
         self.heap.push(ordered)
     }
 
@@ -210,7 +210,7 @@ where
         let heap = nodes
             .map(|node| {
                 let similarity = similarity_function(node.value.as_slice(), query.value.as_slice());
-                let ordered_node = OrderedNode((node.id.clone(), similarity));
+                let ordered_node = OrderedNode((node.id, similarity));
                 Reverse(ordered_node)
             })
             .collect::<BinaryHeap<_>>();
@@ -223,7 +223,7 @@ where
 
     fn push(&mut self, node: &Node) {
         let distance = (self.similarity)(node.value.as_slice(), &self.query);
-        let ordered = OrderedNode((node.id.clone(), distance));
+        let ordered = OrderedNode((node.id, distance));
         self.heap.push(Reverse(ordered))
     }
 
