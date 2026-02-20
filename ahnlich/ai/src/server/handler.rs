@@ -395,6 +395,7 @@ impl AiService for AIProxyServer {
         let search_input = params
             .search_input
             .ok_or_else(|| AIProxyError::InputNotSpecified("Search".to_string()))?;
+        let model_params = params.model_params;
         let search_input = self
             .store_handler
             .get_ndarray_repr_for_store(
@@ -406,6 +407,7 @@ impl AiService for AIProxyServer {
                 TryInto::<PreprocessAction>::try_into(params.preprocess_action)
                     .map_err(AIProxyError::from)?,
                 params.execution_provider.and_then(|a| a.try_into().ok()),
+                model_params,
             )
             .await?;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
@@ -456,6 +458,7 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<server::Set>, tonic::Status> {
         let params = request.into_inner();
         let model_manager = &self.model_manager;
+        let model_params = params.model_params;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let (db_inputs, delete_hashset) = self
             .store_handler
@@ -481,6 +484,7 @@ impl AiService for AIProxyServer {
                 TryInto::<PreprocessAction>::try_into(params.preprocess_action)
                     .map_err(AIProxyError::from)?,
                 params.execution_provider.and_then(|a| a.try_into().ok()),
+                model_params,
             )
             .await?;
         let db_client = self
@@ -737,6 +741,7 @@ impl AiService for AIProxyServer {
 
         let inputs = params.store_inputs;
         let input_len = inputs.len();
+        let model_params = params.model_params;
 
         let store_keys = ModelManager::handle_request(
             &self.model_manager,
@@ -745,6 +750,7 @@ impl AiService for AIProxyServer {
             preprocess_action,
             InputAction::Index,
             None,
+            model_params,
         )
         .await?;
 

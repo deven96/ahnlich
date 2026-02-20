@@ -655,6 +655,7 @@ mod test {
                     }),
                 },
             ],
+            model_params: HashMap::new(),
         };
 
         assert!(ai_client.set(set_params, None).await.is_ok());
@@ -888,6 +889,7 @@ mod test {
             inputs: store_data,
             preprocess_action: PreprocessAction::NoPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         };
         pipeline.set(set_store_params);
 
@@ -897,6 +899,7 @@ mod test {
             store_inputs: store_inputs.clone(),
             preprocess_action: Some(PreprocessAction::NoPreprocessing.into()),
             model,
+            model_params: HashMap::new(),
         };
         pipeline.convert_store_input_to_embeddings(convert_store_input_to_embeddings_params);
 
@@ -1008,6 +1011,7 @@ mod test {
             inputs: store_data,
             execution_provider: None,
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            model_params: HashMap::new(),
         };
         pipeline.set(set_params);
 
@@ -1188,6 +1192,7 @@ mod test {
             inputs: store_data,
             execution_provider: None,
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            model_params: HashMap::new(),
         };
 
         pipeline.set(set_params);

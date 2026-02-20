@@ -5,6 +5,7 @@ use crate::engine::ai::models::{InputAction, ModelInput};
 use crate::engine::ai::providers::ort::ORTProvider;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider;
+use std::collections::HashMap;
 
 use super::models::ModelResponse;
 
@@ -20,5 +21,6 @@ pub(crate) trait ProviderTrait: Send + Sync {
         input: ModelInput,
         action_type: &InputAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: &HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError>;
 }

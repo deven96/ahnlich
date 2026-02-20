@@ -224,6 +224,7 @@ async fn test_ai_store_get_key_works() {
                 inputs,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
     ];
@@ -349,6 +350,7 @@ async fn test_ai_store_no_original() {
                 inputs: store_data,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
     ];
@@ -470,6 +472,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
                 inputs: store_data,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
     ];
@@ -598,6 +601,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
                 inputs: store_data,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
     ];
@@ -619,6 +623,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         algorithm: Algorithm::DotProductSimilarity.into(),
         preprocess_action: PreprocessAction::ModelPreprocessing.into(),
         execution_provider: None,
+        model_params: HashMap::new(),
     };
 
     let response = client
@@ -757,6 +762,7 @@ async fn test_convert_store_input_to_embeddings(index: usize, model: i32) {
                 inputs: store_data,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
     ];
@@ -774,6 +780,7 @@ async fn test_convert_store_input_to_embeddings(index: usize, model: i32) {
         store_inputs: store_inputs.clone(),
         preprocess_action: Some(PreprocessAction::NoPreprocessing.into()),
         model,
+        model_params: HashMap::new(),
     };
 
     let response = client
@@ -905,6 +912,7 @@ async fn test_convert_store_input_to_embeddings_without_db(index: usize, model: 
                 inputs: store_data,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
     ];
@@ -922,6 +930,7 @@ async fn test_convert_store_input_to_embeddings_without_db(index: usize, model: 
         store_inputs: store_inputs.clone(),
         preprocess_action: Some(PreprocessAction::NoPreprocessing.into()),
         model,
+        model_params: HashMap::new(),
     };
 
     let response = client
@@ -1011,6 +1020,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
                 inputs: store_data,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
         ai_pipeline::AiQuery {
@@ -1151,6 +1161,7 @@ async fn test_ai_proxy_del_key_drop_store() {
                 inputs: store_data,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
         ai_pipeline::AiQuery {
@@ -1301,6 +1312,7 @@ async fn test_ai_proxy_del_pred() {
                 inputs: store_data,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
         ai_pipeline::AiQuery {
@@ -1684,9 +1696,10 @@ async fn test_ai_proxy_binary_store_actions() {
         ai_pipeline::AiQuery {
             query: Some(Query::Set(ai_query_types::Set {
                 store: store_name.clone(),
-                inputs: store_data,
+                inputs: store_data.clone(),
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
         ai_pipeline::AiQuery {
@@ -1695,6 +1708,7 @@ async fn test_ai_proxy_binary_store_actions() {
                 inputs: oversize_data,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
         ai_pipeline::AiQuery {
@@ -1839,6 +1853,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
                 inputs: store_data,
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
         ai_pipeline::AiQuery {

@@ -263,11 +263,12 @@ impl Model {
         modelinput: ModelInput,
         action_type: &InputAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
         let store_keys = match &self.provider {
             ModelProviders::ORT(provider) => {
                 provider
-                    .run_inference(modelinput, action_type, execution_provider)
+                    .run_inference(modelinput, action_type, execution_provider, model_params)
                     .await?
             }
         };
