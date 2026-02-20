@@ -248,26 +248,6 @@ where
     }
 }
 
-fn euclidean_distance_comp(first: &[f32], second: &[f32]) -> f32 {
-    // Calculate the sum of squared differences for each dimension
-    let mut sum_of_squared_differences = 0.0;
-    for (&coord1, &coord2) in first.iter().zip(second.iter()) {
-        let diff = coord1 - coord2;
-        sum_of_squared_differences += diff * diff;
-    }
-
-    // Calculate the square root of the sum of squared differences
-    f32::sqrt(sum_of_squared_differences)
-}
-
-fn dot_product_comp(first: &[f32], second: &[f32]) -> f32 {
-    first
-        .iter()
-        .zip(&second.to_vec())
-        .map(|(&x, &y)| x * y)
-        .sum::<f32>()
-}
-
 fn get_node_id(value: &[f32]) -> NodeId {
     use ahash::RandomState;
     use std::hash::BuildHasher;

@@ -1,5 +1,6 @@
 use crate::EmbeddingKey;
 use crate::NonLinearAlgorithmWithIndexImpl;
+use crate::distance::squared_euclidean_distance;
 /// K Dimensional Tree algorithm is a binary search tree that extends to multiple dimensions,
 /// making it an efficient datastructure for applying nearest neighbour searches and range searches
 use crate::error::Error;
@@ -527,10 +528,7 @@ impl KDTree {
 
     #[tracing::instrument(skip_all)]
     fn squared_distance(&self, a: &[f32], b: &[f32]) -> f32 {
-        a.iter()
-            .zip(b.iter())
-            .map(|(ai, bi)| (ai - bi).powi(2))
-            .sum()
+        squared_euclidean_distance(a, b)
     }
 }
 

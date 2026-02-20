@@ -21,6 +21,7 @@ tracing.workspace = true
 rand.workspace = true
 itertools.workspace = true
 ahash.workspace = true
+pulp.workspace = true
 
 [features]
 default = ["serde"]

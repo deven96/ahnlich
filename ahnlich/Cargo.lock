@@ -62,6 +62,7 @@ dependencies = [
  "crossbeam",
  "itertools 0.10.5",
  "pretty_assertions",
+ "pulp",
  "rand 0.8.5",
  "serde",
  "serde_json",

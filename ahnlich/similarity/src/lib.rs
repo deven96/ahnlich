@@ -2,8 +2,10 @@ use std::{collections::HashSet, num::NonZeroUsize};
 
 use serde::{Deserialize, Serialize};
 
+pub mod distance;
 pub mod embedding_key;
 pub mod error;
+pub mod heap;
 pub mod hnsw;
 pub mod kdtree;
 

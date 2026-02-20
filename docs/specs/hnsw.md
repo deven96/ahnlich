@@ -580,8 +580,8 @@ use std::collections::{HashSet, btree_map::BTreeMap};
 /// LayerIndex is just a wrapper around u8 to represent a layer in HNSW.
 pub struct LayerIndex(u8);
 
-/// NodeId wraps String(hash of node embeddings) to uniquely identify a node across all layers.
-pub struct NodeId(String);
+/// NodeId wraps u64(hash of node embeddings) to uniquely identify a node across all layers.
+pub struct NodeId(u64);
 
 
 /// HNSW represents a Hierarchical Navigable Small World graph.

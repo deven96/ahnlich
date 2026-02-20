@@ -49,6 +49,7 @@ papaya = { version = "0.2.0", features = ["serde"] }
 tonic = "0.12.3"
 http = "1.2.0"
 prost = "0.13"
+pulp = "0.21.4"
 
 [profile.release]
 lto = true

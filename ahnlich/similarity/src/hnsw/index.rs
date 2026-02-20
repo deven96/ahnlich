@@ -9,7 +9,8 @@ use crate::{
 };
 use rand::Rng;
 
-use super::{LayerIndex, Node, NodeId, euclidean_distance_comp};
+use super::{LayerIndex, Node, NodeId};
+use crate::distance::euclidean_distance;
 
 use std::{
     cmp::min,
@@ -121,7 +122,7 @@ impl HNSW {
                     .iter()
                     .filter_map(|node_id| self.get_node(node_id)),
                 &value,
-                euclidean_distance_comp,
+                euclidean_distance,
             )
             .pop()
             .map(|ele| ele.0.0.0.clone())
@@ -238,7 +239,7 @@ impl HNSW {
                             .iter()
                             .filter_map(|node_id| self.get_node(node_id)),
                         &value,
-                        euclidean_distance_comp,
+                        euclidean_distance,
                     )
                     .pop()
                     .map(|ele| ele.0.0.0.clone())
@@ -281,14 +282,14 @@ impl HNSW {
         let mut candidates = MinHeapQueue::from_nodes(
             entry_points.iter().filter_map(|id| self.nodes.get(id)),
             query,
-            euclidean_distance_comp,
+            euclidean_distance,
         );
 
         // W
         let mut nearest_neighbours = MaxHeapQueue::from_nodes(
             entry_points.iter().filter_map(|id| self.nodes.get(id)),
             query,
-            euclidean_distance_comp,
+            euclidean_distance,
         );
 
         while candidates.len() > 0 {
@@ -311,9 +312,9 @@ impl HNSW {
                 .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
 
             let furthest_distance =
-                euclidean_distance_comp(furthest_node.value.as_slice(), query.value.as_slice());
+                euclidean_distance(furthest_node.value.as_slice(), query.value.as_slice());
 
-            if euclidean_distance_comp(query.value.as_slice(), closest_node.value.as_slice())
+            if euclidean_distance(query.value.as_slice(), closest_node.value.as_slice())
                 > furthest_distance
             {
                 break;
@@ -345,13 +346,12 @@ impl HNSW {
                         .get_node(e)
                         .ok_or(Error::NotFoundError(" Node Ref not Found".to_string()))?;
 
-                    if (euclidean_distance_comp(
-                        neighbour_node.value.as_slice(),
-                        query.value.as_slice(),
-                    ) < euclidean_distance_comp(
-                        furthest_node.value.as_slice(),
-                        query.value.as_slice(),
-                    )) || (nearest_neighbours.len() < ef as usize)
+                    if (euclidean_distance(neighbour_node.value.as_slice(), query.value.as_slice())
+                        < euclidean_distance(
+                            furthest_node.value.as_slice(),
+                            query.value.as_slice(),
+                        ))
+                        || (nearest_neighbours.len() < ef as usize)
                     {
                         candidates.push(neighbour_node);
                         nearest_neighbours.push(neighbour_node);
@@ -383,13 +383,12 @@ impl HNSW {
         extend_candidates: bool,
         keep_pruned_connections: bool,
     ) -> Result<Vec<NodeId>, Error> {
-        let mut response =
-            MinHeapQueue::from_nodes(std::iter::empty(), query, euclidean_distance_comp);
+        let mut response = MinHeapQueue::from_nodes(std::iter::empty(), query, euclidean_distance);
 
         let mut working_queue = MinHeapQueue::from_nodes(
             candidates.iter().filter_map(|id| self.get_node(id)),
             query,
-            euclidean_distance_comp,
+            euclidean_distance,
         );
 
         if extend_candidates {
@@ -415,7 +414,7 @@ impl HNSW {
         }
 
         let mut discarded_candidates =
-            MinHeapQueue::from_nodes(std::iter::empty(), query, euclidean_distance_comp);
+            MinHeapQueue::from_nodes(std::iter::empty(), query, euclidean_distance);
 
         // NOTE: if nearest_element_from_w_to_q is closer to q compared to any
         // element in R(use the argmin from R and if nearest_ele_from_w_to_q is closer to q than
@@ -489,7 +488,7 @@ impl HNSW {
             let ep = MinHeapQueue::from_nodes(
                 searched.iter().filter_map(|id| self.get_node(id)),
                 query,
-                euclidean_distance_comp,
+                euclidean_distance,
             )
             .peak()
             .map(|ele| ele.0.0.0.clone())
@@ -501,7 +500,7 @@ impl HNSW {
         let mut current_nearest_elements = MinHeapQueue::from_nodes(
             level_zero.iter().filter_map(|id| self.get_node(id)),
             query,
-            euclidean_distance_comp,
+            euclidean_distance,
         );
 
         Ok(current_nearest_elements
@@ -584,7 +583,7 @@ pub fn brute_knn(query: &Node, data: &[Node], k: usize) -> Vec<(NodeId, f32)> {
         .map(|n| {
             (
                 n.id.clone(),
-                euclidean_distance_comp(n.value.as_slice(), query.value.as_slice()),
+                euclidean_distance(n.value.as_slice(), query.value.as_slice()),
             )
         })
         .sorted_by(|a, b| {
