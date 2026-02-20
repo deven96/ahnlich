@@ -48,10 +48,12 @@ impl From<&StoreKey> for StoreKeyId {
     fn from(value: &StoreKey) -> Self {
         // compute a fast ahash of the vector to ensure it always gives us the same value
         // and use that as a reference to the vector
-        use ahash::AHasher;
-        use std::hash::Hasher;
-
-        let mut hasher = AHasher::default();
+        // Fixed seed so StoreKeyId is deterministic across restarts and platforms.
+        // AHasher::default() is randomly seeded per-process (DoS protection for maps),
+        // which would break snapshot/persistence of StoreKeyIds across restarts.
+        use ahash::RandomState;
+        use std::hash::{BuildHasher, Hasher};
+        let mut hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
         for element in value.key.iter() {
             hasher.write_u32(element.to_bits());
         }

@@ -261,8 +261,12 @@ fn dot_product_comp(first: &[f32], second: &[f32]) -> f32 {
 }
 
 fn get_node_id(value: &[f32]) -> NodeId {
-    use ahash::AHasher;
-    let mut hasher = AHasher::default();
+    use ahash::RandomState;
+    use std::hash::BuildHasher;
+    // Fixed seed so NodeId is deterministic across restarts and platforms.
+    // AHasher::default() is randomly seeded per-process (DoS protection for maps),
+    // which would break any future snapshot/persistence of NodeIds.
+    let mut hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
     for element in value.iter() {
         hasher.write_u32(element.to_bits());
     }
