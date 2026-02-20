@@ -7,6 +7,7 @@
 ///   4. The aligned crop is fed to a recognition model
 use crate::error::AIProxyError;
 use ndarray::{Array, Array2, Ix3, Ix4};
+use rayon::prelude::*;
 use std::mem::size_of;
 
 /// A detected face: bounding box, 5 facial landmarks, and confidence score.
@@ -119,6 +120,9 @@ pub(crate) fn align_face(
 }
 
 /// Crop and align all detections from one image into a (N, 3, 112, 112) batch.
+///
+/// Processes faces in parallel using Rayon when there are multiple faces detected.
+/// For single-face images, uses sequential processing to avoid parallelization overhead.
 pub(crate) fn crop_and_align_faces(
     detections: &[FaceDetection],
     image: ndarray::ArrayView<f32, Ix4>,
@@ -128,9 +132,25 @@ pub(crate) fn crop_and_align_faces(
     }
 
     let num_faces = detections.len();
+
+    // For single face, use sequential processing (avoid parallelization overhead)
+    if num_faces == 1 {
+        let aligned = align_face(&detections[0], image)?;
+        let mut batch = Array::zeros((1, 3, 112, 112));
+        batch.slice_mut(ndarray::s![0, .., .., ..]).assign(&aligned);
+        return Ok(batch);
+    }
+
+    // For multiple faces, process in parallel
+    let aligned_faces: Result<Vec<_>, AIProxyError> = detections
+        .par_iter()
+        .map(|det| align_face(det, image))
+        .collect();
+
+    let aligned_faces = aligned_faces?;
+
     let mut batch = Array::zeros((num_faces, 3, 112, 112));
-    for (i, det) in detections.iter().enumerate() {
-        let aligned = align_face(det, image)?;
+    for (i, aligned) in aligned_faces.into_iter().enumerate() {
         batch.slice_mut(ndarray::s![i, .., .., ..]).assign(&aligned);
     }
     Ok(batch)
@@ -232,32 +252,52 @@ pub(crate) fn warp_affine(
 
     let mut output = Array::zeros((channels, output_height, output_width));
 
-    for dst_y in 0..output_height {
-        let dst_yf = dst_y as f32;
-        // Hoist row-level constants out of inner x-loop
-        let row_src_x_base = inv_b * dst_yf + inv_tx;
-        let row_src_y_base = inv_d * dst_yf + inv_ty;
+    // Process rows in parallel for better performance on larger transforms
+    // Each row is independent and can be computed simultaneously
+    let row_data: Vec<Vec<Vec<f32>>> = (0..output_height)
+        .into_par_iter()
+        .map(|dst_y| {
+            let dst_yf = dst_y as f32;
+            // Hoist row-level constants out of inner x-loop
+            let row_src_x_base = inv_b * dst_yf + inv_tx;
+            let row_src_y_base = inv_d * dst_yf + inv_ty;
 
-        for dst_x in 0..output_width {
-            let dst_xf = dst_x as f32;
-            let src_x = inv_a * dst_xf + row_src_x_base;
-            let src_y = inv_c * dst_xf + row_src_y_base;
+            let mut row_pixels = vec![vec![0.0f32; output_width]; channels];
 
-            if src_x >= 0.0 && src_x < src_w_limit && src_y >= 0.0 && src_y < src_h_limit {
-                let x0 = src_x as usize;
-                let y0 = src_y as usize;
-                let x1 = x0 + 1;
-                let y1 = y0 + 1;
-                let dx = src_x - x0 as f32;
-                let dy = src_y - y0 as f32;
-                let dx1 = 1.0 - dx;
-                let dy1 = 1.0 - dy;
+            // Clippy suggests enumerate() here, but we need dst_x for coordinate transformation
+            // calculations (dst_xf = dst_x as f32), not just array indexing
+            #[allow(clippy::needless_range_loop)]
+            for dst_x in 0..output_width {
+                let dst_xf = dst_x as f32;
+                let src_x = inv_a * dst_xf + row_src_x_base;
+                let src_y = inv_c * dst_xf + row_src_y_base;
 
-                for ch in 0..channels {
-                    let p = dx1 * (dy1 * image[[0, ch, y0, x0]] + dy * image[[0, ch, y1, x0]])
-                        + dx * (dy1 * image[[0, ch, y0, x1]] + dy * image[[0, ch, y1, x1]]);
-                    output[[ch, dst_y, dst_x]] = p;
+                if src_x >= 0.0 && src_x < src_w_limit && src_y >= 0.0 && src_y < src_h_limit {
+                    let x0 = src_x as usize;
+                    let y0 = src_y as usize;
+                    let x1 = x0 + 1;
+                    let y1 = y0 + 1;
+                    let dx = src_x - x0 as f32;
+                    let dy = src_y - y0 as f32;
+                    let dx1 = 1.0 - dx;
+                    let dy1 = 1.0 - dy;
+
+                    for ch in 0..channels {
+                        let p = dx1 * (dy1 * image[[0, ch, y0, x0]] + dy * image[[0, ch, y1, x0]])
+                            + dx * (dy1 * image[[0, ch, y0, x1]] + dy * image[[0, ch, y1, x1]]);
+                        row_pixels[ch][dst_x] = p;
+                    }
                 }
+            }
+            row_pixels
+        })
+        .collect();
+
+    // Copy parallel results back to output array
+    for (dst_y, row_pixels) in row_data.into_iter().enumerate() {
+        for ch in 0..channels {
+            for dst_x in 0..output_width {
+                output[[ch, dst_y, dst_x]] = row_pixels[ch][dst_x];
             }
         }
     }

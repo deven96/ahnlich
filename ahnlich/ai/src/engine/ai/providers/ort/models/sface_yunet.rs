@@ -67,19 +67,21 @@ impl ORTInferenceModel for SfaceYunetModel {
     fn infer_batch(
         &self,
         input: ModelInput,
-        execution_provider: Option<AIExecutionProvider>,
+        _execution_provider: Option<AIExecutionProvider>,
         model_params: &std::collections::HashMap<String, String>,
     ) -> Pin<Box<dyn Future<Output = Result<Vec<ModelResponse>, AIProxyError>> + Send + '_>> {
-        let model_params = model_params.clone();
+        let _model_params = model_params.clone();
         Box::pin(async move {
             match input {
                 ModelInput::Images(images) => {
-                    self.detect_and_recognize_batch(images, execution_provider, &model_params)
+                    self.detect_and_recognize_batch(images, _execution_provider, &_model_params)
                         .await
                 }
-                ModelInput::Texts(_) => Err(AIProxyError::AIModelNotSupported {
-                    model_name: "SFace+YuNet (image-only model)".to_string(),
-                }),
+                ModelInput::Texts(_) | ModelInput::Audios(_) => {
+                    Err(AIProxyError::AIModelNotSupported {
+                        model_name: "SFace+YuNet (image-only model)".to_string(),
+                    })
+                }
             }
         })
     }
@@ -101,6 +103,7 @@ impl SfaceYunetModel {
         let exec_prov = execution_provider
             .map(|ep| ep.into())
             .unwrap_or(InnerAIExecutionProvider::CPU);
+
         let det_session = self.detection_cache.try_get_with(exec_prov).await?;
         let rec_session = self.recognition_cache.try_get_with(exec_prov).await?;
 
@@ -111,6 +114,7 @@ impl SfaceYunetModel {
         // Stage 1: Detect and align faces from each image using YuNet
         for image_idx in 0..batch_size {
             let single_image = images.slice(s![image_idx..image_idx + 1, .., .., ..]);
+
             let detections =
                 self.detect_faces(single_image.to_owned(), &det_session, model_params)?;
 
@@ -120,6 +124,7 @@ impl SfaceYunetModel {
             }
 
             let cropped_faces = crop_and_align_faces(&detections, single_image)?;
+
             let num_faces = cropped_faces.shape()[0];
             face_counts.push(num_faces);
 
@@ -147,7 +152,6 @@ impl SfaceYunetModel {
                     .collect::<Vec<_>>(),
             )
             .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
-
             self.recognize_faces(faces_batch, &rec_session)?
         };
 
@@ -177,7 +181,6 @@ impl SfaceYunetModel {
                 embedding_offset += num_faces;
             }
         }
-
         Ok(results)
     }
 

@@ -47,10 +47,8 @@ pub enum ModelType {
 }
 
 #[derive(Debug)]
-pub(crate) enum ModelResponse {
+pub enum ModelResponse {
     OneToOne(StoreKey),
-    // FIXME: Remove once OneToMany gets constructed
-    #[allow(dead_code)]
     OneToMany(Vec<StoreKey>),
 }
 
@@ -449,6 +447,7 @@ impl TryFrom<&[u8]> for ImageArray {
                 height: height as usize,
             });
         }
+
         Ok(Self { image })
     }
 }

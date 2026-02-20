@@ -11,7 +11,9 @@ use crate::engine::ai::providers::processors::{AudioInput, Preprocessor, Preproc
 use crate::error::AIProxyError;
 use hf_hub::api::sync::ApiRepo;
 use ndarray::{Array, Ix4};
+use rayon::prelude::*;
 use rubato::{FftFixedIn, Resampler};
+use rustfft::{FftPlanner, num_complex::Complex};
 use std::f32::consts::PI;
 use std::sync::{Arc, Mutex};
 use symphonia::core::audio::SampleBuffer;
@@ -396,10 +398,13 @@ impl ORTAudioPreprocessor {
         Ok(output)
     }
 
-    /// Computes a log-Mel spectrogram using a Hann-windowed STFT.
+    /// Computes a log-Mel spectrogram using a Hann-windowed STFT with parallel frame processing.
     ///
     /// Returns up to `nb_max_frames` frames, each of shape `(n_mels,)`.
     /// Energy values are converted to dB: `10 * log10(max(power, 1e-10))`.
+    ///
+    /// Uses Rayon to parallelize frame computation, providing significant speedup
+    /// for long audio clips (typically 1000 frames for 10-second clips).
     fn log_mel_spectrogram(&self, waveform: &[f32]) -> Vec<Vec<f32>> {
         let n_freq = self.fft_window / 2 + 1;
         let hann: Vec<f32> = hann_window(self.fft_window);
@@ -410,33 +415,40 @@ impl ORTAudioPreprocessor {
             0
         };
 
-        let mut mel_frames: Vec<Vec<f32>> = Vec::with_capacity(n_frames);
+        // Process frames in parallel using Rayon
+        // Each frame computation is independent, making this embarrassingly parallel
+        let mel_frames: Vec<Vec<f32>> = (0..n_frames)
+            .into_par_iter()
+            .map(|frame_idx| {
+                let start = frame_idx * self.hop_length;
+                let frame = &waveform[start..start + self.fft_window];
 
-        for frame_idx in 0..n_frames {
-            let start = frame_idx * self.hop_length;
-            let frame = &waveform[start..start + self.fft_window];
+                // Apply Hann window
+                let windowed: Vec<f32> =
+                    frame.iter().zip(hann.iter()).map(|(s, w)| s * w).collect();
 
-            let windowed: Vec<f32> = frame.iter().zip(hann.iter()).map(|(s, w)| s * w).collect();
-            let power = real_dft_power(&windowed, n_freq);
+                // Compute FFT power spectrum
+                let power = real_dft_power(&windowed, n_freq);
 
-            let mel_power: Vec<f32> = self
-                .mel_filters_slaney
-                .iter()
-                .map(|filt| {
-                    filt.iter()
-                        .zip(power.iter())
-                        .map(|(f, p)| f * p)
-                        .sum::<f32>()
-                })
-                .collect();
+                // Apply mel filterbank
+                let mel_power: Vec<f32> = self
+                    .mel_filters_slaney
+                    .iter()
+                    .map(|filt| {
+                        filt.iter()
+                            .zip(power.iter())
+                            .map(|(f, p)| f * p)
+                            .sum::<f32>()
+                    })
+                    .collect();
 
-            let mel_db: Vec<f32> = mel_power
-                .iter()
-                .map(|&p| 10.0 * p.max(1e-10_f32).log10())
-                .collect();
-
-            mel_frames.push(mel_db);
-        }
+                // Convert to log scale (dB)
+                mel_power
+                    .iter()
+                    .map(|&p| 10.0 * p.max(1e-10_f32).log10())
+                    .collect()
+            })
+            .collect();
 
         mel_frames
     }
@@ -521,20 +533,21 @@ fn hann_window(n: usize) -> Vec<f32> {
 /// Computes the one-sided power spectrum (magnitude squared) of a windowed frame
 /// using the DFT definition directly. O(N²) — acceptable for the fixed N=1024 window.
 /// Returns `n_freq = N/2 + 1` values.
+/// Computes the power spectrum of a real-valued audio frame using FFT.
+/// Returns the first `n_freq` bins (typically fft_size/2 + 1 for real signals).
 fn real_dft_power(frame: &[f32], n_freq: usize) -> Vec<f32> {
     let n = frame.len();
-    let mut power = vec![0.0_f32; n_freq];
-    for (k, p) in power.iter_mut().enumerate() {
-        let mut re = 0.0_f32;
-        let mut im = 0.0_f32;
-        let angle = -2.0 * PI * k as f32 / n as f32;
-        for (t, &x) in frame.iter().enumerate() {
-            re += x * (angle * t as f32).cos();
-            im += x * (angle * t as f32).sin();
-        }
-        *p = re * re + im * im;
-    }
-    power
+
+    // Convert real samples to complex numbers for FFT
+    let mut buffer: Vec<Complex<f32>> = frame.iter().map(|&x| Complex::new(x, 0.0)).collect();
+
+    // Perform FFT
+    let mut planner = FftPlanner::new();
+    let fft = planner.plan_fft_forward(n);
+    fft.process(&mut buffer);
+
+    // Compute power spectrum (magnitude squared) for the first n_freq bins
+    buffer.iter().take(n_freq).map(|c| c.norm_sqr()).collect()
 }
 
 /// Builds a Slaney-normalised mel filterbank matrix of shape `(n_mels, n_freq_bins)`.

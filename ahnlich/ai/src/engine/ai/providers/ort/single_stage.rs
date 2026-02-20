@@ -138,14 +138,17 @@ impl SingleStageModel {
         utils::allocator::check_memory_available(estimated_bytes)
             .map_err(|e| AIProxyError::Allocation(e.into()))?;
 
+        // Pre-allocate vectors with exact capacity to avoid reallocations
         let mut ids_array = Vec::with_capacity(max_size);
         let mut mask_array: Option<Vec<i64>> =
             need_attention_mask.then(|| Vec::with_capacity(max_size));
         let mut token_type_ids_array: Option<Vec<i64>> =
             need_token_type_ids.then(|| Vec::with_capacity(max_size));
 
-        // Not using par_iter because the closure needs to be FnMut
-        encodings.iter().for_each(|encoding| {
+        // Process encodings sequentially but with optimized memory access
+        // We can't use par_iter here because we're appending to shared Vec<i64>
+        // However, this is fast because it's just copying i64 values (no allocation)
+        for encoding in &encodings {
             ids_array.extend(encoding.get_ids().iter().map(|x| *x as i64));
             if let Some(ref mut mask) = mask_array {
                 mask.extend(encoding.get_attention_mask().iter().map(|x| *x as i64));
@@ -153,7 +156,7 @@ impl SingleStageModel {
             if let Some(ref mut type_ids) = token_type_ids_array {
                 type_ids.extend(encoding.get_type_ids().iter().map(|x| *x as i64));
             }
-        });
+        }
 
         let inputs_ids_array = Array::from_shape_vec((batch_size, encoding_length), ids_array)
             .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;

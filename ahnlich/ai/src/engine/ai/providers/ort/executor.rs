@@ -1,5 +1,5 @@
 use moka::future::Cache as MokaCache;
-use ort::Session;
+use ort::{GraphOptimizationLevel, Session};
 
 use crate::error::AIProxyError;
 use strum::IntoEnumIterator;
@@ -35,7 +35,16 @@ impl ExecutorWithSessionCache {
         let threads = available_parallelism()
             .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?
             .get();
-        let mut session_builder = Session::builder()?.with_intra_threads(threads)?;
+
+        // Build session with performance optimizations
+        let mut session_builder = Session::builder()?
+            // Use all available CPU threads for intra-op parallelism (within a single operator)
+            .with_intra_threads(threads)?
+            // Enable parallel execution to run independent operators concurrently
+            .with_parallel_execution(true)?
+            // Enable all graph optimizations (constant folding, operator fusion, layout optimization, etc.)
+            // Level3 = ORT_ENABLE_ALL (most aggressive)
+            .with_optimization_level(GraphOptimizationLevel::Level3)?;
 
         if self.session_profiling {
             session_builder = session_builder.with_profiling("profiling.json")?;

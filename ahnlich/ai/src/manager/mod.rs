@@ -202,12 +202,12 @@ impl ModelThread {
                     })?
                     .len();
                 if token_size > max_token_size {
-                    return Err(AIProxyError::TokenExceededError {
+                    Err(AIProxyError::TokenExceededError {
                         max_token_size,
                         input_token_size: token_size,
-                    });
+                    })
                 } else {
-                    return Ok(outputs);
+                    Ok(outputs)
                 }
             }
         }
@@ -302,12 +302,12 @@ impl ModelThread {
                 let width = *outputs_shape.get(2).expect("Must exist");
                 let height = *outputs_shape.get(3).expect("Must exist");
                 if width != expected_width || height != expected_height {
-                    return Err(AIProxyError::ImageDimensionsMismatchError {
+                    Err(AIProxyError::ImageDimensionsMismatchError {
                         image_dimensions: (width, height),
                         expected_dimensions: (expected_width, expected_height),
-                    });
+                    })
                 } else {
-                    return Ok(outputs);
+                    Ok(outputs)
                 }
             }
         }

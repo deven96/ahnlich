@@ -120,6 +120,7 @@ dependencies = [
  "rayon",
  "regex",
  "rubato",
+ "rustfft",
  "serde",
  "serde_json",
  "strum",

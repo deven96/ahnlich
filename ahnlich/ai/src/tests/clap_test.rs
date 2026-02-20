@@ -140,6 +140,7 @@ async fn test_clap_cross_modal_audio_indexed_text_queried() {
                 ],
                 preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
     ];
@@ -178,6 +179,7 @@ async fn test_clap_cross_modal_audio_indexed_text_queried() {
                 condition: None,
                 preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             }))
             .await
             .expect("GetSimN failed")
@@ -227,6 +229,7 @@ async fn test_clap_audio_to_audio_retrieval() {
                 ],
                 preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
     ];
@@ -252,6 +255,7 @@ async fn test_clap_audio_to_audio_retrieval() {
                 condition: None,
                 preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             }))
             .await
             .expect("GetSimN failed")
@@ -297,6 +301,7 @@ async fn test_clap_text_to_text_retrieval() {
                 ],
                 preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             })),
         },
     ];
@@ -324,6 +329,7 @@ async fn test_clap_text_to_text_retrieval() {
                 condition: None,
                 preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                 execution_provider: None,
+                model_params: HashMap::new(),
             }))
             .await
             .expect("GetSimN failed")
@@ -413,6 +419,7 @@ async fn test_clap_audio_no_preprocessing_rejected() {
             }],
             preprocess_action: PreprocessAction::NoPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         }))
         .await;
 
@@ -477,6 +484,7 @@ async fn test_clap_audio_too_long_rejected() {
             }],
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         }))
         .await;
 
@@ -538,6 +546,7 @@ async fn test_clap_short_audio_accepted() {
                         }],
                         preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                         execution_provider: None,
+                        model_params: HashMap::new(),
                     })),
                 },
             ],
