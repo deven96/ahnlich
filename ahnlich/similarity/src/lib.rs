@@ -1,13 +1,11 @@
 use std::{collections::HashSet, num::NonZeroUsize};
 
 use serde::{Deserialize, Serialize};
-use utils::VecF32Ordered;
 
 pub mod embedding_key;
 pub mod error;
 pub mod hnsw;
 pub mod kdtree;
-pub mod utils;
 
 #[cfg(test)]
 pub mod tests;
@@ -29,7 +27,7 @@ pub trait NonLinearAlgorithmWithIndexImpl<'a>: Serialize + Deserialize<'a> {
         &self,
         reference_point: &[f32],
         n: NonZeroUsize,
-        accept_list: Option<HashSet<VecF32Ordered>>,
+        accept_list: Option<HashSet<EmbeddingKey>>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, error::Error>;
     // size of index structure
     fn size(&self) -> usize;

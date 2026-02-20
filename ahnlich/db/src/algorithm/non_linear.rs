@@ -4,7 +4,6 @@ use crate::engine::store::StoreKeyId;
 use ahnlich_similarity::EmbeddingKey;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_similarity::kdtree::KDTree;
-use ahnlich_similarity::utils::VecF32Ordered;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use papaya::HashMap as ConcurrentHashMap;
 use rayon::iter::IntoParallelIterator;
@@ -70,11 +69,7 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
         let accept_list = if used_all {
             None
         } else {
-            Some(
-                search_list
-                    .map(|key| VecF32Ordered(key.as_slice().to_vec()))
-                    .collect(),
-            )
+            Some(search_list.map(|key| key.clone()).collect())
         };
         self.get_inner()
             .n_nearest(search_vector.as_slice(), n, accept_list)

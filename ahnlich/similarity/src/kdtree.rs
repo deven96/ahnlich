@@ -3,7 +3,6 @@ use crate::NonLinearAlgorithmWithIndexImpl;
 /// K Dimensional Tree algorithm is a binary search tree that extends to multiple dimensions,
 /// making it an efficient datastructure for applying nearest neighbour searches and range searches
 use crate::error::Error;
-use crate::utils::VecF32Ordered;
 use crossbeam::epoch::{self, Atomic, Guard, Owned, Shared};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -228,7 +227,7 @@ struct NearestRecuriveArgs<'a> {
     n: NonZeroUsize,
     guard: &'a Guard,
     heap: &'a mut BinaryHeap<Reverse<OrderedArray>>,
-    accept_list: &'a Option<HashSet<VecF32Ordered>>,
+    accept_list: &'a Option<HashSet<EmbeddingKey>>,
 }
 
 impl KDTree {
@@ -434,10 +433,12 @@ impl KDTree {
     }
 
     #[tracing::instrument(skip_all)]
-    fn is_in_accept_list(accept_list: &Option<HashSet<VecF32Ordered>>, point: &[f32]) -> bool {
+    fn is_in_accept_list(
+        accept_list: &Option<HashSet<EmbeddingKey>>,
+        point: &EmbeddingKey,
+    ) -> bool {
         if let Some(accept_list) = accept_list {
-            let point = VecF32Ordered(point.to_owned());
-            return accept_list.contains(&point);
+            return accept_list.contains(point);
         }
         true
     }
@@ -458,11 +459,11 @@ impl KDTree {
         if let Some(shared) = unsafe { node.load(Ordering::Acquire, guard).as_ref() } {
             let point_slice = shared.point.as_slice();
             let distance = self.squared_distance(reference_point, point_slice);
-            if heap.len() < n.get() && Self::is_in_accept_list(accept_list, point_slice) {
+            if heap.len() < n.get() && Self::is_in_accept_list(accept_list, &shared.point) {
                 heap.push(Reverse(OrderedArray(shared.point.clone(), distance)));
             } else if let Some(Reverse(OrderedArray(_, max_distance))) = heap.peek()
                 && distance < *max_distance
-                && Self::is_in_accept_list(accept_list, point_slice)
+                && Self::is_in_accept_list(accept_list, &shared.point)
             {
                 if heap.len() >= n.get() {
                     heap.pop();
@@ -583,7 +584,7 @@ impl NonLinearAlgorithmWithIndexImpl<'_> for KDTree {
         &self,
         reference_point: &[f32],
         n: NonZeroUsize,
-        accept_list: Option<HashSet<VecF32Ordered>>,
+        accept_list: Option<HashSet<EmbeddingKey>>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
         self.assert_shape(reference_point)?;
         let guard = epoch::pin();
@@ -734,8 +735,8 @@ mod tests {
                 &vec![0.9, 2.0, 3.0],
                 closest_n,
                 Some(HashSet::from_iter([
-                    VecF32Ordered(arr_1.clone()),
-                    VecF32Ordered(arr_2.clone()),
+                    EmbeddingKey::new(arr_1.clone()),
+                    EmbeddingKey::new(arr_2.clone()),
                 ])),
             )
             .unwrap();
