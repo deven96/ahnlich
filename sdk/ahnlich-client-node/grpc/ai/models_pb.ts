@@ -48,6 +48,21 @@ export enum AIModel {
    * @generated from enum value: BUFFALO_L = 7;
    */
   BUFFALO_L = 7,
+
+  /**
+   * @generated from enum value: SFACE_YUNET = 8;
+   */
+  SFACE_YUNET = 8,
+
+  /**
+   * @generated from enum value: CLAP_AUDIO = 9;
+   */
+  CLAP_AUDIO = 9,
+
+  /**
+   * @generated from enum value: CLAP_TEXT = 10;
+   */
+  CLAP_TEXT = 10,
 }
 // Retrieve enum metadata with: proto3.getEnumType(AIModel)
 proto3.util.setEnumType(AIModel, "ai.models.AIModel", [
@@ -59,6 +74,9 @@ proto3.util.setEnumType(AIModel, "ai.models.AIModel", [
   { no: 5, name: "CLIP_VIT_B32_IMAGE" },
   { no: 6, name: "CLIP_VIT_B32_TEXT" },
   { no: 7, name: "BUFFALO_L" },
+  { no: 8, name: "SFACE_YUNET" },
+  { no: 9, name: "CLAP_AUDIO" },
+  { no: 10, name: "CLAP_TEXT" },
 ]);
 
 /**
@@ -76,9 +94,15 @@ export enum AIStoreInputType {
    * @generated from enum value: IMAGE = 1;
    */
   IMAGE = 1,
+
+  /**
+   * @generated from enum value: AUDIO = 2;
+   */
+  AUDIO = 2,
 }
 // Retrieve enum metadata with: proto3.getEnumType(AIStoreInputType)
 proto3.util.setEnumType(AIStoreInputType, "ai.models.AIStoreInputType", [
   { no: 0, name: "RAW_STRING" },
   { no: 1, name: "IMAGE" },
+  { no: 2, name: "AUDIO" },
 ]);

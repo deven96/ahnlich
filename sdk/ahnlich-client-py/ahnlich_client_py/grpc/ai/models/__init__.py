@@ -17,8 +17,9 @@ class AiModel(betterproto.Enum):
     CLIP_VIT_B32_IMAGE = 5
     CLIP_VIT_B32_TEXT = 6
     BUFFALO_L = 7
-    CLAP_AUDIO = 8
-    CLAP_TEXT = 9
+    SFACE_YUNET = 8
+    CLAP_AUDIO = 9
+    CLAP_TEXT = 10
 
 
 class AiStoreInputType(betterproto.Enum):

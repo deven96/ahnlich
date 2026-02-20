@@ -22,8 +22,9 @@ pub enum AiModel {
     ClipVitB32Image = 5,
     ClipVitB32Text = 6,
     BuffaloL = 7,
-    ClapAudio = 8,
-    ClapText = 9,
+    SfaceYunet = 8,
+    ClapAudio = 9,
+    ClapText = 10,
 }
 impl AiModel {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -40,6 +41,7 @@ impl AiModel {
             Self::ClipVitB32Image => "CLIP_VIT_B32_IMAGE",
             Self::ClipVitB32Text => "CLIP_VIT_B32_TEXT",
             Self::BuffaloL => "BUFFALO_L",
+            Self::SfaceYunet => "SFACE_YUNET",
             Self::ClapAudio => "CLAP_AUDIO",
             Self::ClapText => "CLAP_TEXT",
         }
@@ -55,6 +57,7 @@ impl AiModel {
             "CLIP_VIT_B32_IMAGE" => Some(Self::ClipVitB32Image),
             "CLIP_VIT_B32_TEXT" => Some(Self::ClipVitB32Text),
             "BUFFALO_L" => Some(Self::BuffaloL),
+            "SFACE_YUNET" => Some(Self::SfaceYunet),
             "CLAP_AUDIO" => Some(Self::ClapAudio),
             "CLAP_TEXT" => Some(Self::ClapText),
             _ => None,

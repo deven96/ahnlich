@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 use crate::{
@@ -122,6 +123,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     inputs: parse_store_inputs_to_store_value(store_keys_to_store_values)?,
                     preprocess_action,
                     execution_provider,
+                    model_params: HashMap::new(),
                 })
             }
             Rule::ai_create_store => {
@@ -251,6 +253,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     condition,
                     preprocess_action: preprocess_action as i32,
                     execution_provider,
+                    model_params: HashMap::new(),
                 })
             }
             Rule::get_pred => {

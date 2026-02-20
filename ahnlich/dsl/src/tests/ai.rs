@@ -215,6 +215,7 @@ fn test_get_sim_n_parse() {
             condition: None,
             preprocess_action: PreprocessAction::ModelPreprocessing as i32,
             execution_provider: None,
+            model_params: HashMap::new(),
         })]
     );
     let input = r#"GETSIMN 8 with [testing the limits of life] using euclideandistance executionprovider tensorrt in other where ((year != 2012) AND (month not in (december, october)))"#;
@@ -257,7 +258,8 @@ fn test_get_sim_n_parse() {
                 })
             ),
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
-            execution_provider: Some(ExecutionProvider::TensorRt as i32)
+            execution_provider: Some(ExecutionProvider::TensorRt as i32),
+            model_params: HashMap::new(),
         })]
     );
 }
@@ -478,6 +480,7 @@ fn test_set_in_store_parse() {
             ],
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
             execution_provider: None,
+            model_params: HashMap::new(),
         })]
     );
     let input = r#"SET (([This is the life of Haks paragraphed], {name: Haks, category: dev}), ([This is the life of Deven paragraphed], {name: Deven, category: dev})) in geo preprocessaction nopreprocessing executionprovider cuda"#;
@@ -535,6 +538,7 @@ fn test_set_in_store_parse() {
             ],
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
             execution_provider: Some(ExecutionProvider::Cuda as i32),
+            model_params: HashMap::new(),
         })]
     );
 }

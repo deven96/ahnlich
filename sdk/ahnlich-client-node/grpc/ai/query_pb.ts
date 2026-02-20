@@ -231,6 +231,13 @@ export class GetSimN extends Message<GetSimN> {
    */
   executionProvider?: ExecutionProvider;
 
+  /**
+   * Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+   *
+   * @generated from field: map<string, string> model_params = 8;
+   */
+  modelParams: { [key: string]: string } = {};
+
   constructor(data?: PartialMessage<GetSimN>) {
     super();
     proto3.util.initPartial(data, this);
@@ -251,6 +258,13 @@ export class GetSimN extends Message<GetSimN> {
       kind: "enum",
       T: proto3.getEnumType(ExecutionProvider),
       opt: true,
+    },
+    {
+      no: 8,
+      name: "model_params",
+      kind: "map",
+      K: 9 /* ScalarType.STRING */,
+      V: { kind: "scalar", T: 9 /* ScalarType.STRING */ },
     },
   ]);
 
@@ -952,6 +966,13 @@ export class Set extends Message<Set> {
    */
   executionProvider?: ExecutionProvider;
 
+  /**
+   * Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+   *
+   * @generated from field: map<string, string> model_params = 5;
+   */
+  modelParams: { [key: string]: string } = {};
+
   constructor(data?: PartialMessage<Set>) {
     super();
     proto3.util.initPartial(data, this);
@@ -969,6 +990,13 @@ export class Set extends Message<Set> {
       kind: "enum",
       T: proto3.getEnumType(ExecutionProvider),
       opt: true,
+    },
+    {
+      no: 5,
+      name: "model_params",
+      kind: "map",
+      K: 9 /* ScalarType.STRING */,
+      V: { kind: "scalar", T: 9 /* ScalarType.STRING */ },
     },
   ]);
 
@@ -1019,6 +1047,13 @@ export class ConvertStoreInputToEmbeddings extends Message<ConvertStoreInputToEm
    */
   model = AIModel.ALL_MINI_LM_L6_V2;
 
+  /**
+   * Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+   *
+   * @generated from field: map<string, string> model_params = 4;
+   */
+  modelParams: { [key: string]: string } = {};
+
   constructor(data?: PartialMessage<ConvertStoreInputToEmbeddings>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1036,6 +1071,13 @@ export class ConvertStoreInputToEmbeddings extends Message<ConvertStoreInputToEm
       opt: true,
     },
     { no: 3, name: "model", kind: "enum", T: proto3.getEnumType(AIModel) },
+    {
+      no: 4,
+      name: "model_params",
+      kind: "map",
+      K: 9 /* ScalarType.STRING */,
+      V: { kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    },
   ]);
 
   static fromBinary(

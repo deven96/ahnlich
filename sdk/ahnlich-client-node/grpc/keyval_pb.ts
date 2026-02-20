@@ -116,6 +116,13 @@ export class StoreInput extends Message<StoreInput> {
         value: Uint8Array;
         case: "image";
       }
+    | {
+        /**
+         * @generated from field: bytes audio = 4;
+         */
+        value: Uint8Array;
+        case: "audio";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<StoreInput>) {
@@ -128,6 +135,7 @@ export class StoreInput extends Message<StoreInput> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 2, name: "raw_string", kind: "scalar", T: 9 /* ScalarType.STRING */, oneof: "value" },
     { no: 3, name: "image", kind: "scalar", T: 12 /* ScalarType.BYTES */, oneof: "value" },
+    { no: 4, name: "audio", kind: "scalar", T: 12 /* ScalarType.BYTES */, oneof: "value" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StoreInput {

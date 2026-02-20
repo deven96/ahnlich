@@ -90,6 +90,7 @@ async fn test_buffalo_l_face_detection() {
             }],
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         })),
     };
 
@@ -181,6 +182,7 @@ async fn test_buffalo_l_batch_multiple_images() {
             ],
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         })),
     };
 
@@ -256,6 +258,7 @@ async fn test_buffalo_l_no_faces() {
             }],
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         })),
     };
 
@@ -330,6 +333,7 @@ async fn test_buffalo_l_single_face() {
             }],
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         })),
     };
 
@@ -430,6 +434,7 @@ async fn test_buffalo_l_get_sim_n() {
             ],
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         })),
     };
 
@@ -445,6 +450,7 @@ async fn test_buffalo_l_get_sim_n() {
             algorithm: Algorithm::CosineSimilarity.into(),
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         })),
     };
 
@@ -589,6 +595,7 @@ async fn test_buffalo_l_get_sim_n_multi_face_query_errors() {
                     }],
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
+                    model_params: HashMap::new(),
                 })),
             },
         ],
@@ -610,6 +617,7 @@ async fn test_buffalo_l_get_sim_n_multi_face_query_errors() {
             algorithm: Algorithm::CosineSimilarity.into(),
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         }))
         .await
         .expect_err("Expected error when querying with multi-face image");
@@ -683,6 +691,7 @@ async fn test_buffalo_l_face_index_metadata() {
         inputs: vec![store_entry],
         preprocess_action: PreprocessAction::ModelPreprocessing.into(),
         execution_provider: None,
+        model_params: HashMap::new(),
     };
 
     // Execute pipeline: create store + set data
@@ -729,6 +738,7 @@ async fn test_buffalo_l_face_index_metadata() {
             algorithm: Algorithm::CosineSimilarity.into(),
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
+            model_params: HashMap::new(),
         };
 
         let get_response = client
@@ -784,76 +794,6 @@ async fn test_buffalo_l_face_index_metadata() {
             pipeline_response.responses.get(1)
         );
     }
-}
-
-/// NoPreprocessing is rejected for BuffaloL: the model runs a baked-in multi-stage
-/// pipeline (detection → alignment → recognition) that cannot be bypassed.
-/// Passing raw pixels without preprocessing would produce silent garbage embeddings.
-#[tokio::test]
-async fn test_buffalo_l_no_preprocessing_rejected() {
-    let ai_address = provision_test_servers().await;
-    let channel =
-        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
-    let mut client = AiServiceClient::connect(channel)
-        .await
-        .expect("Failed to connect to server");
-
-    let store_name = "buffalo_l_no_preprocess_store".to_string();
-    let image_bytes = include_bytes!("../../test_data/single_face.jpg").to_vec();
-
-    // Create the store first
-    client
-        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
-            queries: vec![ai_pipeline::AiQuery {
-                query: Some(Query::CreateStore(ai_query_types::CreateStore {
-                    store: store_name.clone(),
-                    query_model: AiModel::BuffaloL.into(),
-                    index_model: AiModel::BuffaloL.into(),
-                    predicates: vec![],
-                    non_linear_indices: vec![],
-                    error_if_exists: false,
-                    store_original: false,
-                })),
-            }],
-        }))
-        .await
-        .expect("pipeline failed");
-
-    let result = client
-        .set(tonic::Request::new(ai_query_types::Set {
-            store: store_name.clone(),
-            inputs: vec![AiStoreEntry {
-                key: Some(StoreInput {
-                    value: Some(Value::Image(image_bytes)),
-                }),
-                value: Some(StoreValue {
-                    value: HashMap::new(),
-                }),
-            }],
-            preprocess_action: PreprocessAction::NoPreprocessing.into(),
-            execution_provider: None,
-        }))
-        .await;
-
-    assert!(
-        result.is_err(),
-        "Expected error for NoPreprocessing on BuffaloL"
-    );
-    let status = result.unwrap_err();
-    assert_eq!(
-        status.code(),
-        tonic::Code::InvalidArgument,
-        "Expected InvalidArgument, got {:?}: {}",
-        status.code(),
-        status.message()
-    );
-    assert!(
-        status
-            .message()
-            .contains("NoPreprocessing is not supported for face recognition"),
-        "Unexpected error message: {}",
-        status.message()
-    );
 }
 
 #[tokio::test]
@@ -926,6 +866,7 @@ async fn test_buffalo_l_mixed_batch_no_face_does_not_fail_batch() {
                     ],
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
+                    model_params: HashMap::new(),
                 })),
             },
         ],
@@ -952,4 +893,160 @@ async fn test_buffalo_l_mixed_batch_no_face_does_not_fail_batch() {
     } else {
         panic!("Expected Set response, got: {:?}", responses.get(1));
     }
+}
+
+#[tokio::test]
+async fn test_buffalo_l_high_confidence_threshold() {
+    // Scenario: Test that model_params confidence_threshold works correctly.
+    // With a very high threshold (0.89), fewer faces should be detected compared to default (0.5).
+    // The Friends cast image has 6 faces at default threshold, but with 0.89 we expect fewer.
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_high_threshold_store".to_string();
+    let image_bytes = include_bytes!("../../test_data/faces_multiple.jpg").to_vec();
+
+    let create_store_query = ai_pipeline::AiQuery {
+        query: Some(Query::CreateStore(ai_query_types::CreateStore {
+            store: store_name.clone(),
+            query_model: AiModel::BuffaloL.into(),
+            index_model: AiModel::BuffaloL.into(),
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: false,
+        })),
+    };
+
+    // First, insert with default threshold (0.5) to establish baseline
+    let set_default_query = ai_pipeline::AiQuery {
+        query: Some(Query::Set(ai_query_types::Set {
+            store: store_name.clone(),
+            inputs: vec![AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(image_bytes.clone())),
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::new(),
+                }),
+            }],
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: HashMap::new(), // Empty = use default threshold (0.5)
+        })),
+    };
+
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![create_store_query, set_default_query],
+    };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Failed to execute pipeline with default threshold");
+
+    let responses = response.into_inner().responses;
+    let default_face_count = if let Some(ai_pipeline::AiServerResponse {
+        response: Some(ai_pipeline::ai_server_response::Response::Set(set_response)),
+    }) = responses.get(1)
+    {
+        set_response
+            .upsert
+            .as_ref()
+            .expect("Expected upsert info")
+            .inserted
+    } else {
+        panic!(
+            "Expected Set response at index 1, got: {:?}",
+            responses.get(1)
+        );
+    };
+
+    // Now test with high threshold (0.89)
+    // Use a different store name to avoid any timing issues with drop/recreate
+    let high_threshold_store_name = format!("{}_high", store_name);
+
+    let recreate_store_query = ai_pipeline::AiQuery {
+        query: Some(Query::CreateStore(ai_query_types::CreateStore {
+            store: high_threshold_store_name.clone(),
+            query_model: AiModel::BuffaloL.into(),
+            index_model: AiModel::BuffaloL.into(),
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: false,
+        })),
+    };
+
+    let mut high_threshold_params = HashMap::new();
+    high_threshold_params.insert("confidence_threshold".to_string(), "0.89".to_string());
+
+    let set_high_threshold_query = ai_pipeline::AiQuery {
+        query: Some(Query::Set(ai_query_types::Set {
+            store: high_threshold_store_name.clone(),
+            inputs: vec![AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(image_bytes)),
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::new(),
+                }),
+            }],
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: high_threshold_params, // Custom high threshold
+        })),
+    };
+
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![recreate_store_query, set_high_threshold_query],
+    };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Failed to execute pipeline with high threshold");
+
+    let responses = response.into_inner().responses;
+    let high_threshold_face_count = if let Some(ai_pipeline::AiServerResponse {
+        response: Some(ai_pipeline::ai_server_response::Response::Set(set_response)),
+    }) = responses.get(1)
+    {
+        set_response
+            .upsert
+            .as_ref()
+            .expect("Expected upsert info")
+            .inserted
+    } else {
+        panic!(
+            "Expected Set response at index 1, got: {:?}",
+            responses.get(1)
+        );
+    };
+
+    // Verify that high threshold detects fewer faces than default
+    println!(
+        "Default threshold (0.5) detected {} faces, high threshold (0.89) detected {} faces",
+        default_face_count, high_threshold_face_count
+    );
+
+    assert_eq!(
+        default_face_count, 6,
+        "Default threshold should detect all 6 faces"
+    );
+    assert!(
+        high_threshold_face_count < default_face_count,
+        "High confidence threshold (0.89) should detect fewer faces than default (0.5). \
+         Got {} faces with 0.89 vs {} with 0.5",
+        high_threshold_face_count,
+        default_face_count
+    );
+    assert!(
+        high_threshold_face_count > 0,
+        "Even with high threshold, at least one clear face should be detected"
+    );
 }

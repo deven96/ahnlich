@@ -6,6 +6,7 @@ mod single_stage;
 
 use inference_model::{ORTInferenceModel, ORTModality};
 use models::buffalo_l::BuffaloLModel;
+use models::sface_yunet::SfaceYunetModel;
 use single_stage::SingleStageModel;
 
 use crate::cli::server::SupportedModels;
@@ -117,7 +118,7 @@ impl ModelConfig {
             },
             SupportedModels::ClipVitB32Text => Self {
                 modality: ORTModality::Text,
-                repo_name: "Qdrant/clip-ViT-B-32-text".to_string(),
+                repo_name: "deven96/clip-ViT-B-32-text".to_string(),
                 weights_file: "model.onnx".to_string(),
                 batch_size: 128,
             },
@@ -157,9 +158,8 @@ impl ModelConfig {
                 weights_file: "onnx/text_model.onnx".to_string(),
                 batch_size: 128,
             },
-            SupportedModels::BuffaloL => {
-                // BuffaloL is a multi-stage model and doesn't use ModelConfig
-                // This branch should never be reached as Buffalo_L is handled separately
+            SupportedModels::BuffaloL | SupportedModels::SfaceYunet => {
+                // Multi-stage models don't use ModelConfig — handled separately below
                 return Err(AIProxyError::AIModelNotInitialized);
             }
         })
@@ -191,11 +191,34 @@ impl ORTProvider {
         // Handle multi-stage models separately
         match supported_models {
             SupportedModels::BuffaloL => {
-                // Build BuffaloLModel (multi-stage)
+                // Build BuffaloLModel (multi-stage: RetinaFace detection + ResNet50 recognition)
                 let inner = BuffaloLModel::build(api.clone(), session_profiling).await?;
                 let model = ORTModel { inner };
 
                 let model_repo = api.model("deven96/buffalo_l".to_string());
+                let preprocessor = ORTPreprocessor::Image(ORTImagePreprocessor::load(
+                    *supported_models,
+                    model_repo,
+                )?);
+                let postprocessor =
+                    ORTPostprocessor::Image(ORTImagePostprocessor::load(*supported_models)?);
+
+                Ok(Self {
+                    cache_location,
+                    supported_models: *supported_models,
+                    postprocessor,
+                    preprocessor,
+                    model,
+                })
+            }
+            SupportedModels::SfaceYunet => {
+                // Build SfaceYunetModel (multi-stage: YuNet detection + SFace recognition)
+                let inner = SfaceYunetModel::build(api.clone(), session_profiling).await?;
+                let model = ORTModel { inner };
+
+                // SFace + YuNet have no external preprocessor config — use a no-op image repo
+                // The model handles all preprocessing internally
+                let model_repo = api.model("deven96/face_recognition_sface".to_string());
                 let preprocessor = ORTPreprocessor::Image(ORTImagePreprocessor::load(
                     *supported_models,
                     model_repo,
@@ -408,10 +431,11 @@ impl ProviderTrait for ORTProvider {
         input: ModelInput,
         _action_type: &InputAction,
         execution_provider: Option<AIExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
         self.model
             .inner
-            .infer_batch(input, execution_provider)
+            .infer_batch(input, execution_provider, model_params)
             .await
     }
 }

@@ -114,6 +114,8 @@ impl ORTImagePostprocessor {
             SupportedModels::Resnet50 => OnnxOutputTransform::new("output"),
             SupportedModels::ClipVitB32Image => OnnxOutputTransform::new("image_embeds"),
             SupportedModels::BuffaloL => OnnxOutputTransform::new("output"),
+            // SfaceYunet is multi-stage — postprocessor is never called, but must construct cleanly
+            SupportedModels::SfaceYunet => OnnxOutputTransform::new("output"),
             _ => Err(AIProxyError::ModelPostprocessingError {
                 model_name: supported_model.to_string(),
                 message: "Unsupported model for ORTImagePostprocessor".to_string(),
@@ -123,6 +125,8 @@ impl ORTImagePostprocessor {
             SupportedModels::Resnet50 => Ok(Some(VectorNormalize)),
             SupportedModels::ClipVitB32Image => Ok(None),
             SupportedModels::BuffaloL => Ok(Some(VectorNormalize)),
+            // SfaceYunet is multi-stage — postprocessor is never called, but must construct cleanly
+            SupportedModels::SfaceYunet => Ok(Some(VectorNormalize)),
             _ => Err(AIProxyError::ModelPostprocessingError {
                 model_name: supported_model.to_string(),
                 message: "Unsupported model for ORTImagePostprocessor".to_string(),

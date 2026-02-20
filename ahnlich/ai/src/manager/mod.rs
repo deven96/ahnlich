@@ -38,6 +38,7 @@ struct ModelThreadRequest {
     preprocess_action: PreprocessAction,
     action_type: InputAction,
     execution_provider: Option<ExecutionProvider>,
+    model_params: std::collections::HashMap<String, String>,
     trace_span: tracing::Span,
 }
 
@@ -76,12 +77,18 @@ impl ModelThread {
         process_action: PreprocessAction,
         action_type: InputAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> ModelThreadResponse {
         let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let processed_inputs = self.preprocess_store_input(process_action, inputs)?;
         let mut store_key = self
             .model
-            .model_ndarray(processed_inputs, &action_type, execution_provider)
+            .model_ndarray(
+                processed_inputs,
+                &action_type,
+                execution_provider,
+                model_params,
+            )
             .await?;
         response.append(&mut store_key);
         Ok(response)
@@ -324,6 +331,7 @@ impl Task for ModelThread {
                 preprocess_action,
                 action_type,
                 execution_provider,
+                model_params,
                 trace_span,
             } = model_request;
             let child_span = tracing::info_span!("model-thread-run", model = self.task_name());
@@ -331,7 +339,13 @@ impl Task for ModelThread {
 
             let child_guard = child_span.enter();
             let responses = self
-                .input_to_response(inputs, preprocess_action, action_type, execution_provider)
+                .input_to_response(
+                    inputs,
+                    preprocess_action,
+                    action_type,
+                    execution_provider,
+                    &model_params,
+                )
                 .await;
             if let Err(e) = response.send(responses) {
                 log::error!("{} could not send response to channel {e:?}", self.name());
@@ -415,6 +429,7 @@ impl ModelManager {
         preprocess_action: PreprocessAction,
         action_type: InputAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
         let supported = model.into();
 
@@ -434,6 +449,7 @@ impl ModelManager {
             preprocess_action,
             action_type,
             execution_provider,
+            model_params,
             trace_span: tracing::Span::current(),
         };
         // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
@@ -510,7 +526,14 @@ mod tests {
         }];
         let action = PreprocessAction::ModelPreprocessing;
         let _ = model_manager
-            .handle_request(&sample_ai_model, inputs, action, InputAction::Query, None)
+            .handle_request(
+                &sample_ai_model,
+                inputs,
+                action,
+                InputAction::Query,
+                None,
+                std::collections::HashMap::new(),
+            )
             .await
             .unwrap();
         let recreated_model = model_manager.models.get(&sample_supported_model).await;

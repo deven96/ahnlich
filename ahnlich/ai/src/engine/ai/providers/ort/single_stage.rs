@@ -289,6 +289,7 @@ impl ORTInferenceModel for SingleStageModel {
         &self,
         input: ModelInput,
         execution_provider: Option<AIExecutionProvider>,
+        _model_params: &std::collections::HashMap<String, String>,
     ) -> Pin<Box<dyn Future<Output = Result<Vec<ModelResponse>, AIProxyError>> + Send + '_>> {
         Box::pin(async move { self.infer_batch_impl(input, execution_provider).await })
     }
