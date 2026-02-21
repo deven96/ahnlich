@@ -45,7 +45,7 @@ use std::{
 #[derive(Debug)]
 pub struct HNSW {
     /// Breadth of search during insertion (efConstruction)
-    pub ef_construction: Option<u8>,
+    pub ef_construction: usize,
 
     /// Top-most layer index in the graph (L)
     pub top_most_layer: u8,
@@ -83,6 +83,26 @@ pub struct HNSW {
 }
 
 impl HNSW {
+    pub fn new(
+        ef_construction: usize,
+        maximum_connections: usize,
+        maximum_connections_zero: Option<usize>,
+    ) -> Self {
+        assert!(maximum_connections > 1, "M must be > 1");
+        let maximum_connections_zero = maximum_connections_zero.unwrap_or(maximum_connections * 2);
+
+        Self {
+            ef_construction,
+            top_most_layer: 0,
+            maximum_connections,
+            maximum_connections_zero,
+            inv_log_m: 1.0 / (maximum_connections as f64).ln(),
+            graph: BTreeMap::new(),
+            nodes: HashMap::new(),
+            enter_point: Vec::with_capacity(1),
+        }
+    }
+
     /// Insert a new element into the HNSW graph
     /// Corresponds to Algorithm 1 (INSERT)
     ///
@@ -95,7 +115,6 @@ impl HNSW {
         // internally uses SEARCH-LAYER, SELECT-neighbourS
         let inital_ef = 1;
 
-        let ef_construction = self.ef_construction.unwrap_or(100);
         let mut enter_point = self.enter_point.clone();
         let new_elements_lvl = value.level(self.maximum_connections);
 
@@ -134,7 +153,7 @@ impl HNSW {
             // TODO: error handling in loop??
             // NOTE: W = search-layer(q, ep, efConstruction, lc)
             let nearest_neighbours = self
-                .search_layer(&value, &enter_point, ef_construction, &layer_index)?
+                .search_layer(&value, &enter_point, self.ef_construction, &layer_index)?
                 .into_iter()
                 .collect();
 
@@ -267,7 +286,7 @@ impl HNSW {
         &'a self,
         query: &Node,
         entry_points: &'a [NodeId],
-        ef: u8,
+        ef: usize,
         layer: &LayerIndex,
     ) -> Result<HashSet<NodeId>, Error> {
         let mut visited_items: HashSet<&NodeId> = HashSet::from_iter(entry_points);
@@ -474,7 +493,7 @@ impl HNSW {
 
         let ef = ef.unwrap_or_else(|| k.max(50));
         // Ensure ef >= k as per paper requirements
-        let ef = ef.max(k).min(255) as u8;
+        let ef = ef.max(k); //.min(255) as u8; 
 
         let mut enter_point = self.enter_point.clone();
         let ep_level = self.top_most_layer;
@@ -560,7 +579,7 @@ impl Default for HNSW {
         let inv_log_m = 1.0 / f64::ln(maximum_connections as f64);
 
         Self {
-            ef_construction: Some(100),
+            ef_construction: 100,
             top_most_layer: 0,
             maximum_connections,
             maximum_connections_zero: 100,

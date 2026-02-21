@@ -32,3 +32,7 @@ serde = ["dep:serde"]
 rand.workspace = true
 pretty_assertions.workspace = true
 serde_json.workspace = true
+ftp = "3.0.1"
+tar = "0.4.44"
+flate2 = "1.1.9"
+rstest = "0.26.1"

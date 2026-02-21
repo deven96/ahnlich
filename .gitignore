@@ -35,3 +35,5 @@ profiling.json*
 #npm residue
 node_modules/
 .DS_Store
+
+.datasets/

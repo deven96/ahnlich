@@ -5,7 +5,7 @@ use crate::{
         Node, NodeId,
         index::{HNSW, brute_knn},
     },
-    tests::{MOST_SIMILAR, SEACH_TEXT, word_to_vector},
+    tests::fixtures::mock_data::{MOST_SIMILAR, SEACH_TEXT, word_to_vector},
 };
 
 fn prepare_test_data(
