@@ -577,11 +577,11 @@ WIP: A simple HNSW structure
 ```rust
 use std::collections::{HashSet, btree_map::BTreeMap};
 
-/// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
-pub struct LayerIndex(u16);
+/// LayerIndex is just a wrapper around u8 to represent a layer in HNSW.
+pub struct LayerIndex(u8);
 
-/// NodeId wraps String(hash of node embeddings) to uniquely identify a node across all layers.
-pub struct NodeId(String);
+/// NodeId wraps u64(hash of node embeddings) to uniquely identify a node across all layers.
+pub struct NodeId(u64);
 
 
 /// HNSW represents a Hierarchical Navigable Small World graph.
@@ -932,6 +932,7 @@ Using a Structure of Arrays (SoA) can improve cache locality and SIMD efficiency
 2. **Production Baseline Phase**: Compare our HNSW vs FAISS HNSW → confirms recall relative to a widely-used implementation.
 3. **Determinism & Integrity Checks**: ensure replication-safe behavior.
 4. **Performance Phase**: establish baseline speed/memory, then explore optimizations.
+5. Test recall by potentially replicating the deletion experiment from the paper: randomly remove a percentage of nodes and reinsert them over multiple cycles, then observe whether search performance (recall) remains stable. 
 
 
 

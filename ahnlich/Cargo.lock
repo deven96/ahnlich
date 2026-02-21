@@ -58,8 +58,11 @@ dependencies = [
 name = "ahnlich_similarity"
 version = "0.0.1"
 dependencies = [
+ "ahash",
  "crossbeam",
+ "itertools 0.10.5",
  "pretty_assertions",
+ "pulp",
  "rand 0.8.5",
  "serde",
  "serde_json",

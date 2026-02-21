@@ -1,4 +1,5 @@
 use crate::errors::ServerError;
+use ahnlich_similarity::EmbeddingKey;
 use rayon::prelude::*;
 
 use super::super::algorithm::non_linear::NonLinearAlgorithmIndices;
@@ -26,8 +27,8 @@ use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use utils::persistence::AhnlichPersistenceUtils;
 
-type StoreEntry = (Arc<StoreKey>, Arc<StoreValue>);
-type StoreEntryWithSimilarity = (Arc<StoreKey>, Arc<StoreValue>, Similarity);
+type StoreEntry = (EmbeddingKey, Arc<StoreValue>);
+type StoreEntryWithSimilarity = (EmbeddingKey, Arc<StoreValue>, Similarity);
 
 /// A hash of Store key, this is more preferable when passing around references as arrays can be
 /// potentially larger
@@ -48,11 +49,25 @@ impl From<&StoreKey> for StoreKeyId {
     fn from(value: &StoreKey) -> Self {
         // compute a fast ahash of the vector to ensure it always gives us the same value
         // and use that as a reference to the vector
-        use ahash::AHasher;
-        use std::hash::Hasher;
-
-        let mut hasher = AHasher::default();
+        // Fixed seed so StoreKeyId is deterministic across restarts and platforms.
+        // AHasher::default() is randomly seeded per-process (DoS protection for maps),
+        // which would break snapshot/persistence of StoreKeyIds across restarts.
+        use ahash::RandomState;
+        use std::hash::{BuildHasher, Hasher};
+        let mut hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
         for element in value.key.iter() {
+            hasher.write_u32(element.to_bits());
+        }
+        Self(hasher.finish())
+    }
+}
+
+impl From<&EmbeddingKey> for StoreKeyId {
+    fn from(value: &EmbeddingKey) -> Self {
+        use ahash::RandomState;
+        use std::hash::{BuildHasher, Hasher};
+        let mut hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
+        for element in value.0.iter() {
             hasher.write_u32(element.to_bits());
         }
         Self(hasher.finish())
@@ -264,14 +279,14 @@ impl StoreHandler {
             return Ok(vec![]);
         }
 
-        let filtered_iter = filtered_with_ids
-            .par_iter()
-            .map(|(_, (key, _))| key.as_ref());
+        let search_embedding = EmbeddingKey::new(search_input.key);
+
+        let filtered_iter = filtered_with_ids.par_iter().map(|(_, (key, _))| key);
 
         let algorithm_by_type: AlgorithmByType = algorithm.into();
         let similar_result = match algorithm_by_type {
             AlgorithmByType::Linear(linear_algo) => {
-                linear_algo.find_similar_n(&search_input, filtered_iter, used_all, closest_n)
+                linear_algo.find_similar_n(&search_embedding, filtered_iter, used_all, closest_n)
             }
             AlgorithmByType::NonLinear(non_linear_algo) => {
                 let non_linear_indices = store.non_linear_indices.algorithm_to_index.pin();
@@ -279,7 +294,7 @@ impl StoreHandler {
                     .get(&non_linear_algo)
                     .ok_or(ServerError::NonLinearIndexNotFound(non_linear_algo))?;
                 non_linear_index_with_algo.find_similar_n(
-                    &search_input,
+                    &search_embedding,
                     filtered_iter,
                     used_all,
                     closest_n,
@@ -288,10 +303,10 @@ impl StoreHandler {
         };
 
         // Build lookup map without recomputing StoreKeyId hashes
-        let mut keys_to_entry_map: StdHashMap<StoreKeyId, (Arc<StoreKey>, Arc<StoreValue>)> =
+        let mut keys_to_entry_map: StdHashMap<StoreKeyId, StoreEntry> =
             StdHashMap::with_capacity(filtered_with_ids.len());
-        for (key_id, (store_key, store_value)) in filtered_with_ids {
-            keys_to_entry_map.insert(key_id, (store_key, store_value));
+        for (key_id, entry) in filtered_with_ids {
+            keys_to_entry_map.insert(key_id, entry);
         }
 
         Ok(similar_result
@@ -464,8 +479,9 @@ impl StoreHandler {
 pub struct Store {
     dimension: NonZeroUsize,
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
-    /// Both StoreKey and StoreValue are wrapped in Arc to avoid expensive clones on query results
-    id_to_value: ConcurrentHashMap<StoreKeyId, (Arc<StoreKey>, Arc<StoreValue>)>,
+    /// StoreValue is wrapped in Arc to avoid expensive clones on query results; EmbeddingKey is
+    /// already cheap to clone (Arc<Vec<f32>> pointer bump).
+    id_to_value: ConcurrentHashMap<StoreKeyId, (EmbeddingKey, Arc<StoreValue>)>,
     /// Indices to filter for the store
     predicate_indices: PredicateIndices,
     /// Non linear Indices
@@ -525,7 +541,7 @@ impl Store {
         let removed = keys
             .iter()
             .flat_map(|k| pinned.remove(k))
-            .map(|(k, _)| k.key.clone())
+            .map(|(k, _)| k.clone())
             .collect::<Vec<_>>();
         self.predicate_indices.remove_store_keys(&keys);
         self.non_linear_indices.delete(&removed);
@@ -714,7 +730,7 @@ impl Store {
     #[tracing::instrument(skip_all)]
     fn get(&self, keys: impl Iterator<Item = StoreKeyId>) -> Vec<StoreEntry> {
         let pinned = self.id_to_value.pin();
-        keys.flat_map(|k| pinned.get(&k).map(|(k, v)| (Arc::clone(k), Arc::clone(v))))
+        keys.flat_map(|k| pinned.get(&k).map(|(k, v)| (k.clone(), Arc::clone(v))))
             .collect()
     }
 
@@ -723,8 +739,8 @@ impl Store {
         let pinned = self.id_to_value.pin();
         pinned
             .into_iter()
-            .map(|(_key, (store_key, store_value))| {
-                (Arc::clone(store_key), Arc::clone(store_value))
+            .map(|(_key, (embedding_key, store_value))| {
+                (embedding_key.clone(), Arc::clone(store_value))
             })
             .collect()
     }
@@ -735,10 +751,10 @@ impl Store {
         let pinned = self.id_to_value.pin();
         pinned
             .into_iter()
-            .map(|(key_id, (store_key, store_value))| {
+            .map(|(key_id, (embedding_key, store_value))| {
                 (
                     key_id.clone(),
-                    (Arc::clone(store_key), Arc::clone(store_value)),
+                    (embedding_key.clone(), Arc::clone(store_value)),
                 )
             })
             .collect()
@@ -757,7 +773,7 @@ impl Store {
             .flat_map(|key_id| {
                 pinned
                     .get(&key_id)
-                    .map(|(k, v)| (key_id.clone(), (Arc::clone(k), Arc::clone(v))))
+                    .map(|(k, v)| (key_id.clone(), (k.clone(), Arc::clone(v))))
             })
             .collect())
     }
@@ -784,9 +800,9 @@ impl Store {
         utils::allocator::check_memory_available(estimated_bytes)
             .map_err(|e| ServerError::Allocation(e.into()))?;
 
-        // Validate dimensions and wrap in Arc immediately - single allocation per entry
+        // Validate dimensions and wrap value in Arc; key becomes EmbeddingKey(Arc<Vec<f32>>)
         let check_and_wrap = |(store_key, store_val): (StoreKey, StoreValue)| -> Result<
-            (StoreKeyId, Arc<StoreKey>, Arc<StoreValue>),
+            (StoreKeyId, EmbeddingKey, Arc<StoreValue>),
             ServerError,
         > {
             let input_dimension = store_key.key.len();
@@ -797,19 +813,19 @@ impl Store {
                 })
             } else {
                 let key_id = StoreKeyId::from(&store_key);
-                let arc_key = Arc::new(store_key);
+                let embedding_key = EmbeddingKey::new(store_key.key);
                 let arc_val = Arc::new(store_val);
-                Ok((key_id, arc_key, arc_val))
+                Ok((key_id, embedding_key, arc_val))
             }
         };
 
-        // Consume input vec, wrapping each entry in Arc once
-        let res: Vec<(StoreKeyId, Arc<StoreKey>, Arc<StoreValue>)> = new
+        // Consume input vec, wrapping each entry once
+        let res: Vec<(StoreKeyId, EmbeddingKey, Arc<StoreValue>)> = new
             .into_par_iter()
             .map(check_and_wrap)
             .collect::<Result<_, _>>()?;
 
-        // Build predicate insert list using Arc clones (cheap)
+        // Build predicate insert list using cheap clones
         let predicate_insert: Vec<(StoreKeyId, Arc<StoreValue>)> = res
             .par_iter()
             .map(|(k, _, v)| (k.clone(), Arc::clone(v)))
@@ -821,19 +837,19 @@ impl Store {
         // Insert into main store, collecting keys for non-linear indices
         let inserted_keys = res
             .into_par_iter()
-            .flat_map_iter(|(k, arc_key, arc_val)| {
+            .flat_map_iter(|(k, embedding_key, arc_val)| {
                 let pinned = self.id_to_value.pin();
-                // Both key and value are already in Arc, just clone Arc references
+                // EmbeddingKey clone is a cheap Arc pointer bump
                 if pinned
-                    .insert(k, (Arc::clone(&arc_key), Arc::clone(&arc_val)))
+                    .insert(k, (embedding_key.clone(), Arc::clone(&arc_val)))
                     .is_some()
                 {
                     updated.fetch_add(1, Ordering::SeqCst);
                     None
                 } else {
                     inserted.fetch_add(1, Ordering::SeqCst);
-                    // Only clone the Vec<f32> for newly inserted keys (not updates)
-                    Some(arc_key.key.clone())
+                    // Pointer bump — the same Arc<Vec<f32>> is shared with the map entry
+                    Some(embedding_key)
                 }
             })
             .collect();
@@ -865,7 +881,7 @@ impl Store {
             let values = self
                 .get_all()
                 .into_iter()
-                .map(|(k, v)| (StoreKeyId::from(k.as_ref()), v))
+                .map(|(k, v)| (StoreKeyId::from(&k), v))
                 .collect();
             self.predicate_indices
                 .add_predicates(new_predicates, Some(values));
@@ -888,11 +904,7 @@ impl Store {
         let new_predicates_len = new_predicates.len();
         if !new_predicates.is_empty() {
             // get all the values and reindex
-            let values: Vec<_> = self
-                .get_all()
-                .into_iter()
-                .map(|(k, _)| k.key.clone())
-                .collect();
+            let values: Vec<EmbeddingKey> = self.get_all().into_iter().map(|(k, _)| k).collect();
             self.non_linear_indices
                 .insert_indices(new_predicates, &values, self.dimension);
             // Mark store as needing size recalculation (indices affect size)
@@ -918,9 +930,9 @@ impl Store {
                 .iter(&self.id_to_value.guard())
                 .map(|(k, v)| {
                     size_of_val(k)
-                        + size_of_val(&v.0) // Arc<StoreKey> pointer size
-                        + size_of_val(v.0.as_ref()) // Actual StoreKey size
-                        + size_of_val(&v.1) // Arc<StoreValue> pointer size  
+                        + size_of_val(&v.0) // EmbeddingKey (Arc<Vec<f32>>, pointer = 8 bytes)
+                        + std::mem::size_of::<Vec<f32>>() // Vec<f32> heap allocation header (ptr+len+cap, 24 bytes)
+                        + size_of_val(&v.1) // Arc<StoreValue> pointer size
                         + v.1
                             .value
                             .iter()
@@ -1735,7 +1747,7 @@ mod tests {
             )
             .unwrap();
         assert_eq!(res.len(), 1);
-        assert!(res[0].0.as_ref() == vectors.get(MOST_SIMILAR[0]).unwrap());
+        assert!(res[0].0.as_slice() == vectors.get(MOST_SIMILAR[0]).unwrap().key.as_slice());
 
         let condition = &PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
