@@ -32,3 +32,11 @@ serde = ["dep:serde"]
 rand.workspace = true
 pretty_assertions.workspace = true
 serde_json.workspace = true
+rstest = "0.26.1"
+criterion = "0.4"
+
+
+
+[[bench]]
+name = "hnsw_bench"
+harness = false

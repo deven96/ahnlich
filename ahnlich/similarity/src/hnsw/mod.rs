@@ -278,7 +278,7 @@ where
     }
 }
 
-fn get_node_id(value: &[f32]) -> NodeId {
+pub fn get_node_id(value: &[f32]) -> NodeId {
     use ahash::RandomState;
     use std::hash::BuildHasher;
     // Fixed seed so NodeId is deterministic across restarts and platforms.
