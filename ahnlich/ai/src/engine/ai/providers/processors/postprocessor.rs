@@ -12,6 +12,9 @@ use super::pooling::MeanPoolingBuilder;
 pub enum ORTPostprocessor {
     Image(ORTImagePostprocessor),
     Text(ORTTextPostprocessor),
+    /// Audio postprocessing is handled inline in the inference step;
+    /// this variant exists only to satisfy the struct field requirement.
+    Audio,
 }
 
 pub struct ORTTextPostprocessor {
@@ -29,6 +32,8 @@ impl ORTTextPostprocessor {
             | SupportedModels::BGEBaseEnV15
             | SupportedModels::BGELargeEnV15 => OnnxOutputTransform::new("last_hidden_state"),
             SupportedModels::ClipVitB32Text => OnnxOutputTransform::new("text_embeds"),
+            // CLAP text encoder outputs a projected 2D embedding named "text_embeds"
+            SupportedModels::ClapText => OnnxOutputTransform::new("text_embeds"),
             _ => Err(AIProxyError::ModelPostprocessingError {
                 model_name: supported_model.to_string(),
                 message: "Unsupported model for ORTTextPostprocessor".to_string(),
@@ -41,7 +46,10 @@ impl ORTTextPostprocessor {
             SupportedModels::BGEBaseEnV15 | SupportedModels::BGELargeEnV15 => {
                 (Pooling::Regular(RegularPooling), Some(VectorNormalize))
             }
-            SupportedModels::ClipVitB32Text => (Pooling::Mean(MeanPoolingBuilder), None),
+            // CLIP text and CLAP text encoders output projected 2D embeddings; no pooling needed
+            SupportedModels::ClipVitB32Text | SupportedModels::ClapText => {
+                (Pooling::Regular(RegularPooling), None)
+            }
             _ => {
                 return Err(AIProxyError::ModelPostprocessingError {
                     model_name: supported_model.to_string(),

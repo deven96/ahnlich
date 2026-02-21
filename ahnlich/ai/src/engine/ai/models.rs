@@ -2,6 +2,7 @@ use crate::cli::server::SupportedModels;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::ProviderTrait;
 use crate::engine::ai::providers::ort::ORTProvider;
+use crate::engine::ai::providers::processors::AudioInput;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider;
 use ahnlich_types::ai::models::AiStoreInputType;
@@ -39,13 +40,15 @@ pub enum ModelType {
         // width, height
         expected_image_dimensions: (NonZeroUsize, NonZeroUsize),
     },
+    Audio {
+        /// Expected sample rate in Hz (e.g. 48000 for CLAP)
+        sample_rate: u32,
+    },
 }
 
 #[derive(Debug)]
-pub(crate) enum ModelResponse {
+pub enum ModelResponse {
     OneToOne(StoreKey),
-    // FIXME: Remove once OneToMany gets constructed
-    #[allow(dead_code)]
     OneToMany(Vec<StoreKey>),
 }
 
@@ -182,6 +185,29 @@ impl SupportedModels {
                 embedding_size: nonzero!(512usize),
                 input_to_embedding_mode: InputToEmbeddingMode::OneToMany,
             },
+            SupportedModels::ClapAudio => ModelDetails {
+                model_type: ModelType::Audio { sample_rate: 48000 },
+                supported_model: SupportedModels::ClapAudio,
+                description: String::from(
+                    "CLAP (Contrastive Language-Audio Pretraining) audio encoder. Embeds audio \
+                     clips into a shared 512-dim space with ClapText for multimodal audio+text search.",
+                ),
+                embedding_size: nonzero!(512usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
+            },
+            SupportedModels::ClapText => ModelDetails {
+                model_type: ModelType::Text {
+                    // RoBERTa BPE tokenizer; model_max_length from tokenizer_config.json
+                    max_input_tokens: nonzero!(512usize),
+                },
+                supported_model: SupportedModels::ClapText,
+                description: String::from(
+                    "CLAP (Contrastive Language-Audio Pretraining) text encoder. Embeds text \
+                     queries into a shared 512-dim space with ClapAudio for multimodal audio+text search.",
+                ),
+                embedding_size: nonzero!(512usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
+            },
         }
     }
 
@@ -211,6 +237,7 @@ impl ModelDetails {
         match self.model_type {
             ModelType::Text { .. } => AiStoreInputType::RawString,
             ModelType::Image { .. } => AiStoreInputType::Image,
+            ModelType::Audio { .. } => AiStoreInputType::Audio,
         }
     }
 
@@ -220,14 +247,14 @@ impl ModelDetails {
             ModelType::Text {
                 max_input_tokens, ..
             } => Some(max_input_tokens),
-            ModelType::Image { .. } => None,
+            ModelType::Image { .. } | ModelType::Audio { .. } => None,
         }
     }
 
     #[tracing::instrument(skip(self))]
     pub fn expected_image_dimensions(&self) -> Option<(NonZeroUsize, NonZeroUsize)> {
         match self.model_type {
-            ModelType::Text { .. } => None,
+            ModelType::Text { .. } | ModelType::Audio { .. } => None,
             ModelType::Image {
                 expected_image_dimensions: (width, height),
                 ..
@@ -319,6 +346,7 @@ impl From<&Model> for AiStoreInputType {
         match value.model_details.model_type {
             ModelType::Text { .. } => AiStoreInputType::RawString,
             ModelType::Image { .. } => AiStoreInputType::Image,
+            ModelType::Audio { .. } => AiStoreInputType::Audio,
         }
     }
 }
@@ -342,6 +370,8 @@ impl fmt::Display for InputAction {
 pub enum ModelInput {
     Texts(Vec<Encoding>),
     Images(Array<f32, Ix4>),
+    /// CLAP-ready log-Mel spectrogram features for a batch of audio clips
+    Audios(AudioInput),
 }
 
 #[derive(Debug)]
@@ -417,6 +447,7 @@ impl TryFrom<&[u8]> for ImageArray {
                 height: height as usize,
             });
         }
+
         Ok(Self { image })
     }
 }
@@ -478,6 +509,7 @@ impl From<&ModelInput> for AiStoreInputType {
         match value {
             ModelInput::Texts(_) => AiStoreInputType::RawString,
             ModelInput::Images(_) => AiStoreInputType::Image,
+            ModelInput::Audios(_) => AiStoreInputType::Audio,
         }
     }
 }

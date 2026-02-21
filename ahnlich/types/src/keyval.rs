@@ -11,7 +11,7 @@ pub struct StoreKey {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StoreInput {
-    #[prost(oneof = "store_input::Value", tags = "2, 3")]
+    #[prost(oneof = "store_input::Value", tags = "2, 3, 4")]
     pub value: ::core::option::Option<store_input::Value>,
 }
 /// Nested message and enum types in `StoreInput`.
@@ -22,6 +22,8 @@ pub mod store_input {
         RawString(::prost::alloc::string::String),
         #[prost(bytes, tag = "3")]
         Image(::prost::alloc::vec::Vec<u8>),
+        #[prost(bytes, tag = "4")]
+        Audio(::prost::alloc::vec::Vec<u8>),
     }
 }
 /// A single entry for a store containing embedding key and its associated metadata values.

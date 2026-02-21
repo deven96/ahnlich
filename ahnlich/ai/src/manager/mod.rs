@@ -142,6 +142,39 @@ impl ModelThread {
                     Ok(ModelInput::Images(output))
                 }
             }
+            Value::Audio(_) => {
+                let audio_bytes: Vec<Vec<u8>> = inputs
+                    .par_iter()
+                    .filter_map(|input| match &input.value {
+                        Some(Value::Audio(bytes)) => Some(bytes.clone()),
+                        _ => None,
+                    })
+                    .collect();
+                let output = self.preprocess_audio(audio_bytes, process_action)?;
+                Ok(ModelInput::Audios(output))
+            }
+        }
+    }
+
+    #[tracing::instrument(skip(self, inputs))]
+    fn preprocess_audio(
+        &self,
+        inputs: Vec<Vec<u8>>,
+        process_action: PreprocessAction,
+    ) -> Result<crate::engine::ai::providers::processors::AudioInput, AIProxyError> {
+        // CLAP (and any future model whose preprocessor converts raw bytes → mel spectrogram)
+        // cannot meaningfully skip preprocessing: there is no tensor format a caller could
+        // supply that would bypass decode → resample → mel. Reject early rather than
+        // silently producing garbage embeddings.
+        if matches!(
+            self.model.model_details.supported_model,
+            SupportedModels::ClapAudio
+        ) && matches!(process_action, PreprocessAction::NoPreprocessing)
+        {
+            return Err(AIProxyError::AudioNoPreprocessingError);
+        }
+        match &self.model.provider {
+            ModelProviders::ORT(provider) => provider.preprocess_audios(inputs),
         }
     }
     #[tracing::instrument(skip(self, inputs))]
@@ -169,12 +202,12 @@ impl ModelThread {
                     })?
                     .len();
                 if token_size > max_token_size {
-                    return Err(AIProxyError::TokenExceededError {
+                    Err(AIProxyError::TokenExceededError {
                         max_token_size,
                         input_token_size: token_size,
-                    });
+                    })
                 } else {
-                    return Ok(outputs);
+                    Ok(outputs)
                 }
             }
         }
@@ -249,20 +282,32 @@ impl ModelThread {
             ModelProviders::ORT(provider) => {
                 let outputs = match process_action {
                     PreprocessAction::ModelPreprocessing => provider.preprocess_images(inputs)?,
-                    PreprocessAction::NoPreprocessing => ImageArrayToNdArray
-                        .process(PreprocessorData::ImageArray(inputs))?
-                        .into_ndarray3c()?,
+                    PreprocessAction::NoPreprocessing => {
+                        // Face recognition models (BuffaloL and future equivalents) run a
+                        // baked-in multi-stage pipeline (detection → alignment → recognition)
+                        // that cannot be bypassed. Passing raw pixels would produce silent
+                        // garbage embeddings, so we reject early with a clear error.
+                        if matches!(
+                            self.model.model_details.supported_model,
+                            SupportedModels::BuffaloL
+                        ) {
+                            return Err(AIProxyError::FaceModelNoPreprocessingError);
+                        }
+                        ImageArrayToNdArray
+                            .process(PreprocessorData::ImageArray(inputs))?
+                            .into_ndarray3c()?
+                    }
                 };
                 let outputs_shape = outputs.shape();
                 let width = *outputs_shape.get(2).expect("Must exist");
                 let height = *outputs_shape.get(3).expect("Must exist");
                 if width != expected_width || height != expected_height {
-                    return Err(AIProxyError::ImageDimensionsMismatchError {
+                    Err(AIProxyError::ImageDimensionsMismatchError {
                         image_dimensions: (width, height),
                         expected_dimensions: (expected_width, expected_height),
-                    });
+                    })
                 } else {
-                    return Ok(outputs);
+                    Ok(outputs)
                 }
             }
         }

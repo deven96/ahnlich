@@ -4,6 +4,16 @@ use ndarray::{Array, Ix2, Ix3, Ix4};
 use ort::SessionOutputs;
 use tokenizers::Encoding;
 
+/// CLAP audio features ready for the audio encoder.
+///
+/// `input_features`: shape `(batch, 1, nb_max_frames, n_mels)` — log-Mel spectrogram.
+/// Each clip must be at most `max_secs` long (currently 10 s); longer clips are rejected
+/// at preprocessing time rather than silently truncated.
+#[derive(Debug)]
+pub struct AudioInput {
+    pub input_features: Array<f32, Ix4>,
+}
+
 pub mod center_crop;
 pub mod imagearray_to_ndarray;
 pub mod normalize;
@@ -30,6 +40,10 @@ pub enum PreprocessorData {
     NdArray3C(Array<f32, Ix4>),
     Text(Vec<String>),
     EncodedText(Vec<Encoding>),
+    /// Raw audio bytes (one Vec<u8> per clip, any container format)
+    AudioBytes(Vec<Vec<u8>>),
+    /// CLAP-ready log-Mel spectrogram features
+    AudioFeatures(AudioInput),
 }
 
 impl PreprocessorData {

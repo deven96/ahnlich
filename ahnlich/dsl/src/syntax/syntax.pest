@@ -103,7 +103,9 @@ ai_model = {
     ^"bge-large-en-v1.5"|
     ^"resnet-50"|
     ^"clip-vit-b32-image"|
-    ^"clip-vit-b32-text"
+    ^"clip-vit-b32-text"|
+    ^"clap-audio"|
+    ^"clap-text"
 }
 preprocess_action = {
     ^"nopreprocessing" |
@@ -125,7 +127,9 @@ raw_string = { (!("," | "[" | "(" | ")" | "]" | "}" ) ~ ANY)+ }
 ASCII_HEX = { '0'..'9' | 'A'..'F' | 'a'..'f' }
 // image contains all possible ascii hex
 image = { "/x" ~ ASCII_HEX+ }
-metadata_value = _{ image | raw_string }
+// audio contains all possible ascii hex (prefixed /a to distinguish from image /x)
+audio = { "/a" ~ ASCII_HEX+ }
+metadata_value = _{ image | audio | raw_string }
 // list of metadata_values
 store_inputs = { whitespace* ~ "[" ~ whitespace* ~ metadata_value ~ whitespace* ~ "]" ~ (whitespace* ~ "," ~ whitespace* ~ "[" ~ whitespace* ~ metadata_value ~ whitespace* ~ "]")* }
 

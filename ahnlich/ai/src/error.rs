@@ -136,6 +136,37 @@ pub enum AIProxyError {
     #[error("Image could not be cropped.")]
     ImageCropError,
 
+    #[error("Bytes could not be successfully decoded into audio: {0}")]
+    AudioBytesDecodeError(String),
+
+    #[error("Audio could not be resampled: {0}")]
+    AudioResampleError(String),
+
+    #[error(
+        "NoPreprocessing is not supported for audio inputs. \
+         Audio requires decoding, resampling, and log-Mel spectrogram conversion \
+         before it can be passed to the model. Use ModelPreprocessing instead."
+    )]
+    AudioNoPreprocessingError,
+
+    #[error(
+        "Audio input is too long ({duration_ms}ms). \
+         Model accepts at most {max_ms}ms per clip. Trim or split your audio before indexing."
+    )]
+    AudioTooLongError {
+        /// Actual duration in milliseconds (rounded up).
+        duration_ms: u32,
+        /// Maximum accepted duration in milliseconds.
+        max_ms: u32,
+    },
+
+    #[error(
+        "NoPreprocessing is not supported for face recognition models. \
+         Face models require multi-stage detection and alignment that cannot be bypassed. \
+         Use ModelPreprocessing instead."
+    )]
+    FaceModelNoPreprocessingError,
+
     #[error("Model provider failed on preprocessing the input {0}")]
     ModelProviderPreprocessingError(String),
 
@@ -197,6 +228,9 @@ impl From<AIProxyError> for Status {
                 input_type: _,
                 preprocess_action: _,
             }
+            | AIProxyError::AudioNoPreprocessingError
+            | AIProxyError::AudioTooLongError { .. }
+            | AIProxyError::FaceModelNoPreprocessingError
             | AIProxyError::UnknownEnumValue(_)
             | AIProxyError::InputNotSpecified(_)
             | AIProxyError::MultipleEmbeddingsForQuery(_) => Code::InvalidArgument,

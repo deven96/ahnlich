@@ -22,11 +22,12 @@ use ort::{
 };
 use strum::EnumIter;
 
+use crate::engine::ai::providers::processors::AudioInput;
 use crate::engine::ai::providers::processors::postprocessor::{
     ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor,
 };
 use crate::engine::ai::providers::processors::preprocessor::{
-    ORTImagePreprocessor, ORTPreprocessor, ORTTextPreprocessor,
+    ORTAudioPreprocessor, ORTImagePreprocessor, ORTPreprocessor, ORTTextPreprocessor,
 };
 use ndarray::{Array, Ix2, Ix4};
 use std::default::Default;
@@ -143,6 +144,18 @@ impl ModelConfig {
                 modality: ORTModality::Text,
                 repo_name: "deven96/bge-large-en-v1.5".to_string(),
                 weights_file: "onnx/model.onnx".to_string(),
+                batch_size: 128,
+            },
+            SupportedModels::ClapAudio => Self {
+                modality: ORTModality::Audio,
+                repo_name: "deven96/larger_clap_music_and_speech".to_string(),
+                weights_file: "onnx/audio_model.onnx".to_string(),
+                batch_size: 8,
+            },
+            SupportedModels::ClapText => Self {
+                modality: ORTModality::Text,
+                repo_name: "deven96/larger_clap_music_and_speech".to_string(),
+                weights_file: "onnx/text_model.onnx".to_string(),
                 batch_size: 128,
             },
             SupportedModels::BuffaloL | SupportedModels::SfaceYunet => {
@@ -265,6 +278,17 @@ impl ORTProvider {
                             ORTPostprocessor::Text(ORTTextPostprocessor::load(*supported_models)?);
                         (preprocessor, postprocessor)
                     }
+                    ORTModality::Audio => {
+                        // CLAP: 48kHz, 10-second clips
+                        let preprocessor = ORTPreprocessor::Audio(ORTAudioPreprocessor::new(
+                            *supported_models,
+                            48_000,
+                            10.0,
+                        ));
+                        // Audio postprocessing is handled inline in batch_inference_audio
+                        let postprocessor = ORTPostprocessor::Audio;
+                        (preprocessor, postprocessor)
+                    }
                 };
                 Ok(Self {
                     cache_location,
@@ -370,7 +394,28 @@ impl ORTProvider {
         }
     }
 
-    // TODO: Move batch_inference methods to SingleStageModel
+    #[tracing::instrument(skip(self, data))]
+    pub fn preprocess_audios(&self, data: Vec<Vec<u8>>) -> Result<AudioInput, AIProxyError> {
+        match &self.preprocessor {
+            ORTPreprocessor::Audio(preprocessor) => preprocessor.process(data).map_err(|e| {
+                // Preserve caller-facing errors (InvalidArgument) so they are not obscured
+                // by the generic Internal wrapper used for unexpected preprocessing failures.
+                match e {
+                    AIProxyError::AudioTooLongError { .. } => e,
+                    AIProxyError::AudioNoPreprocessingError => e,
+                    other => AIProxyError::ModelProviderPreprocessingError(format!(
+                        "Audio preprocessing failed for {:?}: {}",
+                        self.supported_models.to_string(),
+                        other
+                    )),
+                }
+            }),
+            _ => Err(AIProxyError::ModelPreprocessingError {
+                model_name: self.supported_models.to_string(),
+                message: "Audio preprocessor not initialized".to_string(),
+            }),
+        }
+    }
 }
 
 #[async_trait::async_trait]

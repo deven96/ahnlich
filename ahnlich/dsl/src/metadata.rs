@@ -16,6 +16,9 @@ pub(crate) fn parse_store_input(pair: Pair<Rule>) -> Result<StoreInput, DslError
         Value::RawString(raw_string) => StoreInput {
             value: Some(store_input::Value::RawString(raw_string)),
         },
+        Value::Audio(audio) => StoreInput {
+            value: Some(store_input::Value::Audio(audio)),
+        },
     })
 }
 
@@ -31,6 +34,15 @@ pub(crate) fn parse_metadata_value(pair: Pair<Rule>) -> Result<Value, DslError> 
                 "Image representation must have prefix /x".to_string(),
             ))?) {
                 Ok(bytes) => Ok(Value::Image(bytes)),
+                Err(_) => Err(DslError::UnexpectedHex(hex_str.to_string())),
+            }
+        }
+        Rule::audio => {
+            let hex_str = pair.as_str();
+            match hex::decode(hex_str.strip_prefix("/a").ok_or(DslError::UnexpectedHex(
+                "Audio representation must have prefix /a".to_string(),
+            ))?) {
+                Ok(bytes) => Ok(Value::Audio(bytes)),
                 Err(_) => Err(DslError::UnexpectedHex(hex_str.to_string())),
             }
         }

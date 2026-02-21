@@ -2,6 +2,7 @@ use super::SupportedModels;
 use super::executor::ExecutorWithSessionCache;
 use super::inference_model::{ORTInferenceModel, ORTModality};
 use crate::engine::ai::models::{ModelInput, ModelResponse};
+use crate::engine::ai::providers::processors::AudioInput;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
 use ahnlich_types::keyval::StoreKey;
@@ -121,48 +122,56 @@ impl SingleStageModel {
         let encoding_length = encodings[0].len();
         let max_size = encoding_length * batch_size;
 
+        let need_attention_mask = session
+            .inputs
+            .iter()
+            .any(|input| input.name == "attention_mask");
+
         let need_token_type_ids = session
             .inputs
             .iter()
             .any(|input| input.name == "token_type_ids");
 
-        // Memory check: Allocating Vec<i64> for tokenized text inputs
-        // 2 or 3 arrays: input_ids, attention_mask, and token_type_ids (if model requires it)
-        let num_arrays = if need_token_type_ids { 3 } else { 2 };
+        // Memory check: 1 array for input_ids, plus optional attention_mask and token_type_ids
+        let num_arrays = 1 + usize::from(need_attention_mask) + usize::from(need_token_type_ids);
         let estimated_bytes = max_size * size_of::<i64>() * num_arrays;
         utils::allocator::check_memory_available(estimated_bytes)
             .map_err(|e| AIProxyError::Allocation(e.into()))?;
+
+        // Pre-allocate vectors with exact capacity to avoid reallocations
         let mut ids_array = Vec::with_capacity(max_size);
-        let mut mask_array = Vec::with_capacity(max_size);
-        let mut token_type_ids_array: Option<Vec<i64>> = None;
-        if need_token_type_ids {
-            token_type_ids_array = Some(Vec::with_capacity(max_size));
+        let mut mask_array: Option<Vec<i64>> =
+            need_attention_mask.then(|| Vec::with_capacity(max_size));
+        let mut token_type_ids_array: Option<Vec<i64>> =
+            need_token_type_ids.then(|| Vec::with_capacity(max_size));
+
+        // Process encodings sequentially but with optimized memory access
+        // We can't use par_iter here because we're appending to shared Vec<i64>
+        // However, this is fast because it's just copying i64 values (no allocation)
+        for encoding in &encodings {
+            ids_array.extend(encoding.get_ids().iter().map(|x| *x as i64));
+            if let Some(ref mut mask) = mask_array {
+                mask.extend(encoding.get_attention_mask().iter().map(|x| *x as i64));
+            }
+            if let Some(ref mut type_ids) = token_type_ids_array {
+                type_ids.extend(encoding.get_type_ids().iter().map(|x| *x as i64));
+            }
         }
 
-        // Not using par_iter because the closure needs to be FnMut
-        encodings.iter().for_each(|encoding| {
-            let ids = encoding.get_ids();
-            let mask = encoding.get_attention_mask();
-
-            // Extend the preallocated arrays with the current encoding
-            // Requires the closure to be FnMut
-            ids_array.extend(ids.iter().map(|x| *x as i64));
-            mask_array.extend(mask.iter().map(|x| *x as i64));
-            if let Some(ref mut token_type_ids_array) = token_type_ids_array {
-                token_type_ids_array.extend(encoding.get_type_ids().iter().map(|x| *x as i64));
-            }
-        });
-
-        // Create CowArrays from vectors
         let inputs_ids_array = Array::from_shape_vec((batch_size, encoding_length), ids_array)
             .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
 
-        let attention_mask_array = Array::from_shape_vec((batch_size, encoding_length), mask_array)
-            .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+        let attention_mask_array = match mask_array {
+            Some(mask) => Some(
+                Array::from_shape_vec((batch_size, encoding_length), mask)
+                    .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?,
+            ),
+            None => None,
+        };
 
         let token_type_ids_array = match token_type_ids_array {
-            Some(token_type_ids_array) => Some(
-                Array::from_shape_vec((batch_size, encoding_length), token_type_ids_array)
+            Some(type_ids) => Some(
+                Array::from_shape_vec((batch_size, encoding_length), type_ids)
                     .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?,
             ),
             None => None,
@@ -170,9 +179,15 @@ impl SingleStageModel {
 
         let mut session_inputs = ort::inputs![
             "input_ids" => Value::from_array(inputs_ids_array)?,
-            "attention_mask" => Value::from_array(attention_mask_array.view())?
         ]
         .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+
+        if let Some(ref mask) = attention_mask_array {
+            session_inputs.push((
+                "attention_mask".into(),
+                Value::from_array(mask.view())?.into(),
+            ));
+        }
 
         if let Some(token_type_ids_array) = token_type_ids_array {
             session_inputs.push((
@@ -189,16 +204,19 @@ impl SingleStageModel {
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
         drop(child_guard);
 
-        // Postprocess text output directly here
         let embeddings = self.postprocess_text_output(session_outputs, attention_mask_array)?;
         Ok(embeddings)
     }
 
-    /// Postprocess text model output with mean pooling
+    /// Postprocess text model output.
+    ///
+    /// Sentence-transformer models (AllMiniLM, BGE) output 3D `(batch, seq, hidden)` and
+    /// require attention-masked mean pooling. Projection-based models (CLIP text, CLAP text)
+    /// output 2D `(batch, emb_dim)` directly and need no pooling.
     fn postprocess_text_output(
         &self,
         session_output: ort::SessionOutputs,
-        attention_mask: Array<i64, Ix2>,
+        attention_mask: Option<Array<i64, Ix2>>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         let output_tensor = session_output
             .values()
@@ -210,11 +228,28 @@ impl SingleStageModel {
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
         let shape = output_tensor.shape();
+
+        // Projection-based encoders (CLIP text, CLAP text) output 2D (batch, emb_dim) directly
+        if shape.len() == 2 {
+            let mut embeddings = output_tensor
+                .to_owned()
+                .into_dimensionality::<Ix2>()
+                .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+            self.normalize_embeddings(&mut embeddings);
+            return Ok(embeddings);
+        }
+
         let batch_size = shape[0];
         let seq_len = shape[1];
         let hidden_size = shape[2];
 
-        // Perform mean pooling
+        let attention_mask = attention_mask.ok_or_else(|| {
+            AIProxyError::ModelProviderPostprocessingError(
+                "attention_mask required for mean pooling but was not provided".to_string(),
+            )
+        })?;
+
+        // Attention-masked mean pooling for sentence-transformer models
         let mut pooled = Array::zeros((batch_size, hidden_size));
 
         for b in 0..batch_size {
@@ -238,7 +273,6 @@ impl SingleStageModel {
             }
         }
 
-        // Apply normalization if needed
         if matches!(
             self.supported_models,
             SupportedModels::AllMiniLML6V2
@@ -285,14 +319,14 @@ impl SingleStageModel {
         };
 
         match (self.model_type, &input) {
-            (ORTModality::Text, ModelInput::Images(_))
-            | (ORTModality::Image, ModelInput::Texts(_)) => {
+            (ORTModality::Audio, ModelInput::Audios(_))
+            | (ORTModality::Image, ModelInput::Images(_))
+            | (ORTModality::Text, ModelInput::Texts(_)) => (),
+            _ => {
                 return Err(AIProxyError::AIModelNotSupported {
                     model_name: format!("{:?} model", self.model_type),
                 });
             }
-            (ORTModality::Image, ModelInput::Images(_))
-            | (ORTModality::Text, ModelInput::Texts(_)) => (),
         };
 
         match input {
@@ -364,6 +398,85 @@ impl SingleStageModel {
                 }
                 Ok(store_keys)
             }
+            ModelInput::Audios(audio_input) => {
+                let total = audio_input.input_features.shape()[0];
+                let mut store_keys: Vec<ModelResponse> = FallibleVec::try_with_capacity(total)?;
+
+                for batch_start in (0..total).step_by(self.model_batch_size) {
+                    let batch_end = (batch_start + self.model_batch_size).min(total);
+                    let features_slice = audio_input
+                        .input_features
+                        .slice(ndarray::s![batch_start..batch_end, .., .., ..])
+                        .to_owned();
+
+                    let embeddings = self.batch_inference_audio(
+                        AudioInput {
+                            input_features: features_slice,
+                        },
+                        &session,
+                    )?;
+
+                    let batch_size = embeddings.shape()[0];
+                    let embedding_dim = embeddings.shape()[1];
+                    let bytes_per_response = size_of::<ModelResponse>()
+                        + size_of::<StoreKey>()
+                        + (embedding_dim * size_of::<f32>())
+                        + 64;
+                    utils::allocator::check_memory_available(batch_size * bytes_per_response)
+                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
+
+                    let new_store_keys: Vec<ModelResponse> = embeddings
+                        .axis_iter(Axis(0))
+                        .into_par_iter()
+                        .map(|embedding: ArrayView1<f32>| -> ModelResponse {
+                            ModelResponse::OneToOne(StoreKey {
+                                key: embedding.to_vec(),
+                            })
+                        })
+                        .collect();
+                    store_keys.extend(new_store_keys);
+                }
+                Ok(store_keys)
+            }
         }
+    }
+
+    #[tracing::instrument(skip(self, audio_input, session))]
+    fn batch_inference_audio(
+        &self,
+        audio_input: AudioInput,
+        session: &Session,
+    ) -> Result<Array<f32, Ix2>, AIProxyError> {
+        let session_inputs = ort::inputs![
+            "input_features" => audio_input.input_features.view(),
+        ]
+        .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+
+        let child_span = tracing::info_span!("audio-model-session-run");
+        child_span.set_parent(tracing::Span::current().context());
+        let child_guard = child_span.enter();
+        let outputs = session
+            .run(session_inputs)
+            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
+        drop(child_guard);
+
+        let output_tensor = outputs
+            .values()
+            .next()
+            .ok_or_else(|| {
+                AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
+            })?
+            .try_extract_tensor::<f32>()
+            .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+
+        let mut embeddings = output_tensor
+            .to_owned()
+            .into_dimensionality::<Ix2>()
+            .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+
+        // L2-normalise so audio and text embeddings are comparable
+        self.normalize_embeddings(&mut embeddings);
+
+        Ok(embeddings)
     }
 }

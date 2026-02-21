@@ -45,6 +45,10 @@ pub enum SupportedModels {
     BuffaloL,
     #[clap(name = "sface-yunet")]
     SfaceYunet,
+    #[clap(name = "clap-audio")]
+    ClapAudio,
+    #[clap(name = "clap-text")]
+    ClapText,
 }
 
 #[derive(Parser)]
@@ -278,6 +282,8 @@ impl fmt::Display for SupportedModels {
             SupportedModels::ClipVitB32Text => write!(f, "ClipVit-B32-Text"),
             SupportedModels::BuffaloL => write!(f, "Buffalo-L"),
             SupportedModels::SfaceYunet => write!(f, "SFace-YuNet"),
+            SupportedModels::ClapAudio => write!(f, "CLAP-Audio"),
+            SupportedModels::ClapText => write!(f, "CLAP-Text"),
         }
     }
 }
@@ -294,6 +300,8 @@ impl From<&AiModel> for SupportedModels {
             AiModel::ClipVitB32Text => SupportedModels::ClipVitB32Text,
             AiModel::BuffaloL => SupportedModels::BuffaloL,
             AiModel::SfaceYunet => SupportedModels::SfaceYunet,
+            AiModel::ClapAudio => SupportedModels::ClapAudio,
+            AiModel::ClapText => SupportedModels::ClapText,
         }
     }
 }
@@ -310,6 +318,8 @@ impl From<&SupportedModels> for AiModel {
             SupportedModels::ClipVitB32Text => AiModel::ClipVitB32Text,
             SupportedModels::BuffaloL => AiModel::BuffaloL,
             SupportedModels::SfaceYunet => AiModel::SfaceYunet,
+            SupportedModels::ClapAudio => AiModel::ClapAudio,
+            SupportedModels::ClapText => AiModel::ClapText,
         }
     }
 }

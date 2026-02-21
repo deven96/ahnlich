@@ -158,26 +158,6 @@ impl AIStoreHandler {
         Ok(store)
     }
 
-    /// Converts storeinput into a tuple of storekey and storevalue.
-    /// Fails if the store input type does not match the store index_type
-    #[tracing::instrument(skip(self))]
-    pub(crate) fn store_input_to_store_key_val(
-        &self,
-        store_input: StoreInput,
-        mut store_value: StoreValue,
-        preprocess_action: &PreprocessAction,
-    ) -> Result<(StoreInput, StoreValue), AIProxyError> {
-        let metadata_value: MetadataValue = store_input
-            .clone()
-            .try_into()
-            .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
-
-        store_value
-            .value
-            .insert(AHNLICH_AI_RESERVED_META_KEY.to_string(), metadata_value);
-        return Ok((store_input, store_value));
-    }
-
     /// Validates storeinputs against a store and checks storevalue for reservedkey.
     #[tracing::instrument(skip(self, inputs), fields(input_length=inputs.len(), num_threads = rayon::current_num_threads()))]
     pub(crate) fn validate_and_prepare_store_data(

@@ -21,9 +21,11 @@ impl TryFrom<StoreInput> for MetadataValue {
             Value::Image(binary) => Ok(MetadataValue {
                 value: Some(crate::metadata::metadata_value::Value::Image(binary)),
             }),
-
             Value::RawString(text) => Ok(MetadataValue {
                 value: Some(crate::metadata::metadata_value::Value::RawString(text)),
+            }),
+            Value::Audio(binary) => Ok(MetadataValue {
+                value: Some(crate::metadata::metadata_value::Value::Audio(binary)),
             }),
         }
     }
@@ -40,6 +42,9 @@ impl TryFrom<MetadataValue> for StoreInput {
             crate::metadata::metadata_value::Value::RawString(text) => Ok(StoreInput {
                 value: Some(Value::RawString(text)),
             }),
+            crate::metadata::metadata_value::Value::Audio(binary) => Ok(StoreInput {
+                value: Some(Value::Audio(binary)),
+            }),
         }
     }
 }
@@ -49,6 +54,7 @@ impl std::fmt::Display for MetadataValueInner {
         match self {
             MetadataValueInner::Image(bytes) => write!(f, "img:{}", ascii85::encode(bytes)),
             MetadataValueInner::RawString(s) => write!(f, "str:{s}"),
+            MetadataValueInner::Audio(bytes) => write!(f, "aud:{}", ascii85::encode(bytes)),
         }
     }
 }
@@ -95,6 +101,9 @@ impl FromStr for MetadataValueInner {
             Ok(MetadataValueInner::Image(bytes))
         } else if let Some(rest) = s.strip_prefix("str:") {
             Ok(MetadataValueInner::RawString(rest.to_string()))
+        } else if let Some(rest) = s.strip_prefix("aud:") {
+            let bytes = ascii85::decode(rest).map_err(|e| e.to_string())?;
+            Ok(MetadataValueInner::Audio(bytes))
         } else {
             Err("unknown key format".into())
         }
@@ -120,6 +129,7 @@ impl TryFrom<&StoreInput> for AiStoreInputType {
         Ok(match value {
             Value::RawString(_) => Self::RawString,
             Value::Image(_) => Self::Image,
+            Value::Audio(_) => Self::Audio,
         })
     }
 }
