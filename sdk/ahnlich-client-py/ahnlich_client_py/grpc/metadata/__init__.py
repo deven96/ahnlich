@@ -12,3 +12,4 @@ import betterproto
 class MetadataValue(betterproto.Message):
     raw_string: str = betterproto.string_field(2, group="value")
     image: bytes = betterproto.bytes_field(3, group="value")
+    audio: bytes = betterproto.bytes_field(4, group="value")

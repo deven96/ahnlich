@@ -108,6 +108,7 @@ async fn index_mode() {
         preprocess_action: ahnlich_types::ai::preprocess::PreprocessAction::ModelPreprocessing
             .into(),
         execution_provider: None,
+        model_params: std::collections::HashMap::new(),
     };
 
     let res = client.set(set, None).await.expect("Could not set in store");
@@ -141,6 +142,7 @@ async fn query_mode() {
             preprocess_action: ahnlich_types::ai::preprocess::PreprocessAction::NoPreprocessing
                 .into(),
             execution_provider: None,
+            model_params: std::collections::HashMap::new(),
         };
 
         let res = client

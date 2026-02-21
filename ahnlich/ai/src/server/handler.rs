@@ -230,6 +230,11 @@ impl AiService for AIProxyServer {
             .try_into()
             .map_err(|_| AIProxyError::InputNotSpecified("Query model".to_string()))?;
         let model: ModelDetails = SupportedModels::from(&index_model).to_model_details();
+        // OneToMany models return multiple embeddings per input - add index predicate
+        // Currently used by face recognition models like Buffalo_L
+        if model.is_one_to_many() {
+            predicates.push(crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY.to_string());
+        }
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let db_client = self
             .db_client
@@ -390,6 +395,7 @@ impl AiService for AIProxyServer {
         let search_input = params
             .search_input
             .ok_or_else(|| AIProxyError::InputNotSpecified("Search".to_string()))?;
+        let model_params = params.model_params;
         let search_input = self
             .store_handler
             .get_ndarray_repr_for_store(
@@ -401,6 +407,7 @@ impl AiService for AIProxyServer {
                 TryInto::<PreprocessAction>::try_into(params.preprocess_action)
                     .map_err(AIProxyError::from)?,
                 params.execution_provider.and_then(|a| a.try_into().ok()),
+                model_params,
             )
             .await?;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
@@ -451,6 +458,7 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<server::Set>, tonic::Status> {
         let params = request.into_inner();
         let model_manager = &self.model_manager;
+        let model_params = params.model_params;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let (db_inputs, delete_hashset) = self
             .store_handler
@@ -476,6 +484,7 @@ impl AiService for AIProxyServer {
                 TryInto::<PreprocessAction>::try_into(params.preprocess_action)
                     .map_err(AIProxyError::from)?,
                 params.execution_provider.and_then(|a| a.try_into().ok()),
+                model_params,
             )
             .await?;
         let db_client = self
@@ -732,6 +741,7 @@ impl AiService for AIProxyServer {
 
         let inputs = params.store_inputs;
         let input_len = inputs.len();
+        let model_params = params.model_params;
 
         let store_keys = ModelManager::handle_request(
             &self.model_manager,
@@ -740,6 +750,7 @@ impl AiService for AIProxyServer {
             preprocess_action,
             InputAction::Index,
             None,
+            model_params,
         )
         .await?;
 
@@ -783,6 +794,8 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<AiResponsePipeline>, tonic::Status> {
         let params = request.into_inner();
 
+        // Memory check: Pre-allocating Vec for pipeline responses
+        // 1024: Conservative estimate per response (varies by query type: Ping ~100 bytes, GetSimN ~several KB)
         let estimated_bytes = params.queries.len() * 1024;
         utils::allocator::check_memory_available(estimated_bytes)
             .map_err(|e| AIProxyError::Allocation(e.into()))?;

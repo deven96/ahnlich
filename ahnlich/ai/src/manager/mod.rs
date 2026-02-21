@@ -38,6 +38,7 @@ struct ModelThreadRequest {
     preprocess_action: PreprocessAction,
     action_type: InputAction,
     execution_provider: Option<ExecutionProvider>,
+    model_params: std::collections::HashMap<String, String>,
     trace_span: tracing::Span,
 }
 
@@ -76,12 +77,18 @@ impl ModelThread {
         process_action: PreprocessAction,
         action_type: InputAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> ModelThreadResponse {
         let mut response: Vec<_> = FallibleVec::try_with_capacity(inputs.len())?;
         let processed_inputs = self.preprocess_store_input(process_action, inputs)?;
         let mut store_key = self
             .model
-            .model_ndarray(processed_inputs, &action_type, execution_provider)
+            .model_ndarray(
+                processed_inputs,
+                &action_type,
+                execution_provider,
+                model_params,
+            )
             .await?;
         response.append(&mut store_key);
         Ok(response)
@@ -135,6 +142,39 @@ impl ModelThread {
                     Ok(ModelInput::Images(output))
                 }
             }
+            Value::Audio(_) => {
+                let audio_bytes: Vec<Vec<u8>> = inputs
+                    .par_iter()
+                    .filter_map(|input| match &input.value {
+                        Some(Value::Audio(bytes)) => Some(bytes.clone()),
+                        _ => None,
+                    })
+                    .collect();
+                let output = self.preprocess_audio(audio_bytes, process_action)?;
+                Ok(ModelInput::Audios(output))
+            }
+        }
+    }
+
+    #[tracing::instrument(skip(self, inputs))]
+    fn preprocess_audio(
+        &self,
+        inputs: Vec<Vec<u8>>,
+        process_action: PreprocessAction,
+    ) -> Result<crate::engine::ai::providers::processors::AudioInput, AIProxyError> {
+        // CLAP (and any future model whose preprocessor converts raw bytes → mel spectrogram)
+        // cannot meaningfully skip preprocessing: there is no tensor format a caller could
+        // supply that would bypass decode → resample → mel. Reject early rather than
+        // silently producing garbage embeddings.
+        if matches!(
+            self.model.model_details.supported_model,
+            SupportedModels::ClapAudio
+        ) && matches!(process_action, PreprocessAction::NoPreprocessing)
+        {
+            return Err(AIProxyError::AudioNoPreprocessingError);
+        }
+        match &self.model.provider {
+            ModelProviders::ORT(provider) => provider.preprocess_audios(inputs),
         }
     }
     #[tracing::instrument(skip(self, inputs))]
@@ -162,12 +202,12 @@ impl ModelThread {
                     })?
                     .len();
                 if token_size > max_token_size {
-                    return Err(AIProxyError::TokenExceededError {
+                    Err(AIProxyError::TokenExceededError {
                         max_token_size,
                         input_token_size: token_size,
-                    });
+                    })
                 } else {
-                    return Ok(outputs);
+                    Ok(outputs)
                 }
             }
         }
@@ -242,20 +282,32 @@ impl ModelThread {
             ModelProviders::ORT(provider) => {
                 let outputs = match process_action {
                     PreprocessAction::ModelPreprocessing => provider.preprocess_images(inputs)?,
-                    PreprocessAction::NoPreprocessing => ImageArrayToNdArray
-                        .process(PreprocessorData::ImageArray(inputs))?
-                        .into_ndarray3c()?,
+                    PreprocessAction::NoPreprocessing => {
+                        // Face recognition models (BuffaloL and future equivalents) run a
+                        // baked-in multi-stage pipeline (detection → alignment → recognition)
+                        // that cannot be bypassed. Passing raw pixels would produce silent
+                        // garbage embeddings, so we reject early with a clear error.
+                        if matches!(
+                            self.model.model_details.supported_model,
+                            SupportedModels::BuffaloL
+                        ) {
+                            return Err(AIProxyError::FaceModelNoPreprocessingError);
+                        }
+                        ImageArrayToNdArray
+                            .process(PreprocessorData::ImageArray(inputs))?
+                            .into_ndarray3c()?
+                    }
                 };
                 let outputs_shape = outputs.shape();
                 let width = *outputs_shape.get(2).expect("Must exist");
                 let height = *outputs_shape.get(3).expect("Must exist");
                 if width != expected_width || height != expected_height {
-                    return Err(AIProxyError::ImageDimensionsMismatchError {
+                    Err(AIProxyError::ImageDimensionsMismatchError {
                         image_dimensions: (width, height),
                         expected_dimensions: (expected_width, expected_height),
-                    });
+                    })
                 } else {
-                    return Ok(outputs);
+                    Ok(outputs)
                 }
             }
         }
@@ -279,6 +331,7 @@ impl Task for ModelThread {
                 preprocess_action,
                 action_type,
                 execution_provider,
+                model_params,
                 trace_span,
             } = model_request;
             let child_span = tracing::info_span!("model-thread-run", model = self.task_name());
@@ -286,7 +339,13 @@ impl Task for ModelThread {
 
             let child_guard = child_span.enter();
             let responses = self
-                .input_to_response(inputs, preprocess_action, action_type, execution_provider)
+                .input_to_response(
+                    inputs,
+                    preprocess_action,
+                    action_type,
+                    execution_provider,
+                    &model_params,
+                )
                 .await;
             if let Err(e) = response.send(responses) {
                 log::error!("{} could not send response to channel {e:?}", self.name());
@@ -370,6 +429,7 @@ impl ModelManager {
         preprocess_action: PreprocessAction,
         action_type: InputAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
         let supported = model.into();
 
@@ -389,6 +449,7 @@ impl ModelManager {
             preprocess_action,
             action_type,
             execution_provider,
+            model_params,
             trace_span: tracing::Span::current(),
         };
         // TODO: Add potential timeouts for send and recieve in case threads are unresponsive
@@ -465,7 +526,14 @@ mod tests {
         }];
         let action = PreprocessAction::ModelPreprocessing;
         let _ = model_manager
-            .handle_request(&sample_ai_model, inputs, action, InputAction::Query, None)
+            .handle_request(
+                &sample_ai_model,
+                inputs,
+                action,
+                InputAction::Query,
+                None,
+                std::collections::HashMap::new(),
+            )
             .await
             .unwrap();
         let recreated_model = model_manager.models.get(&sample_supported_model).await;

@@ -2,6 +2,7 @@ use crate::cli::server::SupportedModels;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::ProviderTrait;
 use crate::engine::ai::providers::ort::ORTProvider;
+use crate::engine::ai::providers::processors::AudioInput;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider;
 use ahnlich_types::ai::models::AiStoreInputType;
@@ -39,13 +40,15 @@ pub enum ModelType {
         // width, height
         expected_image_dimensions: (NonZeroUsize, NonZeroUsize),
     },
+    Audio {
+        /// Expected sample rate in Hz (e.g. 48000 for CLAP)
+        sample_rate: u32,
+    },
 }
 
 #[derive(Debug)]
-pub(crate) enum ModelResponse {
+pub enum ModelResponse {
     OneToOne(StoreKey),
-    // FIXME: Remove once OneToMany gets constructed
-    #[allow(dead_code)]
     OneToMany(Vec<StoreKey>),
 }
 
@@ -149,6 +152,62 @@ impl SupportedModels {
                 embedding_size: nonzero!(512usize),
                 input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
+            SupportedModels::SfaceYunet => ModelDetails {
+                model_type: ModelType::Image {
+                    // YuNet accepts dynamic input sizes; we normalise to 640×640 for consistency
+                    // with the detection model's preferred resolution before passing to SFace
+                    expected_image_dimensions: (nonzero!(640usize), nonzero!(640usize)),
+                },
+                supported_model: SupportedModels::SfaceYunet,
+                description: String::from(
+                    "OpenCV SFace face recognition model paired with YuNet face detector. \
+                    Multi-stage detection and recognition producing one embedding per detected \
+                    face (OneToMany mode). Apache 2.0 / MIT licensed — commercially usable. \
+                    128-dimensional embeddings, 99.40% LFW accuracy. \
+                    Models: https://huggingface.co/deven96/face_recognition_sface and \
+                    https://huggingface.co/deven96/face_detection_yunet",
+                ),
+                embedding_size: nonzero!(128usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToMany,
+            },
+            SupportedModels::BuffaloL => ModelDetails {
+                model_type: ModelType::Image {
+                    expected_image_dimensions: (nonzero!(640usize), nonzero!(640usize)),
+                },
+                supported_model: SupportedModels::BuffaloL,
+                description: String::from(
+                    "InsightFace Buffalo_L face recognition model. Multi-stage detection and recognition \
+                            producing one embedding per detected face (OneToMany mode). \
+                            ⚠️🚨 NOT FOR COMMERCIAL USE 🚨⚠️ — the underlying model weights are \
+                            restricted to non-commercial research only. See \
+                            https://github.com/deepinsight/insightface/issues/2587",
+                ),
+                embedding_size: nonzero!(512usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToMany,
+            },
+            SupportedModels::ClapAudio => ModelDetails {
+                model_type: ModelType::Audio { sample_rate: 48000 },
+                supported_model: SupportedModels::ClapAudio,
+                description: String::from(
+                    "CLAP (Contrastive Language-Audio Pretraining) audio encoder. Embeds audio \
+                     clips into a shared 512-dim space with ClapText for multimodal audio+text search.",
+                ),
+                embedding_size: nonzero!(512usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
+            },
+            SupportedModels::ClapText => ModelDetails {
+                model_type: ModelType::Text {
+                    // RoBERTa BPE tokenizer; model_max_length from tokenizer_config.json
+                    max_input_tokens: nonzero!(512usize),
+                },
+                supported_model: SupportedModels::ClapText,
+                description: String::from(
+                    "CLAP (Contrastive Language-Audio Pretraining) text encoder. Embeds text \
+                     queries into a shared 512-dim space with ClapAudio for multimodal audio+text search.",
+                ),
+                embedding_size: nonzero!(512usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
+            },
         }
     }
 
@@ -178,6 +237,7 @@ impl ModelDetails {
         match self.model_type {
             ModelType::Text { .. } => AiStoreInputType::RawString,
             ModelType::Image { .. } => AiStoreInputType::Image,
+            ModelType::Audio { .. } => AiStoreInputType::Audio,
         }
     }
 
@@ -187,14 +247,14 @@ impl ModelDetails {
             ModelType::Text {
                 max_input_tokens, ..
             } => Some(max_input_tokens),
-            ModelType::Image { .. } => None,
+            ModelType::Image { .. } | ModelType::Audio { .. } => None,
         }
     }
 
     #[tracing::instrument(skip(self))]
     pub fn expected_image_dimensions(&self) -> Option<(NonZeroUsize, NonZeroUsize)> {
         match self.model_type {
-            ModelType::Text { .. } => None,
+            ModelType::Text { .. } | ModelType::Audio { .. } => None,
             ModelType::Image {
                 expected_image_dimensions: (width, height),
                 ..
@@ -205,6 +265,16 @@ impl ModelDetails {
     #[tracing::instrument(skip(self))]
     pub fn model_name(&self) -> String {
         self.supported_model.to_string()
+    }
+
+    /// Returns true if this model produces multiple embeddings from a single input (OneToMany mode)
+    /// Currently used by face recognition models to indicate multiple face embeddings per image
+    #[tracing::instrument(skip(self))]
+    pub fn is_one_to_many(&self) -> bool {
+        matches!(
+            self.input_to_embedding_mode,
+            InputToEmbeddingMode::OneToMany
+        )
     }
 }
 
@@ -220,11 +290,12 @@ impl Model {
         modelinput: ModelInput,
         action_type: &InputAction,
         execution_provider: Option<ExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
         let store_keys = match &self.provider {
             ModelProviders::ORT(provider) => {
                 provider
-                    .run_inference(modelinput, action_type, execution_provider)
+                    .run_inference(modelinput, action_type, execution_provider, model_params)
                     .await?
             }
         };
@@ -254,6 +325,12 @@ impl Model {
         }
     }
 
+    /// Returns true if this model produces multiple embeddings from a single input (OneToMany mode)
+    /// Currently used by face recognition models to indicate multiple face embeddings per image
+    pub fn is_one_to_many(&self) -> bool {
+        self.model_details.is_one_to_many()
+    }
+
     pub async fn get(&self) -> Result<(), AIProxyError> {
         match &self.provider {
             ModelProviders::ORT(provider) => {
@@ -269,6 +346,7 @@ impl From<&Model> for AiStoreInputType {
         match value.model_details.model_type {
             ModelType::Text { .. } => AiStoreInputType::RawString,
             ModelType::Image { .. } => AiStoreInputType::Image,
+            ModelType::Audio { .. } => AiStoreInputType::Audio,
         }
     }
 }
@@ -292,6 +370,8 @@ impl fmt::Display for InputAction {
 pub enum ModelInput {
     Texts(Vec<Encoding>),
     Images(Array<f32, Ix4>),
+    /// CLAP-ready log-Mel spectrogram features for a batch of audio clips
+    Audios(AudioInput),
 }
 
 #[derive(Debug)]
@@ -367,6 +447,7 @@ impl TryFrom<&[u8]> for ImageArray {
                 height: height as usize,
             });
         }
+
         Ok(Self { image })
     }
 }
@@ -390,12 +471,12 @@ impl ImageArray {
         filter: Option<image::imageops::FilterType>,
     ) -> Result<Self, AIProxyError> {
         // Create container for data of destination image
-        let (width, height) = self.image.dimensions();
+        let (src_width, src_height) = self.image.dimensions();
         let mut dest_image = Image::new(width, height, PixelType::U8x3);
         let mut resizer = Resizer::new();
         resizer
             .resize(
-                &ImageRef::new(width, height, self.image.as_raw(), PixelType::U8x3)
+                &ImageRef::new(src_width, src_height, self.image.as_raw(), PixelType::U8x3)
                     .map_err(|e| AIProxyError::ImageResizeError(e.to_string()))?,
                 &mut dest_image,
                 &ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::CatmullRom)),
@@ -428,6 +509,7 @@ impl From<&ModelInput> for AiStoreInputType {
         match value {
             ModelInput::Texts(_) => AiStoreInputType::RawString,
             ModelInput::Images(_) => AiStoreInputType::Image,
+            ModelInput::Audios(_) => AiStoreInputType::Audio,
         }
     }
 }

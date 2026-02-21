@@ -100,8 +100,9 @@ impl Preprocessor for Resize {
                 let processed = arrays
                     .par_iter_mut()
                     .map(|image| {
-                        let image = image.resize(self.size.0, self.size.1, Some(self.resample))?;
-                        Ok(image)
+                        let resized_image =
+                            image.resize(self.size.0, self.size.1, Some(self.resample))?;
+                        Ok(resized_image)
                     })
                     .collect::<Result<Vec<ImageArray>, AIProxyError>>();
                 Ok(PreprocessorData::ImageArray(processed?))

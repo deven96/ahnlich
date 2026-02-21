@@ -1,36 +1,36 @@
 mod executor;
 pub(crate) mod helper;
+mod inference_model;
+mod models;
+mod single_stage;
+
+use inference_model::{ORTInferenceModel, ORTModality};
+use models::buffalo_l::BuffaloLModel;
+use models::sface_yunet::SfaceYunetModel;
+use single_stage::SingleStageModel;
 
 use crate::cli::server::SupportedModels;
 use crate::engine::ai::models::{ImageArray, InputAction, ModelInput, ModelResponse};
 use crate::engine::ai::providers::ProviderTrait;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
-use ahnlich_types::keyval::StoreKey;
 use executor::ExecutorWithSessionCache;
-use fallible_collections::FallibleVec;
 use hf_hub::{Cache, api::sync::ApiBuilder};
-use itertools::Itertools;
 use ort::{
     CUDAExecutionProvider, CoreMLExecutionProvider, DirectMLExecutionProvider, ExecutionProvider,
-    SessionBuilder, TensorRTExecutionProvider,
+    SessionBuilder, SessionOutputs, TensorRTExecutionProvider,
 };
-use ort::{Session, SessionOutputs, Value};
-use rayon::prelude::*;
 use strum::EnumIter;
-use tracing::Span;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
 
+use crate::engine::ai::providers::processors::AudioInput;
 use crate::engine::ai::providers::processors::postprocessor::{
     ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor,
 };
 use crate::engine::ai::providers::processors::preprocessor::{
-    ORTImagePreprocessor, ORTPreprocessor, ORTTextPreprocessor,
+    ORTAudioPreprocessor, ORTImagePreprocessor, ORTPreprocessor, ORTTextPreprocessor,
 };
-use ndarray::{Array, Axis, Ix2, Ix4};
-use std::convert::TryFrom;
+use ndarray::{Array, Ix2, Ix4};
 use std::default::Default;
-use std::mem::size_of;
 use std::path::{Path, PathBuf};
 use tokenizers::Encoding;
 
@@ -82,87 +82,87 @@ fn register_provider(
     Ok(())
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Hash, Ord)]
-enum ORTModality {
-    Image,
-    Text,
-}
-
 pub struct ORTModel {
-    model_type: ORTModality,
-    repo_name: String,
-    weights_file: String,
-    executor_session_cache: Option<ExecutorWithSessionCache>,
-    model_batch_size: usize,
-}
-
-impl Default for ORTModel {
-    fn default() -> Self {
-        Self {
-            model_type: ORTModality::Text,
-            repo_name: "".to_string(),
-            weights_file: "model.onnx".to_string(),
-            executor_session_cache: None,
-            model_batch_size: 128,
-        }
-    }
+    inner: Box<dyn ORTInferenceModel>,
 }
 
 impl ORTModel {
     /// Returns the batch size for this model
     pub fn batch_size(&self) -> usize {
-        self.model_batch_size
+        self.inner.batch_size()
     }
 }
 
-impl TryFrom<&SupportedModels> for ORTModel {
-    type Error = AIProxyError;
+// Model configuration helper
+struct ModelConfig {
+    modality: ORTModality,
+    repo_name: String,
+    weights_file: String,
+    batch_size: usize,
+}
 
-    fn try_from(model: &SupportedModels) -> Result<Self, Self::Error> {
-        let model_type: Result<ORTModel, AIProxyError> = match model {
-            SupportedModels::Resnet50 => Ok(ORTModel {
-                model_type: ORTModality::Image,
-                repo_name: "Qdrant/resnet50-onnx".to_string(),
-                model_batch_size: 16,
-                ..Default::default()
-            }),
-            SupportedModels::ClipVitB32Image => Ok(ORTModel {
-                model_type: ORTModality::Image,
-                repo_name: "Qdrant/clip-ViT-B-32-vision".to_string(),
-                model_batch_size: 16,
-                ..Default::default()
-            }),
-            SupportedModels::ClipVitB32Text => Ok(ORTModel {
-                model_type: ORTModality::Text,
-                repo_name: "Qdrant/clip-ViT-B-32-text".to_string(),
-                ..Default::default()
-            }),
-            SupportedModels::AllMiniLML6V2 => Ok(ORTModel {
-                model_type: ORTModality::Text,
-                repo_name: "Qdrant/all-MiniLM-L6-v2-onnx".to_string(),
-                ..Default::default()
-            }),
-            SupportedModels::AllMiniLML12V2 => Ok(ORTModel {
-                model_type: ORTModality::Text,
-                repo_name: "Xenova/all-MiniLM-L12-v2".to_string(),
+impl ModelConfig {
+    fn from_supported_model(model: &SupportedModels) -> Result<Self, AIProxyError> {
+        Ok(match model {
+            SupportedModels::Resnet50 => Self {
+                modality: ORTModality::Image,
+                repo_name: "deven96/resnet50-onnx".to_string(),
+                weights_file: "model.onnx".to_string(),
+                batch_size: 16,
+            },
+            SupportedModels::ClipVitB32Image => Self {
+                modality: ORTModality::Image,
+                repo_name: "deven96/clip-ViT-B-32-vision".to_string(),
+                weights_file: "model.onnx".to_string(),
+                batch_size: 16,
+            },
+            SupportedModels::ClipVitB32Text => Self {
+                modality: ORTModality::Text,
+                repo_name: "deven96/clip-ViT-B-32-text".to_string(),
+                weights_file: "model.onnx".to_string(),
+                batch_size: 128,
+            },
+            SupportedModels::AllMiniLML6V2 => Self {
+                modality: ORTModality::Text,
+                repo_name: "deven96/all-MiniLM-L6-v2-onnx".to_string(),
+                weights_file: "model.onnx".to_string(),
+                batch_size: 128,
+            },
+            SupportedModels::AllMiniLML12V2 => Self {
+                modality: ORTModality::Text,
+                repo_name: "deven96/all-MiniLM-L12-v2".to_string(),
                 weights_file: "onnx/model.onnx".to_string(),
-                ..Default::default()
-            }),
-            SupportedModels::BGEBaseEnV15 => Ok(ORTModel {
-                model_type: ORTModality::Text,
-                repo_name: "Xenova/bge-base-en-v1.5".to_string(),
+                batch_size: 128,
+            },
+            SupportedModels::BGEBaseEnV15 => Self {
+                modality: ORTModality::Text,
+                repo_name: "deven96/bge-base-en-v1.5".to_string(),
                 weights_file: "onnx/model.onnx".to_string(),
-                ..Default::default()
-            }),
-            SupportedModels::BGELargeEnV15 => Ok(ORTModel {
-                model_type: ORTModality::Text,
-                repo_name: "Xenova/bge-large-en-v1.5".to_string(),
+                batch_size: 128,
+            },
+            SupportedModels::BGELargeEnV15 => Self {
+                modality: ORTModality::Text,
+                repo_name: "deven96/bge-large-en-v1.5".to_string(),
                 weights_file: "onnx/model.onnx".to_string(),
-                ..Default::default()
-            }),
-        };
-
-        model_type
+                batch_size: 128,
+            },
+            SupportedModels::ClapAudio => Self {
+                modality: ORTModality::Audio,
+                repo_name: "deven96/larger_clap_music_and_speech".to_string(),
+                weights_file: "onnx/audio_model.onnx".to_string(),
+                batch_size: 8,
+            },
+            SupportedModels::ClapText => Self {
+                modality: ORTModality::Text,
+                repo_name: "deven96/larger_clap_music_and_speech".to_string(),
+                weights_file: "onnx/text_model.onnx".to_string(),
+                batch_size: 128,
+            },
+            SupportedModels::BuffaloL | SupportedModels::SfaceYunet => {
+                // Multi-stage models don't use ModelConfig — handled separately below
+                return Err(AIProxyError::AIModelNotInitialized);
+            }
+        })
     }
 }
 
@@ -171,6 +171,7 @@ fn ort_full_cache_path(cache_location: &Path) -> PathBuf {
 }
 
 impl ORTProvider {
+    #[allow(dead_code)]
     fn cache_path(&self) -> PathBuf {
         ort_full_cache_path(&self.cache_location)
     }
@@ -181,51 +182,123 @@ impl ORTProvider {
         cache_location: PathBuf,
         session_profiling: bool,
     ) -> Result<Self, AIProxyError> {
-        let mut model = ORTModel::try_from(supported_models)?;
         let cache = Cache::new(ort_full_cache_path(&cache_location));
         let api = ApiBuilder::from_cache(cache)
             .with_progress(true)
             .build()
             .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
 
-        let model_repo = api.model(model.repo_name.clone());
-        let model_file_reference = model_repo
-            .get(&model.weights_file)
-            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
-        // Warm the cache with a default CPU provider
-        let executor_with_session_cache =
-            ExecutorWithSessionCache::new(model_file_reference, session_profiling);
-        executor_with_session_cache
-            .try_get_with(InnerAIExecutionProvider::CPU)
-            .await?;
-        model.executor_session_cache = Some(executor_with_session_cache);
-        let (preprocessor, postprocessor) = match model.model_type {
-            ORTModality::Image => {
+        // Handle multi-stage models separately
+        match supported_models {
+            SupportedModels::BuffaloL => {
+                // Build BuffaloLModel (multi-stage: RetinaFace detection + ResNet50 recognition)
+                let inner = BuffaloLModel::build(api.clone(), session_profiling).await?;
+                let model = ORTModel { inner };
+
+                let model_repo = api.model("deven96/buffalo_l".to_string());
                 let preprocessor = ORTPreprocessor::Image(ORTImagePreprocessor::load(
                     *supported_models,
                     model_repo,
                 )?);
                 let postprocessor =
                     ORTPostprocessor::Image(ORTImagePostprocessor::load(*supported_models)?);
-                (preprocessor, postprocessor)
+
+                Ok(Self {
+                    cache_location,
+                    supported_models: *supported_models,
+                    postprocessor,
+                    preprocessor,
+                    model,
+                })
             }
-            ORTModality::Text => {
-                let preprocessor = ORTPreprocessor::Text(ORTTextPreprocessor::load(
+            SupportedModels::SfaceYunet => {
+                // Build SfaceYunetModel (multi-stage: YuNet detection + SFace recognition)
+                let inner = SfaceYunetModel::build(api.clone(), session_profiling).await?;
+                let model = ORTModel { inner };
+
+                // SFace + YuNet have no external preprocessor config — use a no-op image repo
+                // The model handles all preprocessing internally
+                let model_repo = api.model("deven96/face_recognition_sface".to_string());
+                let preprocessor = ORTPreprocessor::Image(ORTImagePreprocessor::load(
                     *supported_models,
                     model_repo,
                 )?);
                 let postprocessor =
-                    ORTPostprocessor::Text(ORTTextPostprocessor::load(*supported_models)?);
-                (preprocessor, postprocessor)
+                    ORTPostprocessor::Image(ORTImagePostprocessor::load(*supported_models)?);
+
+                Ok(Self {
+                    cache_location,
+                    supported_models: *supported_models,
+                    postprocessor,
+                    preprocessor,
+                    model,
+                })
             }
-        };
-        Ok(Self {
-            cache_location,
-            supported_models: *supported_models,
-            postprocessor,
-            preprocessor,
-            model,
-        })
+            // All other models are single-stage
+            _ => {
+                let config = ModelConfig::from_supported_model(supported_models)?;
+                let model_repo = api.model(config.repo_name.clone());
+                let model_file_reference = model_repo
+                    .get(&config.weights_file)
+                    .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+
+                // Build SingleStageModel
+                let executor_with_session_cache =
+                    ExecutorWithSessionCache::new(model_file_reference, session_profiling);
+                executor_with_session_cache
+                    .try_get_with(InnerAIExecutionProvider::CPU)
+                    .await?;
+
+                let inner: Box<dyn ORTInferenceModel> = Box::new(SingleStageModel::new(
+                    config.modality,
+                    executor_with_session_cache,
+                    config.batch_size,
+                    *supported_models,
+                ));
+
+                let model = ORTModel { inner };
+
+                let (preprocessor, postprocessor) = match config.modality {
+                    ORTModality::Image => {
+                        let preprocessor = ORTPreprocessor::Image(ORTImagePreprocessor::load(
+                            *supported_models,
+                            model_repo,
+                        )?);
+                        let postprocessor = ORTPostprocessor::Image(ORTImagePostprocessor::load(
+                            *supported_models,
+                        )?);
+                        (preprocessor, postprocessor)
+                    }
+                    ORTModality::Text => {
+                        let preprocessor = ORTPreprocessor::Text(ORTTextPreprocessor::load(
+                            *supported_models,
+                            model_repo,
+                        )?);
+                        let postprocessor =
+                            ORTPostprocessor::Text(ORTTextPostprocessor::load(*supported_models)?);
+                        (preprocessor, postprocessor)
+                    }
+                    ORTModality::Audio => {
+                        // CLAP: 48kHz, 10-second clips
+                        let preprocessor = ORTPreprocessor::Audio(ORTAudioPreprocessor::new(
+                            *supported_models,
+                            48_000,
+                            10.0,
+                        ));
+                        // Audio postprocessing is handled inline in batch_inference_audio
+                        let postprocessor = ORTPostprocessor::Audio;
+                        (preprocessor, postprocessor)
+                    }
+                };
+                Ok(Self {
+                    cache_location,
+                    supported_models: *supported_models,
+                    postprocessor,
+                    preprocessor,
+                    model,
+                })
+            }
+        }
     }
 
     #[tracing::instrument(skip_all)]
@@ -321,238 +394,48 @@ impl ORTProvider {
         }
     }
 
-    #[tracing::instrument(skip(self, inputs, session))]
-    pub fn batch_inference_image(
-        &self,
-        inputs: Array<f32, Ix4>,
-        session: &Session,
-    ) -> Result<Array<f32, Ix2>, AIProxyError> {
-        let input_param = match self.supported_models {
-            SupportedModels::Resnet50 => "input",
-            SupportedModels::ClipVitB32Image => "pixel_values",
-            _ => {
-                return Err(AIProxyError::AIModelNotSupported {
-                    model_name: self.supported_models.to_string(),
-                });
-            }
-        };
-
-        let session_inputs = ort::inputs![
-            input_param => inputs.view(),
-        ]
-        .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
-
-        let child_span = tracing::info_span!("image-model-session-run");
-        child_span.set_parent(Span::current().context());
-        let child_guard = child_span.enter();
-        let outputs = session
-            .run(session_inputs)
-            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
-        drop(child_guard);
-        let embeddings = self.postprocess_image_output(outputs)?;
-        Ok(embeddings)
-    }
-
-    #[tracing::instrument(skip(self, encodings))]
-    pub fn batch_inference_text(
-        &self,
-        encodings: Vec<Encoding>,
-        session: &Session,
-    ) -> Result<Array<f32, Ix2>, AIProxyError> {
-        if self.model.model_type != ORTModality::Text {
-            return Err(AIProxyError::AIModelNotSupported {
+    #[tracing::instrument(skip(self, data))]
+    pub fn preprocess_audios(&self, data: Vec<Vec<u8>>) -> Result<AudioInput, AIProxyError> {
+        match &self.preprocessor {
+            ORTPreprocessor::Audio(preprocessor) => preprocessor.process(data).map_err(|e| {
+                // Preserve caller-facing errors (InvalidArgument) so they are not obscured
+                // by the generic Internal wrapper used for unexpected preprocessing failures.
+                match e {
+                    AIProxyError::AudioTooLongError { .. } => e,
+                    AIProxyError::AudioNoPreprocessingError => e,
+                    other => AIProxyError::ModelProviderPreprocessingError(format!(
+                        "Audio preprocessing failed for {:?}: {}",
+                        self.supported_models.to_string(),
+                        other
+                    )),
+                }
+            }),
+            _ => Err(AIProxyError::ModelPreprocessingError {
                 model_name: self.supported_models.to_string(),
-            });
+                message: "Audio preprocessor not initialized".to_string(),
+            }),
         }
-        let batch_size = encodings.len();
-        // Extract the encoding length and batch size
-        let encoding_length = encodings[0].len();
-        let max_size = encoding_length * batch_size;
-
-        let need_token_type_ids = session
-            .inputs
-            .iter()
-            .any(|input| input.name == "token_type_ids");
-
-        let num_arrays = if need_token_type_ids { 3 } else { 2 };
-        let estimated_bytes = max_size * size_of::<i64>() * num_arrays;
-        utils::allocator::check_memory_available(estimated_bytes)
-            .map_err(|e| AIProxyError::Allocation(e.into()))?;
-        let mut ids_array = Vec::with_capacity(max_size);
-        let mut mask_array = Vec::with_capacity(max_size);
-        let mut token_type_ids_array: Option<Vec<i64>> = None;
-        if need_token_type_ids {
-            token_type_ids_array = Some(Vec::with_capacity(max_size));
-        }
-
-        // Not using par_iter because the closure needs to be FnMut
-        encodings.iter().for_each(|encoding| {
-            let ids = encoding.get_ids();
-            let mask = encoding.get_attention_mask();
-
-            // Extend the preallocated arrays with the current encoding
-            // Requires the closure to be FnMut
-            ids_array.extend(ids.iter().map(|x| *x as i64));
-            mask_array.extend(mask.iter().map(|x| *x as i64));
-            if let Some(ref mut token_type_ids_array) = token_type_ids_array {
-                token_type_ids_array.extend(encoding.get_type_ids().iter().map(|x| *x as i64));
-            }
-        });
-
-        // Create CowArrays from vectors
-        let inputs_ids_array = Array::from_shape_vec((batch_size, encoding_length), ids_array)
-            .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
-
-        let attention_mask_array = Array::from_shape_vec((batch_size, encoding_length), mask_array)
-            .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
-
-        let token_type_ids_array = match token_type_ids_array {
-            Some(token_type_ids_array) => Some(
-                Array::from_shape_vec((batch_size, encoding_length), token_type_ids_array)
-                    .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?,
-            ),
-            None => None,
-        };
-
-        let mut session_inputs = ort::inputs![
-            "input_ids" => Value::from_array(inputs_ids_array)?,
-            "attention_mask" => Value::from_array(attention_mask_array.view())?
-        ]
-        .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
-
-        if let Some(token_type_ids_array) = token_type_ids_array {
-            session_inputs.push((
-                "token_type_ids".into(),
-                Value::from_array(token_type_ids_array)?.into(),
-            ));
-        }
-
-        let child_span = tracing::info_span!("text-model-session-run");
-        child_span.set_parent(Span::current().context());
-        let child_guard = child_span.enter();
-        let session_outputs = session
-            .run(session_inputs)
-            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
-        drop(child_guard);
-        let embeddings = self.postprocess_text_output(session_outputs, attention_mask_array)?;
-        Ok(embeddings.to_owned())
     }
 }
 
 #[async_trait::async_trait]
 impl ProviderTrait for ORTProvider {
     async fn get_model(&self) -> Result<(), AIProxyError> {
-        let cache = Cache::new(self.cache_path());
-        let api = ApiBuilder::from_cache(cache)
-            .with_progress(true)
-            .build()
-            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
-
-        let model_repo = api.model(self.model.repo_name.clone());
-        model_repo
-            .get(&self.model.weights_file)
-            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+        // Model is already loaded in from_model_and_cache_location
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, input), fields(model_batch_size = self.model.model_batch_size))]
+    #[tracing::instrument(skip(self, input))]
     async fn run_inference(
         &self,
         input: ModelInput,
         _action_type: &InputAction,
         execution_provider: Option<AIExecutionProvider>,
+        model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
-        let session = match &self.model.executor_session_cache {
-            Some(executor_session_cache) => {
-                if let Some(execution_provider) = execution_provider {
-                    executor_session_cache
-                        .try_get_with(execution_provider.into())
-                        .await?
-                } else {
-                    executor_session_cache
-                        .try_get_with(InnerAIExecutionProvider::CPU)
-                        .await?
-                }
-            }
-            None => return Err(AIProxyError::AIModelNotInitialized),
-        };
-        match (self.model.model_type, &input) {
-            (ORTModality::Text, ModelInput::Images(_))
-            | (ORTModality::Image, ModelInput::Texts(_)) => {
-                return Err(AIProxyError::AIModelNotSupported {
-                    model_name: self.supported_models.to_string(),
-                });
-            }
-            (ORTModality::Image, ModelInput::Images(_))
-            | (ORTModality::Text, ModelInput::Texts(_)) => (),
-        };
-        match input {
-            ModelInput::Images(images) => {
-                let mut store_keys: Vec<ModelResponse> =
-                    FallibleVec::try_with_capacity(images.len())?;
-
-                for batch_image in images.axis_chunks_iter(Axis(0), self.model.model_batch_size) {
-                    // TODO: (HAKSOAT) Fix batch_inference_image to be able to send back
-                    // ModelResponse::OneToOne or ModelResponse::OneToMany (for insightface)
-                    let embeddings =
-                        self.batch_inference_image(batch_image.to_owned(), &session)?;
-
-                    let batch_size = embeddings.shape()[0];
-                    let embedding_dim = embeddings.shape()[1];
-                    let bytes_per_response = size_of::<ModelResponse>()
-                        + size_of::<StoreKey>()
-                        + (embedding_dim * size_of::<f32>())
-                        + 64;
-                    utils::allocator::check_memory_available(batch_size * bytes_per_response)
-                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
-
-                    let new_store_keys: Vec<ModelResponse> = embeddings
-                        .axis_iter(Axis(0))
-                        .into_par_iter()
-                        .map(|embedding| {
-                            ModelResponse::OneToOne(StoreKey {
-                                key: embedding.to_vec(),
-                            })
-                        })
-                        .collect();
-                    store_keys.extend(new_store_keys);
-                }
-                Ok(store_keys)
-            }
-            ModelInput::Texts(encodings) => {
-                let mut store_keys: Vec<ModelResponse> =
-                    FallibleVec::try_with_capacity(encodings.len())?;
-
-                for batch_encoding in encodings
-                    .into_iter()
-                    .chunks(self.model.model_batch_size)
-                    .into_iter()
-                {
-                    let embeddings =
-                        self.batch_inference_text(batch_encoding.collect(), &session)?;
-
-                    let batch_size = embeddings.shape()[0];
-                    let embedding_dim = embeddings.shape()[1];
-                    let bytes_per_response = size_of::<ModelResponse>()
-                        + size_of::<StoreKey>()
-                        + (embedding_dim * size_of::<f32>())
-                        + 64;
-                    utils::allocator::check_memory_available(batch_size * bytes_per_response)
-                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
-
-                    let new_store_keys: Vec<ModelResponse> = embeddings
-                        .axis_iter(Axis(0))
-                        .into_par_iter()
-                        .map(|embedding| {
-                            ModelResponse::OneToOne(StoreKey {
-                                key: embedding.to_vec(),
-                            })
-                        })
-                        .collect();
-                    store_keys.extend(new_store_keys);
-                }
-                Ok(store_keys)
-            }
-        }
+        self.model
+            .inner
+            .infer_batch(input, execution_provider, model_params)
+            .await
     }
 }

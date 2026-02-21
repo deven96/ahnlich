@@ -7,16 +7,27 @@ use crate::engine::ai::providers::processors::normalize::ImageNormalize;
 use crate::engine::ai::providers::processors::rescale::Rescale;
 use crate::engine::ai::providers::processors::resize::Resize;
 use crate::engine::ai::providers::processors::tokenize::{Tokenize, TokenizerFiles};
-use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
+use crate::engine::ai::providers::processors::{AudioInput, Preprocessor, PreprocessorData};
 use crate::error::AIProxyError;
 use hf_hub::api::sync::ApiRepo;
 use ndarray::{Array, Ix4};
+use rayon::prelude::*;
+use rubato::{FftFixedIn, Resampler};
+use rustfft::{FftPlanner, num_complex::Complex};
+use std::f32::consts::PI;
 use std::sync::{Arc, Mutex};
+use symphonia::core::audio::SampleBuffer;
+use symphonia::core::codecs::DecoderOptions;
+use symphonia::core::formats::FormatOptions;
+use symphonia::core::io::MediaSourceStream;
+use symphonia::core::meta::MetadataOptions;
+use symphonia::core::probe::Hint;
 use tokenizers::Encoding;
 
 pub enum ORTPreprocessor {
     Image(ORTImagePreprocessor),
     Text(ORTTextPreprocessor),
+    Audio(ORTAudioPreprocessor),
 }
 
 pub struct ORTImagePreprocessor {
@@ -34,6 +45,14 @@ impl ORTImagePreprocessor {
         model_repo: ApiRepo,
     ) -> Result<Self, AIProxyError> {
         let imagearray_to_ndarray = ImageArrayToNdArray;
+
+        // Multi-stage models use hardcoded configs — no preprocessor_config.json in their repos
+        if supported_model == SupportedModels::BuffaloL {
+            return Self::load_buffalo_l(supported_model);
+        }
+        if supported_model == SupportedModels::SfaceYunet {
+            return Self::load_sface_yunet(supported_model);
+        }
 
         let mut config_reader = HFConfigReader::new(model_repo);
         let config = config_reader.read("preprocessor_config.json")?;
@@ -53,9 +72,74 @@ impl ORTImagePreprocessor {
         })
     }
 
+    /// SFace+YuNet-specific preprocessor — resize to 640×640 for YuNet detection
+    ///
+    /// YuNet accepts dynamic input sizes; 640×640 matches its training resolution.
+    /// YuNet expects raw BGR pixel values in range [0, 255] — no normalization.
+    /// Channel order swap (RGB→BGR) is handled inside detect_faces() at inference time.
+    fn load_sface_yunet(supported_model: SupportedModels) -> Result<Self, AIProxyError> {
+        use serde_json::json;
+
+        let imagearray_to_ndarray = ImageArrayToNdArray;
+
+        let config = json!({
+            "do_resize": true,
+            "size": {
+                "width": 640,
+                "height": 640
+            },
+            "image_processor_type": "CLIPImageProcessor",
+            "do_normalize": false
+        });
+
+        let resize = Resize::initialize(&config)?;
+
+        Ok(Self {
+            model: supported_model,
+            imagearray_to_ndarray,
+            normalize: None,
+            resize,
+            rescale: None,
+            center_crop: None,
+        })
+    }
+
+    /// Buffalo_L-specific preprocessor - resize to 640x640 for RetinaFace detection
+    fn load_buffalo_l(supported_model: SupportedModels) -> Result<Self, AIProxyError> {
+        use serde_json::json;
+
+        let imagearray_to_ndarray = ImageArrayToNdArray;
+
+        // Create config for RetinaFace detection (640x640 input)
+        let config = json!({
+            "do_resize": true,
+            "size": {
+                "width": 640,
+                "height": 640
+            },
+            "image_processor_type": "CLIPImageProcessor",
+            "do_normalize": true,
+            "image_mean": [127.5, 127.5, 127.5],
+            "image_std": [128.0, 128.0, 128.0]
+        });
+
+        let resize = Resize::initialize(&config)?;
+        let normalize = ImageNormalize::initialize(&config)?;
+
+        Ok(Self {
+            model: supported_model,
+            imagearray_to_ndarray,
+            normalize,
+            resize,
+            rescale: None,
+            center_crop: None,
+        })
+    }
+
     #[tracing::instrument(skip_all)]
     pub fn process(&self, data: Vec<ImageArray>) -> Result<Array<f32, Ix4>, AIProxyError> {
         let mut data = PreprocessorData::ImageArray(data);
+
         data = match self.resize {
             Some(ref resize) => {
                 resize
@@ -176,4 +260,358 @@ impl ORTTextPreprocessor {
             }),
         }
     }
+}
+
+/// Preprocessor for CLAP audio inputs. Mirrors the `rand_trunc` path of `ClapFeatureExtractor`
+/// (which is what the Xenova ONNX export was built with):
+///   raw bytes → decode → mono mixdown → resample to 48 kHz
+///   → pad/repeat to 480 000 samples (10 s) → log-Mel spectrogram (64 bins, Slaney scale)
+///   → truncate to 1000 frames → `AudioInput { input_features (B,1,1000,64) }`
+///
+/// Parameter values are read from `preprocessor_config.json` in the Xenova repo:
+///   sampling_rate=48000, fft_window_size=1024, hop_length=480,
+///   feature_size=64, frequency_min=50, frequency_max=14000, nb_max_frames=1000.
+pub struct ORTAudioPreprocessor {
+    model: SupportedModels,
+    target_sample_rate: u32,
+    /// 480 000 = 10 s × 48 000 Hz
+    max_samples: usize,
+    /// 1024-sample Hann window for STFT
+    fft_window: usize,
+    /// 480-sample hop (= 10 ms at 48 kHz)
+    hop_length: usize,
+    /// 64 mel filter bands
+    n_mels: usize,
+    /// Number of time frames the model expects: nb_max_samples / hop_length = 480000 / 480 = 1000
+    nb_max_frames: usize,
+    /// Slaney-normalised mel filterbank, shape (n_mels, n_freq_bins), precomputed at construction
+    mel_filters_slaney: Vec<Vec<f32>>,
+}
+
+impl ORTAudioPreprocessor {
+    pub fn new(model: SupportedModels, target_sample_rate: u32, clip_duration_secs: f32) -> Self {
+        let fft_window = 1024_usize;
+        let hop_length = 480_usize;
+        let n_mels = 64_usize;
+        let max_samples = (target_sample_rate as f32 * clip_duration_secs).round() as usize;
+        // nb_max_frames = nb_max_samples / hop_length, as specified in preprocessor_config.json
+        let nb_max_frames = max_samples / hop_length;
+        let n_freq_bins = fft_window / 2 + 1;
+
+        let mel_filters_slaney =
+            build_mel_filterbank_slaney(n_freq_bins, n_mels, 50.0, 14_000.0, target_sample_rate);
+
+        Self {
+            model,
+            target_sample_rate,
+            max_samples,
+            fft_window,
+            hop_length,
+            n_mels,
+            nb_max_frames,
+            mel_filters_slaney,
+        }
+    }
+
+    /// Decodes raw audio bytes (any container format supported by symphonia) into a
+    /// mono f32 waveform at the file's native sample rate. Multi-channel audio is
+    /// mixed down by averaging all channels per frame.
+    fn decode_audio(bytes: &[u8]) -> Result<(Vec<f32>, u32), AIProxyError> {
+        let cursor = std::io::Cursor::new(bytes.to_vec());
+        let mss = MediaSourceStream::new(Box::new(cursor), Default::default());
+        let hint = Hint::new();
+        let format_opts = FormatOptions::default();
+        let metadata_opts = MetadataOptions::default();
+        let decoder_opts = DecoderOptions::default();
+
+        let probed = symphonia::default::get_probe()
+            .format(&hint, mss, &format_opts, &metadata_opts)
+            .map_err(|e| AIProxyError::AudioBytesDecodeError(e.to_string()))?;
+
+        let mut format = probed.format;
+        let track = format
+            .default_track()
+            .ok_or_else(|| AIProxyError::AudioBytesDecodeError("No audio track found".into()))?;
+
+        let sample_rate = track
+            .codec_params
+            .sample_rate
+            .ok_or_else(|| AIProxyError::AudioBytesDecodeError("Unknown sample rate".into()))?;
+        let channels = track.codec_params.channels.map(|c| c.count()).unwrap_or(1);
+        let track_id = track.id;
+
+        let mut decoder = symphonia::default::get_codecs()
+            .make(&track.codec_params, &decoder_opts)
+            .map_err(|e| AIProxyError::AudioBytesDecodeError(e.to_string()))?;
+
+        let mut pcm: Vec<f32> = Vec::new();
+
+        while let Ok(packet) = format.next_packet() {
+            if packet.track_id() != track_id {
+                continue;
+            }
+            let decoded = match decoder.decode(&packet) {
+                Ok(d) => d,
+                Err(_) => continue,
+            };
+            let spec = *decoded.spec();
+            let mut sample_buf = SampleBuffer::<f32>::new(decoded.capacity() as u64, spec);
+            sample_buf.copy_interleaved_ref(decoded);
+            let samples = sample_buf.samples();
+
+            if channels == 1 {
+                pcm.extend_from_slice(samples);
+            } else {
+                for frame in samples.chunks(channels) {
+                    let mono = frame.iter().sum::<f32>() / channels as f32;
+                    pcm.push(mono);
+                }
+            }
+        }
+
+        Ok((pcm, sample_rate))
+    }
+
+    fn resample(&self, pcm: Vec<f32>, src_sr: u32) -> Result<Vec<f32>, AIProxyError> {
+        if src_sr == self.target_sample_rate {
+            return Ok(pcm);
+        }
+        let chunk_size = 1024;
+        let mut resampler = FftFixedIn::<f32>::new(
+            src_sr as usize,
+            self.target_sample_rate as usize,
+            chunk_size,
+            2,
+            1,
+        )
+        .map_err(|e| AIProxyError::AudioResampleError(e.to_string()))?;
+
+        let mut output = Vec::new();
+        for chunk in pcm.chunks(chunk_size) {
+            let mut padded = chunk.to_vec();
+            padded.resize(chunk_size, 0.0);
+            let resampled = resampler
+                .process(&[padded], None)
+                .map_err(|e| AIProxyError::AudioResampleError(e.to_string()))?;
+            output.extend_from_slice(&resampled[0]);
+        }
+        Ok(output)
+    }
+
+    /// Computes a log-Mel spectrogram using a Hann-windowed STFT with parallel frame processing.
+    ///
+    /// Returns up to `nb_max_frames` frames, each of shape `(n_mels,)`.
+    /// Energy values are converted to dB: `10 * log10(max(power, 1e-10))`.
+    ///
+    /// Uses Rayon to parallelize frame computation, providing significant speedup
+    /// for long audio clips (typically 1000 frames for 10-second clips).
+    fn log_mel_spectrogram(&self, waveform: &[f32]) -> Vec<Vec<f32>> {
+        let n_freq = self.fft_window / 2 + 1;
+        let hann: Vec<f32> = hann_window(self.fft_window);
+
+        let n_frames = if waveform.len() >= self.fft_window {
+            ((waveform.len() - self.fft_window) / self.hop_length + 1).min(self.nb_max_frames)
+        } else {
+            0
+        };
+
+        // Process frames in parallel using Rayon
+        // Each frame computation is independent, making this embarrassingly parallel
+        let mel_frames: Vec<Vec<f32>> = (0..n_frames)
+            .into_par_iter()
+            .map(|frame_idx| {
+                let start = frame_idx * self.hop_length;
+                let frame = &waveform[start..start + self.fft_window];
+
+                // Apply Hann window
+                let windowed: Vec<f32> =
+                    frame.iter().zip(hann.iter()).map(|(s, w)| s * w).collect();
+
+                // Compute FFT power spectrum
+                let power = real_dft_power(&windowed, n_freq);
+
+                // Apply mel filterbank
+                let mel_power: Vec<f32> = self
+                    .mel_filters_slaney
+                    .iter()
+                    .map(|filt| {
+                        filt.iter()
+                            .zip(power.iter())
+                            .map(|(f, p)| f * p)
+                            .sum::<f32>()
+                    })
+                    .collect();
+
+                // Convert to log scale (dB)
+                mel_power
+                    .iter()
+                    .map(|&p| 10.0 * p.max(1e-10_f32).log10())
+                    .collect()
+            })
+            .collect();
+
+        mel_frames
+    }
+
+    #[tracing::instrument(skip(self, data))]
+    pub fn process(&self, data: Vec<Vec<u8>>) -> Result<AudioInput, AIProxyError> {
+        let batch = data.len();
+        let max_ms =
+            (self.max_samples as f32 / self.target_sample_rate as f32 * 1000.0).ceil() as u32;
+        let mut all_features: Vec<f32> =
+            Vec::with_capacity(batch * self.nb_max_frames * self.n_mels);
+
+        for bytes in &data {
+            let (pcm, src_sr) = Self::decode_audio(bytes)?;
+            let pcm = self.resample(pcm, src_sr)?;
+
+            // Reject clips that exceed the model's context window. Callers must trim
+            // or split their audio before indexing.
+            if pcm.len() > self.max_samples {
+                let duration_ms =
+                    (pcm.len() as f32 / self.target_sample_rate as f32 * 1000.0).ceil() as u32;
+                return Err(AIProxyError::AudioTooLongError {
+                    duration_ms,
+                    max_ms,
+                });
+            }
+
+            // Pad short clips using the `repeatpad` strategy: repeat the waveform as many
+            // whole times as fit, then zero-pad the remainder. This keeps the mel spectrogram
+            // filled with real audio structure rather than silence, matching the strategy used
+            // during CLAP training (ClapFeatureExtractor with truncation="rand_trunc").
+            let pcm = Self::pad_repeat(pcm, self.max_samples);
+
+            let mel = self.log_mel_spectrogram(&pcm);
+
+            // Flatten frames into a single vector.
+            let mut flat = Vec::with_capacity(self.nb_max_frames * self.n_mels);
+            for frame in &mel {
+                flat.extend_from_slice(frame);
+            }
+            // Guard against rounding producing slightly fewer frames than expected.
+            flat.resize(self.nb_max_frames * self.n_mels, 0.0);
+            all_features.extend_from_slice(&flat);
+        }
+
+        // Shape: (batch, 1, nb_max_frames, n_mels) — the leading 1 is the channel dimension
+        // expected by the ONNX audio encoder's `input_features` input.
+        let input_features =
+            Array::from_shape_vec((batch, 1, self.nb_max_frames, self.n_mels), all_features)
+                .map_err(|e| AIProxyError::ModelPreprocessingError {
+                    model_name: self.model.to_string(),
+                    message: format!("Failed to stack audio features: {e}"),
+                })?;
+
+        Ok(AudioInput { input_features })
+    }
+
+    /// Pads short audio using the `repeatpad` strategy: repeat the waveform as many whole
+    /// times as fit, then zero-pad the remainder to reach exactly `max_samples`.
+    /// For audio that is already exactly `max_samples` long, returns it unchanged.
+    /// Callers are expected to have already rejected audio longer than `max_samples`.
+    fn pad_repeat(pcm: Vec<f32>, max_samples: usize) -> Vec<f32> {
+        let n = pcm.len();
+        if n == max_samples {
+            return pcm;
+        }
+        // n < max_samples: repeat whole copies then zero-pad the tail
+        let n_repeat = max_samples / n;
+        let mut out = pcm.repeat(n_repeat);
+        out.resize(max_samples, 0.0);
+        out
+    }
+}
+
+/// Standard Hann window: `0.5 * (1 - cos(2π·i/n))`.
+fn hann_window(n: usize) -> Vec<f32> {
+    (0..n)
+        .map(|i| 0.5 * (1.0 - (2.0 * PI * i as f32 / n as f32).cos()))
+        .collect()
+}
+
+/// Computes the one-sided power spectrum (magnitude squared) of a windowed frame
+/// using the DFT definition directly. O(N²) — acceptable for the fixed N=1024 window.
+/// Returns `n_freq = N/2 + 1` values.
+/// Computes the power spectrum of a real-valued audio frame using FFT.
+/// Returns the first `n_freq` bins (typically fft_size/2 + 1 for real signals).
+fn real_dft_power(frame: &[f32], n_freq: usize) -> Vec<f32> {
+    let n = frame.len();
+
+    // Convert real samples to complex numbers for FFT
+    let mut buffer: Vec<Complex<f32>> = frame.iter().map(|&x| Complex::new(x, 0.0)).collect();
+
+    // Perform FFT
+    let mut planner = FftPlanner::new();
+    let fft = planner.plan_fft_forward(n);
+    fft.process(&mut buffer);
+
+    // Compute power spectrum (magnitude squared) for the first n_freq bins
+    buffer.iter().take(n_freq).map(|c| c.norm_sqr()).collect()
+}
+
+/// Builds a Slaney-normalised mel filterbank matrix of shape `(n_mels, n_freq_bins)`.
+///
+/// Uses the Slaney mel scale and area-normalises each triangular filter so that
+/// all filters have equal energy contribution — matching `librosa.filters.mel` and
+/// the `mel_filters_slaney` path in `ClapFeatureExtractor`, which is used when
+/// `truncation = "rand_trunc"` (the mode used by the Xenova ONNX export).
+fn build_mel_filterbank_slaney(
+    n_freq_bins: usize,
+    n_mels: usize,
+    f_min: f32,
+    f_max: f32,
+    sample_rate: u32,
+) -> Vec<Vec<f32>> {
+    // Slaney mel scale: linear below 1000 Hz, logarithmic above
+    let hz_to_mel = |f: f32| -> f32 { 2595.0 * (1.0 + f / 700.0).log10() };
+    let mel_to_hz = |m: f32| -> f32 { 700.0 * (10.0_f32.powf(m / 2595.0) - 1.0) };
+
+    let mel_min = hz_to_mel(f_min);
+    let mel_max = hz_to_mel(f_max);
+
+    // n_mels + 2 evenly-spaced mel points (the +2 are the left/right edges of the bank)
+    let mel_points: Vec<f32> = (0..=n_mels + 1)
+        .map(|i| mel_min + (mel_max - mel_min) * i as f32 / (n_mels + 1) as f32)
+        .collect();
+
+    let bin_points: Vec<usize> = mel_points
+        .iter()
+        .map(|&m| {
+            let hz = mel_to_hz(m);
+            let bin = (hz / sample_rate as f32 * 2.0 * (n_freq_bins - 1) as f32).round() as usize;
+            bin.min(n_freq_bins - 1)
+        })
+        .collect();
+
+    let mut filters = vec![vec![0.0_f32; n_freq_bins]; n_mels];
+    for m in 0..n_mels {
+        let left = bin_points[m];
+        let center = bin_points[m + 1];
+        let right = bin_points[m + 2];
+
+        if center != left {
+            for (k, v) in filters[m][left..center].iter_mut().enumerate() {
+                *v = k as f32 / (center - left) as f32;
+            }
+        }
+        if right != center {
+            for (k, v) in filters[m][center..right].iter_mut().enumerate() {
+                *v = (right - center - k) as f32 / (right - center) as f32;
+            }
+        }
+        if center < n_freq_bins {
+            filters[m][center] = 1.0;
+        }
+
+        // Slaney normalisation: divide by the width of the mel band in Hz
+        let norm = mel_to_hz(mel_points[m + 2]) - mel_to_hz(mel_points[m]);
+        if norm > 0.0 {
+            for v in &mut filters[m] {
+                *v *= 2.0 / norm;
+            }
+        }
+    }
+
+    filters
 }

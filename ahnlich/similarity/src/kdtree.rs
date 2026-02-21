@@ -369,7 +369,7 @@ impl KDTree {
                         let right_child =
                             current.right.swap(Shared::null(), Ordering::AcqRel, guard);
                         node.store(right_child, Ordering::Release);
-                        return Some(current.point.clone());
+                        Some(current.point.clone())
                     } else {
                         // Node has both children not null, so we need to find minimum successor to
                         // replace current
@@ -390,7 +390,7 @@ impl KDTree {
                             .map(|right| Owned::new(KDNode::new(right)).into_shared(guard))
                             .unwrap_or(Shared::null());
                         new_point.right.store(new_right, Ordering::Release);
-                        return Some(successor_point);
+                        Some(successor_point)
                     }
                 } else if delete_point.as_slice()[dim] < current.point.as_slice()[dim] {
                     let left_child =
@@ -401,7 +401,7 @@ impl KDTree {
                         current.left.store(successor, Ordering::Release);
                         return Some(left_child);
                     }
-                    return None;
+                    None
                 } else {
                     let right_child =
                         self.delete_recursive(&current.right, delete_point, depth + 1, guard);
@@ -411,7 +411,7 @@ impl KDTree {
                         current.right.store(successor, Ordering::Release);
                         return Some(right_child);
                     }
-                    return None;
+                    None
                 }
             }
         }
