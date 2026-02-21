@@ -179,3 +179,177 @@ fn test_hnsw_average_recall_controlled() {
 
     println!("✅ All queries passed recall test");
 }
+
+#[test]
+fn test_recall_vs_ef_values() {
+    println!("\n=== Recall vs ef values (dataset size=6, k=3) ===\n");
+
+    let dataset = word_to_vector();
+    let k = MOST_SIMILAR.len();
+
+    let ef_values = vec![3, 5, 10, 20, 50];
+
+    for ef in ef_values {
+        let mut total_recall = 0.0;
+        let mut num_queries = 0;
+
+        for node_to_filter in dataset.values() {
+            let (nodes, query_node) = prepare_test_data(&dataset, Some(node_to_filter.clone()));
+
+            let mut hnsw = HNSW::default();
+            for node in nodes.clone() {
+                hnsw.insert(node.clone()).unwrap();
+            }
+
+            let brute = brute_knn(&query_node, &nodes, k);
+            let ann_ids: Vec<_> = hnsw
+                .knn_search(&query_node, k, Some(ef))
+                .expect("HNSW search failed");
+
+            let overlap: usize = brute.iter().filter(|(id, _)| ann_ids.contains(id)).count();
+            let recall = overlap as f32 / k as f32;
+
+            total_recall += recall;
+            num_queries += 1;
+        }
+
+        let avg_recall = total_recall / num_queries as f32;
+        println!(
+            "ef = {:3} → Average Recall: {:.3} ({:5.1}%)",
+            ef,
+            avg_recall,
+            avg_recall * 100.0
+        );
+    }
+
+    println!("\nNote: With only 5 nodes in graph, even ef=3 explores most of the graph.");
+}
+
+fn load_synthetic_dataset(size: usize) -> HashMap<String, Node> {
+    let filename = match size {
+        100 => "src/tests/synthetic_embeddings_100.json",
+        1000 => "src/tests/synthetic_embeddings_1k.json",
+        _ => panic!("Unsupported dataset size"),
+    };
+
+    let data = std::fs::read_to_string(filename).expect(&format!("Failed to load {}", filename));
+    let json: HashMap<String, Vec<f32>> =
+        serde_json::from_str(&data).expect("Failed to parse JSON");
+
+    json.into_iter()
+        .map(|(key, value)| (key, Node::new(value)))
+        .collect()
+}
+
+#[test]
+fn test_recall_vs_ef_on_realistic_dataset() {
+    println!("\n=== Recall vs ef on 100-node dataset ===\n");
+
+    let dataset = load_synthetic_dataset(100);
+    let k = 10; // Search for 10 nearest neighbors
+
+    println!("Dataset size: {}", dataset.len());
+    println!("k (neighbors to find): {}", k);
+    println!();
+
+    let ef_values = vec![10, 20, 30, 50, 100];
+
+    // Test on 10 random queries
+    let test_queries: Vec<_> = dataset.values().take(10).cloned().collect();
+
+    for ef in ef_values {
+        let mut total_recall = 0.0;
+        let mut num_queries = 0;
+
+        for query_node in &test_queries {
+            // Build graph with all nodes except query
+            let nodes: Vec<Node> = dataset
+                .values()
+                .filter(|n| n.id() != query_node.id())
+                .cloned()
+                .collect();
+
+            let mut hnsw = HNSW::default();
+            for node in nodes.iter() {
+                hnsw.insert(node.clone()).unwrap();
+            }
+
+            // Brute force ground truth
+            let brute = brute_knn(&query_node, &nodes, k);
+
+            // HNSW search
+            let ann_ids: Vec<_> = hnsw
+                .knn_search(&query_node, k, Some(ef))
+                .expect("HNSW search failed");
+
+            // Calculate recall
+            let overlap: usize = brute.iter().filter(|(id, _)| ann_ids.contains(id)).count();
+            let recall = overlap as f32 / k as f32;
+
+            total_recall += recall;
+            num_queries += 1;
+        }
+
+        let avg_recall = total_recall / num_queries as f32;
+        println!(
+            "ef = {:3} → Average Recall: {:.3} ({:5.1}%)",
+            ef,
+            avg_recall,
+            avg_recall * 100.0
+        );
+    }
+}
+
+#[test]
+fn test_recall_vs_ef_on_large_dataset() {
+    println!("\n=== Recall vs ef on 1000-node dataset ===\n");
+
+    let dataset = load_synthetic_dataset(1000);
+    let k = 10;
+
+    println!("Dataset size: {}", dataset.len());
+    println!("k (neighbors to find): {}", k);
+    println!();
+
+    let ef_values = vec![10, 20, 50, 100, 200];
+
+    // Test on 5 random queries (slower with 1000 nodes)
+    let test_queries: Vec<_> = dataset.values().take(5).cloned().collect();
+
+    for ef in ef_values {
+        let mut total_recall = 0.0;
+        let mut num_queries = 0;
+
+        for query_node in &test_queries {
+            let nodes: Vec<Node> = dataset
+                .values()
+                .filter(|n| n.id() != query_node.id())
+                .cloned()
+                .collect();
+
+            let mut hnsw = HNSW::default();
+            for node in nodes.iter() {
+                hnsw.insert(node.clone()).unwrap();
+            }
+
+            let brute = brute_knn(&query_node, &nodes, k);
+            let ann_ids: Vec<_> = hnsw
+                .knn_search(&query_node, k, Some(ef))
+                .expect("HNSW search failed");
+
+            let overlap: usize = brute.iter().filter(|(id, _)| ann_ids.contains(id)).count();
+            let recall = overlap as f32 / k as f32;
+
+            total_recall += recall;
+            num_queries += 1;
+        }
+
+        let avg_recall = total_recall / num_queries as f32;
+        println!(
+            "ef = {:3} → Average Recall: {:.3} ({:5.1}%)",
+            ef,
+            avg_recall,
+            avg_recall * 100.0
+        );
+    }
+}

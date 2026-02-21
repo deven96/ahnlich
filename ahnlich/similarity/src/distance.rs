@@ -42,7 +42,6 @@ impl WithSimd for Magnitude<'_> {
     }
 }
 
-///
 /// COSINE SIMILARITY
 /// Cosine similiarity is the cosine of the angles between vectors.
 /// It tries to find how close or similar two vector points are.
@@ -67,9 +66,7 @@ impl WithSimd for Magnitude<'_> {
 ///             where A and B are two vectors.
 ///
 ///   - divide the dot product by the product of the magnitude of both vectors.
-///        ```#
 ///            cos(0) = A.B / ||A||.||B||
-///        ```
 ///
 ///     where Magnitude(A or B):
 ///     ||A|| = sqrt[(1)^2 + (2)^2]

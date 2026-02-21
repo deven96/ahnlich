@@ -4,7 +4,6 @@
 
 #![allow(dead_code)]
 use crate::{error::Error, hnsw::MinHeapQueue};
-use rand::Rng;
 
 use super::{LayerIndex, Node, NodeId, OrderedNode};
 use crate::distance::euclidean_distance;
@@ -72,44 +71,41 @@ pub struct HNSW {
     /// Keys are NodeId, values are the Node structs containing embeddings and neighbours.
     nodes: HashMap<NodeId, Node>,
 
-    /// node id of the starting point usually the element at the top most layer
-    /// TODO: should this be saved or randomly selected since we know the topmost layer
+    /// Entry point node ID for search operations.
+    ///
+    /// This is the node at the highest layer (top_most_layer) and serves as the
+    /// starting point for all k-NN searches. Using the top-layer node ensures
+    /// efficient hierarchical navigation through the graph.
+    ///
+    /// Updated whenever a new node is inserted at a higher layer than the current
+    /// top_most_layer.
     enter_point: Vec<NodeId>,
 }
 
 impl HNSW {
-    /// Returns a random level for a given element.
-    /// TODO: element hashed node id would be used to determine an elements level.
-    /// We have to make this determinable that a node would always return a certain level all the
-    /// time. Would there be any issues with this??
-    ///l = floor(-ln(uniform(0,1)) * mL)
-    fn get_element_level(&self) -> u8 {
-        let mut rng = rand::thread_rng();
-        let unif: f64 = rng.r#gen(); // uniform hopefully
-        (-unif.ln() * self.inv_log_m).floor() as u8
-    }
-
     /// Insert a new element into the HNSW graph
     /// Corresponds to Algorithm 1 (INSERT)
+    ///
+    /// If a node with the same embedding is added, we silently skip as it doesn't make sense to do
+    /// any work but also we shouldn't fail necessarily
     pub fn insert(&mut self, mut value: Node) -> Result<(), Error> {
-        // TODO: Research what happens if we try inserting a value multiple times
-
+        if self.nodes.contains_key(&value.id) {
+            return Ok(());
+        }
         // internally uses SEARCH-LAYER, SELECT-neighbourS
         let inital_ef = 1;
 
         let ef_construction = self.ef_construction.unwrap_or(100);
         let mut enter_point = self.enter_point.clone();
-        let new_elements_lvl = self.get_element_level();
+        let new_elements_lvl = value.level(self.maximum_connections);
 
         // NOTE: think of this as finding the best hallway in different floors in a building with
         // muiltiple hallways in a floor...
         // We keep finding the best flow until we get to the `new_elements_lvl+1`
         for level_current in (new_elements_lvl + 1..=self.top_most_layer).rev() {
-            let enter_points = self.enter_point.clone();
-
             let nearest_neighbours = self.search_layer(
                 &value,
-                &enter_points,
+                &enter_point,
                 inital_ef,
                 &LayerIndex(level_current as u16),
             )?;
@@ -135,12 +131,6 @@ impl HNSW {
         for level_current in (0..=min(self.top_most_layer, new_elements_lvl)).rev() {
             let layer_index = LayerIndex(level_current as u16);
 
-            //NOTE: insert node to graph
-            self.graph
-                .entry(layer_index.clone())
-                .or_default()
-                .insert(value.id);
-
             // TODO: error handling in loop??
             // NOTE: W = search-layer(q, ep, efConstruction, lc)
             let nearest_neighbours = self
@@ -148,12 +138,12 @@ impl HNSW {
                 .into_iter()
                 .collect();
 
-            // NOTE: neighbours =  SELECT-neighbourS(q, W, M, lc)
+            // Select M neighbors for the new node at this layer
+            // (Algorithm 1: neighbors = SELECT-NEIGHBORS(q, W, M, lc))
             let neighbours = self.select_neighbours_heuristic(
                 &value,
                 &nearest_neighbours,
-                // TODO: is M and Mmax same here?
-                self.maximum_connections,
+                self.maximum_connections, // M not Mmax as the latter is for pruning connections.
                 &layer_index,
                 false,
                 false,
@@ -184,9 +174,15 @@ impl HNSW {
                 neighbour_node.back_links.insert(value.id);
             }
 
+            //NOTE: insert node to graph
+            self.graph
+                .entry(layer_index.clone())
+                .or_default()
+                .insert(value.id);
+
             // NOTE: for each neighbours prune if each exceeds Mmax
             for neighbour in neighbours.iter() {
-                // NOTE: if lc = 0, mmax = mmax0
+                // NOTE: if lc = 0, Mmax = Mmax0
                 let maximum_connections = if level_current == 0 {
                     self.maximum_connections_zero
                 } else {
@@ -204,11 +200,12 @@ impl HNSW {
                     .ok_or(Error::NotFoundError("Index not found".to_string()))?;
 
                 if e_conn.len() > maximum_connections {
+                    // Prune neighbor's connections back to Mmax using heuristic selection
+                    // (maximum_connections = Mmax0 at layer 0, M at other layers)
                     let new_neighbour_connections = self.select_neighbours_heuristic(
                         neighbour_node,
                         e_conn,
-                        // TODO: should be Mmax, so we need to know if M and Mmax are diff
-                        maximum_connections,
+                        maximum_connections, // Already set to the correct Mmax value above
                         &layer_index,
                         false,
                         false,
@@ -219,46 +216,47 @@ impl HNSW {
                         .get_node_mut(neighbour)
                         .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
 
-                    neighbour_node
-                        .neighbours
-                        .entry(layer_index.clone())
-                        .insert_entry(HashSet::from_iter(new_neighbour_connections));
+                    neighbour_node.neighbours.insert(
+                        layer_index.clone(),
+                        HashSet::from_iter(new_neighbour_connections),
+                    );
                 }
             }
 
             // NOTE: Find Best Enter Point
-            // TODO: fix this line here
-            enter_point = {
-                if self.nodes.len() <= 1 {
-                    vec![]
-                } else {
-                    let enter_point = MinHeapQueue::from_nodes(
-                        nearest_neighbours
-                            .iter()
-                            .filter_map(|node_id| self.get_node(node_id)),
-                        &value,
-                        euclidean_distance,
-                    )
-                    .pop()
-                    .map(|ele| ele.0.0.0)
-                    .ok_or(Error::NotFoundError(
-                        "Nearest Element Not Found".to_string(),
-                    ))?;
+            // Find nearest neighbor from this layer to use as entry point for next layer
+            // (Algorithm 1: ep = get_nearest_element_from_W_to_q)
+            enter_point = if nearest_neighbours.is_empty() {
+                // Edge case: no neighbors found at this layer (shouldn't happen in practice)
+                // Keep current entry point
+                enter_point
+            } else {
+                let enter_point = MinHeapQueue::from_nodes(
+                    nearest_neighbours
+                        .iter()
+                        .filter_map(|node_id| self.get_node(node_id)),
+                    &value,
+                    euclidean_distance,
+                )
+                .pop()
+                .map(|ele| ele.0.0.0)
+                .ok_or(Error::NotFoundError(
+                    "Nearest Element Not Found".to_string(),
+                ))?;
 
-                    vec![enter_point]
-                }
+                vec![enter_point]
             };
         }
 
-        self.nodes.insert(value.id, value.clone());
+        let value_id = value.id;
+        self.nodes.insert(value.id, value);
 
         // NOTE: given that we use u8 for topmost layer, we want that on first insertion we always
         // set enterpoint else this would be a pain
         //
-        // TODO: should topmost layer of empty hnsw be -1 ??
         if new_elements_lvl > self.top_most_layer || self.nodes.len() == 1 {
             self.top_most_layer = new_elements_lvl;
-            self.enter_point = vec![value.id];
+            self.enter_point = vec![value_id];
         }
         Ok(())
     }
@@ -393,6 +391,8 @@ impl HNSW {
         // the argmin then it's assumed it's closer to q than any element in R)
         while working_queue.len() > 0 && response.len() < m {
             let nearest_ele_from_w_to_q = working_queue.pop().ok_or(Error::QueueEmpty)?;
+            let candidate_id = nearest_ele_from_w_to_q.0.0.0;
+            let dist_to_query = nearest_ele_from_w_to_q.0.0.1;
 
             // NOTE: edge case
             // TODO: loop error handling??
@@ -405,20 +405,36 @@ impl HNSW {
                 continue;
             }
 
-            let arg_min_res = response.peak().ok_or(Error::QueueEmpty)?;
+            // Get the candidate node to compute distances to already-selected neighbors
+            let candidate_node = self
+                .get_node(&candidate_id)
+                .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?;
+            // Check if candidate is closer to query than to any already-selected neighbor
+            let mut is_diverse = true;
+            for selected in response.heap.iter() {
+                let selected_id = selected.0.0.0;
+                let selected_node = self
+                    .get_node(&selected_id)
+                    .ok_or(Error::NotFoundError("Selected node not found".to_string()))?;
 
-            if (nearest_ele_from_w_to_q.0.0.1) < (arg_min_res.0.0.1) {
-                let node_id = &(nearest_ele_from_w_to_q.0.0.0);
-                response.push(
-                    self.get_node(node_id)
-                        .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?,
+                // Compute distance between candidate and this already-selected neighbor
+                let dist_to_selected = euclidean_distance(
+                    candidate_node.value.as_slice(),
+                    selected_node.value.as_slice(),
                 );
+
+                // If candidate is closer to this selected neighbour than to query then it means
+                // that candidate is clustered within the existing selections so reject it
+                if dist_to_selected < dist_to_query {
+                    is_diverse = false;
+                    break;
+                }
+            }
+
+            if is_diverse {
+                response.push(candidate_node);
             } else {
-                let node_id = &(nearest_ele_from_w_to_q.0.0.0);
-                discarded_candidates.push(
-                    self.get_node(node_id)
-                        .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?,
-                );
+                discarded_candidates.push(candidate_node);
             }
         }
 
@@ -443,11 +459,22 @@ impl HNSW {
 
     /// K-Nearest neighbour Search
     /// Corresponds to Algorithm 5 (K-NN-SEARCH)
-    pub fn knn_search(&self, query: &Node, k: usize, ef: Option<u8>) -> Result<Vec<NodeId>, Error> {
+    ///
+    /// # Parameters
+    /// - `ef`: Optional search quality parameter. If None, defaults to max(k, 50).
+    ///   Higher values improve recall at cost of speed.
+    ///   Recommended range: k to 10*k depending on quality requirements.
+    pub fn knn_search(
+        &self,
+        query: &Node,
+        k: usize,
+        ef: Option<usize>,
+    ) -> Result<Vec<NodeId>, Error> {
         let valid_len = NonZeroUsize::new(k).expect("K should be a non zero number");
 
-        // TODO: fix this wierdness
-        let ef = ef.unwrap_or(self.ef_construction.unwrap_or(100));
+        let ef = ef.unwrap_or_else(|| k.max(50));
+        // Ensure ef >= k as per paper requirements
+        let ef = ef.max(k).min(255) as u8;
 
         let mut enter_point = self.enter_point.clone();
         let ep_level = self.top_most_layer;
@@ -462,7 +489,7 @@ impl HNSW {
                 query,
                 euclidean_distance,
             )
-            .peak()
+            .peek()
             .map(|ele| ele.0.0.0)
             .ok_or(Error::QueueEmpty)?;
             enter_point = vec![ep];
@@ -581,13 +608,8 @@ mod tests {
 
     #[test]
     fn test_simple_hnsw_state() {
-        let node_id = NodeId(1);
-        let node = Node {
-            id: node_id.clone(),
-            value: EmbeddingKey::new(vec![3.2]),
-            back_links: HashSet::new(),
-            neighbours: BTreeMap::new(),
-        };
+        let node = Node::new(vec![3.2]);
+        let node_id = *node.id();
 
         let mut hnsw = HNSW::default();
         hnsw.insert(node).unwrap();
@@ -605,22 +627,11 @@ mod tests {
 
     #[test]
     fn test_two_nodes_bidirectional() {
-        let a = NodeId(10);
-        let b = NodeId(20);
+        let node_a = Node::new(vec![0.0]);
+        let a = *node_a.id();
 
-        let node_a = Node {
-            id: a.clone(),
-            value: EmbeddingKey::new(vec![0.0]),
-            neighbours: BTreeMap::new(),
-            back_links: HashSet::new(),
-        };
-
-        let node_b = Node {
-            id: b.clone(),
-            value: EmbeddingKey::new(vec![1.0]),
-            neighbours: BTreeMap::new(),
-            back_links: HashSet::new(),
-        };
+        let node_b = Node::new(vec![1.0]);
+        let b = *node_b.id();
 
         let mut hnsw = HNSW::default();
         hnsw.insert(node_a).unwrap();
@@ -799,5 +810,140 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_level_assignment_is_deterministic() {
+        // Same embedding should always produce same level
+        let embedding = vec![1.0, 2.0, 3.0];
+
+        let node1 = Node::new(embedding.clone());
+        let node2 = Node::new(embedding.clone());
+
+        let m = 48; // Default M from HNSW::default()
+
+        assert_eq!(
+            node1.id(),
+            node2.id(),
+            "Same embedding should produce same NodeId"
+        );
+        assert_eq!(
+            node1.level(m),
+            node2.level(m),
+            "Same NodeId should produce same level"
+        );
+
+        // Verify consistency across multiple calls
+        for _ in 0..10 {
+            let node = Node::new(embedding.clone());
+            assert_eq!(node.level(m), node1.level(m), "Level should be consistent");
+        }
+    }
+
+    #[test]
+    fn test_level_distribution_is_exponential() {
+        use std::collections::HashMap;
+
+        let m = 48;
+        let mut level_counts: HashMap<u8, usize> = HashMap::new();
+
+        // Generate many nodes and count their levels
+        for i in 0..1000 {
+            let embedding = vec![i as f32, (i * 2) as f32, (i * 3) as f32];
+            let node = Node::new(embedding);
+            let level = node.level(m);
+            *level_counts.entry(level).or_insert(0) += 1;
+        }
+
+        // Verify exponential decay: most nodes at level 0
+        let level_0_count = level_counts.get(&0).unwrap_or(&0);
+        assert!(
+            *level_0_count > 900,
+            "Most nodes should be at level 0, got {}",
+            level_0_count
+        );
+
+        // Each higher level should have fewer nodes (when they exist)
+        for level in 1..5 {
+            let current_count = level_counts.get(&level).unwrap_or(&0);
+            let prev_count = level_counts.get(&(level - 1)).unwrap_or(&0);
+            if *current_count > 0 && *prev_count > 0 {
+                assert!(
+                    current_count < prev_count,
+                    "Level {} ({} nodes) should have fewer nodes than level {} ({} nodes)",
+                    level,
+                    current_count,
+                    level - 1,
+                    prev_count
+                );
+            }
+        }
+
+        println!("Level distribution (n=1000):");
+        for level in 0..10 {
+            if let Some(count) = level_counts.get(&level) {
+                println!(
+                    "  Level {}: {} nodes ({:.1}%)",
+                    level,
+                    count,
+                    (*count as f32 / 1000.0) * 100.0
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_persistence_consistency() {
+        // Simulate save/reload scenario
+        let embedding = vec![5.5, 10.2, 3.7];
+        let m = 48;
+
+        // "First run" - insert node
+        let node1 = Node::new(embedding.clone());
+        let id1 = *node1.id();
+        let level1 = node1.level(m);
+
+        // "Reload and insert again" - should be identical
+        let node2 = Node::new(embedding.clone());
+        let id2 = *node2.id();
+        let level2 = node2.level(m);
+
+        assert_eq!(id1, id2, "NodeId must be deterministic for persistence");
+        assert_eq!(
+            level1, level2,
+            "Level must be deterministic for persistence"
+        );
+    }
+
+    #[test]
+    fn test_different_embeddings_different_levels() {
+        let m = 48;
+
+        // Different embeddings should (likely) produce different NodeIds
+        let node1 = Node::new(vec![1.0, 2.0, 3.0]);
+        let node2 = Node::new(vec![4.0, 5.0, 6.0]);
+        let node3 = Node::new(vec![7.0, 8.0, 9.0]);
+
+        // NodeIds should be different
+        assert_ne!(
+            node1.id(),
+            node2.id(),
+            "Different embeddings should produce different NodeIds"
+        );
+        assert_ne!(
+            node2.id(),
+            node3.id(),
+            "Different embeddings should produce different NodeIds"
+        );
+        assert_ne!(
+            node1.id(),
+            node3.id(),
+            "Different embeddings should produce different NodeIds"
+        );
+
+        // Levels may or may not be different (that's fine, just document it)
+        println!("Node 1: id={:?}, level={}", node1.id(), node1.level(m));
+        println!("Node 2: id={:?}, level={}", node2.id(), node2.level(m));
+        println!("Node 3: id={:?}, level={}", node3.id(), node3.level(m));
     }
 }

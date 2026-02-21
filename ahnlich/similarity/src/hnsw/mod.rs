@@ -65,8 +65,38 @@ pub struct Node {
     neighbours: BTreeMap<LayerIndex, HashSet<NodeId>>,
     back_links: HashSet<NodeId>,
 }
+/// Compute deterministic level for a node based on its ID hash.
+///
+/// Uses exponential distribution: P(level >= l) ≈ (1/M)^l
+/// This ensures hierarchical structure with exponentially fewer nodes at higher levels.
+//
+// Using the NodeId hash ensures that the following are true
+// - Deterministic: same embedding gives the same level always
+// - Persistent: levels survive serialization/deserialization.
+// - Distribution-friendly: replicas assign same levels.
+// - Testable: produces reproducible graph structures.
+fn compute_node_level(node_id: &NodeId, m: usize) -> u8 {
+    let inv_log_m = 1.0 / (m as f64).ln();
+    // Extract uniform random value from NodeId's u64 hash
+    // Use lower 53 bits to map cleanly to f64 mantissa
+    let hash_bits = node_id.0;
+    let uniform_bits = hash_bits & ((1u64 << 53) - 1);
+    let unif: f64 = (uniform_bits as f64) / ((1u64 << 53) as f64);
+    // Avoid ln(0) which would give infinity
+    let adjusted_unif = if unif < 1e-10 { 1e-10 } else { unif };
+    // Apply inverse exponential CDF: l = floor(-ln(U) * mL)
+    let level = (-adjusted_unif.ln() * inv_log_m).floor();
+    // Clamp to u8 range (very very unlikely to exceed 255, but be safe)
+    level.min(255.0) as u8
+}
 
 impl Node {
+    /// Get the deterministic level for this node.
+    /// Level is computed from the node's ID hash using exponential distribution.
+    pub fn level(&self, m: usize) -> u8 {
+        compute_node_level(&self.id, m)
+    }
+
     pub fn new(value: Vec<f32>) -> Self {
         let id = get_node_id(&value);
         Self {
@@ -174,7 +204,7 @@ where
         self.heap.len()
     }
 
-    fn peak(&self) -> Option<&OrderedNode> {
+    fn peek(&self) -> Option<&OrderedNode> {
         self.heap.peek()
     }
 
@@ -239,7 +269,7 @@ where
         self.heap.len()
     }
 
-    fn peak(&self) -> Option<&Reverse<OrderedNode>> {
+    fn peek(&self) -> Option<&Reverse<OrderedNode>> {
         self.heap.peek()
     }
 
