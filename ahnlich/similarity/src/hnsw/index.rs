@@ -302,7 +302,7 @@ impl HNSW {
             .collect();
 
         // W - bounded min heap: keeps ef nearest (smallest distance) neighbors
-        let ef_nonzero = NonZeroUsize::new(ef as usize).unwrap_or(NonZeroUsize::new(1).unwrap());
+        let ef_nonzero = NonZeroUsize::new(ef).unwrap_or(NonZeroUsize::new(1).unwrap());
         let mut nearest_neighbours: BoundedMinHeap<OrderedNode> = BoundedMinHeap::new(ef_nonzero);
         for node in entry_points.iter().filter_map(|id| self.nodes.get(id)) {
             let distance = euclidean_distance(node.value.as_slice(), query.value.as_slice());
@@ -342,7 +342,7 @@ impl HNSW {
                     // Add if better than worst in nearest_neighbours OR if we haven't filled ef yet
                     let should_add =
                         if let Some(OrderedNode((_, worst_dist))) = nearest_neighbours.peek() {
-                            neighbour_dist < *worst_dist || nearest_neighbours.len() < ef as usize
+                            neighbour_dist < *worst_dist || nearest_neighbours.len() < ef
                         } else {
                             true
                         };
@@ -689,7 +689,7 @@ mod tests {
         for (id, node) in &hnsw.nodes {
             // Degree bound
             if let Some(neighbours) = node.neighbours.get(&layer0) {
-                assert!(neighbours.len() <= hnsw.maximum_connections_zero as usize);
+                assert!(neighbours.len() <= hnsw.maximum_connections_zero);
 
                 for n in neighbours {
                     // Neighbour exists
