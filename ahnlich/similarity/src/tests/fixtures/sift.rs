@@ -1,13 +1,38 @@
 use std::io::Read;
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::{
+    fs::File,
+    io::BufReader,
+    path::{Path, PathBuf},
+};
 
-pub mod download;
-pub mod loader;
+pub const DATASET_PATH: &str = ".datasets/";
 
 pub struct AnnDataset {
     pub sift_data: Vec<Vec<f32>>,
     pub ground_truth: Vec<Vec<i32>>,
     pub sift_query: Vec<Vec<f32>>,
+}
+
+pub fn load_dataset() -> AnnDataset {
+    //change to sift
+    let dataset_location = Path::new(DATASET_PATH).join("siftsmall");
+
+    let file_path = dataset_location.clone().join("siftsmall_base.fvecs");
+    let sift_data = read_fvec_file(&file_path);
+
+    // sift_ground_truth
+    let ground_truth = dataset_location.clone().join("siftsmall_groundtruth.ivecs");
+    let ground_truth_data = read_ivec_file(&ground_truth);
+    // sift_query.fvecs
+    let sift_query = dataset_location.clone().join("siftsmall_query.fvecs");
+
+    let sift_query_data = read_fvec_file(&sift_query);
+
+    AnnDataset {
+        sift_data,
+        ground_truth: ground_truth_data,
+        sift_query: sift_query_data,
+    }
 }
 
 pub fn read_fvec_file(file_path: &PathBuf) -> Vec<Vec<f32>> {
@@ -32,13 +57,7 @@ pub fn read_fvec_file(file_path: &PathBuf) -> Vec<Vec<f32>> {
         // Convert the byte chunk into f32 values
         let vector: Vec<f32> = vec_data
             .chunks_exact(4)
-            .filter_map(|chunk| {
-                if let Ok(valid_chunk) = chunk.try_into() {
-                    Some(f32::from_le_bytes(valid_chunk))
-                } else {
-                    None
-                }
-            })
+            .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
             .collect();
 
         dataset.push(vector);

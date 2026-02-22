@@ -1,9 +1,10 @@
-use crate::hnsw::get_node_id;
-use crate::tests::datasets::AnnDataset;
+use crate::{
+    hnsw::get_node_id,
+    tests::fixtures::sift::{AnnDataset, load_dataset},
+};
 use rstest::rstest;
 
 use crate::hnsw::{Node, index::HNSW};
-use crate::tests::datasets::loader::load_dataset;
 
 const K: usize = 50; // number of neighbors to check recall for
 

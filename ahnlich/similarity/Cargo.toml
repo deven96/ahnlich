@@ -36,3 +36,10 @@ ftp = "3.0.1"
 tar = "0.4.44"
 flate2 = "1.1.9"
 rstest = "0.26.1"
+criterion = "0.4"
+
+
+
+[[bench]]
+name = "hnsw_bench"
+harness = false
