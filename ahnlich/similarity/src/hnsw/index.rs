@@ -571,11 +571,6 @@ impl HNSW {
     pub fn get_node_mut(&mut self, id: &NodeId) -> Option<&mut Node> {
         self.nodes.get_mut(id)
     }
-
-    /// Global enterpoint of the hnsw
-    pub fn current_enterpoint(&self) -> &[NodeId] {
-        &self.enter_point
-    }
 }
 
 impl Default for HNSW {

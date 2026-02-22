@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub const DATASET_PATH: &str = ".datasets/";
+pub const DATASET_PATH: &str = "sift/";
 
 pub struct AnnDataset {
     pub sift_data: Vec<Vec<f32>>,
@@ -15,16 +15,16 @@ pub struct AnnDataset {
 
 pub fn load_dataset() -> AnnDataset {
     //change to sift
-    let dataset_location = Path::new(DATASET_PATH).join("siftsmall");
+    let dataset_location = Path::new(DATASET_PATH);
 
-    let file_path = dataset_location.clone().join("siftsmall_base.fvecs");
+    let file_path = dataset_location.join("siftsmall_base.fvecs");
     let sift_data = read_fvec_file(&file_path);
 
     // sift_ground_truth
-    let ground_truth = dataset_location.clone().join("siftsmall_groundtruth.ivecs");
+    let ground_truth = dataset_location.join("siftsmall_groundtruth.ivecs");
     let ground_truth_data = read_ivec_file(&ground_truth);
     // sift_query.fvecs
-    let sift_query = dataset_location.clone().join("siftsmall_query.fvecs");
+    let sift_query = dataset_location.join("siftsmall_query.fvecs");
 
     let sift_query_data = read_fvec_file(&sift_query);
 
