@@ -7,7 +7,7 @@ on:
       - ahnlich/**
       - sdk/**
   pull_request:
-    branches: ["main"]
+    branches: ["main", "david/impl-hnsw**"]
     paths:
       - ahnlich/**
       - sdk/**
