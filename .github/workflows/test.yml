@@ -7,7 +7,7 @@ on:
       - ahnlich/**
       - sdk/**
   pull_request:
-    branches: ["main", "david/impl-hnsw**"]
+    branches: ["main", "david/impl-hnsw"]
     paths:
       - ahnlich/**
       - sdk/**
@@ -18,6 +18,8 @@ env:
   RUSTC_WRAPPER: "sccache"
 
 jobs:
+
+  
   run-rust-tests:
     runs-on: ubuntu-latest
     
@@ -69,15 +71,55 @@ jobs:
           exit 1
         fi
 
+    - name: Detect changed rust files in workspace
+      uses: dorny/paths-filter@v3
+      id: changes
+      with:
+        filters: |
+          similarity:
+            - 'ahnlich/similarity/**'
+          db:
+            - 'ahnlich/db/**'
+          ai:
+            - 'ahnlich/ai/**'
+          types:
+            - 'ahnlich/types/**'
+          rust-example:
+            - 'examples/rust/image-search/**'
+
     - name: Build and Format Rust Example
+      if: steps.changes.outputs.rust-example == 'true'
       working-directory: ./examples/rust/image-search
       run: |
         cargo b && cargo fmt
 
-    - name: Run Test
+    - name: Run Full Workspace Tests
+      if: github.event_name == 'push' && 
+          github.ref == 'refs/heads/main' ||
+          steps.changes.outputs.types == 'true'
       working-directory: ./ahnlich
       run: |
         make test
+    
+
+    - name: Run Similarity Tests
+      if: github.event_name == 'pull_request' && 
+          steps.changes.outputs.similarity == 'true'
+      working-directory: ./ahnlich
+      run: cargo nextest run -p ahnlich_similarity --no-capture
+
+    - name: Run DB Tests
+      if: github.event_name == 'pull_request' && 
+          steps.changes.outputs.db == 'true'
+      working-directory: ./ahnlich
+      run: cargo nextest run -p db --no-capture
+
+    - name: Run AI Tests
+      if: github.event_name == 'pull_request' && 
+          steps.changes.outputs.ai == 'true'
+      working-directory: ./ahnlich
+      run: cargo nextest run -p ai --no-capture
+
 
     - name: Upload Test Results
       uses: actions/upload-artifact@v4
