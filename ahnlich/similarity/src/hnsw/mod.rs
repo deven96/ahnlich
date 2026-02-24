@@ -132,9 +132,6 @@ impl Node {
     }
 }
 
-// TODO: Hnsw needs to define a similarity algorithm to compare two nodes
-// - Queues needs
-
 pub(crate) struct OrderedNode(pub(crate) (NodeId, f32));
 
 impl PartialEq for OrderedNode {
@@ -217,6 +214,10 @@ impl<F: DistanceFn> MaxHeapQueue<F> {
     fn contains(&self, node_id: &NodeId) -> bool {
         self.heap.iter().any(|x| &(x.0.0) == node_id)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.heap.is_empty()
+    }
 }
 
 struct MinHeapQueue<F>
@@ -257,24 +258,30 @@ impl<F: DistanceFn> MinHeapQueue<F> {
         self.heap.push(Reverse(ordered))
     }
 
-    fn pop(&mut self) -> Option<Reverse<OrderedNode>> {
-        self.heap.pop()
+    fn pop(&mut self) -> Option<OrderedNode> {
+        self.heap.pop().map(|popped| popped.0)
     }
 
-    fn pop_n(&mut self, n: NonZeroUsize) -> Vec<Reverse<OrderedNode>> {
-        (0..n.get()).filter_map(|_| self.heap.pop()).collect()
+    fn pop_n(&mut self, n: NonZeroUsize) -> Vec<OrderedNode> {
+        (0..n.get())
+            .filter_map(|_| self.heap.pop().map(|popped| popped.0))
+            .collect()
     }
 
     fn len(&self) -> usize {
         self.heap.len()
     }
 
-    fn peek(&self) -> Option<&Reverse<OrderedNode>> {
-        self.heap.peek()
+    fn peek(&self) -> Option<&OrderedNode> {
+        self.heap.peek().map(|popped| &popped.0)
     }
 
     fn contains(&self, node_id: &NodeId) -> bool {
         self.heap.iter().any(|x| &(x.0.0.0) == node_id)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.heap.is_empty()
     }
 }
 

@@ -10,7 +10,7 @@ use crate::heap::BoundedMinHeap;
 
 use std::{
     cmp::{Reverse, min},
-    collections::{BinaryHeap, HashMap, HashSet, btree_map::BTreeMap},
+    collections::{HashMap, HashSet, btree_map::BTreeMap},
     num::NonZeroUsize,
 };
 
@@ -143,7 +143,7 @@ impl<D: DistanceFn> HNSW<D> {
                 self.distance_algorithm,
             )
             .pop()
-            .map(|ele| ele.0.0.0)
+            .map(|ele| ele.0.0)
             .ok_or(Error::NotFoundError(
                 "nearest element not found".to_string(),
             ))?;
@@ -155,7 +155,6 @@ impl<D: DistanceFn> HNSW<D> {
         for level_current in (0..=min(self.top_most_layer, new_elements_lvl)).rev() {
             let layer_index = LayerIndex(level_current as u16);
 
-            // TODO: error handling in loop??
             // NOTE: W = search-layer(q, ep, efConstruction, lc)
             let nearest_neighbours = self
                 .search_layer(&value, &enter_point, self.ef_construction, &layer_index)?
@@ -235,7 +234,6 @@ impl<D: DistanceFn> HNSW<D> {
                         false,
                     )?;
 
-                    // TODO: same here with looped error
                     let neighbour_node = self
                         .get_node_mut(neighbour)
                         .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
@@ -250,25 +248,9 @@ impl<D: DistanceFn> HNSW<D> {
             // NOTE: Find Best Enter Point
             // Find nearest neighbor from this layer to use as entry point for next layer
             // (Algorithm 1: ep = get_nearest_element_from_W_to_q)
-            enter_point = if nearest_neighbours.is_empty() {
-                // Edge case: no neighbors found at this layer (shouldn't happen in practice)
-                // Keep current entry point
-                enter_point
-            } else {
-                let enter_point = MinHeapQueue::from_nodes(
-                    nearest_neighbours
-                        .iter()
-                        .filter_map(|node_id| self.get_node(node_id)),
-                    &value,
-                    self.distance_algorithm,
-                )
-                .pop()
-                .map(|ele| ele.0.0.0)
-                .ok_or(Error::NotFoundError(
-                    "Nearest Element Not Found".to_string(),
-                ))?;
-
-                vec![enter_point]
+            enter_point = match self.find_best_entry_point(&value, &nearest_neighbours)? {
+                None => enter_point,
+                Some(new_enter_point) => vec![new_enter_point],
             };
         }
 
@@ -297,16 +279,11 @@ impl<D: DistanceFn> HNSW<D> {
         let mut visited_items: HashSet<&NodeId> = HashSet::from_iter(entry_points);
 
         // C - candidates (min heap via Reverse: smallest distance pops first)
-        let mut candidates: BinaryHeap<Reverse<OrderedNode>> = entry_points
-            .iter()
-            .filter_map(|id| self.nodes.get(id))
-            .map(|node| {
-                let distance = self
-                    .distance_algorithm
-                    .distance(node.value.as_slice(), query.value.as_slice());
-                Reverse(OrderedNode((node.id, distance)))
-            })
-            .collect();
+        let mut candidates = MinHeapQueue::from_nodes(
+            entry_points.iter().filter_map(|id| self.nodes.get(id)),
+            query,
+            self.distance_algorithm,
+        );
 
         // W - bounded min heap: keeps ef nearest (smallest distance) neighbors
         let ef_nonzero = NonZeroUsize::new(ef).unwrap_or(NonZeroUsize::new(1).unwrap());
@@ -319,7 +296,7 @@ impl<D: DistanceFn> HNSW<D> {
         }
 
         while !candidates.is_empty() {
-            let Reverse(OrderedNode((nearest_id, nearest_dist))) =
+            let OrderedNode((nearest_id, nearest_dist)) =
                 candidates.pop().ok_or(Error::QueueEmpty)?;
 
             // Check stopping condition: if candidate is further than worst in nearest_neighbours
@@ -358,7 +335,7 @@ impl<D: DistanceFn> HNSW<D> {
                         };
 
                     if should_add {
-                        candidates.push(Reverse(OrderedNode((neighbour_node.id, neighbour_dist))));
+                        candidates.push(neighbour_node);
                         nearest_neighbours.push(OrderedNode((neighbour_node.id, neighbour_dist)));
                     }
                 }
@@ -367,7 +344,7 @@ impl<D: DistanceFn> HNSW<D> {
 
         Ok(nearest_neighbours
             .iter()
-            .map(|ordered_node| ordered_node.0.0)
+            .map(|OrderedNode((node_id, _))| *node_id)
             .collect())
     }
 
@@ -419,17 +396,15 @@ impl<D: DistanceFn> HNSW<D> {
         // NOTE: if nearest_element_from_w_to_q is closer to q compared to any
         // element in R(use the argmin from R and if nearest_ele_from_w_to_q is closer to q than
         // the argmin then it's assumed it's closer to q than any element in R)
-        while working_queue.len() > 0 && response.len() < m {
-            let nearest_ele_from_w_to_q = working_queue.pop().ok_or(Error::QueueEmpty)?;
-            let candidate_id = nearest_ele_from_w_to_q.0.0.0;
-            let dist_to_query = nearest_ele_from_w_to_q.0.0.1;
+        while !working_queue.is_empty() && response.len() < m {
+            let OrderedNode((candidate_id, dist_to_query)) =
+                working_queue.pop().ok_or(Error::QueueEmpty)?;
 
             // NOTE: edge case
             // TODO: loop error handling??
-            if response.len() == 0 {
-                let node_id = &(nearest_ele_from_w_to_q.0.0.0);
+            if response.is_empty() {
                 response.push(
-                    self.get_node(node_id)
+                    self.get_node(&candidate_id)
                         .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?,
                 );
                 continue;
@@ -441,10 +416,9 @@ impl<D: DistanceFn> HNSW<D> {
                 .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?;
             // Check if candidate is closer to query than to any already-selected neighbor
             let mut is_diverse = true;
-            for selected in response.heap.iter() {
-                let selected_id = selected.0.0.0;
+            for Reverse(OrderedNode((selected_id, _))) in response.heap.iter() {
                 let selected_node = self
-                    .get_node(&selected_id)
+                    .get_node(selected_id)
                     .ok_or(Error::NotFoundError("Selected node not found".to_string()))?;
 
                 // Compute distance between candidate and this already-selected neighbor
@@ -469,12 +443,12 @@ impl<D: DistanceFn> HNSW<D> {
         }
 
         if keep_pruned_connections {
-            while discarded_candidates.len() > 0 && response.len() < m {
-                let nearest_from_wd_to_q = discarded_candidates.pop().ok_or(Error::QueueEmpty)?;
+            while !discarded_candidates.is_empty() && response.len() < m {
+                let OrderedNode((nearest_from_wd_to_q, _)) =
+                    discarded_candidates.pop().ok_or(Error::QueueEmpty)?;
 
-                let node_id = &(nearest_from_wd_to_q.0.0.0);
                 response.push(
-                    self.get_node(node_id)
+                    self.get_node(&nearest_from_wd_to_q)
                         .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?,
                 );
             }
@@ -483,7 +457,7 @@ impl<D: DistanceFn> HNSW<D> {
         Ok(response
             .heap
             .iter()
-            .map(|node| node.0.0.0)
+            .map(|Reverse(OrderedNode((node_id, _)))| *node_id)
             .collect::<Vec<NodeId>>())
     }
 
@@ -520,7 +494,7 @@ impl<D: DistanceFn> HNSW<D> {
                 self.distance_algorithm,
             )
             .peek()
-            .map(|ele| ele.0.0.0)
+            .map(|OrderedNode((node_id, _))| *node_id)
             .ok_or(Error::QueueEmpty)?;
             enter_point = vec![ep];
         }
@@ -535,7 +509,7 @@ impl<D: DistanceFn> HNSW<D> {
         Ok(current_nearest_elements
             .pop_n(valid_len)
             .into_iter()
-            .map(|id| id.0.0.0)
+            .map(|OrderedNode((node_id, _))| node_id)
             .collect())
     }
 
@@ -571,6 +545,34 @@ impl<D: DistanceFn> HNSW<D> {
         }
 
         self.nodes.remove(node_id);
+    }
+
+    // finds the best entry point from candidates
+    fn find_best_entry_point(
+        &self,
+        query: &Node,
+        candidates: &HashSet<NodeId>,
+    ) -> Result<Option<NodeId>, Error> {
+        if candidates.is_empty() {
+            // Edge case: no neighbors found at this layer (shouldn't happen in practice)
+            // Keep current entry point
+            Ok(None)
+        } else {
+            let enter_point = MinHeapQueue::from_nodes(
+                candidates
+                    .iter()
+                    .filter_map(|node_id| self.get_node(node_id)),
+                query,
+                self.distance_algorithm,
+            )
+            .pop()
+            .map(|OrderedNode((node_id, _))| node_id)
+            .ok_or(Error::NotFoundError(
+                "Nearest Element Not Found".to_string(),
+            ))?;
+
+            Ok(Some(enter_point))
+        }
     }
 
     /// Optional helper to get a node by NodeId efficiently
