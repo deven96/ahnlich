@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    EmbeddingKey,
     hnsw::{
         Node, NodeId,
         index::{HNSW, brute_knn},
@@ -27,6 +28,30 @@ fn prepare_test_data(
         .collect();
 
     (nodes, filter)
+}
+
+fn prepare_test_embeddings(
+    dataset: &HashMap<String, Vec<f32>>,
+    query_text: &str,
+) -> (Vec<EmbeddingKey>, EmbeddingKey) {
+    let query_vec = dataset
+        .get(query_text)
+        .map(|q| EmbeddingKey::new(q.clone()))
+        .unwrap()
+        .clone();
+
+    let embeddings = dataset
+        .iter()
+        .filter(|(key, _)| key.as_str() != query_text)
+        .map(|(_, v)| EmbeddingKey::new(v.clone()))
+        .collect();
+
+    (embeddings, query_vec)
+}
+
+fn load_raw_word_vectors() -> HashMap<String, Vec<f32>> {
+    let words = std::fs::read_to_string("src/tests/fixtures/mock_data.json").unwrap();
+    serde_json::from_str(&words).unwrap()
 }
 
 #[test]
@@ -58,15 +83,14 @@ fn test_simple_brute_knn_works() {
 
 #[test]
 fn test_hnsw_simple_setup_works() {
+    let raw = load_raw_word_vectors();
     let dataset = word_to_vector();
-    let (nodes, query_node) = prepare_test_data(&dataset, None);
+    let (embeddings, query_vec) = prepare_test_embeddings(&raw, SEACH_TEXT);
 
-    let mut hnsw = HNSW::default();
+    let hnsw = HNSW::default();
+    hnsw.insert(&embeddings).expect("Failed to batch insert");
 
-    for node in nodes.into_iter() {
-        hnsw.insert(node).expect("Failed to insert hnsw node");
-    }
-
+    let query_node = Node::new(query_vec);
     let search_results = hnsw
         .knn_search(&query_node, 1, None)
         .expect("Failed to search hnsw");
@@ -94,19 +118,18 @@ fn test_hnsw_simple_setup_works() {
 
 #[test]
 fn test_hnsw_recall_on_simple_setup() {
+    let raw = load_raw_word_vectors();
     let dataset = word_to_vector();
     let (nodes, query_node) = prepare_test_data(&dataset, None);
+    let (embeddings, _) = prepare_test_embeddings(&raw, SEACH_TEXT);
 
     let brute_search_results = brute_knn(&query_node, &nodes, MOST_SIMILAR.len())
         .into_iter()
         .map(|(node_id, _)| node_id)
         .collect::<Vec<_>>();
 
-    let mut hnsw = HNSW::default();
-
-    for node in nodes.into_iter() {
-        hnsw.insert(node).expect("Failed to insert hnsw node");
-    }
+    let hnsw = HNSW::default();
+    hnsw.insert(&embeddings).expect("Failed to batch insert");
 
     let hnsw_search_results = hnsw
         .knn_search(&query_node, MOST_SIMILAR.len(), None)
@@ -124,19 +147,17 @@ fn test_hnsw_recall_on_simple_setup() {
 
 #[test]
 fn test_hnsw_average_recall_controlled() {
+    let raw = load_raw_word_vectors();
     let dataset = word_to_vector();
     let k = MOST_SIMILAR.len();
 
-    for node_to_filter in dataset.values() {
+    for (text, node_to_filter) in dataset.iter() {
         let (nodes, query_node) = prepare_test_data(&dataset, Some(node_to_filter.clone()));
+        let (embeddings, _) = prepare_test_embeddings(&raw, text);
 
         // Rebuild HNSW for this iteration
-        let mut hnsw = HNSW::default();
-
-        // Insert all nodes except the current query node
-        for node in nodes.clone() {
-            hnsw.insert(node.clone()).unwrap();
-        }
+        let hnsw = HNSW::default();
+        hnsw.insert(&embeddings).unwrap();
 
         let brute = brute_knn(&query_node, &nodes, k);
 
@@ -184,6 +205,7 @@ fn test_hnsw_average_recall_controlled() {
 fn test_recall_vs_ef_values() {
     println!("\n=== Recall vs ef values (dataset size=6, k=3) ===\n");
 
+    let raw = load_raw_word_vectors();
     let dataset = word_to_vector();
     let k = MOST_SIMILAR.len();
 
@@ -193,13 +215,12 @@ fn test_recall_vs_ef_values() {
         let mut total_recall = 0.0;
         let mut num_queries = 0;
 
-        for node_to_filter in dataset.values() {
+        for (text, node_to_filter) in dataset.iter() {
             let (nodes, query_node) = prepare_test_data(&dataset, Some(node_to_filter.clone()));
+            let (embeddings, _) = prepare_test_embeddings(&raw, text);
 
-            let mut hnsw = HNSW::default();
-            for node in nodes.clone() {
-                hnsw.insert(node.clone()).unwrap();
-            }
+            let hnsw = HNSW::default();
+            hnsw.insert(&embeddings).unwrap();
 
             let brute = brute_knn(&query_node, &nodes, k);
             let ann_ids: Vec<_> = hnsw
@@ -237,7 +258,7 @@ fn load_synthetic_dataset(size: usize) -> HashMap<String, Node> {
         serde_json::from_str(&data).expect("Failed to parse JSON");
 
     json.into_iter()
-        .map(|(key, value)| (key, Node::new(value)))
+        .map(|(key, value)| (key, Node::new(EmbeddingKey::new(value))))
         .collect()
 }
 
@@ -269,10 +290,13 @@ fn test_recall_vs_ef_on_realistic_dataset() {
                 .cloned()
                 .collect();
 
-            let mut hnsw = HNSW::default();
-            for node in nodes.iter() {
-                hnsw.insert(node.clone()).unwrap();
-            }
+            let embeddings: Vec<EmbeddingKey> = nodes
+                .iter()
+                .map(|n| EmbeddingKey::new(n.value().as_slice().to_vec()))
+                .collect();
+
+            let hnsw = HNSW::default();
+            hnsw.insert(&embeddings).unwrap();
 
             // Brute force ground truth
             let brute = brute_knn(&query_node, &nodes, k);
@@ -327,10 +351,13 @@ fn test_recall_vs_ef_on_large_dataset() {
                 .cloned()
                 .collect();
 
-            let mut hnsw = HNSW::default();
-            for node in nodes.iter() {
-                hnsw.insert(node.clone()).unwrap();
-            }
+            let embeddings: Vec<EmbeddingKey> = nodes
+                .iter()
+                .map(|n| EmbeddingKey::new(n.value().as_slice().to_vec()))
+                .collect();
+
+            let hnsw = HNSW::default();
+            hnsw.insert(&embeddings).unwrap();
 
             let brute = brute_knn(&query_node, &nodes, k);
             let ann_ids: Vec<_> = hnsw

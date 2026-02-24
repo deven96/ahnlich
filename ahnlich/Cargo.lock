@@ -62,12 +62,15 @@ dependencies = [
  "criterion",
  "crossbeam",
  "itertools 0.10.5",
+ "papaya",
+ "parking_lot",
  "pretty_assertions",
  "pulp",
  "rand 0.8.5",
  "rstest",
  "serde",
  "serde_json",
+ "smallvec",
  "tracing",
 ]
 

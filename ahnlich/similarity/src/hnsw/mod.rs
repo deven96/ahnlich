@@ -5,16 +5,41 @@ pub mod index;
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
 /// similarity function. It then navigates between these localised lists in DFS manner until it
 /// gets the values it needs to
-use crate::EmbeddingKey;
-use std::{
-    cmp::Reverse,
-    collections::{BinaryHeap, HashSet, btree_map::BTreeMap},
-    hash::Hasher,
-    num::NonZeroUsize,
-};
+use crate::{DistanceFn, EmbeddingKey};
+use papaya::{HashMap, HashSet};
+use std::{cmp::Reverse, collections::BinaryHeap, hash::Hasher, num::NonZeroUsize};
+
+/// A pass-through hasher for NodeId.
+///
+/// Since NodeId already contains a well-distributed hash (computed via ahash),
+/// re-hashing it with SipHash in std::collections::HashSet is wasted work.
+/// This hasher just passes the u64 through directly.
+#[derive(Default)]
+pub(crate) struct PassThroughHasher(u64);
+
+impl Hasher for PassThroughHasher {
+    #[inline]
+    fn write_u64(&mut self, n: u64) {
+        self.0 = n;
+    }
+
+    #[inline]
+    fn write(&mut self, _bytes: &[u8]) {
+        // NodeId always hashes via write_u64; this arm is unreachable in practice.
+        unreachable!("PassThroughHasher only supports write_u64");
+    }
+
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+}
+
+pub(crate) type NodeIdBuildHasher = std::hash::BuildHasherDefault<PassThroughHasher>;
+pub(crate) type NodeIdHashSet = std::collections::HashSet<NodeId, NodeIdBuildHasher>;
 
 /// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub struct LayerIndex(pub u16);
 
 impl Eq for LayerIndex {}
@@ -62,7 +87,7 @@ pub struct NodeId(pub u64);
 pub struct Node {
     id: NodeId,
     value: EmbeddingKey,
-    neighbours: BTreeMap<LayerIndex, HashSet<NodeId>>,
+    neighbours: HashMap<LayerIndex, HashSet<NodeId>>,
     back_links: HashSet<NodeId>,
 }
 /// Compute deterministic level for a node based on its ID hash.
@@ -97,12 +122,12 @@ impl Node {
         compute_node_level(&self.id, m)
     }
 
-    pub fn new(value: Vec<f32>) -> Self {
-        let id = get_node_id(&value);
+    pub fn new(value: EmbeddingKey) -> Self {
+        let id = get_node_id(&value.0);
         Self {
             id,
-            value: EmbeddingKey::new(value),
-            neighbours: BTreeMap::new(),
+            value,
+            neighbours: HashMap::new(),
             back_links: HashSet::with_capacity(1),
         }
     }
@@ -112,28 +137,26 @@ impl Node {
         &self.id
     }
 
-    /// Optional helper: get neighbours at a specific layer
-    pub fn neighbours_at(&self, layer: &LayerIndex) -> Option<&HashSet<NodeId>> {
-        self.neighbours.get(layer)
+    /// get the embedding value
+    pub fn value(&self) -> &EmbeddingKey {
+        &self.value
     }
 
     /// Optional helper: add a neighbour at a specific layer
-    pub fn add_neighbour(&mut self, layer: LayerIndex, neighbour: NodeId) {
-        self.neighbours
-            .entry(layer)
-            .or_insert(HashSet::from_iter([neighbour]));
+    pub fn add_neighbour(&self, layer: LayerIndex, neighbour: NodeId) {
+        let guard = self.neighbours.pin();
+        let set = guard.get_or_insert_with(layer, HashSet::new);
+        set.pin().insert(neighbour);
     }
 
     /// Optional helper: remove a neighbour at a specific layer
-    pub fn remove_neighbour(&mut self, layer: LayerIndex, neighbour: NodeId) {
-        if let Some(set) = self.neighbours.get_mut(&layer) {
-            set.remove(&neighbour);
+    pub fn remove_neighbour(&self, layer: LayerIndex, neighbour: NodeId) {
+        let guard = self.neighbours.pin();
+        if let Some(set) = guard.get(&layer) {
+            set.pin().remove(&neighbour);
         }
     }
 }
-
-// TODO: Hnsw needs to define a similarity algorithm to compare two nodes
-// - Queues needs
 
 pub(crate) struct OrderedNode(pub(crate) (NodeId, f32));
 
@@ -162,33 +185,31 @@ impl Ord for OrderedNode {
 
 struct MaxHeapQueue<F>
 where
-    F: Fn(&[f32], &[f32]) -> f32,
+    F: DistanceFn,
 {
     heap: BinaryHeap<OrderedNode>,
-    similarity: F,
-
-    query: Vec<f32>,
+    distance_algorithm: F,
+    /// Query embedding - stored as EmbeddingKey for cheap cloning (Arc pointer bump)
+    query: EmbeddingKey,
 }
 
-impl<F> MaxHeapQueue<F>
-where
-    F: Fn(&[f32], &[f32]) -> f32,
-{
+impl<F: DistanceFn> MaxHeapQueue<F> {
     fn from_nodes<'a>(
         nodes: impl Iterator<Item = &'a Node>,
         query: &Node,
-        similarity_function: F,
+        distance_algorithm: F,
     ) -> Self {
         let heap = nodes
             .map(|node| {
-                let similarity = similarity_function(node.value.as_slice(), query.value.as_slice());
+                let similarity =
+                    distance_algorithm.distance(node.value.as_slice(), query.value.as_slice());
                 OrderedNode((node.id, similarity))
             })
             .collect::<BinaryHeap<_>>();
         Self {
             heap,
-            similarity: similarity_function,
-            query: query.value.as_slice().to_vec(),
+            distance_algorithm,
+            query: query.value.clone(), // Cheap Arc pointer bump
         }
     }
 
@@ -209,7 +230,9 @@ where
     }
 
     fn push(&mut self, node: &Node) {
-        let distance = (self.similarity)(node.value.as_slice(), &self.query);
+        let distance = self
+            .distance_algorithm
+            .distance(node.value.as_slice(), self.query.as_slice());
         let ordered = OrderedNode((node.id, distance));
         self.heap.push(ordered)
     }
@@ -217,64 +240,75 @@ where
     fn contains(&self, node_id: &NodeId) -> bool {
         self.heap.iter().any(|x| &(x.0.0) == node_id)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.heap.is_empty()
+    }
 }
 
 struct MinHeapQueue<F>
 where
-    F: Fn(&[f32], &[f32]) -> f32,
+    F: DistanceFn,
 {
     heap: BinaryHeap<Reverse<OrderedNode>>,
-    similarity: F,
-    query: Vec<f32>,
+    distance_algorithm: F,
+    /// Query embedding - stored as EmbeddingKey for cheap cloning (Arc pointer bump)
+    query: EmbeddingKey,
 }
 
-impl<F> MinHeapQueue<F>
-where
-    F: Fn(&[f32], &[f32]) -> f32,
-{
+impl<F: DistanceFn> MinHeapQueue<F> {
     fn from_nodes<'a>(
         nodes: impl Iterator<Item = &'a Node>,
         query: &Node,
-        similarity_function: F,
+        distance_algorithm: F,
     ) -> Self {
         let heap = nodes
             .map(|node| {
-                let similarity = similarity_function(node.value.as_slice(), query.value.as_slice());
+                let similarity =
+                    distance_algorithm.distance(node.value.as_slice(), query.value.as_slice());
                 let ordered_node = OrderedNode((node.id, similarity));
                 Reverse(ordered_node)
             })
             .collect::<BinaryHeap<_>>();
         Self {
             heap,
-            similarity: similarity_function,
-            query: query.value.as_slice().to_vec(),
+            distance_algorithm,
+            query: query.value.clone(), // Cheap Arc pointer bump
         }
     }
 
     fn push(&mut self, node: &Node) {
-        let distance = (self.similarity)(node.value.as_slice(), &self.query);
+        let distance = self
+            .distance_algorithm
+            .distance(node.value.as_slice(), self.query.as_slice());
         let ordered = OrderedNode((node.id, distance));
         self.heap.push(Reverse(ordered))
     }
 
-    fn pop(&mut self) -> Option<Reverse<OrderedNode>> {
-        self.heap.pop()
+    fn pop(&mut self) -> Option<OrderedNode> {
+        self.heap.pop().map(|popped| popped.0)
     }
 
-    fn pop_n(&mut self, n: NonZeroUsize) -> Vec<Reverse<OrderedNode>> {
-        (0..n.get()).filter_map(|_| self.heap.pop()).collect()
+    fn pop_n(&mut self, n: NonZeroUsize) -> Vec<OrderedNode> {
+        (0..n.get())
+            .filter_map(|_| self.heap.pop().map(|popped| popped.0))
+            .collect()
     }
 
     fn len(&self) -> usize {
         self.heap.len()
     }
 
-    fn peek(&self) -> Option<&Reverse<OrderedNode>> {
-        self.heap.peek()
+    fn peek(&self) -> Option<&OrderedNode> {
+        self.heap.peek().map(|popped| &popped.0)
     }
 
     fn contains(&self, node_id: &NodeId) -> bool {
         self.heap.iter().any(|x| &(x.0.0.0) == node_id)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.heap.is_empty()
     }
 }
 
@@ -289,4 +323,27 @@ pub fn get_node_id(value: &[f32]) -> NodeId {
         hasher.write_u32(element.to_bits());
     }
     NodeId(hasher.finish())
+}
+
+#[derive(Clone, Copy)]
+pub struct HNSWConfig {
+    pub ef_construction: usize,
+    pub maximum_connections: usize,
+    pub maximum_connections_zero: usize,
+
+    pub extend_candidates: bool,
+    pub keep_pruned_connections: bool,
+}
+
+impl Default for HNSWConfig {
+    fn default() -> Self {
+        let maximum_connections = 48;
+        Self {
+            ef_construction: 100,
+            maximum_connections,
+            maximum_connections_zero: maximum_connections * 2,
+            extend_candidates: false,
+            keep_pruned_connections: false,
+        }
+    }
 }

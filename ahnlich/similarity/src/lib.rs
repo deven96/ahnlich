@@ -14,9 +14,16 @@ pub mod tests;
 
 pub use embedding_key::EmbeddingKey;
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub enum LinearAlgorithm {
+    EuclideanDistance,
+    CosineSimilarity,
+    DotProductSimilarity,
+}
+
 pub trait NonLinearAlgorithmWithIndexImpl<'a>: Serialize + Deserialize<'a> {
     // insert a batch of new inputs
-    fn insert(&self, new: Vec<EmbeddingKey>) -> Result<(), error::Error>;
+    fn insert(&self, new: &[EmbeddingKey]) -> Result<(), error::Error>;
     // delete a batch of new inputs
     fn delete(&self, new: &[EmbeddingKey]) -> Result<usize, error::Error>;
     // find the N-nearest points to the reference point, if accept_list is Some(_), only select
@@ -33,4 +40,8 @@ pub trait NonLinearAlgorithmWithIndexImpl<'a>: Serialize + Deserialize<'a> {
     ) -> Result<Vec<(EmbeddingKey, f32)>, error::Error>;
     // size of index structure
     fn size(&self) -> usize;
+}
+
+pub trait DistanceFn: Send + Sync + Copy {
+    fn distance(&self, a: &[f32], b: &[f32]) -> f32;
 }

@@ -266,10 +266,11 @@ impl KDTree {
     /// point. This asserts that the one-dimensional array being passed in here conforms to the
     /// shape specified by dimension else a dimension mismatch error is returned
     #[tracing::instrument(skip_all)]
-    pub fn insert(&self, point: Vec<f32>) -> Result<(), Error> {
-        self.assert_shape(&point)?;
+    pub fn insert(&self, point: impl Into<EmbeddingKey>) -> Result<(), Error> {
+        let key = point.into();
+        self.assert_shape(key.as_slice())?;
         let guard = epoch::pin();
-        self.insert_recursive(&self.root, EmbeddingKey::new(point), 0, &guard);
+        self.insert_recursive(&self.root, key, 0, &guard);
         Ok(())
     }
 
@@ -336,11 +337,10 @@ impl KDTree {
 
     /// Delete an entry matching delete_point from KD tree
     #[tracing::instrument(skip_all)]
-    pub fn delete(&self, delete_point: &[f32]) -> Result<Option<EmbeddingKey>, Error> {
-        self.assert_shape(delete_point)?;
-        let key = EmbeddingKey::new(delete_point.to_owned());
+    pub fn delete(&self, delete_point: &EmbeddingKey) -> Result<Option<EmbeddingKey>, Error> {
+        self.assert_shape(delete_point.as_slice())?;
         let guard = epoch::pin();
-        Ok(self.delete_recursive(&self.root, &key, 0, &guard))
+        Ok(self.delete_recursive(&self.root, delete_point, 0, &guard))
     }
 
     #[tracing::instrument(skip_all)]
@@ -534,14 +534,14 @@ impl KDTree {
 
 impl NonLinearAlgorithmWithIndexImpl<'_> for KDTree {
     #[tracing::instrument(skip_all)]
-    fn insert(&self, points: Vec<EmbeddingKey>) -> Result<(), Error> {
+    fn insert(&self, points: &[EmbeddingKey]) -> Result<(), Error> {
         if points.is_empty() {
             return Ok(());
         }
-        let _res = points
-            .into_iter()
-            .map(|point| self.insert(point.as_slice().to_vec()))
-            .collect::<Result<Vec<()>, Error>>()?;
+        for point in points {
+            // EmbeddingKey clone is cheap (Arc pointer bump)
+            KDTree::insert(self, point.clone())?;
+        }
         Ok(())
     }
 
@@ -566,11 +566,12 @@ impl NonLinearAlgorithmWithIndexImpl<'_> for KDTree {
         if delete_multi.is_empty() {
             return Ok(0);
         }
-        let res = delete_multi
-            .iter()
-            .map(|del| self.delete(del.as_slice()))
-            .collect::<Result<Vec<_>, Error>>()?;
-        let deleted_count = res.into_iter().flatten().count();
+        let mut deleted_count = 0;
+        for del in delete_multi {
+            if KDTree::delete(self, del)?.is_some() {
+                deleted_count += 1;
+            }
+        }
         Ok(deleted_count)
     }
 
@@ -772,23 +773,30 @@ mod tests {
         let dimension = NonZeroUsize::new(3).unwrap();
         let closest_n = NonZeroUsize::new(1).unwrap();
         let kdtree = Arc::new(KDTree::new(dimension, dimension).unwrap());
-        kdtree.insert(vec![1.0, 2.0, 3.0]).unwrap();
-        kdtree.insert(vec![0.9, 2.0, 3.0]).unwrap();
-        kdtree.insert(vec![1.1, 2.0, 3.0]).unwrap();
-        kdtree.insert(vec![0.95, 2.0, 3.2]).unwrap();
+
+        let key1 = EmbeddingKey::new(vec![1.0, 2.0, 3.0]);
+        let key2 = EmbeddingKey::new(vec![0.9, 2.0, 3.0]);
+        let key3 = EmbeddingKey::new(vec![1.1, 2.0, 3.0]);
+        let key4 = EmbeddingKey::new(vec![0.95, 2.0, 3.2]);
+
+        kdtree.insert(key1.clone()).unwrap();
+        kdtree.insert(key2.clone()).unwrap();
+        kdtree.insert(key3.clone()).unwrap();
+        kdtree.insert(key4.clone()).unwrap();
 
         // Exact matches
         let res = kdtree
             .n_nearest(&vec![0.9, 2.0, 3.0], closest_n, None)
             .unwrap();
-        assert_eq!(res, vec![(EmbeddingKey::new(vec![0.9, 2.0, 3.0]), 0.0)]);
+        assert_eq!(res, vec![(key2.clone(), 0.0)]);
         let res = kdtree
             .n_nearest(&vec![0.9, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         assert_eq!(res.len(), 4);
 
         // Delete returns nothing as exact does not exist
-        let res = kdtree.delete(&vec![0.05, 1.0, 2.4]).unwrap();
+        let nonexistent = EmbeddingKey::new(vec![0.05, 1.0, 2.4]);
+        let res = kdtree.delete(&nonexistent).unwrap();
         assert!(res.is_none());
         let res = kdtree
             .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
@@ -797,8 +805,8 @@ mod tests {
         assert_eq!(res.len(), 4);
 
         // Delete a non-leaf/non-root node
-        let res = kdtree.delete(&vec![0.9, 2.0, 3.0]).unwrap().unwrap();
-        assert_eq!(res, EmbeddingKey::new(vec![0.9, 2.0, 3.0]));
+        let res = kdtree.delete(&key2).unwrap().unwrap();
+        assert_eq!(res, key2);
         let res = kdtree
             .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
@@ -806,35 +814,26 @@ mod tests {
         assert_eq!(
             res,
             vec![
-                (EmbeddingKey::new(vec![1.0, 2.0, 3.0]), 0.0),
-                (EmbeddingKey::new(vec![1.1, 2.0, 3.0]), 0.010000004),
-                (EmbeddingKey::new(vec![0.95, 2.0, 3.2]), 0.04250002),
+                (key1.clone(), 0.0),
+                (key3.clone(), 0.010000004),
+                (key4.clone(), 0.04250002),
             ]
         );
         // Delete a leaf node
-        let res = kdtree.delete(&vec![0.95, 2.0, 3.2]).unwrap().unwrap();
-        assert_eq!(res, EmbeddingKey::new(vec![0.95, 2.0, 3.2]));
+        let res = kdtree.delete(&key4).unwrap().unwrap();
+        assert_eq!(res, key4);
         let res = kdtree
             .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size changes but only one node got removed
-        assert_eq!(
-            res,
-            vec![
-                (EmbeddingKey::new(vec![1.0, 2.0, 3.0]), 0.0),
-                (EmbeddingKey::new(vec![1.1, 2.0, 3.0]), 0.010000004),
-            ]
-        );
+        assert_eq!(res, vec![(key1.clone(), 0.0), (key3.clone(), 0.010000004),]);
         // Delete root node
-        let res = kdtree.delete(&vec![1.0, 2.0, 3.0]).unwrap().unwrap();
-        assert_eq!(res, EmbeddingKey::new(vec![1.0, 2.0, 3.0]));
+        let res = kdtree.delete(&key1).unwrap().unwrap();
+        assert_eq!(res, key1);
         let res = kdtree
             .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size changes but only one node got removed
-        assert_eq!(
-            res,
-            vec![(EmbeddingKey::new(vec![1.1, 2.0, 3.0]), 0.010000004)]
-        );
+        assert_eq!(res, vec![(key3, 0.010000004)]);
     }
 }

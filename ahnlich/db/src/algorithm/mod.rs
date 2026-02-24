@@ -4,7 +4,7 @@ mod similarity;
 
 use std::num::NonZeroUsize;
 
-use ahnlich_similarity::EmbeddingKey;
+use ahnlich_similarity::{EmbeddingKey, LinearAlgorithm};
 use ahnlich_types::algorithm::algorithms::Algorithm;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use heap::{BoundedMaxHeap, BoundedMinHeap, HeapOrder};
@@ -34,13 +34,6 @@ impl From<Algorithm> for AlgorithmByType {
             Algorithm::KdTree => AlgorithmByType::NonLinear(NonLinearAlgorithm::KdTree),
         }
     }
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-pub(crate) enum LinearAlgorithm {
-    EuclideanDistance,
-    CosineSimilarity,
-    DotProductSimilarity,
 }
 
 #[derive(Debug)]

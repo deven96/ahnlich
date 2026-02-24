@@ -1,11 +1,57 @@
 use pulp::{Arch, Simd, WithSimd};
 
-struct Magnitude<'a> {
+use crate::{DistanceFn, LinearAlgorithm};
+
+impl DistanceFn for LinearAlgorithm {
+    fn distance(&self, a: &[f32], b: &[f32]) -> f32 {
+        match self {
+            Self::EuclideanDistance => euclidean_distance(a, b),
+            Self::CosineSimilarity => cosine_similarity(a, b),
+            Self::DotProductSimilarity => dot_product(a, b),
+        }
+    }
+}
+
+/// COSINE SIMILARITY
+///
+/// Cosine similarity is the cosine of the angle between two vectors.
+/// It measures how similar two vector points are.
+/// It is scale-invariant, meaning it is unaffected by the length of the vectors.
+///
+/// The cosine of the angle shows whether vectors are similar,
+/// dissimilar, or orthogonal (independent).
+///
+/// The range of cosine similarity is from -1 to 1:
+/// - 1  → identical direction (most similar)
+/// - -1 → opposite direction
+/// - 0  → orthogonal (independent)
+///
+/// To calculate cosine similarity between two vectors:
+/// - Calculate the dot product of both vectors.
+/// - Compute the magnitude of each vector.
+///   The magnitude of a vector is calculated using the Pythagorean theorem:
+///   sqrt(A^2 + B^2)
+///   where A and B are vector components.
+/// - Divide the dot product by the product of the magnitudes:
+///   cos(θ) = A · B / (||A|| * ||B||)
+///
+/// Where the magnitude is:
+///   ||A|| = sqrt(a1^2 + a2^2 + ... + an^2)
+///
+/// An implementation for retrieving the most similar items can use a MaxHeap,
+/// since we are looking for values closest to 1.
+/// Smaller angular distance between vectors denotes higher similarity.
+///
+/// Fused SIMD kernel: computes the dot product and both magnitudes
+/// in a single pass. This avoids iterating over the vectors twice
+/// (once for dot product and once for magnitude),
+/// improving cache locality and reducing SIMD dispatch overhead.
+struct CosineSimilarityKernel<'a> {
     first: &'a [f32],
     second: &'a [f32],
 }
 
-impl WithSimd for Magnitude<'_> {
+impl WithSimd for CosineSimilarityKernel<'_> {
     type Output = f32;
 
     #[inline(always)]
@@ -13,68 +59,30 @@ impl WithSimd for Magnitude<'_> {
         let (first_head, first_tail) = S::as_simd_f32s(self.first);
         let (second_head, second_tail) = S::as_simd_f32s(self.second);
 
+        let mut dot = simd.splat_f32s(0.0);
         let mut mag_first = simd.splat_f32s(0.0);
         let mut mag_second = simd.splat_f32s(0.0);
 
-        // Process the SIMD-aligned portion
-        for (&chunk_first, &chunk_second) in first_head.iter().zip(second_head) {
-            mag_first = simd.mul_add_f32s(chunk_first, chunk_first, mag_first);
-            mag_second = simd.mul_add_f32s(chunk_second, chunk_second, mag_second);
+        for (&a, &b) in first_head.iter().zip(second_head) {
+            dot = simd.mul_add_f32s(a, b, dot);
+            mag_first = simd.mul_add_f32s(a, a, mag_first);
+            mag_second = simd.mul_add_f32s(b, b, mag_second);
         }
 
-        // Reduce the SIMD results (no sqrt yet)
-        let mag_first = simd.reduce_sum_f32s(mag_first);
-        let mag_second = simd.reduce_sum_f32s(mag_second);
-
-        // Process the remaining scalar portion, adding to mag_first and mag_second
-        let mut scalar_mag_first = 0.0;
-        let mut scalar_mag_second = 0.0;
+        let mut dot_sum = simd.reduce_sum_f32s(dot);
+        let mut mag_first_sum = simd.reduce_sum_f32s(mag_first);
+        let mut mag_second_sum = simd.reduce_sum_f32s(mag_second);
 
         for (&x, &y) in first_tail.iter().zip(second_tail) {
-            scalar_mag_first += x * x;
-            scalar_mag_second += y * y;
+            dot_sum += x * y;
+            mag_first_sum += x * x;
+            mag_second_sum += y * y;
         }
-        let mag_first = mag_first + scalar_mag_first;
-        let mag_second = mag_second + scalar_mag_second;
 
-        // Apply sqrt to the total sum of squares
-        mag_first.sqrt() * mag_second.sqrt()
+        dot_sum / (mag_first_sum.sqrt() * mag_second_sum.sqrt())
     }
 }
 
-/// COSINE SIMILARITY
-/// Cosine similiarity is the cosine of the angles between vectors.
-/// It tries to find how close or similar two vector points are.
-/// It is scalent invarient meaning it is unaffected by the length of the vectors.
-///
-///
-/// Cosine of the angles between vectors shows how similar, dissimilar or orthogonal(independent).
-///
-///
-/// The range of similarity for cosine similarity ranges from -1 to 1:
-/// where:
-///    -  1 means similar
-///    -  -1 different.
-///    -  0 means Orthogonal
-///
-///
-/// To calculate the cosine similarity for two vectors, we need to:
-///   - Calculate the dot product of both vectors
-///   - Find the product of the magnitude of both vectors.
-///          A magnitude of a vector can be calculated using pythagoras theorem:
-///          sqrt( A^2 + B^2)
-///             where A and B are two vectors.
-///
-///   - divide the dot product by the product of the magnitude of both vectors.
-///            cos(0) = A.B / ||A||.||B||
-///
-///     where Magnitude(A or B):
-///     ||A|| = sqrt[(1)^2 + (2)^2]
-///     
-///
-///  An Implementation for most similar items would be a MaxHeap.
-///  We are looking the closest number to one meaning Max
-///  The smaller the distance between two points, denotes higher similarity.
 #[tracing::instrument(skip_all)]
 pub fn cosine_similarity(first: &[f32], second: &[f32]) -> f32 {
     assert_eq!(
@@ -83,12 +91,8 @@ pub fn cosine_similarity(first: &[f32], second: &[f32]) -> f32 {
         "Vectors must have the same length!"
     );
 
-    let dot = dot_product(first, second);
-
     let arch = Arch::new();
-    let magnitude = arch.dispatch(Magnitude { first, second });
-
-    dot / magnitude
+    arch.dispatch(CosineSimilarityKernel { first, second })
 }
 
 ///

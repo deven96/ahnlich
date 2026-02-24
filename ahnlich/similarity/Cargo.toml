@@ -16,12 +16,15 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 crossbeam = "0.8.4"
+papaya.workspace = true
+parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 tracing.workspace = true
 rand.workspace = true
 itertools.workspace = true
 ahash.workspace = true
 pulp.workspace = true
+smallvec.workspace = true
 
 [features]
 default = ["serde"]
