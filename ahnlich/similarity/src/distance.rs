@@ -1,5 +1,17 @@
 use pulp::{Arch, Simd, WithSimd};
 
+use crate::{DistanceFn, LinearAlgorithm};
+
+impl DistanceFn for LinearAlgorithm {
+    fn distance(&self, a: &[f32], b: &[f32]) -> f32 {
+        match self {
+            Self::EuclideanDistance => euclidean_distance(a, b),
+            Self::CosineSimilarity => cosine_similarity(a, b),
+            Self::DotProductSimilarity => dot_product(a, b),
+        }
+    }
+}
+
 struct Magnitude<'a> {
     first: &'a [f32],
     second: &'a [f32],

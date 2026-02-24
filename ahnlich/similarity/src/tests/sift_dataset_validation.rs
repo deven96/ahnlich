@@ -1,4 +1,5 @@
 use crate::{
+    DistanceFn, LinearAlgorithm,
     hnsw::get_node_id,
     tests::fixtures::sift::{AnnDataset, load_dataset},
 };
@@ -22,11 +23,16 @@ struct ExperimentConfig {
     recall_threshold: f32,
 }
 
-fn build_hnsw_from_vectors(vectors: &[Vec<f32>], config: HNSWConfig) -> HNSW {
+fn build_hnsw_from_vectors<D: DistanceFn>(
+    vectors: &[Vec<f32>],
+    config: HNSWConfig,
+    distance_algorithm: D,
+) -> HNSW<D> {
     let mut hnsw = HNSW::new(
         config.ef_construction,
         config.maximum_connections,
         config.maximum_connections_zero,
+        distance_algorithm,
     );
     for vec in vectors.iter() {
         let node = Node::new(vec.clone());
@@ -36,7 +42,11 @@ fn build_hnsw_from_vectors(vectors: &[Vec<f32>], config: HNSWConfig) -> HNSW {
 }
 
 fn compute_recall_for_config(dataset: &AnnDataset, config: HNSWConfig, k: usize) -> f32 {
-    let hnsw = build_hnsw_from_vectors(&dataset.sift_data, config);
+    let hnsw = build_hnsw_from_vectors(
+        &dataset.sift_data,
+        config,
+        LinearAlgorithm::EuclideanDistance,
+    );
 
     let mut total_recall = 0.0;
 

@@ -3,10 +3,9 @@
 // gets the values it needs to
 
 #![allow(dead_code)]
-use crate::{error::Error, hnsw::MinHeapQueue};
+use crate::{DistanceFn, LinearAlgorithm, error::Error, hnsw::MinHeapQueue};
 
 use super::{LayerIndex, Node, NodeId, OrderedNode};
-use crate::distance::euclidean_distance;
 use crate::heap::BoundedMinHeap;
 
 use std::{
@@ -43,7 +42,7 @@ use std::{
 /// back-links automatically updated upon deletion.
 /// ```
 #[derive(Debug)]
-pub struct HNSW {
+pub struct HNSW<D: DistanceFn> {
     /// Breadth of search during insertion (efConstruction)
     pub ef_construction: usize,
 
@@ -80,13 +79,18 @@ pub struct HNSW {
     /// Updated whenever a new node is inserted at a higher layer than the current
     /// top_most_layer.
     enter_point: Vec<NodeId>,
+
+    /// distance algorithm
+    /// can be ec
+    distance_algorithm: D,
 }
 
-impl HNSW {
+impl<D: DistanceFn> HNSW<D> {
     pub fn new(
         ef_construction: usize,
         maximum_connections: usize,
         maximum_connections_zero: Option<usize>,
+        distance_algorithm: D,
     ) -> Self {
         assert!(maximum_connections > 1, "M must be > 1");
         let maximum_connections_zero = maximum_connections_zero.unwrap_or(maximum_connections * 2);
@@ -100,6 +104,7 @@ impl HNSW {
             graph: BTreeMap::new(),
             nodes: HashMap::new(),
             enter_point: Vec::with_capacity(1),
+            distance_algorithm,
         }
     }
 
@@ -135,7 +140,7 @@ impl HNSW {
                     .iter()
                     .filter_map(|node_id| self.get_node(node_id)),
                 &value,
-                euclidean_distance,
+                self.distance_algorithm,
             )
             .pop()
             .map(|ele| ele.0.0.0)
@@ -255,7 +260,7 @@ impl HNSW {
                         .iter()
                         .filter_map(|node_id| self.get_node(node_id)),
                     &value,
-                    euclidean_distance,
+                    self.distance_algorithm,
                 )
                 .pop()
                 .map(|ele| ele.0.0.0)
@@ -296,7 +301,9 @@ impl HNSW {
             .iter()
             .filter_map(|id| self.nodes.get(id))
             .map(|node| {
-                let distance = euclidean_distance(node.value.as_slice(), query.value.as_slice());
+                let distance = self
+                    .distance_algorithm
+                    .distance(node.value.as_slice(), query.value.as_slice());
                 Reverse(OrderedNode((node.id, distance)))
             })
             .collect();
@@ -305,7 +312,9 @@ impl HNSW {
         let ef_nonzero = NonZeroUsize::new(ef).unwrap_or(NonZeroUsize::new(1).unwrap());
         let mut nearest_neighbours: BoundedMinHeap<OrderedNode> = BoundedMinHeap::new(ef_nonzero);
         for node in entry_points.iter().filter_map(|id| self.nodes.get(id)) {
-            let distance = euclidean_distance(node.value.as_slice(), query.value.as_slice());
+            let distance = self
+                .distance_algorithm
+                .distance(node.value.as_slice(), query.value.as_slice());
             nearest_neighbours.push(OrderedNode((node.id, distance)));
         }
 
@@ -336,8 +345,9 @@ impl HNSW {
                         .get_node(neighbour_id)
                         .ok_or(Error::NotFoundError("Neighbor not found".to_string()))?;
 
-                    let neighbour_dist =
-                        euclidean_distance(neighbour_node.value.as_slice(), query.value.as_slice());
+                    let neighbour_dist = self
+                        .distance_algorithm
+                        .distance(neighbour_node.value.as_slice(), query.value.as_slice());
 
                     // Add if better than worst in nearest_neighbours OR if we haven't filled ef yet
                     let should_add =
@@ -372,12 +382,13 @@ impl HNSW {
         extend_candidates: bool,
         keep_pruned_connections: bool,
     ) -> Result<Vec<NodeId>, Error> {
-        let mut response = MinHeapQueue::from_nodes(std::iter::empty(), query, euclidean_distance);
+        let mut response =
+            MinHeapQueue::from_nodes(std::iter::empty(), query, self.distance_algorithm);
 
         let mut working_queue = MinHeapQueue::from_nodes(
             candidates.iter().filter_map(|id| self.get_node(id)),
             query,
-            euclidean_distance,
+            self.distance_algorithm,
         );
 
         if extend_candidates {
@@ -403,7 +414,7 @@ impl HNSW {
         }
 
         let mut discarded_candidates =
-            MinHeapQueue::from_nodes(std::iter::empty(), query, euclidean_distance);
+            MinHeapQueue::from_nodes(std::iter::empty(), query, self.distance_algorithm);
 
         // NOTE: if nearest_element_from_w_to_q is closer to q compared to any
         // element in R(use the argmin from R and if nearest_ele_from_w_to_q is closer to q than
@@ -437,7 +448,7 @@ impl HNSW {
                     .ok_or(Error::NotFoundError("Selected node not found".to_string()))?;
 
                 // Compute distance between candidate and this already-selected neighbor
-                let dist_to_selected = euclidean_distance(
+                let dist_to_selected = self.distance_algorithm.distance(
                     candidate_node.value.as_slice(),
                     selected_node.value.as_slice(),
                 );
@@ -506,7 +517,7 @@ impl HNSW {
             let ep = MinHeapQueue::from_nodes(
                 searched.iter().filter_map(|id| self.get_node(id)),
                 query,
-                euclidean_distance,
+                self.distance_algorithm,
             )
             .peek()
             .map(|ele| ele.0.0.0)
@@ -518,7 +529,7 @@ impl HNSW {
         let mut current_nearest_elements = MinHeapQueue::from_nodes(
             level_zero.iter().filter_map(|id| self.get_node(id)),
             query,
-            euclidean_distance,
+            self.distance_algorithm,
         );
 
         Ok(current_nearest_elements
@@ -573,10 +584,12 @@ impl HNSW {
     }
 }
 
-impl Default for HNSW {
+impl Default for HNSW<LinearAlgorithm> {
     fn default() -> Self {
         let maximum_connections = 48;
         let inv_log_m = 1.0 / f64::ln(maximum_connections as f64);
+
+        let distance_algorithm = LinearAlgorithm::EuclideanDistance;
 
         Self {
             ef_construction: 100,
@@ -587,6 +600,7 @@ impl Default for HNSW {
             graph: BTreeMap::new(),
             nodes: HashMap::new(),
             enter_point: Vec::with_capacity(1),
+            distance_algorithm,
         }
     }
 }
@@ -601,7 +615,8 @@ pub fn brute_knn(query: &Node, data: &[Node], k: usize) -> Vec<(NodeId, f32)> {
         .map(|n| {
             (
                 n.id.clone(),
-                euclidean_distance(n.value.as_slice(), query.value.as_slice()),
+                LinearAlgorithm::EuclideanDistance
+                    .distance(n.value.as_slice(), query.value.as_slice()),
             )
         })
         .sorted_by(|a, b| {
@@ -806,7 +821,7 @@ mod tests {
         }
     }
 
-    fn assert_hnsw_invariants(hnsw: &HNSW) {
+    fn assert_hnsw_invariants<D: DistanceFn>(hnsw: &HNSW<D>) {
         for (id, node) in &hnsw.nodes {
             // neighbours must exist
             for neighbours in node.neighbours.values() {

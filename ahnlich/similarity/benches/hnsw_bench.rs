@@ -1,3 +1,4 @@
+use ahnlich_similarity::LinearAlgorithm;
 use ahnlich_similarity::hnsw::Node;
 use ahnlich_similarity::hnsw::index::HNSW;
 use std::fs::File;
@@ -119,6 +120,7 @@ fn bench_hnsw_insert(c: &mut Criterion) {
                 config.ef_construction,
                 config.maximum_connections,
                 config.maximum_connections_zero,
+                LinearAlgorithm::EuclideanDistance,
             );
 
             for vec in &dataset.sift_data {
@@ -147,6 +149,7 @@ fn bench_hnsw_incremental_insert(c: &mut Criterion) {
                     config.ef_construction,
                     config.maximum_connections,
                     config.maximum_connections_zero,
+                    LinearAlgorithm::EuclideanDistance,
                 );
 
                 for vec in &dataset.sift_data {
@@ -183,6 +186,7 @@ fn bench_search_layer(c: &mut Criterion) {
         config.ef_construction,
         config.maximum_connections,
         config.maximum_connections_zero,
+        LinearAlgorithm::EuclideanDistance,
     );
 
     for vec in &dataset.sift_data {

@@ -5,7 +5,7 @@ pub mod index;
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
 /// similarity function. It then navigates between these localised lists in DFS manner until it
 /// gets the values it needs to
-use crate::EmbeddingKey;
+use crate::{DistanceFn, EmbeddingKey};
 use std::{
     cmp::Reverse,
     collections::{BinaryHeap, HashSet, btree_map::BTreeMap},
@@ -162,32 +162,30 @@ impl Ord for OrderedNode {
 
 struct MaxHeapQueue<F>
 where
-    F: Fn(&[f32], &[f32]) -> f32,
+    F: DistanceFn,
 {
     heap: BinaryHeap<OrderedNode>,
-    similarity: F,
+    distance_algorithm: F,
 
     query: Vec<f32>,
 }
 
-impl<F> MaxHeapQueue<F>
-where
-    F: Fn(&[f32], &[f32]) -> f32,
-{
+impl<F: DistanceFn> MaxHeapQueue<F> {
     fn from_nodes<'a>(
         nodes: impl Iterator<Item = &'a Node>,
         query: &Node,
-        similarity_function: F,
+        distance_algorithm: F,
     ) -> Self {
         let heap = nodes
             .map(|node| {
-                let similarity = similarity_function(node.value.as_slice(), query.value.as_slice());
+                let similarity =
+                    distance_algorithm.distance(node.value.as_slice(), query.value.as_slice());
                 OrderedNode((node.id, similarity))
             })
             .collect::<BinaryHeap<_>>();
         Self {
             heap,
-            similarity: similarity_function,
+            distance_algorithm,
             query: query.value.as_slice().to_vec(),
         }
     }
@@ -209,7 +207,9 @@ where
     }
 
     fn push(&mut self, node: &Node) {
-        let distance = (self.similarity)(node.value.as_slice(), &self.query);
+        let distance = self
+            .distance_algorithm
+            .distance(node.value.as_slice(), &self.query);
         let ordered = OrderedNode((node.id, distance));
         self.heap.push(ordered)
     }
@@ -221,38 +221,38 @@ where
 
 struct MinHeapQueue<F>
 where
-    F: Fn(&[f32], &[f32]) -> f32,
+    F: DistanceFn,
 {
     heap: BinaryHeap<Reverse<OrderedNode>>,
-    similarity: F,
+    distance_algorithm: F,
     query: Vec<f32>,
 }
 
-impl<F> MinHeapQueue<F>
-where
-    F: Fn(&[f32], &[f32]) -> f32,
-{
+impl<F: DistanceFn> MinHeapQueue<F> {
     fn from_nodes<'a>(
         nodes: impl Iterator<Item = &'a Node>,
         query: &Node,
-        similarity_function: F,
+        distance_algorithm: F,
     ) -> Self {
         let heap = nodes
             .map(|node| {
-                let similarity = similarity_function(node.value.as_slice(), query.value.as_slice());
+                let similarity =
+                    distance_algorithm.distance(node.value.as_slice(), query.value.as_slice());
                 let ordered_node = OrderedNode((node.id, similarity));
                 Reverse(ordered_node)
             })
             .collect::<BinaryHeap<_>>();
         Self {
             heap,
-            similarity: similarity_function,
+            distance_algorithm,
             query: query.value.as_slice().to_vec(),
         }
     }
 
     fn push(&mut self, node: &Node) {
-        let distance = (self.similarity)(node.value.as_slice(), &self.query);
+        let distance = self
+            .distance_algorithm
+            .distance(node.value.as_slice(), &self.query);
         let ordered = OrderedNode((node.id, distance));
         self.heap.push(Reverse(ordered))
     }
