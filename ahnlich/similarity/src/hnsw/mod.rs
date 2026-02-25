@@ -6,15 +6,11 @@ pub mod index;
 /// similarity function. It then navigates between these localised lists in DFS manner until it
 /// gets the values it needs to
 use crate::{DistanceFn, EmbeddingKey};
-use std::{
-    cmp::Reverse,
-    collections::{BinaryHeap, HashSet, btree_map::BTreeMap},
-    hash::Hasher,
-    num::NonZeroUsize,
-};
+use papaya::{HashMap, HashSet};
+use std::{cmp::Reverse, collections::BinaryHeap, hash::Hasher, num::NonZeroUsize};
 
 /// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct LayerIndex(pub u16);
 
 impl Eq for LayerIndex {}
@@ -62,7 +58,7 @@ pub struct NodeId(pub u64);
 pub struct Node {
     id: NodeId,
     value: EmbeddingKey,
-    neighbours: BTreeMap<LayerIndex, HashSet<NodeId>>,
+    neighbours: HashMap<LayerIndex, HashSet<NodeId>>,
     back_links: HashSet<NodeId>,
 }
 /// Compute deterministic level for a node based on its ID hash.
@@ -102,7 +98,7 @@ impl Node {
         Self {
             id,
             value: EmbeddingKey::new(value),
-            neighbours: BTreeMap::new(),
+            neighbours: HashMap::new(),
             back_links: HashSet::with_capacity(1),
         }
     }
@@ -112,22 +108,18 @@ impl Node {
         &self.id
     }
 
-    /// Optional helper: get neighbours at a specific layer
-    pub fn neighbours_at(&self, layer: &LayerIndex) -> Option<&HashSet<NodeId>> {
-        self.neighbours.get(layer)
-    }
-
     /// Optional helper: add a neighbour at a specific layer
-    pub fn add_neighbour(&mut self, layer: LayerIndex, neighbour: NodeId) {
-        self.neighbours
-            .entry(layer)
-            .or_insert(HashSet::from_iter([neighbour]));
+    pub fn add_neighbour(&self, layer: LayerIndex, neighbour: NodeId) {
+        let guard = self.neighbours.pin();
+        let set = guard.get_or_insert_with(layer, HashSet::new);
+        set.pin().insert(neighbour);
     }
 
     /// Optional helper: remove a neighbour at a specific layer
-    pub fn remove_neighbour(&mut self, layer: LayerIndex, neighbour: NodeId) {
-        if let Some(set) = self.neighbours.get_mut(&layer) {
-            set.remove(&neighbour);
+    pub fn remove_neighbour(&self, layer: LayerIndex, neighbour: NodeId) {
+        let guard = self.neighbours.pin();
+        if let Some(set) = guard.get(&layer) {
+            set.pin().remove(&neighbour);
         }
     }
 }

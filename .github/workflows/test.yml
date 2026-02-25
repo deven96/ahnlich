@@ -80,11 +80,8 @@ jobs:
             - 'ahnlich/ai/**'
           types:
             - 'ahnlich/types/**'
-          rust-example:
-            - 'examples/rust/image-search/**'
 
     - name: Build and Format Rust Example
-      if: steps.changes.outputs.rust-example == 'true'
       working-directory: ./examples/rust/image-search
       run: |
         cargo b && cargo fmt

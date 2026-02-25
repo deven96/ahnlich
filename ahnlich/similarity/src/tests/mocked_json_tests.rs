@@ -61,7 +61,7 @@ fn test_hnsw_simple_setup_works() {
     let dataset = word_to_vector();
     let (nodes, query_node) = prepare_test_data(&dataset, None);
 
-    let mut hnsw = HNSW::default();
+    let hnsw = HNSW::default();
 
     for node in nodes.into_iter() {
         hnsw.insert(node).expect("Failed to insert hnsw node");
@@ -102,7 +102,7 @@ fn test_hnsw_recall_on_simple_setup() {
         .map(|(node_id, _)| node_id)
         .collect::<Vec<_>>();
 
-    let mut hnsw = HNSW::default();
+    let hnsw = HNSW::default();
 
     for node in nodes.into_iter() {
         hnsw.insert(node).expect("Failed to insert hnsw node");
@@ -131,7 +131,7 @@ fn test_hnsw_average_recall_controlled() {
         let (nodes, query_node) = prepare_test_data(&dataset, Some(node_to_filter.clone()));
 
         // Rebuild HNSW for this iteration
-        let mut hnsw = HNSW::default();
+        let hnsw = HNSW::default();
 
         // Insert all nodes except the current query node
         for node in nodes.clone() {
@@ -196,7 +196,7 @@ fn test_recall_vs_ef_values() {
         for node_to_filter in dataset.values() {
             let (nodes, query_node) = prepare_test_data(&dataset, Some(node_to_filter.clone()));
 
-            let mut hnsw = HNSW::default();
+            let hnsw = HNSW::default();
             for node in nodes.clone() {
                 hnsw.insert(node.clone()).unwrap();
             }
@@ -269,7 +269,7 @@ fn test_recall_vs_ef_on_realistic_dataset() {
                 .cloned()
                 .collect();
 
-            let mut hnsw = HNSW::default();
+            let hnsw = HNSW::default();
             for node in nodes.iter() {
                 hnsw.insert(node.clone()).unwrap();
             }
@@ -327,7 +327,7 @@ fn test_recall_vs_ef_on_large_dataset() {
                 .cloned()
                 .collect();
 
-            let mut hnsw = HNSW::default();
+            let hnsw = HNSW::default();
             for node in nodes.iter() {
                 hnsw.insert(node.clone()).unwrap();
             }
