@@ -297,3 +297,26 @@ pub fn get_node_id(value: &[f32]) -> NodeId {
     }
     NodeId(hasher.finish())
 }
+
+#[derive(Clone, Copy)]
+pub struct HNSWConfig {
+    pub ef_construction: usize,
+    pub maximum_connections: usize,
+    pub maximum_connections_zero: usize,
+
+    pub extend_candidates: bool,
+    pub keep_pruned_connections: bool,
+}
+
+impl Default for HNSWConfig {
+    fn default() -> Self {
+        let maximum_connections = 48;
+        Self {
+            ef_construction: 100,
+            maximum_connections,
+            maximum_connections_zero: maximum_connections * 2,
+            extend_candidates: false,
+            keep_pruned_connections: false,
+        }
+    }
+}

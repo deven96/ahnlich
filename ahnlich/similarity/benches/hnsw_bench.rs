@@ -1,6 +1,6 @@
 use ahnlich_similarity::LinearAlgorithm;
-use ahnlich_similarity::hnsw::Node;
 use ahnlich_similarity::hnsw::index::HNSW;
+use ahnlich_similarity::hnsw::{HNSWConfig, Node};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -96,32 +96,21 @@ pub fn read_ivec_file(file_path: &PathBuf) -> Vec<Vec<i32>> {
     dataset
 }
 
-#[derive(Clone, Copy)]
-struct HNSWConfig {
-    ef_construction: usize,
-    maximum_connections: usize,
-    maximum_connections_zero: Option<usize>,
-    knn_search_ef_param: usize,
-}
-
 fn bench_hnsw_insert(c: &mut Criterion) {
     let dataset = load_dataset();
 
     let config = HNSWConfig {
         ef_construction: 100,
         maximum_connections: 40,
-        maximum_connections_zero: Some(80),
-        knn_search_ef_param: 16,
+        maximum_connections_zero: 80,
+
+        extend_candidates: false,
+        keep_pruned_connections: false,
     };
 
     c.bench_function("hnsw_insert_sift10k", |b| {
         b.iter(|| {
-            let mut hnsw = HNSW::new(
-                config.ef_construction,
-                config.maximum_connections,
-                config.maximum_connections_zero,
-                LinearAlgorithm::EuclideanDistance,
-            );
+            let mut hnsw = HNSW::new_with_config(config, LinearAlgorithm::EuclideanDistance);
 
             for vec in &dataset.sift_data {
                 let node = Node::new(vec.clone());
@@ -137,20 +126,17 @@ fn bench_hnsw_incremental_insert(c: &mut Criterion) {
     let config = HNSWConfig {
         ef_construction: 100,
         maximum_connections: 40,
-        maximum_connections_zero: Some(80),
-        knn_search_ef_param: 16,
+        maximum_connections_zero: 80,
+
+        extend_candidates: false,
+        keep_pruned_connections: false,
     };
 
     c.bench_function("hnsw_incremental_insert", |b| {
         b.iter_batched(
             || {
                 // Setup (not measured)
-                let mut hnsw = HNSW::new(
-                    config.ef_construction,
-                    config.maximum_connections,
-                    config.maximum_connections_zero,
-                    LinearAlgorithm::EuclideanDistance,
-                );
+                let mut hnsw = HNSW::new_with_config(config, LinearAlgorithm::EuclideanDistance);
 
                 for vec in &dataset.sift_data {
                     let node = Node::new(vec.clone());
@@ -177,17 +163,13 @@ fn bench_search_layer(c: &mut Criterion) {
     let config = HNSWConfig {
         ef_construction: 100,
         maximum_connections: 40,
-        maximum_connections_zero: Some(80),
-        knn_search_ef_param: 32,
+        maximum_connections_zero: 80,
+        extend_candidates: false,
+        keep_pruned_connections: false,
     };
 
     // Build index once
-    let mut hnsw = HNSW::new(
-        config.ef_construction,
-        config.maximum_connections,
-        config.maximum_connections_zero,
-        LinearAlgorithm::EuclideanDistance,
-    );
+    let mut hnsw = HNSW::new_with_config(config, LinearAlgorithm::EuclideanDistance);
 
     for vec in &dataset.sift_data {
         let node = Node::new(vec.clone());
@@ -201,7 +183,7 @@ fn bench_search_layer(c: &mut Criterion) {
             hnsw.knn_search(
                 black_box(&query),
                 10, // k
-                Some(config.knn_search_ef_param),
+                Some(16),
             )
             .unwrap();
         })

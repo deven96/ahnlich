@@ -1,6 +1,6 @@
 use crate::{
     DistanceFn, LinearAlgorithm,
-    hnsw::get_node_id,
+    hnsw::{HNSWConfig, get_node_id},
     tests::fixtures::sift::{AnnDataset, load_dataset},
 };
 use rstest::rstest;
@@ -9,17 +9,10 @@ use crate::hnsw::{Node, index::HNSW};
 
 const K: usize = 50; // number of neighbors to check recall for
 
-#[derive(Clone, Copy)]
-struct HNSWConfig {
-    ef_construction: usize,
-    maximum_connections: usize,
-    maximum_connections_zero: Option<usize>,
-    knn_search_ef_param: usize,
-}
-
 #[derive(Clone)]
 struct ExperimentConfig {
     hnsw: HNSWConfig,
+    knn_search_ef_param: usize,
     recall_threshold: f32,
 }
 
@@ -28,12 +21,7 @@ fn build_hnsw_from_vectors<D: DistanceFn>(
     config: HNSWConfig,
     distance_algorithm: D,
 ) -> HNSW<D> {
-    let mut hnsw = HNSW::new(
-        config.ef_construction,
-        config.maximum_connections,
-        config.maximum_connections_zero,
-        distance_algorithm,
-    );
+    let mut hnsw = HNSW::new_with_config(config, distance_algorithm);
     for vec in vectors.iter() {
         let node = Node::new(vec.clone());
         hnsw.insert(node).unwrap();
@@ -53,9 +41,7 @@ fn compute_recall_for_config(dataset: &AnnDataset, config: HNSWConfig, k: usize)
     for (query_idx, query_vec) in dataset.sift_query.iter().enumerate() {
         let query_node = Node::new(query_vec.clone());
 
-        let ann_ids = hnsw
-            .knn_search(&query_node, K, Some(config.knn_search_ef_param))
-            .unwrap();
+        let ann_ids = hnsw.knn_search(&query_node, K, Some(16)).unwrap();
 
         let true_neighbors = &dataset.ground_truth[query_idx];
 
@@ -82,9 +68,10 @@ fn test_hnsw_recall_sift10k() {
     let config = HNSWConfig {
         ef_construction: 100,
         maximum_connections: 40,
-        maximum_connections_zero: Some(80),
+        maximum_connections_zero: 80,
 
-        knn_search_ef_param: 16,
+        keep_pruned_connections: false,
+        extend_candidates: false,
     };
 
     let avg_recall = compute_recall_for_config(&dataset, config, K);
@@ -99,27 +86,37 @@ fn test_hnsw_recall_sift10k() {
     hnsw: HNSWConfig {
         ef_construction: 50,
         maximum_connections: 16,
-        maximum_connections_zero: Some(32),
-        knn_search_ef_param: 16,
+        maximum_connections_zero: 32,
+
+        keep_pruned_connections: false,
+        extend_candidates: false
+
     },
+    knn_search_ef_param: 16,
     recall_threshold: 0.80,
 })]
 #[case(ExperimentConfig {
     hnsw: HNSWConfig {
         ef_construction: 20,
         maximum_connections: 5,
-        maximum_connections_zero: Some(10),
-        knn_search_ef_param: 5,
+        maximum_connections_zero: 10,
+
+        keep_pruned_connections: false,
+        extend_candidates: false
     },
+    knn_search_ef_param: 5,
     recall_threshold: 0.80,
 })]
 #[case(ExperimentConfig {
     hnsw: HNSWConfig {
         ef_construction: 50,
         maximum_connections: 25,
-        maximum_connections_zero: Some(50),
-        knn_search_ef_param: 20,
+        maximum_connections_zero: 50,
+        keep_pruned_connections: false,
+        extend_candidates: false
+
     },
+    knn_search_ef_param: 20,
     recall_threshold: 0.90,
 })]
 fn recall_experiment(#[case] config: ExperimentConfig) {
@@ -131,7 +128,7 @@ fn recall_experiment(#[case] config: ExperimentConfig) {
         "M={}, ef_construction={}, ef_search={}, recall={:.4}",
         config.hnsw.maximum_connections,
         config.hnsw.ef_construction,
-        config.hnsw.knn_search_ef_param,
+        config.knn_search_ef_param,
         recall
     );
 

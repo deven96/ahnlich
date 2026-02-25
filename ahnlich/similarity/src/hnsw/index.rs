@@ -3,7 +3,11 @@
 // gets the values it needs to
 
 #![allow(dead_code)]
-use crate::{DistanceFn, LinearAlgorithm, error::Error, hnsw::MinHeapQueue};
+use crate::{
+    DistanceFn, LinearAlgorithm,
+    error::Error,
+    hnsw::{HNSWConfig, MinHeapQueue},
+};
 
 use super::{LayerIndex, Node, NodeId, OrderedNode};
 use crate::heap::BoundedMinHeap;
@@ -83,28 +87,35 @@ pub struct HNSW<D: DistanceFn> {
     /// distance algorithm
     /// can be ec
     distance_algorithm: D,
+
+    /// Keep pruned connections:
+    keep_pruned_connections: bool,
+
+    /// extend candidates:
+    extend_candidates: bool,
 }
 
 impl<D: DistanceFn> HNSW<D> {
-    pub fn new(
-        ef_construction: usize,
-        maximum_connections: usize,
-        maximum_connections_zero: Option<usize>,
-        distance_algorithm: D,
-    ) -> Self {
-        assert!(maximum_connections > 1, "M must be > 1");
-        let maximum_connections_zero = maximum_connections_zero.unwrap_or(maximum_connections * 2);
+    pub fn new(distance_algorithm: D) -> Self {
+        let config = HNSWConfig::default();
+        Self::new_with_config(config, distance_algorithm)
+    }
+
+    pub fn new_with_config(config: HNSWConfig, distance_algorithm: D) -> Self {
+        assert!(config.maximum_connections > 1, "M must be > 1");
 
         Self {
-            ef_construction,
+            ef_construction: config.ef_construction,
             top_most_layer: 0,
-            maximum_connections,
-            maximum_connections_zero,
-            inv_log_m: 1.0 / (maximum_connections as f64).ln(),
+            maximum_connections: config.maximum_connections,
+            maximum_connections_zero: config.maximum_connections_zero,
+            inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
             graph: BTreeMap::new(),
             nodes: HashMap::new(),
             enter_point: Vec::with_capacity(1),
             distance_algorithm,
+            keep_pruned_connections: config.keep_pruned_connections,
+            extend_candidates: config.extend_candidates,
         }
     }
 
@@ -588,21 +599,24 @@ impl<D: DistanceFn> HNSW<D> {
 
 impl Default for HNSW<LinearAlgorithm> {
     fn default() -> Self {
-        let maximum_connections = 48;
-        let inv_log_m = 1.0 / f64::ln(maximum_connections as f64);
+        let config = HNSWConfig::default();
+        let inv_log_m = 1.0 / f64::ln(config.maximum_connections as f64);
 
         let distance_algorithm = LinearAlgorithm::EuclideanDistance;
 
         Self {
-            ef_construction: 100,
+            ef_construction: config.ef_construction,
             top_most_layer: 0,
-            maximum_connections,
-            maximum_connections_zero: 100,
+            maximum_connections: config.maximum_connections,
+            maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m, // ln(1/M)
             graph: BTreeMap::new(),
             nodes: HashMap::new(),
             enter_point: Vec::with_capacity(1),
             distance_algorithm,
+
+            extend_candidates: config.extend_candidates,
+            keep_pruned_connections: config.keep_pruned_connections,
         }
     }
 }
