@@ -76,10 +76,6 @@ jobs:
       id: changes
       with:
         filters: |
-          similarity:
-            - 'ahnlich/similarity/**'
-          db:
-            - 'ahnlich/db/**'
           ai:
             - 'ahnlich/ai/**'
           types:
@@ -93,32 +89,16 @@ jobs:
       run: |
         cargo b && cargo fmt
 
+
     - name: Run Full Workspace Tests
-      if: github.event_name == 'push' && 
-          github.ref == 'refs/heads/main' ||
-          steps.changes.outputs.types == 'true'
+      if: steps.changes.outputs.ai == 'true' || steps.changes.outputs.types == 'true'
       working-directory: ./ahnlich
-      run: |
-        make test
-    
+      run: make test
 
-    - name: Run Similarity Tests
-      if: github.event_name == 'pull_request' && 
-          steps.changes.outputs.similarity == 'true'
+    - name: Run Workspace Tests (excluding AI)
+      if: steps.changes.outputs.ai != 'true' && steps.changes.outputs.types != 'true'
       working-directory: ./ahnlich
-      run: cargo nextest run -p ahnlich_similarity --no-capture
-
-    - name: Run DB Tests
-      if: github.event_name == 'pull_request' && 
-          steps.changes.outputs.db == 'true'
-      working-directory: ./ahnlich
-      run: cargo nextest run -p db --no-capture
-
-    - name: Run AI Tests
-      if: github.event_name == 'pull_request' && 
-          steps.changes.outputs.ai == 'true'
-      working-directory: ./ahnlich
-      run: cargo nextest run -p ai --no-capture
+      run: cargo nextest run --workspace --exclude ai --no-capture
 
 
     - name: Upload Test Results
