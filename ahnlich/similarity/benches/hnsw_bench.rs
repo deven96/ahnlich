@@ -94,7 +94,7 @@ fn build_index(data: &[Vec<f32>], config: HNSWConfig) -> HNSW<LinearAlgorithm> {
     let hnsw = HNSW::new_with_config(config, LinearAlgorithm::EuclideanDistance);
     for vec in data {
         let node = Node::new(vec.clone());
-        hnsw.insert(node).unwrap();
+        hnsw.insert_node(node).unwrap();
     }
     hnsw
 }
@@ -134,7 +134,7 @@ fn bench_insert_single(c: &mut Criterion) {
             },
             |(hnsw, query_vec)| {
                 let node = Node::new(black_box(query_vec));
-                hnsw.insert(node).unwrap();
+                hnsw.insert_node(node).unwrap();
             },
             BatchSize::LargeInput,
         );

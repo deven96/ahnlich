@@ -1,5 +1,5 @@
 use crate::{
-    DistanceFn, LinearAlgorithm,
+    DistanceFn, EmbeddingKey, LinearAlgorithm,
     hnsw::{HNSWConfig, get_node_id},
     tests::fixtures::sift::{AnnDataset, load_dataset},
 };
@@ -22,10 +22,11 @@ fn build_hnsw_from_vectors<D: DistanceFn>(
     distance_algorithm: D,
 ) -> HNSW<D> {
     let hnsw = HNSW::new_with_config(config, distance_algorithm);
-    for vec in vectors.iter() {
-        let node = Node::new(vec.clone());
-        hnsw.insert(node).unwrap();
-    }
+    let embeddings: Vec<EmbeddingKey> = vectors
+        .iter()
+        .map(|v| EmbeddingKey::new(v.clone()))
+        .collect();
+    hnsw.insert(embeddings).unwrap();
     hnsw
 }
 

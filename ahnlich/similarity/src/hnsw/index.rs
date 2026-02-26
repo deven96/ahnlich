@@ -9,7 +9,8 @@ use crate::{
     hnsw::{HNSWConfig, MinHeapQueue},
 };
 
-use super::{LayerIndex, Node, NodeId, OrderedNode};
+use super::{LayerIndex, Node, NodeId, NodeIdHashSet, OrderedNode, get_node_id};
+use crate::EmbeddingKey;
 use crate::heap::BoundedMinHeap;
 
 use papaya::HashSet;
@@ -137,6 +138,31 @@ impl<D: DistanceFn> HNSW<D> {
         self.top_most_layer.load(Ordering::Acquire)
     }
 
+    /// Batch insert new embeddings into the HNSW graph.
+    /// Matches the NonLinearAlgorithmWithIndexImpl::insert signature.
+    pub fn insert(&self, new: Vec<EmbeddingKey>) -> Result<(), Error> {
+        for key in new {
+            let node = Node::new(key.as_slice().to_vec());
+            self.insert_node(node)?;
+        }
+        Ok(())
+    }
+
+    /// Batch delete embeddings from the HNSW graph.
+    /// Returns the count of actually deleted items.
+    /// Matches the NonLinearAlgorithmWithIndexImpl::delete signature.
+    pub fn delete(&self, items: &[EmbeddingKey]) -> Result<usize, Error> {
+        let mut deleted = 0;
+        for key in items {
+            let node_id = get_node_id(key.as_slice());
+            if self.nodes.pin().contains_key(&node_id) {
+                self.delete_node(&node_id);
+                deleted += 1;
+            }
+        }
+        Ok(deleted)
+    }
+
     /// Insert a new element into the HNSW graph
     /// Corresponds to Algorithm 1 (INSERT)
     ///
@@ -145,7 +171,7 @@ impl<D: DistanceFn> HNSW<D> {
     ///
     /// NOTE: This method uses interior mutability (&self) but is NOT safe for concurrent calls.
     /// Use external synchronization if multiple threads need to insert.
-    pub fn insert(&self, value: Node) -> Result<(), Error> {
+    pub fn insert_node(&self, value: Node) -> Result<(), Error> {
         let nodes = self.nodes.pin();
         let graph = self.graph.pin();
         let top_layer = self.top_most_layer.load(Ordering::Acquire);
@@ -317,8 +343,7 @@ impl<D: DistanceFn> HNSW<D> {
         layer: &LayerIndex,
     ) -> Result<Vec<NodeId>, Error> {
         let nodes = self.nodes.pin();
-        let mut visited_items: std::collections::HashSet<NodeId> =
-            entry_points.iter().copied().collect();
+        let mut visited_items: NodeIdHashSet = entry_points.iter().copied().collect();
 
         // C - candidates (min heap via Reverse: smallest distance pops first)
         let mut candidates = MinHeapQueue::from_nodes(
@@ -564,11 +589,11 @@ impl<D: DistanceFn> HNSW<D> {
             .collect())
     }
 
-    /// delete an new element from HNSW graph
+    /// Delete a single element from the HNSW graph by NodeId.
     ///
     /// NOTE: This method uses interior mutability (&self) but is NOT safe for concurrent calls.
     /// Use external synchronization if multiple threads need to delete.
-    pub fn delete(&self, node_id: &NodeId) {
+    pub fn delete_node(&self, node_id: &NodeId) {
         let nodes = self.nodes.pin();
         let graph = self.graph.pin();
 
@@ -697,7 +722,7 @@ mod tests {
         let node_id = *node.id();
 
         let hnsw = HNSW::default();
-        hnsw.insert(node).unwrap();
+        hnsw.insert_node(node).unwrap();
         let graph = hnsw.graph.pin();
         assert_eq!(hnsw.nodes.pin().len(), 1, "Nodes size does not match");
         let (_, node_hashset) = graph.iter().next().unwrap();
@@ -719,8 +744,8 @@ mod tests {
         let b = *node_b.id();
 
         let hnsw = HNSW::default();
-        hnsw.insert(node_a).unwrap();
-        hnsw.insert(node_b).unwrap();
+        hnsw.insert_node(node_a).unwrap();
+        hnsw.insert_node(node_b).unwrap();
 
         let a_node = hnsw.get_node(&a).unwrap();
         let b_node = hnsw.get_node(&b).unwrap();
@@ -757,7 +782,7 @@ mod tests {
         let hnsw = HNSW::default();
 
         for id in &ids {
-            hnsw.insert(Node {
+            hnsw.insert_node(Node {
                 id: id.clone(),
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
@@ -804,7 +829,7 @@ mod tests {
         let a = NodeId(10);
         let b = NodeId(20);
 
-        hnsw.insert(Node {
+        hnsw.insert_node(Node {
             id: a.clone(),
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
@@ -812,7 +837,7 @@ mod tests {
         })
         .unwrap();
 
-        hnsw.insert(Node {
+        hnsw.insert_node(Node {
             id: b.clone(),
             value: EmbeddingKey::new(vec![10.0]),
             neighbours: HashMap::new(),
@@ -839,7 +864,7 @@ mod tests {
         let a = NodeId(10);
         let b = NodeId(20);
 
-        hnsw.insert(Node {
+        hnsw.insert_node(Node {
             id: a.clone(),
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
@@ -847,7 +872,7 @@ mod tests {
         })
         .unwrap();
 
-        hnsw.insert(Node {
+        hnsw.insert_node(Node {
             id: b.clone(),
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
@@ -855,7 +880,7 @@ mod tests {
         })
         .unwrap();
 
-        hnsw.delete(&b);
+        hnsw.delete_node(&b);
 
         assert!(hnsw.get_node(&b).is_none());
 
@@ -877,7 +902,7 @@ mod tests {
         let ids = [NodeId(10), NodeId(20), NodeId(30), NodeId(40)].to_vec();
 
         for id in &ids {
-            hnsw.insert(Node {
+            hnsw.insert_node(Node {
                 id: id.clone(),
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
@@ -887,7 +912,7 @@ mod tests {
         }
 
         let target = &ids[1]; // delete B
-        hnsw.delete(target);
+        hnsw.delete_node(target);
 
         assert!(hnsw.get_node(target).is_none());
 

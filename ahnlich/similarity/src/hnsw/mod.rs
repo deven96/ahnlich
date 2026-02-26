@@ -9,6 +9,35 @@ use crate::{DistanceFn, EmbeddingKey};
 use papaya::{HashMap, HashSet};
 use std::{cmp::Reverse, collections::BinaryHeap, hash::Hasher, num::NonZeroUsize};
 
+/// A pass-through hasher for NodeId.
+///
+/// Since NodeId already contains a well-distributed hash (computed via ahash),
+/// re-hashing it with SipHash in std::collections::HashSet is wasted work.
+/// This hasher just passes the u64 through directly.
+#[derive(Default)]
+pub(crate) struct PassThroughHasher(u64);
+
+impl Hasher for PassThroughHasher {
+    #[inline]
+    fn write_u64(&mut self, n: u64) {
+        self.0 = n;
+    }
+
+    #[inline]
+    fn write(&mut self, _bytes: &[u8]) {
+        // NodeId always hashes via write_u64; this arm is unreachable in practice.
+        unreachable!("PassThroughHasher only supports write_u64");
+    }
+
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+}
+
+pub(crate) type NodeIdBuildHasher = std::hash::BuildHasherDefault<PassThroughHasher>;
+pub(crate) type NodeIdHashSet = std::collections::HashSet<NodeId, NodeIdBuildHasher>;
+
 /// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub struct LayerIndex(pub u16);
@@ -106,6 +135,11 @@ impl Node {
     /// get identifier
     pub fn id(&self) -> &NodeId {
         &self.id
+    }
+
+    /// get the embedding value
+    pub fn value(&self) -> &EmbeddingKey {
+        &self.value
     }
 
     /// Optional helper: add a neighbour at a specific layer

@@ -12,48 +12,6 @@ impl DistanceFn for LinearAlgorithm {
     }
 }
 
-struct Magnitude<'a> {
-    first: &'a [f32],
-    second: &'a [f32],
-}
-
-impl WithSimd for Magnitude<'_> {
-    type Output = f32;
-
-    #[inline(always)]
-    fn with_simd<S: Simd>(self, simd: S) -> Self::Output {
-        let (first_head, first_tail) = S::as_simd_f32s(self.first);
-        let (second_head, second_tail) = S::as_simd_f32s(self.second);
-
-        let mut mag_first = simd.splat_f32s(0.0);
-        let mut mag_second = simd.splat_f32s(0.0);
-
-        // Process the SIMD-aligned portion
-        for (&chunk_first, &chunk_second) in first_head.iter().zip(second_head) {
-            mag_first = simd.mul_add_f32s(chunk_first, chunk_first, mag_first);
-            mag_second = simd.mul_add_f32s(chunk_second, chunk_second, mag_second);
-        }
-
-        // Reduce the SIMD results (no sqrt yet)
-        let mag_first = simd.reduce_sum_f32s(mag_first);
-        let mag_second = simd.reduce_sum_f32s(mag_second);
-
-        // Process the remaining scalar portion, adding to mag_first and mag_second
-        let mut scalar_mag_first = 0.0;
-        let mut scalar_mag_second = 0.0;
-
-        for (&x, &y) in first_tail.iter().zip(second_tail) {
-            scalar_mag_first += x * x;
-            scalar_mag_second += y * y;
-        }
-        let mag_first = mag_first + scalar_mag_first;
-        let mag_second = mag_second + scalar_mag_second;
-
-        // Apply sqrt to the total sum of squares
-        mag_first.sqrt() * mag_second.sqrt()
-    }
-}
-
 /// COSINE SIMILARITY
 /// Cosine similiarity is the cosine of the angles between vectors.
 /// It tries to find how close or similar two vector points are.
@@ -87,6 +45,47 @@ impl WithSimd for Magnitude<'_> {
 ///  An Implementation for most similar items would be a MaxHeap.
 ///  We are looking the closest number to one meaning Max
 ///  The smaller the distance between two points, denotes higher similarity.
+
+/// Fused SIMD kernel: computes dot product and both magnitudes in a single pass.
+/// This avoids iterating over both vectors twice (once for dot, once for magnitude),
+/// improving cache locality and reducing SIMD dispatch overhead.
+struct CosineSimilarityKernel<'a> {
+    first: &'a [f32],
+    second: &'a [f32],
+}
+
+impl WithSimd for CosineSimilarityKernel<'_> {
+    type Output = f32;
+
+    #[inline(always)]
+    fn with_simd<S: Simd>(self, simd: S) -> Self::Output {
+        let (first_head, first_tail) = S::as_simd_f32s(self.first);
+        let (second_head, second_tail) = S::as_simd_f32s(self.second);
+
+        let mut dot = simd.splat_f32s(0.0);
+        let mut mag_first = simd.splat_f32s(0.0);
+        let mut mag_second = simd.splat_f32s(0.0);
+
+        for (&a, &b) in first_head.iter().zip(second_head) {
+            dot = simd.mul_add_f32s(a, b, dot);
+            mag_first = simd.mul_add_f32s(a, a, mag_first);
+            mag_second = simd.mul_add_f32s(b, b, mag_second);
+        }
+
+        let mut dot_sum = simd.reduce_sum_f32s(dot);
+        let mut mag_first_sum = simd.reduce_sum_f32s(mag_first);
+        let mut mag_second_sum = simd.reduce_sum_f32s(mag_second);
+
+        for (&x, &y) in first_tail.iter().zip(second_tail) {
+            dot_sum += x * y;
+            mag_first_sum += x * x;
+            mag_second_sum += y * y;
+        }
+
+        dot_sum / (mag_first_sum.sqrt() * mag_second_sum.sqrt())
+    }
+}
+
 #[tracing::instrument(skip_all)]
 pub fn cosine_similarity(first: &[f32], second: &[f32]) -> f32 {
     assert_eq!(
@@ -95,12 +94,8 @@ pub fn cosine_similarity(first: &[f32], second: &[f32]) -> f32 {
         "Vectors must have the same length!"
     );
 
-    let dot = dot_product(first, second);
-
     let arch = Arch::new();
-    let magnitude = arch.dispatch(Magnitude { first, second });
-
-    dot / magnitude
+    arch.dispatch(CosineSimilarityKernel { first, second })
 }
 
 ///
