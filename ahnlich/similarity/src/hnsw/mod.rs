@@ -122,11 +122,11 @@ impl Node {
         compute_node_level(&self.id, m)
     }
 
-    pub fn new(value: Vec<f32>) -> Self {
-        let id = get_node_id(&value);
+    pub fn new(value: EmbeddingKey) -> Self {
+        let id = get_node_id(&value.0);
         Self {
             id,
-            value: EmbeddingKey::new(value),
+            value,
             neighbours: HashMap::new(),
             back_links: HashSet::with_capacity(1),
         }

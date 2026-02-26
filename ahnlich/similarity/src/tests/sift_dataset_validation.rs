@@ -40,7 +40,7 @@ fn compute_recall_for_config(dataset: &AnnDataset, config: HNSWConfig, k: usize)
     let mut total_recall = 0.0;
 
     for (query_idx, query_vec) in dataset.sift_query.iter().enumerate() {
-        let query_node = Node::new(query_vec.clone());
+        let query_node = Node::new(EmbeddingKey::new(query_vec.clone()));
 
         let ann_ids = hnsw.knn_search(&query_node, K, Some(16)).unwrap();
 

@@ -44,8 +44,6 @@ use std::{
 ///      This ensures no stale references remain in the graph.
 ///
 /// Concurrent reads (knn_search, search_layer) are lock-free. Writes (insert, delete)
-/// use interior mutability but are NOT safe for concurrent calls without external
-/// synchronization.
 ///
 /// Example of usage:
 /// ```text
@@ -142,7 +140,7 @@ impl<D: DistanceFn> HNSW<D> {
     /// Matches the NonLinearAlgorithmWithIndexImpl::insert signature.
     pub fn insert(&self, new: Vec<EmbeddingKey>) -> Result<(), Error> {
         for key in new {
-            let node = Node::new(key.as_slice().to_vec());
+            let node = Node::new(key);
             self.insert_node(node)?;
         }
         Ok(())
@@ -169,8 +167,6 @@ impl<D: DistanceFn> HNSW<D> {
     /// If a node with the same embedding is added, we silently skip as it doesn't make sense to do
     /// any work but also we shouldn't fail necessarily
     ///
-    /// NOTE: This method uses interior mutability (&self) but is NOT safe for concurrent calls.
-    /// Use external synchronization if multiple threads need to insert.
     pub fn insert_node(&self, value: Node) -> Result<(), Error> {
         let nodes = self.nodes.pin();
         let graph = self.graph.pin();
@@ -590,9 +586,6 @@ impl<D: DistanceFn> HNSW<D> {
     }
 
     /// Delete a single element from the HNSW graph by NodeId.
-    ///
-    /// NOTE: This method uses interior mutability (&self) but is NOT safe for concurrent calls.
-    /// Use external synchronization if multiple threads need to delete.
     pub fn delete_node(&self, node_id: &NodeId) {
         let nodes = self.nodes.pin();
         let graph = self.graph.pin();
@@ -718,7 +711,8 @@ mod tests {
 
     #[test]
     fn test_simple_hnsw_state() {
-        let node = Node::new(vec![3.2]);
+        let key = EmbeddingKey::new(vec![3.2]);
+        let node = Node::new(key);
         let node_id = *node.id();
 
         let hnsw = HNSW::default();
@@ -737,10 +731,12 @@ mod tests {
 
     #[test]
     fn test_two_nodes_bidirectional() {
-        let node_a = Node::new(vec![0.0]);
+        let key = EmbeddingKey::new(vec![0.0]);
+        let node_a = Node::new(key);
         let a = *node_a.id();
 
-        let node_b = Node::new(vec![1.0]);
+        let key = EmbeddingKey::new(vec![1.0]);
+        let node_b = Node::new(key);
         let b = *node_b.id();
 
         let hnsw = HNSW::default();
@@ -975,7 +971,7 @@ mod tests {
     #[test]
     fn test_level_assignment_is_deterministic() {
         // Same embedding should always produce same level
-        let embedding = vec![1.0, 2.0, 3.0];
+        let embedding = EmbeddingKey::new(vec![1.0, 2.0, 3.0]);
 
         let node1 = Node::new(embedding.clone());
         let node2 = Node::new(embedding.clone());
@@ -1009,7 +1005,7 @@ mod tests {
 
         // Generate many nodes and count their levels
         for i in 0..1000 {
-            let embedding = vec![i as f32, (i * 2) as f32, (i * 3) as f32];
+            let embedding = EmbeddingKey::new(vec![i as f32, (i * 2) as f32, (i * 3) as f32]);
             let node = Node::new(embedding);
             let level = node.level(m);
             *level_counts.entry(level).or_insert(0) += 1;
@@ -1055,7 +1051,7 @@ mod tests {
     #[test]
     fn test_persistence_consistency() {
         // Simulate save/reload scenario
-        let embedding = vec![5.5, 10.2, 3.7];
+        let embedding = EmbeddingKey::new(vec![5.5, 10.2, 3.7]);
         let m = 48;
 
         // "First run" - insert node
@@ -1080,9 +1076,9 @@ mod tests {
         let m = 48;
 
         // Different embeddings should (likely) produce different NodeIds
-        let node1 = Node::new(vec![1.0, 2.0, 3.0]);
-        let node2 = Node::new(vec![4.0, 5.0, 6.0]);
-        let node3 = Node::new(vec![7.0, 8.0, 9.0]);
+        let node1 = Node::new(EmbeddingKey::new(vec![1.0, 2.0, 3.0]));
+        let node2 = Node::new(EmbeddingKey::new(vec![4.0, 5.0, 6.0]));
+        let node3 = Node::new(EmbeddingKey::new(vec![7.0, 8.0, 9.0]));
 
         // NodeIds should be different
         assert_ne!(

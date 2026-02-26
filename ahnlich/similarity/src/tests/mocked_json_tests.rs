@@ -33,8 +33,12 @@ fn prepare_test_data(
 fn prepare_test_embeddings(
     dataset: &HashMap<String, Vec<f32>>,
     query_text: &str,
-) -> (Vec<EmbeddingKey>, Vec<f32>) {
-    let query_vec = dataset.get(query_text).unwrap().clone();
+) -> (Vec<EmbeddingKey>, EmbeddingKey) {
+    let query_vec = dataset
+        .get(query_text)
+        .map(|q| EmbeddingKey::new(q.clone()))
+        .unwrap()
+        .clone();
 
     let embeddings = dataset
         .iter()
@@ -254,7 +258,7 @@ fn load_synthetic_dataset(size: usize) -> HashMap<String, Node> {
         serde_json::from_str(&data).expect("Failed to parse JSON");
 
     json.into_iter()
-        .map(|(key, value)| (key, Node::new(value)))
+        .map(|(key, value)| (key, Node::new(EmbeddingKey::new(value))))
         .collect()
 }
 

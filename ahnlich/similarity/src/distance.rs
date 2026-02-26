@@ -13,41 +13,38 @@ impl DistanceFn for LinearAlgorithm {
 }
 
 /// COSINE SIMILARITY
-/// Cosine similiarity is the cosine of the angles between vectors.
-/// It tries to find how close or similar two vector points are.
-/// It is scalent invarient meaning it is unaffected by the length of the vectors.
 ///
+/// Cosine similarity is the cosine of the angle between two vectors.
+/// It measures how similar two vector points are.
+/// It is scale-invariant, meaning it is unaffected by the length of the vectors.
 ///
-/// Cosine of the angles between vectors shows how similar, dissimilar or orthogonal(independent).
+/// The cosine of the angle shows whether vectors are similar,
+/// dissimilar, or orthogonal (independent).
 ///
+/// The range of cosine similarity is from -1 to 1:
+/// - 1  → identical direction (most similar)
+/// - -1 → opposite direction
+/// - 0  → orthogonal (independent)
 ///
-/// The range of similarity for cosine similarity ranges from -1 to 1:
-/// where:
-///    -  1 means similar
-///    -  -1 different.
-///    -  0 means Orthogonal
+/// To calculate cosine similarity between two vectors:
+/// - Calculate the dot product of both vectors.
+/// - Compute the magnitude of each vector.
+///   The magnitude of a vector is calculated using the Pythagorean theorem:
+///   sqrt(A^2 + B^2)
+///   where A and B are vector components.
+/// - Divide the dot product by the product of the magnitudes:
+///   cos(θ) = A · B / (||A|| * ||B||)
 ///
+/// Where the magnitude is:
+///   ||A|| = sqrt(a1^2 + a2^2 + ... + an^2)
 ///
-/// To calculate the cosine similarity for two vectors, we need to:
-///   - Calculate the dot product of both vectors
-///   - Find the product of the magnitude of both vectors.
-///          A magnitude of a vector can be calculated using pythagoras theorem:
-///          sqrt( A^2 + B^2)
-///             where A and B are two vectors.
+/// An implementation for retrieving the most similar items can use a MaxHeap,
+/// since we are looking for values closest to 1.
+/// Smaller angular distance between vectors denotes higher similarity.
 ///
-///   - divide the dot product by the product of the magnitude of both vectors.
-///            cos(0) = A.B / ||A||.||B||
-///
-///     where Magnitude(A or B):
-///     ||A|| = sqrt[(1)^2 + (2)^2]
-///     
-///
-///  An Implementation for most similar items would be a MaxHeap.
-///  We are looking the closest number to one meaning Max
-///  The smaller the distance between two points, denotes higher similarity.
-
-/// Fused SIMD kernel: computes dot product and both magnitudes in a single pass.
-/// This avoids iterating over both vectors twice (once for dot, once for magnitude),
+/// Fused SIMD kernel: computes the dot product and both magnitudes
+/// in a single pass. This avoids iterating over the vectors twice
+/// (once for dot product and once for magnitude),
 /// improving cache locality and reducing SIMD dispatch overhead.
 struct CosineSimilarityKernel<'a> {
     first: &'a [f32],

@@ -93,7 +93,7 @@ fn default_config() -> HNSWConfig {
 fn build_index(data: &[Vec<f32>], config: HNSWConfig) -> HNSW<LinearAlgorithm> {
     let hnsw = HNSW::new_with_config(config, LinearAlgorithm::EuclideanDistance);
     for vec in data {
-        let node = Node::new(vec.clone());
+        let node = Node::new(ahnlich_similarity::EmbeddingKey::new(vec.clone()));
         hnsw.insert_node(node).unwrap();
     }
     hnsw
@@ -133,7 +133,7 @@ fn bench_insert_single(c: &mut Criterion) {
                 (hnsw, query_vec)
             },
             |(hnsw, query_vec)| {
-                let node = Node::new(black_box(query_vec));
+                let node = Node::new(black_box(ahnlich_similarity::EmbeddingKey::new(query_vec)));
                 hnsw.insert_node(node).unwrap();
             },
             BatchSize::LargeInput,
@@ -153,7 +153,9 @@ fn bench_search_varying_k(c: &mut Criterion) {
     let dataset = load_dataset();
     let config = default_config();
     let hnsw = build_index(&dataset.sift_data, config);
-    let query = Node::new(dataset.sift_query[0].clone());
+    let query = Node::new(ahnlich_similarity::EmbeddingKey::new(
+        dataset.sift_query[0].clone(),
+    ));
 
     let mut group = c.benchmark_group("search/varying_k");
     for k in [1, 10, 50] {
@@ -178,7 +180,9 @@ fn bench_search_varying_ef(c: &mut Criterion) {
     let dataset = load_dataset();
     let config = default_config();
     let hnsw = build_index(&dataset.sift_data, config);
-    let query = Node::new(dataset.sift_query[0].clone());
+    let query = Node::new(ahnlich_similarity::EmbeddingKey::new(
+        dataset.sift_query[0].clone(),
+    ));
 
     let mut group = c.benchmark_group("search/varying_ef");
     for ef in [16, 50, 100, 200] {
@@ -200,7 +204,7 @@ fn bench_search_batch_queries(c: &mut Criterion) {
     let queries: Vec<Node> = dataset
         .sift_query
         .iter()
-        .map(|v| Node::new(v.clone()))
+        .map(|v| Node::new(ahnlich_similarity::EmbeddingKey::new(v.clone())))
         .collect();
 
     c.bench_function("search/batch_100_queries_k10_ef100", |b| {
@@ -227,7 +231,7 @@ fn bench_concurrent_search(c: &mut Criterion) {
     let queries: Vec<Node> = dataset
         .sift_query
         .iter()
-        .map(|v| Node::new(v.clone()))
+        .map(|v| Node::new(ahnlich_similarity::EmbeddingKey::new(v.clone())))
         .collect();
 
     let mut group = c.benchmark_group("search/concurrent");

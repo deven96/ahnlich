@@ -1,4 +1,4 @@
-use crate::hnsw::Node;
+use crate::{EmbeddingKey, hnsw::Node};
 use std::collections::HashMap;
 
 pub const SEACH_TEXT: &'static str =
@@ -13,7 +13,7 @@ pub const MOST_SIMILAR: [&'static str; 3] = [
 pub fn word_to_vector() -> HashMap<String, Node> {
     let words = std::fs::read_to_string("src/tests/fixtures/mock_data.json").unwrap();
 
-    let json: HashMap<String, Vec<f32>> = serde_json::from_str(&words).unwrap();
+    let json: HashMap<String, EmbeddingKey> = serde_json::from_str(&words).unwrap();
 
     json.into_iter()
         .map(|(key, value)| (key, Node::new(value)))
