@@ -39,16 +39,16 @@ impl NonLinearAlgorithmWithIndex {
 
     #[tracing::instrument(skip_all)]
     fn insert(&self, new: &[EmbeddingKey]) {
-        self.get_inner()
-            .insert(new.to_vec())
-            .expect("Error inserting into index");
+        if let Err(err) = self.get_inner().insert(new.to_vec()) {
+            tracing::error!("Error inserting into index: {:?}", err)
+        }
     }
 
     #[tracing::instrument(skip_all)]
     fn delete(&self, del: &[EmbeddingKey]) {
-        self.get_inner()
-            .delete(del)
-            .expect("Error deleting from index");
+        if let Err(err) = self.get_inner().delete(del) {
+            tracing::error!("Error deleting from index: {:?}", err)
+        }
     }
 
     #[tracing::instrument(skip_all)]
