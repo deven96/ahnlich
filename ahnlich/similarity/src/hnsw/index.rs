@@ -14,6 +14,7 @@ use crate::heap::BoundedMinHeap;
 
 use papaya::HashSet;
 use parking_lot::RwLock;
+use smallvec::{SmallVec, smallvec};
 use std::{
     cmp::{Reverse, min},
     num::NonZeroUsize,
@@ -94,7 +95,7 @@ pub struct HNSW<D: DistanceFn> {
     ///
     /// Updated whenever a new node is inserted at a higher layer than the current
     /// top_most_layer. Protected by a RwLock for safe concurrent access.
-    enter_point: RwLock<Vec<NodeId>>,
+    enter_point: RwLock<SmallVec<[NodeId; 1]>>,
 
     /// distance algorithm
     /// can be ec
@@ -124,7 +125,7 @@ impl<D: DistanceFn> HNSW<D> {
             inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
             graph: papaya::HashMap::new(),
             nodes: papaya::HashMap::new(),
-            enter_point: RwLock::new(Vec::with_capacity(1)),
+            enter_point: RwLock::new(SmallVec::new()),
             distance_algorithm,
             keep_pruned_connections: config.keep_pruned_connections,
             extend_candidates: config.extend_candidates,
@@ -170,9 +171,10 @@ impl<D: DistanceFn> HNSW<D> {
             )?;
 
             // NOTE: get the nearest element from W to q
-            let nn_guard = nearest_neighbours.pin();
             let nearest_ele = MinHeapQueue::from_nodes(
-                nn_guard.iter().filter_map(|node_id| nodes.get(node_id)),
+                nearest_neighbours
+                    .iter()
+                    .filter_map(|node_id| nodes.get(node_id)),
                 &value,
                 self.distance_algorithm,
             )
@@ -182,7 +184,7 @@ impl<D: DistanceFn> HNSW<D> {
                 "nearest element not found".to_string(),
             ))?;
 
-            enter_point = vec![nearest_ele];
+            enter_point = smallvec![nearest_ele];
         }
 
         // Deeper search
@@ -205,6 +207,8 @@ impl<D: DistanceFn> HNSW<D> {
             )?;
 
             // NOTE: add bidirectional connections from neighbours to q at layer lc
+            let value_neighbours_guard = value.neighbours.pin();
+            let value_backlinks_guard = value.back_links.pin();
             for neighbour_id in neighbours.iter() {
                 let neighbour_node = nodes
                     .get(neighbour_id)
@@ -212,23 +216,22 @@ impl<D: DistanceFn> HNSW<D> {
 
                 let n_guard = neighbour_node.neighbours.pin();
                 n_guard
-                    .get_or_insert_with(layer_index.clone(), HashSet::new)
+                    .get_or_insert_with(layer_index, HashSet::new)
                     .pin()
                     .insert(value.id);
 
-                let v_guard = value.neighbours.pin();
-                v_guard
-                    .get_or_insert_with(layer_index.clone(), HashSet::new)
+                value_neighbours_guard
+                    .get_or_insert_with(layer_index, HashSet::new)
                     .pin()
                     .insert(*neighbour_id);
 
                 // NOTE: invert for backlinks
-                value.back_links.pin().insert(*neighbour_id);
+                value_backlinks_guard.insert(*neighbour_id);
                 neighbour_node.back_links.pin().insert(value.id);
             }
 
             graph
-                .get_or_insert(layer_index.clone(), HashSet::from([value.id]))
+                .get_or_insert(layer_index, HashSet::from([value.id]))
                 .pin()
                 .insert(value.id);
 
@@ -253,11 +256,12 @@ impl<D: DistanceFn> HNSW<D> {
                     .ok_or(Error::NotFoundError("Index not found".to_string()))?;
 
                 if e_conn.pin().len() > maximum_connections {
+                    let e_conn_vec: Vec<NodeId> = e_conn.pin().iter().copied().collect();
                     // Prune neighbor's connections back to Mmax using heuristic selection
                     // (maximum_connections = Mmax0 at layer 0, M at other layers)
                     let new_neighbour_connections = self.select_neighbours_heuristic(
                         neighbour_node,
-                        e_conn,
+                        &e_conn_vec,
                         maximum_connections, // Already set to the correct Mmax value above
                         &layer_index,
                         false,
@@ -268,10 +272,10 @@ impl<D: DistanceFn> HNSW<D> {
                         .get(neighbour)
                         .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
 
-                    neighbour_node.neighbours.pin().insert(
-                        layer_index.clone(),
-                        HashSet::from_iter(new_neighbour_connections),
-                    );
+                    neighbour_node
+                        .neighbours
+                        .pin()
+                        .insert(layer_index, HashSet::from_iter(new_neighbour_connections));
                 }
             }
 
@@ -280,7 +284,7 @@ impl<D: DistanceFn> HNSW<D> {
             // (Algorithm 1: ep = get_nearest_element_from_W_to_q)
             enter_point = match self.find_best_entry_point(&value, &nearest_neighbours)? {
                 None => enter_point,
-                Some(new_enter_point) => vec![new_enter_point],
+                Some(new_enter_point) => smallvec![new_enter_point],
             };
         }
 
@@ -297,7 +301,7 @@ impl<D: DistanceFn> HNSW<D> {
             if new_elements_lvl > current_top || nodes.len() == 1 {
                 self.top_most_layer
                     .store(new_elements_lvl, Ordering::Release);
-                *ep = vec![value_id];
+                *ep = smallvec![value_id];
             }
         }
         Ok(())
@@ -311,7 +315,7 @@ impl<D: DistanceFn> HNSW<D> {
         entry_points: &[NodeId],
         ef: usize,
         layer: &LayerIndex,
-    ) -> Result<HashSet<NodeId>, Error> {
+    ) -> Result<Vec<NodeId>, Error> {
         let nodes = self.nodes.pin();
         let mut visited_items: std::collections::HashSet<NodeId> =
             entry_points.iter().copied().collect();
@@ -374,7 +378,7 @@ impl<D: DistanceFn> HNSW<D> {
                         };
 
                     if should_add {
-                        candidates.push(&neighbour_node);
+                        candidates.push(neighbour_node);
                         nearest_neighbours.push(OrderedNode((neighbour_node.id, neighbour_dist)));
                     }
                 }
@@ -392,26 +396,25 @@ impl<D: DistanceFn> HNSW<D> {
     pub fn select_neighbours_heuristic(
         &self,
         query: &Node,
-        candidates: &HashSet<NodeId>,
+        candidates: &[NodeId],
         m: usize,
         layer: &LayerIndex,
         extend_candidates: bool,
         keep_pruned_connections: bool,
     ) -> Result<Vec<NodeId>, Error> {
         let nodes = self.nodes.pin();
-        let pinned_candidates = candidates.pin();
 
         let mut response =
             MinHeapQueue::from_nodes(std::iter::empty(), query, self.distance_algorithm);
 
         let mut working_queue = MinHeapQueue::from_nodes(
-            pinned_candidates.iter().filter_map(|id| nodes.get(id)),
+            candidates.iter().filter_map(|id| nodes.get(id)),
             query,
             self.distance_algorithm,
         );
 
         if extend_candidates {
-            for candidate in pinned_candidates.iter() {
+            for candidate in candidates.iter() {
                 // TODO: loop error handling??
 
                 let candidate_node = nodes
@@ -424,10 +427,10 @@ impl<D: DistanceFn> HNSW<D> {
                     .ok_or(Error::NotFoundError(format!("{:?} not Found", layer)))?;
 
                 for neighbour_id in neighbours_at.pin().iter() {
-                    if !working_queue.contains(neighbour_id) {
-                        if let Some(neighbour_node) = nodes.get(neighbour_id) {
-                            working_queue.push(&neighbour_node);
-                        }
+                    if !working_queue.contains(neighbour_id)
+                        && let Some(neighbour_node) = nodes.get(neighbour_id)
+                    {
+                        working_queue.push(neighbour_node);
                     }
                 }
             }
@@ -449,7 +452,7 @@ impl<D: DistanceFn> HNSW<D> {
                 let node = nodes
                     .get(&candidate_id)
                     .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?;
-                response.push(&node);
+                response.push(node);
                 continue;
             }
 
@@ -479,9 +482,9 @@ impl<D: DistanceFn> HNSW<D> {
             }
 
             if is_diverse {
-                response.push(&candidate_node);
+                response.push(candidate_node);
             } else {
-                discarded_candidates.push(&candidate_node);
+                discarded_candidates.push(candidate_node);
             }
         }
 
@@ -493,7 +496,7 @@ impl<D: DistanceFn> HNSW<D> {
                 let node = nodes
                     .get(&nearest_from_wd_to_q)
                     .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?;
-                response.push(&node);
+                response.push(node);
             }
         }
 
@@ -537,19 +540,19 @@ impl<D: DistanceFn> HNSW<D> {
             let searched = self.search_layer(query, &enter_point, 1, &layer)?;
 
             let ep = MinHeapQueue::from_nodes(
-                searched.pin().iter().filter_map(|id| nodes.get(id)),
+                searched.iter().filter_map(|id| nodes.get(id)),
                 query,
                 self.distance_algorithm,
             )
             .peek()
             .map(|OrderedNode((node_id, _))| *node_id)
             .ok_or(Error::QueueEmpty)?;
-            enter_point = vec![ep];
+            enter_point = smallvec![ep];
         }
 
         let level_zero = self.search_layer(query, &enter_point, ef, &LayerIndex(0))?;
         let mut current_nearest_elements = MinHeapQueue::from_nodes(
-            level_zero.pin().iter().filter_map(|id| nodes.get(id)),
+            level_zero.iter().filter_map(|id| nodes.get(id)),
             query,
             self.distance_algorithm,
         );
@@ -596,20 +599,17 @@ impl<D: DistanceFn> HNSW<D> {
     fn find_best_entry_point(
         &self,
         query: &Node,
-        candidates: &HashSet<NodeId>,
+        candidates: &[NodeId],
     ) -> Result<Option<NodeId>, Error> {
         let nodes = self.nodes.pin();
 
-        if candidates.pin().is_empty() {
+        if candidates.is_empty() {
             // Edge case: no neighbors found at this layer (shouldn't happen in practice)
             // Keep current entry point
             Ok(None)
         } else {
             let enter_point = MinHeapQueue::from_nodes(
-                candidates
-                    .pin()
-                    .iter()
-                    .filter_map(|node_id| nodes.get(node_id)),
+                candidates.iter().filter_map(|node_id| nodes.get(node_id)),
                 query,
                 self.distance_algorithm,
             )
@@ -646,7 +646,7 @@ impl Default for HNSW<LinearAlgorithm> {
             inv_log_m, // ln(1/M)
             graph: papaya::HashMap::new(),
             nodes: papaya::HashMap::new(),
-            enter_point: RwLock::new(Vec::with_capacity(1)),
+            enter_point: RwLock::new(SmallVec::new()),
             distance_algorithm,
 
             extend_candidates: config.extend_candidates,

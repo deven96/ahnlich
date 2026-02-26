@@ -70,6 +70,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "smallvec",
  "tracing",
 ]
 

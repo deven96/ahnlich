@@ -10,7 +10,7 @@ use papaya::{HashMap, HashSet};
 use std::{cmp::Reverse, collections::BinaryHeap, hash::Hasher, num::NonZeroUsize};
 
 /// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub struct LayerIndex(pub u16);
 
 impl Eq for LayerIndex {}

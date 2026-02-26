@@ -24,6 +24,7 @@ rand.workspace = true
 itertools.workspace = true
 ahash.workspace = true
 pulp.workspace = true
+smallvec.workspace = true
 
 [features]
 default = ["serde"]
