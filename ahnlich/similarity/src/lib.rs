@@ -1,18 +1,31 @@
 use std::{collections::HashSet, num::NonZeroUsize};
 
 use serde::{Deserialize, Serialize};
-use utils::VecF32Ordered;
 
+pub mod distance;
+pub mod embedding_key;
 pub mod error;
+pub mod heap;
 pub mod hnsw;
 pub mod kdtree;
-pub mod utils;
+
+#[cfg(test)]
+pub mod tests;
+
+pub use embedding_key::EmbeddingKey;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+pub enum LinearAlgorithm {
+    EuclideanDistance,
+    CosineSimilarity,
+    DotProductSimilarity,
+}
 
 pub trait NonLinearAlgorithmWithIndexImpl<'a>: Serialize + Deserialize<'a> {
     // insert a batch of new inputs
-    fn insert(&self, new: Vec<Vec<f32>>) -> Result<(), error::Error>;
+    fn insert(&self, new: &[EmbeddingKey]) -> Result<(), error::Error>;
     // delete a batch of new inputs
-    fn delete(&self, new: &[Vec<f32>]) -> Result<usize, error::Error>;
+    fn delete(&self, new: &[EmbeddingKey]) -> Result<usize, error::Error>;
     // find the N-nearest points to the reference point, if accept_list is Some(_), only select
     // points from within the accept_list
     //
@@ -23,8 +36,12 @@ pub trait NonLinearAlgorithmWithIndexImpl<'a>: Serialize + Deserialize<'a> {
         &self,
         reference_point: &[f32],
         n: NonZeroUsize,
-        accept_list: Option<HashSet<VecF32Ordered>>,
-    ) -> Result<Vec<(Vec<f32>, f32)>, error::Error>;
+        accept_list: Option<HashSet<EmbeddingKey>>,
+    ) -> Result<Vec<(EmbeddingKey, f32)>, error::Error>;
     // size of index structure
     fn size(&self) -> usize;
+}
+
+pub trait DistanceFn: Send + Sync + Copy {
+    fn distance(&self, a: &[f32], b: &[f32]) -> f32;
 }

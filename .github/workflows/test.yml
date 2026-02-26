@@ -18,6 +18,8 @@ env:
   RUSTC_WRAPPER: "sccache"
 
 jobs:
+
+  
   run-rust-tests:
     runs-on: ubuntu-latest
     
@@ -69,15 +71,32 @@ jobs:
           exit 1
         fi
 
+    - name: Detect changed rust files in workspace
+      uses: dorny/paths-filter@v3
+      id: changes
+      with:
+        filters: |
+          ai:
+            - 'ahnlich/ai/**'
+          types:
+            - 'ahnlich/types/**'
+
     - name: Build and Format Rust Example
       working-directory: ./examples/rust/image-search
       run: |
         cargo b && cargo fmt
 
-    - name: Run Test
+
+    - name: Run Full Workspace Tests
+      if: steps.changes.outputs.ai == 'true' || steps.changes.outputs.types == 'true'
       working-directory: ./ahnlich
-      run: |
-        make test
+      run: make test
+
+    - name: Run Workspace Tests (excluding AI)
+      if: steps.changes.outputs.ai != 'true' && steps.changes.outputs.types != 'true'
+      working-directory: ./ahnlich
+      run: cargo nextest run --workspace --exclude ai --no-capture
+
 
     - name: Upload Test Results
       uses: actions/upload-artifact@v4
