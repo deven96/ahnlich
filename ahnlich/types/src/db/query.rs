@@ -13,12 +13,9 @@ pub struct CreateStore {
     #[prost(string, repeated, tag = "3")]
     pub create_predicates: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// Non-linear algorithms for indexing.
-    #[prost(
-        enumeration = "super::super::algorithm::nonlinear::NonLinearAlgorithm",
-        repeated,
-        tag = "4"
-    )]
-    pub non_linear_indices: ::prost::alloc::vec::Vec<i32>,
+    #[prost(message, repeated, tag = "4")]
+    pub non_linear_indices:
+        ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
     /// Flag indicating whether to error if store already exists.
     #[prost(bool, tag = "5")]
     pub error_if_exists: bool,
@@ -86,12 +83,9 @@ pub struct CreateNonLinearAlgorithmIndex {
     #[prost(string, tag = "1")]
     pub store: ::prost::alloc::string::String,
     /// Non-linear algorithms to create indices for.
-    #[prost(
-        enumeration = "super::super::algorithm::nonlinear::NonLinearAlgorithm",
-        repeated,
-        tag = "2"
-    )]
-    pub non_linear_indices: ::prost::alloc::vec::Vec<i32>,
+    #[prost(message, repeated, tag = "2")]
+    pub non_linear_indices:
+        ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
 }
 /// Drops the specified predicates from the store.
 /// If `error_if_not_exists` is true, an error is returned if the predicate does not exist.

@@ -19,7 +19,7 @@ message CreateStore {
   string store = 1; // The name of the store.
   uint32 dimension = 2; // The dimension of the data within the store.
   repeated string create_predicates = 3; // Predicates used for querying.
-  repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 4; // Non-linear algorithms for indexing.
+  repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 4; // Non-linear algorithms for indexing.
   bool error_if_exists = 5; // Flag indicating whether to error if store already exists.
 }
 
@@ -57,7 +57,7 @@ message CreatePredIndex {
 // This operation is idempotent: it will only add new non-linear indices, not remove existing ones.
 message CreateNonLinearAlgorithmIndex {
   string store = 1; // The name of the store.
-  repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2; // Non-linear algorithms to create indices for.
+  repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 2; // Non-linear algorithms to create indices for.
 }
 
 // Drops the specified predicates from the store.

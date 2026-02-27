@@ -1,9 +1,34 @@
 syntax = "proto3";
 
+import "algorithm/algorithm.proto";
+
 package algorithm.nonlinear;
 
 option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear;nonlinear";
 
 enum NonLinearAlgorithm {
   KDTree = 0;
+  HNSW = 1;
+}
+
+
+
+message HNSWConfig {
+  optional algorithms.DistanceMetric distance = 1;
+
+  optional uint32 ef_construction = 2;
+  optional uint32 maximum_connections = 3;
+  optional uint32 maximum_connections_zero = 4;
+  optional bool extend_candidates = 5;
+  optional bool keep_pruned_connections = 6;
+}
+
+message KDTreeConfig {
+}
+
+message NonLinearIndex {
+  oneof index {
+    HNSWConfig hnsw = 1;
+    KDTreeConfig kdtree = 2;
+  }
 }

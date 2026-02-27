@@ -6,6 +6,7 @@ pub enum Algorithm {
     DotProductSimilarity = 1,
     CosineSimilarity = 2,
     KdTree = 3,
+    Hnsw = 4,
 }
 impl Algorithm {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -18,6 +19,7 @@ impl Algorithm {
             Self::DotProductSimilarity => "DotProductSimilarity",
             Self::CosineSimilarity => "CosineSimilarity",
             Self::KdTree => "KDTree",
+            Self::Hnsw => "HNSW",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -27,6 +29,36 @@ impl Algorithm {
             "DotProductSimilarity" => Some(Self::DotProductSimilarity),
             "CosineSimilarity" => Some(Self::CosineSimilarity),
             "KDTree" => Some(Self::KdTree),
+            "HNSW" => Some(Self::Hnsw),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum DistanceMetric {
+    Euclidean = 0,
+    DotProduct = 1,
+    Cosine = 2,
+}
+impl DistanceMetric {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Euclidean => "Euclidean",
+            Self::DotProduct => "DotProduct",
+            Self::Cosine => "Cosine",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "Euclidean" => Some(Self::Euclidean),
+            "DotProduct" => Some(Self::DotProduct),
+            "Cosine" => Some(Self::Cosine),
             _ => None,
         }
     }
