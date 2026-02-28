@@ -1,7 +1,6 @@
 use crate::cli::ServerConfig;
 use crate::engine::store::StoreHandler;
 use crate::errors::ServerError;
-use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::db::pipeline::db_query::Query;
 use ahnlich_types::db::server::GetSimNEntry;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName, StoreValue};
@@ -57,10 +56,11 @@ impl DbService for Server {
                 ));
             }
         };
+
         let non_linear_indices = create_store_params
             .non_linear_indices
             .into_iter()
-            .filter_map(|index| NonLinearAlgorithm::try_from(index).ok())
+            .filter_map(|index| index.index)
             .collect();
 
         self.store_handler
@@ -223,9 +223,7 @@ impl DbService for Server {
         let non_linear_indices = params
             .non_linear_indices
             .into_iter()
-            .filter_map(|val| {
-                ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm::try_from(val).ok()
-            })
+            .filter_map(|val| val.index)
             .collect();
 
         let created = self.store_handler.create_non_linear_algorithm_index(

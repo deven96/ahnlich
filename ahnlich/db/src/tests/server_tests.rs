@@ -1,7 +1,9 @@
 use crate::server::handler::Server;
 use crate::{cli::ServerConfig, errors::ServerError};
 use ahnlich_types::algorithm::algorithms::Algorithm;
-use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::algorithm::nonlinear::{
+    self, KdTreeConfig, NonLinearAlgorithm, non_linear_index,
+};
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreValue};
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::metadata::metadata_value::Value as MetadataValueEnum;
@@ -1218,7 +1220,11 @@ async fn test_remove_non_linear_indices() {
                 store: "Main".to_string(),
                 dimension: 3,
                 create_predicates: vec!["medal".into()],
-                non_linear_indices: vec![NonLinearAlgorithm::KdTree.into()],
+
+                non_linear_indices: vec![nonlinear::NonLinearIndex {
+                    index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                }],
+
                 error_if_exists: true,
             })),
         },
@@ -1318,7 +1324,10 @@ async fn test_remove_non_linear_indices() {
             query: Some(Query::CreateNonLinearAlgorithmIndex(
                 db_query_types::CreateNonLinearAlgorithmIndex {
                     store: "Main".to_string(),
-                    non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+
+                    non_linear_indices: vec![nonlinear::NonLinearIndex {
+                        index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                    }],
                 },
             )),
         },
@@ -1460,7 +1469,9 @@ async fn test_get_sim_n_non_linear() {
                 store: "Main".to_string(),
                 dimension: 3,
                 create_predicates: vec!["medal".into()],
-                non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+                non_linear_indices: vec![nonlinear::NonLinearIndex {
+                    index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                }],
                 error_if_exists: true,
             })),
         },

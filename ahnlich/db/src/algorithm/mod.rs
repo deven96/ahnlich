@@ -4,9 +4,10 @@ mod similarity;
 
 use std::num::NonZeroUsize;
 
-use ahnlich_similarity::{EmbeddingKey, LinearAlgorithm};
-use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_similarity::{EmbeddingKey, LinearAlgorithm, hnsw::HNSWConfig as SimilarityHnswConfig};
+use ahnlich_types::algorithm::algorithms::DistanceMetric;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::algorithm::{algorithms::Algorithm, nonlinear::HnswConfig};
 use heap::{BoundedMaxHeap, BoundedMinHeap, HeapOrder};
 use rayon::iter::ParallelIterator;
 
@@ -32,6 +33,7 @@ impl From<Algorithm> for AlgorithmByType {
                 AlgorithmByType::Linear(LinearAlgorithm::DotProductSimilarity)
             }
             Algorithm::KdTree => AlgorithmByType::NonLinear(NonLinearAlgorithm::KdTree),
+            Algorithm::Hnsw => AlgorithmByType::NonLinear(NonLinearAlgorithm::Hnsw),
         }
     }
 }
@@ -155,6 +157,63 @@ impl FindSimilarN for LinearAlgorithm {
                     .map(|sv| (sv.0.0, sv.0.1))
                     .collect()
             }
+        }
+    }
+}
+
+struct DbHnswConfig {
+    distance_algorithm: LinearAlgorithm,
+    ef_construction: usize,
+    maximum_connections: usize,
+    maximum_connections_zero: usize,
+    extend_candidates: bool,
+    keep_pruned_connections: bool,
+}
+
+impl From<HnswConfig> for DbHnswConfig {
+    fn from(value: HnswConfig) -> Self {
+        let defaults = SimilarityHnswConfig::default();
+
+        let distance_algorithm = if let Some(algo) = value.distance.map(|v| {
+            v.try_into().unwrap_or_else(|err| {
+                tracing::error!(
+                    "illegal distance algorithm selected: {}. Reverting to default.",
+                    err
+                );
+                DistanceMetric::Euclidean
+            })
+        }) {
+            match algo {
+                DistanceMetric::Cosine => LinearAlgorithm::CosineSimilarity,
+                DistanceMetric::Euclidean => LinearAlgorithm::EuclideanDistance,
+                DistanceMetric::DotProduct => LinearAlgorithm::DotProductSimilarity,
+            }
+        } else {
+            LinearAlgorithm::EuclideanDistance
+        };
+
+        Self {
+            distance_algorithm,
+            ef_construction: value
+                .ef_construction
+                .map(|val| val as usize)
+                .unwrap_or(defaults.ef_construction),
+            maximum_connections: value
+                .maximum_connections
+                .map(|val| val as usize)
+                .unwrap_or(defaults.maximum_connections),
+            maximum_connections_zero: value
+                .maximum_connections_zero
+                .map(|val| val as usize)
+                .unwrap_or(defaults.maximum_connections_zero),
+
+            extend_candidates: value
+                .extend_candidates
+                .unwrap_or(defaults.extend_candidates),
+
+            keep_pruned_connections: value
+                .keep_pruned_connections
+                .unwrap_or(defaults.extend_candidates),
         }
     }
 }

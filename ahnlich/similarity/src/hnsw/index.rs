@@ -108,8 +108,21 @@ pub struct HNSW<D: DistanceFn> {
 }
 
 impl<D: DistanceFn> HNSW<D> {
-    pub fn new(distance_algorithm: D) -> Self {
-        let config = HNSWConfig::default();
+    pub fn new(
+        distance_algorithm: D,
+        ef_construction: usize,
+        maximum_connections: usize,
+        maximum_connections_zero: usize,
+        extend_candidates: bool,
+        keep_pruned_connections: bool,
+    ) -> Self {
+        let config = HNSWConfig {
+            ef_construction,
+            maximum_connections,
+            maximum_connections_zero,
+            extend_candidates,
+            keep_pruned_connections,
+        };
         Self::new_with_config(config, distance_algorithm)
     }
 

@@ -532,7 +532,7 @@ impl KDTree {
     }
 }
 
-impl NonLinearAlgorithmWithIndexImpl<'_> for KDTree {
+impl NonLinearAlgorithmWithIndexImpl for KDTree {
     #[tracing::instrument(skip_all)]
     fn insert(&self, points: &[EmbeddingKey]) -> Result<(), Error> {
         if points.is_empty() {

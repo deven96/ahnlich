@@ -1,6 +1,6 @@
 use std::{collections::HashSet, num::NonZeroUsize};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 pub mod distance;
 pub mod embedding_key;
@@ -21,7 +21,7 @@ pub enum LinearAlgorithm {
     DotProductSimilarity,
 }
 
-pub trait NonLinearAlgorithmWithIndexImpl<'a>: Serialize + Deserialize<'a> {
+pub trait NonLinearAlgorithmWithIndexImpl: DeserializeOwned {
     // insert a batch of new inputs
     fn insert(&self, new: &[EmbeddingKey]) -> Result<(), error::Error>;
     // delete a batch of new inputs

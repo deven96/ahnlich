@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 pub mod index;
+pub mod utils;
 
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
 /// similarity function. It then navigates between these localised lists in DFS manner until it
@@ -325,7 +326,7 @@ pub fn get_node_id(value: &[f32]) -> NodeId {
     NodeId(hasher.finish())
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy)]
 pub struct HNSWConfig {
     pub ef_construction: usize,
     pub maximum_connections: usize,

@@ -6,7 +6,7 @@ use super::super::algorithm::non_linear::NonLinearAlgorithmIndices;
 use super::super::algorithm::{AlgorithmByType, FindSimilarN};
 use super::predicate::PredicateIndices;
 use ahnlich_types::algorithm::algorithms::Algorithm;
-use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::algorithm::nonlinear::{NonLinearAlgorithm, non_linear_index};
 use ahnlich_types::db::server::StoreInfo;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::{StoreKey, StoreValue};
@@ -206,7 +206,7 @@ impl StoreHandler {
     pub(crate) fn create_non_linear_algorithm_index(
         &self,
         store_name: &StoreName,
-        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+        non_linear_indices: StdHashSet<non_linear_index::Index>,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name)?;
         let created_predicates = store.create_non_linear_algorithm_index(non_linear_indices);
@@ -397,7 +397,7 @@ impl StoreHandler {
         dimension: NonZeroUsize,
         // FIXME: update metadata key with grpc type key
         predicates: Vec<String>,
-        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+        non_linear_indices: StdHashSet<non_linear_index::Index>,
         error_if_exists: bool,
     ) -> Result<(), ServerError> {
         if self
@@ -499,7 +499,7 @@ impl Store {
     pub(super) fn create(
         dimension: NonZeroUsize,
         predicates: Vec<String>,
-        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+        non_linear_indices: StdHashSet<non_linear_index::Index>,
     ) -> Self {
         Self {
             dimension,
@@ -894,13 +894,19 @@ impl Store {
     #[tracing::instrument(skip(self))]
     fn create_non_linear_algorithm_index(
         &self,
-        non_linear_indices: StdHashSet<NonLinearAlgorithm>,
+
+        non_linear_indices: StdHashSet<non_linear_index::Index>,
     ) -> usize {
         let current_keys = self.non_linear_indices.current_keys();
-        let new_predicates: StdHashSet<_> = non_linear_indices
-            .difference(&current_keys)
-            .copied()
-            .collect();
+
+        let new_predicates = non_linear_indices
+            .into_iter()
+            .filter(|index| {
+                let candidate = (index).into();
+                !current_keys.contains(&candidate)
+            })
+            .collect::<StdHashSet<_>>();
+
         let new_predicates_len = new_predicates.len();
         if !new_predicates.is_empty() {
             // get all the values and reindex
