@@ -8,7 +8,6 @@ use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_similarity::hnsw::index::HNSW;
 use ahnlich_similarity::kdtree::KDTree;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
-use ahnlich_types::algorithm::nonlinear::non_linear_index;
 use ahnlich_types::algorithm::nonlinear::non_linear_index::Index as NonLinearAlgorithmIndexConf;
 use papaya::HashMap as ConcurrentHashMap;
 use rayon::iter::IntoParallelIterator;
@@ -23,7 +22,7 @@ use std::num::NonZeroUsize;
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum NonLinearAlgorithmWithIndex {
     KDTree(KDTree),
-    Hnsw(HNSW<LinearAlgorithm>),
+    Hnsw(Box<HNSW<LinearAlgorithm>>),
 }
 
 impl NonLinearAlgorithmWithIndex {
@@ -36,14 +35,14 @@ impl NonLinearAlgorithmWithIndex {
             ),
             NonLinearAlgorithmIndexConf::Hnsw(conf) => {
                 let hnsw_conf: DbHnswConfig = conf.into();
-                NonLinearAlgorithmWithIndex::Hnsw(HNSW::new(
+                NonLinearAlgorithmWithIndex::Hnsw(Box::new(HNSW::new(
                     hnsw_conf.distance_algorithm,
                     hnsw_conf.ef_construction,
                     hnsw_conf.maximum_connections,
                     hnsw_conf.maximum_connections_zero,
                     hnsw_conf.extend_candidates,
                     hnsw_conf.keep_pruned_connections,
-                ))
+                )))
             }
         }
     }
@@ -51,11 +50,11 @@ impl NonLinearAlgorithmWithIndex {
     #[tracing::instrument(skip_all)]
     fn insert(&self, new: &[EmbeddingKey]) {
         if let Err(err) = match &self {
-            &NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
-                <KDTree as NonLinearAlgorithmWithIndexImpl>::insert(&kdtree, new)
+            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
+                <KDTree as NonLinearAlgorithmWithIndexImpl>::insert(kdtree, new)
             }
-            &NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
-                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::insert(&hnsw, new)
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
+                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::insert(hnsw, new)
             }
         } {
             tracing::error!("Error inserting into index: {:?}", err)
@@ -65,12 +64,12 @@ impl NonLinearAlgorithmWithIndex {
     #[tracing::instrument(skip_all)]
     fn delete(&self, del: &[EmbeddingKey]) {
         if let Err(err) = match &self {
-            &NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
-                <KDTree as NonLinearAlgorithmWithIndexImpl>::delete(&kdtree, del)
+            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
+                <KDTree as NonLinearAlgorithmWithIndexImpl>::delete(kdtree, del)
             }
 
-            &NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
-                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::delete(&hnsw, del)
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
+                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::delete(hnsw, del)
             }
         } {
             tracing::error!("Error deleting from index: {:?}", err)
@@ -80,11 +79,11 @@ impl NonLinearAlgorithmWithIndex {
     #[tracing::instrument(skip_all)]
     fn size(&self) -> usize {
         match &self {
-            &NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
-                <KDTree as NonLinearAlgorithmWithIndexImpl>::size(&kdtree)
+            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
+                <KDTree as NonLinearAlgorithmWithIndexImpl>::size(kdtree)
             }
-            &NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
-                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::size(&hnsw)
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
+                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::size(hnsw)
             }
         }
     }
@@ -106,17 +105,17 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
         };
 
         match &self {
-            &NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
+            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
                 <KDTree as NonLinearAlgorithmWithIndexImpl>::n_nearest(
-                    &kdtree,
+                    kdtree,
                     search_vector.as_slice(),
                     n,
                     accept_list,
                 )
             }
-            &NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
                 <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::n_nearest(
-                    &hnsw,
+                    hnsw,
                     search_vector.as_slice(),
                     n,
                     accept_list,

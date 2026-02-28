@@ -84,7 +84,7 @@ pub struct HNSW<D: DistanceFn> {
     /// The single source of truth for all node data.
     /// Keys are NodeId, values are the Node structs containing embeddings and neighbours.
     /// Uses papaya's concurrent HashMap for lock-free concurrent read access.
-    pub(crate) nodes: papaya::HashMap<NodeId, Node>,
+    nodes: papaya::HashMap<NodeId, Node>,
 
     /// Entry point node ID for search operations.
     ///
@@ -98,7 +98,7 @@ pub struct HNSW<D: DistanceFn> {
 
     /// distance algorithm
     /// can be ec
-    pub(crate) distance_algorithm: D,
+    distance_algorithm: D,
 
     /// Keep pruned connections:
     keep_pruned_connections: bool,
@@ -175,6 +175,66 @@ impl<D: DistanceFn> HNSW<D> {
             }
         }
         Ok(deleted)
+    }
+
+    /// Compute the approximate memory size of this HNSW index.
+    pub fn size(&self) -> usize {
+        let base = std::mem::size_of_val(self);
+        let nodes_guard = self.nodes.pin();
+        let mut node_size: usize = 0;
+        for (_, node) in nodes_guard.iter() {
+            node_size += std::mem::size_of_val(node) + std::mem::size_of_val(node.value.as_slice());
+        }
+        base + node_size
+    }
+
+    /// Find the n nearest neighbors to the reference point.
+    /// Results are returned in ascending distance order (closest first),
+    /// matching the behavior of KDTree::n_nearest.
+    /// If accept_list is Some, only return results that are in the accept list.
+    pub fn n_nearest(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept_list: Option<std::collections::HashSet<EmbeddingKey>>,
+    ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
+        if matches!(accept_list.as_ref(), Some(a) if a.is_empty()) {
+            return Ok(vec![]);
+        }
+
+        // When accept_list is provided, search for more candidates to account for filtering
+        let search_k = match accept_list {
+            Some(ref list) => n.get().max(list.len()),
+            None => n.get(),
+        };
+
+        let query = Node::new(EmbeddingKey::new(reference_point.to_vec()));
+        // knn_search returns results in ascending distance order
+        let result_ids = self.knn_search(&query, search_k, None)?;
+
+        let nodes_guard = self.nodes.pin();
+        let mut results: Vec<(EmbeddingKey, f32)> = Vec::with_capacity(n.get());
+        for node_id in result_ids {
+            if results.len() >= n.get() {
+                break;
+            }
+            if let Some(node) = nodes_guard.get(&node_id) {
+                let key = node.value.clone();
+                // Filter by accept_list if provided
+                if let Some(ref accept) = accept_list
+                    && !accept.contains(&key)
+                {
+                    continue;
+                }
+
+                let distance = self
+                    .distance_algorithm
+                    .distance(reference_point, key.as_slice());
+                results.push((key, distance));
+            }
+        }
+
+        Ok(results)
     }
 
     /// Insert a new element into the HNSW graph
@@ -686,6 +746,167 @@ impl Default for HNSW<LinearAlgorithm> {
             extend_candidates: config.extend_candidates,
             keep_pruned_connections: config.keep_pruned_connections,
         }
+    }
+}
+
+// --- Serde support via Temp structs ---
+// Mirrors the KDTree pattern: convert non-serializable concurrent types
+// (papaya, parking_lot, SmallVec, AtomicU8) to plain std equivalents.
+
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+struct TempNode {
+    id: NodeId,
+    value: Vec<f32>,
+    neighbours: std::collections::HashMap<LayerIndex, Vec<NodeId>>,
+    back_links: Vec<NodeId>,
+}
+
+impl From<&Node> for TempNode {
+    fn from(node: &Node) -> Self {
+        let neighbours_guard = node.neighbours.pin();
+        let mut neighbours = std::collections::HashMap::new();
+        for (layer, node_set) in neighbours_guard.iter() {
+            let node_ids: Vec<NodeId> = node_set.pin().iter().copied().collect();
+            neighbours.insert(*layer, node_ids);
+        }
+        let back_links: Vec<NodeId> = node.back_links.pin().iter().copied().collect();
+        TempNode {
+            id: node.id,
+            value: node.value.as_slice().to_vec(),
+            neighbours,
+            back_links,
+        }
+    }
+}
+
+impl From<TempNode> for Node {
+    fn from(temp: TempNode) -> Self {
+        let neighbours = papaya::HashMap::new();
+        {
+            let guard = neighbours.pin();
+            for (layer, node_ids) in temp.neighbours {
+                let set = HashSet::from_iter(node_ids);
+                guard.insert(layer, set);
+            }
+        }
+
+        let back_links = HashSet::from_iter(temp.back_links);
+
+        Node {
+            id: temp.id,
+            value: EmbeddingKey::new(temp.value),
+            neighbours,
+            back_links,
+        }
+    }
+}
+
+#[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+struct TempHNSW<D> {
+    ef_construction: usize,
+    top_most_layer: u8,
+    maximum_connections: usize,
+    maximum_connections_zero: usize,
+    inv_log_m: f64,
+    graph: std::collections::HashMap<LayerIndex, Vec<NodeId>>,
+    nodes: std::collections::HashMap<NodeId, TempNode>,
+    enter_point: Vec<NodeId>,
+    distance_algorithm: D,
+    keep_pruned_connections: bool,
+    extend_candidates: bool,
+}
+
+impl<D: DistanceFn> From<&HNSW<D>> for TempHNSW<D> {
+    fn from(hnsw: &HNSW<D>) -> Self {
+        let graph_guard = hnsw.graph.pin();
+        let mut graph = std::collections::HashMap::new();
+        for (layer, node_set) in graph_guard.iter() {
+            let ids: Vec<NodeId> = node_set.pin().iter().copied().collect();
+            graph.insert(*layer, ids);
+        }
+
+        let nodes_guard = hnsw.nodes.pin();
+        let mut nodes = std::collections::HashMap::new();
+        for (node_id, node) in nodes_guard.iter() {
+            nodes.insert(*node_id, TempNode::from(node));
+        }
+
+        let enter_point: Vec<NodeId> = hnsw.enter_point.read().iter().copied().collect();
+
+        TempHNSW {
+            ef_construction: hnsw.ef_construction,
+            top_most_layer: hnsw.top_most_layer.load(Ordering::Acquire),
+            maximum_connections: hnsw.maximum_connections,
+            maximum_connections_zero: hnsw.maximum_connections_zero,
+            inv_log_m: hnsw.inv_log_m,
+            graph,
+            nodes,
+            enter_point,
+            distance_algorithm: hnsw.distance_algorithm,
+            keep_pruned_connections: hnsw.keep_pruned_connections,
+            extend_candidates: hnsw.extend_candidates,
+        }
+    }
+}
+
+impl<D: DistanceFn> From<TempHNSW<D>> for HNSW<D> {
+    fn from(temp: TempHNSW<D>) -> Self {
+        let graph = papaya::HashMap::new();
+        {
+            let guard = graph.pin();
+            for (layer, ids) in temp.graph {
+                let set = HashSet::from_iter(ids);
+                guard.insert(layer, set);
+            }
+        }
+
+        let nodes = papaya::HashMap::new();
+        {
+            let guard = nodes.pin();
+            for (id, temp_node) in temp.nodes {
+                guard.insert(id, Node::from(temp_node));
+            }
+        }
+
+        let enter_point: SmallVec<[NodeId; 1]> = temp.enter_point.into_iter().collect();
+
+        HNSW {
+            ef_construction: temp.ef_construction,
+            top_most_layer: AtomicU8::new(temp.top_most_layer),
+            maximum_connections: temp.maximum_connections,
+            maximum_connections_zero: temp.maximum_connections_zero,
+            inv_log_m: temp.inv_log_m,
+            graph,
+            nodes,
+            enter_point: RwLock::new(enter_point),
+            distance_algorithm: temp.distance_algorithm,
+            keep_pruned_connections: temp.keep_pruned_connections,
+            extend_candidates: temp.extend_candidates,
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<D: DistanceFn + serde::Serialize> serde::Serialize for HNSW<D> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer + Sized,
+    {
+        let temp: TempHNSW<D> = self.into();
+        temp.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, D: DistanceFn + serde::Deserialize<'de>> serde::Deserialize<'de> for HNSW<D> {
+    fn deserialize<De>(deserializer: De) -> Result<Self, De::Error>
+    where
+        De: serde::Deserializer<'de>,
+    {
+        let temp = TempHNSW::<D>::deserialize(deserializer)?;
+        Ok(temp.into())
     }
 }
 

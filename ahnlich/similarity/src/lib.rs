@@ -15,6 +15,7 @@ pub mod tests;
 pub use embedding_key::EmbeddingKey;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum LinearAlgorithm {
     EuclideanDistance,
     CosineSimilarity,

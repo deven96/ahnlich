@@ -2,7 +2,7 @@ use crate::server::handler::Server;
 use crate::{cli::ServerConfig, errors::ServerError};
 use ahnlich_types::algorithm::algorithms::Algorithm;
 use ahnlich_types::algorithm::nonlinear::{
-    self, KdTreeConfig, NonLinearAlgorithm, non_linear_index,
+    self, HnswConfig, KdTreeConfig, NonLinearAlgorithm, non_linear_index,
 };
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreValue};
 use ahnlich_types::metadata::MetadataValue;
@@ -45,6 +45,16 @@ static CONFIG_WITH_PERSISTENCE: Lazy<ServerConfig> = Lazy::new(|| {
         .os_select_port()
         .persistence_interval(200)
         .persist_location((*PERSISTENCE_FILE).clone())
+});
+
+static HNSW_PERSISTENCE_FILE: Lazy<PathBuf> =
+    Lazy::new(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ahnlich_hnsw.dat"));
+
+static CONFIG_WITH_HNSW_PERSISTENCE: Lazy<ServerConfig> = Lazy::new(|| {
+    ServerConfig::default()
+        .os_select_port()
+        .persistence_interval(200)
+        .persist_location((*HNSW_PERSISTENCE_FILE).clone())
 });
 
 #[tokio::test]
@@ -3071,4 +3081,252 @@ async fn test_drop_stores() {
     };
 
     assert_eq!(expected, response.into_inner());
+}
+
+#[tokio::test]
+async fn test_server_persistence_with_hnsw_index() {
+    // Clean up - delete persistence file
+    let _ = std::fs::remove_file(&*HNSW_PERSISTENCE_FILE);
+
+    let server = Server::new(&CONFIG_WITH_HNSW_PERSISTENCE)
+        .await
+        .expect("Failed to create server");
+    let write_flag = server.write_flag();
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // First set of operations: create store with HNSW index, insert data, query
+    let queries = vec![
+        // Create store with HNSW index
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateStore(db_query_types::CreateStore {
+                store: "HnswStore".to_string(),
+                dimension: 3,
+                create_predicates: vec!["category".into()],
+                non_linear_indices: vec![nonlinear::NonLinearIndex {
+                    index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),
+                }],
+                error_if_exists: true,
+            })),
+        },
+        // Insert test data
+        db_pipeline::DbQuery {
+            query: Some(Query::Set(db_query_types::Set {
+                store: "HnswStore".into(),
+                inputs: vec![
+                    DbStoreEntry {
+                        key: Some(StoreKey {
+                            key: vec![1.0, 2.0, 3.0],
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::from_iter([(
+                                "category".into(),
+                                MetadataValue {
+                                    value: Some(MetadataValueEnum::RawString("a".into())),
+                                },
+                            )]),
+                        }),
+                    },
+                    DbStoreEntry {
+                        key: Some(StoreKey {
+                            key: vec![4.0, 5.0, 6.0],
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::from_iter([(
+                                "category".into(),
+                                MetadataValue {
+                                    value: Some(MetadataValueEnum::RawString("b".into())),
+                                },
+                            )]),
+                        }),
+                    },
+                ],
+            })),
+        },
+        // Get similar items using HNSW
+        db_pipeline::DbQuery {
+            query: Some(Query::GetSimN(db_query_types::GetSimN {
+                store: "HnswStore".to_string(),
+                closest_n: 1,
+                algorithm: Algorithm::Hnsw.into(),
+                search_input: Some(StoreKey {
+                    key: vec![1.0, 2.0, 3.0],
+                }),
+                condition: None,
+            })),
+        },
+    ];
+
+    let pipelined_request = db_pipeline::DbRequestPipeline { queries };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+
+    // CreateStore should succeed
+    assert!(
+        matches!(
+            &responses[0].response,
+            Some(db_pipeline::db_server_response::Response::Unit(_))
+        ),
+        "CreateStore failed: {:?}",
+        responses[0]
+    );
+    // Set should succeed
+    assert!(
+        matches!(
+            &responses[1].response,
+            Some(db_pipeline::db_server_response::Response::Set(_))
+        ),
+        "Set failed: {:?}",
+        responses[1]
+    );
+    // GetSimN should return results
+    assert!(
+        matches!(
+            &responses[2].response,
+            Some(db_pipeline::db_server_response::Response::GetSimN(_))
+        ),
+        "GetSimN failed: {:?}",
+        responses[2]
+    );
+
+    assert!(write_flag.load(Ordering::SeqCst));
+
+    // Wait for persistence
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    // Second server instance - verify persistence
+    let server = Server::new(&CONFIG_WITH_HNSW_PERSISTENCE)
+        .await
+        .expect("Failed to create server");
+    let write_flag = server.write_flag();
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    // Verify persistence file exists and is not empty
+    let file_metadata = std::fs::metadata(
+        &CONFIG_WITH_HNSW_PERSISTENCE
+            .common
+            .persist_location
+            .clone()
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(file_metadata.len() > 0, "The persistence file is empty");
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Second set of operations to verify persistence
+    let queries = vec![
+        // Should error as store exists from persistence
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateStore(db_query_types::CreateStore {
+                store: "HnswStore".to_string(),
+                dimension: 3,
+                create_predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+            })),
+        },
+        // Should get persisted data
+        db_pipeline::DbQuery {
+            query: Some(Query::GetKey(db_query_types::GetKey {
+                store: "HnswStore".to_string(),
+                keys: vec![StoreKey {
+                    key: vec![1.0, 2.0, 3.0],
+                }],
+            })),
+        },
+        // GetSimN should still work after deserialization
+        db_pipeline::DbQuery {
+            query: Some(Query::GetSimN(db_query_types::GetSimN {
+                store: "HnswStore".to_string(),
+                closest_n: 1,
+                algorithm: Algorithm::Hnsw.into(),
+                search_input: Some(StoreKey {
+                    key: vec![4.0, 5.0, 6.0],
+                }),
+                condition: None,
+            })),
+        },
+    ];
+
+    let pipelined_request = db_pipeline::DbRequestPipeline { queries };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+
+    let already_exists_error = ServerError::StoreAlreadyExists(StoreName {
+        value: "HnswStore".into(),
+    });
+
+    // CreateStore should error (already exists from persistence)
+    assert_eq!(
+        responses[0].response,
+        Some(db_pipeline::db_server_response::Response::Error(
+            ahnlich_types::shared::info::ErrorResponse {
+                message: already_exists_error.to_string(),
+                code: 6,
+            },
+        ))
+    );
+
+    // GetKey should return persisted data
+    assert_eq!(
+        responses[1].response,
+        Some(db_pipeline::db_server_response::Response::Get(
+            db_response_types::Get {
+                entries: vec![DbStoreEntry {
+                    key: Some(StoreKey {
+                        key: vec![1.0, 2.0, 3.0],
+                    }),
+                    value: Some(StoreValue {
+                        value: HashMap::from_iter([(
+                            "category".into(),
+                            MetadataValue {
+                                value: Some(MetadataValueEnum::RawString("a".into())),
+                            },
+                        )]),
+                    }),
+                }],
+            },
+        ))
+    );
+
+    // GetSimN should work after deserialization
+    assert!(
+        matches!(
+            &responses[2].response,
+            Some(db_pipeline::db_server_response::Response::GetSimN(_))
+        ),
+        "GetSimN after deserialization failed: {:?}",
+        responses[2]
+    );
+
+    assert!(!write_flag.load(Ordering::SeqCst));
+
+    // Clean up - delete persistence file
+    let _ = std::fs::remove_file(&*HNSW_PERSISTENCE_FILE);
 }
