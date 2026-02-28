@@ -84,7 +84,7 @@ pub struct HNSW<D: DistanceFn> {
     /// The single source of truth for all node data.
     /// Keys are NodeId, values are the Node structs containing embeddings and neighbours.
     /// Uses papaya's concurrent HashMap for lock-free concurrent read access.
-    nodes: papaya::HashMap<NodeId, Node>,
+    pub(crate) nodes: papaya::HashMap<NodeId, Node>,
 
     /// Entry point node ID for search operations.
     ///
@@ -98,7 +98,7 @@ pub struct HNSW<D: DistanceFn> {
 
     /// distance algorithm
     /// can be ec
-    distance_algorithm: D,
+    pub(crate) distance_algorithm: D,
 
     /// Keep pruned connections:
     keep_pruned_connections: bool,

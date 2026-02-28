@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
 
 use crate::{
-    algorithm::{to_algorithm, to_non_linear},
+    algorithm::{non_linear_to_index, to_algorithm, to_non_linear},
     array::{parse_f32_array, parse_multi_f32_array},
     metadata::parse_store_keys_to_store_value,
     parser::{QueryParser, Rule},
@@ -112,7 +112,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     non_linear_indices = index_name_pairs
                         .into_inner()
                         .flat_map(|index_pair| to_non_linear(index_pair.as_str()))
-                        .map(|a| a as i32)
+                        .map(non_linear_to_index)
                         .collect();
                 };
                 DBQuery::CreateStore(CreateStore {
@@ -207,7 +207,10 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     parse_create_non_linear_algorithm_index(statement)?;
                 DBQuery::CreateNonLinearAlgorithmIndex(CreateNonLinearAlgorithmIndex {
                     store,
-                    non_linear_indices: non_linear_indices.into_iter().map(|a| a as i32).collect(),
+                    non_linear_indices: non_linear_indices
+                        .into_iter()
+                        .map(non_linear_to_index)
+                        .collect(),
                 })
             }
             Rule::create_pred_index => {

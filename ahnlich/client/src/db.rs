@@ -382,7 +382,10 @@ mod test {
     use super::*;
     use ahnlich_db::{cli::ServerConfig, errors::ServerError, server::handler::Server};
     use ahnlich_types::{
-        algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
+        algorithm::{
+            algorithms::Algorithm,
+            nonlinear::{KdTreeConfig, NonLinearAlgorithm, NonLinearIndex, non_linear_index},
+        },
         db::{
             pipeline::{DbServerResponse, db_server_response::Response},
             query::CreateStore,
@@ -783,7 +786,9 @@ mod test {
             store: "Main".to_string(),
             create_predicates: vec!["role".to_string()],
             dimension: 4,
-            non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+            non_linear_indices: vec![NonLinearIndex {
+                index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+            }],
             error_if_exists: true,
         };
 

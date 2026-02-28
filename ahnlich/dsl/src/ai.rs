@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::num::NonZeroUsize;
 
 use crate::{
-    algorithm::{to_algorithm, to_non_linear},
+    algorithm::{non_linear_to_index, to_algorithm, to_non_linear},
     metadata::{parse_store_input, parse_store_inputs, parse_store_inputs_to_store_value},
     parser::{QueryParser, Rule},
     shared::{
@@ -175,7 +175,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     non_linear_indices = index_name_pairs
                         .into_inner()
                         .flat_map(|index_pair| to_non_linear(index_pair.as_str()))
-                        .map(|a| a as i32)
+                        .map(non_linear_to_index)
                         .collect();
                 };
                 if let Some(next_pair) = inner_pairs.peek()
@@ -290,7 +290,10 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     parse_create_non_linear_algorithm_index(statement)?;
                 AiQuery::CreateNonLinearAlgorithmIndex(CreateNonLinearAlgorithmIndex {
                     store,
-                    non_linear_indices: non_linear_indices.into_iter().map(|a| a as i32).collect(),
+                    non_linear_indices: non_linear_indices
+                        .into_iter()
+                        .map(non_linear_to_index)
+                        .collect(),
                 })
             }
             Rule::create_pred_index => {

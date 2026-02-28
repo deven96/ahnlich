@@ -1,6 +1,9 @@
 use crate::error::DslError;
 use ahnlich_types::{
-    algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
+    algorithm::{
+        algorithms::Algorithm,
+        nonlinear::{KdTreeConfig, NonLinearAlgorithm, NonLinearIndex, non_linear_index},
+    },
     db::{
         pipeline::db_query::Query as DBQuery,
         query::{
@@ -109,7 +112,9 @@ fn test_create_store_parse() {
             store: "school".to_string(),
             dimension: 39,
             create_predicates: vec![],
-            non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+            non_linear_indices: vec![NonLinearIndex {
+                index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+            }],
             error_if_exists: true
         })]
     );
@@ -120,7 +125,9 @@ fn test_create_store_parse() {
             store: "school".to_string(),
             dimension: 77,
             create_predicates: vec!["name".to_string(), "surname".to_string(),],
-            non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+            non_linear_indices: vec![NonLinearIndex {
+                index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+            }],
             error_if_exists: true
         })]
     );
@@ -199,7 +206,9 @@ fn test_create_non_linear_algorithm_parse() {
         vec![DBQuery::CreateNonLinearAlgorithmIndex(
             CreateNonLinearAlgorithmIndex {
                 store: "store2".to_string(),
-                non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+                non_linear_indices: vec![NonLinearIndex {
+                    index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                }],
             }
         )]
     );
