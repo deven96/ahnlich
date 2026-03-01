@@ -79,13 +79,80 @@ GETSIMN 10 WITH [40.7128, -74.0060] USING kdtree IN geo_store
 - Querying with New York City coordinates retrieves the 10 nearest drivers.
 
 
+## 4. HNSW (Non-Linear)
+**Definition:**
+Hierarchical Navigable Small World (HNSW) is a graph-based approximate nearest-neighbor (ANN) search algorithm. It builds a multi-layered navigable graph that enables fast similarity search by progressively narrowing down candidates through hierarchical layers.
+
+**When to Use:**
+- High-dimensional embeddings (100+ dimensions).
+
+- Large-scale datasets where exact search is too slow.
+
+- Use cases where a small recall trade-off for significant speed gains is acceptable.
+
+- Semantic search, recommendation systems, and image retrieval at scale.
+
+**Configuration Parameters:**
+HNSW performance is highly tunable via its configuration:
+
+| **Parameter** | **Default** | **Description** |
+| ----- | ----- | ----- |
+| `ef_construction` | 100 | Search breadth during index building. Higher = better recall but slower inserts. |
+| `maximum_connections` (M) | 48 | Max connections per node at layers > 0. Higher = more memory, better recall. |
+| `maximum_connections_zero` (Mmax0) | 96 | Max connections at layer 0. Typically 2×M. |
+| `extend_candidates` | false | Expand candidate pool with neighbors' neighbors during selection. |
+| `keep_pruned_connections` | false | Retain pruned connections for higher connectivity (lower diversity). |
+| `distance` | Euclidean | Distance metric: `Euclidean`, `Cosine`, or `DotProduct`. |
+
+**Command to Create Index (with default config):**
+```
+CREATE NON LINEAR ALGORITHM INDEX hnsw IN semantic_store
+```
+
+**Command to Create Store with HNSW config:**
+```python
+# Python client example
+db_client.create_store(
+    store="semantic_store",
+    dimension=384,
+    create_predicates=["category"],
+    non_linear_indices=[
+        NonLinearIndex(index=HnswConfig(
+            distance=DistanceMetric.Cosine,
+            ef_construction=200,
+            maximum_connections=32,
+            maximum_connections_zero=64,
+        ))
+    ],
+    error_if_exists=True,
+)
+```
+
+**Query Example:**
+```
+GETSIMN 10 WITH [0.12, 0.45, ...] USING hnsw IN semantic_store
+```
+
+**Use Case Example:**
+- A semantic search engine indexing millions of document embeddings.
+
+- Querying "machine learning frameworks" retrieves the 10 most semantically similar documents in sub-millisecond time.
+
+**Tuning Tips:**
+- **Low recall?** Increase `ef_construction` and `maximum_connections` to build a denser graph.
+- **Slow inserts?** Decrease `ef_construction` for faster index building at the cost of recall.
+- **Memory constrained?** Lower `maximum_connections` to reduce memory footprint.
+- **Reconstruction:** If you created an index with poor config, you can drop it and recreate with better values. The existing data will be re-indexed automatically.
+
+
 ## Choosing the Right Algorithm
 
-| **Algorithm** | **Best For** | **Pros** | **Cons** | 
+| **Algorithm** | **Best For** | **Pros** | **Cons** |
 | ----- | ----- | ----- | ----- |
 | Cosine Similarity | NLP, semantic search | Ignores magnitude, fast | Not good for magnitude-based data |
 | Euclidean Distance | Images, structured numeric features | Intuitive, works with magnitude | Slower in very high dimensions |
 | k-d Tree | Geospatial, medium-dim embeddings | Efficient exact NN search | Struggles in very high dimensions |
+| HNSW | High-dim, large-scale datasets | Fast ANN search, tunable recall/speed | Approximate (not exact), higher memory |
 
 
 ### Performance & Trade-offs of Similarity Algorithms in Ahnlich DB
@@ -149,6 +216,26 @@ Ahnlich DB is optimized for **real-time vector similarity search**, but differen
 - Perfect for **geospatial queries, structured 2D/3D data**.
 
 
+#### 4. HNSW (Non-Linear Index)
+- **Speed:** Sub-millisecond for most queries, even on large datasets.
+
+- **Accuracy:** Approximate, but tunable via configuration parameters.
+
+- **Memory Usage:** Higher than linear algorithms due to graph structure.
+
+**Benchmark Insight (example):**
+- Dataset: 10K SIFT vectors (128-dim).
+
+- Avg. Query Latency: <1ms (graph traversal).
+
+- Accuracy: 90%+ recall@50 with default config; higher with tuned parameters.
+
+**Limitation:** Approximate results (not exact). Quality depends on configuration.
+
+**Best Trade-off:**
+- Ideal for **high-dimensional semantic search at scale** where speed matters more than perfect accuracy.
+
+
 **Summary Table**
 
 | **Algorithm** | **Speed** | **Accuracy** | **Best Use Case** | **Weakness** |
@@ -156,6 +243,7 @@ Ahnlich DB is optimized for **real-time vector similarity search**, but differen
 | Cosine Similarity | Fast | High (95%) | Semantic search (NLP, docs) | Ignores magnitude differences |
 | Euclidean Distance | Moderate | High (93%) | Image search, recommendations | Slower in high dims |
 | k-d Tree | Ultra-Fast (low-dim) | Exact (100%) | Geospatial, low-dim structured data | Weak in high-dimensional space |
+| HNSW | Ultra-Fast (any dim) | Tunable (80-99%) | Large-scale high-dim search | Approximate, higher memory |
 
 
 ## Ahnlich DB – Deeper Dive into Commands & Advanced Similarity
@@ -182,12 +270,12 @@ This section explores how to **control the database through commands**, how quer
 
 
 #### 1.2 Store Lifecycle
-- **LIST STORES** 
-Returns the vector stores available in the DB.
+- **LIST STORES**
+Returns the vector stores available in the DB, including store name, entry count, size in bytes, and the configuration of any non-linear indices (HNSW or k-d tree) on each store.
 
 
 - **CREATE STORE** `<name>`
-Creates a new container for vectors + metadata.
+Creates a new container for vectors + metadata. Optionally accepts non-linear index configurations (HNSW with tunable parameters, or k-d tree).
 ```
 > CREATE STORE articles
 < OK
@@ -220,7 +308,7 @@ Deletes a store permanently. Data cannot be recovered unless persistence is enab
 - **GET SIM N**
 Core similarity search query. Finds the N closest vectors to an input.
 
-- Supports linear (`cosine, euclidean`) and non-linear (`kdtree`).
+- Supports linear (`cosine, euclidean`) and non-linear (`kdtree, hnsw`).
 
 - Can apply metadata filters.
 
@@ -254,13 +342,14 @@ Indexes allow Ahnlich DB to optimize lookups.
 
 
 - **CREATE NON LINEAR ALGORITHM INDEX**
- Builds a k-d tree index for non-linear nearest-neighbor queries.
+ Builds a non-linear index (k-d tree or HNSW) for nearest-neighbor queries.
 ```
 > CREATE NON LINEAR ALGORITHM INDEX kdtree ON geodata
+> CREATE NON LINEAR ALGORITHM INDEX hnsw ON semantic_store
 ```
 
 - **DROP NON LINEAR ALGORITHM INDEX**
- Removes the k-d tree.
+ Removes a non-linear index (k-d tree or HNSW).
 
 
 
@@ -321,12 +410,30 @@ db.get_sim_n(
 **Example use case:** Find the 5 closest stores to a user’s GPS location.
  Note: Performance drops in high dimensions (curse of dimensionality).
 
+**HNSW Index**
+- Builds a **hierarchical graph structure** for approximate nearest-neighbor search.
+
+- Designed for **high-dimensional data at scale** (100+ dimensions, millions of vectors).
+
+- Configurable trade-off between recall accuracy and search speed.
+
+- Supports Euclidean, Cosine, and DotProduct distance metrics.
+
+```
+> CREATE NON LINEAR ALGORITHM INDEX hnsw ON semantic_store
+> GETSIMN 10 WITH [0.12, 0.45, 0.78, ...] USING hnsw IN semantic_store
+```
+
+**Example use case:** Search through millions of document embeddings for the most semantically similar content in sub-millisecond time.
+ Note: Results are approximate. Tune `ef_construction` and `maximum_connections` for better recall.
+
 ### 3. Choosing the Right Algorithm
-| **Algorithm** | **Strengths** | **Weaknesses** | **Example Use Case** | 
+| **Algorithm** | **Strengths** | **Weaknesses** | **Example Use Case** |
 | ----- | ----- | ----- | ----- |
 | Cosine Similarity | Fast, ignores scale, semantic focus | Magnitude differences ignored | NLP semantic search |
-| Euclidean Distance | Captures true closeness, magnitude | Slower in high dims | Image search, recommendations | 
+| Euclidean Distance | Captures true closeness, magnitude | Slower in high dims | Image search, recommendations |
 | k-d Tree | Exact, blazing fast in low-dim | Poor in >50 dimensions | Geospatial queries |
+| HNSW | Fast ANN, works in high dims, tunable | Approximate, uses more memory | Large-scale semantic search |
 
 
 ### 4. Putting It Together – End-to-End Flow

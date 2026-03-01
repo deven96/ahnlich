@@ -387,6 +387,7 @@ impl DbService for Server {
                 name: store.name.to_string(),
                 len: store.len,
                 size_in_bytes: store.size_in_bytes,
+                non_linear_indices: store.non_linear_indices,
             })
             .sorted()
             .collect();

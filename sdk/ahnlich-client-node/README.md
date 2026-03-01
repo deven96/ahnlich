@@ -544,6 +544,7 @@ This sets the `ahnlich-trace-id` header on every request.
 
 ```bash
 make install-dependencies
+make generate    # regenerate TypeScript protobuf code from proto definitions (requires buf)
 make format
 make lint-check
 make test

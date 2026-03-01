@@ -16,6 +16,7 @@ import { ConnectedClient } from "../client_pb.js";
 import { ServerInfo, StoreUpsert } from "../shared/info_pb.js";
 import { DbStoreEntry, StoreKey, StoreValue } from "../keyval_pb.js";
 import { Similarity } from "../similarity_pb.js";
+import { NonLinearIndex } from "../algorithm/nonlinear_pb.js";
 
 /**
  * @generated from message db.server.Unit
@@ -594,6 +595,11 @@ export class StoreInfo extends Message<StoreInfo> {
    */
   sizeInBytes = protoInt64.zero;
 
+  /**
+   * @generated from field: repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 4;
+   */
+  nonLinearIndices: NonLinearIndex[] = [];
+
   constructor(data?: PartialMessage<StoreInfo>) {
     super();
     proto3.util.initPartial(data, this);
@@ -605,6 +611,7 @@ export class StoreInfo extends Message<StoreInfo> {
     { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "len", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
     { no: 3, name: "size_in_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 4, name: "non_linear_indices", kind: "message", T: NonLinearIndex, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StoreInfo {

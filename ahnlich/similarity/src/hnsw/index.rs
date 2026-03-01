@@ -144,6 +144,22 @@ impl<D: DistanceFn> HNSW<D> {
         }
     }
 
+    /// Get the current configuration of this HNSW index
+    pub fn config(&self) -> HNSWConfig {
+        HNSWConfig {
+            ef_construction: self.ef_construction,
+            maximum_connections: self.maximum_connections,
+            maximum_connections_zero: self.maximum_connections_zero,
+            extend_candidates: self.extend_candidates,
+            keep_pruned_connections: self.keep_pruned_connections,
+        }
+    }
+
+    /// Get the distance algorithm used by this HNSW index
+    pub fn distance_algorithm(&self) -> &D {
+        &self.distance_algorithm
+    }
+
     /// Get the current top-most layer index
     pub fn top_layer(&self) -> u8 {
         self.top_most_layer.load(Ordering::Acquire)

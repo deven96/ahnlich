@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package db.server;
 
+import "algorithm/nonlinear.proto";
 import "client.proto";
 import "keyval.proto";
 import "shared/info.proto";
@@ -70,4 +71,5 @@ message StoreInfo {
   string name = 1;
   uint64 len = 2;
   uint64 size_in_bytes = 3;
+  repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 4;
 }

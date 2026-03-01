@@ -62,11 +62,11 @@ fn main() -> Result<()> {
         .out_dir(out_dir.clone())
         .type_attribute(
             "algorithm.nonlinear.HNSWConfig",
-            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd)]",
+            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
         )
         .type_attribute(
             "algorithm.nonlinear.KDTreeConfig",
-            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd)]",
+            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
         )
         .type_attribute(
             "algorithm.nonlinear.NonLinearAlgorithm",
@@ -74,11 +74,11 @@ fn main() -> Result<()> {
         )
         .type_attribute(
             "algorithm.nonlinear.NonLinearIndex.index",
-            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd)]",
+            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
         )
         .type_attribute(
             "algorithm.nonlinear.NonLinearIndex",
-            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd)]",
+            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
         )
         .type_attribute(
             "keyval.StoreValue",

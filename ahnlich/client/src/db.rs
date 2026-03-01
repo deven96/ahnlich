@@ -384,7 +384,7 @@ mod test {
     use ahnlich_types::{
         algorithm::{
             algorithms::Algorithm,
-            nonlinear::{KdTreeConfig, NonLinearAlgorithm, NonLinearIndex, non_linear_index},
+            nonlinear::{KdTreeConfig, NonLinearIndex, non_linear_index},
         },
         db::{
             pipeline::{DbServerResponse, db_server_response::Response},
@@ -477,6 +477,7 @@ mod test {
                             name: "Main".to_string(),
                             len: 0,
                             size_in_bytes: 1056,
+                            non_linear_indices: vec![],
                         }],
                     })),
                 },
@@ -749,6 +750,7 @@ mod test {
                             name: "Main".to_string(),
                             len: 0,
                             size_in_bytes: 1056,
+                            non_linear_indices: vec![],
                         }],
                     },
                 )),
@@ -842,6 +844,9 @@ mod test {
                     name: "Main".to_string(),
                     len: 2,
                     size_in_bytes: 1340,
+                    non_linear_indices: vec![NonLinearIndex {
+                        index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                    }],
                 }]
             }
         );
@@ -876,6 +881,9 @@ mod test {
                     name: "Main".to_string(),
                     len: 1,
                     size_in_bytes: 1236,
+                    non_linear_indices: vec![NonLinearIndex {
+                        index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                    }],
                 }]
             }
         );

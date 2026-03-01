@@ -7,8 +7,11 @@ use ahnlich_similarity::LinearAlgorithm;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
 use ahnlich_similarity::hnsw::index::HNSW;
 use ahnlich_similarity::kdtree::KDTree;
-use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
-use ahnlich_types::algorithm::nonlinear::non_linear_index::Index as NonLinearAlgorithmIndexConf;
+use ahnlich_types::algorithm::algorithms::DistanceMetric;
+use ahnlich_types::algorithm::nonlinear::{
+    self, HnswConfig, KdTreeConfig, NonLinearAlgorithm,
+    non_linear_index::Index as NonLinearAlgorithmIndexConf,
+};
 use papaya::HashMap as ConcurrentHashMap;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -84,6 +87,33 @@ impl NonLinearAlgorithmWithIndex {
             }
             NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
                 <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::size(hnsw)
+            }
+        }
+    }
+
+    /// Convert the index into its proto NonLinearIndex representation
+    pub(crate) fn to_proto_index(&self) -> nonlinear::NonLinearIndex {
+        match &self {
+            NonLinearAlgorithmWithIndex::KDTree(_) => nonlinear::NonLinearIndex {
+                index: Some(NonLinearAlgorithmIndexConf::Kdtree(KdTreeConfig {})),
+            },
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
+                let config = hnsw.config();
+                let distance = match hnsw.distance_algorithm() {
+                    LinearAlgorithm::EuclideanDistance => DistanceMetric::Euclidean,
+                    LinearAlgorithm::CosineSimilarity => DistanceMetric::Cosine,
+                    LinearAlgorithm::DotProductSimilarity => DistanceMetric::DotProduct,
+                };
+                nonlinear::NonLinearIndex {
+                    index: Some(NonLinearAlgorithmIndexConf::Hnsw(HnswConfig {
+                        distance: Some(distance.into()),
+                        ef_construction: Some(config.ef_construction as u32),
+                        maximum_connections: Some(config.maximum_connections as u32),
+                        maximum_connections_zero: Some(config.maximum_connections_zero as u32),
+                        extend_candidates: Some(config.extend_candidates),
+                        keep_pruned_connections: Some(config.keep_pruned_connections),
+                    })),
+                }
             }
         }
     }
@@ -220,5 +250,11 @@ impl NonLinearAlgorithmIndices {
                 .iter(&self.algorithm_to_index.guard())
                 .map(|(k, v)| size_of_val(k) + v.size())
                 .sum::<usize>()
+    }
+
+    /// Get the proto NonLinearIndex configs for all indices in this store
+    pub fn non_linear_index_configs(&self) -> Vec<nonlinear::NonLinearIndex> {
+        let pinned = self.algorithm_to_index.pin();
+        pinned.iter().map(|(_, v)| v.to_proto_index()).collect()
     }
 }

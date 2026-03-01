@@ -38,7 +38,11 @@ Returns the list of vector stores registered in the connected Ahnlich DB service
 
 
 ## Returns
-* `Ok(StoreList)` – Contains metadata for each store available on the server.
+* `Ok(StoreList)` – Contains metadata for each store available on the server. Each `StoreInfo` includes:
+  * `name` – The store identifier.
+  * `len` – Number of entries in the store.
+  * `size_in_bytes` – Total memory footprint of the store.
+  * `non_linear_indices` – List of non-linear index configurations (HNSW with full config parameters, or k-d tree) active on the store. Empty if no non-linear indices are configured.
 
 * `Err(AhnlichError)` – Returned when the request cannot be completed (e.g., transport or server error).
 
@@ -49,3 +53,5 @@ Returns the list of vector stores registered in the connected Ahnlich DB service
 * Responses are deterministic: the server returns all currently known stores.
 
 * If no stores exist, the response will contain an empty list.
+
+* For stores with HNSW indices, the returned configuration includes: distance metric, ef_construction, maximum_connections, maximum_connections_zero, extend_candidates, and keep_pruned_connections.

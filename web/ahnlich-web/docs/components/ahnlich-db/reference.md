@@ -32,7 +32,7 @@ LIST CONNECTED CLIENTS
 ### 2. Store Management
 
 #### LIST STORES
-Show all existing vector stores.
+Show all existing vector stores. Returns store name, entry count, size in bytes, and the configuration of any non-linear indices (HNSW config parameters or k-d tree) on each store.
 ```
 LIST STORES
 ```
@@ -99,7 +99,7 @@ DELETE PREDICATE (category = "archive") IN my_store
 #### GET SIM N
 Find the N most similar vectors to an input vector.
 ```
-GETSIMN <n> WITH [<float>, <float>, ...] USING <cosinesimilarity|euclideandistance> IN <store_name> WHERE (<predicate>)
+GETSIMN <n> WITH [<float>, <float>, ...] USING <cosinesimilarity|euclideandistance|kdtree|hnsw> IN <store_name> WHERE (<predicate>)
 ```
 
 #### Example:

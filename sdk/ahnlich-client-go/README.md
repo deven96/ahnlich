@@ -662,6 +662,7 @@ func examplePipelineAI() error {
 
 ```bash
 make install-dependencies
+make generate    # regenerate Go protobuf code from proto definitions (requires buf)
 make format
 make test        # sequential
 make lint-check

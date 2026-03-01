@@ -270,6 +270,7 @@ async fn test_create_stores() {
                         name: "Main".to_string(),
                         len: 0,
                         size_in_bytes: 1056,
+                        non_linear_indices: vec![],
                     }],
                 },
             )),
@@ -486,6 +487,7 @@ async fn test_del_pred() {
                         name: "Main".to_string(),
                         len: 2,
                         size_in_bytes: 1264,
+                        non_linear_indices: vec![],
                     }],
                 },
             )),
@@ -526,6 +528,7 @@ async fn test_del_pred() {
                         name: "Main".to_string(),
                         len: 0,
                         size_in_bytes: 1056,
+                        non_linear_indices: vec![],
                     }],
                 },
             )),
@@ -685,6 +688,7 @@ async fn test_del_key() {
                         name: "Main".to_string(),
                         len: 2,
                         size_in_bytes: 1176,
+                        non_linear_indices: vec![],
                     }],
                 },
             )),
@@ -709,6 +713,7 @@ async fn test_del_key() {
                         name: "Main".to_string(),
                         len: 1,
                         size_in_bytes: 1128,
+                        non_linear_indices: vec![],
                     }],
                 },
             )),
@@ -878,6 +883,7 @@ async fn test_server_with_persistence() {
                         name: "Main".to_string(),
                         len: 2,
                         size_in_bytes: 1304,
+                        non_linear_indices: vec![],
                     }],
                 },
             )),
@@ -902,6 +908,7 @@ async fn test_server_with_persistence() {
                         name: "Main".to_string(),
                         len: 1,
                         size_in_bytes: 1256,
+                        non_linear_indices: vec![],
                     }],
                 },
             )),
@@ -1194,6 +1201,7 @@ async fn test_set_in_store() {
                         name: "Main".to_string(),
                         len: 2,
                         size_in_bytes: 1304,
+                        non_linear_indices: vec![],
                     }],
                 },
             )),
@@ -3057,6 +3065,7 @@ async fn test_drop_stores() {
                         name: "Main".to_string(),
                         len: 0,
                         size_in_bytes: 1056,
+                        non_linear_indices: vec![],
                     }],
                 },
             )),
@@ -3329,4 +3338,761 @@ async fn test_server_persistence_with_hnsw_index() {
 
     // Clean up - delete persistence file
     let _ = std::fs::remove_file(&*HNSW_PERSISTENCE_FILE);
+}
+
+/// Test 1: Create a store with specific HNSW configuration and assert the config is applied.
+#[tokio::test]
+async fn test_create_store_with_hnsw_configuration() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let hnsw_config = HnswConfig {
+        distance: Some(ahnlich_types::algorithm::algorithms::DistanceMetric::Euclidean as i32),
+        ef_construction: Some(200),
+        maximum_connections: Some(32),
+        maximum_connections_zero: Some(64),
+        extend_candidates: Some(true),
+        keep_pruned_connections: Some(false),
+    };
+
+    let queries = vec![
+        // Create store with specific HNSW configuration
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateStore(db_query_types::CreateStore {
+                store: "HnswConfigStore".to_string(),
+                dimension: 4,
+                create_predicates: vec!["tag".into()],
+                non_linear_indices: vec![nonlinear::NonLinearIndex {
+                    index: Some(non_linear_index::Index::Hnsw(hnsw_config)),
+                }],
+                error_if_exists: true,
+            })),
+        },
+        // Insert test data
+        db_pipeline::DbQuery {
+            query: Some(Query::Set(db_query_types::Set {
+                store: "HnswConfigStore".into(),
+                inputs: vec![
+                    DbStoreEntry {
+                        key: Some(StoreKey {
+                            key: vec![1.0, 0.0, 0.0, 0.0],
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::from_iter([(
+                                "tag".into(),
+                                MetadataValue {
+                                    value: Some(MetadataValueEnum::RawString("a".into())),
+                                },
+                            )]),
+                        }),
+                    },
+                    DbStoreEntry {
+                        key: Some(StoreKey {
+                            key: vec![0.0, 1.0, 0.0, 0.0],
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::from_iter([(
+                                "tag".into(),
+                                MetadataValue {
+                                    value: Some(MetadataValueEnum::RawString("b".into())),
+                                },
+                            )]),
+                        }),
+                    },
+                    DbStoreEntry {
+                        key: Some(StoreKey {
+                            key: vec![0.9, 0.1, 0.0, 0.0],
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::from_iter([(
+                                "tag".into(),
+                                MetadataValue {
+                                    value: Some(MetadataValueEnum::RawString("c".into())),
+                                },
+                            )]),
+                        }),
+                    },
+                ],
+            })),
+        },
+        // Search using HNSW - nearest to [1.0, 0.0, 0.0, 0.0]
+        db_pipeline::DbQuery {
+            query: Some(Query::GetSimN(db_query_types::GetSimN {
+                store: "HnswConfigStore".to_string(),
+                closest_n: 2,
+                algorithm: Algorithm::Hnsw.into(),
+                search_input: Some(StoreKey {
+                    key: vec![1.0, 0.0, 0.0, 0.0],
+                }),
+                condition: None,
+            })),
+        },
+        // List stores to verify config is reflected
+        db_pipeline::DbQuery {
+            query: Some(Query::ListStores(db_query_types::ListStores {})),
+        },
+    ];
+
+    let pipelined_request = db_pipeline::DbRequestPipeline { queries };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+
+    // CreateStore should succeed
+    assert!(
+        matches!(
+            &responses[0].response,
+            Some(db_pipeline::db_server_response::Response::Unit(_))
+        ),
+        "CreateStore failed: {:?}",
+        responses[0]
+    );
+
+    // Set should succeed with 3 inserts
+    assert_eq!(
+        responses[1].response,
+        Some(db_pipeline::db_server_response::Response::Set(
+            db_response_types::Set {
+                upsert: Some(StoreUpsert {
+                    inserted: 3,
+                    updated: 0,
+                }),
+            },
+        ))
+    );
+
+    // GetSimN should return results - nearest to [1,0,0,0] should be [1,0,0,0] and [0.9,0.1,0,0]
+    if let Some(db_pipeline::db_server_response::Response::GetSimN(sim_result)) =
+        &responses[2].response
+    {
+        assert_eq!(
+            sim_result.entries.len(),
+            2,
+            "Should return 2 nearest neighbors"
+        );
+        // First result should be the exact match [1.0, 0.0, 0.0, 0.0]
+        assert_eq!(
+            sim_result.entries[0].key.as_ref().unwrap().key,
+            vec![1.0, 0.0, 0.0, 0.0]
+        );
+        // Second should be the closest [0.9, 0.1, 0.0, 0.0]
+        assert_eq!(
+            sim_result.entries[1].key.as_ref().unwrap().key,
+            vec![0.9, 0.1, 0.0, 0.0]
+        );
+    } else {
+        panic!("GetSimN failed: {:?}", responses[2]);
+    }
+
+    // ListStores should return the store with HNSW config
+    if let Some(db_pipeline::db_server_response::Response::StoreList(store_list)) =
+        &responses[3].response
+    {
+        assert_eq!(store_list.stores.len(), 1);
+        let store_info = &store_list.stores[0];
+        assert_eq!(store_info.name, "HnswConfigStore");
+        assert_eq!(store_info.len, 3);
+
+        // Verify the non_linear_indices configuration is returned
+        assert_eq!(store_info.non_linear_indices.len(), 1);
+        let returned_index = &store_info.non_linear_indices[0];
+        if let Some(non_linear_index::Index::Hnsw(returned_config)) = &returned_index.index {
+            assert_eq!(
+                returned_config.distance,
+                Some(ahnlich_types::algorithm::algorithms::DistanceMetric::Euclidean as i32)
+            );
+            assert_eq!(returned_config.ef_construction, Some(200));
+            assert_eq!(returned_config.maximum_connections, Some(32));
+            assert_eq!(returned_config.maximum_connections_zero, Some(64));
+            assert_eq!(returned_config.extend_candidates, Some(true));
+            assert_eq!(returned_config.keep_pruned_connections, Some(false));
+        } else {
+            panic!(
+                "Expected HNSW config in non_linear_indices, got: {:?}",
+                returned_index
+            );
+        }
+    } else {
+        panic!("ListStores failed: {:?}", responses[3]);
+    }
+}
+
+/// Test 2: Verify that a store cannot have the same nonlinear index type twice.
+/// CreateNonLinearAlgorithmIndex is idempotent - adding an existing index returns 0 created.
+#[tokio::test]
+async fn test_duplicate_nonlinear_index_prevention() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let queries = vec![
+        // Create store with HNSW index
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateStore(db_query_types::CreateStore {
+                store: "DuplicateTest".to_string(),
+                dimension: 3,
+                create_predicates: vec![],
+                non_linear_indices: vec![nonlinear::NonLinearIndex {
+                    index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),
+                }],
+                error_if_exists: true,
+            })),
+        },
+        // Try to create the same HNSW index again - should be idempotent, returns 0
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateNonLinearAlgorithmIndex(
+                db_query_types::CreateNonLinearAlgorithmIndex {
+                    store: "DuplicateTest".to_string(),
+                    non_linear_indices: vec![nonlinear::NonLinearIndex {
+                        index: Some(non_linear_index::Index::Hnsw(HnswConfig {
+                            ef_construction: Some(500),
+                            maximum_connections: Some(100),
+                            maximum_connections_zero: Some(200),
+                            ..HnswConfig::default()
+                        })),
+                    }],
+                },
+            )),
+        },
+        // Try to create a KDTree index - should succeed (different type)
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateNonLinearAlgorithmIndex(
+                db_query_types::CreateNonLinearAlgorithmIndex {
+                    store: "DuplicateTest".to_string(),
+                    non_linear_indices: vec![nonlinear::NonLinearIndex {
+                        index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                    }],
+                },
+            )),
+        },
+        // Try to create both HNSW and KDTree again - both exist, should return 0
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateNonLinearAlgorithmIndex(
+                db_query_types::CreateNonLinearAlgorithmIndex {
+                    store: "DuplicateTest".to_string(),
+                    non_linear_indices: vec![
+                        nonlinear::NonLinearIndex {
+                            index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),
+                        },
+                        nonlinear::NonLinearIndex {
+                            index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                        },
+                    ],
+                },
+            )),
+        },
+    ];
+
+    let pipelined_request = db_pipeline::DbRequestPipeline { queries };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+
+    // CreateStore should succeed
+    assert!(
+        matches!(
+            &responses[0].response,
+            Some(db_pipeline::db_server_response::Response::Unit(_))
+        ),
+        "CreateStore failed: {:?}",
+        responses[0]
+    );
+
+    // CreateNonLinearAlgorithmIndex with same HNSW should return 0 (already exists, not duplicated)
+    assert_eq!(
+        responses[1].response,
+        Some(db_pipeline::db_server_response::Response::CreateIndex(
+            db_response_types::CreateIndex { created_indexes: 0 },
+        )),
+        "Duplicate HNSW should not be created: {:?}",
+        responses[1]
+    );
+
+    // CreateNonLinearAlgorithmIndex with KDTree should succeed (1 new index)
+    assert_eq!(
+        responses[2].response,
+        Some(db_pipeline::db_server_response::Response::CreateIndex(
+            db_response_types::CreateIndex { created_indexes: 1 },
+        )),
+        "KDTree index creation failed: {:?}",
+        responses[2]
+    );
+
+    // CreateNonLinearAlgorithmIndex with both HNSW and KDTree - both exist, return 0
+    assert_eq!(
+        responses[3].response,
+        Some(db_pipeline::db_server_response::Response::CreateIndex(
+            db_response_types::CreateIndex { created_indexes: 0 },
+        )),
+        "Duplicate indices should not be created: {:?}",
+        responses[3]
+    );
+}
+
+/// Test 3: Demonstrate recall quality impact of HNSW configuration.
+/// First creates a store with very low config showing poor recall,
+/// then reconstructs with proper values showing improved recall.
+#[tokio::test]
+async fn test_hnsw_recall_with_config_reconstruction() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Generate a synthetic dataset: 200 vectors of dimension 16
+    // Use deterministic pseudo-random generation for reproducibility
+    let dimension = 16usize;
+    let num_vectors = 200usize;
+    let mut vectors: Vec<Vec<f32>> = Vec::with_capacity(num_vectors);
+    for i in 0..num_vectors {
+        let mut vec = Vec::with_capacity(dimension);
+        for d in 0..dimension {
+            // Simple deterministic generation using sine/cosine patterns
+            let val = ((i as f32 * 0.1 + d as f32 * 0.3).sin() * 100.0).round() / 100.0;
+            vec.push(val);
+        }
+        vectors.push(vec);
+    }
+
+    // Compute brute-force ground truth: top-10 nearest neighbors for a query vector
+    let query_vec: Vec<f32> = (0..dimension)
+        .map(|d| ((42.0_f32 * 0.1 + d as f32 * 0.3).sin() * 100.0).round() / 100.0)
+        .collect();
+    let k = 10usize;
+
+    // Compute euclidean distances from query to all vectors
+    let mut distances: Vec<(usize, f32)> = vectors
+        .iter()
+        .enumerate()
+        .map(|(i, v)| {
+            let dist: f32 = v
+                .iter()
+                .zip(query_vec.iter())
+                .map(|(a, b)| (a - b) * (a - b))
+                .sum::<f32>()
+                .sqrt();
+            (i, dist)
+        })
+        .collect();
+    distances.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    let ground_truth_keys: Vec<Vec<f32>> = distances[..k]
+        .iter()
+        .map(|(i, _)| vectors[*i].clone())
+        .collect();
+
+    // === Phase 1: Create store with very low HNSW config ===
+    let low_config = HnswConfig {
+        distance: Some(ahnlich_types::algorithm::algorithms::DistanceMetric::Euclidean as i32),
+        ef_construction: Some(5),
+        maximum_connections: Some(2),
+        maximum_connections_zero: Some(4),
+        extend_candidates: Some(false),
+        keep_pruned_connections: Some(false),
+    };
+
+    // Create store
+    let create_response = client
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries: vec![db_pipeline::DbQuery {
+                query: Some(Query::CreateStore(db_query_types::CreateStore {
+                    store: "RecallTest".to_string(),
+                    dimension: dimension as u32,
+                    create_predicates: vec![],
+                    non_linear_indices: vec![nonlinear::NonLinearIndex {
+                        index: Some(non_linear_index::Index::Hnsw(low_config)),
+                    }],
+                    error_if_exists: true,
+                })),
+            }],
+        }))
+        .await
+        .expect("Failed to create store");
+    assert!(
+        matches!(
+            &create_response.into_inner().responses[0].response,
+            Some(db_pipeline::db_server_response::Response::Unit(_))
+        ),
+        "CreateStore with low config failed"
+    );
+
+    // Insert all vectors
+    let inputs: Vec<DbStoreEntry> = vectors
+        .iter()
+        .map(|v| DbStoreEntry {
+            key: Some(StoreKey { key: v.clone() }),
+            value: Some(StoreValue {
+                value: HashMap::new(),
+            }),
+        })
+        .collect();
+
+    let set_response = client
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries: vec![db_pipeline::DbQuery {
+                query: Some(Query::Set(db_query_types::Set {
+                    store: "RecallTest".into(),
+                    inputs,
+                })),
+            }],
+        }))
+        .await
+        .expect("Failed to insert data");
+    assert!(
+        matches!(
+            &set_response.into_inner().responses[0].response,
+            Some(db_pipeline::db_server_response::Response::Set(_))
+        ),
+        "Set failed"
+    );
+
+    // Query with HNSW using low config
+    let low_config_response = client
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries: vec![db_pipeline::DbQuery {
+                query: Some(Query::GetSimN(db_query_types::GetSimN {
+                    store: "RecallTest".to_string(),
+                    closest_n: k as u64,
+                    algorithm: Algorithm::Hnsw.into(),
+                    search_input: Some(StoreKey {
+                        key: query_vec.clone(),
+                    }),
+                    condition: None,
+                })),
+            }],
+        }))
+        .await
+        .expect("Failed to query");
+
+    let low_config_results = &low_config_response.into_inner().responses[0];
+    let low_recall = if let Some(db_pipeline::db_server_response::Response::GetSimN(sim_result)) =
+        &low_config_results.response
+    {
+        let returned_keys: Vec<Vec<f32>> = sim_result
+            .entries
+            .iter()
+            .map(|e| e.key.as_ref().unwrap().key.clone())
+            .collect();
+        let overlap = ground_truth_keys
+            .iter()
+            .filter(|gt| returned_keys.contains(gt))
+            .count();
+        overlap as f32 / k as f32
+    } else {
+        panic!("GetSimN with low config failed: {:?}", low_config_results);
+    };
+
+    // === Phase 2: Reconstruct - remove the low config index and recreate with proper config ===
+
+    // Drop the HNSW index
+    let drop_response = client
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries: vec![db_pipeline::DbQuery {
+                query: Some(Query::DropNonLinearAlgorithmIndex(
+                    db_query_types::DropNonLinearAlgorithmIndex {
+                        store: "RecallTest".to_string(),
+                        non_linear_indices: vec![NonLinearAlgorithm::Hnsw as i32],
+                        error_if_not_exists: true,
+                    },
+                )),
+            }],
+        }))
+        .await
+        .expect("Failed to drop index");
+    assert!(
+        matches!(
+            &drop_response.into_inner().responses[0].response,
+            Some(db_pipeline::db_server_response::Response::Del(_))
+        ),
+        "Drop index failed"
+    );
+
+    // Recreate HNSW index with proper configuration
+    let good_config = HnswConfig {
+        distance: Some(ahnlich_types::algorithm::algorithms::DistanceMetric::Euclidean as i32),
+        ef_construction: Some(100),
+        maximum_connections: Some(48),
+        maximum_connections_zero: Some(96),
+        extend_candidates: Some(false),
+        keep_pruned_connections: Some(false),
+    };
+
+    let recreate_response = client
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries: vec![db_pipeline::DbQuery {
+                query: Some(Query::CreateNonLinearAlgorithmIndex(
+                    db_query_types::CreateNonLinearAlgorithmIndex {
+                        store: "RecallTest".to_string(),
+                        non_linear_indices: vec![nonlinear::NonLinearIndex {
+                            index: Some(non_linear_index::Index::Hnsw(good_config)),
+                        }],
+                    },
+                )),
+            }],
+        }))
+        .await
+        .expect("Failed to recreate index");
+    assert!(
+        matches!(
+            &recreate_response.into_inner().responses[0].response,
+            Some(db_pipeline::db_server_response::Response::CreateIndex(_))
+        ),
+        "Recreate index failed"
+    );
+
+    // Query with HNSW using good config
+    let good_config_response = client
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries: vec![db_pipeline::DbQuery {
+                query: Some(Query::GetSimN(db_query_types::GetSimN {
+                    store: "RecallTest".to_string(),
+                    closest_n: k as u64,
+                    algorithm: Algorithm::Hnsw.into(),
+                    search_input: Some(StoreKey {
+                        key: query_vec.clone(),
+                    }),
+                    condition: None,
+                })),
+            }],
+        }))
+        .await
+        .expect("Failed to query with good config");
+
+    let good_config_results = &good_config_response.into_inner().responses[0];
+    let good_recall = if let Some(db_pipeline::db_server_response::Response::GetSimN(sim_result)) =
+        &good_config_results.response
+    {
+        let returned_keys: Vec<Vec<f32>> = sim_result
+            .entries
+            .iter()
+            .map(|e| e.key.as_ref().unwrap().key.clone())
+            .collect();
+        let overlap = ground_truth_keys
+            .iter()
+            .filter(|gt| returned_keys.contains(gt))
+            .count();
+        overlap as f32 / k as f32
+    } else {
+        panic!("GetSimN with good config failed: {:?}", good_config_results);
+    };
+
+    // Assert that the good config has better or equal recall than the low config
+    assert!(
+        good_recall >= low_recall,
+        "Good config recall ({}) should be >= low config recall ({})",
+        good_recall,
+        low_recall
+    );
+
+    // Assert that the good config achieves high recall (>= 90%)
+    assert!(
+        good_recall >= 0.9,
+        "Good config should achieve at least 90% recall, got {}",
+        good_recall
+    );
+}
+
+/// Test 4: Verify that ListStores returns the HNSW configuration for stores with nonlinear indices.
+#[tokio::test]
+async fn test_list_stores_returns_nonlinear_config() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let hnsw_config = HnswConfig {
+        distance: Some(ahnlich_types::algorithm::algorithms::DistanceMetric::Cosine as i32),
+        ef_construction: Some(150),
+        maximum_connections: Some(24),
+        maximum_connections_zero: Some(48),
+        extend_candidates: Some(true),
+        keep_pruned_connections: Some(true),
+    };
+
+    let queries = vec![
+        // Create store with both HNSW and KDTree indices
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateStore(db_query_types::CreateStore {
+                store: "ConfigStore".to_string(),
+                dimension: 3,
+                create_predicates: vec![],
+                non_linear_indices: vec![
+                    nonlinear::NonLinearIndex {
+                        index: Some(non_linear_index::Index::Hnsw(hnsw_config)),
+                    },
+                    nonlinear::NonLinearIndex {
+                        index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                    },
+                ],
+                error_if_exists: true,
+            })),
+        },
+        // Create a store without nonlinear indices
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateStore(db_query_types::CreateStore {
+                store: "PlainStore".to_string(),
+                dimension: 3,
+                create_predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+            })),
+        },
+        // List stores
+        db_pipeline::DbQuery {
+            query: Some(Query::ListStores(db_query_types::ListStores {})),
+        },
+    ];
+
+    let pipelined_request = db_pipeline::DbRequestPipeline { queries };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+
+    // Both creates should succeed
+    assert!(
+        matches!(
+            &responses[0].response,
+            Some(db_pipeline::db_server_response::Response::Unit(_))
+        ),
+        "CreateStore ConfigStore failed: {:?}",
+        responses[0]
+    );
+    assert!(
+        matches!(
+            &responses[1].response,
+            Some(db_pipeline::db_server_response::Response::Unit(_))
+        ),
+        "CreateStore PlainStore failed: {:?}",
+        responses[1]
+    );
+
+    // ListStores should contain both stores
+    if let Some(db_pipeline::db_server_response::Response::StoreList(store_list)) =
+        &responses[2].response
+    {
+        assert_eq!(store_list.stores.len(), 2);
+
+        // Find ConfigStore and PlainStore (stores are sorted by name)
+        let config_store = store_list
+            .stores
+            .iter()
+            .find(|s| s.name == "ConfigStore")
+            .expect("ConfigStore not found in list");
+        let plain_store = store_list
+            .stores
+            .iter()
+            .find(|s| s.name == "PlainStore")
+            .expect("PlainStore not found in list");
+
+        // PlainStore should have no nonlinear indices
+        assert!(
+            plain_store.non_linear_indices.is_empty(),
+            "PlainStore should have no non_linear_indices, got: {:?}",
+            plain_store.non_linear_indices
+        );
+
+        // ConfigStore should have 2 nonlinear indices (HNSW + KDTree)
+        assert_eq!(
+            config_store.non_linear_indices.len(),
+            2,
+            "ConfigStore should have 2 non_linear_indices"
+        );
+
+        // Find the HNSW config in the indices
+        let hnsw_index = config_store
+            .non_linear_indices
+            .iter()
+            .find(|idx| matches!(idx.index, Some(non_linear_index::Index::Hnsw(_))))
+            .expect("HNSW index not found in ConfigStore");
+
+        if let Some(non_linear_index::Index::Hnsw(returned_config)) = &hnsw_index.index {
+            assert_eq!(
+                returned_config.distance,
+                Some(ahnlich_types::algorithm::algorithms::DistanceMetric::Cosine as i32),
+                "Distance metric mismatch"
+            );
+            assert_eq!(
+                returned_config.ef_construction,
+                Some(150),
+                "ef_construction mismatch"
+            );
+            assert_eq!(
+                returned_config.maximum_connections,
+                Some(24),
+                "maximum_connections mismatch"
+            );
+            assert_eq!(
+                returned_config.maximum_connections_zero,
+                Some(48),
+                "maximum_connections_zero mismatch"
+            );
+            assert_eq!(
+                returned_config.extend_candidates,
+                Some(true),
+                "extend_candidates mismatch"
+            );
+            assert_eq!(
+                returned_config.keep_pruned_connections,
+                Some(true),
+                "keep_pruned_connections mismatch"
+            );
+        } else {
+            panic!("Expected HNSW config");
+        }
+
+        // Verify KDTree index exists
+        let kdtree_index = config_store
+            .non_linear_indices
+            .iter()
+            .find(|idx| matches!(idx.index, Some(non_linear_index::Index::Kdtree(_))))
+            .expect("KDTree index not found in ConfigStore");
+        assert!(
+            matches!(kdtree_index.index, Some(non_linear_index::Index::Kdtree(_))),
+            "Expected KDTree config"
+        );
+    } else {
+        panic!("ListStores failed: {:?}", responses[2]);
+    }
 }

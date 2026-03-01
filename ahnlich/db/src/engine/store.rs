@@ -384,6 +384,7 @@ impl StoreHandler {
                     name: store_name.clone().value,
                     len,
                     size_in_bytes,
+                    non_linear_indices: store.non_linear_indices.non_linear_index_configs(),
                 }
             })
             .collect()
@@ -1625,11 +1626,13 @@ mod tests {
                     name: odd_store.value,
                     len: 2,
                     size_in_bytes: 1400,
+                    non_linear_indices: vec![],
                 },
                 StoreInfo {
                     name: even_store.value,
                     len: 0,
                     size_in_bytes: 1080,
+                    non_linear_indices: vec![],
                 },
             ])
         )
