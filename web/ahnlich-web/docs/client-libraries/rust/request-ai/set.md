@@ -43,6 +43,7 @@ Inserts or updates embeddings and their associated metadata into a vector store 
                   value: Some(StoreValue { value: HashMap::new() }),
               },
           ],
+          model_params: HashMap::new(),
       };
 
 
@@ -58,6 +59,7 @@ Inserts or updates embeddings and their associated metadata into a vector store 
 
 ## Parameters
 * `params: Set` — The embeddings and metadata to be stored, including the store key and value. If a key already exists, this call updates the associated record.
+  * `model_params: HashMap<String, String>` — Optional runtime parameters for the AI model. For face detection models (Buffalo\_L, SFace+YuNet), supports `"confidence_threshold"` to control minimum detection confidence. Pass an empty `HashMap` to use model defaults. See [Model Parameters](/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
 
 
 ## Returns

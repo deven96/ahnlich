@@ -168,23 +168,20 @@ It provides methods for:
 * Running operations in pipelines for higher throughput.
 
 
-#### Source Code Source Code Example: DB Client
-
-use ahnlich_client_rs::db::DbClient;`**
+#### Source Code Example: DB Client
 
 ```rust
+use ahnlich_client_rs::db::DbClient;
+
 #[tokio::main]
-
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
     let db_client = DbClient::new("127.0.0.1:1369".to_string()).await?;
 
     let tracing_id: Option<String> = None;
 
     db_client.ping(tracing_id).await?;
 
-    Ok(())`**
-
+    Ok(())
 }
 ```
 
@@ -199,23 +196,20 @@ It provides methods for:
 
 * Integrating directly with the DB Client by producing vectors ready for storage.
 
-#### Source Code Source Code Example: AI Client
+#### Source Code Example: AI Client
 
-``` rust
-use ahnlich_client_rs::ai::AIClient;
+```rust
+use ahnlich_client_rs::ai::AiClient;
 
 #[tokio::main]
-
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
-    let ai_client = AIClient::new("127.0.0.1:1369".to_string()).await?;
+    let ai_client = AiClient::new("127.0.0.1:1370".to_string()).await?;
 
     let tracing_id: Option<String> = None;
 
     ai_client.ping(tracing_id).await?;
 
     Ok(())
-
 }
 ```
 
@@ -232,7 +226,7 @@ This ensures:
 
 Both the **DB Client** and **AI Client** provide pipeline builders, making it possible to group multiple commands into a single request stream.
 
-#### Source Code Source Code Example: DB Pipeline
+#### Source Code Example: DB Pipeline
 
 ```rust
 use ahnlich_client_rs::db::DbClient;
@@ -258,7 +252,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-In this Source Code Source Code Example:
+In this example:
 
 * A new pipeline is created from the `DbClient`.
 

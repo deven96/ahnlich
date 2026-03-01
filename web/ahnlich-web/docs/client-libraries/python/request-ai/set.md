@@ -42,7 +42,8 @@ The AI service will automatically **embed these inputs** using the store’s con
                     )
                 ],
                 preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
-                execution_provider=None  # Optional: e.g., ExecutionProvider.CUDA for GPU acceleration
+                execution_provider=None,  # Optional: e.g., ExecutionProvider.CUDA for GPU acceleration
+                model_params={}  # Optional: runtime model parameters (e.g., {"confidence_threshold": "0.9"} for face detection)
             )
         )
         print(response) #Set(upsert=StoreUpsert(inserted=2))
@@ -71,5 +72,7 @@ The AI service will automatically **embed these inputs** using the store’s con
   * Other preprocessing options (like normalization or tokenization) can be applied depending on the use case.
 
 * **`execution_provider`** - Optional hardware acceleration for model inference (e.g., `CUDA`, `TensorRT`, `CoreML`). Set to `None` for default CPU execution.
+
+* **`model_params`** - Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
 
 * **Response** → returns counts of inserted vs. updated items (`upsert counts`).  

@@ -14,19 +14,14 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
   <summary>Click to expand</summary>
 
   ```rust
-  use ahnlich_client_rs::error::AhnlichError;
-  use ahnlich_types::{
-      db::query::CreateNonLinearAlgorithmIndex,
-      algorithm::nonlinear::{NonLinearIndex, non_linear_index, KdTreeConfig, HnswConfig},
-      services::db_service::db_service_client::DbServiceClient,
-  };
-  use tonic::transport::Channel;
+  use ahnlich_client_rs::db::DbClient;
+  use ahnlich_types::db::query::CreateNonLinearAlgorithmIndex;
+  use ahnlich_types::algorithm::nonlinear::{NonLinearIndex, non_linear_index, KdTreeConfig, HnswConfig};
 
 
   #[tokio::main]
-  async fn main() -> Result<(), AhnlichError> {
-      // Connect to your DB server
-      let client = DbServiceClient::<Channel>::connect("http://127.0.0.1:1369").await?;
+  async fn main() -> Result<(), Box<dyn std::error::Error>> {
+      let db_client = DbClient::new("127.0.0.1:1369".to_string()).await?;
 
       // Create a KDTree index on the "Main" store
       let params = CreateNonLinearAlgorithmIndex {
@@ -38,11 +33,8 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
           ],
       };
 
-      let response = client
-          .clone()
-          .create_non_linear_algorithm_index(params)
-          .await?
-          .into_inner();
+      let result = db_client.create_non_linear_algorithm_index(params, None).await?;
+      println!("Created non-linear indices: {:?}", result);
 
       // Or create an HNSW index (with default config)
       let params = CreateNonLinearAlgorithmIndex {
@@ -54,13 +46,8 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
           ],
       };
 
-      let response = client
-          .clone()
-          .create_non_linear_algorithm_index(params)
-          .await?
-          .into_inner();
-
-      println!("Non-linear algorithm index created: {:?}", response);
+      let result = db_client.create_non_linear_algorithm_index(params, None).await?;
+      println!("Created non-linear indices: {:?}", result);
 
       Ok(())
   }

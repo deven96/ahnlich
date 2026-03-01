@@ -12,31 +12,26 @@ Retrieves a list of clients currently connected to the **AI service**. This prov
   <summary>Click to expand</summary>
 
   ```rust
-  use ahnlich_types::db::query::CreateNonLinearAlgorithmIndex;
-  use ahnlich_client_rs::AiClient; // AiClient is exposed at crate root
-  use tokio;
+  use ahnlich_client_rs::ai::AiClient;
+  use ahnlich_client_rs::error::AhnlichError;
 
 
   #[tokio::main]
-  async fn main() -> Result<(), Box<dyn std::error::Error>> {
-      // Connect to AI client (adjust the URL if needed)
-      let ai_client = AiClient::new("http://[::1]:1370".to_string()).await?;
+  async fn main() -> Result<(), AhnlichError> {
+      // Connect to AI server
+      let addr = "127.0.0.1:1370".to_string();
+      let ai_client = AiClient::new(addr).await?;
 
 
-      // Only `store` and `non_linear_indices` are valid fields
-      let params = CreateNonLinearAlgorithmIndex {
-          store: "Deven Kicks".to_string(),
-          non_linear_indices: vec!["my_algorithm".to_string()],
-      };
+      // Fetch the list of connected clients
+      let clients = ai_client.list_clients(None).await?;
 
 
-      // Call the RPC
-      let response = ai_client
-          .create_non_linear_algorithm_index(params, None)
-          .await?;
-
-
-      println!("Non-linear algorithm index created: {:?}", response);
+      // Print the clients in a readable way
+      println!("Connected clients:");
+      for (i, client) in clients.clients.iter().enumerate() {
+          println!("{}. {:?}", i + 1, client);
+      }
 
 
       Ok(())

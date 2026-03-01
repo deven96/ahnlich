@@ -148,13 +148,18 @@ By default, Ahnlich AI runs with `CPUExecutionProvider`.
 You can override this when starting the engine or running a query.
 
 ### Rust Example
-```
-create_store(
-    store="my_store",
-    index_model="all-minilm-l6-v2",
-    query_model="all-minilm-l6-v2",
-    execution_provider="CUDA" // Override default CPU provider
-)
+```rust
+// Override the execution provider when performing similarity search
+let params = GetSimN {
+    store: "my_store".to_string(),
+    search_input: Some(search_input),
+    closest_n: 3,
+    algorithm: Algorithm::CosineSimilarity as i32,
+    preprocess_action: PreprocessAction::ModelPreprocessing as i32,
+    execution_provider: Some(ExecutionProvider::Cuda as i32), // Override default CPU provider
+    condition: None,
+    model_params: HashMap::new(),
+};
 ```
 
 ## Switching Providers

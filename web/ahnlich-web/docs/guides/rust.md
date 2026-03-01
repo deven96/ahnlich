@@ -23,26 +23,46 @@ This guide demonstrates building an **image-based similarity search** applicatio
 ## 💡 Highlighted snippet
 
 ```rust
-let mut ai_client = AIClient::new("127.0.0.1:1370".to_string()).await?;
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_types::ai::query::{CreateStore, Set};
+use ahnlich_types::ai::models::AiModel;
+use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::keyval::{AiStoreEntry, StoreInput, StoreValue};
+use ahnlich_types::keyval::store_input::Value;
+use ahnlich_types::metadata::{MetadataValue, metadata_value::Value as MValue};
+use std::collections::HashMap;
+
 let tracing_id = None;
 
+let ai_client = AiClient::new("127.0.0.1:1370".to_string()).await?;
+
 // create a store for images
-ai_client.create_store(CreateStoreAI {
+ai_client.create_store(CreateStore {
     store: "image_store".to_string(),
-    index_model: AIModel::AllMiniLML6V2,
-    query_model: AIModel::AllMiniLML6V2,
-    predicates: Some(HashSet::from(["tag".to_string()])),
-    store_original: Some(true),
-    error_if_exists: Some(true),
+    index_model: AiModel::ClipVitB32Image as i32,
+    query_model: AiModel::ClipVitB32Text as i32,
+    predicates: vec!["tag".to_string()],
+    non_linear_indices: vec![],
+    store_original: true,
+    error_if_exists: true,
 }, tracing_id.clone()).await?;
 
 // ingest image bytes with metadata
-ai_client.set(SetAI {
+ai_client.set(Set {
     store: "image_store".to_string(),
     inputs: vec![
-      (StoreInput::RawBytes(img_bytes), HashMap::from([("tag".to_string(), "nature")]))
+        AiStoreEntry {
+            key: Some(StoreInput { value: Some(Value::Image(img_bytes)) }),
+            value: Some(StoreValue {
+                value: HashMap::from([("tag".to_string(), MetadataValue {
+                    value: Some(MValue::RawString("nature".into())),
+                })]),
+            }),
+        },
     ],
-    preprocess_action: Some(PreprocessAction::NoPreprocessing),
+    preprocess_action: PreprocessAction::NoPreprocessing as i32,
+    execution_provider: None,
+    model_params: HashMap::new(),
 }, tracing_id.clone()).await?;
 ```
 

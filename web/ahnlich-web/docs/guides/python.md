@@ -24,9 +24,11 @@ This walkthrough guides building a **textual book similarity search** tool using
 
 ```python
 from grpclib.client import Channel
-from ahnlich_client_py.grpc.services import AiServiceStub
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
 from ahnlich_client_py.grpc.ai.models import AiModel
+from ahnlich_client_py.grpc.ai import preprocess
+from ahnlich_client_py.grpc import keyval, metadata
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
     client = AiServiceStub(channel)
@@ -35,6 +37,7 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
         index_model=AiModel.ALL_MINI_LM_L6_V2,
         query_model=AiModel.ALL_MINI_LM_L6_V2,
         predicates=["author", "genre"],
+        non_linear_indices=[],
         store_original=True,
         error_if_exists=True
     ))
