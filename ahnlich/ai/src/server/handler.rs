@@ -693,29 +693,30 @@ impl AiService for AIProxyServer {
             .into_iter()
             .sorted()
             .collect();
-        // Enrich with predicate indices from DB, filtering out reserved keys
+        // Enrich with predicate indices and db_info from DB, filtering out reserved keys
         if let Some(db_client) = &self.db_client {
             let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
             if let Ok(db_store_list) = db_client.list_stores(parent_id).await {
-                let db_map: std::collections::HashMap<String, Vec<String>> = db_store_list
+                let db_map: std::collections::HashMap<
+                    String,
+                    ahnlich_types::db::server::StoreInfo,
+                > = db_store_list
                     .stores
                     .into_iter()
-                    .map(|s| {
-                        (
-                            s.name,
-                            s.predicate_indices
-                                .into_iter()
-                                .filter(|p| {
-                                    p != AHNLICH_AI_RESERVED_META_KEY
-                                        && p != crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY
-                                })
-                                .collect(),
-                        )
-                    })
+                    .map(|s| (s.name.clone(), s))
                     .collect();
                 for store in &mut stores {
-                    if let Some(pred_indices) = db_map.get(&store.name) {
-                        store.predicate_indices = pred_indices.clone();
+                    if let Some(db_store_info) = db_map.get(&store.name) {
+                        store.predicate_indices = db_store_info
+                            .predicate_indices
+                            .iter()
+                            .filter(|p| {
+                                *p != AHNLICH_AI_RESERVED_META_KEY
+                                    && *p != crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY
+                            })
+                            .cloned()
+                            .collect();
+                        store.db_info = Some(db_store_info.clone());
                     }
                 }
             }
@@ -732,18 +733,20 @@ impl AiService for AIProxyServer {
         let mut store_info = self.store_handler.get_store(&StoreName {
             value: params.store.clone(),
         })?;
-        // Enrich with predicate indices from DB, filtering out reserved keys
+        // Enrich with predicate indices and db_info from DB, filtering out reserved keys
         if let Some(db_client) = &self.db_client {
             let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
             let db_store_info = db_client.get_store(params.store, parent_id).await?;
             store_info.predicate_indices = db_store_info
                 .predicate_indices
-                .into_iter()
+                .iter()
                 .filter(|p| {
-                    p != AHNLICH_AI_RESERVED_META_KEY
-                        && p != crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY
+                    *p != AHNLICH_AI_RESERVED_META_KEY
+                        && *p != crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY
                 })
+                .cloned()
                 .collect();
+            store_info.db_info = Some(db_store_info);
         }
         Ok(tonic::Response::new(store_info))
     }

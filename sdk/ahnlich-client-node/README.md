@@ -403,6 +403,7 @@ console.log(response.indexModel);     // AI model used for indexing
 console.log(response.embeddingSize);  // number of stored embeddings
 console.log(response.dimension);      // vector dimension
 console.log(response.predicateIndices); // indexed predicate keys
+console.log(response.dbInfo);         // optional DB store info (when AI is connected to DB)
 ```
 
 ### Create Store

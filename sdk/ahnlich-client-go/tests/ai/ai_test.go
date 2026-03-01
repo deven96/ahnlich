@@ -331,6 +331,9 @@ func TestGetStoreAI(t *testing.T) {
 	require.NotZero(t, resp.EmbeddingSize)
 	require.NotZero(t, resp.Dimension)
 	require.Contains(t, resp.PredicateIndices, "category")
+	// db_info should be populated when AI is connected to DB
+	require.NotNil(t, resp.DbInfo)
+	require.Equal(t, storeWithPred.Store, resp.DbInfo.Name)
 
 	// GetStore with a non-existent store should return an error
 	_, err = client.GetStore(context.Background(), &aiquery.GetStore{Store: "nonexistent_store"})

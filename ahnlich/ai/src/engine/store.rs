@@ -144,6 +144,7 @@ impl AIStoreHandler {
                     embedding_size: model.embedding_size.get() as u64,
                     predicate_indices: vec![],
                     dimension: model.embedding_size.get() as u32,
+                    db_info: None,
                 }
             })
             .collect()
@@ -161,6 +162,7 @@ impl AIStoreHandler {
             embedding_size: model.embedding_size.get() as u64,
             predicate_indices: vec![],
             dimension: model.embedding_size.get() as u32,
+            db_info: None,
         })
     }
 

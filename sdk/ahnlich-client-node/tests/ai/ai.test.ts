@@ -77,6 +77,9 @@ describe("AI client", () => {
     expect(resp.queryModel).toBe(AIModel.ALL_MINI_LM_L6_V2);
     expect(resp.indexModel).toBe(AIModel.ALL_MINI_LM_L6_V2);
     expect(Number(resp.embeddingSize)).toBe(384);
+    // db_info should be populated when AI is connected to DB
+    expect(resp.dbInfo).toBeDefined();
+    expect(resp.dbInfo!.name).toBe(storeName);
   });
 
   test("create and drop kdtree non-linear algorithm index", async () => {

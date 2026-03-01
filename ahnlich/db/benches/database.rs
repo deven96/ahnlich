@@ -223,6 +223,71 @@ fn bench_retrieval(c: &mut Criterion) {
         });
     }
     group_non_linear_hnsw.finish();
+
+    let linear_algorithms = [
+        ("cosine_similarity", Algorithm::CosineSimilarity),
+        ("dot_product", Algorithm::DotProductSimilarity),
+        ("euclidean_distance", Algorithm::EuclideanDistance),
+    ];
+
+    for (algo_name, algorithm) in &linear_algorithms {
+        let mut group_linear = c.benchmark_group(format!("store_retrieval_linear_{algo_name}"));
+        for size in sizes {
+            let linear_handler = initialize_store_handler();
+            let dimension = 1024;
+            let bulk_insert: Vec<_> = (0..size)
+                .map(|_| {
+                    let random_array: Vec<f32> =
+                        (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>();
+                    (
+                        StoreKey { key: random_array },
+                        StoreValue {
+                            value: HashMap::new(),
+                        },
+                    )
+                })
+                .collect();
+            linear_handler
+                .create_store(
+                    StoreName {
+                        value: store_name.to_string(),
+                    },
+                    NonZeroUsize::new(dimension).unwrap(),
+                    vec![],
+                    HashSet::new(),
+                    true,
+                )
+                .unwrap();
+            linear_handler
+                .set_in_store(
+                    &StoreName {
+                        value: store_name.to_string(),
+                    },
+                    bulk_insert.clone(),
+                )
+                .unwrap();
+            let random_input = StoreKey {
+                key: (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>(),
+            };
+            group_linear.sampling_mode(criterion::SamplingMode::Flat);
+            group_linear.bench_function(format!("size_{size}"), |b| {
+                b.iter(|| {
+                    linear_handler
+                        .get_sim_in_store(
+                            &StoreName {
+                                value: store_name.to_string(),
+                            },
+                            random_input.clone(),
+                            NonZeroUsize::new(50).unwrap(),
+                            *algorithm,
+                            None,
+                        )
+                        .unwrap();
+                });
+            });
+        }
+        group_linear.finish();
+    }
 }
 
 fn bench_insertion(c: &mut Criterion) {

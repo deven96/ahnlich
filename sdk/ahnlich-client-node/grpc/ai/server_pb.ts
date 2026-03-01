@@ -17,6 +17,7 @@ import { ServerInfo, StoreUpsert } from "../shared/info_pb.js";
 import { StoreInput, StoreKey, StoreValue } from "../keyval_pb.js";
 import { Similarity } from "../similarity_pb.js";
 import { AIModel } from "./models_pb.js";
+import { StoreInfo } from "../db/server_pb.js";
 
 /**
  * @generated from message ai.server.Unit
@@ -536,6 +537,11 @@ export class AIStoreInfo extends Message<AIStoreInfo> {
    */
   dimension = 0;
 
+  /**
+   * @generated from field: optional db.server.StoreInfo db_info = 7;
+   */
+  dbInfo?: StoreInfo;
+
   constructor(data?: PartialMessage<AIStoreInfo>) {
     super();
     proto3.util.initPartial(data, this);
@@ -556,6 +562,7 @@ export class AIStoreInfo extends Message<AIStoreInfo> {
       repeated: true,
     },
     { no: 6, name: "dimension", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 7, name: "db_info", kind: "message", T: StoreInfo, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AIStoreInfo {

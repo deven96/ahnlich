@@ -420,6 +420,9 @@ async def test_ai_client_get_store_succeeds(spin_up_ahnlich_ai):
         assert sorted(response.predicate_indices) == sorted(
             ai_store_payload_with_predicates["predicates"]
         )
+        # db_info should be populated when AI is connected to DB
+        assert response.db_info is not None
+        assert response.db_info.name == ai_store_payload_with_predicates["store"]
     finally:
         channel.close()
 

@@ -46,6 +46,6 @@ Retrieves a list of all vector stores currently managed by the **AI service**. E
 
 * Awaits the result and unwraps the server’s response.
 
-* Returns the `StoreList` object containing store metadata.
+* Returns the `StoreList` object containing store metadata. Each `AiStoreInfo` includes an optional `db_info` field with the underlying DB store information when the AI service is connected to a DB instance.
 
 

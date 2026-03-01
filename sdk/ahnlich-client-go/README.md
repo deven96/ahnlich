@@ -415,9 +415,9 @@ func (c *ExampleAIClient) exampleListStoresAI(ctx context.Context) error {
     }
     for _, s := range resp.Stores {
         // Each AIStoreInfo includes Name, QueryModel, IndexModel, EmbeddingSize,
-        // PredicateIndices ([]string), and Dimension (uint32).
-        fmt.Printf("Store: %s, QueryModel: %v, IndexModel: %v, EmbeddingSize: %d, Dimension: %d, PredicateIndices: %v\n",
-            s.Name, s.QueryModel, s.IndexModel, s.EmbeddingSize, s.Dimension, s.PredicateIndices)
+        // PredicateIndices ([]string), Dimension (uint32), and optional DbInfo (*db.server.StoreInfo).
+        fmt.Printf("Store: %s, QueryModel: %v, IndexModel: %v, EmbeddingSize: %d, Dimension: %d, PredicateIndices: %v, DbInfo: %v\n",
+            s.Name, s.QueryModel, s.IndexModel, s.EmbeddingSize, s.Dimension, s.PredicateIndices, s.DbInfo)
     }
     return nil
 }
@@ -429,9 +429,9 @@ func (c *ExampleAIClient) exampleGetStoreAI(ctx context.Context) error {
     resp, err := c.client.GetStore(c.ctx, &aiquery.GetStore{Store: "ai_store"})
     if err != nil { return err }
     // resp is a *AIStoreInfo with Name, QueryModel, IndexModel, EmbeddingSize,
-    // PredicateIndices ([]string), and Dimension (uint32).
-    fmt.Printf("Store: %s, QueryModel: %v, IndexModel: %v, EmbeddingSize: %d, Dimension: %d, PredicateIndices: %v\n",
-        resp.Name, resp.QueryModel, resp.IndexModel, resp.EmbeddingSize, resp.Dimension, resp.PredicateIndices)
+    // PredicateIndices ([]string), Dimension (uint32), and optional DbInfo (*db.server.StoreInfo).
+    fmt.Printf("Store: %s, QueryModel: %v, IndexModel: %v, EmbeddingSize: %d, Dimension: %d, PredicateIndices: %v, DbInfo: %v\n",
+        resp.Name, resp.QueryModel, resp.IndexModel, resp.EmbeddingSize, resp.Dimension, resp.PredicateIndices, resp.DbInfo)
     return nil
 }
 ```

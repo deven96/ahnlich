@@ -497,6 +497,22 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 
 ```
 
+### Get Store
+
+```py
+
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+
+async with Channel(host="127.0.0.1", port=1370) as channel:
+    client = AiServiceStub(channel)
+    # Returns AiStoreInfo with name, query_model, index_model, embedding_size,
+    # predicate_indices, dimension, and optional db_info (DB store info when AI is connected to DB).
+    response = await client.get_store(ai_query.GetStore(store="my_store"))
+
+```
+
 ###  Create Store
 
 ```py

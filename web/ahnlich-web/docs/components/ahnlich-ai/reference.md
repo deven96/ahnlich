@@ -41,7 +41,7 @@ LIST STORES
 
 ## 4. Get Store
 #### Description
-Get detailed information about a specific store by name. Returns store name, query model, index model, and embedding size. Returns an error if the store does not exist.
+Get detailed information about a specific store by name. Returns store name, query model, index model, embedding size, and optionally the underlying DB store info (when AI is connected to a DB instance). The `db_info` field contains the DB store's name, length, size in bytes, non-linear indices, predicate indices, and dimension. Returns an error if the store does not exist.
 
 #### Command
 ```
