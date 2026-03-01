@@ -46,9 +46,10 @@ import (
     "google.golang.org/grpc/credentials/insecure"
 
 
-    aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
-    aimodel "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/models"
-    aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+    aiquery   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+    aimodel   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/models"
+    aisvc     "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+    nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
 )
 
 
@@ -88,7 +89,7 @@ func (c *ExampleAIClient) exampleCreateStoreAI() error {
         QueryModel:       aimodel.AIModel_ALL_MINI_LM_L6_V2,
         IndexModel:       aimodel.AIModel_ALL_MINI_LM_L6_V2,
         Predicates:       []string{},  // Optional: metadata fields to index for filtering
-        NonLinearIndices: []int32{},   // Optional: non-linear algorithms for faster search
+        NonLinearIndices: []*nonlinear.NonLinearIndex{},   // Optional: non-linear algorithms (e.g., KDTree, HNSW) for faster search
         ErrorIfExists:    true,         // Return error if store already exists
         StoreOriginal:    true,         // Store original input (needed for key deletion)
     })

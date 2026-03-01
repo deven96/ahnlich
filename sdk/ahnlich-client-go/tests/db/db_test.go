@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
+	nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
 	pipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/pipeline"
 	dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
 	dbserver "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/server"
@@ -389,6 +390,68 @@ func TestListStores_ReflectsDroppedStore(t *testing.T) {
 	for _, s := range resp.Stores {
 		require.NotEqual(t, storeNoPred.Store, s.Name)
 	}
+}
+
+func TestCreateAndDropKDTreeNonLinearIndex(t *testing.T) {
+	t.Parallel()
+	proc := startDB(t)
+	defer proc.Kill()
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := dbsvc.NewDBServiceClient(conn)
+
+	_, _ = client.CreateStore(context.Background(), storeNoPred)
+
+	// Create KDTree index
+	createResp, err := client.CreateNonLinearAlgorithmIndex(context.Background(), &dbquery.CreateNonLinearAlgorithmIndex{
+		Store: storeNoPred.Store,
+		NonLinearIndices: []*nonlinear.NonLinearIndex{
+			{Index: &nonlinear.NonLinearIndex_Kdtree{Kdtree: &nonlinear.KDTreeConfig{}}},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResp)
+
+	// Drop KDTree index
+	dropResp, err := client.DropNonLinearAlgorithmIndex(context.Background(), &dbquery.DropNonLinearAlgorithmIndex{
+		Store:            storeNoPred.Store,
+		NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_KDTree},
+		ErrorIfNotExists: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, dropResp)
+}
+
+func TestCreateAndDropHNSWNonLinearIndex(t *testing.T) {
+	t.Parallel()
+	proc := startDB(t)
+	defer proc.Kill()
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := dbsvc.NewDBServiceClient(conn)
+
+	_, _ = client.CreateStore(context.Background(), storeNoPred)
+
+	// Create HNSW index with default config
+	createResp, err := client.CreateNonLinearAlgorithmIndex(context.Background(), &dbquery.CreateNonLinearAlgorithmIndex{
+		Store: storeNoPred.Store,
+		NonLinearIndices: []*nonlinear.NonLinearIndex{
+			{Index: &nonlinear.NonLinearIndex_Hnsw{Hnsw: &nonlinear.HNSWConfig{}}},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResp)
+
+	// Drop HNSW index
+	dropResp, err := client.DropNonLinearAlgorithmIndex(context.Background(), &dbquery.DropNonLinearAlgorithmIndex{
+		Store:            storeNoPred.Store,
+		NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_HNSW},
+		ErrorIfNotExists: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, dropResp)
 }
 
 func TestPipeline_BulkSetAndGet(t *testing.T) {

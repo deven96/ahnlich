@@ -8,6 +8,12 @@ from ahnlich_client_py.grpc.ai import pipeline, preprocess
 from ahnlich_client_py.grpc.ai import query as ai_query
 from ahnlich_client_py.grpc.ai import server as ai_server
 from ahnlich_client_py.grpc.ai.models import AiModel
+from ahnlich_client_py.grpc.algorithm.nonlinear import (
+    HnswConfig,
+    KdTreeConfig,
+    NonLinearAlgorithm,
+    NonLinearIndex,
+)
 from ahnlich_client_py.grpc.services import ai_service
 
 # Test data setup
@@ -323,6 +329,70 @@ async def test_ai_client_get_key(spin_up_ahnlich_ai):
 
         assert len(response.entries) == 1
         assert response.entries[0].key.raw_string == "Jordan One"
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_ai_client_create_and_drop_kdtree_non_linear_index(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
+    try:
+        # Create store
+        await client.create_store(
+            ai_query.CreateStore(**ai_store_payload_no_predicates)
+        )
+
+        # Create KDTree index
+        response = await client.create_non_linear_algorithm_index(
+            ai_query.CreateNonLinearAlgorithmIndex(
+                store=ai_store_payload_no_predicates["store"],
+                non_linear_indices=[NonLinearIndex(kdtree=KdTreeConfig())],
+            )
+        )
+        assert response.created_indexes == 1
+
+        # Drop KDTree index
+        response = await client.drop_non_linear_algorithm_index(
+            ai_query.DropNonLinearAlgorithmIndex(
+                store=ai_store_payload_no_predicates["store"],
+                non_linear_indices=[NonLinearAlgorithm.KDTree],
+                error_if_not_exists=True,
+            )
+        )
+        assert response.deleted_count == 1
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_ai_client_create_and_drop_hnsw_non_linear_index(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
+    try:
+        # Create store
+        await client.create_store(
+            ai_query.CreateStore(**ai_store_payload_no_predicates)
+        )
+
+        # Create HNSW index with default config
+        response = await client.create_non_linear_algorithm_index(
+            ai_query.CreateNonLinearAlgorithmIndex(
+                store=ai_store_payload_no_predicates["store"],
+                non_linear_indices=[NonLinearIndex(hnsw=HnswConfig())],
+            )
+        )
+        assert response.created_indexes == 1
+
+        # Drop HNSW index
+        response = await client.drop_non_linear_algorithm_index(
+            ai_query.DropNonLinearAlgorithmIndex(
+                store=ai_store_payload_no_predicates["store"],
+                non_linear_indices=[NonLinearAlgorithm.HNSW],
+                error_if_not_exists=True,
+            )
+        )
+        assert response.deleted_count == 1
     finally:
         channel.close()
 

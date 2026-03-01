@@ -13,3 +13,10 @@ class Algorithm(betterproto.Enum):
     DotProductSimilarity = 1
     CosineSimilarity = 2
     KDTree = 3
+    HNSW = 4
+
+
+class DistanceMetric(betterproto.Enum):
+    Euclidean = 0
+    DotProduct = 1
+    Cosine = 2

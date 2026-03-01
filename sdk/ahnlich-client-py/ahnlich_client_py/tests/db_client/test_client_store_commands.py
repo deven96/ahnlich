@@ -5,6 +5,12 @@ from grpclib.exceptions import GRPCError
 
 from ahnlich_client_py.grpc import keyval, metadata, predicates
 from ahnlich_client_py.grpc.algorithm.algorithms import Algorithm
+from ahnlich_client_py.grpc.algorithm.nonlinear import (
+    HnswConfig,
+    KdTreeConfig,
+    NonLinearAlgorithm,
+    NonLinearIndex,
+)
 from ahnlich_client_py.grpc.db import pipeline
 from ahnlich_client_py.grpc.db import query as db_query
 from ahnlich_client_py.grpc.db import server as db_server
@@ -479,6 +485,64 @@ async def test_client_list_stores_reflects_dropped_store(spin_up_ahnlich_db):
         response = await client.list_stores(db_query.ListStores())
         assert len(response.stores) == 1
         assert response.stores[0].name == store_payload_with_predicates["store"]
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_create_and_drop_kdtree_non_linear_index(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Create store
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
+
+        # Create KDTree index
+        create_index_request = db_query.CreateNonLinearAlgorithmIndex(
+            store=store_payload_no_predicates["store"],
+            non_linear_indices=[NonLinearIndex(kdtree=KdTreeConfig())],
+        )
+        response = await client.create_non_linear_algorithm_index(create_index_request)
+        assert response.created_indexes == 1
+
+        # Drop KDTree index
+        drop_index_request = db_query.DropNonLinearAlgorithmIndex(
+            store=store_payload_no_predicates["store"],
+            non_linear_indices=[NonLinearAlgorithm.KDTree],
+            error_if_not_exists=True,
+        )
+        response = await client.drop_non_linear_algorithm_index(drop_index_request)
+        assert response.deleted_count == 1
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_create_and_drop_hnsw_non_linear_index(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Create store
+        create_request = db_query.CreateStore(**store_payload_no_predicates)
+        await client.create_store(create_request)
+
+        # Create HNSW index with default config
+        create_index_request = db_query.CreateNonLinearAlgorithmIndex(
+            store=store_payload_no_predicates["store"],
+            non_linear_indices=[NonLinearIndex(hnsw=HnswConfig())],
+        )
+        response = await client.create_non_linear_algorithm_index(create_index_request)
+        assert response.created_indexes == 1
+
+        # Drop HNSW index
+        drop_index_request = db_query.DropNonLinearAlgorithmIndex(
+            store=store_payload_no_predicates["store"],
+            non_linear_indices=[NonLinearAlgorithm.HNSW],
+            error_if_not_exists=True,
+        )
+        response = await client.drop_non_linear_algorithm_index(drop_index_request)
+        assert response.deleted_count == 1
     finally:
         channel.close()
 

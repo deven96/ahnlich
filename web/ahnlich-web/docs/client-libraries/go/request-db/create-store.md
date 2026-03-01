@@ -42,8 +42,9 @@ import (
     "google.golang.org/grpc/credentials/insecure"
 
 
-    dbsvc   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
-    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    dbsvc     "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
 )
 
 
@@ -76,7 +77,7 @@ func (c *ExampleDBClient) exampleCreateStore(store string, dimension int32) erro
         Store:             store,
         Dimension:         uint32(dimension),
         CreatePredicates:  []string{}, // Optional: list of metadata fields to index for filtering
-        NonLinearIndices:  []int32{},  // Optional: non-linear algorithms (e.g., KdTree) for faster search
+        NonLinearIndices:  []*nonlinear.NonLinearIndex{},  // Optional: non-linear algorithms (e.g., KDTree, HNSW) for faster search
         ErrorIfExists:     true,        // Return error if store already exists
     })
     if err != nil {

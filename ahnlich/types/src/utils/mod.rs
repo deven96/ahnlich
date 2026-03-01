@@ -5,6 +5,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::ai::models::AiStoreInputType;
+use crate::algorithm::nonlinear::{NonLinearAlgorithm, non_linear_index};
 use crate::client::ConnectedClient;
 use crate::keyval::store_input::Value;
 use crate::keyval::{StoreInput, StoreName};
@@ -234,5 +235,14 @@ impl Hash for ConnectedClient {
         H: Hasher,
     {
         self.address.hash(state)
+    }
+}
+
+impl From<&non_linear_index::Index> for NonLinearAlgorithm {
+    fn from(value: &non_linear_index::Index) -> Self {
+        match &value {
+            non_linear_index::Index::Kdtree(_) => NonLinearAlgorithm::KdTree,
+            non_linear_index::Index::Hnsw(_) => NonLinearAlgorithm::Hnsw,
+        }
     }
 }

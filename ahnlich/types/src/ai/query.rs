@@ -21,12 +21,9 @@ pub struct CreateStore {
     #[prost(string, repeated, tag = "4")]
     pub predicates: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// Optional non-linear indices
-    #[prost(
-        enumeration = "super::super::algorithm::nonlinear::NonLinearAlgorithm",
-        repeated,
-        tag = "5"
-    )]
-    pub non_linear_indices: ::prost::alloc::vec::Vec<i32>,
+    #[prost(message, repeated, tag = "5")]
+    pub non_linear_indices:
+        ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
     /// Whether to throw an error if the store already exists
     #[prost(bool, tag = "6")]
     pub error_if_exists: bool,
@@ -102,12 +99,9 @@ pub struct CreateNonLinearAlgorithmIndex {
     #[prost(string, tag = "1")]
     pub store: ::prost::alloc::string::String,
     /// Non-linear indices to create
-    #[prost(
-        enumeration = "super::super::algorithm::nonlinear::NonLinearAlgorithm",
-        repeated,
-        tag = "2"
-    )]
-    pub non_linear_indices: ::prost::alloc::vec::Vec<i32>,
+    #[prost(message, repeated, tag = "2")]
+    pub non_linear_indices:
+        ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DropPredIndex {

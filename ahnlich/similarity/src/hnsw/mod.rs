@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 pub mod index;
+pub mod utils;
 
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
 /// similarity function. It then navigates between these localised lists in DFS manner until it
@@ -40,6 +41,7 @@ pub(crate) type NodeIdHashSet = std::collections::HashSet<NodeId, NodeIdBuildHas
 
 /// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LayerIndex(pub u16);
 
 impl Eq for LayerIndex {}
@@ -57,6 +59,7 @@ impl Ord for LayerIndex {
 
 /// NodeId wraps a u64 hash of the node's embedding to uniquely identify a node across all layers.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NodeId(pub u64);
 
 /// Node represents a single element in the HNSW graph.
@@ -325,7 +328,7 @@ pub fn get_node_id(value: &[f32]) -> NodeId {
     NodeId(hasher.finish())
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy)]
 pub struct HNSWConfig {
     pub ef_construction: usize,
     pub maximum_connections: usize,

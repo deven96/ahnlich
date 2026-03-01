@@ -12,7 +12,7 @@ import type {
   PlainMessage,
 } from "@bufbuild/protobuf";
 import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
-import { NonLinearAlgorithm } from "../algorithm/nonlinear_pb.js";
+import { NonLinearAlgorithm, NonLinearIndex } from "../algorithm/nonlinear_pb.js";
 import { DbStoreEntry, StoreKey } from "../keyval_pb.js";
 import { PredicateCondition } from "../predicate_pb.js";
 import { Algorithm } from "../algorithm/algorithm_pb.js";
@@ -48,9 +48,9 @@ export class CreateStore extends Message<CreateStore> {
   /**
    * Non-linear algorithms for indexing.
    *
-   * @generated from field: repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 4;
+   * @generated from field: repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 4;
    */
-  nonLinearIndices: NonLinearAlgorithm[] = [];
+  nonLinearIndices: NonLinearIndex[] = [];
 
   /**
    * Flag indicating whether to error if store already exists.
@@ -76,13 +76,7 @@ export class CreateStore extends Message<CreateStore> {
       T: 9 /* ScalarType.STRING */,
       repeated: true,
     },
-    {
-      no: 4,
-      name: "non_linear_indices",
-      kind: "enum",
-      T: proto3.getEnumType(NonLinearAlgorithm),
-      repeated: true,
-    },
+    { no: 4, name: "non_linear_indices", kind: "message", T: NonLinearIndex, repeated: true },
     { no: 5, name: "error_if_exists", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
@@ -358,9 +352,9 @@ export class CreateNonLinearAlgorithmIndex extends Message<CreateNonLinearAlgori
   /**
    * Non-linear algorithms to create indices for.
    *
-   * @generated from field: repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2;
+   * @generated from field: repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 2;
    */
-  nonLinearIndices: NonLinearAlgorithm[] = [];
+  nonLinearIndices: NonLinearIndex[] = [];
 
   constructor(data?: PartialMessage<CreateNonLinearAlgorithmIndex>) {
     super();
@@ -371,13 +365,7 @@ export class CreateNonLinearAlgorithmIndex extends Message<CreateNonLinearAlgori
   static readonly typeName = "db.query.CreateNonLinearAlgorithmIndex";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    {
-      no: 2,
-      name: "non_linear_indices",
-      kind: "enum",
-      T: proto3.getEnumType(NonLinearAlgorithm),
-      repeated: true,
-    },
+    { no: 2, name: "non_linear_indices", kind: "message", T: NonLinearIndex, repeated: true },
   ]);
 
   static fromBinary(

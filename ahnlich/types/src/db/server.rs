@@ -94,4 +94,7 @@ pub struct StoreInfo {
     pub len: u64,
     #[prost(uint64, tag = "3")]
     pub size_in_bytes: u64,
+    #[prost(message, repeated, tag = "4")]
+    pub non_linear_indices:
+        ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
 }

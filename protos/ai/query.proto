@@ -27,7 +27,7 @@ message CreateStore {
   ai.models.AIModel query_model = 2; // AI model used for querying (string or image-based)
   ai.models.AIModel index_model = 3; // AI model used for indexing
   repeated string predicates = 4; // List of predicates used for creating indices
-  repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 5; // Optional non-linear indices
+  repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 5; // Optional non-linear indices
   bool error_if_exists = 6; // Whether to throw an error if the store already exists
   bool store_original = 7; // Flag to store original data. Used if you wanna keep the original(image or text) input sent
 }
@@ -60,7 +60,7 @@ message CreatePredIndex {
 message CreateNonLinearAlgorithmIndex {
   // Creates non-linear algorithm indices for the store if they don't already exist
   string store = 1; // Store name
-  repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2; // Non-linear indices to create
+  repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 2; // Non-linear indices to create
 }
 
 message DropPredIndex {

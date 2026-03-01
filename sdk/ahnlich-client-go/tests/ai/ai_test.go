@@ -15,6 +15,7 @@ import (
 	aipipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/pipeline"
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess"
 	aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+	nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
@@ -363,6 +364,66 @@ func TestListClients(t *testing.T) {
 	resp, err := client.ListClients(context.Background(), &aiquery.ListClients{})
 	require.NoError(t, err)
 	require.NotZero(t, len(resp.Clients))
+}
+
+func TestCreateAndDropKDTreeNonLinearIndexAI(t *testing.T) {
+	proc := startAI(t)
+	defer proc.Kill()
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := aisvc.NewAIServiceClient(conn)
+
+	_, _ = client.CreateStore(context.Background(), storeNoPred)
+
+	// Create KDTree index
+	createResp, err := client.CreateNonLinearAlgorithmIndex(context.Background(), &aiquery.CreateNonLinearAlgorithmIndex{
+		Store: storeNoPred.Store,
+		NonLinearIndices: []*nonlinear.NonLinearIndex{
+			{Index: &nonlinear.NonLinearIndex_Kdtree{Kdtree: &nonlinear.KDTreeConfig{}}},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResp)
+
+	// Drop KDTree index
+	dropResp, err := client.DropNonLinearAlgorithmIndex(context.Background(), &aiquery.DropNonLinearAlgorithmIndex{
+		Store:            storeNoPred.Store,
+		NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_KDTree},
+		ErrorIfNotExists: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, dropResp)
+}
+
+func TestCreateAndDropHNSWNonLinearIndexAI(t *testing.T) {
+	proc := startAI(t)
+	defer proc.Kill()
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := aisvc.NewAIServiceClient(conn)
+
+	_, _ = client.CreateStore(context.Background(), storeNoPred)
+
+	// Create HNSW index with default config
+	createResp, err := client.CreateNonLinearAlgorithmIndex(context.Background(), &aiquery.CreateNonLinearAlgorithmIndex{
+		Store: storeNoPred.Store,
+		NonLinearIndices: []*nonlinear.NonLinearIndex{
+			{Index: &nonlinear.NonLinearIndex_Hnsw{Hnsw: &nonlinear.HNSWConfig{}}},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, createResp)
+
+	// Drop HNSW index
+	dropResp, err := client.DropNonLinearAlgorithmIndex(context.Background(), &aiquery.DropNonLinearAlgorithmIndex{
+		Store:            storeNoPred.Store,
+		NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_HNSW},
+		ErrorIfNotExists: true,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, dropResp)
 }
 
 func TestPipelineSuccess(t *testing.T) {

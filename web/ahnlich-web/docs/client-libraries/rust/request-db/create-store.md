@@ -79,8 +79,12 @@ Creates a new vector store within the Ahnlich DB service. A store is the primary
 
 
 ## Usage considerations
-* Use `List Stores` after creation to verify that the store has been registered successfully.
+* Use `List Stores` after creation to verify that the store has been registered successfully. The response includes the non-linear index configurations (HNSW parameters, k-d tree) for each store.
 
 * Stores are persistent until explicitly removed using `Drop Store`.
 
 * Proper planning of store dimensions and indexing strategy is recommended, as these cannot be trivially changed after creation.
+
+* When creating a store with an HNSW index, you can pass configuration parameters such as `ef_construction`, `maximum_connections`, `maximum_connections_zero`, `distance` metric, `extend_candidates`, and `keep_pruned_connections` via `HnswConfig`. If not specified, sensible defaults are used.
+
+* A store cannot have duplicate non-linear indices of the same type. Attempting to add an HNSW index to a store that already has one will be silently ignored (idempotent).

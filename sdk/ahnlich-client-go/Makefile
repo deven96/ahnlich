@@ -16,12 +16,14 @@ TEST_DIR := $(shell realpath .)
 TEST_NUM_MODULE_BUILDS := 1
 TEST_NUM_PARALLEL := 20
 AHNLICH_DIR := $(shell realpath ../../ahnlich)
+PROTOS_DIR := $(shell realpath ../../protos)
 
 .PHONY: all \
         install-go-junit install-go-test-sum install-gofmt install-goimports \
         install-pre-commit install-prettier install-revive update-shell-config \
         install-shfmt install-staticcheck install-dependencies \
         format-check format lint-check pre-commit-check \
+        generate \
         test-sequential test-race test-coverage test
 
 all: install-dependencies
@@ -164,6 +166,10 @@ simple-lint:
 
 pre-commit-check: format-check lint-check
 
+generate:
+	@echo "➜ Generating Go protobuf code from proto definitions"
+	cd $(PROTOS_DIR) && buf generate
+	@echo "✅ Proto generation complete."
 
 .PHONY: help-bins
 help-bins:

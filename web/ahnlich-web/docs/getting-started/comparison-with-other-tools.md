@@ -24,7 +24,7 @@ Whereas established systems focus primarily on production-grade hosting and high
 | **Deployment** | Single binary or Docker image; CLI-first; SDKs for multiple languages (Python, Rust, Go, etc.) | Cloud-hosted SaaS (limited self-host beta) | Self-hosted or Kubernetes-native | Self-hosted or Kubernetes-native |
 | **Setup Complexity** | Minimal setup; runs locally in seconds or via Docker | Fully managed cloud setup | Requires cluster configuration (Helm, Docker) | Requires cluster setup (Helm charts, Docker Compose) |
 | **Persistence** | In-memory (default) or file-based; enhanced persistence in progress | Always persistent, cloud storage-backed | Persistent by default | MPersistent by defaultilvus |
-| **Search Algorithms** | Exact methods: Cosine, Euclidean; non-linear / ANN algorithms in development | ANN (HNSW) with production tuning | ANN (HNSW, IVF, PQ) | ANN (HNSW, IVF, PQ, DiskANN) |
+| **Search Algorithms** | Exact methods: Cosine, Euclidean, Dot Product; ANN via KDTree and HNSW | ANN (HNSW) with production tuning | ANN (HNSW, IVF, PQ) | ANN (HNSW, IVF, PQ, DiskANN) |
 | **AI / Embeddings** | Built-in AI proxy for text & image embeddings; supports local and remote models | Requires external model provider (e.g. OpenAI) | Integrates external models via modules | Requires external provider (e.g. Hugging Face, OpenAI) |
 | **Scaling** | Single instance (clustering and replication in progress) | Horizontally scalable across regions | Horizontally scalable with replication | Horizontally scalable, designed for petabyte workloads |
 | **Language Support** | CLI + SDKs for Python, Rust, and Go; JS/TypeScript bindings planned | REST and gRPC APIs | REST, GraphQL, and Python client | REST and SDKs for multiple languages |

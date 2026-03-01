@@ -1,5 +1,6 @@
 use ahnlich_db::engine::store::StoreHandler;
-use ahnlich_types::algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm};
+use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_types::algorithm::nonlinear::{KdTreeConfig, non_linear_index};
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
@@ -125,7 +126,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 },
                 NonZeroUsize::new(dimension).unwrap(),
                 vec![],
-                HashSet::from_iter([NonLinearAlgorithm::KdTree]),
+                HashSet::from_iter([non_linear_index::Index::Kdtree(KdTreeConfig {})]),
                 true,
             )
             .unwrap();

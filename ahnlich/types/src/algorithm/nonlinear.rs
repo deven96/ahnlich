@@ -2,6 +2,82 @@
 #[derive(
     serde::Serialize,
     serde::Deserialize,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Clone,
+    Copy,
+    PartialEq,
+    ::prost::Message,
+)]
+pub struct HnswConfig {
+    #[prost(enumeration = "super::algorithms::DistanceMetric", optional, tag = "1")]
+    pub distance: ::core::option::Option<i32>,
+    #[prost(uint32, optional, tag = "2")]
+    pub ef_construction: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "3")]
+    pub maximum_connections: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "4")]
+    pub maximum_connections_zero: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "5")]
+    pub extend_candidates: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "6")]
+    pub keep_pruned_connections: ::core::option::Option<bool>,
+}
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Clone,
+    Copy,
+    PartialEq,
+    ::prost::Message,
+)]
+pub struct KdTreeConfig {}
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Eq,
+    Hash,
+    PartialOrd,
+    Ord,
+    Clone,
+    Copy,
+    PartialEq,
+    ::prost::Message,
+)]
+pub struct NonLinearIndex {
+    #[prost(oneof = "non_linear_index::Index", tags = "1, 2")]
+    pub index: ::core::option::Option<non_linear_index::Index>,
+}
+/// Nested message and enum types in `NonLinearIndex`.
+pub mod non_linear_index {
+    #[derive(
+        serde::Serialize,
+        serde::Deserialize,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        Clone,
+        Copy,
+        PartialEq,
+        ::prost::Oneof,
+    )]
+    pub enum Index {
+        #[prost(message, tag = "1")]
+        Hnsw(super::HnswConfig),
+        #[prost(message, tag = "2")]
+        Kdtree(super::KdTreeConfig),
+    }
+}
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
     Clone,
     Copy,
     Debug,
@@ -15,6 +91,7 @@
 #[repr(i32)]
 pub enum NonLinearAlgorithm {
     KdTree = 0,
+    Hnsw = 1,
 }
 impl NonLinearAlgorithm {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -24,12 +101,14 @@ impl NonLinearAlgorithm {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             Self::KdTree => "KDTree",
+            Self::Hnsw => "HNSW",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "KDTree" => Some(Self::KdTree),
+            "HNSW" => Some(Self::Hnsw),
             _ => None,
         }
     }

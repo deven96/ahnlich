@@ -1,10 +1,17 @@
 use super::super::errors::ServerError;
 use super::FindSimilarN;
+use crate::algorithm::DbHnswConfig;
 use crate::engine::store::StoreKeyId;
 use ahnlich_similarity::EmbeddingKey;
+use ahnlich_similarity::LinearAlgorithm;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
+use ahnlich_similarity::hnsw::index::HNSW;
 use ahnlich_similarity::kdtree::KDTree;
-use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::algorithm::algorithms::DistanceMetric;
+use ahnlich_types::algorithm::nonlinear::{
+    self, HnswConfig, KdTreeConfig, NonLinearAlgorithm,
+    non_linear_index::Index as NonLinearAlgorithmIndexConf,
+};
 use papaya::HashMap as ConcurrentHashMap;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
@@ -18,42 +25,97 @@ use std::num::NonZeroUsize;
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) enum NonLinearAlgorithmWithIndex {
     KDTree(KDTree),
+    Hnsw(Box<HNSW<LinearAlgorithm>>),
 }
 
 impl NonLinearAlgorithmWithIndex {
-    fn get_inner(&self) -> &impl NonLinearAlgorithmWithIndexImpl<'_> {
-        match self {
-            Self::KDTree(kdtree) => kdtree,
-        }
-    }
-
     #[tracing::instrument]
-    pub(crate) fn create(algorithm: NonLinearAlgorithm, dimension: NonZeroUsize) -> Self {
+    pub(crate) fn create(algorithm: NonLinearAlgorithmIndexConf, dimension: NonZeroUsize) -> Self {
         match algorithm {
-            NonLinearAlgorithm::KdTree => NonLinearAlgorithmWithIndex::KDTree(
+            NonLinearAlgorithmIndexConf::Kdtree(_config) => NonLinearAlgorithmWithIndex::KDTree(
                 KDTree::new(dimension, dimension)
                     .expect("Impossible dimension happened during initalization of kdtree"),
             ),
+            NonLinearAlgorithmIndexConf::Hnsw(conf) => {
+                let hnsw_conf: DbHnswConfig = conf.into();
+                NonLinearAlgorithmWithIndex::Hnsw(Box::new(HNSW::new(
+                    hnsw_conf.distance_algorithm,
+                    hnsw_conf.ef_construction,
+                    hnsw_conf.maximum_connections,
+                    hnsw_conf.maximum_connections_zero,
+                    hnsw_conf.extend_candidates,
+                    hnsw_conf.keep_pruned_connections,
+                )))
+            }
         }
     }
 
     #[tracing::instrument(skip_all)]
     fn insert(&self, new: &[EmbeddingKey]) {
-        if let Err(err) = self.get_inner().insert(new) {
+        if let Err(err) = match &self {
+            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
+                <KDTree as NonLinearAlgorithmWithIndexImpl>::insert(kdtree, new)
+            }
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
+                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::insert(hnsw, new)
+            }
+        } {
             tracing::error!("Error inserting into index: {:?}", err)
         }
     }
 
     #[tracing::instrument(skip_all)]
     fn delete(&self, del: &[EmbeddingKey]) {
-        if let Err(err) = self.get_inner().delete(del) {
+        if let Err(err) = match &self {
+            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
+                <KDTree as NonLinearAlgorithmWithIndexImpl>::delete(kdtree, del)
+            }
+
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
+                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::delete(hnsw, del)
+            }
+        } {
             tracing::error!("Error deleting from index: {:?}", err)
         }
     }
 
     #[tracing::instrument(skip_all)]
     fn size(&self) -> usize {
-        self.get_inner().size()
+        match &self {
+            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
+                <KDTree as NonLinearAlgorithmWithIndexImpl>::size(kdtree)
+            }
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
+                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::size(hnsw)
+            }
+        }
+    }
+
+    /// Convert the index into its proto NonLinearIndex representation
+    pub(crate) fn to_proto_index(&self) -> nonlinear::NonLinearIndex {
+        match &self {
+            NonLinearAlgorithmWithIndex::KDTree(_) => nonlinear::NonLinearIndex {
+                index: Some(NonLinearAlgorithmIndexConf::Kdtree(KdTreeConfig {})),
+            },
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
+                let config = hnsw.config();
+                let distance = match hnsw.distance_algorithm() {
+                    LinearAlgorithm::EuclideanDistance => DistanceMetric::Euclidean,
+                    LinearAlgorithm::CosineSimilarity => DistanceMetric::Cosine,
+                    LinearAlgorithm::DotProductSimilarity => DistanceMetric::DotProduct,
+                };
+                nonlinear::NonLinearIndex {
+                    index: Some(NonLinearAlgorithmIndexConf::Hnsw(HnswConfig {
+                        distance: Some(distance.into()),
+                        ef_construction: Some(config.ef_construction as u32),
+                        maximum_connections: Some(config.maximum_connections as u32),
+                        maximum_connections_zero: Some(config.maximum_connections_zero as u32),
+                        extend_candidates: Some(config.extend_candidates),
+                        keep_pruned_connections: Some(config.keep_pruned_connections),
+                    })),
+                }
+            }
+        }
     }
 }
 
@@ -71,12 +133,29 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
         } else {
             Some(search_list.map(|key| key.clone()).collect())
         };
-        self.get_inner()
-            .n_nearest(search_vector.as_slice(), n, accept_list)
-            .expect("Index does not have the same size as reference_point")
-            .into_par_iter()
-            .map(|(arr, sim)| (StoreKeyId::from(&arr), sim))
-            .collect()
+
+        match &self {
+            NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
+                <KDTree as NonLinearAlgorithmWithIndexImpl>::n_nearest(
+                    kdtree,
+                    search_vector.as_slice(),
+                    n,
+                    accept_list,
+                )
+            }
+            NonLinearAlgorithmWithIndex::Hnsw(hnsw) => {
+                <HNSW<LinearAlgorithm> as NonLinearAlgorithmWithIndexImpl>::n_nearest(
+                    hnsw,
+                    search_vector.as_slice(),
+                    n,
+                    accept_list,
+                )
+            }
+        }
+        .expect("Index does not have the same size as reference_point")
+        .into_par_iter()
+        .map(|(arr, sim)| (StoreKeyId::from(&arr), sim))
+        .collect()
     }
 }
 
@@ -93,11 +172,11 @@ impl NonLinearAlgorithmIndices {
     }
 
     #[tracing::instrument]
-    pub fn create(input: HashSet<NonLinearAlgorithm>, dimension: NonZeroUsize) -> Self {
+    pub fn create(input: HashSet<NonLinearAlgorithmIndexConf>, dimension: NonZeroUsize) -> Self {
         let algorithm_to_index = ConcurrentHashMap::new();
         for algo in input {
             let with_index = NonLinearAlgorithmWithIndex::create(algo, dimension);
-            algorithm_to_index.insert(algo, with_index, &algorithm_to_index.guard());
+            algorithm_to_index.insert((&algo).into(), with_index, &algorithm_to_index.guard());
         }
         Self { algorithm_to_index }
     }
@@ -111,7 +190,7 @@ impl NonLinearAlgorithmIndices {
     #[tracing::instrument(skip(self, values))]
     pub fn insert_indices(
         &self,
-        indices: HashSet<NonLinearAlgorithm>,
+        indices: HashSet<NonLinearAlgorithmIndexConf>,
         values: &[EmbeddingKey],
         dimension: NonZeroUsize,
     ) {
@@ -119,7 +198,7 @@ impl NonLinearAlgorithmIndices {
         for algo in indices {
             let with_index = NonLinearAlgorithmWithIndex::create(algo, dimension);
             with_index.insert(values);
-            pinned.insert(algo, with_index);
+            pinned.insert((&algo).into(), with_index);
         }
     }
 
@@ -171,5 +250,11 @@ impl NonLinearAlgorithmIndices {
                 .iter(&self.algorithm_to_index.guard())
                 .map(|(k, v)| size_of_val(k) + v.size())
                 .sum::<usize>()
+    }
+
+    /// Get the proto NonLinearIndex configs for all indices in this store
+    pub fn non_linear_index_configs(&self) -> Vec<nonlinear::NonLinearIndex> {
+        let pinned = self.algorithm_to_index.pin();
+        pinned.iter().map(|(_, v)| v.to_proto_index()).collect()
     }
 }

@@ -28,6 +28,11 @@ export enum Algorithm {
    * @generated from enum value: KDTree = 3;
    */
   KDTree = 3,
+
+  /**
+   * @generated from enum value: HNSW = 4;
+   */
+  HNSW = 4,
 }
 // Retrieve enum metadata with: proto3.getEnumType(Algorithm)
 proto3.util.setEnumType(Algorithm, "algorithm.algorithms.Algorithm", [
@@ -35,4 +40,31 @@ proto3.util.setEnumType(Algorithm, "algorithm.algorithms.Algorithm", [
   { no: 1, name: "DotProductSimilarity" },
   { no: 2, name: "CosineSimilarity" },
   { no: 3, name: "KDTree" },
+  { no: 4, name: "HNSW" },
+]);
+
+/**
+ * @generated from enum algorithm.algorithms.DistanceMetric
+ */
+export enum DistanceMetric {
+  /**
+   * @generated from enum value: Euclidean = 0;
+   */
+  Euclidean = 0,
+
+  /**
+   * @generated from enum value: DotProduct = 1;
+   */
+  DotProduct = 1,
+
+  /**
+   * @generated from enum value: Cosine = 2;
+   */
+  Cosine = 2,
+}
+// Retrieve enum metadata with: proto3.getEnumType(DistanceMetric)
+proto3.util.setEnumType(DistanceMetric, "algorithm.algorithms.DistanceMetric", [
+  { no: 0, name: "Euclidean" },
+  { no: 1, name: "DotProduct" },
+  { no: 2, name: "Cosine" },
 ]);

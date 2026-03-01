@@ -55,15 +55,30 @@ fn main() -> Result<()> {
         .write(true)
         .open(out_dir.join("lib.rs"))
         .expect("Failed to create mod file");
-
     // nonlinear algorthim, storekeyid, storevalue, metadatakey and value,
     tonic_build::configure()
         .build_client(true)
         .build_client(true)
         .out_dir(out_dir.clone())
         .type_attribute(
+            "algorithm.nonlinear.HNSWConfig",
+            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
+        )
+        .type_attribute(
+            "algorithm.nonlinear.KDTreeConfig",
+            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
+        )
+        .type_attribute(
             "algorithm.nonlinear.NonLinearAlgorithm",
             "#[derive(serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
+            "algorithm.nonlinear.NonLinearIndex.index",
+            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
+        )
+        .type_attribute(
+            "algorithm.nonlinear.NonLinearIndex",
+            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
         )
         .type_attribute(
             "keyval.StoreValue",

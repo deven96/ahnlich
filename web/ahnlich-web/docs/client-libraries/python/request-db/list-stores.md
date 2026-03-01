@@ -8,7 +8,7 @@ The **List Stores** request retrieves the set of Stores currently registered on 
 
 ## Behavior
 * The client sends a ListStores request.
-* The server responds with a collection of registered Stores.
+* The server responds with a collection of registered Stores. Each store entry includes: name, entry count, size in bytes, and non-linear index configurations (HNSW parameters or k-d tree) if any are active.
 * An empty list means no Stores have been created yet.
 
 <details>

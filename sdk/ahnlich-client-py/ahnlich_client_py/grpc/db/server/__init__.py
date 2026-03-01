@@ -11,6 +11,7 @@ import betterproto
 from ... import client as __client__
 from ... import keyval as __keyval__
 from ... import similarity as __similarity__
+from ...algorithm import nonlinear as __algorithm_nonlinear__
 from ...shared import info as __shared_info__
 
 
@@ -90,3 +91,6 @@ class StoreInfo(betterproto.Message):
     name: str = betterproto.string_field(1)
     len: int = betterproto.uint64_field(2)
     size_in_bytes: int = betterproto.uint64_field(3)
+    non_linear_indices: List["__algorithm_nonlinear__.NonLinearIndex"] = (
+        betterproto.message_field(4)
+    )

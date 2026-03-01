@@ -4,7 +4,7 @@ title: Drop Non-Linear Algorithm Index
 
 # Drop Non-Linear Algorithm Index
 This request removes one or more **non-linear algorithm indexes** from a store.  
-Non-linear indexes (like **KD-Tree**) are used to accelerate similarity searches.
+Non-linear indexes (like **KD-Tree** and **HNSW**) are used to accelerate similarity searches.
 
 **Input:**
   * `store`: the name of the store.

@@ -11,7 +11,10 @@ use ahnlich_types::{
             ListStores, Ping, PurgeStores, Set,
         },
     },
-    algorithm::{algorithms::Algorithm, nonlinear::NonLinearAlgorithm},
+    algorithm::{
+        algorithms::Algorithm,
+        nonlinear::{KdTreeConfig, NonLinearAlgorithm, NonLinearIndex, non_linear_index},
+    },
     keyval::{
         AiStoreEntry, StoreInput, StoreValue as KvStoreValue, store_input::Value as StoreValue,
     },
@@ -168,7 +171,9 @@ fn test_create_store_parse() {
             query_model: AiModel::AllMiniLmL6V2 as i32,
             index_model: AiModel::Resnet50 as i32,
             predicates: vec![],
-            non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+            non_linear_indices: vec![NonLinearIndex {
+                index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+            }],
             error_if_exists: true,
             store_original: true,
         })]
@@ -188,7 +193,9 @@ fn test_create_non_linear_algorithm_parse() {
         vec![AiQuery::CreateNonLinearAlgorithmIndex(
             CreateNonLinearAlgorithmIndex {
                 store: "store2".to_string(),
-                non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+                non_linear_indices: vec![NonLinearIndex {
+                    index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                }],
             }
         )]
     );

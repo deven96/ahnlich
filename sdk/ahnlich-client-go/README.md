@@ -303,10 +303,26 @@ func (c *ExampleDBClient) exampleListConnectedClients() error {
 
 ### Create Non Linear Algorithm Index
 ```go
+import (
+    nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
+)
+
 func (c *ExampleDBClient) exampleCreateNonLinearAlgoIndex() error {
+    // Create a KDTree index
     _, err := c.client.CreateNonLinearAlgorithmIndex(c.ctx, &dbquery.CreateNonLinearAlgorithmIndex{
-        Store:            "my_store",
-        NonLinearIndices: []algorithm.NonLinearAlgorithm{algorithm.KDTree},
+        Store: "my_store",
+        NonLinearIndices: []*nonlinear.NonLinearIndex{
+            {Index: &nonlinear.NonLinearIndex_Kdtree{Kdtree: &nonlinear.KDTreeConfig{}}},
+        },
+    })
+    if err != nil { return err }
+
+    // Or create an HNSW index (with optional config)
+    _, err = c.client.CreateNonLinearAlgorithmIndex(c.ctx, &dbquery.CreateNonLinearAlgorithmIndex{
+        Store: "my_store",
+        NonLinearIndices: []*nonlinear.NonLinearIndex{
+            {Index: &nonlinear.NonLinearIndex_Hnsw{Hnsw: &nonlinear.HNSWConfig{}}},
+        },
     })
     return err
 }
@@ -317,7 +333,7 @@ func (c *ExampleDBClient) exampleCreateNonLinearAlgoIndex() error {
 func (c *ExampleDBClient) exampleDropNonLinearAlgoIndex() error {
     _, err := c.client.DropNonLinearAlgorithmIndex(c.ctx, &dbquery.DropNonLinearAlgorithmIndex{
         Store:            "my_store",
-        NonLinearIndices: []algorithm.NonLinearAlgorithm{algorithm.KDTree},
+        NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_KDTree},
         ErrorIfNotExists: true,
     })
     return err
@@ -499,10 +515,26 @@ func (c *ExampleAIClient) exampleDropStoreAI(ctx context.Context) error {
 
 ### Create Non Linear Algorithm Index
 ```go
+import (
+    nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
+)
+
 func (c *ExampleAIClient) exampleCreateNonLinearIndexAI(ctx context.Context) error {
+    // Create a KDTree index
     _, err := c.client.CreateNonLinearAlgorithmIndex(c.ctx, &aiquery.CreateNonLinearAlgorithmIndex{
-        Store:            "ai_store",
-        NonLinearIndices: []algorithm.NonLinearAlgorithm{algorithm.KDTree},
+        Store: "ai_store",
+        NonLinearIndices: []*nonlinear.NonLinearIndex{
+            {Index: &nonlinear.NonLinearIndex_Kdtree{Kdtree: &nonlinear.KDTreeConfig{}}},
+        },
+    })
+    if err != nil { return err }
+
+    // Or create an HNSW index (with optional config)
+    _, err = c.client.CreateNonLinearAlgorithmIndex(c.ctx, &aiquery.CreateNonLinearAlgorithmIndex{
+        Store: "ai_store",
+        NonLinearIndices: []*nonlinear.NonLinearIndex{
+            {Index: &nonlinear.NonLinearIndex_Hnsw{Hnsw: &nonlinear.HNSWConfig{}}},
+        },
     })
     return err
 }
@@ -513,7 +545,7 @@ func (c *ExampleAIClient) exampleCreateNonLinearIndexAI(ctx context.Context) err
 func (c *ExampleAIClient) exampleDropNonLinearIndexAI(ctx context.Context) error {
     _, err := c.client.DropNonLinearAlgorithmIndex(c.ctx, &aiquery.DropNonLinearAlgorithmIndex{
         Store:            "ai_store",
-        NonLinearIndices: []algorithm.NonLinearAlgorithm{algorithm.KDTree},
+        NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_KDTree},
         ErrorIfNotExists: true,
     })
     return err
@@ -630,6 +662,7 @@ func examplePipelineAI() error {
 
 ```bash
 make install-dependencies
+make generate    # regenerate Go protobuf code from proto definitions (requires buf)
 make format
 make test        # sequential
 make lint-check

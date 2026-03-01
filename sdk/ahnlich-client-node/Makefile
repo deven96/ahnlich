@@ -1,6 +1,8 @@
 SHELL := /bin/bash
 
-.PHONY: install-dependencies format format-check lint-check pre-commit-check test
+PROTOS_DIR := $(shell realpath ../../protos)
+
+.PHONY: install-dependencies format format-check lint-check pre-commit-check generate test
 
 install-dependencies:
 	npm install
@@ -14,6 +16,11 @@ format-check:
 lint-check: format-check
 
 pre-commit-check: lint-check
+
+generate:
+	@echo "➜ Generating TypeScript protobuf code from proto definitions"
+	cd $(PROTOS_DIR) && buf generate
+	@echo "✅ Proto generation complete."
 
 test:
 ifeq ($(REPORT),1)
