@@ -56,7 +56,7 @@ pub struct CreateIndex {
 pub struct ServerResponse {
     #[prost(
         oneof = "server_response::Response",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11"
     )]
     pub response: ::core::option::Option<server_response::Response>,
 }
@@ -84,6 +84,8 @@ pub mod server_response {
         Del(super::Del),
         #[prost(message, tag = "10")]
         CreateIndex(super::CreateIndex),
+        #[prost(message, tag = "11")]
+        StoreInfo(super::StoreInfo),
     }
 }
 #[derive(Hash, Eq, Ord, PartialOrd, Clone, PartialEq, ::prost::Message)]
@@ -97,4 +99,8 @@ pub struct StoreInfo {
     #[prost(message, repeated, tag = "4")]
     pub non_linear_indices:
         ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
+    #[prost(string, repeated, tag = "5")]
+    pub predicate_indices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(uint32, tag = "6")]
+    pub dimension: u32,
 }

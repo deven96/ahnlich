@@ -18,6 +18,7 @@ service DBService {
   rpc GetKey(db.query.GetKey) returns (db.server.Get);
   rpc GetPred(db.query.GetPred) returns (db.server.Get);
   rpc GetSimN(db.query.GetSimN) returns (db.server.GetSimN);
+  rpc GetStore(db.query.GetStore) returns (db.server.StoreInfo);
 
   /** Update methods **/
   rpc Set(db.query.Set) returns (db.server.Set);

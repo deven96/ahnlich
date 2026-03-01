@@ -534,6 +534,13 @@ export class ServerResponse extends Message<ServerResponse> {
         value: CreateIndex;
         case: "createIndex";
       }
+    | {
+        /**
+         * @generated from field: db.server.StoreInfo store_info = 11;
+         */
+        value: StoreInfo;
+        case: "storeInfo";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<ServerResponse>) {
@@ -554,6 +561,7 @@ export class ServerResponse extends Message<ServerResponse> {
     { no: 8, name: "get_sim_n", kind: "message", T: GetSimN, oneof: "response" },
     { no: 9, name: "del", kind: "message", T: Del, oneof: "response" },
     { no: 10, name: "create_index", kind: "message", T: CreateIndex, oneof: "response" },
+    { no: 11, name: "store_info", kind: "message", T: StoreInfo, oneof: "response" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ServerResponse {
@@ -600,6 +608,16 @@ export class StoreInfo extends Message<StoreInfo> {
    */
   nonLinearIndices: NonLinearIndex[] = [];
 
+  /**
+   * @generated from field: repeated string predicate_indices = 5;
+   */
+  predicateIndices: string[] = [];
+
+  /**
+   * @generated from field: uint32 dimension = 6;
+   */
+  dimension = 0;
+
   constructor(data?: PartialMessage<StoreInfo>) {
     super();
     proto3.util.initPartial(data, this);
@@ -612,6 +630,14 @@ export class StoreInfo extends Message<StoreInfo> {
     { no: 2, name: "len", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
     { no: 3, name: "size_in_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
     { no: 4, name: "non_linear_indices", kind: "message", T: NonLinearIndex, repeated: true },
+    {
+      no: 5,
+      name: "predicate_indices",
+      kind: "scalar",
+      T: 9 /* ScalarType.STRING */,
+      repeated: true,
+    },
+    { no: 6, name: "dimension", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StoreInfo {

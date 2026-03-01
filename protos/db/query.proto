@@ -109,6 +109,11 @@ message ListClients {}
 // A simple ping request to check if the server is reachable.
 message Ping {}
 
+// A request to get detailed information about a specific store by name.
+message GetStore {
+  string store = 1; // The name of the store.
+}
+
 // A request to set multiple key-value entries in the store.
 // Validation is done for each vector before updating the store.
 message Set {

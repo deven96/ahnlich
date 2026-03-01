@@ -15,6 +15,7 @@ import {
   GetKey,
   GetPred,
   GetSimN,
+  GetStore,
   InfoServer,
   ListClients,
   ListStores,
@@ -30,6 +31,7 @@ import {
   InfoServer as InfoServer$1,
   Pong,
   Set as Set$1,
+  StoreInfo,
   StoreList,
   Unit,
 } from "../db/server_pb.js";
@@ -98,6 +100,15 @@ export const DBService = {
       name: "GetSimN",
       I: GetSimN,
       O: GetSimN$1,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc services.db_service.DBService.GetStore
+     */
+    getStore: {
+      name: "GetStore",
+      I: GetStore,
+      O: StoreInfo,
       kind: MethodKind.Unary,
     },
     /**

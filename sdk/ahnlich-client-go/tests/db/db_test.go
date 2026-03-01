@@ -95,9 +95,30 @@ func TestListStores_FindsCreatedStore(t *testing.T) {
 	for _, s := range resp.Stores {
 		if s.Name == storeNoPred.Store {
 			found = true
+			require.EqualValues(t, storeNoPred.Dimension, s.Dimension)
+			require.Empty(t, s.PredicateIndices)
 		}
 	}
 	require.True(t, found)
+}
+
+func TestGetStore_Succeeds(t *testing.T) {
+	t.Parallel()
+	proc := startDB(t)
+	defer proc.Kill()
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := dbsvc.NewDBServiceClient(conn)
+
+	_, _ = client.CreateStore(context.Background(), storeWithPred)
+	_, _ = client.CreatePredIndex(context.Background(), &dbquery.CreatePredIndex{Store: storeWithPred.Store, Predicates: []string{"rank"}})
+	resp, err := client.GetStore(context.Background(), &dbquery.GetStore{Store: storeWithPred.Store})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, storeWithPred.Store, resp.Name)
+	require.EqualValues(t, storeWithPred.Dimension, resp.Dimension)
+	require.Contains(t, resp.PredicateIndices, "rank")
 }
 
 func TestSetInStore_Succeeds(t *testing.T) {
@@ -389,6 +410,9 @@ func TestListStores_ReflectsDroppedStore(t *testing.T) {
 	require.NoError(t, err)
 	for _, s := range resp.Stores {
 		require.NotEqual(t, storeNoPred.Store, s.Name)
+		if s.Name == storeWithPred.Store {
+			require.EqualValues(t, storeWithPred.Dimension, s.Dimension)
+		}
 	}
 }
 
