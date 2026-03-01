@@ -33,6 +33,7 @@
   - [Ping](#ping-1)
   - [Info Server](#info-server-1)
   - [List Stores](#list-stores-1)
+  - [Get Store](#get-store-1)
   - [Create Store](#create-store-1)
   - [Set](#set-1)
   - [Get Sim N](#get-sim-n-1)
@@ -412,7 +413,25 @@ func (c *ExampleAIClient) exampleListStoresAI(ctx context.Context) error {
     if err != nil {
         return err
     }
-    fmt.Println("AI Stores:", resp.Stores)
+    for _, s := range resp.Stores {
+        // Each AIStoreInfo includes Name, QueryModel, IndexModel, EmbeddingSize,
+        // PredicateIndices ([]string), and Dimension (uint32).
+        fmt.Printf("Store: %s, QueryModel: %v, IndexModel: %v, EmbeddingSize: %d, Dimension: %d, PredicateIndices: %v\n",
+            s.Name, s.QueryModel, s.IndexModel, s.EmbeddingSize, s.Dimension, s.PredicateIndices)
+    }
+    return nil
+}
+```
+
+### Get Store
+```go
+func (c *ExampleAIClient) exampleGetStoreAI(ctx context.Context) error {
+    resp, err := c.client.GetStore(c.ctx, &aiquery.GetStore{Store: "ai_store"})
+    if err != nil { return err }
+    // resp is a *AIStoreInfo with Name, QueryModel, IndexModel, EmbeddingSize,
+    // PredicateIndices ([]string), and Dimension (uint32).
+    fmt.Printf("Store: %s, QueryModel: %v, IndexModel: %v, EmbeddingSize: %d, Dimension: %d, PredicateIndices: %v\n",
+        resp.Name, resp.QueryModel, resp.IndexModel, resp.EmbeddingSize, resp.Dimension, resp.PredicateIndices)
     return nil
 }
 ```

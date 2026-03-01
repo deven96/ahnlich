@@ -1,6 +1,7 @@
 import { createAiClient } from "../../src/ai.js";
 import {
   CreateStore,
+  GetStore,
   Ping,
   ListStores,
   CreateNonLinearAlgorithmIndex,
@@ -55,6 +56,27 @@ describe("AI client", () => {
     const resp = await client.listStores(new ListStores());
     const names = resp.stores.map((s) => s.name);
     expect(names).toContain(storeName);
+  });
+
+  test("get store returns AI store info", async () => {
+    const client = createAiClient(address);
+    const storeName = "ai_get_store_test";
+
+    await client.createStore(
+      new CreateStore({
+        store: storeName,
+        queryModel: AIModel.ALL_MINI_LM_L6_V2,
+        indexModel: AIModel.ALL_MINI_LM_L6_V2,
+        errorIfExists: false,
+      }),
+    );
+
+    const resp = await client.getStore(new GetStore({ store: storeName }));
+    expect(resp).toBeDefined();
+    expect(resp.name).toBe(storeName);
+    expect(resp.queryModel).toBe(AIModel.ALL_MINI_LM_L6_V2);
+    expect(resp.indexModel).toBe(AIModel.ALL_MINI_LM_L6_V2);
+    expect(Number(resp.embeddingSize)).toBe(0);
   });
 
   test("create and drop kdtree non-linear algorithm index", async () => {

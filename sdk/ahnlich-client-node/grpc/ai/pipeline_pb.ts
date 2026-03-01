@@ -25,6 +25,7 @@ import {
   GetKey,
   GetPred,
   GetSimN,
+  GetStore,
   InfoServer,
   ListClients,
   ListStores,
@@ -33,6 +34,7 @@ import {
   Set,
 } from "./query_pb.js";
 import {
+  AIStoreInfo,
   ClientList,
   CreateIndex,
   Del,
@@ -181,6 +183,13 @@ export class AIQuery extends Message<AIQuery> {
         value: DelPred;
         case: "delPred";
       }
+    | {
+        /**
+         * @generated from field: ai.query.GetStore get_store = 19;
+         */
+        value: GetStore;
+        case: "getStore";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<AIQuery>) {
@@ -227,6 +236,7 @@ export class AIQuery extends Message<AIQuery> {
       oneof: "query",
     },
     { no: 18, name: "del_pred", kind: "message", T: DelPred, oneof: "query" },
+    { no: 19, name: "get_store", kind: "message", T: GetStore, oneof: "query" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AIQuery {
@@ -381,6 +391,13 @@ export class AIServerResponse extends Message<AIServerResponse> {
         value: StoreInputToEmbeddingsList;
         case: "storeInputToEmbeddingsList";
       }
+    | {
+        /**
+         * @generated from field: ai.server.AIStoreInfo store_info = 13;
+         */
+        value: AIStoreInfo;
+        case: "storeInfo";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<AIServerResponse>) {
@@ -409,6 +426,7 @@ export class AIServerResponse extends Message<AIServerResponse> {
       T: StoreInputToEmbeddingsList,
       oneof: "response",
     },
+    { no: 13, name: "store_info", kind: "message", T: AIStoreInfo, oneof: "response" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AIServerResponse {

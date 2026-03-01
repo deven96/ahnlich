@@ -15,6 +15,7 @@ import (
 	aipipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/pipeline"
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess"
 	aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+	aiserver "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/server"
 	nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
 	"github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
@@ -275,6 +276,68 @@ func TestDelPred(t *testing.T) {
 		Condition: condition,
 	})
 	require.EqualValues(t, 0, len(getResp.Entries))
+}
+
+func TestListStoresAI(t *testing.T) {
+	proc := startAI(t)
+	defer proc.Kill()
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := aisvc.NewAIServiceClient(conn)
+
+	_, _ = client.CreateStore(context.Background(), storeNoPred)
+	resp, err := client.ListStores(context.Background(), &aiquery.ListStores{})
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.Stores)
+	found := false
+	for _, s := range resp.Stores {
+		if s.Name == storeNoPred.Store {
+			found = true
+			require.Equal(t, aimodel.AIModel_ALL_MINI_LM_L6_V2, s.QueryModel)
+			require.Equal(t, aimodel.AIModel_ALL_MINI_LM_L6_V2, s.IndexModel)
+			require.NotZero(t, s.EmbeddingSize)
+			require.NotZero(t, s.Dimension)
+			require.Empty(t, s.PredicateIndices)
+		}
+	}
+	require.True(t, found)
+}
+
+func TestGetStoreAI(t *testing.T) {
+	proc := startAI(t)
+	defer proc.Kill()
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := aisvc.NewAIServiceClient(conn)
+
+	// Create a store with predicates
+	_, _ = client.CreateStore(context.Background(), storeWithPred)
+	// Create a predicate index so we can verify it appears in the response
+	_, _ = client.CreatePredIndex(context.Background(), &aiquery.CreatePredIndex{
+		Store:      storeWithPred.Store,
+		Predicates: []string{"category"},
+	})
+
+	// GetStore should return the AIStoreInfo for the created store
+	resp, err := client.GetStore(context.Background(), &aiquery.GetStore{Store: storeWithPred.Store})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.IsType(t, &aiserver.AIStoreInfo{}, resp)
+	require.Equal(t, storeWithPred.Store, resp.Name)
+	require.Equal(t, aimodel.AIModel_ALL_MINI_LM_L6_V2, resp.QueryModel)
+	require.Equal(t, aimodel.AIModel_ALL_MINI_LM_L6_V2, resp.IndexModel)
+	require.NotZero(t, resp.EmbeddingSize)
+	require.NotZero(t, resp.Dimension)
+	require.Contains(t, resp.PredicateIndices, "category")
+
+	// GetStore with a non-existent store should return an error
+	_, err = client.GetStore(context.Background(), &aiquery.GetStore{Store: "nonexistent_store"})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	require.Equal(t, codes.NotFound, st.Code())
 }
 
 func TestConvertInputsToEmbeddings(t *testing.T) {

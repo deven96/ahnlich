@@ -35,6 +35,7 @@ A Node.js/TypeScript client that interacts with both Ahnlich DB and AI over gRPC
   - [Ping](#ping-1)
   - [Info Server](#info-server-1)
   - [List Stores](#list-stores-1)
+  - [Get Store](#get-store-1)
   - [Create Store](#create-store-1)
   - [Set](#set-1)
   - [Get Sim N](#get-sim-n-1)
@@ -386,6 +387,22 @@ import { ListStores } from "ahnlich-client-node/grpc/ai/query_pb";
 
 const response = await client.listStores(new ListStores());
 console.log(response.stores.map((s) => s.name));
+```
+
+### Get Store
+
+Returns detailed information about a single AI store by name.
+
+```ts
+import { GetStore } from "ahnlich-client-node/grpc/ai/query_pb";
+
+const response = await client.getStore(new GetStore({ store: "ai_store" }));
+console.log(response.name);           // store name
+console.log(response.queryModel);     // AI model used for querying
+console.log(response.indexModel);     // AI model used for indexing
+console.log(response.embeddingSize);  // number of stored embeddings
+console.log(response.dimension);      // vector dimension
+console.log(response.predicateIndices); // indexed predicate keys
 ```
 
 ### Create Store

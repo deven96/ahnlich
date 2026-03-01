@@ -175,6 +175,8 @@ async fn test_ai_proxy_create_store_success() {
             query_model: AiModel::AllMiniLmL6V2.into(),
             index_model: AiModel::AllMiniLmL6V2.into(),
             embedding_size: ai_model.embedding_size.get() as u64,
+            predicate_indices: vec![],
+            dimension: 384,
         }],
     };
     assert_eq!(expected, response.into_inner());
@@ -1501,6 +1503,8 @@ async fn test_ai_proxy_test_with_persistence() {
             query_model: AiModel::AllMiniLmL6V2.into(),
             index_model: AiModel::AllMiniLmL6V2.into(),
             embedding_size: ai_model.embedding_size.get() as u64,
+            predicate_indices: vec![],
+            dimension: 384,
         }],
     };
 
@@ -1570,6 +1574,8 @@ async fn test_ai_proxy_destroy_database() {
                             query_model: AiModel::AllMiniLmL6V2.into(),
                             index_model: AiModel::AllMiniLmL6V2.into(),
                             embedding_size: ai_model.embedding_size.get() as u64,
+                            predicate_indices: vec![],
+                            dimension: 384,
                         }],
                     },
                 )),
@@ -1749,6 +1755,8 @@ async fn test_ai_proxy_binary_store_actions() {
                         query_model: AiModel::Resnet50.into(),
                         index_model: AiModel::Resnet50.into(),
                         embedding_size: resnet_model.embedding_size.get() as u64,
+                        predicate_indices: vec![],
+                        dimension: 2048,
                     }],
                 })),
             },

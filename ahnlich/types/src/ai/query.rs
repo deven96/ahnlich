@@ -194,6 +194,14 @@ pub struct ListClients {}
 /// Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ListStores {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetStore {
+    /// Gets detailed information about a specific store by name. Returns an error if the store does not exist.
+    ///
+    /// Store name
+    #[prost(string, tag = "1")]
+    pub store: ::prost::alloc::string::String,
+}
 /// Purges (deletes) all stores on the server, effectively destroying all stored data
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct PurgeStores {}

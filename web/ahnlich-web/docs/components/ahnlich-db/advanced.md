@@ -226,7 +226,7 @@ Ahnlich DB is optimized for **real-time vector similarity search**, but differen
 **Benchmark Insight (example):**
 - Dataset: 10K SIFT vectors (128-dim).
 
-- Avg. Query Latency: <1ms (graph traversal).
+- Avg. Query Latency: &lt;1ms (graph traversal).
 
 - Accuracy: 90%+ recall@50 with default config; higher with tuned parameters.
 

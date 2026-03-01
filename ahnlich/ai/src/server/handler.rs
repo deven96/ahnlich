@@ -29,6 +29,7 @@ use ahnlich_types::ai::query::DropStore;
 use ahnlich_types::ai::query::GetKey;
 use ahnlich_types::ai::query::GetPred;
 use ahnlich_types::ai::query::GetSimN;
+use ahnlich_types::ai::query::GetStore;
 use ahnlich_types::ai::query::InfoServer;
 use ahnlich_types::ai::query::ListClients;
 use ahnlich_types::ai::query::ListStores;
@@ -36,6 +37,7 @@ use ahnlich_types::ai::query::Ping;
 use ahnlich_types::ai::query::PurgeStores;
 use ahnlich_types::ai::query::Set;
 use ahnlich_types::ai::server;
+use ahnlich_types::ai::server::AiStoreInfo;
 use ahnlich_types::ai::server::ClientList;
 use ahnlich_types::ai::server::CreateIndex;
 use ahnlich_types::ai::server::Del;
@@ -696,6 +698,18 @@ impl AiService for AIProxyServer {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn get_store(
+        &self,
+        request: tonic::Request<GetStore>,
+    ) -> Result<tonic::Response<AiStoreInfo>, tonic::Status> {
+        let params = request.into_inner();
+        let store_info = self.store_handler.get_store(&StoreName {
+            value: params.store,
+        })?;
+        Ok(tonic::Response::new(store_info))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn purge_stores(
         &self,
         _request: tonic::Request<PurgeStores>,
@@ -1040,6 +1054,19 @@ impl AiService for AIProxyServer {
                                 res.into_inner(),
                             ),
                         ),
+                        Err(err) => {
+                            response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                                message: err.message().to_string(),
+                                code: err.code().into(),
+                            }));
+                        }
+                    }
+                }
+
+                Query::GetStore(params) => {
+                    match self.get_store(tonic::Request::new(params)).await {
+                        Ok(res) => response_vec
+                            .push(ai_server_response::Response::StoreInfo(res.into_inner())),
                         Err(err) => {
                             response_vec.push(ai_server_response::Response::Error(ErrorResponse {
                                 message: err.message().to_string(),

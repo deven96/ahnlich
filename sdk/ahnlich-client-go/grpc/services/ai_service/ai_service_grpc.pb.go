@@ -30,6 +30,7 @@ const (
 	AIService_GetKey_FullMethodName                        = "/services.ai_service.AIService/GetKey"
 	AIService_GetPred_FullMethodName                       = "/services.ai_service.AIService/GetPred"
 	AIService_GetSimN_FullMethodName                       = "/services.ai_service.AIService/GetSimN"
+	AIService_GetStore_FullMethodName                      = "/services.ai_service.AIService/GetStore"
 	AIService_Set_FullMethodName                           = "/services.ai_service.AIService/Set"
 	AIService_DropPredIndex_FullMethodName                 = "/services.ai_service.AIService/DropPredIndex"
 	AIService_DropNonLinearAlgorithmIndex_FullMethodName   = "/services.ai_service.AIService/DropNonLinearAlgorithmIndex"
@@ -57,6 +58,7 @@ type AIServiceClient interface {
 	GetKey(ctx context.Context, in *query.GetKey, opts ...grpc.CallOption) (*server.Get, error)
 	GetPred(ctx context.Context, in *query.GetPred, opts ...grpc.CallOption) (*server.Get, error)
 	GetSimN(ctx context.Context, in *query.GetSimN, opts ...grpc.CallOption) (*server.GetSimN, error)
+	GetStore(ctx context.Context, in *query.GetStore, opts ...grpc.CallOption) (*server.AIStoreInfo, error)
 	// * Update methods *
 	Set(ctx context.Context, in *query.Set, opts ...grpc.CallOption) (*server.Set, error)
 	// * Delete methods *
@@ -138,6 +140,16 @@ func (c *aIServiceClient) GetSimN(ctx context.Context, in *query.GetSimN, opts .
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(server.GetSimN)
 	err := c.cc.Invoke(ctx, AIService_GetSimN_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) GetStore(ctx context.Context, in *query.GetStore, opts ...grpc.CallOption) (*server.AIStoreInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(server.AIStoreInfo)
+	err := c.cc.Invoke(ctx, AIService_GetStore_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -286,6 +298,7 @@ type AIServiceServer interface {
 	GetKey(context.Context, *query.GetKey) (*server.Get, error)
 	GetPred(context.Context, *query.GetPred) (*server.Get, error)
 	GetSimN(context.Context, *query.GetSimN) (*server.GetSimN, error)
+	GetStore(context.Context, *query.GetStore) (*server.AIStoreInfo, error)
 	// * Update methods *
 	Set(context.Context, *query.Set) (*server.Set, error)
 	// * Delete methods *
@@ -330,6 +343,9 @@ func (UnimplementedAIServiceServer) GetPred(context.Context, *query.GetPred) (*s
 }
 func (UnimplementedAIServiceServer) GetSimN(context.Context, *query.GetSimN) (*server.GetSimN, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSimN not implemented")
+}
+func (UnimplementedAIServiceServer) GetStore(context.Context, *query.GetStore) (*server.AIStoreInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStore not implemented")
 }
 func (UnimplementedAIServiceServer) Set(context.Context, *query.Set) (*server.Set, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
@@ -495,6 +511,24 @@ func _AIService_GetSimN_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AIServiceServer).GetSimN(ctx, req.(*query.GetSimN))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_GetStore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(query.GetStore)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).GetStore(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_GetStore_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).GetStore(ctx, req.(*query.GetStore))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -763,6 +797,10 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSimN",
 			Handler:    _AIService_GetSimN_Handler,
+		},
+		{
+			MethodName: "GetStore",
+			Handler:    _AIService_GetStore_Handler,
 		},
 		{
 			MethodName: "Set",

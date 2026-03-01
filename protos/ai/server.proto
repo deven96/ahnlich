@@ -62,6 +62,8 @@ message AIStoreInfo {
   ai.models.AIModel query_model = 2;
   ai.models.AIModel index_model = 3;
   uint64 embedding_size = 4;
+  repeated string predicate_indices = 5;
+  uint32 dimension = 6;
 }
 
 message MultipleEmbedding {

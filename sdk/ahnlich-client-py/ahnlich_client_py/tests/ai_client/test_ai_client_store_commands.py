@@ -398,6 +398,45 @@ async def test_ai_client_create_and_drop_hnsw_non_linear_index(spin_up_ahnlich_a
 
 
 @pytest.mark.asyncio
+async def test_ai_client_get_store_succeeds(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
+    try:
+        # Create store with predicates
+        await client.create_store(
+            ai_query.CreateStore(**ai_store_payload_with_predicates)
+        )
+
+        # Get store
+        response = await client.get_store(
+            ai_query.GetStore(store=ai_store_payload_with_predicates["store"])
+        )
+
+        assert isinstance(response, ai_server.AiStoreInfo)
+        assert response.name == ai_store_payload_with_predicates["store"]
+        assert response.query_model == ai_store_payload_with_predicates["query_model"]
+        assert response.index_model == ai_store_payload_with_predicates["index_model"]
+        assert response.embedding_size == 0
+        assert sorted(response.predicate_indices) == sorted(
+            ai_store_payload_with_predicates["predicates"]
+        )
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_ai_client_get_store_not_found(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
+    try:
+        with pytest.raises(GRPCError) as exc_info:
+            await client.get_store(ai_query.GetStore(store="NonExistentStore"))
+        assert exc_info.value.status == grpclib.Status.NOT_FOUND
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
 async def test_ai_client_drop_store_succeeds(spin_up_ahnlich_ai):
     channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
     client = ai_service.AiServiceStub(channel)
