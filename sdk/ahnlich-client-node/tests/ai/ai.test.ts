@@ -1,6 +1,18 @@
 import { createAiClient } from "../../src/ai.js";
-import { CreateStore, Ping, ListStores } from "../../grpc/ai/query_pb.js";
+import {
+  CreateStore,
+  Ping,
+  ListStores,
+  CreateNonLinearAlgorithmIndex,
+  DropNonLinearAlgorithmIndex,
+} from "../../grpc/ai/query_pb.js";
 import { AIModel } from "../../grpc/ai/models_pb.js";
+import {
+  NonLinearIndex,
+  NonLinearAlgorithm,
+  KDTreeConfig,
+  HNSWConfig,
+} from "../../grpc/algorithm/nonlinear_pb.js";
 import { spawnDb, spawnAi } from "../utils.js";
 
 describe("AI client", () => {
@@ -43,5 +55,75 @@ describe("AI client", () => {
     const resp = await client.listStores(new ListStores());
     const names = resp.stores.map((s) => s.name);
     expect(names).toContain(storeName);
+  });
+
+  test("create and drop kdtree non-linear algorithm index", async () => {
+    const client = createAiClient(address);
+    const storeName = "ai_kdtree_index_store";
+
+    await client.createStore(
+      new CreateStore({
+        store: storeName,
+        queryModel: AIModel.ALL_MINI_LM_L6_V2,
+        indexModel: AIModel.ALL_MINI_LM_L6_V2,
+        errorIfExists: false,
+      }),
+    );
+
+    // Create KDTree index
+    const createResp = await client.createNonLinearAlgorithmIndex(
+      new CreateNonLinearAlgorithmIndex({
+        store: storeName,
+        nonLinearIndices: [
+          new NonLinearIndex({ index: { case: "kdtree", value: new KDTreeConfig() } }),
+        ],
+      }),
+    );
+    expect(createResp).toBeDefined();
+
+    // Drop KDTree index
+    const dropResp = await client.dropNonLinearAlgorithmIndex(
+      new DropNonLinearAlgorithmIndex({
+        store: storeName,
+        nonLinearIndices: [NonLinearAlgorithm.KDTree],
+        errorIfNotExists: true,
+      }),
+    );
+    expect(dropResp).toBeDefined();
+  });
+
+  test("create and drop hnsw non-linear algorithm index", async () => {
+    const client = createAiClient(address);
+    const storeName = "ai_hnsw_index_store";
+
+    await client.createStore(
+      new CreateStore({
+        store: storeName,
+        queryModel: AIModel.ALL_MINI_LM_L6_V2,
+        indexModel: AIModel.ALL_MINI_LM_L6_V2,
+        errorIfExists: false,
+      }),
+    );
+
+    // Create HNSW index with default config
+    const createResp = await client.createNonLinearAlgorithmIndex(
+      new CreateNonLinearAlgorithmIndex({
+        store: storeName,
+        nonLinearIndices: [
+          new NonLinearIndex({ index: { case: "hnsw", value: new HNSWConfig() } }),
+        ],
+      }),
+    );
+    expect(createResp).toBeDefined();
+
+    // Drop HNSW index
+    const dropResp = await client.dropNonLinearAlgorithmIndex(
+      new DropNonLinearAlgorithmIndex({
+        store: storeName,
+        nonLinearIndices: [NonLinearAlgorithm.HNSW],
+        errorIfNotExists: true,
+      }),
+    );
+    expect(dropResp).toBeDefined();
   });
 });
