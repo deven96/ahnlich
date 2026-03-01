@@ -881,6 +881,7 @@ condition = predicates.PredicateCondition(
 | -------|:-------------:|
 | 0.0.0 | Base Python clients (Async and Sync) to connect to ahnlich db and AI, with connection pooling and Bincode serialization and deserialization |
 | 1.0.0 | Rewrite Underlying communication using GRPC |
+| 0.2.0   | HNSW + AI Model Support                 |
 
 
 

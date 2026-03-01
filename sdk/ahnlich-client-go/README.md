@@ -725,3 +725,4 @@ make lint-check
 | Version | Description                             |
 |---------|-----------------------------------------|
 | 0.1.0   | Initial Go SDK release                 |
+| 0.2.0   | HNSW + AI Model Support                 |
