@@ -73,6 +73,6 @@ The AI service will automatically **embed these inputs** using the store’s con
 
 * **`execution_provider`** - Optional hardware acceleration for model inference (e.g., `CUDA`, `TensorRT`, `CoreML`). Set to `None` for default CPU execution.
 
-* **`model_params`** - Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
+* **`model_params`** - Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
 
 * **Response** → returns counts of inserted vs. updated items (`upsert counts`).  

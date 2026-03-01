@@ -436,21 +436,6 @@ Build Ahnlich Applications with the Go SDK – Vector Storage, Search, and AI to
 
 <div className="m-10">
 
-#### [List Connected Clients](/docs/client-libraries/go/request-ai/list-connected-clients)
-
-- Description
-
-- Source Code Example
-
-- Parameters
-
-- Returns
-
-- Behavior
-</div>
-
-<div className="m-10">
-
 #### [Create Non Linear Algorithm Index](/docs/client-libraries/go/request-ai/create-non-linear-algx)
 
 - Description

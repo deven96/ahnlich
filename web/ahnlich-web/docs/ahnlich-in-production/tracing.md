@@ -68,10 +68,10 @@ Access Jaeger UI at `http://localhost:16686`
 
 For comprehensive tracing setup and configuration:
 
-- **[Distributed Tracing Overview](../components/distributed-tracing/distributed-tracing)** - Architecture and concepts
-- **[Using Jaeger](../components/distributed-tracing/using-jaeger)** - Jaeger setup guide
-- **[Tracing in Ahnlich DB](../components/distributed-tracing/ahnlich-db)** - DB-specific configuration
-- **[Tracing in Ahnlich AI](../components/distributed-tracing/ahnlich-ai)** - AI-specific configuration
+- **[Distributed Tracing Overview](/docs/components/distributed-tracing)** - Architecture and concepts
+- **[Using Jaeger](/docs/components/distributed-tracing/using-jaeger)** - Jaeger setup guide
+- **[Tracing in Ahnlich DB](/docs/components/distributed-tracing/ahnlich-db)** - DB-specific configuration
+- **[Tracing in Ahnlich AI](/docs/components/distributed-tracing/ahnlich-ai)** - AI-specific configuration
 
 ## Production Tips
 

@@ -168,7 +168,7 @@ model_params = {}  # uses model defaults
 model_params = {"confidence_threshold": "0.9"}  # stricter face detection
 ```
 
-See [Model Parameters](/components/ahnlich-ai/advanced#model-parameters-model_params) for the full reference.
+See [Model Parameters](/docs/components/ahnlich-ai/advanced#model-parameters-model_params) for the full reference.
 
 ## AIStoreType
 

@@ -364,6 +364,9 @@ INFOSERVER
 | bge-large-en-v1.5 | 1024 |
 | resnet-50 | 2048 |
 | clip-vit-b32-* | 512 |
+| clap-audio / clap-text | 512 |
+| buffalo-l | 512 |
+| sface-yunet | 128 |
 
 3. **Match query and index models:**
 ```python
@@ -492,6 +495,7 @@ Max Token Exceeded. Model Expects [256], input type was [512]
 - all-minilm-*: 256 tokens
 - bge-*: 512 tokens
 - clip-vit-b32-text: 77 tokens
+- clap-text: 512 tokens
 
 **Solutions:**
 
@@ -571,6 +575,114 @@ def validate_image(image_bytes):
 
 img = validate_image(image_bytes)
 ```
+
+---
+
+### Audio Processing Errors
+
+**Symptoms:**
+```
+Audio input is too long (15000ms). Model accepts at most 10000ms per clip.
+NoPreprocessing is not supported for audio inputs.
+Bytes could not be successfully decoded into audio
+```
+
+**Causes:**
+- Audio clip exceeds 10-second limit
+- Using `NoPreprocessing` with audio
+- Corrupted or unsupported audio format
+
+**Solutions:**
+
+1. **Trim audio to 10 seconds:**
+```python
+from pydub import AudioSegment
+
+audio = AudioSegment.from_file("long_audio.wav")
+clip = audio[:10000]  # First 10 seconds (in milliseconds)
+clip.export("trimmed.wav", format="wav")
+```
+
+2. **Split long audio into chunks:**
+```python
+def split_audio(audio_path, chunk_duration_ms=10000):
+    audio = AudioSegment.from_file(audio_path)
+    chunks = []
+    for i in range(0, len(audio), chunk_duration_ms):
+        chunk = audio[i:i + chunk_duration_ms]
+        chunks.append(chunk)
+    return chunks
+```
+
+3. **Always use ModelPreprocessing:**
+```python
+Set(
+    store="audio_store",
+    inputs=[...],
+    preprocess_action=PreprocessAction.ModelPreprocessing,  # Required for audio
+)
+```
+
+4. **Use supported audio formats:**
+- WAV, MP3, FLAC, OGG
+- Audio is automatically resampled to 48kHz
+
+---
+
+### Face Recognition Errors
+
+**Symptoms:**
+```
+Query input produced 3 embeddings - query input must produce exactly 1 embedding
+NoPreprocessing is not supported for face recognition models
+```
+
+**Causes:**
+- Multiple faces detected in query image
+- Using `NoPreprocessing` with face models
+
+**Solutions:**
+
+1. **For queries, use single-face images:**
+```python
+# Crop to single face before querying
+from PIL import Image
+
+img = Image.open("group_photo.jpg")
+# Crop to region containing target face
+face_crop = img.crop((x1, y1, x2, y2))
+face_crop.save("single_face.jpg")
+```
+
+2. **Always use ModelPreprocessing:**
+```python
+Set(
+    store="faces_store",
+    inputs=[...],
+    preprocess_action=PreprocessAction.ModelPreprocessing,  # Required
+)
+```
+
+3. **Adjust confidence threshold for detection:**
+```python
+# For group photos with small faces, lower threshold
+GetSimN(
+    store="faces_store",
+    search_input=...,
+    model_params={"confidence_threshold": "0.3"},  # More inclusive
+)
+
+# For ID verification, raise threshold
+GetSimN(
+    store="faces_store",
+    search_input=...,
+    model_params={"confidence_threshold": "0.9"},  # More strict
+)
+```
+
+4. **Choose the right face model:**
+- `buffalo-l`: Higher accuracy, 512-dim, **non-commercial only**
+- `sface-yunet`: Lighter, 128-dim, commercially usable (Apache/MIT)
 
 ---
 
@@ -714,8 +826,8 @@ lsof -p $(pgrep ahnlich)
 
 Still having issues? Try these resources:
 
-1. **Check Error Codes**: [Error Codes Reference](/reference/error-codes)
-2. **Read Configuration Docs**: [Configuration Reference](/reference/configuration)
+1. **Check Error Codes**: [Error Codes Reference](/docs/reference/error-codes)
+2. **Read Configuration Docs**: [Configuration Reference](/docs/reference/configuration)
 3. **Enable Tracing**: See detailed request flow
 4. **Community**: [WhatsApp Group](https://chat.whatsapp.com/E4CP7VZ1lNH9dJUxpsZVvD)
 5. **GitHub**: [Report Issues](https://github.com/deven96/ahnlich/issues)

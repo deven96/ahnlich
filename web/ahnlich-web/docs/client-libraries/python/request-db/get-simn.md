@@ -17,7 +17,7 @@ It retrieves the N closest vectors to a given query vector.
 
   * `algorithm`: similarity metric (e.g. CosineSimilarity, EuclideanDistance).
 
-  * `condition`: optional predicate filter to restrict which vectors are considered. Set to `None` to search all vectors. See [Predicates documentation](/components/predicates/predicates) for filtering examples.
+  * `condition`: optional predicate filter to restrict which vectors are considered. Set to `None` to search all vectors. See [Predicates documentation](/docs/components/predicates) for filtering examples.
 
 * **Behavior**: The server compares the query vector with stored vectors using the chosen similarity metric.
 

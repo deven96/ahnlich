@@ -118,7 +118,7 @@ func main() {
 
 - **Algorithm** – Uses `CosineSimilarity` to compute vector similarity. Other options: `EuclideanDistance`, `DotProductSimilarity`.
 
-- **Condition** – Optional predicate filter to restrict which vectors are considered in the search. Set to `nil` to search all vectors. See [Predicates documentation](/components/predicates/predicates) for filtering examples.
+- **Condition** – Optional predicate filter to restrict which vectors are considered in the search. Set to `nil` to search all vectors. See [Predicates documentation](/docs/components/predicates) for filtering examples.
 
 - **Response** – The server returns the top matches as `resp.Entries`, including both the stored vectors and any metadata associated with them.
 

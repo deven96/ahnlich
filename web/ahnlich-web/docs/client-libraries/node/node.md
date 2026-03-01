@@ -1,33 +1,31 @@
 ---
-title: Python
-sidebar_position: 20
+title: Node.js
+sidebar_position: 15
 ---
 
-# Python SDK
+# Node.js SDK
 
-Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and AI tooling.
+Build Ahnlich Applications with the Node.js/TypeScript SDK - Vector Storage, Search, and AI tooling via gRPC.
 
 ## Structure
 
-### [Python Specific Resources](/docs/client-libraries/python/python-specific-resources)
+### [Node.js Specific Resources](/docs/client-libraries/node/node-specific-resources)
 
-* Build Ahnlich Applications with the Python SDK
+* Build Ahnlich Applications with the Node.js SDK
 
-* Ahnlich Python Technical Resources
+* Ahnlich Node.js Technical Resources
 
-* Python SDK Quickstart - Setup Guide
+* Node.js SDK Quickstart - Setup Guide
 
 * Package Information
 
-* Server Response
-
 * Initialization
 
-### [Request – DB](/docs/client-libraries/python/request-db)
+### [Request - DB](/docs/client-libraries/node/request-db)
 
 <div className="m-10">
 
-  #### [Ping](/docs/client-libraries/python/request-db/ping)
+  #### [Ping](/docs/client-libraries/node/request-db/ping)
 
     * Description
 
@@ -42,7 +40,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Info Server](/docs/client-libraries/python/request-db/info-server)
+  #### [Info Server](/docs/client-libraries/node/request-db/info-server)
 
     * Description
 
@@ -57,7 +55,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [List Stores](/docs/client-libraries/python/request-db/list-stores)
+  #### [List Stores](/docs/client-libraries/node/request-db/list-stores)
 
     * Description
 
@@ -72,7 +70,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Create Store](/docs/client-libraries/python/request-db/create-store)
+  #### [Get Store](/docs/client-libraries/node/request-db/get-store)
 
     * Description
 
@@ -87,7 +85,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Set](/docs/client-libraries/python/request-db/set)
+  #### [Create Store](/docs/client-libraries/node/request-db/create-store)
 
     * Description
 
@@ -102,7 +100,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [GetSimN](/docs/client-libraries/python/request-db/get-simn)
+  #### [Set](/docs/client-libraries/node/request-db/set)
 
     * Description
 
@@ -117,7 +115,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Get Key](/docs/client-libraries/python/request-db/get-key)
+  #### [GetSimN](/docs/client-libraries/node/request-db/get-simn)
 
     * Description
 
@@ -132,7 +130,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Get By Predicate](/docs/client-libraries/python/request-db/get-by-predicate)
+  #### [Get Key](/docs/client-libraries/node/request-db/get-key)
 
     * Description
 
@@ -147,7 +145,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Create Predicate Index](/docs/client-libraries/python/request-db/create-predicate-index)
+  #### [Get By Predicate](/docs/client-libraries/node/request-db/get-by-predicate)
 
     * Description
 
@@ -162,7 +160,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Drop Predicate Index](/docs/client-libraries/python/request-db/drop-predicate-index)
+  #### [Create Predicate Index](/docs/client-libraries/node/request-db/create-predicate-index)
 
     * Description
 
@@ -177,7 +175,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Delete Key](/docs/client-libraries/python/request-db/delete-key)
+  #### [Drop Predicate Index](/docs/client-libraries/node/request-db/drop-predicate-index)
 
     * Description
 
@@ -192,7 +190,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Drop Store](/docs/client-libraries/python/request-db/drop-store)
+  #### [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-db/create-non-linear-algx)
 
     * Description
 
@@ -207,7 +205,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Create Non Linear Algorithm Index](/docs/client-libraries/python/request-db/create-non-linear-algx)
+  #### [Drop Non Linear Algorithm Index](/docs/client-libraries/node/request-db/drop-non-linear-algx)
 
     * Description
 
@@ -222,7 +220,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Drop Non Linear Algorithm Index](/docs/client-libraries/python/request-db/drop-non-linear-algx)
+  #### [Delete Key](/docs/client-libraries/node/request-db/delete-key)
 
     * Description
 
@@ -237,7 +235,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Delete Predicate](/docs/client-libraries/python/request-db/delete-predicate)
+  #### [Delete Predicate](/docs/client-libraries/node/request-db/delete-predicate)
 
     * Description
 
@@ -250,11 +248,41 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
     * Behavior
 </div>
 
-### [Request – AI](/docs/client-libraries/python/request-ai)
+<div className="m-10">
+
+  #### [Drop Store](/docs/client-libraries/node/request-db/drop-store)
+
+    * Description
+
+    * Source Code Example
+
+    * Parameters
+
+    * Returns
+
+    * Behavior
+</div>
 
 <div className="m-10">
 
-  #### [Ping](/docs/client-libraries/python/request-ai/ping)
+  #### [List Connected Clients](/docs/client-libraries/node/request-db/list-connected-clients)
+
+    * Description
+
+    * Source Code Example
+
+    * Parameters
+
+    * Returns
+
+    * Behavior
+</div>
+
+### [Request - AI](/docs/client-libraries/node/request-ai)
+
+<div className="m-10">
+
+  #### [Ping](/docs/client-libraries/node/request-ai/ping)
 
   * Description
 
@@ -269,7 +297,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Info Server](/docs/client-libraries/python/request-ai/info-server)
+  #### [Info Server](/docs/client-libraries/node/request-ai/info-server)
 
   * Description
 
@@ -284,7 +312,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [List Stores](/docs/client-libraries/python/request-ai/list-stores)
+  #### [List Stores](/docs/client-libraries/node/request-ai/list-stores)
 
   * Description
 
@@ -299,7 +327,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Create Store](/docs/client-libraries/python/request-ai/create-store)
+  #### [Get Store](/docs/client-libraries/node/request-ai/get-store)
 
   * Description
 
@@ -314,7 +342,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Set](/docs/client-libraries/python/request-ai/set)
+  #### [Create Store](/docs/client-libraries/node/request-ai/create-store)
 
   * Description
 
@@ -329,7 +357,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [GetSimN](/docs/client-libraries/python/request-ai/get-simn)
+  #### [Set](/docs/client-libraries/node/request-ai/set)
 
   * Description
 
@@ -344,7 +372,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Get By Predicate](/docs/client-libraries/python/request-ai/get-by-predicate)
+  #### [GetSimN](/docs/client-libraries/node/request-ai/get-simn)
 
   * Description
 
@@ -359,7 +387,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Create Predicate Index](/docs/client-libraries/python/request-ai/create-predicate-index)
+  #### [Get By Predicate](/docs/client-libraries/node/request-ai/get-by-predicate)
 
   * Description
 
@@ -374,7 +402,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Drop Predicate Index](/docs/client-libraries/python/request-ai/drop-predicate-index)
+  #### [Create Predicate Index](/docs/client-libraries/node/request-ai/create-predicate-index)
 
   * Description
 
@@ -389,7 +417,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Delete Key](/docs/client-libraries/python/request-ai/delete-key)
+  #### [Drop Predicate Index](/docs/client-libraries/node/request-ai/drop-predicate-index)
 
   * Description
 
@@ -404,7 +432,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Drop Store](/docs/client-libraries/python/request-ai/drop-store)
+  #### [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-ai/create-non-linear-algx)
 
   * Description
 
@@ -419,7 +447,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Create Non Linear Algorithm Index](/docs/client-libraries/python/request-ai/create-non-linear-algx)
+  #### [Drop Non Linear Algorithm Index](/docs/client-libraries/node/request-ai/drop-non-linear-algx)
 
   * Description
 
@@ -434,7 +462,7 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
-  #### [Drop Non Linear Algorithm Index](/docs/client-libraries/python/request-ai/drop-non-linear-algx)
+  #### [Delete Key](/docs/client-libraries/node/request-ai/delete-key)
 
   * Description
 
@@ -447,17 +475,34 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
   * Behavior
 </div>
 
-### [Bulk Requests](/docs/client-libraries/python/bulk-requests)
+<div className="m-10">
+
+  #### [Drop Store](/docs/client-libraries/node/request-ai/drop-store)
 
   * Description
 
   * Source Code Example
 
-### [Type Meanings](/docs/client-libraries/python/type-meanings)
+  * Parameters
+
+  * Returns
+
+  * Behavior
+</div>
+
+### [Tracing](/docs/client-libraries/node/tracing)
+
+  * Description
+
+  * Source Code Example
+
+### [Type Meanings](/docs/client-libraries/node/type-meanings)
 
   * Store Key 
 
   * Store Value 
+
+  * Store Input
 
   * Store Predicates (Predicate Indices) 
 
@@ -467,8 +512,4 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
   * MetadataValue 
 
-  * Search Input 
-
-  * AIModels 
-
-  * AIStoreType
+  * AIModels
