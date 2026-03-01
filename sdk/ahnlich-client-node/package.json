@@ -1,6 +1,6 @@
 {
   "name": "@deven96/ahnlich-client-node",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Node.js gRPC client for Ahnlich AI and DB servers",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
