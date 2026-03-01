@@ -363,15 +363,24 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 from grpclib.client import Channel
 from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
-from ahnlich_client_py.grpc.algorithm.algorithms import NonLinearAlgorithm
+from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm, NonLinearIndex, KDTreeConfig, HNSWConfig
 
 async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
-    
+
+    # Create a KDTree index
     response = await client.create_non_linear_algorithm_index(
         db_query.CreateNonLinearAlgorithmIndex(
             store="test store",
-            non_linear_indices=[NonLinearAlgorithm.KDTree]
+            non_linear_indices=[NonLinearIndex(kdtree=KDTreeConfig())]
+        )
+    )
+
+    # Or create an HNSW index (with optional config)
+    response = await client.create_non_linear_algorithm_index(
+        db_query.CreateNonLinearAlgorithmIndex(
+            store="test store",
+            non_linear_indices=[NonLinearIndex(hnsw=HNSWConfig())]
         )
     )
     # response.created_indexes shows how many indexes were created
@@ -382,11 +391,11 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
 from grpclib.client import Channel
 from ahnlich_client_py.grpc.services.db_service import DbServiceStub
 from ahnlich_client_py.grpc.db import query as db_query
-from ahnlich_client_py.grpc.algorithm.algorithms import NonLinearAlgorithm
+from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm
 
 async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
-    
+
     response = await client.drop_non_linear_algorithm_index(
         db_query.DropNonLinearAlgorithmIndex(
             store="test store",
@@ -666,15 +675,24 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
 from grpclib.client import Channel
 from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
 from ahnlich_client_py.grpc.ai import query as ai_query
-from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm
+from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm, NonLinearIndex, KDTreeConfig, HNSWConfig
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
     client = AiServiceStub(channel)
-    response = await client.create_non_linear_index(
-        ai_query.CreateNonLinearIndex(
+
+    # Create a KDTree index
+    response = await client.create_non_linear_algorithm_index(
+        ai_query.CreateNonLinearAlgorithmIndex(
             store="test store",
-            algorithms=[NonLinearAlgorithm.KDTree],
-            error_if_exists=True
+            non_linear_indices=[NonLinearIndex(kdtree=KDTreeConfig())]
+        )
+    )
+
+    # Or create an HNSW index (with optional config)
+    response = await client.create_non_linear_algorithm_index(
+        ai_query.CreateNonLinearAlgorithmIndex(
+            store="test store",
+            non_linear_indices=[NonLinearIndex(hnsw=HNSWConfig())]
         )
     )
 ```
@@ -688,10 +706,10 @@ from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm
 
 async with Channel(host="127.0.0.1", port=1370) as channel:
     client = AiServiceStub(channel)
-    response = await client.drop_non_linear_index(
-        ai_query.DropNonLinearIndex(
+    response = await client.drop_non_linear_algorithm_index(
+        ai_query.DropNonLinearAlgorithmIndex(
             store="test store",
-            algorithms=[NonLinearAlgorithm.KDTree],
+            non_linear_indices=[NonLinearAlgorithm.KDTree],
             error_if_not_exists=True
         )
     )

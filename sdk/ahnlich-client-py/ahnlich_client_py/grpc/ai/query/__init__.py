@@ -32,8 +32,8 @@ class CreateStore(betterproto.Message):
     query_model: "_models__.AiModel" = betterproto.enum_field(2)
     index_model: "_models__.AiModel" = betterproto.enum_field(3)
     predicates: List[str] = betterproto.string_field(4)
-    non_linear_indices: List["__algorithm_nonlinear__.NonLinearAlgorithm"] = (
-        betterproto.enum_field(5)
+    non_linear_indices: List["__algorithm_nonlinear__.NonLinearIndex"] = (
+        betterproto.message_field(5)
     )
     error_if_exists: bool = betterproto.bool_field(6)
     store_original: bool = betterproto.bool_field(7)
@@ -89,8 +89,8 @@ class CreateNonLinearAlgorithmIndex(betterproto.Message):
     Creates non-linear algorithm indices for the store if they don't already exist
     """
 
-    non_linear_indices: List["__algorithm_nonlinear__.NonLinearAlgorithm"] = (
-        betterproto.enum_field(2)
+    non_linear_indices: List["__algorithm_nonlinear__.NonLinearIndex"] = (
+        betterproto.message_field(2)
     )
 
 

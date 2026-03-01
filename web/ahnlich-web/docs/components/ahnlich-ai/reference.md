@@ -120,11 +120,14 @@ DROPPREDICATEINDEX category IN article_store
 
 ## 11. Create Non Linear Algorithm Index
 #### Description
-Create an advanced index (e.g., k-d tree) for faster similarity searches.
+Create an advanced index (e.g., KDTree, HNSW) for faster similarity searches.
 
 #### Command
 ```
 CREATENONLINEARALGORITHMINDEX kdtree IN geo_store
+```
+```
+CREATENONLINEARALGORITHMINDEX hnsw IN geo_store
 ```
 
 ## 12. Drop Non Linear Algorithm Index
@@ -159,6 +162,7 @@ DELETEKEY doc1 IN article_store
 | GET BY PREDICATE (category = "news") IN article_store | ```client.get_by_predicate("article_store", "category='news'")?;``` | ```client.get_by_predicate("article_store", "category='news'")``` | ```client.GetByPredicate(ctx, "article_store", "category='news'")``` |
 | CREATE PREDICATE INDEX category IN article_store | ```client.create_predicate_index("article_store", "category")?;``` | ```client.create_predicate_index("article_store", "category")``` | ```client.CreatePredicateIndex(ctx, "article_store", "category")``` |
 | DROP PREDICATE INDEX category IN article_store | ```client.drop_predicate_index("article_store", "category")?;``` | ```client.drop_predicate_index("article_store", "category")``` | ```client.DropPredicateIndex(ctx, "article_store", "category")``` |
-| CREATE NON LINEAR ALGORITHM INDEX kdtree IN geo_store | ```client.create_non_linear_index("geo_store", "kdtree")?;``` | ```client.create_non_linear_index("geo_store", "kdtree")``` | ```client.CreateNonLinearIndex(ctx, "geo_store", "kdtree")``` |
-| DROP NON LINEAR ALGORITHM INDEX kdtree IN geo_store | ```client.drop_non_linear_index("geo_store", "kdtree")?;``` | ```client.drop_non_linear_index("geo_store", "kdtree")``` | ```client.DropNonLinearIndex(ctx, "geo_store", "kdtree")``` |
+| CREATE NON LINEAR ALGORITHM INDEX kdtree IN geo_store | ```client.create_non_linear_algorithm_index("geo_store", NonLinearIndex { kdtree })?;``` | ```client.create_non_linear_algorithm_index("geo_store", NonLinearIndex(kdtree=KDTreeConfig()))``` | ```client.CreateNonLinearAlgorithmIndex(ctx, "geo_store", NonLinearIndex_Kdtree)``` |
+| CREATE NON LINEAR ALGORITHM INDEX hnsw IN geo_store | ```client.create_non_linear_algorithm_index("geo_store", NonLinearIndex { hnsw })?;``` | ```client.create_non_linear_algorithm_index("geo_store", NonLinearIndex(hnsw=HNSWConfig()))``` | ```client.CreateNonLinearAlgorithmIndex(ctx, "geo_store", NonLinearIndex_Hnsw)``` |
+| DROP NON LINEAR ALGORITHM INDEX kdtree IN geo_store | ```client.drop_non_linear_algorithm_index("geo_store", "kdtree")?;``` | ```client.drop_non_linear_algorithm_index("geo_store", "kdtree")``` | ```client.DropNonLinearAlgorithmIndex(ctx, "geo_store", "kdtree")``` |
 | DELETE KEY doc1 IN article_store | ```client.delete_key("article_store", "doc1")?;``` | ```client.delete_key("article_store", "doc1")``` | ```client.DeleteKey(ctx, "article_store", "doc1")``` |

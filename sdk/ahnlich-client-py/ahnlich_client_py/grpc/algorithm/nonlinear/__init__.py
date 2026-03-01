@@ -4,9 +4,36 @@
 # This file has been @generated
 
 from dataclasses import dataclass
+from typing import Optional
 
 import betterproto
+
+from .. import algorithms as _algorithms__
 
 
 class NonLinearAlgorithm(betterproto.Enum):
     KDTree = 0
+    HNSW = 1
+
+
+@dataclass(eq=False, repr=False)
+class HnswConfig(betterproto.Message):
+    distance: Optional["_algorithms__.DistanceMetric"] = betterproto.enum_field(
+        1, optional=True
+    )
+    ef_construction: Optional[int] = betterproto.uint32_field(2, optional=True)
+    maximum_connections: Optional[int] = betterproto.uint32_field(3, optional=True)
+    maximum_connections_zero: Optional[int] = betterproto.uint32_field(4, optional=True)
+    extend_candidates: Optional[bool] = betterproto.bool_field(5, optional=True)
+    keep_pruned_connections: Optional[bool] = betterproto.bool_field(6, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class KdTreeConfig(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
+class NonLinearIndex(betterproto.Message):
+    hnsw: "HnswConfig" = betterproto.message_field(1, group="index")
+    kdtree: "KdTreeConfig" = betterproto.message_field(2, group="index")

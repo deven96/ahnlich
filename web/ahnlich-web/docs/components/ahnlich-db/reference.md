@@ -154,14 +154,17 @@ DROP PREDICATE INDEX category IN my_store
 ```
 
 #### CREATE NON LINEAR ALGORITHM INDEX
-Build a non-linear index (e.g., KD-Tree) for improved search efficiency.
+Build a non-linear index (e.g., KD-Tree, HNSW) for improved search efficiency.
 ```
 CREATE NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name>
 ```
 
-#### Example:
+#### Examples:
 ```
 CREATE NON LINEAR ALGORITHM INDEX kdtree IN my_store
+```
+```
+CREATE NON LINEAR ALGORITHM INDEX hnsw IN my_store
 ```
 
 #### DROP NON LINEAR ALGORITHM INDEX
@@ -194,5 +197,6 @@ This document provides a reference mapping of Ahnlich DB commands to their equiv
 | GET BY PREDICATE (lang = "en") IN my_store | `client.get_by_predicate("my_store", "lang='en'")?;` | `client.get_by_predicate("my_store", "lang='en'")` | `client.GetByPredicate(ctx, "my_store", "lang='en'")` |
 | CREATE PREDICATE INDEX category IN my_store | `client.create_predicate_index("my_store", "category")?;` | `client.create_predicate_index("my_store", "category")` | `client.CreatePredicateIndex(ctx, "my_store", "category")` |
 | DROP PREDICATE INDEX category IN my_store | `client.drop_predicate_index("my_store", "category")?;` | `client.drop_predicate_index("my_store", "category")` | `client.DropPredicateIndex(ctx, "my_store", "category")` |
-| CREATE NON LINEAR ALGORITHM INDEX kdtree IN my_store | `client.create_non_linear_index("my_store", "kdtree")?;` | `client.create_non_linear_index("my_store", "kdtree")` | `client.CreateNonLinearIndex(ctx, "my_store", "kdtree")` |
-| DROP NON LINEAR ALGORITHM INDEX kdtree IN my_store | `client.drop_non_linear_index("my_store", "kdtree")?;` | `client.drop_non_linear_index("my_store", "kdtree")` | `client.DropNonLinearIndex(ctx, "my_store", "kdtree")` |
+| CREATE NON LINEAR ALGORITHM INDEX kdtree IN my_store | `client.create_non_linear_algorithm_index("my_store", NonLinearIndex { kdtree })?;` | `client.create_non_linear_algorithm_index("my_store", NonLinearIndex(kdtree=KDTreeConfig()))` | `client.CreateNonLinearAlgorithmIndex(ctx, "my_store", NonLinearIndex_Kdtree)` |
+| CREATE NON LINEAR ALGORITHM INDEX hnsw IN my_store | `client.create_non_linear_algorithm_index("my_store", NonLinearIndex { hnsw })?;` | `client.create_non_linear_algorithm_index("my_store", NonLinearIndex(hnsw=HNSWConfig()))` | `client.CreateNonLinearAlgorithmIndex(ctx, "my_store", NonLinearIndex_Hnsw)` |
+| DROP NON LINEAR ALGORITHM INDEX kdtree IN my_store | `client.drop_non_linear_algorithm_index("my_store", "kdtree")?;` | `client.drop_non_linear_algorithm_index("my_store", "kdtree")` | `client.DropNonLinearAlgorithmIndex(ctx, "my_store", "kdtree")` |

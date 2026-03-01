@@ -13,6 +13,7 @@ Removes an existing non-linear algorithm index from a store. This operation is u
 
   ```rust
   use ahnlich_types::db::query::DropNonLinearAlgorithmIndex;
+  use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
   use ahnlich_types::db::server::Del;
   use ahnlich_client_rs::db::DbClient;
 
@@ -25,7 +26,7 @@ Removes an existing non-linear algorithm index from a store. This operation is u
 
       let params = DropNonLinearAlgorithmIndex {
           store: "Main".to_string(),
-          non_linear_indices: vec![0, 1],
+          non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32, NonLinearAlgorithm::Hnsw as i32],
           error_if_not_exists: false,
       };
 

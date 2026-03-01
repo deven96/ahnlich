@@ -11,11 +11,11 @@
     "format-check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\""
   },
   "dependencies": {
-    "@bufbuild/protobuf": "^1.10.0",
     "@connectrpc/connect": "^1.7.0",
     "@connectrpc/connect-node": "^1.7.0"
   },
   "devDependencies": {
+    "@bufbuild/protobuf": "^1.10.0",
     "@bufbuild/protoc-gen-es": "^1.10.0",
     "@connectrpc/protoc-gen-connect-es": "^1.6.1",
     "@types/jest": "^29.0.0",

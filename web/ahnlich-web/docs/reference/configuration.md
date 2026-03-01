@@ -504,6 +504,7 @@ Used in `GetSimN` and similar operations:
 | `DotProductSimilarity` | Linear | Fast comparison | Best when vectors are normalized |
 | `CosineSimilarity` | Linear | Direction-based | Best for normalized vectors, ignores magnitude |
 | `KDTree` | Non-linear | Fast spatial search | Best for high-dimensional nearest neighbor |
+| `HNSW` | Non-linear | Approximate nearest neighbor | Best for large-scale similarity search with configurable accuracy/speed tradeoff |
 
 **Usage:**
 ```
@@ -513,6 +514,10 @@ GETSIMN 10 WITH [1.0, 2.0, 3.0] USING cosinesimilarity IN my_store
 # Non-linear - must be created
 CREATESTORE my_store DIMENSION 128 NONLINEARALGORITHMINDEX (KDTree)
 GETSIMN 10 WITH [1.0, 2.0, 3.0] USING kdtree IN my_store
+
+# HNSW index
+CREATESTORE my_store DIMENSION 128 NONLINEARALGORITHMINDEX (HNSW)
+GETSIMN 10 WITH [1.0, 2.0, 3.0] USING hnsw IN my_store
 ```
 
 ---

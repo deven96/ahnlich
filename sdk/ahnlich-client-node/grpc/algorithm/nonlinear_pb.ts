@@ -3,7 +3,16 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { proto3 } from "@bufbuild/protobuf";
+import type {
+  BinaryReadOptions,
+  FieldList,
+  JsonReadOptions,
+  JsonValue,
+  PartialMessage,
+  PlainMessage,
+} from "@bufbuild/protobuf";
+import { Message, proto3 } from "@bufbuild/protobuf";
+import { DistanceMetric } from "./algorithm_pb.js";
 
 /**
  * @generated from enum algorithm.nonlinear.NonLinearAlgorithm
@@ -13,8 +22,191 @@ export enum NonLinearAlgorithm {
    * @generated from enum value: KDTree = 0;
    */
   KDTree = 0,
+
+  /**
+   * @generated from enum value: HNSW = 1;
+   */
+  HNSW = 1,
 }
 // Retrieve enum metadata with: proto3.getEnumType(NonLinearAlgorithm)
 proto3.util.setEnumType(NonLinearAlgorithm, "algorithm.nonlinear.NonLinearAlgorithm", [
   { no: 0, name: "KDTree" },
+  { no: 1, name: "HNSW" },
 ]);
+
+/**
+ * @generated from message algorithm.nonlinear.HNSWConfig
+ */
+export class HNSWConfig extends Message<HNSWConfig> {
+  /**
+   * @generated from field: optional algorithm.algorithms.DistanceMetric distance = 1;
+   */
+  distance?: DistanceMetric;
+
+  /**
+   * @generated from field: optional uint32 ef_construction = 2;
+   */
+  efConstruction?: number;
+
+  /**
+   * @generated from field: optional uint32 maximum_connections = 3;
+   */
+  maximumConnections?: number;
+
+  /**
+   * @generated from field: optional uint32 maximum_connections_zero = 4;
+   */
+  maximumConnectionsZero?: number;
+
+  /**
+   * @generated from field: optional bool extend_candidates = 5;
+   */
+  extendCandidates?: boolean;
+
+  /**
+   * @generated from field: optional bool keep_pruned_connections = 6;
+   */
+  keepPrunedConnections?: boolean;
+
+  constructor(data?: PartialMessage<HNSWConfig>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "algorithm.nonlinear.HNSWConfig";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "distance", kind: "enum", T: proto3.getEnumType(DistanceMetric), opt: true },
+    { no: 2, name: "ef_construction", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    {
+      no: 3,
+      name: "maximum_connections",
+      kind: "scalar",
+      T: 13 /* ScalarType.UINT32 */,
+      opt: true,
+    },
+    {
+      no: 4,
+      name: "maximum_connections_zero",
+      kind: "scalar",
+      T: 13 /* ScalarType.UINT32 */,
+      opt: true,
+    },
+    { no: 5, name: "extend_candidates", kind: "scalar", T: 8 /* ScalarType.BOOL */, opt: true },
+    {
+      no: 6,
+      name: "keep_pruned_connections",
+      kind: "scalar",
+      T: 8 /* ScalarType.BOOL */,
+      opt: true,
+    },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): HNSWConfig {
+    return new HNSWConfig().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): HNSWConfig {
+    return new HNSWConfig().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): HNSWConfig {
+    return new HNSWConfig().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: HNSWConfig | PlainMessage<HNSWConfig> | undefined,
+    b: HNSWConfig | PlainMessage<HNSWConfig> | undefined,
+  ): boolean {
+    return proto3.util.equals(HNSWConfig, a, b);
+  }
+}
+
+/**
+ * @generated from message algorithm.nonlinear.KDTreeConfig
+ */
+export class KDTreeConfig extends Message<KDTreeConfig> {
+  constructor(data?: PartialMessage<KDTreeConfig>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "algorithm.nonlinear.KDTreeConfig";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): KDTreeConfig {
+    return new KDTreeConfig().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): KDTreeConfig {
+    return new KDTreeConfig().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): KDTreeConfig {
+    return new KDTreeConfig().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: KDTreeConfig | PlainMessage<KDTreeConfig> | undefined,
+    b: KDTreeConfig | PlainMessage<KDTreeConfig> | undefined,
+  ): boolean {
+    return proto3.util.equals(KDTreeConfig, a, b);
+  }
+}
+
+/**
+ * @generated from message algorithm.nonlinear.NonLinearIndex
+ */
+export class NonLinearIndex extends Message<NonLinearIndex> {
+  /**
+   * @generated from oneof algorithm.nonlinear.NonLinearIndex.index
+   */
+  index:
+    | {
+        /**
+         * @generated from field: algorithm.nonlinear.HNSWConfig hnsw = 1;
+         */
+        value: HNSWConfig;
+        case: "hnsw";
+      }
+    | {
+        /**
+         * @generated from field: algorithm.nonlinear.KDTreeConfig kdtree = 2;
+         */
+        value: KDTreeConfig;
+        case: "kdtree";
+      }
+    | { case: undefined; value?: undefined } = { case: undefined };
+
+  constructor(data?: PartialMessage<NonLinearIndex>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "algorithm.nonlinear.NonLinearIndex";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "hnsw", kind: "message", T: HNSWConfig, oneof: "index" },
+    { no: 2, name: "kdtree", kind: "message", T: KDTreeConfig, oneof: "index" },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): NonLinearIndex {
+    return new NonLinearIndex().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): NonLinearIndex {
+    return new NonLinearIndex().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): NonLinearIndex {
+    return new NonLinearIndex().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: NonLinearIndex | PlainMessage<NonLinearIndex> | undefined,
+    b: NonLinearIndex | PlainMessage<NonLinearIndex> | undefined,
+  ): boolean {
+    return proto3.util.equals(NonLinearIndex, a, b);
+  }
+}

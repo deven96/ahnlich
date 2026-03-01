@@ -6,7 +6,7 @@ title: Drop Non-Linear Algorithm Index
 
 ## Description
 
-The `DropNonLinearAlgorithmIndex` request removes previously created non-linear indices (e.g., KD-Tree) from a store. This is useful when you no longer need a specific algorithm index or want to reclaim resources used for maintaining it.
+The `DropNonLinearAlgorithmIndex` request removes previously created non-linear indices (e.g., KD-Tree, HNSW) from a store. This is useful when you no longer need a specific algorithm index or want to reclaim resources used for maintaining it.
 
 ## Source Code Example
 

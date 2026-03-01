@@ -8,7 +8,7 @@ title: Drop Non-Linear Algorithm Index
 
 The `Drop Non Linear Algorithm Index` request removes a previously created non-linear index from a store. This operation is important when you want to reclaim resources, update to a different algorithm, or revert to default brute-force scanning for search.
 
-By dropping the index, the AI proxy no longer uses the KDTree (or any other specified algorithm) for accelerating queries. Instead, searches will fall back to direct vector comparisons.
+By dropping the index, the AI proxy no longer uses the KDTree or HNSW (or any other specified algorithm) for accelerating queries. Instead, searches will fall back to direct vector comparisons.
 
 ## Source Code Example
 

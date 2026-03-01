@@ -19,7 +19,7 @@ Ahnlich provides an ultra-fast, RAM-resident vector store with:
 - **Metadata support** (tags, categories, timestamps), allowing **hybrid filtering** (e.g. “similarity + metadata condition”) for refined retrieval.
 - **Zero external service dependency**—runs as a self-contained binary with no server or cluster required.
 
-*(Support for approximate methods like HNSW or LSH is on the roadmap.)*
+- **Non-linear approximate search** via **KDTree** and **HNSW** (Hierarchical Navigable Small World) indexes for fast, scalable nearest-neighbor queries on large datasets.
 
 ### 🤖 AI Proxy Layer  
 Built-in intelligent middleware for embedding-based AI workflows:
@@ -38,7 +38,7 @@ A vector database is purpose-built for **semantic similarity workloads**—it tr
 
 While classic nearest-neighbor search relies on expensive all-pairs or linear scans, modern systems often use **index structures** for approximate methods like HNSW, LSH, or Product Quantization—trading off precision for speed. 
 
-Ahnlich currently supports only **exact, linear similarity search** over updated vectors using these distance metrics:
+Ahnlich supports both **exact, linear similarity search** and **approximate non-linear search** (via KDTree and HNSW indexes) over updated vectors using these distance metrics:
 
 | Metric           | Description                                      |
 |------------------|--------------------------------------------------|

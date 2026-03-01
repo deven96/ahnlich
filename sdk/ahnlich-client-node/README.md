@@ -271,12 +271,21 @@ await client.dropPredIndex(
 
 ```ts
 import { CreateNonLinearAlgorithmIndex } from "ahnlich-client-node/grpc/db/query_pb";
-import { NonLinearAlgorithm } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
+import { NonLinearIndex, KDTreeConfig, HNSWConfig } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
 
+// Create a KDTree index
 await client.createNonLinearAlgorithmIndex(
   new CreateNonLinearAlgorithmIndex({
     store: "my_store",
-    nonLinearIndices: [NonLinearAlgorithm.KD_TREE],
+    nonLinearIndices: [new NonLinearIndex({ index: { case: "kdtree", value: new KDTreeConfig() } })],
+  }),
+);
+
+// Or create an HNSW index (with optional config)
+await client.createNonLinearAlgorithmIndex(
+  new CreateNonLinearAlgorithmIndex({
+    store: "my_store",
+    nonLinearIndices: [new NonLinearIndex({ index: { case: "hnsw", value: new HNSWConfig() } })],
   }),
 );
 ```
@@ -290,7 +299,7 @@ import { NonLinearAlgorithm } from "ahnlich-client-node/grpc/algorithm/nonlinear
 await client.dropNonLinearAlgorithmIndex(
   new DropNonLinearAlgorithmIndex({
     store: "my_store",
-    nonLinearIndices: [NonLinearAlgorithm.KD_TREE],
+    nonLinearIndices: [NonLinearAlgorithm.KDTree],
     errorIfNotExists: true,
   }),
 );
@@ -459,12 +468,21 @@ await client.dropPredIndex(
 
 ```ts
 import { CreateNonLinearAlgorithmIndex } from "ahnlich-client-node/grpc/ai/query_pb";
-import { NonLinearAlgorithm } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
+import { NonLinearIndex, KDTreeConfig, HNSWConfig } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
 
+// Create a KDTree index
 await client.createNonLinearAlgorithmIndex(
   new CreateNonLinearAlgorithmIndex({
     store: "ai_store",
-    nonLinearIndices: [NonLinearAlgorithm.KD_TREE],
+    nonLinearIndices: [new NonLinearIndex({ index: { case: "kdtree", value: new KDTreeConfig() } })],
+  }),
+);
+
+// Or create an HNSW index (with optional config)
+await client.createNonLinearAlgorithmIndex(
+  new CreateNonLinearAlgorithmIndex({
+    store: "ai_store",
+    nonLinearIndices: [new NonLinearIndex({ index: { case: "hnsw", value: new HNSWConfig() } })],
   }),
 );
 ```
@@ -478,7 +496,7 @@ import { NonLinearAlgorithm } from "ahnlich-client-node/grpc/algorithm/nonlinear
 await client.dropNonLinearAlgorithmIndex(
   new DropNonLinearAlgorithmIndex({
     store: "ai_store",
-    nonLinearIndices: [NonLinearAlgorithm.KD_TREE],
+    nonLinearIndices: [NonLinearAlgorithm.KDTree],
     errorIfNotExists: true,
   }),
 );
