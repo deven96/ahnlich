@@ -190,8 +190,6 @@ impl<D: DistanceFn> HNSW<D> {
 
     /// Find the n nearest neighbors to the reference point.
     /// Results are returned in ascending distance order (closest first),
-    /// matching the behavior of KDTree::n_nearest.
-    /// If accept_list is Some, only return results that are in the accept list.
     pub fn n_nearest(
         &self,
         reference_point: &[f32],
@@ -750,7 +748,6 @@ impl Default for HNSW<LinearAlgorithm> {
 }
 
 // --- Serde support via Temp structs ---
-// Mirrors the KDTree pattern: convert non-serializable concurrent types
 // (papaya, parking_lot, SmallVec, AtomicU8) to plain std equivalents.
 
 #[derive(Debug)]
