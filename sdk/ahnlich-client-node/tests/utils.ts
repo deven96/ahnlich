@@ -114,7 +114,9 @@ async function waitForGrpcDb(address: string, proc: ChildProcess, caCert?: Buffe
   proc.once("error", (e) => (procError = e));
 
   for (let i = 0; i < MAX_RETRIES; i++) {
-    if (procError) throw new Error(`DB process error: ${procError.message}`);
+    if (procError) {
+      throw new Error(`DB process error: ${String(procError)}`);
+    }
     try {
       await client.ping(new DbPing());
       return;
@@ -133,7 +135,9 @@ async function waitForGrpcAi(address: string, proc: ChildProcess): Promise<void>
   proc.once("error", (e) => (procError = e));
 
   for (let i = 0; i < MAX_RETRIES; i++) {
-    if (procError) throw new Error(`AI process error: ${procError.message}`);
+    if (procError) {
+      throw new Error(`AI process error: ${String(procError)}`);
+    }
     try {
       await client.ping(new AiPing());
       console.log(`[waitForGrpcAi] ready after ${i + 1}s`);
