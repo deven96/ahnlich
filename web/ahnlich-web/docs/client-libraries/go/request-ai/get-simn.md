@@ -144,7 +144,7 @@ func main() {
 
 - **SearchInput** – Raw input (text or image) that gets embedded using the store's QueryModel.
 
-- **Condition** – Optional predicate filter to restrict which vectors are considered. Set to `nil` to search all vectors. See [Predicates documentation](/components/predicates/predicates).
+- **Condition** – Optional predicate filter to restrict which vectors are considered. Set to `nil` to search all vectors. See [Predicates documentation](/docs/components/predicates).
 
 - **ClosestN** – Number of top matches to return.
 

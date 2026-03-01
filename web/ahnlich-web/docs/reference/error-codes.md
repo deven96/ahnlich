@@ -95,6 +95,9 @@ CreateStore {
 - `bge-large-en-v1.5`: 1024
 - `resnet-50`: 2048
 - `clip-vit-b32-*`: 512
+- `clap-audio` / `clap-text`: 512
+- `buffalo-l`: 512
+- `sface-yunet`: 128
 
 ---
 
@@ -304,13 +307,17 @@ ahnlich-ai run \
 **Cause:** Using a model not in the supported models list.
 
 **Supported Models:**
-- `all-minilm-l6-v2`
-- `all-minilm-l12-v2`
-- `bge-base-en-v1.5`
-- `bge-large-en-v1.5`
-- `resnet-50`
-- `clip-vit-b32-image`
-- `clip-vit-b32-text`
+- `all-minilm-l6-v2` (Text, 384-dim)
+- `all-minilm-l12-v2` (Text, 384-dim)
+- `bge-base-en-v1.5` (Text, 768-dim)
+- `bge-large-en-v1.5` (Text, 1024-dim)
+- `resnet-50` (Image, 2048-dim)
+- `clip-vit-b32-image` (Image, 512-dim)
+- `clip-vit-b32-text` (Text, 512-dim)
+- `clap-audio` (Audio, 512-dim)
+- `clap-text` (Text, 512-dim)
+- `buffalo-l` (Face, 512-dim)
+- `sface-yunet` (Face, 128-dim)
 
 **Solution:** Use one of the supported models above.
 
@@ -329,6 +336,9 @@ ahnlich-ai run \
 - BGE-Base: 768-dim
 - BGE-Large: 1024-dim
 - ClipVit-B32: both (text/image) 512-dim
+- CLAP: both (audio/text) 512-dim
+- Buffalo_L: 512-dim
+- SFace+YuNet: 128-dim
 
 ---
 
@@ -429,6 +439,117 @@ CreateStore(
 
 ---
 
+### Audio Processing Errors
+
+#### AudioBytesDecodeError
+
+**Error Message:** `Bytes could not be successfully decoded into audio: <details>`
+
+**gRPC Code:** `Internal`
+
+**Cause:** Invalid or corrupted audio bytes, or unsupported audio format.
+
+**Solution:**
+- Use supported audio formats: WAV, MP3, FLAC, OGG
+- Validate audio files aren't corrupted
+- Ensure proper encoding
+
+---
+
+#### AudioTooLongError
+
+**Error Message:** `Audio input is too long (15000ms). Model accepts at most 10000ms per clip. Trim or split your audio before indexing.`
+
+**gRPC Code:** `InvalidArgument`
+
+**Cause:** Audio clip exceeds the 10-second maximum duration for CLAP models.
+
+**Solution:**
+- Trim audio to 10 seconds or less
+- Split longer audio into multiple clips
+- Use audio editing tools to extract relevant segments
+
+**Example (Python with pydub):**
+```python
+from pydub import AudioSegment
+
+audio = AudioSegment.from_file("long_audio.wav")
+# Take first 10 seconds
+clip = audio[:10000]  # milliseconds
+clip.export("short_clip.wav", format="wav")
+```
+
+---
+
+#### AudioNoPreprocessingError
+
+**Error Message:** `NoPreprocessing is not supported for audio inputs. Audio requires decoding, resampling, and log-Mel spectrogram conversion before it can be passed to the model.`
+
+**gRPC Code:** `InvalidArgument`
+
+**Cause:** Attempted to use `NoPreprocessing` with audio input.
+
+**Solution:** Always use `ModelPreprocessing` for audio inputs:
+```python
+Set(
+    store="audio_store",
+    inputs=[...],
+    preprocess_action=PreprocessAction.ModelPreprocessing,  # Required for audio
+)
+```
+
+---
+
+#### AudioResampleError
+
+**Error Message:** `Audio could not be resampled: <details>`
+
+**gRPC Code:** `Internal`
+
+**Cause:** Failed to resample audio to required 48kHz sample rate.
+
+**Solution:**
+- Pre-convert audio to 48kHz before sending
+- Ensure audio file is not corrupted
+
+---
+
+### Face Recognition Errors
+
+#### FaceModelNoPreprocessingError
+
+**Error Message:** `NoPreprocessing is not supported for face recognition models. Face models require multi-stage detection and alignment that cannot be bypassed.`
+
+**gRPC Code:** `InvalidArgument`
+
+**Cause:** Attempted to use `NoPreprocessing` with face detection models (Buffalo_L or SFace+YuNet).
+
+**Solution:** Always use `ModelPreprocessing` for face models:
+```python
+Set(
+    store="faces_store",
+    inputs=[...],
+    preprocess_action=PreprocessAction.ModelPreprocessing,  # Required for face models
+)
+```
+
+---
+
+#### MultipleEmbeddingsForQuery
+
+**Error Message:** `Query input produced 3 embeddings - query input must produce exactly 1 embedding`
+
+**gRPC Code:** `InvalidArgument`
+
+**Cause:** Face detection found multiple faces in a query image, but queries must produce exactly one embedding.
+
+**Solution:**
+- For queries, use images with exactly one face
+- Crop the image to contain only the target face
+- For indexing multiple faces, use `Set` (which supports multiple embeddings per image)
+
+---
+
 ## Client Errors
 
 ### InvalidURI
@@ -476,6 +597,7 @@ http://127.0.0.1:1370  (AI)
 - `DotProductSimilarity`
 - `CosineSimilarity`
 - `KDTree`
+- `HNSW`
 
 ---
 
@@ -485,7 +607,11 @@ http://127.0.0.1:1370  (AI)
 
 **Cause:** Unknown AI model name.
 
-**Solution:** Use one of the 7 supported models listed above.
+**Solution:** Use one of the 11 supported models:
+- Text: `all-minilm-l6-v2`, `all-minilm-l12-v2`, `bge-base-en-v1.5`, `bge-large-en-v1.5`, `clip-vit-b32-text`, `clap-text`
+- Image: `resnet-50`, `clip-vit-b32-image`
+- Face: `buffalo-l`, `sface-yunet`
+- Audio: `clap-audio`
 
 ---
 

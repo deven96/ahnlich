@@ -11,19 +11,47 @@ Unlike Ahnlich DB, which is concerned with similarity algorithms and indexing, *
 
 Ahnlich AI includes several pre-trained models that can be configured depending on your workload. These cover both **text embeddings** and **image embeddings**:
 
-| Model Name | String Name | Type | Max Input | Description |
-| ----- | ----- | ----- | ----- | ----- |
-| ALL\_MINI\_LM\_L6\_V2 | all-minilm-l6-v2 | Text | 256 tokens | Lightweight sentence transformer. Fast and memory-efficient, ideal for semantic similarity in applications like FAQ search or chatbots. |
-| ALL\_MINI\_LM\_L12\_V2 | all-minilm-l12-v2 | Text | 256 tokens | Larger variant of MiniLM. Higher accuracy for nuanced text similarity tasks, but with increased compute requirements. |
-| BGE\_BASE\_EN\_V15 |  bge-base-en-v1.5 | Text | 512 tokens | Base version of the BGE (English v1.5) model. Balanced performance and speed, suitable for production-scale applications. |
-| BGE\_LARGE\_EN\_V15 | bge-large-en-v1.5 | Text | 512 tokens | High-accuracy embedding model for semantic search and retrieval. Best choice when precision is more important than latency. |
-| RESNET50 | resnet-50 | Image | 224x224 px | Convolutional Neural Network (CNN) for extracting embeddings from images. Useful for content-based image retrieval and clustering. |
-| CLIP\_VIT\_B32\_IMAGE | clip-vit-b32-image | Image | 224x224 px | Vision Transformer encoder from the CLIP model. Produces embeddings aligned with its paired text encoder for multimodal tasks. |
-| CLIP\_VIT\_B32\_TEXT | clip-vit-b32-text | Text | 77 tokens | Text encoder from CLIP. Designed to map textual inputs into the same space as CLIP image embeddings for text-to-image or image-to-text search. |
-| BUFFALO\_L | buffalo-l | Image (Face) | Variable | Face detection and recognition model. Detects faces in images and generates embeddings for each detected face. Supports `model_params` for tuning detection behavior. |
-| SFACE\_YUNET | sface-yunet | Image (Face) | Variable | Lightweight face detection (YuNet) + recognition (SFace) pipeline. Supports `model_params` for tuning detection behavior. |
-| CLAP\_AUDIO | clap-audio | Audio | Variable | Audio encoder from the CLAP model. Produces embeddings from audio inputs for audio similarity search and audio-to-text retrieval. |
-| CLAP\_TEXT | clap-text | Text | Variable | Text encoder from the CLAP model. Maps textual descriptions into the same embedding space as CLAP audio embeddings for text-to-audio search. |
+| Model Name | String Name | Type | Max Input | Embedding Dim | Description |
+| ----- | ----- | ----- | ----- | ----- | ----- |
+| ALL\_MINI\_LM\_L6\_V2 | all-minilm-l6-v2 | Text | 256 tokens | 384 | Lightweight sentence transformer. Fast and memory-efficient, ideal for semantic similarity in applications like FAQ search or chatbots. |
+| ALL\_MINI\_LM\_L12\_V2 | all-minilm-l12-v2 | Text | 256 tokens | 384 | Larger variant of MiniLM. Higher accuracy for nuanced text similarity tasks, but with increased compute requirements. |
+| BGE\_BASE\_EN\_V15 |  bge-base-en-v1.5 | Text | 512 tokens | 768 | Base version of the BGE (English v1.5) model. Balanced performance and speed, suitable for production-scale applications. |
+| BGE\_LARGE\_EN\_V15 | bge-large-en-v1.5 | Text | 512 tokens | 1024 | High-accuracy embedding model for semantic search and retrieval. Best choice when precision is more important than latency. |
+| RESNET50 | resnet-50 | Image | 224x224 px | 2048 | Convolutional Neural Network (CNN) for extracting embeddings from images. Useful for content-based image retrieval and clustering. |
+| CLIP\_VIT\_B32\_IMAGE | clip-vit-b32-image | Image | 224x224 px | 512 | Vision Transformer encoder from the CLIP model. Produces embeddings aligned with its paired text encoder for multimodal tasks. |
+| CLIP\_VIT\_B32\_TEXT | clip-vit-b32-text | Text | 77 tokens | 512 | Text encoder from CLIP. Designed to map textual inputs into the same space as CLIP image embeddings for text-to-image or image-to-text search. |
+| BUFFALO\_L | buffalo-l | Image (Face) | 640x640 px | 512 | Face detection and recognition model. Detects faces in images and generates embeddings for each detected face. **Non-commercial use only.** |
+| SFACE\_YUNET | sface-yunet | Image (Face) | 640x640 px | 128 | Lightweight face detection (YuNet) + recognition (SFace) pipeline. Apache 2.0 / MIT licensed - commercially usable. |
+| CLAP\_AUDIO | clap-audio | Audio | 10 sec max | 512 | Audio encoder from the CLAP model. Produces embeddings from audio inputs for audio similarity search and audio-to-text retrieval. |
+| CLAP\_TEXT | clap-text | Text | 512 tokens | 512 | Text encoder from the CLAP model. Maps textual descriptions into the same embedding space as CLAP audio embeddings for text-to-audio search. |
+
+## Model Constraints
+
+### Audio Models (CLAP)
+
+| Constraint | Value | Notes |
+| ----- | ----- | ----- |
+| Max duration | 10 seconds | Longer clips will error with `AudioTooLongError` |
+| Sample rate | 48 kHz | Audio is automatically resampled |
+| Max samples | 480,000 | 48,000 Hz × 10 seconds |
+| Preprocessing | Required | `NoPreprocessing` not supported - always use `ModelPreprocessing` |
+
+### Face Models (Buffalo\_L, SFace+YuNet)
+
+| Constraint | Value | Notes |
+| ----- | ----- | ----- |
+| Input size | 640x640 px | Images are resized internally |
+| Face alignment | 112x112 px | Standard ArcFace alignment |
+| Embedding mode | OneToMany | Returns one embedding per detected face |
+| Preprocessing | Required | `NoPreprocessing` not supported |
+| Query constraint | Single face | Query images must contain exactly 1 face |
+
+### Cross-Modal Compatibility
+
+| Model Pair | Shared Dim | Use Case |
+| ----- | ----- | ----- |
+| `clip-vit-b32-text` + `clip-vit-b32-image` | 512 | Text-to-image / image-to-text search |
+| `clap-text` + `clap-audio` | 512 | Text-to-audio / audio-to-text search |
 
 ## Supported Input Types
 

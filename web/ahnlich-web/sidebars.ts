@@ -195,6 +195,74 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
+          label: 'Node.js',
+          link: {
+            type: 'doc',
+            id: 'client-libraries/node/node'
+          },
+          customProps: {
+            icon: '/img/nodejs-logo.png',
+            iconType: 'img'
+          },
+          items: [
+            'client-libraries/node/node-specific-resources',
+            {
+              type: 'category',
+              label: 'Request DB',
+              link: {
+                type: 'doc',
+                id: 'client-libraries/node/request-db/request-db'
+              },
+              items: [
+                'client-libraries/node/request-db/ping',
+                'client-libraries/node/request-db/info-server',
+                'client-libraries/node/request-db/list-connected-clients',
+                'client-libraries/node/request-db/list-stores',
+                'client-libraries/node/request-db/get-store',
+                'client-libraries/node/request-db/create-store',
+                'client-libraries/node/request-db/set',
+                'client-libraries/node/request-db/get-simn',
+                'client-libraries/node/request-db/get-key',
+                'client-libraries/node/request-db/get-by-predicate',
+                'client-libraries/node/request-db/create-predicate-index',
+                'client-libraries/node/request-db/drop-predicate-index',
+                'client-libraries/node/request-db/create-non-linear-algx',
+                'client-libraries/node/request-db/drop-non-linear-algx',
+                'client-libraries/node/request-db/delete-key',
+                'client-libraries/node/request-db/delete-predicate',
+                'client-libraries/node/request-db/drop-store',
+              ]
+            },
+            {
+              type: 'category',
+              label: 'Request AI',
+              link: {
+                type: 'doc',
+                id: 'client-libraries/node/request-ai/request-ai'
+              },
+              items: [
+                'client-libraries/node/request-ai/ping',
+                'client-libraries/node/request-ai/info-server',
+                'client-libraries/node/request-ai/list-stores',
+                'client-libraries/node/request-ai/get-store',
+                'client-libraries/node/request-ai/create-store',
+                'client-libraries/node/request-ai/set',
+                'client-libraries/node/request-ai/get-simn',
+                'client-libraries/node/request-ai/get-by-predicate',
+                'client-libraries/node/request-ai/create-predicate-index',
+                'client-libraries/node/request-ai/drop-predicate-index',
+                'client-libraries/node/request-ai/create-non-linear-algx',
+                'client-libraries/node/request-ai/drop-non-linear-algx',
+                'client-libraries/node/request-ai/delete-key',
+                'client-libraries/node/request-ai/drop-store',
+              ]
+            },
+            'client-libraries/node/tracing',
+            'client-libraries/node/type-meanings'
+          ]
+        },
+        {
+          type: 'category',
           label: 'Go',
           link: {
             type: 'doc',

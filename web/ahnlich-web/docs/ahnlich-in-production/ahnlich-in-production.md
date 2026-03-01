@@ -71,4 +71,4 @@ This starts both services with persistence enabled.
 
 1. **[Deploy to Production](./deployment)** - Choose your deployment platform
 2. **[Enable Tracing](./tracing)** - Set up observability
-3. Review the [CLI reference](../components/ahnlich-cli/ahnlich-cli) for configuration options
+3. Review the [CLI reference](/docs/components/ahnlich-cli) for configuration options

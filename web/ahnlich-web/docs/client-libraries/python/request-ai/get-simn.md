@@ -16,7 +16,7 @@ How to retrieve the top N most similar entries from an AI store using the Ahnlic
 
 * `algorithm` – Similarity algorithm to use (e.g., Cosine Similarity).
 
-* `condition` – Optional predicate condition to filter results. See [Predicates documentation](/components/predicates/predicates).
+* `condition` – Optional predicate condition to filter results. See [Predicates documentation](/docs/components/predicates).
 
 * `preprocess_action` – Controls input preprocessing:
   - `PreprocessAction.ModelPreprocessing` – Apply model's built-in preprocessing (recommended)
@@ -24,7 +24,7 @@ How to retrieve the top N most similar entries from an AI store using the Ahnlic
 
 * `execution_provider` – Optional hardware acceleration (e.g., CUDA, TensorRT, CoreML). Set to `None` to use default CPU execution.
 
-* `model_params` – Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
+* `model_params` – Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
 
 The result contains a list of entries with similarity scores.
 
