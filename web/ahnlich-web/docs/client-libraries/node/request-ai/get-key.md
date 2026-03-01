@@ -20,14 +20,14 @@ The GetKey request retrieves entries from a store based on exact input matches.
 ```ts
 import { createAiClient } from "ahnlich-client-node";
 import { GetKey } from "ahnlich-client-node/grpc/ai/query_pb";
-import { StoreInput, StoreInputType } from "ahnlich-client-node/grpc/ai/query_pb";
+import { StoreInput } from "ahnlich-client-node/grpc/keyval_pb";
 
 async function getKey() {
   const client = createAiClient("127.0.0.1:1370");
 
-  // Create the input to look up
+  // Create the input to look up (using oneof discriminated union)
   const storeInput = new StoreInput({
-    input: {
+    value: {
       case: "rawString",
       value: "Your search text"
     }

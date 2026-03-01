@@ -28,21 +28,25 @@ async function deletePredicate() {
   const client = createAiClient("127.0.0.1:1370");
 
   // Create a predicate condition to match entries where "category" equals "outdated"
+  // Using oneof discriminated unions with { case: "...", value: ... } pattern
   const condition = new PredicateCondition({
-    value: new Predicate({
-      predicate: {
-        case: "equals",
-        value: new Equals({
-          key: "category",
-          value: new MetadataValue({
-            value: {
-              case: "rawString",
-              value: "outdated"
-            }
+    kind: {
+      case: "value",
+      value: new Predicate({
+        kind: {
+          case: "equals",
+          value: new Equals({
+            key: "category",
+            value: new MetadataValue({
+              value: {
+                case: "rawString",
+                value: "outdated"
+              }
+            })
           })
-        })
-      }
-    })
+        }
+      })
+    }
   });
 
   const response = await client.delPred(
