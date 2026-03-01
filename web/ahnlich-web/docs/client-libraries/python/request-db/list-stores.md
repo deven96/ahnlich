@@ -23,12 +23,12 @@ from ahnlich_client_py.grpc.db import query as db_query
 async def list_stores():
   async with Channel(host="127.0.0.1", port=1369) as channel:
     client = DbServiceStub(channel)
-  tracing_id = "00-80e1afed08e019fc1110464cfa66635c-7a085853722dc6d2-01"
-  response = await client.list_stores(
-    db_query.ListStores(),
-    metadata={"ahnlich-trace-id": tracing_id}
-  )
-  print(f"Stores: {[store.name for store in response.stores]}")
+    tracing_id = "00-80e1afed08e019fc1110464cfa66635c-7a085853722dc6d2-01"
+    response = await client.list_stores(
+      db_query.ListStores(),
+      metadata={"ahnlich-trace-id": tracing_id}
+    )
+    print(f"Stores: {[store.name for store in response.stores]}")
   
 if __name__ == "__main__":
   asyncio.run(list_stores())   

@@ -11,7 +11,7 @@ This operation is typically used when:
 
 * You are initializing a new store and need efficient query structures.
 
-Each index type is specified using a `NonLinearIndex` message with either a `KDTreeConfig` or `HNSWConfig`.
+Each index type is specified using a `NonLinearIndex` message with either a `KdTreeConfig` or `HnswConfig`.
 
 
 <details>
@@ -22,7 +22,7 @@ Each index type is specified using a `NonLinearIndex` message with either a `KDT
   from grpclib.client import Channel
   from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
   from ahnlich_client_py.grpc.ai import query as ai_query
-  from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearIndex, KDTreeConfig, HNSWConfig
+  from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearIndex, KdTreeConfig, HnswConfig
 
 
   async def create_non_linear_algorithm_index():
@@ -33,7 +33,7 @@ Each index type is specified using a `NonLinearIndex` message with either a `KDT
         response = await client.create_non_linear_algorithm_index(
             ai_query.CreateNonLinearAlgorithmIndex(
                 store="test store",
-                non_linear_indices=[NonLinearIndex(kdtree=KDTreeConfig())],
+                non_linear_indices=[NonLinearIndex(kdtree=KdTreeConfig())],
             )
         )
         print(response) # CreateIndex(created_indexes=1)
@@ -42,7 +42,7 @@ Each index type is specified using a `NonLinearIndex` message with either a `KDT
         response = await client.create_non_linear_algorithm_index(
             ai_query.CreateNonLinearAlgorithmIndex(
                 store="test store",
-                non_linear_indices=[NonLinearIndex(hnsw=HNSWConfig())],
+                non_linear_indices=[NonLinearIndex(hnsw=HnswConfig())],
             )
         )
 

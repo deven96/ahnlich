@@ -107,17 +107,17 @@ Removes the index on the `category` predicate.
 
 ### 11. Create Non-Linear Algorithm Index
 ```
-CREATENONLINEARALGORITHMINDEX (btree) IN my_store
+CREATENONLINEARALGORITHMINDEX (kdtree) IN my_store
 ```
 
-Creates a B-Tree index for efficient range and predicate queries.
+Creates a KD-Tree index for efficient nearest-neighbor searches.
 
 ### 12. Drop Non-Linear Algorithm Index
 ```
-DROPNONLINEARALGORITHMINDEX (btree) IN my_store
+DROPNONLINEARALGORITHMINDEX (kdtree) IN my_store
 ```
 
-Drops the B-Tree index from `my_store`.
+Drops the KD-Tree index from `my_store`.
 
 ### 13. Delete a Key
 ```

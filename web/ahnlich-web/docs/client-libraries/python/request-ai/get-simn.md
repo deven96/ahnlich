@@ -24,6 +24,8 @@ How to retrieve the top N most similar entries from an AI store using the Ahnlic
 
 * `execution_provider` – Optional hardware acceleration (e.g., CUDA, TensorRT, CoreML). Set to `None` to use default CPU execution.
 
+* `model_params` – Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
+
 The result contains a list of entries with similarity scores.
 
 Source code in the context of the rest of the application code.
@@ -53,7 +55,8 @@ Source code in the context of the rest of the application code.
                 closest_n=3,
                 algorithm=algorithms.Algorithm.CosineSimilarity,
                 preprocess_action=PreprocessAction.ModelPreprocessing,  # Apply model's preprocessing
-                execution_provider=None  # Optional execution provider
+                execution_provider=None,  # Optional execution provider
+                model_params={}  # Optional: runtime model parameters (e.g., {"confidence_threshold": "0.9"} for face detection)
             )
         )
         

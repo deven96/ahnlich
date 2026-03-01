@@ -16,8 +16,10 @@ Performs a **similarity search** in a vector store, retrieving the top-N most si
   use ahnlich_client_rs::error::AhnlichError;
   use ahnlich_types::ai::preprocess::PreprocessAction;
   use ahnlich_types::ai::query::GetSimN;
-  use ahnlich_types::keyval::{StoreInput};
-  use ahnlich_types::keyval::store_input::Value; // Correct path
+  use ahnlich_types::algorithm::algorithms::Algorithm;
+  use ahnlich_types::keyval::StoreInput;
+  use ahnlich_types::keyval::store_input::Value;
+  use std::collections::HashMap;
 
 
   #[tokio::main]
@@ -38,10 +40,11 @@ Performs a **similarity search** in a vector store, retrieving the top-N most si
           store: "Main0".to_string(),
           search_input: Some(search_input),
           closest_n: 3, // number of similar entries to retrieve
-          algorithm: 0, // default algorithm (0 usually corresponds to Cosine)
+          algorithm: Algorithm::CosineSimilarity as i32,
           execution_provider: None,
           preprocess_action: PreprocessAction::NoPreprocessing as i32,
           condition: None,
+          model_params: HashMap::new(),
       };
 
 
@@ -57,6 +60,7 @@ Performs a **similarity search** in a vector store, retrieving the top-N most si
 
 ## Parameters
 * `params: GetSimN` — The query input, including the target vector and configuration such as the number of neighbors (`N`) to return and optional filters.
+  * `model_params: HashMap<String, String>` — Optional runtime parameters for the AI model. For face detection models (Buffalo\_L, SFace+YuNet), supports `"confidence_threshold"` to control minimum detection confidence. Pass an empty `HashMap` to use model defaults. See [Model Parameters](/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
 
 
 * `tracing_id: Option<String>` — Optional trace parent ID for distributed observability across services.

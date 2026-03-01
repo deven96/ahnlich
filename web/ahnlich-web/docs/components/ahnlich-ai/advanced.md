@@ -20,6 +20,10 @@ Ahnlich AI includes several pre-trained models that can be configured depending 
 | RESNET50 | resnet-50 | Image | 224x224 px | Convolutional Neural Network (CNN) for extracting embeddings from images. Useful for content-based image retrieval and clustering. |
 | CLIP\_VIT\_B32\_IMAGE | clip-vit-b32-image | Image | 224x224 px | Vision Transformer encoder from the CLIP model. Produces embeddings aligned with its paired text encoder for multimodal tasks. |
 | CLIP\_VIT\_B32\_TEXT | clip-vit-b32-text | Text | 77 tokens | Text encoder from CLIP. Designed to map textual inputs into the same space as CLIP image embeddings for text-to-image or image-to-text search. |
+| BUFFALO\_L | buffalo-l | Image (Face) | Variable | Face detection and recognition model. Detects faces in images and generates embeddings for each detected face. Supports `model_params` for tuning detection behavior. |
+| SFACE\_YUNET | sface-yunet | Image (Face) | Variable | Lightweight face detection (YuNet) + recognition (SFace) pipeline. Supports `model_params` for tuning detection behavior. |
+| CLAP\_AUDIO | clap-audio | Audio | Variable | Audio encoder from the CLAP model. Produces embeddings from audio inputs for audio similarity search and audio-to-text retrieval. |
+| CLAP\_TEXT | clap-text | Text | Variable | Text encoder from the CLAP model. Maps textual descriptions into the same embedding space as CLAP audio embeddings for text-to-audio search. |
 
 ## Supported Input Types
 
@@ -27,6 +31,7 @@ Ahnlich AI includes several pre-trained models that can be configured depending 
 | ----- | ----- |
 | RAW\_STRING | Accepts natural text (sentences, paragraphs). Transformed into embeddings via a selected text-based model. |
 | IMAGE | Accepts image files as input. Converted into embeddings via a selected image-based model (e.g., ResNet or CLIP). |
+| AUDIO | Accepts audio data as input. Converted into embeddings via an audio-based model (e.g., CLAP Audio). |
 
 ## Example – Creating a Model-Aware Store
 
@@ -48,3 +53,69 @@ CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
 | BGE (Base/Large) | High semantic accuracy for production-scale applications. |
 | ResNet50 | Image-to-image similarity and clustering. |
 | CLIP (Text+Image) | Multimodal retrieval (text-to-image / image-to-text search). |
+| Buffalo\_L | Face detection and recognition in images (e.g., group photos, ID verification). |
+| SFace+YuNet | Lightweight face detection and recognition (e.g., real-time face matching). |
+| CLAP (Audio+Text) | Audio similarity search and text-to-audio retrieval. |
+
+## Model Parameters (`model_params`)
+
+Some AI models accept optional runtime parameters via `model_params` — a `map<string, string>` field available on `Set`, `GetSimN`, and `ConvertStoreInputToEmbeddings` requests. These parameters let you tune model behavior at inference time without changing store configuration.
+
+When `model_params` is empty (or omitted), models use their built-in defaults. Models that don't support any parameters simply ignore the field.
+
+### Supported Parameters by Model
+
+| Model | Parameter | Type | Default | Description |
+| ----- | ----- | ----- | ----- | ----- |
+| **Buffalo\_L** | `confidence_threshold` | float (0.0–1.0) | `0.5` | Minimum detection confidence for a face to be included. Higher values = fewer but more confident detections. |
+| **SFace+YuNet** | `confidence_threshold` | float (0.0–1.0) | `0.6` | Minimum detection confidence for a face to be included. Higher values = fewer but more confident detections. |
+
+Text embedding models (MiniLM, BGE), image models (ResNet, CLIP), and audio models (CLAP) do not currently use `model_params`.
+
+### Usage Examples
+
+**Rust** — setting a high confidence threshold for face detection:
+```rust
+use std::collections::HashMap;
+
+let mut model_params = HashMap::new();
+model_params.insert("confidence_threshold".to_string(), "0.9".to_string());
+
+let set_params = Set {
+    store: "faces_store".to_string(),
+    inputs: vec![/* ... */],
+    preprocess_action: PreprocessAction::NoPreprocessing as i32,
+    execution_provider: None,
+    model_params,
+};
+```
+
+**Python** — using default parameters (empty dict):
+```python
+await client.set(
+    ai_query.Set(
+        store="faces_store",
+        inputs=[...],
+        preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+        model_params={}  # uses model defaults
+    )
+)
+```
+
+**Python** — custom confidence threshold:
+```python
+await client.set(
+    ai_query.Set(
+        store="faces_store",
+        inputs=[...],
+        preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+        model_params={"confidence_threshold": "0.9"}
+    )
+)
+```
+
+### When to Tune `model_params`
+
+- **Inclusive detection** (e.g., group photos where you want all faces): Use a lower threshold like `0.3`
+- **Standard detection** (balanced): Use the model default (`0.5` for Buffalo\_L, `0.6` for SFace+YuNet)
+- **Strict detection** (e.g., ID verification where only clear faces matter): Use a higher threshold like `0.9`

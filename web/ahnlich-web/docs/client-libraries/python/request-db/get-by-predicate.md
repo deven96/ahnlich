@@ -49,7 +49,7 @@ Instead of matching vectors, it filters results using key/value metadata.
       # response.entries contains matching items
     print(response)
 
-    if __name__ == "__main__":
-      asyncio.run(get_predicate())
+  if __name__ == "__main__":
+    asyncio.run(get_predicate())
   ```
 </details>

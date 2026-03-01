@@ -15,7 +15,7 @@ A one-dimensional vector that uniquely identifies an item in the store.
 
 * Ensures that every stored entry has a distinct handle for retrieval and indexing.
 
-* Source Code Source Code Example: a numerical vector representing an embedding for a product image.
+* Example: a numerical vector representing an embedding for a product image.
 
 ## Store Value
 
@@ -47,7 +47,9 @@ Operations that define how filtering is performed on data.
 
   * `NotEquals` → exclude values.
 
-  * `Contains` → substring or set membership checks.
+  * `In` → match if value is in a given set.
+
+  * `NotIn` → match if value is not in a given set.
 
 * They are always tied to a **key** in a `StoreValue` and evaluated against a **metadata value**.
 
@@ -83,7 +85,7 @@ condition = predicates.PredicateCondition(
 condition = predicates.PredicateCondition(
     value=predicates.Predicate(
         equals=predicates.Equals(
-            key="rank", value=metadata.MetadataValue(image=[2,2,3,4,5,6,7])
+            key="rank", value=metadata.MetadataValue(image=b'\x02\x02\x03\x04\x05\x06\x07')
         )
     )
 )
@@ -137,6 +139,36 @@ The set of supported AI models within Ahnlich AI.
 * Each model determines the **type of input** it can process (e.g., text-only, image, multimodal).
 
 * Choosing the right model ensures that the search input is properly understood and processed.
+
+## Model Parameters (`model_params`)
+
+A dictionary (`Dict[str, str]`) of optional runtime parameters passed to an AI model during inference. Available on `Set`, `GetSimN`, and `ConvertStoreInputToEmbeddings` requests.
+
+* Allows **tuning model behavior at query time** without changing the store configuration.
+
+* Models that don't support any parameters simply **ignore** this field.
+
+* Currently supported by **face detection models** only:
+
+  * **Buffalo\_L** — accepts `confidence_threshold` (default: `0.5`)
+
+  * **SFace+YuNet** — accepts `confidence_threshold` (default: `0.6`)
+
+* Text, image, and audio embedding models (MiniLM, BGE, ResNet, CLIP, CLAP) do not use `model_params`.
+
+### Example — default parameters:
+
+```py
+model_params = {}  # uses model defaults
+```
+
+### Example — custom confidence threshold for face detection:
+
+```py
+model_params = {"confidence_threshold": "0.9"}  # stricter face detection
+```
+
+See [Model Parameters](/components/ahnlich-ai/advanced#model-parameters-model_params) for the full reference.
 
 ## AIStoreType
 

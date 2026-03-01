@@ -17,7 +17,6 @@ Removes one or more records from an AI store based on a predicate condition. Thi
   use ahnlich_types::predicates::{Predicate, PredicateCondition, predicate::Kind as PredicateKind, predicate_condition::Kind as PredicateConditionKind};
   use ahnlich_client_rs::ai::AiClient;
   use ahnlich_types::metadata::{MetadataValue, metadata_value::Value};
-  use std::collections::HashMap;
 
 
   #[tokio::main]

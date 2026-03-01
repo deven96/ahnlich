@@ -26,7 +26,7 @@ Creates an index on a predicate field in a store. Predicate indexes allow effici
       // Create predicate index request
       let params = CreatePredIndex {
           store: "Main".to_string(),
-          predicates: vec!["role = 'admin'".to_string()], // <-- must be Vec<String>
+          predicates: vec!["role".to_string()], // metadata field names to index
       };
 
 

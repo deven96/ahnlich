@@ -28,7 +28,7 @@ Removes a **non-linear algorithm index** from a vector store in the **AI service
       let params = DropNonLinearAlgorithmIndex {
           store: "MyStore".to_string(),
           non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
-          error_if_not_exists: true, // do not error if the index doesn't exist
+          error_if_not_exists: true, // error if the index doesn't exist
       };
 
 

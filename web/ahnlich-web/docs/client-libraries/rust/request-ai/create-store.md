@@ -12,7 +12,7 @@ Creates a new vector store within the AI service. A store acts as a container fo
   <summary>Click to expand</summary>
 
   ```rust
-  use ahnlich_types::ai::query::{CreateStore, DropStore};
+  use ahnlich_types::ai::query::CreateStore;
   use ahnlich_client_rs::ai::AiClient;
   use ahnlich_types::ai::models::AiModel;
 
@@ -22,30 +22,19 @@ Creates a new vector store within the AI service. A store acts as a container fo
       let client = AiClient::new("http://127.0.0.1:1370".to_string()).await?;
 
 
-      // Create store first
+      // Create a new AI store
       let create_params = CreateStore {
           store: "Deven Kicks".to_string(),
           index_model: AiModel::AllMiniLmL6V2 as i32,
           query_model: AiModel::AllMiniLmL6V2 as i32,
           predicates: vec![],
           non_linear_indices: vec![],
-          error_if_exists: false,
+          error_if_exists: true,
           store_original: true,
       };
-      client.create_store(create_params, None).await?;
 
-
-      // Now drop it
-      let drop_params = DropStore {
-          store: "MyStore".to_string(),
-          error_if_not_exists: true,
-      };
-
-
-      let result = client.drop_store(drop_params, None).await?;
-
-
-      println!("Deleted count: {}", result.deleted_count);
+      let result = client.create_store(create_params, None).await?;
+      println!("Store created: {:?}", result);
 
 
       Ok(())

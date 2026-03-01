@@ -37,7 +37,7 @@ Initializes a new **AI client** instance that can communicate with the Ahnlich *
 </details>
 
 ## Parameters
-* `addr: String` — The address of the AI service (e.g., `"127.0.0.1:1369"`). If the scheme (`http://` or `https://`) is not provided, it defaults to `http://`.
+* `addr: String` — The address of the AI service (e.g., `"127.0.0.1:1370"`). If the scheme (`http://` or `https://`) is not provided, it defaults to `http://`.
 
 
 ## Returns
