@@ -30,6 +30,7 @@ const (
 	DBService_GetKey_FullMethodName                        = "/services.db_service.DBService/GetKey"
 	DBService_GetPred_FullMethodName                       = "/services.db_service.DBService/GetPred"
 	DBService_GetSimN_FullMethodName                       = "/services.db_service.DBService/GetSimN"
+	DBService_GetStore_FullMethodName                      = "/services.db_service.DBService/GetStore"
 	DBService_Set_FullMethodName                           = "/services.db_service.DBService/Set"
 	DBService_DropPredIndex_FullMethodName                 = "/services.db_service.DBService/DropPredIndex"
 	DBService_DropNonLinearAlgorithmIndex_FullMethodName   = "/services.db_service.DBService/DropNonLinearAlgorithmIndex"
@@ -55,6 +56,7 @@ type DBServiceClient interface {
 	GetKey(ctx context.Context, in *query.GetKey, opts ...grpc.CallOption) (*server.Get, error)
 	GetPred(ctx context.Context, in *query.GetPred, opts ...grpc.CallOption) (*server.Get, error)
 	GetSimN(ctx context.Context, in *query.GetSimN, opts ...grpc.CallOption) (*server.GetSimN, error)
+	GetStore(ctx context.Context, in *query.GetStore, opts ...grpc.CallOption) (*server.StoreInfo, error)
 	// * Update methods *
 	Set(ctx context.Context, in *query.Set, opts ...grpc.CallOption) (*server.Set, error)
 	// * Delete methods *
@@ -134,6 +136,16 @@ func (c *dBServiceClient) GetSimN(ctx context.Context, in *query.GetSimN, opts .
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(server.GetSimN)
 	err := c.cc.Invoke(ctx, DBService_GetSimN_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dBServiceClient) GetStore(ctx context.Context, in *query.GetStore, opts ...grpc.CallOption) (*server.StoreInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(server.StoreInfo)
+	err := c.cc.Invoke(ctx, DBService_GetStore_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -262,6 +274,7 @@ type DBServiceServer interface {
 	GetKey(context.Context, *query.GetKey) (*server.Get, error)
 	GetPred(context.Context, *query.GetPred) (*server.Get, error)
 	GetSimN(context.Context, *query.GetSimN) (*server.GetSimN, error)
+	GetStore(context.Context, *query.GetStore) (*server.StoreInfo, error)
 	// * Update methods *
 	Set(context.Context, *query.Set) (*server.Set, error)
 	// * Delete methods *
@@ -304,6 +317,9 @@ func (UnimplementedDBServiceServer) GetPred(context.Context, *query.GetPred) (*s
 }
 func (UnimplementedDBServiceServer) GetSimN(context.Context, *query.GetSimN) (*server.GetSimN, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSimN not implemented")
+}
+func (UnimplementedDBServiceServer) GetStore(context.Context, *query.GetStore) (*server.StoreInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStore not implemented")
 }
 func (UnimplementedDBServiceServer) Set(context.Context, *query.Set) (*server.Set, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
@@ -463,6 +479,24 @@ func _DBService_GetSimN_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DBServiceServer).GetSimN(ctx, req.(*query.GetSimN))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DBService_GetStore_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(query.GetStore)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DBServiceServer).GetStore(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DBService_GetStore_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DBServiceServer).GetStore(ctx, req.(*query.GetStore))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -695,6 +729,10 @@ var DBService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSimN",
 			Handler:    _DBService_GetSimN_Handler,
+		},
+		{
+			MethodName: "GetStore",
+			Handler:    _DBService_GetStore_Handler,
 		},
 		{
 			MethodName: "Set",

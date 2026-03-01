@@ -164,6 +164,13 @@ pub struct ListClients {}
 /// A simple ping request to check if the server is reachable.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct Ping {}
+/// A request to get detailed information about a specific store by name.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetStore {
+    /// The name of the store.
+    #[prost(string, tag = "1")]
+    pub store: ::prost::alloc::string::String,
+}
 /// A request to set multiple key-value entries in the store.
 /// Validation is done for each vector before updating the store.
 #[derive(Clone, PartialEq, ::prost::Message)]

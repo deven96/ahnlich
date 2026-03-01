@@ -123,6 +123,23 @@ class DbServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def get_store(
+        self,
+        db_query_get_store: "__db_query__.GetStore",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__db_server__.StoreInfo":
+        return await self._unary_unary(
+            "/services.db_service.DBService/GetStore",
+            db_query_get_store,
+            __db_server__.StoreInfo,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def set(
         self,
         db_query_set: "__db_query__.Set",
@@ -344,6 +361,11 @@ class DbServiceBase(ServiceBase):
     ) -> "__db_server__.GetSimN":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def get_store(
+        self, db_query_get_store: "__db_query__.GetStore"
+    ) -> "__db_server__.StoreInfo":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def set(self, db_query_set: "__db_query__.Set") -> "__db_server__.Set":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
@@ -440,6 +462,14 @@ class DbServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.get_sim_n(request)
+        await stream.send_message(response)
+
+    async def __rpc_get_store(
+        self,
+        stream: "grpclib.server.Stream[__db_query__.GetStore, __db_server__.StoreInfo]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.get_store(request)
         await stream.send_message(response)
 
     async def __rpc_set(
@@ -562,6 +592,12 @@ class DbServiceBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __db_query__.GetSimN,
                 __db_server__.GetSimN,
+            ),
+            "/services.db_service.DBService/GetStore": grpclib.const.Handler(
+                self.__rpc_get_store,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __db_query__.GetStore,
+                __db_server__.StoreInfo,
             ),
             "/services.db_service.DBService/Set": grpclib.const.Handler(
                 self.__rpc_set,

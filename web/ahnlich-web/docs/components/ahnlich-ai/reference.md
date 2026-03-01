@@ -39,7 +39,16 @@ Displays all stores currently created in Ahnlich AI.
 LIST STORES
 ```
 
-## 4. Create Store
+## 4. Get Store
+#### Description
+Get detailed information about a specific store by name. Returns store name, query model, index model, and embedding size. Returns an error if the store does not exist.
+
+#### Command
+```
+GETSTORE my_store
+```
+
+## 5. Create Store
 #### Description
 Creates a new store with specified index and query models.
 
@@ -63,7 +72,7 @@ CREATESTORE my_store INDEXMODEL all-minilm-l6-v2 QUERYMODEL all-minilm-l6-v2
   client.CreateStore(ctx, "my_store", "all-minilm-l6-v2", "all-minilm-l6-v2")
   ```
 
-## 5. Set
+## 6. Set
 #### Description
 Insert raw input into a store. Metadata can be added as key–value pairs.
 
@@ -73,7 +82,7 @@ SET doc1 "The future of AI in healthcare" WITH {"category":"news"} IN article_st
 ```
 
 
-## 6. Drop Store
+## 7. Drop Store
 #### Description
 Removes a store and its contents permanently.
 
@@ -82,7 +91,7 @@ Removes a store and its contents permanently.
 DROPSTORE article_store
 ```
 
-## 7. Get Sim N
+## 8. Get Sim N
 #### Description
 Retrieve the top N most similar vectors to a given raw input.
 
@@ -91,7 +100,7 @@ Retrieve the top N most similar vectors to a given raw input.
 GETSIMN 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store WHERE (category != "sports")
 ```
 
-## 8. Get By Predicate
+## 9. Get By Predicate
 #### Description
 Retrieve all items in a store that satisfy a metadata condition.
 
@@ -100,7 +109,7 @@ Retrieve all items in a store that satisfy a metadata condition.
 GETPRED (category = "news") IN article_store
 ```
 
-## 9. Create Predicate Index
+## 10. Create Predicate Index
 #### Description
 Create an index on metadata to optimize predicate queries.
 
@@ -109,7 +118,7 @@ Create an index on metadata to optimize predicate queries.
 CREATEPREDICATEINDEX category IN article_store
 ```
 
-## 10. Drop Predicate Index
+## 11. Drop Predicate Index
 #### Description
 Remove a previously created metadata index.
 
@@ -118,7 +127,7 @@ Remove a previously created metadata index.
 DROPPREDICATEINDEX category IN article_store
 ```
 
-## 11. Create Non Linear Algorithm Index
+## 12. Create Non Linear Algorithm Index
 #### Description
 Create an advanced index (e.g., KDTree, HNSW) for faster similarity searches.
 
@@ -130,7 +139,7 @@ CREATENONLINEARALGORITHMINDEX kdtree IN geo_store
 CREATENONLINEARALGORITHMINDEX hnsw IN geo_store
 ```
 
-## 12. Drop Non Linear Algorithm Index
+## 13. Drop Non Linear Algorithm Index
 #### Description
 Drop a previously created non-linear index.
 
@@ -139,7 +148,7 @@ Drop a previously created non-linear index.
 DROPNONLINEARALGORITHMINDEX kdtree IN geo_store
 ```
 
-## 13. Delete Key
+## 14. Delete Key
 #### Description
 Remove a specific key from a store.
 
@@ -155,6 +164,7 @@ DELETEKEY doc1 IN article_store
 | PING | ```client.ping()?;``` | ```client.ping()``` | ```client.Ping(ctx)``` |
 | INFO SERVER | ```client.info_server()?;``` | ```client.info_server()``` | ```client.InfoServer(ctx)``` |
 | LIST STORES | ```client.list_stores()?;``` | ```client.list_stores()``` | ```client.ListStores(ctx)``` |
+| GETSTORE my_store | ```client.get_store("my_store")?;``` | ```client.get_store("my_store")``` | ```client.GetStore(ctx, "my_store")``` |
 | CREATE STORE my_store INDEXMODEL all-minilm-l6-v2 QUERYMODEL all-minilm-l6-v2 | ```client.create_store("my_store", "all-minilm-l6-v2", "all-minilm-l6-v2")?;``` | ```client.create_store("my_store", index_model="all-minilm-l6-v2", query_model="all-minilm-l6-v2")``` | ```client.CreateStore(ctx, "my_store", "all-minilm-l6-v2", "all-minilm-l6-v2")``` |
 | SET doc1 "The future of AI in healthcare" WITH &#123;"category":"news"&#125; IN article_store | ```client.set("article_store", "doc1", "The future of AI in healthcare", hashmap!{"category"=>"news"})?;``` | ```client.set("article_store", "doc1", "The future of AI in healthcare", {"category":"news"})``` | ```client.Set(ctx, "article_store", "doc1", "The future of AI in healthcare", map[string]string{"category":"news"})``` |
 | DROP STORE article_store | ```client.drop_store("article_store")?;``` | ```client.drop_store("article_store")``` | ```client.DropStore(ctx, "article_store")``` |

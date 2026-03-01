@@ -432,6 +432,40 @@ async def test_client_delete_key_succeeds(spin_up_ahnlich_db):
 
 
 @pytest.mark.asyncio
+async def test_client_get_store_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        # Create store with predicates
+        create_request = db_query.CreateStore(**store_payload_with_predicates)
+        await client.create_store(create_request)
+
+        # Get store
+        get_request = db_query.GetStore(store=store_payload_with_predicates["store"])
+        response = await client.get_store(get_request)
+        assert response.name == store_payload_with_predicates["store"]
+        assert response.dimension == store_payload_with_predicates["dimension"]
+        assert sorted(response.predicate_indices) == sorted(
+            store_payload_with_predicates["create_predicates"]
+        )
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_get_store_not_found(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        get_request = db_query.GetStore(store="NonExistentStore")
+        with pytest.raises(GRPCError) as exc_info:
+            await client.get_store(get_request)
+        assert exc_info.value.status == grpclib.Status.NOT_FOUND
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
 async def test_client_drop_store_succeeds(spin_up_ahnlich_db):
     channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
     client = db_service.DbServiceStub(channel)

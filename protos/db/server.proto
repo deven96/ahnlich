@@ -64,6 +64,7 @@ message ServerResponse {
     GetSimN get_sim_n = 8;
     Del del = 9;
     CreateIndex create_index = 10;
+    StoreInfo store_info = 11;
   }
 }
 
@@ -72,4 +73,6 @@ message StoreInfo {
   uint64 len = 2;
   uint64 size_in_bytes = 3;
   repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 4;
+  repeated string predicate_indices = 5;
+  uint32 dimension = 6;
 }

@@ -4,11 +4,11 @@ use ahnlich_types::{
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred,
             DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
-            InfoServer, ListClients, ListStores, Ping, Set,
+            GetStore, InfoServer, ListClients, ListStores, Ping, Set,
         },
         server::{
             ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong, Set as SetResult,
-            StoreList, Unit,
+            StoreInfo, StoreList, Unit,
         },
     },
     services::db_service::db_service_client::DbServiceClient,
@@ -97,6 +97,10 @@ impl DbPipeline {
 
     pub fn info_server(&mut self) {
         self.queries.push(Query::InfoServer(InfoServer {}));
+    }
+
+    pub fn get_store(&mut self, params: GetStore) {
+        self.queries.push(Query::GetStore(params));
     }
 
     pub fn list_stores(&mut self) {
@@ -338,6 +342,17 @@ impl DbClient {
             .expect("Server info should be Some"))
     }
 
+    pub async fn get_store(
+        &self,
+        store: String,
+        tracing_id: Option<String>,
+    ) -> Result<StoreInfo, AhnlichError> {
+        let mut req = tonic::Request::new(GetStore { store });
+        add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
+        Ok(self.client.clone().get_store(req).await?.into_inner())
+    }
+
     pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
         let mut req = tonic::Request::new(ListStores {});
         add_trace_parent(&mut req, tracing_id);
@@ -478,6 +493,8 @@ mod test {
                             len: 0,
                             size_in_bytes: 1056,
                             non_linear_indices: vec![],
+                            predicate_indices: vec![],
+                            dimension: 3,
                         }],
                     })),
                 },
@@ -751,6 +768,8 @@ mod test {
                             len: 0,
                             size_in_bytes: 1056,
                             non_linear_indices: vec![],
+                            predicate_indices: vec![],
+                            dimension: 3,
                         }],
                     },
                 )),
@@ -847,6 +866,8 @@ mod test {
                     non_linear_indices: vec![NonLinearIndex {
                         index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                     }],
+                    predicate_indices: vec!["role".to_string()],
+                    dimension: 4,
                 }]
             }
         );
@@ -884,6 +905,8 @@ mod test {
                     non_linear_indices: vec![NonLinearIndex {
                         index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                     }],
+                    predicate_indices: vec!["role".to_string()],
+                    dimension: 4,
                 }]
             }
         );

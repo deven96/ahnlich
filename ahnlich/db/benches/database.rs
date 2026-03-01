@@ -1,6 +1,6 @@
 use ahnlich_db::engine::store::StoreHandler;
 use ahnlich_types::algorithm::algorithms::Algorithm;
-use ahnlich_types::algorithm::nonlinear::{KdTreeConfig, non_linear_index};
+use ahnlich_types::algorithm::nonlinear::{HnswConfig, KdTreeConfig, non_linear_index};
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
@@ -159,6 +159,70 @@ fn bench_retrieval(c: &mut Criterion) {
         });
     }
     group_non_linear_kdtree.finish();
+
+    let mut group_non_linear_hnsw = c.benchmark_group("store_retrieval_non_linear_hnsw");
+    for size in sizes {
+        let non_linear_handler = initialize_store_handler();
+        let dimension = 1024;
+        let bulk_insert: Vec<_> = (0..size)
+            .map(|_| {
+                let random_array: Vec<f32> =
+                    (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>();
+                (
+                    StoreKey { key: random_array },
+                    StoreValue {
+                        value: HashMap::new(),
+                    },
+                )
+            })
+            .collect();
+        non_linear_handler
+            .create_store(
+                StoreName {
+                    value: store_name.to_string(),
+                },
+                NonZeroUsize::new(dimension).unwrap(),
+                vec![],
+                HashSet::from_iter([non_linear_index::Index::Hnsw(HnswConfig {
+                    distance: None,
+                    ef_construction: None,
+                    maximum_connections: None,
+                    maximum_connections_zero: None,
+                    extend_candidates: None,
+                    keep_pruned_connections: None,
+                })]),
+                true,
+            )
+            .unwrap();
+        non_linear_handler
+            .set_in_store(
+                &StoreName {
+                    value: store_name.to_string(),
+                },
+                bulk_insert.clone(),
+            )
+            .unwrap();
+        let random_input = StoreKey {
+            key: (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>(),
+        };
+        group_non_linear_hnsw.sampling_mode(criterion::SamplingMode::Flat);
+        group_non_linear_hnsw.bench_function(format!("size_{size}"), |b| {
+            b.iter(|| {
+                non_linear_handler
+                    .get_sim_in_store(
+                        &StoreName {
+                            value: store_name.to_string(),
+                        },
+                        random_input.clone(),
+                        NonZeroUsize::new(50).unwrap(),
+                        Algorithm::Hnsw,
+                        None,
+                    )
+                    .unwrap();
+            });
+        });
+    }
+    group_non_linear_hnsw.finish();
 }
 
 fn bench_insertion(c: &mut Criterion) {

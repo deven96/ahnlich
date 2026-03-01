@@ -14,6 +14,7 @@
   - [Ping](#ping)
   - [Info Server](#info-server)
   - [List Stores](#list-stores)
+  - [Get Store](#get-store)
   - [Create Store](#create-store)
   - [Set](#set)
   - [Get Sim N](#get-sim-n)
@@ -32,6 +33,7 @@
   - [Ping](#ping-1)
   - [Info Server](#info-server-1)
   - [List Stores](#list-stores-1)
+  - [Get Store](#get-store-1)
   - [Create Store](#create-store-1)
   - [Set](#set-1)
   - [Get Sim N](#get-sim-n-1)
@@ -207,8 +209,27 @@ func (c *ExampleDBClient) exampleInfoServer() error {
 ```go
 func (c *ExampleDBClient) exampleListStores() error {
     resp, err := c.client.ListStores(c.ctx, &dbquery.ListStores{})
-    fmt.Println("Stores:", resp.Stores)
-    return err
+    if err != nil { return err }
+    for _, s := range resp.Stores {
+        // Each StoreInfo includes Name, Len, SizeInBytes, NonLinearIndices,
+        // PredicateIndices ([]string), and Dimension (uint32).
+        fmt.Printf("Store: %s, Dimension: %d, PredicateIndices: %v\n",
+            s.Name, s.Dimension, s.PredicateIndices)
+    }
+    return nil
+}
+```
+
+### Get Store
+```go
+func (c *ExampleDBClient) exampleGetStore() error {
+    resp, err := c.client.GetStore(c.ctx, &dbquery.GetStore{Store: "my_store"})
+    if err != nil { return err }
+    // resp is a *StoreInfo with Name, Len, SizeInBytes, NonLinearIndices,
+    // PredicateIndices ([]string), and Dimension (uint32).
+    fmt.Printf("Store: %s, Dimension: %d, PredicateIndices: %v\n",
+        resp.Name, resp.Dimension, resp.PredicateIndices)
+    return nil
 }
 ```
 
@@ -392,7 +413,25 @@ func (c *ExampleAIClient) exampleListStoresAI(ctx context.Context) error {
     if err != nil {
         return err
     }
-    fmt.Println("AI Stores:", resp.Stores)
+    for _, s := range resp.Stores {
+        // Each AIStoreInfo includes Name, QueryModel, IndexModel, EmbeddingSize,
+        // PredicateIndices ([]string), and Dimension (uint32).
+        fmt.Printf("Store: %s, QueryModel: %v, IndexModel: %v, EmbeddingSize: %d, Dimension: %d, PredicateIndices: %v\n",
+            s.Name, s.QueryModel, s.IndexModel, s.EmbeddingSize, s.Dimension, s.PredicateIndices)
+    }
+    return nil
+}
+```
+
+### Get Store
+```go
+func (c *ExampleAIClient) exampleGetStoreAI(ctx context.Context) error {
+    resp, err := c.client.GetStore(c.ctx, &aiquery.GetStore{Store: "ai_store"})
+    if err != nil { return err }
+    // resp is a *AIStoreInfo with Name, QueryModel, IndexModel, EmbeddingSize,
+    // PredicateIndices ([]string), and Dimension (uint32).
+    fmt.Printf("Store: %s, QueryModel: %v, IndexModel: %v, EmbeddingSize: %d, Dimension: %d, PredicateIndices: %v\n",
+        resp.Name, resp.QueryModel, resp.IndexModel, resp.EmbeddingSize, resp.Dimension, resp.PredicateIndices)
     return nil
 }
 ```

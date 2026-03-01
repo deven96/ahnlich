@@ -16,6 +16,7 @@ import {
   GetKey,
   GetPred,
   GetSimN,
+  GetStore,
   InfoServer,
   ListClients,
   ListStores,
@@ -24,6 +25,7 @@ import {
   Set,
 } from "../ai/query_pb.js";
 import {
+  AIStoreInfo,
   ClientList,
   CreateIndex,
   Del,
@@ -101,6 +103,15 @@ export const AIService = {
       name: "GetSimN",
       I: GetSimN,
       O: GetSimN$1,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc services.ai_service.AIService.GetStore
+     */
+    getStore: {
+      name: "GetStore",
+      I: GetStore,
+      O: AIStoreInfo,
       kind: MethodKind.Unary,
     },
     /**

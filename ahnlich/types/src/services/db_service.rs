@@ -205,6 +205,24 @@ pub mod db_service_client {
                 .insert(GrpcMethod::new("services.db_service.DBService", "GetSimN"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn get_store(
+            &mut self,
+            request: impl tonic::IntoRequest<super::super::super::db::query::GetStore>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::db::server::StoreInfo>,
+            tonic::Status,
+        > {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/GetStore");
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("services.db_service.DBService", "GetStore"));
+            self.inner.unary(req, path, codec).await
+        }
         /// * Update methods *
         pub async fn set(
             &mut self,
@@ -460,6 +478,13 @@ pub mod db_service_server {
             request: tonic::Request<super::super::super::db::query::GetSimN>,
         ) -> std::result::Result<
             tonic::Response<super::super::super::db::server::GetSimN>,
+            tonic::Status,
+        >;
+        async fn get_store(
+            &self,
+            request: tonic::Request<super::super::super::db::query::GetStore>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::db::server::StoreInfo>,
             tonic::Status,
         >;
         /// * Update methods *
@@ -839,6 +864,47 @@ pub mod db_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetSimNSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/services.db_service.DBService/GetStore" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetStoreSvc<T: DbService>(pub Arc<T>);
+                    impl<T: DbService>
+                        tonic::server::UnaryService<super::super::super::db::query::GetStore>
+                        for GetStoreSvc<T>
+                    {
+                        type Response = super::super::super::db::server::StoreInfo;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::super::super::db::query::GetStore>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut =
+                                async move { <T as DbService>::get_store(&inner, request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetStoreSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

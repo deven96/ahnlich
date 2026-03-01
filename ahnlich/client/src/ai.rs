@@ -4,11 +4,12 @@ use ahnlich_types::{
         query::{
             ConvertStoreInputToEmbeddings, CreateNonLinearAlgorithmIndex, CreatePredIndex,
             CreateStore, DelKey, DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey,
-            GetPred, GetSimN, InfoServer, ListClients, ListStores, Ping, PurgeStores, Set,
+            GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, PurgeStores,
+            Set,
         },
         server::{
-            ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong, Set as SetResult,
-            StoreInputToEmbeddingsList, StoreList, Unit,
+            AiStoreInfo, ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong,
+            Set as SetResult, StoreInputToEmbeddingsList, StoreList, Unit,
         },
     },
     services::ai_service::ai_service_client::AiServiceClient,
@@ -101,6 +102,10 @@ impl AiPipeline {
     pub fn convert_store_input_to_embeddings(&mut self, params: ConvertStoreInputToEmbeddings) {
         self.queries
             .push(Query::ConvertStoreInputToEmbeddings(params));
+    }
+
+    pub fn get_store(&mut self, params: GetStore) {
+        self.queries.push(Query::GetStore(params));
     }
 
     pub fn list_stores(&mut self) {
@@ -321,6 +326,17 @@ impl AiClient {
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().list_clients(req).await?.into_inner())
+    }
+
+    pub async fn get_store(
+        &self,
+        store: String,
+        tracing_id: Option<String>,
+    ) -> Result<AiStoreInfo, AhnlichError> {
+        let mut req = tonic::Request::new(GetStore { store });
+        add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
+        Ok(self.client.clone().get_store(req).await?.into_inner())
     }
 
     pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
@@ -583,12 +599,16 @@ mod test {
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
                                 index_model: AiModel::AllMiniLmL6V2 as i32,
+                                predicate_indices: vec![],
+                                dimension: 384,
                             },
                             AiStoreInfo {
                                 name: "Main".to_string(),
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
                                 index_model: AiModel::AllMiniLmL6V2 as i32,
+                                predicate_indices: vec![],
+                                dimension: 384,
                             },
                         ],
                     })),
@@ -747,18 +767,24 @@ mod test {
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
                                 index_model: AiModel::AllMiniLmL6V2 as i32,
+                                predicate_indices: vec![],
+                                dimension: 384,
                             },
                             AiStoreInfo {
                                 name: "Main".to_string(),
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
                                 index_model: AiModel::AllMiniLmL6V2 as i32,
+                                predicate_indices: vec![],
+                                dimension: 384,
                             },
                             AiStoreInfo {
                                 name: "Main2".to_string(),
                                 embedding_size: ai_model.embedding_size.get() as u64,
                                 query_model: AiModel::AllMiniLmL6V2 as i32,
                                 index_model: AiModel::AllMiniLmL6V2 as i32,
+                                predicate_indices: vec![],
+                                dimension: 384,
                             },
                         ],
                     })),
@@ -1039,6 +1065,8 @@ mod test {
                             embedding_size: ai_model.embedding_size.get() as u64,
                             query_model: AiModel::AllMiniLmL6V2 as i32,
                             index_model: AiModel::AllMiniLmL6V2 as i32,
+                            predicate_indices: vec![],
+                            dimension: 384,
                         }],
                     })),
                 },
@@ -1238,6 +1266,8 @@ mod test {
                             embedding_size: resnet_model.embedding_size.get() as u64,
                             query_model: AiModel::Resnet50 as i32,
                             index_model: AiModel::Resnet50 as i32,
+                            predicate_indices: vec![],
+                            dimension: 2048,
                         }],
                     })),
                 },
@@ -1276,6 +1306,62 @@ mod test {
         let res = pipeline.exec().await.expect("Could not execute pipeline");
 
         assert_eq!(res, expected);
+    }
+
+    #[tokio::test]
+    async fn test_ai_get_store_not_found() {
+        let address = provision_test_servers().await;
+        let ai_client = AiClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+
+        let result = ai_client
+            .get_store("NonExistentStore".to_string(), None)
+            .await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_ai_get_store_success() {
+        let address = provision_test_servers().await;
+        let ai_client = AiClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+
+        let store_name = "TestStore".to_string();
+        let create_store_params = CreateStore {
+            store: store_name.clone(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
+        };
+
+        let mut pipeline = ai_client.pipeline(None);
+        pipeline.create_store(create_store_params);
+        pipeline.exec().await.expect("Could not execute pipeline");
+
+        let ai_model: ModelDetails =
+            SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
+
+        let result = ai_client
+            .get_store(store_name.clone(), None)
+            .await
+            .expect("Could not get store");
+
+        let expected = AiStoreInfo {
+            name: store_name,
+            embedding_size: ai_model.embedding_size.get() as u64,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            predicate_indices: vec![],
+            dimension: 384,
+        };
+
+        assert_eq!(result, expected);
     }
 
     // --- Auth tests ---
