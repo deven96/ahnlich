@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://www.googletagmanager.com">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-3BGX6E99T1"></script>
 <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-3BGX6E99T1",{anonymize_ip:!0})</script><link rel="stylesheet" href="/assets/css/styles.e950c118.css">
-<script src="/assets/js/runtime~main.8c134628.js" defer="defer"></script>
+<script src="/assets/js/runtime~main.171d2cfc.js" defer="defer"></script>
 <script src="/assets/js/main.bceedeff.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -24,12 +24,22 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="-in-memory-vector-database">🚀 In-Memory Vector Database<a href="#-in-memory-vector-database" class="hash-link" aria-label="Direct link to 🚀 In-Memory Vector Database" title="Direct link to 🚀 In-Memory Vector Database" translate="no">​</a></h3>
 <p>Ahnlich provides an ultra-fast, RAM-resident vector store with:</p>
 <ul>
-<li class=""><strong>Pure linear similarity search</strong> using <strong>Cosine Similarity</strong>, <strong>Euclidean Distance (L2)</strong>, or <strong>Dot Product</strong> to retrieve semantically similar vectors—ideal for small-to-medium data sets and prototyping.</li>
-<li class=""><strong>Dynamic update support</strong>—add, update, or delete vectors on-the-fly without full index rebuilds.</li>
-<li class=""><strong>Metadata support</strong> (tags, categories, timestamps), allowing <strong>hybrid filtering</strong> (e.g. “similarity + metadata condition”) for refined retrieval.</li>
-<li class=""><strong>Zero external service dependency</strong>—runs as a self-contained binary with no server or cluster required.</li>
+<li class="">
+<p><strong>Pure linear similarity search</strong> using <strong>Cosine Similarity</strong>, <strong>Euclidean Distance (L2)</strong>, or <strong>Dot Product</strong> to retrieve semantically similar vectors—ideal for small-to-medium data sets and prototyping.</p>
+</li>
+<li class="">
+<p><strong>Dynamic update support</strong>—add, update, or delete vectors on-the-fly without full index rebuilds.</p>
+</li>
+<li class="">
+<p><strong>Metadata support</strong> (tags, categories, timestamps), allowing <strong>hybrid filtering</strong> (e.g. “similarity + metadata condition”) for refined retrieval.</p>
+</li>
+<li class="">
+<p><strong>Zero external service dependency</strong>—runs as a self-contained binary with no server or cluster required.</p>
+</li>
+<li class="">
+<p><strong>Non-linear approximate search</strong> via <strong>KDTree</strong> and <strong>HNSW</strong> (Hierarchical Navigable Small World) indexes for fast, scalable nearest-neighbor queries on large datasets.</p>
+</li>
 </ul>
-<p><em>(Support for approximate methods like HNSW or LSH is on the roadmap.)</em></p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="-ai-proxy-layer">🤖 AI Proxy Layer<a href="#-ai-proxy-layer" class="hash-link" aria-label="Direct link to 🤖 AI Proxy Layer" title="Direct link to 🤖 AI Proxy Layer" translate="no">​</a></h3>
 <p>Built-in intelligent middleware for embedding-based AI workflows:</p>
 <ul>
@@ -42,7 +52,7 @@
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="-vector-databases-explained">📚 Vector Databases: Explained<a href="#-vector-databases-explained" class="hash-link" aria-label="Direct link to 📚 Vector Databases: Explained" title="Direct link to 📚 Vector Databases: Explained" translate="no">​</a></h2>
 <p>A vector database is purpose-built for <strong>semantic similarity workloads</strong>—it transforms raw content (text/images) into <strong>high-dimensional numeric vectors</strong> alongside their metadata, then stores and retrieves them efficiently for meaning-based search.</p>
 <p>While classic nearest-neighbor search relies on expensive all-pairs or linear scans, modern systems often use <strong>index structures</strong> for approximate methods like HNSW, LSH, or Product Quantization—trading off precision for speed.</p>
-<p>Ahnlich currently supports only <strong>exact, linear similarity search</strong> over updated vectors using these distance metrics:</p>
+<p>Ahnlich supports both <strong>exact, linear similarity search</strong> and <strong>approximate non-linear search</strong> (via KDTree and HNSW indexes) over updated vectors using these distance metrics:</p>
 <table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td><strong>Cosine</strong></td><td>Measures the <strong>angle</strong> between vectors (direction)</td></tr><tr><td><strong>Euclidean (L2)</strong></td><td>Computes the straight-line <strong>distance</strong> in vector space</td></tr><tr><td><strong>Dot Product</strong></td><td>Combines <strong>magnitude + alignment</strong>, fast when pre-normalized</td></tr></tbody></table>
 <p><em>(Note: Euclidean/L2, cosine, and dot-product are closely related at constant scale.)</em></p>
 <hr>
