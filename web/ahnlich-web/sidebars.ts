@@ -149,7 +149,9 @@ const sidebars: SidebarsConfig = {
               items: [
                 'client-libraries/python/request-db/ping',
                 'client-libraries/python/request-db/info-server',
+                'client-libraries/python/request-db/list-connected-clients',
                 'client-libraries/python/request-db/list-stores',
+                'client-libraries/python/request-db/get-store',
                 'client-libraries/python/request-db/create-store',
                 'client-libraries/python/request-db/set',
                 'client-libraries/python/request-db/get-simn',
@@ -158,10 +160,10 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/python/request-db/create-predicate-index',
                 'client-libraries/python/request-db/drop-predicate-index',
                 'client-libraries/python/request-db/delete-key',
+                'client-libraries/python/request-db/delete-predicate',
                 'client-libraries/python/request-db/drop-store',
                 'client-libraries/python/request-db/create-non-linear-algx',
                 'client-libraries/python/request-db/drop-non-linear-algx',
-                'client-libraries/python/request-db/delete-predicate',
               ]
             },
             {
@@ -174,7 +176,9 @@ const sidebars: SidebarsConfig = {
               items: [
                 'client-libraries/python/request-ai/ping',
                 'client-libraries/python/request-ai/info-server',
+                'client-libraries/python/request-ai/list-connected-clients',
                 'client-libraries/python/request-ai/list-stores',
+                'client-libraries/python/request-ai/get-store',
                 'client-libraries/python/request-ai/create-store',
                 'client-libraries/python/request-ai/set',
                 'client-libraries/python/request-ai/get-simn',
@@ -187,6 +191,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/python/request-ai/drop-store',
                 'client-libraries/python/request-ai/create-non-linear-algx',
                 'client-libraries/python/request-ai/drop-non-linear-algx',
+                'client-libraries/python/request-ai/purge-stores',
               ]
             },
             'client-libraries/python/bulk-requests',
@@ -243,18 +248,22 @@ const sidebars: SidebarsConfig = {
               items: [
                 'client-libraries/node/request-ai/ping',
                 'client-libraries/node/request-ai/info-server',
+                'client-libraries/node/request-ai/list-connected-clients',
                 'client-libraries/node/request-ai/list-stores',
                 'client-libraries/node/request-ai/get-store',
                 'client-libraries/node/request-ai/create-store',
                 'client-libraries/node/request-ai/set',
                 'client-libraries/node/request-ai/get-simn',
+                'client-libraries/node/request-ai/get-key',
                 'client-libraries/node/request-ai/get-by-predicate',
                 'client-libraries/node/request-ai/create-predicate-index',
                 'client-libraries/node/request-ai/drop-predicate-index',
                 'client-libraries/node/request-ai/create-non-linear-algx',
                 'client-libraries/node/request-ai/drop-non-linear-algx',
                 'client-libraries/node/request-ai/delete-key',
+                'client-libraries/node/request-ai/delete-predicate',
                 'client-libraries/node/request-ai/drop-store',
+                'client-libraries/node/request-ai/purge-stores',
               ]
             },
             'client-libraries/node/tracing',
@@ -285,6 +294,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/go/request-db/ping',
                 'client-libraries/go/request-db/info-server',
                 'client-libraries/go/request-db/list-stores',
+                'client-libraries/go/request-db/get-store',
                 'client-libraries/go/request-db/create-store',
                 'client-libraries/go/request-db/set',
                 'client-libraries/go/request-db/get-simn',
@@ -310,7 +320,9 @@ const sidebars: SidebarsConfig = {
               items: [
                 'client-libraries/go/request-ai/ping',
                 'client-libraries/go/request-ai/info-server',
+                'client-libraries/go/request-ai/list-connected-clients',
                 'client-libraries/go/request-ai/list-stores',
+                'client-libraries/go/request-ai/get-store',
                 'client-libraries/go/request-ai/create-store',
                 'client-libraries/go/request-ai/set',
                 'client-libraries/go/request-ai/get-simn',
@@ -323,6 +335,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/go/request-ai/drop-store',
                 'client-libraries/go/request-ai/create-non-linear-algx',
                 'client-libraries/go/request-ai/drop-non-linear-algx',
+                'client-libraries/go/request-ai/purge-stores',
               ]
             },
             'client-libraries/go/bulk-requests',
@@ -353,7 +366,9 @@ const sidebars: SidebarsConfig = {
               items: [
                 'client-libraries/rust/request-db/ping',
                 'client-libraries/rust/request-db/info-server',
+                'client-libraries/rust/request-db/list-connected-clients',
                 'client-libraries/rust/request-db/list-stores',
+                'client-libraries/rust/request-db/get-store',
                 'client-libraries/rust/request-db/create-store',
                 'client-libraries/rust/request-db/set',
                 'client-libraries/rust/request-db/get-simn',
@@ -362,11 +377,10 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/rust/request-db/create-predicate-index',
                 'client-libraries/rust/request-db/drop-predicate-index',
                 'client-libraries/rust/request-db/delete-key',
+                'client-libraries/rust/request-db/delete-predicate',
                 'client-libraries/rust/request-db/drop-store',
-                'client-libraries/rust/request-db/list-connected-clients',
                 'client-libraries/rust/request-db/create-non-linear-algx',
                 'client-libraries/rust/request-db/drop-non-linear-algx',
-                'client-libraries/rust/request-db/delete-by-predicate'
               ]
             },
             {
@@ -379,7 +393,9 @@ const sidebars: SidebarsConfig = {
               items: [
                 'client-libraries/rust/request-ai/ping',
                 'client-libraries/rust/request-ai/info-server',
+                'client-libraries/rust/request-ai/list-connected-clients',
                 'client-libraries/rust/request-ai/list-stores',
+                'client-libraries/rust/request-ai/get-store',
                 'client-libraries/rust/request-ai/create-store',
                 'client-libraries/rust/request-ai/set',
                 'client-libraries/rust/request-ai/get-simn',
@@ -388,9 +404,8 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/rust/request-ai/create-predicate-index',
                 'client-libraries/rust/request-ai/drop-predicate-index',
                 'client-libraries/rust/request-ai/delete-key',
-                'client-libraries/rust/request-ai/delete-by-predicate',
+                'client-libraries/rust/request-ai/delete-predicate',
                 'client-libraries/rust/request-ai/drop-store',
-                'client-libraries/rust/request-ai/list-connected-clients',
                 'client-libraries/rust/request-ai/create-non-linear-algx',
                 'client-libraries/rust/request-ai/drop-non-linear-algx',
                 'client-libraries/rust/request-ai/new',

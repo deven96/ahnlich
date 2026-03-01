@@ -58,4 +58,4 @@ Below are the operations for managing vector stores, storing and retrieving vect
 * [List Connected Clients](/docs/client-libraries/rust/request-db/list-connected-clients)
 * [Create Non-Linear Algorithm Index](/docs/client-libraries/rust/request-db/create-non-linear-algx)
 * [Drop Non-Linear Algorithm Index](/docs/client-libraries/rust/request-db/drop-non-linear-algx)
-* [Delete By Predicate](/docs/client-libraries/rust/request-db/delete-by-predicate)
+* [Delete Predicate](/docs/client-libraries/rust/request-db/delete-predicate)
