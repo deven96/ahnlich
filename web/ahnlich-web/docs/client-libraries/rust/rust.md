@@ -235,7 +235,7 @@ Build Ahnlich Applications with the Rust SDK – Vector Storage, Search, and AI 
 
 * Behavior
 
-### [Delete By Predicate](/docs/client-libraries/rust/request-db/delete-by-predicate)
+### [Delete Predicate](/docs/client-libraries/rust/request-db/delete-predicate)
 
 * Description
 
