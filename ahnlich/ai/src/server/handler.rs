@@ -29,6 +29,7 @@ use ahnlich_types::ai::query::DropStore;
 use ahnlich_types::ai::query::GetKey;
 use ahnlich_types::ai::query::GetPred;
 use ahnlich_types::ai::query::GetSimN;
+use ahnlich_types::ai::query::GetStore;
 use ahnlich_types::ai::query::InfoServer;
 use ahnlich_types::ai::query::ListClients;
 use ahnlich_types::ai::query::ListStores;
@@ -36,6 +37,7 @@ use ahnlich_types::ai::query::Ping;
 use ahnlich_types::ai::query::PurgeStores;
 use ahnlich_types::ai::query::Set;
 use ahnlich_types::ai::server;
+use ahnlich_types::ai::server::AiStoreInfo;
 use ahnlich_types::ai::server::ClientList;
 use ahnlich_types::ai::server::CreateIndex;
 use ahnlich_types::ai::server::Del;
@@ -685,14 +687,65 @@ impl AiService for AIProxyServer {
         &self,
         _request: tonic::Request<ListStores>,
     ) -> Result<tonic::Response<StoreList>, tonic::Status> {
-        Ok(tonic::Response::new(server::StoreList {
-            stores: self
-                .store_handler
-                .list_stores()
+        let mut stores: Vec<AiStoreInfo> = self
+            .store_handler
+            .list_stores()
+            .into_iter()
+            .sorted()
+            .collect();
+        // Enrich with predicate indices from DB, filtering out reserved keys
+        if let Some(db_client) = &self.db_client {
+            let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
+            if let Ok(db_store_list) = db_client.list_stores(parent_id).await {
+                let db_map: std::collections::HashMap<String, Vec<String>> = db_store_list
+                    .stores
+                    .into_iter()
+                    .map(|s| {
+                        (
+                            s.name,
+                            s.predicate_indices
+                                .into_iter()
+                                .filter(|p| {
+                                    p != AHNLICH_AI_RESERVED_META_KEY
+                                        && p != crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect();
+                for store in &mut stores {
+                    if let Some(pred_indices) = db_map.get(&store.name) {
+                        store.predicate_indices = pred_indices.clone();
+                    }
+                }
+            }
+        }
+        Ok(tonic::Response::new(server::StoreList { stores }))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn get_store(
+        &self,
+        request: tonic::Request<GetStore>,
+    ) -> Result<tonic::Response<AiStoreInfo>, tonic::Status> {
+        let params = request.into_inner();
+        let mut store_info = self.store_handler.get_store(&StoreName {
+            value: params.store.clone(),
+        })?;
+        // Enrich with predicate indices from DB, filtering out reserved keys
+        if let Some(db_client) = &self.db_client {
+            let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
+            let db_store_info = db_client.get_store(params.store, parent_id).await?;
+            store_info.predicate_indices = db_store_info
+                .predicate_indices
                 .into_iter()
-                .sorted()
-                .collect(),
-        }))
+                .filter(|p| {
+                    p != AHNLICH_AI_RESERVED_META_KEY
+                        && p != crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY
+                })
+                .collect();
+        }
+        Ok(tonic::Response::new(store_info))
     }
 
     #[tracing::instrument(skip_all)]
@@ -1040,6 +1093,19 @@ impl AiService for AIProxyServer {
                                 res.into_inner(),
                             ),
                         ),
+                        Err(err) => {
+                            response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                                message: err.message().to_string(),
+                                code: err.code().into(),
+                            }));
+                        }
+                    }
+                }
+
+                Query::GetStore(params) => {
+                    match self.get_store(tonic::Request::new(params)).await {
+                        Ok(res) => response_vec
+                            .push(ai_server_response::Response::StoreInfo(res.into_inner())),
                         Err(err) => {
                             response_vec.push(ai_server_response::Response::Error(ErrorResponse {
                                 message: err.message().to_string(),

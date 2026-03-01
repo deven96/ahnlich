@@ -526,6 +526,16 @@ export class AIStoreInfo extends Message<AIStoreInfo> {
    */
   embeddingSize = protoInt64.zero;
 
+  /**
+   * @generated from field: repeated string predicate_indices = 5;
+   */
+  predicateIndices: string[] = [];
+
+  /**
+   * @generated from field: uint32 dimension = 6;
+   */
+  dimension = 0;
+
   constructor(data?: PartialMessage<AIStoreInfo>) {
     super();
     proto3.util.initPartial(data, this);
@@ -538,6 +548,14 @@ export class AIStoreInfo extends Message<AIStoreInfo> {
     { no: 2, name: "query_model", kind: "enum", T: proto3.getEnumType(AIModel) },
     { no: 3, name: "index_model", kind: "enum", T: proto3.getEnumType(AIModel) },
     { no: 4, name: "embedding_size", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    {
+      no: 5,
+      name: "predicate_indices",
+      kind: "scalar",
+      T: 9 /* ScalarType.STRING */,
+      repeated: true,
+    },
+    { no: 6, name: "dimension", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AIStoreInfo {

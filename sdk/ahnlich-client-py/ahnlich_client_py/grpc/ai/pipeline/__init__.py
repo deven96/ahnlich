@@ -43,6 +43,7 @@ class AiQuery(betterproto.Message):
         betterproto.message_field(17, group="query")
     )
     del_pred: "_query__.DelPred" = betterproto.message_field(18, group="query")
+    get_store: "_query__.GetStore" = betterproto.message_field(19, group="query")
 
 
 @dataclass(eq=False, repr=False)
@@ -69,6 +70,9 @@ class AiServerResponse(betterproto.Message):
     )
     store_input_to_embeddings_list: "_server__.StoreInputToEmbeddingsList" = (
         betterproto.message_field(12, group="response")
+    )
+    store_info: "_server__.AiStoreInfo" = betterproto.message_field(
+        13, group="response"
     )
 
 

@@ -84,6 +84,8 @@ class AiStoreInfo(betterproto.Message):
     query_model: "_models__.AiModel" = betterproto.enum_field(2)
     index_model: "_models__.AiModel" = betterproto.enum_field(3)
     embedding_size: int = betterproto.uint64_field(4)
+    predicate_indices: List[str] = betterproto.string_field(5)
+    dimension: int = betterproto.uint32_field(6)
 
 
 @dataclass(eq=False, repr=False)
