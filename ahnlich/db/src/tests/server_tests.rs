@@ -271,6 +271,8 @@ async fn test_create_stores() {
                         len: 0,
                         size_in_bytes: 1056,
                         non_linear_indices: vec![],
+                        predicate_indices: vec![],
+                        dimension: 3,
                     }],
                 },
             )),
@@ -488,6 +490,8 @@ async fn test_del_pred() {
                         len: 2,
                         size_in_bytes: 1264,
                         non_linear_indices: vec![],
+                        predicate_indices: vec![],
+                        dimension: 2,
                     }],
                 },
             )),
@@ -529,6 +533,8 @@ async fn test_del_pred() {
                         len: 0,
                         size_in_bytes: 1056,
                         non_linear_indices: vec![],
+                        predicate_indices: vec![],
+                        dimension: 2,
                     }],
                 },
             )),
@@ -689,6 +695,8 @@ async fn test_del_key() {
                         len: 2,
                         size_in_bytes: 1176,
                         non_linear_indices: vec![],
+                        predicate_indices: vec!["role".to_string()],
+                        dimension: 4,
                     }],
                 },
             )),
@@ -714,6 +722,8 @@ async fn test_del_key() {
                         len: 1,
                         size_in_bytes: 1128,
                         non_linear_indices: vec![],
+                        predicate_indices: vec!["role".to_string()],
+                        dimension: 4,
                     }],
                 },
             )),
@@ -884,6 +894,8 @@ async fn test_server_with_persistence() {
                         len: 2,
                         size_in_bytes: 1304,
                         non_linear_indices: vec![],
+                        predicate_indices: vec!["role".to_string()],
+                        dimension: 4,
                     }],
                 },
             )),
@@ -909,6 +921,8 @@ async fn test_server_with_persistence() {
                         len: 1,
                         size_in_bytes: 1256,
                         non_linear_indices: vec![],
+                        predicate_indices: vec!["role".to_string()],
+                        dimension: 4,
                     }],
                 },
             )),
@@ -1202,6 +1216,8 @@ async fn test_set_in_store() {
                         len: 2,
                         size_in_bytes: 1304,
                         non_linear_indices: vec![],
+                        predicate_indices: vec!["role".to_string()],
+                        dimension: 3,
                     }],
                 },
             )),
@@ -3066,6 +3082,8 @@ async fn test_drop_stores() {
                         len: 0,
                         size_in_bytes: 1056,
                         non_linear_indices: vec![],
+                        predicate_indices: vec![],
+                        dimension: 3,
                     }],
                 },
             )),
@@ -4095,4 +4113,195 @@ async fn test_list_stores_returns_nonlinear_config() {
     } else {
         panic!("ListStores failed: {:?}", responses[2]);
     }
+}
+
+/// Test: GetStore returns not_found error for non-existent store
+#[tokio::test]
+async fn test_get_store_not_found() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let result = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "NonExistent".to_string(),
+        }))
+        .await;
+
+    assert!(result.is_err());
+    let status = result.unwrap_err();
+    assert_eq!(status.code(), tonic::Code::NotFound);
+}
+
+/// Test: GetStore returns correct StoreInfo for an existing store
+#[tokio::test]
+async fn test_get_store_success() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Create a store with predicates and a nonlinear index
+    let hnsw_config = HnswConfig {
+        distance: Some(ahnlich_types::algorithm::algorithms::DistanceMetric::Cosine as i32),
+        ef_construction: Some(150),
+        maximum_connections: Some(24),
+        maximum_connections_zero: Some(48),
+        extend_candidates: Some(true),
+        keep_pruned_connections: Some(true),
+    };
+
+    let create_req = db_query_types::CreateStore {
+        store: "TestGetStore".to_string(),
+        dimension: 5,
+        create_predicates: vec!["author".to_string(), "category".to_string()],
+        non_linear_indices: vec![nonlinear::NonLinearIndex {
+            index: Some(non_linear_index::Index::Hnsw(hnsw_config)),
+        }],
+        error_if_exists: true,
+    };
+
+    client
+        .create_store(tonic::Request::new(create_req))
+        .await
+        .expect("CreateStore failed");
+
+    // Insert some data
+    let set_req = db_query_types::Set {
+        store: "TestGetStore".to_string(),
+        inputs: vec![DbStoreEntry {
+            key: Some(StoreKey {
+                key: vec![1.0, 2.0, 3.0, 4.0, 5.0],
+            }),
+            value: Some(StoreValue {
+                value: HashMap::from_iter([(
+                    "author".to_string(),
+                    MetadataValue {
+                        value: Some(MetadataValueEnum::RawString("alice".to_string())),
+                    },
+                )]),
+            }),
+        }],
+    };
+
+    client
+        .set(tonic::Request::new(set_req))
+        .await
+        .expect("Set failed");
+
+    // GetStore
+    let store_info = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "TestGetStore".to_string(),
+        }))
+        .await
+        .expect("GetStore failed")
+        .into_inner();
+
+    assert_eq!(store_info.name, "TestGetStore");
+    assert_eq!(store_info.len, 1);
+    assert_eq!(store_info.dimension, 5);
+    assert_eq!(
+        store_info.predicate_indices,
+        vec!["author".to_string(), "category".to_string()]
+    );
+    assert_eq!(store_info.non_linear_indices.len(), 1);
+    assert!(store_info.size_in_bytes > 0);
+}
+
+/// Test: GetStore works within a pipeline
+#[tokio::test]
+async fn test_get_store_in_pipeline() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let queries = vec![
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateStore(db_query_types::CreateStore {
+                store: "PipelineStore".to_string(),
+                dimension: 3,
+                create_predicates: vec!["tag".to_string()],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::GetStore(db_query_types::GetStore {
+                store: "PipelineStore".to_string(),
+            })),
+        },
+        // GetStore on non-existent store should return error in pipeline
+        db_pipeline::DbQuery {
+            query: Some(Query::GetStore(db_query_types::GetStore {
+                store: "DoesNotExist".to_string(),
+            })),
+        },
+    ];
+
+    let pipelined_request = db_pipeline::DbRequestPipeline { queries };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipelined_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+    assert_eq!(responses.len(), 3);
+
+    // CreateStore should succeed
+    assert!(
+        matches!(
+            &responses[0].response,
+            Some(db_pipeline::db_server_response::Response::Unit(_))
+        ),
+        "CreateStore failed: {:?}",
+        responses[0]
+    );
+
+    // GetStore should return StoreInfo
+    if let Some(db_pipeline::db_server_response::Response::StoreInfo(store_info)) =
+        &responses[1].response
+    {
+        assert_eq!(store_info.name, "PipelineStore");
+        assert_eq!(store_info.len, 0);
+        assert_eq!(store_info.dimension, 3);
+        assert_eq!(store_info.predicate_indices, vec!["tag".to_string()]);
+        assert!(store_info.non_linear_indices.is_empty());
+    } else {
+        panic!("GetStore in pipeline failed: {:?}", responses[1]);
+    }
+
+    // GetStore on non-existent store should return error
+    assert!(
+        matches!(
+            &responses[2].response,
+            Some(db_pipeline::db_server_response::Response::Error(_))
+        ),
+        "Expected error for non-existent store, got: {:?}",
+        responses[2]
+    );
 }

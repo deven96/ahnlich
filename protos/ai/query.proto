@@ -119,6 +119,11 @@ message ListStores {
   // Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
 }
 
+message GetStore {
+  // Gets detailed information about a specific store by name. Returns an error if the store does not exist.
+  string store = 1; // Store name
+}
+
 message PurgeStores {
   // Purges (deletes) all stores on the server, effectively destroying all stored data
 }

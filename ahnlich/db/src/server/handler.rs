@@ -383,16 +383,22 @@ impl DbService for Server {
             .store_handler
             .list_stores()
             .into_iter()
-            .map(|store| server::StoreInfo {
-                name: store.name.to_string(),
-                len: store.len,
-                size_in_bytes: store.size_in_bytes,
-                non_linear_indices: store.non_linear_indices,
-            })
             .sorted()
             .collect();
 
         Ok(tonic::Response::new(server::StoreList { stores }))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn get_store(
+        &self,
+        request: tonic::Request<query::GetStore>,
+    ) -> std::result::Result<tonic::Response<server::StoreInfo>, tonic::Status> {
+        let params = request.into_inner();
+        let store_info = self.store_handler.get_store(&StoreName {
+            value: params.store,
+        })?;
+        Ok(tonic::Response::new(store_info))
     }
 
     #[tracing::instrument(skip_all)]
@@ -712,6 +718,22 @@ impl DbService for Server {
                         Ok(res) => response_vec.push(pipeline::db_server_response::Response::Del(
                             res.into_inner(),
                         )),
+                        Err(err) => {
+                            response_vec.push(pipeline::db_server_response::Response::Error(
+                                ErrorResponse {
+                                    message: err.message().to_string(),
+                                    code: err.code().into(),
+                                },
+                            ));
+                        }
+                    }
+                }
+
+                Query::GetStore(params) => {
+                    match self.get_store(tonic::Request::new(params)).await {
+                        Ok(res) => response_vec.push(
+                            pipeline::db_server_response::Response::StoreInfo(res.into_inner()),
+                        ),
                         Err(err) => {
                             response_vec.push(pipeline::db_server_response::Response::Error(
                                 ErrorResponse {

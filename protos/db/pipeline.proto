@@ -30,6 +30,7 @@ message DBQuery {
     db.query.ListStores list_stores = 14;
     db.query.ListClients list_clients = 15;
     db.query.Ping ping = 16;
+    db.query.GetStore get_store = 17;
   }
 }
 
@@ -51,6 +52,7 @@ message DBServerResponse {
     db.server.CreateIndex create_index = 10;
 
     shared.info.ErrorResponse error = 11;
+    db.server.StoreInfo store_info = 12;
   }
 }
 

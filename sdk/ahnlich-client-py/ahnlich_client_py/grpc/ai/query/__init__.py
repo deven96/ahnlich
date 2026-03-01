@@ -180,6 +180,14 @@ class ListStores(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class GetStore(betterproto.Message):
+    store: str = betterproto.string_field(1)
+    """
+    Gets detailed information about a specific store by name. Returns an error if the store does not exist.
+    """
+
+
+@dataclass(eq=False, repr=False)
 class PurgeStores(betterproto.Message):
     pass
 

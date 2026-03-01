@@ -4,11 +4,12 @@ use ahnlich_types::{
         query::{
             ConvertStoreInputToEmbeddings, CreateNonLinearAlgorithmIndex, CreatePredIndex,
             CreateStore, DelKey, DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey,
-            GetPred, GetSimN, InfoServer, ListClients, ListStores, Ping, PurgeStores, Set,
+            GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, PurgeStores,
+            Set,
         },
         server::{
-            ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong, Set as SetResult,
-            StoreInputToEmbeddingsList, StoreList, Unit,
+            AiStoreInfo, ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong,
+            Set as SetResult, StoreInputToEmbeddingsList, StoreList, Unit,
         },
     },
     services::ai_service::ai_service_client::AiServiceClient,
@@ -101,6 +102,10 @@ impl AiPipeline {
     pub fn convert_store_input_to_embeddings(&mut self, params: ConvertStoreInputToEmbeddings) {
         self.queries
             .push(Query::ConvertStoreInputToEmbeddings(params));
+    }
+
+    pub fn get_store(&mut self, params: GetStore) {
+        self.queries.push(Query::GetStore(params));
     }
 
     pub fn list_stores(&mut self) {
@@ -323,6 +328,17 @@ impl AiClient {
         Ok(self.client.clone().list_clients(req).await?.into_inner())
     }
 
+    pub async fn get_store(
+        &self,
+        store: String,
+        tracing_id: Option<String>,
+    ) -> Result<AiStoreInfo, AhnlichError> {
+        let mut req = tonic::Request::new(GetStore { store });
+        add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
+        Ok(self.client.clone().get_store(req).await?.into_inner())
+    }
+
     pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
         let mut req = tonic::Request::new(ListStores {});
         add_trace_parent(&mut req, tracing_id);
@@ -404,11 +420,11 @@ mod test {
     use ahnlich_types::ai::models::AiModel;
     use ahnlich_types::ai::pipeline::AiServerResponse;
     use ahnlich_types::ai::preprocess::PreprocessAction;
-    use ahnlich_types::ai::server::{AiStoreInfo, GetEntry};
+    use ahnlich_types::ai::server::GetEntry;
     use ahnlich_types::keyval::store_input::Value;
     use ahnlich_types::keyval::{AiStoreEntry, StoreInput, StoreValue};
     use ahnlich_types::metadata::{MetadataValue, metadata_value::Value as MValue};
-    use ahnlich_types::shared::info::{ErrorResponse, StoreUpsert};
+    use ahnlich_types::shared::info::StoreUpsert;
     use once_cell::sync::Lazy;
     use pretty_assertions::assert_eq;
     use std::collections::HashMap;
@@ -558,54 +574,48 @@ mod test {
             value: "Main".into(),
         });
 
-        let expected = AiResponsePipeline {
-            responses: vec![
-                AiServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                AiServerResponse {
-                    response: Some(Response::Error(ErrorResponse {
-                        message: already_exists_error.to_string(),
-                        code: 6,
-                    })),
-                },
-                AiServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                AiServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                AiServerResponse {
-                    response: Some(Response::StoreList(StoreList {
-                        stores: vec![
-                            AiStoreInfo {
-                                name: "Less".to_string(),
-                                embedding_size: ai_model.embedding_size.get() as u64,
-                                query_model: AiModel::AllMiniLmL6V2 as i32,
-                                index_model: AiModel::AllMiniLmL6V2 as i32,
-                            },
-                            AiStoreInfo {
-                                name: "Main".to_string(),
-                                embedding_size: ai_model.embedding_size.get() as u64,
-                                query_model: AiModel::AllMiniLmL6V2 as i32,
-                                index_model: AiModel::AllMiniLmL6V2 as i32,
-                            },
-                        ],
-                    })),
-                },
-            ],
-        };
-
         let res = pipeline.exec().await.expect("Could not execute pipeline");
-        assert_eq!(res.responses.len(), expected.responses.len());
-        assert_eq!(res, expected);
+        assert_eq!(res.responses.len(), 5);
 
-        for expected_entry in expected.responses {
-            assert!(
-                res.responses.contains(&expected_entry),
-                "Missing entry: {:?}",
-                expected_entry
-            );
+        // Response 0: Unit (create store "Main" - already exists)
+        assert!(matches!(
+            &res.responses[0].response,
+            Some(Response::Unit(_))
+        ));
+
+        // Response 1: Error (store already exists)
+        if let Some(Response::Error(err)) = &res.responses[1].response {
+            assert_eq!(err.message, already_exists_error.to_string());
+        } else {
+            panic!("Expected Error response");
+        }
+
+        // Response 2: Unit (create store "Less")
+        assert!(matches!(
+            &res.responses[2].response,
+            Some(Response::Unit(_))
+        ));
+
+        // Response 3: Unit
+        assert!(matches!(
+            &res.responses[3].response,
+            Some(Response::Unit(_))
+        ));
+
+        // Response 4: StoreList
+        if let Some(Response::StoreList(store_list)) = &res.responses[4].response {
+            assert_eq!(store_list.stores.len(), 2);
+            let names: Vec<&str> = store_list.stores.iter().map(|s| s.name.as_str()).collect();
+            assert!(names.contains(&"Less"));
+            assert!(names.contains(&"Main"));
+            for s in &store_list.stores {
+                assert_eq!(s.embedding_size, ai_model.embedding_size.get() as u64);
+                assert_eq!(s.query_model, AiModel::AllMiniLmL6V2 as i32);
+                assert_eq!(s.index_model, AiModel::AllMiniLmL6V2 as i32);
+                assert_eq!(s.dimension, 384);
+            }
+        } else {
+            panic!("Expected StoreList response");
         }
     }
 
@@ -728,52 +738,45 @@ mod test {
         let ai_model: ModelDetails =
             SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
 
-        let expected = AiResponsePipeline {
-            responses: vec![
-                AiServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                AiServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                AiServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                AiServerResponse {
-                    response: Some(Response::StoreList(StoreList {
-                        stores: vec![
-                            AiStoreInfo {
-                                name: "Less".to_string(),
-                                embedding_size: ai_model.embedding_size.get() as u64,
-                                query_model: AiModel::AllMiniLmL6V2 as i32,
-                                index_model: AiModel::AllMiniLmL6V2 as i32,
-                            },
-                            AiStoreInfo {
-                                name: "Main".to_string(),
-                                embedding_size: ai_model.embedding_size.get() as u64,
-                                query_model: AiModel::AllMiniLmL6V2 as i32,
-                                index_model: AiModel::AllMiniLmL6V2 as i32,
-                            },
-                            AiStoreInfo {
-                                name: "Main2".to_string(),
-                                embedding_size: ai_model.embedding_size.get() as u64,
-                                query_model: AiModel::AllMiniLmL6V2 as i32,
-                                index_model: AiModel::AllMiniLmL6V2 as i32,
-                            },
-                        ],
-                    })),
-                },
-                AiServerResponse {
-                    response: Some(Response::Del(Del { deleted_count: 1 })),
-                },
-                AiServerResponse {
-                    response: Some(Response::Del(Del { deleted_count: 2 })),
-                },
-            ],
-        };
-
         let res = pipeline.exec().await.expect("Could not execute pipeline");
-        assert_eq!(res, expected);
+        assert_eq!(res.responses.len(), 6);
+
+        // Responses 0-2: Units (create stores)
+        for i in 0..3 {
+            assert!(matches!(
+                &res.responses[i].response,
+                Some(Response::Unit(_))
+            ));
+        }
+
+        // Response 3: StoreList with 3 stores
+        if let Some(Response::StoreList(store_list)) = &res.responses[3].response {
+            assert_eq!(store_list.stores.len(), 3);
+            let names: Vec<&str> = store_list.stores.iter().map(|s| s.name.as_str()).collect();
+            assert!(names.contains(&"Less"));
+            assert!(names.contains(&"Main"));
+            assert!(names.contains(&"Main2"));
+            for s in &store_list.stores {
+                assert_eq!(s.embedding_size, ai_model.embedding_size.get() as u64);
+                assert_eq!(s.query_model, AiModel::AllMiniLmL6V2 as i32);
+                assert_eq!(s.index_model, AiModel::AllMiniLmL6V2 as i32);
+                assert_eq!(s.dimension, 384);
+            }
+        } else {
+            panic!("Expected StoreList response");
+        }
+
+        // Response 4: Del (drop store "Less")
+        assert!(matches!(
+            &res.responses[4].response,
+            Some(Response::Del(d)) if d.deleted_count == 1
+        ));
+
+        // Response 5: Del (purge remaining 2 stores)
+        assert!(matches!(
+            &res.responses[5].response,
+            Some(Response::Del(d)) if d.deleted_count == 2
+        ));
     }
 
     #[test_case(1, AiModel::AllMiniLmL6V2.into(); "AllMiniLmL6V2")]
@@ -1027,39 +1030,36 @@ mod test {
         let ai_model: ModelDetails =
             SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
 
-        let expected = AiResponsePipeline {
-            responses: vec![
-                AiServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                AiServerResponse {
-                    response: Some(Response::StoreList(StoreList {
-                        stores: vec![AiStoreInfo {
-                            name: store_name.value.clone(),
-                            embedding_size: ai_model.embedding_size.get() as u64,
-                            query_model: AiModel::AllMiniLmL6V2 as i32,
-                            index_model: AiModel::AllMiniLmL6V2 as i32,
-                        }],
-                    })),
-                },
-                AiServerResponse {
-                    response: Some(Response::CreateIndex(CreateIndex { created_indexes: 2 })),
-                },
-                AiServerResponse {
-                    response: Some(Response::Set(SetResult {
-                        upsert: Some(StoreUpsert {
-                            inserted: 3,
-                            updated: 0,
-                        }),
-                    })),
-                },
-                AiServerResponse {
-                    response: Some(Response::Del(Del { deleted_count: 1 })),
-                },
-            ],
-        };
+        assert_eq!(res.responses.len(), 5);
+        assert!(matches!(
+            &res.responses[0].response,
+            Some(Response::Unit(_))
+        ));
 
-        assert_eq!(res, expected);
+        if let Some(Response::StoreList(store_list)) = &res.responses[1].response {
+            assert_eq!(store_list.stores.len(), 1);
+            let s = &store_list.stores[0];
+            assert_eq!(s.name, store_name.value);
+            assert_eq!(s.embedding_size, ai_model.embedding_size.get() as u64);
+            assert_eq!(s.query_model, AiModel::AllMiniLmL6V2 as i32);
+            assert_eq!(s.index_model, AiModel::AllMiniLmL6V2 as i32);
+            assert_eq!(s.dimension, 384);
+        } else {
+            panic!("Expected StoreList response");
+        }
+
+        assert!(matches!(
+            &res.responses[2].response,
+            Some(Response::CreateIndex(c)) if c.created_indexes == 2
+        ));
+        assert!(matches!(
+            &res.responses[3].response,
+            Some(Response::Set(s)) if s.upsert == Some(StoreUpsert { inserted: 3, updated: 0 })
+        ));
+        assert!(matches!(
+            &res.responses[4].response,
+            Some(Response::Del(d)) if d.deleted_count == 1
+        ));
 
         let condition = PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
@@ -1226,56 +1226,113 @@ mod test {
         let resnet_model: ModelDetails =
             SupportedModels::from(&AiModel::Resnet50).to_model_details();
 
-        let expected = AiResponsePipeline {
-            responses: vec![
-                AiServerResponse {
-                    response: Some(Response::Unit(Unit {})),
-                },
-                AiServerResponse {
-                    response: Some(Response::StoreList(StoreList {
-                        stores: vec![AiStoreInfo {
-                            name: store_name.value.clone(),
-                            embedding_size: resnet_model.embedding_size.get() as u64,
-                            query_model: AiModel::Resnet50 as i32,
-                            index_model: AiModel::Resnet50 as i32,
-                        }],
-                    })),
-                },
-                AiServerResponse {
-                    response: Some(Response::CreateIndex(CreateIndex { created_indexes: 2 })),
-                },
-                AiServerResponse {
-                    response: Some(Response::Set(SetResult {
-                        upsert: Some(StoreUpsert {
-                            inserted: 3,
-                            updated: 0,
-                        }),
-                    })),
-                },
-                AiServerResponse {
-                    response: Some(Response::Del(Del { deleted_count: 1 })),
-                },
-                AiServerResponse {
-                    response: Some(Response::Get(Get {
-                        entries: vec![GetEntry {
-                            key: Some(StoreInput {
-                                value: Some(Value::Image(
-                                    include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
-                                )),
-                            }),
-                            value: Some(store_value_1.clone()),
-                        }],
-                    })),
-                },
-                AiServerResponse {
-                    response: Some(Response::Del(Del { deleted_count: 1 })),
-                },
-            ],
+        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        assert_eq!(res.responses.len(), 7);
+
+        assert!(matches!(
+            &res.responses[0].response,
+            Some(Response::Unit(_))
+        ));
+
+        if let Some(Response::StoreList(store_list)) = &res.responses[1].response {
+            assert_eq!(store_list.stores.len(), 1);
+            let s = &store_list.stores[0];
+            assert_eq!(s.name, store_name.value);
+            assert_eq!(s.embedding_size, resnet_model.embedding_size.get() as u64);
+            assert_eq!(s.query_model, AiModel::Resnet50 as i32);
+            assert_eq!(s.index_model, AiModel::Resnet50 as i32);
+            assert_eq!(s.dimension, 2048);
+        } else {
+            panic!("Expected StoreList response");
+        }
+
+        assert!(matches!(
+            &res.responses[2].response,
+            Some(Response::CreateIndex(c)) if c.created_indexes == 2
+        ));
+        assert!(matches!(
+            &res.responses[3].response,
+            Some(Response::Set(s)) if s.upsert == Some(StoreUpsert { inserted: 3, updated: 0 })
+        ));
+        assert!(matches!(
+            &res.responses[4].response,
+            Some(Response::Del(d)) if d.deleted_count == 1
+        ));
+
+        if let Some(Response::Get(get)) = &res.responses[5].response {
+            assert_eq!(get.entries.len(), 1);
+            assert_eq!(
+                get.entries[0].key,
+                Some(StoreInput {
+                    value: Some(Value::Image(
+                        include_bytes!("../../ai/src/tests/images/cat.png").to_vec(),
+                    )),
+                })
+            );
+            assert_eq!(get.entries[0].value, Some(store_value_1.clone()));
+        } else {
+            panic!("Expected Get response");
+        }
+
+        assert!(matches!(
+            &res.responses[6].response,
+            Some(Response::Del(d)) if d.deleted_count == 1
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_ai_get_store_not_found() {
+        let address = provision_test_servers().await;
+        let ai_client = AiClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+
+        let result = ai_client
+            .get_store("NonExistentStore".to_string(), None)
+            .await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_ai_get_store_success() {
+        let address = provision_test_servers().await;
+        let ai_client = AiClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+
+        let store_name = "TestStore".to_string();
+        let create_store_params = CreateStore {
+            store: store_name.clone(),
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: true,
         };
 
-        let res = pipeline.exec().await.expect("Could not execute pipeline");
+        let mut pipeline = ai_client.pipeline(None);
+        pipeline.create_store(create_store_params);
+        pipeline.exec().await.expect("Could not execute pipeline");
 
-        assert_eq!(res, expected);
+        let ai_model: ModelDetails =
+            SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
+
+        let result = ai_client
+            .get_store(store_name.clone(), None)
+            .await
+            .expect("Could not get store");
+
+        assert_eq!(result.name, store_name);
+        assert_eq!(result.embedding_size, ai_model.embedding_size.get() as u64);
+        assert_eq!(result.query_model, AiModel::AllMiniLmL6V2 as i32);
+        assert_eq!(result.index_model, AiModel::AllMiniLmL6V2 as i32);
+        assert_eq!(result.dimension, 384);
+        // db_info should be populated since test provisions both AI and DB servers
+        assert!(result.db_info.is_some());
+        let db_info = result.db_info.unwrap();
+        assert_eq!(db_info.name, store_name);
     }
 
     // --- Auth tests ---

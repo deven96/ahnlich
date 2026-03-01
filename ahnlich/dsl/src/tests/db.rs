@@ -9,7 +9,7 @@ use ahnlich_types::{
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
             DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
-            InfoServer, ListClients, ListStores, Ping, Set,
+            GetStore, InfoServer, ListClients, ListStores, Ping, Set,
         },
     },
     keyval::{DbStoreEntry, StoreKey, StoreValue},
@@ -441,6 +441,20 @@ fn test_get_pred_parse() {
                     })),
                 })
             ),
+        })]
+    );
+    let input = r#"getstore my_store"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::GetStore(GetStore {
+            store: "my_store".to_string(),
+        })]
+    );
+    let input = r#"GETSTORE TestStore123"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::GetStore(GetStore {
+            store: "TestStore123".to_string(),
         })]
     );
     let input = r#"GETPRED ((pages in (0, 1, 2)) AND (author != dickens) OR (author NOT in (jk-rowlins, rick-riodan)) ) in bookshelf"#;

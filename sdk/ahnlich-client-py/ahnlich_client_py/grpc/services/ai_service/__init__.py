@@ -123,6 +123,23 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def get_store(
+        self,
+        ai_query_get_store: "__ai_query__.GetStore",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__ai_server__.AiStoreInfo":
+        return await self._unary_unary(
+            "/services.ai_service.AIService/GetStore",
+            ai_query_get_store,
+            __ai_server__.AiStoreInfo,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def set(
         self,
         ai_query_set: "__ai_query__.Set",
@@ -378,6 +395,11 @@ class AiServiceBase(ServiceBase):
     ) -> "__ai_server__.GetSimN":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def get_store(
+        self, ai_query_get_store: "__ai_query__.GetStore"
+    ) -> "__ai_server__.AiStoreInfo":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def set(self, ai_query_set: "__ai_query__.Set") -> "__ai_server__.Set":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
@@ -485,6 +507,14 @@ class AiServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.get_sim_n(request)
+        await stream.send_message(response)
+
+    async def __rpc_get_store(
+        self,
+        stream: "grpclib.server.Stream[__ai_query__.GetStore, __ai_server__.AiStoreInfo]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.get_store(request)
         await stream.send_message(response)
 
     async def __rpc_set(
@@ -623,6 +653,12 @@ class AiServiceBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __ai_query__.GetSimN,
                 __ai_server__.GetSimN,
+            ),
+            "/services.ai_service.AIService/GetStore": grpclib.const.Handler(
+                self.__rpc_get_store,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __ai_query__.GetStore,
+                __ai_server__.AiStoreInfo,
             ),
             "/services.ai_service.AIService/Set": grpclib.const.Handler(
                 self.__rpc_set,

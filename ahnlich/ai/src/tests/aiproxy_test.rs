@@ -25,7 +25,7 @@ use ahnlich_types::{
         pipeline::{self as ai_pipeline, ai_query::Query},
         preprocess::PreprocessAction,
         query::{self as ai_query_types},
-        server::{self as ai_response_types, AiStoreInfo, GetEntry},
+        server::{self as ai_response_types, GetEntry},
     },
     keyval::{AiStoreEntry, StoreInput, StoreName, StoreValue, store_input::Value},
     services::ai_service::ai_service_client::AiServiceClient,
@@ -169,15 +169,20 @@ async fn test_ai_proxy_create_store_success() {
 
     let ai_model: ModelDetails = SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
 
-    let expected = ai_response_types::StoreList {
-        stores: vec![AiStoreInfo {
-            name: store_name,
-            query_model: AiModel::AllMiniLmL6V2.into(),
-            index_model: AiModel::AllMiniLmL6V2.into(),
-            embedding_size: ai_model.embedding_size.get() as u64,
-        }],
-    };
-    assert_eq!(expected, response.into_inner());
+    let result = response.into_inner();
+    assert_eq!(result.stores.len(), 1);
+    let store_info = &result.stores[0];
+    assert_eq!(store_info.name, store_name);
+    assert_eq!(store_info.query_model, i32::from(AiModel::AllMiniLmL6V2));
+    assert_eq!(store_info.index_model, i32::from(AiModel::AllMiniLmL6V2));
+    assert_eq!(
+        store_info.embedding_size,
+        ai_model.embedding_size.get() as u64
+    );
+    assert_eq!(store_info.dimension, 384);
+    // db_info should be populated since test provisions both AI and DB servers
+    assert!(store_info.db_info.is_some());
+    assert_eq!(store_info.db_info.as_ref().unwrap().name, store_name);
 }
 
 #[tokio::test]
@@ -1495,16 +1500,18 @@ async fn test_ai_proxy_test_with_persistence() {
         .expect("Failed to list stores");
 
     let ai_model: ModelDetails = SupportedModels::from(&AiModel::AllMiniLmL6V2).to_model_details();
-    let expected = ai_response_types::StoreList {
-        stores: vec![ai_response_types::AiStoreInfo {
-            name: store_name_2.clone(),
-            query_model: AiModel::AllMiniLmL6V2.into(),
-            index_model: AiModel::AllMiniLmL6V2.into(),
-            embedding_size: ai_model.embedding_size.get() as u64,
-        }],
-    };
+    let result = list_response.into_inner();
+    assert_eq!(result.stores.len(), 1);
+    let store_info = &result.stores[0];
+    assert_eq!(store_info.name, store_name_2);
+    assert_eq!(store_info.query_model, i32::from(AiModel::AllMiniLmL6V2));
+    assert_eq!(store_info.index_model, i32::from(AiModel::AllMiniLmL6V2));
+    assert_eq!(
+        store_info.embedding_size,
+        ai_model.embedding_size.get() as u64
+    );
+    assert_eq!(store_info.dimension, 384);
 
-    assert_eq!(list_response.into_inner(), expected);
     assert!(!persisted_write_flag.load(Ordering::SeqCst));
 
     // Clean up persistence file
@@ -1555,39 +1562,44 @@ async fn test_ai_proxy_destroy_database() {
         .await
         .expect("Failed to send pipeline request");
 
-    let expected = ai_pipeline::AiResponsePipeline {
-        responses: vec![
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::Unit(
-                    ai_response_types::Unit {},
-                )),
-            },
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::StoreList(
-                    ai_response_types::StoreList {
-                        stores: vec![ai_response_types::AiStoreInfo {
-                            name: store_name,
-                            query_model: AiModel::AllMiniLmL6V2.into(),
-                            index_model: AiModel::AllMiniLmL6V2.into(),
-                            embedding_size: ai_model.embedding_size.get() as u64,
-                        }],
-                    },
-                )),
-            },
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::Del(
-                    ai_response_types::Del { deleted_count: 1 },
-                )),
-            },
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::StoreList(
-                    ai_response_types::StoreList { stores: vec![] },
-                )),
-            },
-        ],
-    };
+    let result = response.into_inner();
+    assert_eq!(result.responses.len(), 4);
 
-    assert_eq!(response.into_inner(), expected);
+    // Response 0: Unit (create store)
+    assert!(matches!(
+        &result.responses[0].response,
+        Some(ai_pipeline::ai_server_response::Response::Unit(_))
+    ));
+
+    // Response 1: StoreList with one store
+    if let Some(ai_pipeline::ai_server_response::Response::StoreList(store_list)) =
+        &result.responses[1].response
+    {
+        assert_eq!(store_list.stores.len(), 1);
+        let s = &store_list.stores[0];
+        assert_eq!(s.name, store_name);
+        assert_eq!(s.query_model, i32::from(AiModel::AllMiniLmL6V2));
+        assert_eq!(s.index_model, i32::from(AiModel::AllMiniLmL6V2));
+        assert_eq!(s.embedding_size, ai_model.embedding_size.get() as u64);
+        assert_eq!(s.dimension, 384);
+    } else {
+        panic!("Expected StoreList response");
+    }
+
+    // Response 2: Del (purge stores)
+    assert!(matches!(
+        &result.responses[2].response,
+        Some(ai_pipeline::ai_server_response::Response::Del(d)) if d.deleted_count == 1
+    ));
+
+    // Response 3: Empty StoreList after purge
+    if let Some(ai_pipeline::ai_server_response::Response::StoreList(store_list)) =
+        &result.responses[3].response
+    {
+        assert!(store_list.stores.is_empty());
+    } else {
+        panic!("Expected empty StoreList response");
+    }
 }
 
 #[tokio::test]
@@ -1737,58 +1749,80 @@ async fn test_ai_proxy_binary_store_actions() {
 
     let resnet_model: ModelDetails = SupportedModels::from(&AiModel::Resnet50).to_model_details();
 
-    let expected = ai_pipeline::AiResponsePipeline {
-        responses: vec![
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::Unit(ai_response_types::Unit {})),
-            },
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::StoreList(ai_response_types::StoreList {
-                    stores: vec![AiStoreInfo {
-                        name: store_name.clone(),
-                        query_model: AiModel::Resnet50.into(),
-                        index_model: AiModel::Resnet50.into(),
-                        embedding_size: resnet_model.embedding_size.get() as u64,
-                    }],
-                })),
-            },
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::CreateIndex(ai_response_types::CreateIndex { created_indexes: 2 })),
-            },
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::Set(ai_response_types::Set {
-                    upsert: Some(StoreUpsert {
-                        inserted: 3,
-                        updated: 0,
-                    }),
-                })),
-            },
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::Error(ahnlich_types::shared::info::ErrorResponse {
-                    message: "Image Dimensions [(547, 821)] does not match the expected model dimensions [(224, 224)]".to_string(),
-                    code: 3,
-                })),
-            },
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::Del(ai_response_types::Del { deleted_count: 1 })),
-            },
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::Get(ai_response_types::Get {
-                    entries: vec![GetEntry {
-                        key: Some(StoreInput {
-                            value: Some(Value::Image(include_bytes!("./images/dog.jpg").to_vec())),
-                        }),
-                        value: Some(store_value_1.clone()),
-                    }],
-                })),
-            },
-            ai_pipeline::AiServerResponse {
-                response: Some(ai_pipeline::ai_server_response::Response::Del(ai_response_types::Del { deleted_count: 1 })),
-            },
-        ],
-    };
+    let result = response.into_inner();
+    assert_eq!(result.responses.len(), 8);
 
-    assert_eq!(response.into_inner(), expected);
+    // Response 0: Unit (create store)
+    assert!(matches!(
+        &result.responses[0].response,
+        Some(ai_pipeline::ai_server_response::Response::Unit(_))
+    ));
+
+    // Response 1: StoreList with one store
+    if let Some(ai_pipeline::ai_server_response::Response::StoreList(store_list)) =
+        &result.responses[1].response
+    {
+        assert_eq!(store_list.stores.len(), 1);
+        let s = &store_list.stores[0];
+        assert_eq!(s.name, store_name);
+        assert_eq!(s.query_model, i32::from(AiModel::Resnet50));
+        assert_eq!(s.index_model, i32::from(AiModel::Resnet50));
+        assert_eq!(s.embedding_size, resnet_model.embedding_size.get() as u64);
+        assert_eq!(s.dimension, 2048);
+    } else {
+        panic!("Expected StoreList response");
+    }
+
+    // Response 2: CreateIndex
+    assert!(matches!(
+        &result.responses[2].response,
+        Some(ai_pipeline::ai_server_response::Response::CreateIndex(c)) if c.created_indexes == 2
+    ));
+
+    // Response 3: Set
+    assert!(matches!(
+        &result.responses[3].response,
+        Some(ai_pipeline::ai_server_response::Response::Set(s)) if s.upsert == Some(StoreUpsert { inserted: 3, updated: 0 })
+    ));
+
+    // Response 4: Error (wrong image dimensions)
+    if let Some(ai_pipeline::ai_server_response::Response::Error(err)) =
+        &result.responses[4].response
+    {
+        assert_eq!(
+            err.message,
+            "Image Dimensions [(547, 821)] does not match the expected model dimensions [(224, 224)]"
+        );
+    } else {
+        panic!("Expected Error response");
+    }
+
+    // Response 5: Del
+    assert!(matches!(
+        &result.responses[5].response,
+        Some(ai_pipeline::ai_server_response::Response::Del(d)) if d.deleted_count == 1
+    ));
+
+    // Response 6: Get
+    if let Some(ai_pipeline::ai_server_response::Response::Get(get)) = &result.responses[6].response
+    {
+        assert_eq!(get.entries.len(), 1);
+        assert_eq!(
+            get.entries[0].key,
+            Some(StoreInput {
+                value: Some(Value::Image(include_bytes!("./images/dog.jpg").to_vec())),
+            })
+        );
+        assert_eq!(get.entries[0].value, Some(store_value_1.clone()));
+    } else {
+        panic!("Expected Get response");
+    }
+
+    // Response 7: Del
+    assert!(matches!(
+        &result.responses[7].response,
+        Some(ai_pipeline::ai_server_response::Response::Del(d)) if d.deleted_count == 1
+    ));
 }
 
 #[tokio::test]

@@ -69,6 +69,12 @@ pub struct AiStoreInfo {
     pub index_model: i32,
     #[prost(uint64, tag = "4")]
     pub embedding_size: u64,
+    #[prost(string, repeated, tag = "5")]
+    pub predicate_indices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(uint32, tag = "6")]
+    pub dimension: u32,
+    #[prost(message, optional, tag = "7")]
+    pub db_info: ::core::option::Option<super::super::db::server::StoreInfo>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MultipleEmbedding {

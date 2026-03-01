@@ -7,8 +7,8 @@ use ahnlich_types::{
         preprocess::PreprocessAction,
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
-            DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetPred, GetSimN, InfoServer,
-            ListStores, Ping, PurgeStores, Set,
+            DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetPred, GetSimN, GetStore,
+            InfoServer, ListStores, Ping, PurgeStores, Set,
         },
     },
     algorithm::{
@@ -72,6 +72,24 @@ fn test_no_valid_input_in_query() {
         panic!("Unexpected error pattern found")
     };
     assert_eq!((start, end), (13, 20));
+}
+
+#[test]
+fn test_get_store_parse() {
+    let input = r#"GETSTORE my_store"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::GetStore(GetStore {
+            store: "my_store".to_string(),
+        })]
+    );
+    let input = r#"getstore test-store-1"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::GetStore(GetStore {
+            store: "test-store-1".to_string(),
+        })]
+    );
 }
 
 #[test]

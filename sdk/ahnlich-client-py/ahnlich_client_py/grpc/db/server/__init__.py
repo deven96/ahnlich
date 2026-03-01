@@ -84,6 +84,7 @@ class ServerResponse(betterproto.Message):
     get_sim_n: "GetSimN" = betterproto.message_field(8, group="response")
     del_: "Del" = betterproto.message_field(9, group="response")
     create_index: "CreateIndex" = betterproto.message_field(10, group="response")
+    store_info: "StoreInfo" = betterproto.message_field(11, group="response")
 
 
 @dataclass(eq=False, repr=False)
@@ -94,3 +95,5 @@ class StoreInfo(betterproto.Message):
     non_linear_indices: List["__algorithm_nonlinear__.NonLinearIndex"] = (
         betterproto.message_field(4)
     )
+    predicate_indices: List[str] = betterproto.string_field(5)
+    dimension: int = betterproto.uint32_field(6)

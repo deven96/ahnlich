@@ -142,9 +142,28 @@ impl AIStoreHandler {
                     query_model: store.query_model.into(),
                     index_model: store.index_model.into(),
                     embedding_size: model.embedding_size.get() as u64,
+                    predicate_indices: vec![],
+                    dimension: model.embedding_size.get() as u32,
+                    db_info: None,
                 }
             })
             .collect()
+    }
+
+    /// matches GETSTORE - to return info for a single store
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn get_store(&self, store_name: &StoreName) -> Result<AiStoreInfo, AIProxyError> {
+        let store = self.get(store_name)?;
+        let model: ModelDetails = SupportedModels::from(&store.index_model).to_model_details();
+        Ok(AiStoreInfo {
+            name: store_name.value.clone(),
+            query_model: store.query_model.into(),
+            index_model: store.index_model.into(),
+            embedding_size: model.embedding_size.get() as u64,
+            predicate_indices: vec![],
+            dimension: model.embedding_size.get() as u32,
+            db_info: None,
+        })
     }
 
     /// Returns a store using the store name, else returns an error

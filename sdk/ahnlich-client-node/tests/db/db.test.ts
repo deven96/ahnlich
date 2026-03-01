@@ -3,6 +3,7 @@ import {
   CreateStore,
   Set,
   GetSimN,
+  GetStore,
   ListStores,
   Ping,
   CreateNonLinearAlgorithmIndex,
@@ -42,12 +43,44 @@ describe("DB client", () => {
     const storeName = "test_store";
 
     await client.createStore(
-      new CreateStore({ store: storeName, dimension: 3, errorIfExists: false }),
+      new CreateStore({
+        store: storeName,
+        dimension: 3,
+        createPredicates: ["label"],
+        errorIfExists: false,
+      }),
     );
 
     const resp = await client.listStores(new ListStores());
     const names = resp.stores.map((s) => s.name);
     expect(names).toContain(storeName);
+
+    const storeInfo = resp.stores.find((s) => s.name === storeName);
+    expect(storeInfo).toBeDefined();
+    expect(storeInfo!.dimension).toBe(3);
+    expect(storeInfo!.predicateIndices).toContain("label");
+  });
+
+  test("get store returns store info", async () => {
+    const client = createDbClient(address);
+    const storeName = "get_store_test";
+
+    await client.createStore(
+      new CreateStore({
+        store: storeName,
+        dimension: 5,
+        createPredicates: ["category", "tag"],
+        errorIfExists: false,
+      }),
+    );
+
+    const resp = await client.getStore(new GetStore({ store: storeName }));
+    expect(resp).toBeDefined();
+    expect(resp.name).toBe(storeName);
+    expect(resp.dimension).toBe(5);
+    expect(resp.predicateIndices).toContain("category");
+    expect(resp.predicateIndices).toContain("tag");
+    expect(resp.predicateIndices.length).toBe(2);
   });
 
   test("set and get_sim_n returns nearest neighbour", async () => {

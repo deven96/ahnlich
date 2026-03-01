@@ -4,6 +4,7 @@ package ai.server;
 
 import "ai/models.proto";
 import "client.proto";
+import "db/server.proto";
 import "keyval.proto";
 import "shared/info.proto";
 import "similarity.proto";
@@ -62,6 +63,9 @@ message AIStoreInfo {
   ai.models.AIModel query_model = 2;
   ai.models.AIModel index_model = 3;
   uint64 embedding_size = 4;
+  repeated string predicate_indices = 5;
+  uint32 dimension = 6;
+  optional db.server.StoreInfo db_info = 7;
 }
 
 message MultipleEmbedding {

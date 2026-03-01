@@ -17,8 +17,8 @@ use ahnlich_types::ai::{
     preprocess::PreprocessAction,
     query::{
         CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
-        DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetPred, GetSimN, InfoServer,
-        ListStores, Ping, PurgeStores, Set,
+        DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetPred, GetSimN, GetStore,
+        InfoServer, ListStores, Ping, PurgeStores, Set,
     },
 };
 use pest::Parser;
@@ -68,6 +68,7 @@ pub const COMMANDS: &[&str] = &[
     "droppredindex",                 // if exists (key1, key2) in store_name
     "createnonlinearalgorithmindex", // (kdtree) in store_name
     "dropnonlinearalgorithmindex",   // if exists (kdtree) in store_name
+    "getstore",                      // store_name
     "delkey",                        // ([input 1 text], [input 2 text]) in my_store
     "getpred",                       // ((author = dickens) or (country != Nigeria)) in my_store
     "getsimn", // 4 with [random text inserted here] using cosinesimilarity preprocessaction nopreprocessing in my_store where (author = dickens)
@@ -323,6 +324,15 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     store,
                     error_if_not_exists,
                 })
+            }
+            Rule::get_store => {
+                let mut inner_pairs = statement.into_inner();
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+                AiQuery::GetStore(GetStore { store })
             }
             _ => return Err(DslError::UnexpectedSpan((start_pos, end_pos))),
         };

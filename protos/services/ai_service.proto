@@ -18,6 +18,7 @@ service AIService {
   rpc GetKey(ai.query.GetKey) returns (ai.server.Get);
   rpc GetPred(ai.query.GetPred) returns (ai.server.Get);
   rpc GetSimN(ai.query.GetSimN) returns (ai.server.GetSimN);
+  rpc GetStore(ai.query.GetStore) returns (ai.server.AIStoreInfo);
 
   /** Update methods **/
   rpc Set(ai.query.Set) returns (ai.server.Set);

@@ -14,7 +14,7 @@ use ahnlich_types::db::{
     pipeline::db_query::Query as DBQuery,
     query::{
         CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
-        DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
+        DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN, GetStore,
         InfoServer, ListClients, ListStores, Ping, Set,
     },
 };
@@ -28,6 +28,7 @@ pub const COMMANDS: &[&str] = &[
     "ping",
     "listclients",
     "liststores",
+    "getstore",
     "infoserver",
     "dropstore",                     // store_name if exists can be handled dynamically
     "createpredindex",               // (key_1, key_2) in store_name
@@ -54,6 +55,15 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
             Rule::list_clients => DBQuery::ListClients(ListClients {}),
             Rule::list_stores => DBQuery::ListStores(ListStores {}),
             Rule::info_server => DBQuery::InfoServer(InfoServer {}),
+            Rule::get_store => {
+                let mut inner_pairs = statement.into_inner();
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+                DBQuery::GetStore(GetStore { store })
+            }
             Rule::set_in_store => {
                 let mut inner_pairs = statement.into_inner();
                 let store_keys_to_store_values = inner_pairs

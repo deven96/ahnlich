@@ -177,6 +177,15 @@ class Ping(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class GetStore(betterproto.Message):
+    """
+    A request to get detailed information about a specific store by name.
+    """
+
+    store: str = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
 class Set(betterproto.Message):
     """
     A request to set multiple key-value entries in the store.

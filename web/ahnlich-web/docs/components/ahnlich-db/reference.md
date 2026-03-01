@@ -32,9 +32,20 @@ LIST CONNECTED CLIENTS
 ### 2. Store Management
 
 #### LIST STORES
-Show all existing vector stores. Returns store name, entry count, size in bytes, and the configuration of any non-linear indices (HNSW config parameters or k-d tree) on each store.
+Show all existing vector stores. Returns store name, entry count, size in bytes, predicate indices, dimension, and the configuration of any non-linear indices (HNSW config parameters or k-d tree) on each store.
 ```
 LIST STORES
+```
+
+#### GET STORE
+Get detailed information about a specific store by name. Returns the same info as LIST STORES but for a single store. Returns an error if the store does not exist.
+```
+GETSTORE <store_name>
+```
+
+#### Example:
+```
+GETSTORE my_store
 ```
 
 #### CREATE STORE
@@ -187,6 +198,7 @@ This document provides a reference mapping of Ahnlich DB commands to their equiv
 | INFO SERVER | `client.info_server()?;` | `client.info_server()` | `client.InfoServer(ctx)` |
 | LIST CONNECTED CLIENTS | `client.list_clients()?;` | `client.list_clients()` | `client.ListClients(ctx)` |
 | LIST STORES | `client.list_stores()?;` | `client.list_stores()` | `client.ListStores(ctx)` |
+| GETSTORE my_store | `client.get_store("my_store")?;` | `client.get_store("my_store")` | `client.GetStore(ctx, "my_store")` |
 | CREATE STORE my_store DIMENSION 128 ALGORITHM cosine | `client.create_store("my_store", 128, "cosine")?;` | `client.create_store("my_store", 128, "cosine")` | `client.CreateStore(ctx, "my_store", 128, "cosine")`|
 | DROP STORE my_store | `client.drop_store("my_store")?;` | `client.drop_store("my_store")` | `client.DropStore(ctx, "my_store")` |
 | `SET doc1 [0.25, 0.88] WITH {...} IN my_store` | `client.set("my_store", "doc1", vec![0.25,0.88], hashmap!{"category"=>"news"})?;` | `client.set("my_store", "doc1", [0.25,0.88], {"category":"news"})` | `client.Set(ctx, "my_store", "doc1", []float64{0.25,0.88}, map[string]string{"category":"news"})` |

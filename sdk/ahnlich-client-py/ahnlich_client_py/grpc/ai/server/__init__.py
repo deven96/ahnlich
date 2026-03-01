@@ -11,6 +11,7 @@ import betterproto
 from ... import client as __client__
 from ... import keyval as __keyval__
 from ... import similarity as __similarity__
+from ...db import server as __db_server__
 from ...shared import info as __shared_info__
 from .. import models as _models__
 
@@ -84,6 +85,11 @@ class AiStoreInfo(betterproto.Message):
     query_model: "_models__.AiModel" = betterproto.enum_field(2)
     index_model: "_models__.AiModel" = betterproto.enum_field(3)
     embedding_size: int = betterproto.uint64_field(4)
+    predicate_indices: List[str] = betterproto.string_field(5)
+    dimension: int = betterproto.uint32_field(6)
+    db_info: Optional["__db_server__.StoreInfo"] = betterproto.message_field(
+        7, optional=True
+    )
 
 
 @dataclass(eq=False, repr=False)

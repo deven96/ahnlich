@@ -1,5 +1,6 @@
 use crate::errors::ServerError;
 use ahnlich_similarity::EmbeddingKey;
+use itertools::Itertools;
 use rayon::prelude::*;
 
 use super::super::algorithm::non_linear::NonLinearAlgorithmIndices;
@@ -385,9 +386,51 @@ impl StoreHandler {
                     len,
                     size_in_bytes,
                     non_linear_indices: store.non_linear_indices.non_linear_index_configs(),
+                    predicate_indices: store
+                        .predicate_indices
+                        .current_predicates()
+                        .into_iter()
+                        .sorted()
+                        .collect(),
+                    dimension: store.dimension.get() as u32,
                 }
             })
             .collect()
+    }
+
+    /// Matches GETSTORE - Returns detailed info for a single store by name
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn get_store(&self, store_name: &StoreName) -> Result<StoreInfo, ServerError> {
+        let store = self.get(store_name)?;
+        let (len, size_in_bytes) = if store.size_dirty.load(Ordering::Relaxed) {
+            let len = store.len();
+            let size = store.size();
+            store.cached_len.store(len as u64, Ordering::Relaxed);
+            store
+                .cached_size_bytes
+                .store(size as u64, Ordering::Relaxed);
+            store.size_dirty.store(false, Ordering::Relaxed);
+            (len as u64, size as u64)
+        } else {
+            (
+                store.cached_len.load(Ordering::Relaxed),
+                store.cached_size_bytes.load(Ordering::Relaxed),
+            )
+        };
+
+        Ok(StoreInfo {
+            name: store_name.clone().value,
+            len,
+            size_in_bytes,
+            non_linear_indices: store.non_linear_indices.non_linear_index_configs(),
+            predicate_indices: store
+                .predicate_indices
+                .current_predicates()
+                .into_iter()
+                .sorted()
+                .collect(),
+            dimension: store.dimension.get() as u32,
+        })
     }
 
     /// Matches CREATESTORE - Creates a store if not exist, else return an error
@@ -1627,12 +1670,16 @@ mod tests {
                     len: 2,
                     size_in_bytes: 1400,
                     non_linear_indices: vec![],
+                    predicate_indices: vec!["rank".to_string()],
+                    dimension: 3,
                 },
                 StoreInfo {
                     name: even_store.value,
                     len: 0,
                     size_in_bytes: 1080,
                     non_linear_indices: vec![],
+                    predicate_indices: vec!["rank".to_string()],
+                    dimension: 5,
                 },
             ])
         )
