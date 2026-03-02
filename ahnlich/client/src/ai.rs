@@ -3,9 +3,9 @@ use ahnlich_types::{
         pipeline::{AiQuery, AiRequestPipeline, AiResponsePipeline, ai_query::Query},
         query::{
             ConvertStoreInputToEmbeddings, CreateNonLinearAlgorithmIndex, CreatePredIndex,
-            CreateStore, DelKey, DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey,
-            GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, PurgeStores,
-            Set,
+            CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropStore,
+            GetKey, GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping,
+            PurgeStores, Set,
         },
         server::{
             AiStoreInfo, ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong,
@@ -85,6 +85,10 @@ impl AiPipeline {
 
     pub fn del_key(&mut self, params: DelKey) {
         self.queries.push(Query::DelKey(params));
+    }
+
+    pub fn del_pred(&mut self, params: DelPred) {
+        self.queries.push(Query::DelPred(params));
     }
 
     pub fn drop_store(&mut self, params: DropStore) {
@@ -294,6 +298,17 @@ impl AiClient {
             .drop_non_linear_algorithm_index(req)
             .await?
             .into_inner())
+    }
+
+    pub async fn del_pred(
+        &self,
+        params: DelPred,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
+        Ok(self.client.clone().del_pred(req).await?.into_inner())
     }
 
     pub async fn del_key(
