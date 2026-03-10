@@ -46,6 +46,51 @@ pub trait BlockingTask {
     );
 }
 
+#[cfg(unix)]
+async fn wait_for_shutdown_signal(task_name: String, cancellation_token: CancellationToken) {
+    match signal::unix::signal(signal::unix::SignalKind::terminate()) {
+        Ok(mut sigterm) => {
+            select! {
+                biased;
+                _ = sigterm.recv() => {
+                    info!("Received SIGTERM signal, cancelling [{task_name}] task");
+                }
+                _ = signal::ctrl_c() => {
+                    info!("Received Ctrl-C signal, cancelling [{task_name}] task");
+                }
+                _ = cancellation_token.cancelled() => {
+                    info!("Received Cancellation token signal, cancelling [{task_name}] task");
+                }
+            }
+        }
+        Err(err) => {
+            log::warn!("Failed to register SIGTERM handler for [{task_name}] task: {err}");
+            select! {
+                biased;
+                _ = signal::ctrl_c() => {
+                    info!("Received Ctrl-C signal, cancelling [{task_name}] task");
+                }
+                _ = cancellation_token.cancelled() => {
+                    info!("Received Cancellation token signal, cancelling [{task_name}] task");
+                }
+            }
+        }
+    }
+}
+
+#[cfg(not(unix))]
+async fn wait_for_shutdown_signal(task_name: String, cancellation_token: CancellationToken) {
+    select! {
+        biased;
+        _ = signal::ctrl_c() => {
+            info!("Received Ctrl-C signal, cancelling [{task_name}] task");
+        }
+        _ = cancellation_token.cancelled() => {
+            info!("Received Cancellation token signal, cancelling [{task_name}] task");
+        }
+    }
+}
+
 impl Default for TaskManager {
     fn default() -> Self {
         Self::new()
@@ -65,17 +110,10 @@ impl TaskManager {
         let cancellation_token = self.cancellation_token.clone();
 
         let run = async move {
-            let cancel_fut = Box::pin(async move {
-                select! {
-                    biased;
-                    _ = signal::ctrl_c() => {
-                        info!("Received Ctrl-C signal, cancelling [{task_name}] task");
-                    }
-                    _ = cancellation_token.cancelled() => {
-                        info!("Received Cancellation token signal, cancelling [{task_name}] task");
-                    }
-                }
-            });
+            let cancel_fut = Box::pin(wait_for_shutdown_signal(
+                task_name.clone(),
+                cancellation_token,
+            ));
             task.run(cancel_fut).await
         };
 
@@ -87,6 +125,10 @@ impl TaskManager {
         let task_name_copy = task_name.clone();
         let cancellation_token = self.cancellation_token.clone();
         self.task_tracker.spawn(async move {
+            let mut shutdown_signal = Box::pin(wait_for_shutdown_signal(
+                task_name.clone(),
+                cancellation_token,
+            ));
             loop {
                 select! {
                     // We use biased selection as it would order our futures according to physical
@@ -94,13 +136,7 @@ impl TaskManager {
                     // We want shutdown signals to always be checked for first, hence the arrangements
                     biased;
 
-                    _ = signal::ctrl_c() => {
-                        info!("Received Ctrl-C signal, cancelling [{task_name}] task");
-                        task.cleanup().await;
-                        break;
-                    }
-                    _ = cancellation_token.cancelled() => {
-                        info!("Received Cancellation token signal, cancelling [{task_name}] task");
+                    _ = &mut shutdown_signal => {
                         task.cleanup().await;
                         break;
                     }
