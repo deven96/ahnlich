@@ -1,4 +1,4 @@
-/// Utility functions for bounding box calculations and normalization
+//! Utility functions for bounding box calculations and normalization
 
 /// Normalized bounding box coordinates (0-1 range)
 pub struct NormalizedBBox {
