@@ -61,6 +61,7 @@ use ahnlich_types::db::query::DropPredIndex as DbDropPredIndex;
 use ahnlich_types::db::query::GetPred as DbGetPred;
 use ahnlich_types::db::query::GetSimN as DbGetSimN;
 use ahnlich_types::db::server::Set as DbSet;
+use ahnlich_types::keyval;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
@@ -798,7 +799,31 @@ impl AiService for AIProxyServer {
 
         let inputs = params.store_inputs;
         let input_len = inputs.len();
-        let model_params = params.model_params;
+        let mut model_params = params.model_params;
+
+        // Extract original image dimensions and inject into model_params
+        // This allows face detection models (Buffalo-L, SFace) to normalize
+        // bounding boxes correctly accounting for aspect ratio
+        for (idx, store_input) in inputs.iter().enumerate() {
+            if let Some(keyval::store_input::Value::Image(image_bytes)) = &store_input.value {
+                // Try to decode image and get dimensions
+                if let Ok(img_array) =
+                    crate::engine::ai::models::ImageArray::try_from(image_bytes.as_slice())
+                {
+                    let (width, height) = img_array.dimensions();
+                    tracing::info!(
+                        "📐 Captured original dimensions for image {}: {}x{}",
+                        idx,
+                        width,
+                        height
+                    );
+                    model_params.insert(format!("orig_width_{}", idx), width.to_string());
+                    model_params.insert(format!("orig_height_{}", idx), height.to_string());
+                } else {
+                    tracing::warn!("❌ Failed to decode image {} for dimension extraction", idx);
+                }
+            }
+        }
 
         let store_keys = ModelManager::handle_request(
             &self.model_manager,

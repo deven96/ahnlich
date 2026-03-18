@@ -491,6 +491,54 @@ impl ImageArray {
         Ok(ImageArray { image: resized_img })
     }
 
+    /// Resize image to target dimensions with letterboxing to preserve aspect ratio
+    /// Returns the resized image and the scale/offset used for letterboxing
+    ///
+    /// Example: 1920x1080 → 640x640 letterboxed
+    /// - Scale: 0.593 (640/1080)
+    /// - Scaled size: 1138x640
+    /// - Offset: x=0, y=119 (centered vertically with black bars)
+    #[tracing::instrument(skip(self))]
+    pub fn resize_letterbox(
+        &mut self,
+        target_width: u32,
+        target_height: u32,
+    ) -> Result<(Self, f32, u32, u32), AIProxyError> {
+        let (src_width, src_height) = self.image.dimensions();
+
+        // Calculate scale to fit image inside target while preserving aspect ratio
+        let scale =
+            (target_width as f32 / src_width as f32).min(target_height as f32 / src_height as f32);
+
+        let scaled_width = (src_width as f32 * scale) as u32;
+        let scaled_height = (src_height as f32 * scale) as u32;
+
+        // Calculate offset to center the scaled image
+        let offset_x = (target_width - scaled_width) / 2;
+        let offset_y = (target_height - scaled_height) / 2;
+
+        // First, resize to scaled dimensions
+        let mut dest_image = Image::new(scaled_width, scaled_height, PixelType::U8x3);
+        let mut resizer = Resizer::new();
+        resizer
+            .resize(
+                &ImageRef::new(src_width, src_height, self.image.as_raw(), PixelType::U8x3)
+                    .map_err(|e| AIProxyError::ImageResizeError(e.to_string()))?,
+                &mut dest_image,
+                &ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FilterType::CatmullRom)),
+            )
+            .map_err(|e| AIProxyError::ImageResizeError(e.to_string()))?;
+
+        let scaled_img = RgbImage::from_raw(scaled_width, scaled_height, dest_image.into_vec())
+            .expect("Could not get scaled image");
+
+        // Create black canvas and paste scaled image at offset
+        let mut canvas = RgbImage::new(target_width, target_height);
+        imageops::overlay(&mut canvas, &scaled_img, offset_x as i64, offset_y as i64);
+
+        Ok((ImageArray { image: canvas }, scale, offset_x, offset_y))
+    }
+
     #[tracing::instrument(skip(self))]
     pub fn crop(&mut self, x: u32, y: u32, width: u32, height: u32) -> Result<Self, AIProxyError> {
         let cropped_img = imageops::crop(&mut self.image, x, y, width, height).to_image();
@@ -505,6 +553,11 @@ impl ImageArray {
             NonZeroUsize::new(shape[1]).expect("Array columns should be non-zero"),
             NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero"),
         )
+    }
+
+    /// Returns the width and height of the image as u32 (for dimension tracking)
+    pub fn dimensions(&self) -> (u32, u32) {
+        self.image.dimensions()
     }
 }
 

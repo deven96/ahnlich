@@ -9,6 +9,7 @@ use rayon::iter::{IntoParallelRefMutIterator, ParallelIterator};
 pub struct Resize {
     size: (u32, u32), // (width, height)
     resample: FilterType,
+    letterbox: bool, // Whether to preserve aspect ratio with letterboxing
 }
 
 impl Resize {
@@ -62,16 +63,21 @@ impl Resize {
                 .expect("It will always be an integer here.") as u32;
         }
 
+        // Check if letterboxing is enabled (for face detection models)
+        let letterbox = config["letterbox"].as_bool().unwrap_or(false);
+
         match image_processor_type {
             "CLIPImageProcessor" => Ok(Some(Self {
                 size: (width, height),
                 resample: FilterType::CatmullRom,
+                letterbox,
             })),
             "ConvNextFeatureExtractor" => {
                 if width >= CONV_NEXT_FEATURE_EXTRACTOR_CENTER_CROP_THRESHOLD {
                     Ok(Some(Self {
                         size: (width, height),
                         resample: FilterType::CatmullRom,
+                        letterbox: false, // Never letterbox for ConvNext
                     }))
                 } else {
                     let default_crop_pct = 0.875;
@@ -80,6 +86,7 @@ impl Resize {
                     Ok(Some(Self {
                         size: (upsampled_edge, upsampled_edge),
                         resample: FilterType::CatmullRom,
+                        letterbox: false, // Never letterbox for ConvNext
                     }))
                 }
             }
@@ -100,9 +107,17 @@ impl Preprocessor for Resize {
                 let processed = arrays
                     .par_iter_mut()
                     .map(|image| {
-                        let resized_image =
-                            image.resize(self.size.0, self.size.1, Some(self.resample))?;
-                        Ok(resized_image)
+                        if self.letterbox {
+                            // Use letterboxing to preserve aspect ratio
+                            let (resized_image, _scale, _offset_x, _offset_y) =
+                                image.resize_letterbox(self.size.0, self.size.1)?;
+                            Ok(resized_image)
+                        } else {
+                            // Stretch to target size (original behavior)
+                            let resized_image =
+                                image.resize(self.size.0, self.size.1, Some(self.resample))?;
+                            Ok(resized_image)
+                        }
                     })
                     .collect::<Result<Vec<ImageArray>, AIProxyError>>();
                 Ok(PreprocessorData::ImageArray(processed?))
