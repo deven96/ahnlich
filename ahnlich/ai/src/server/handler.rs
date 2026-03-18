@@ -41,6 +41,7 @@ use ahnlich_types::ai::server::AiStoreInfo;
 use ahnlich_types::ai::server::ClientList;
 use ahnlich_types::ai::server::CreateIndex;
 use ahnlich_types::ai::server::Del;
+use ahnlich_types::ai::server::EmbeddingWithMetadata;
 use ahnlich_types::ai::server::Get;
 use ahnlich_types::ai::server::MultipleEmbedding;
 use ahnlich_types::ai::server::Pong;
@@ -825,8 +826,23 @@ impl AiService for AIProxyServer {
                 .map(|(input, key)| SingleInputToEmbedding {
                     input: Some(input),
                     variant: Some(match key {
-                        ModelResponse::OneToOne(one) => Variant::Single(one),
-                        ModelResponse::OneToMany(embeddings) => {
+                        ModelResponse::OneToOne(one, model_metadata) => {
+                            Variant::Single(EmbeddingWithMetadata {
+                                embedding: Some(one),
+                                metadata: model_metadata
+                                    .map(|meta_map| StoreValue { value: meta_map }),
+                            })
+                        }
+                        ModelResponse::OneToMany(embeddings_with_metadata) => {
+                            // Include metadata for each embedding
+                            let embeddings = embeddings_with_metadata
+                                .into_iter()
+                                .map(|(key, model_metadata)| EmbeddingWithMetadata {
+                                    embedding: Some(key),
+                                    metadata: model_metadata
+                                        .map(|meta_map| StoreValue { value: meta_map }),
+                                })
+                                .collect();
                             Variant::Multiple(MultipleEmbedding { embeddings })
                         }
                     }),

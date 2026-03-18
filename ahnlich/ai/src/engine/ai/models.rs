@@ -7,6 +7,7 @@ use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider;
 use ahnlich_types::ai::models::AiStoreInputType;
 use ahnlich_types::keyval::StoreKey;
+use ahnlich_types::metadata::MetadataValue;
 use fast_image_resize::FilterType;
 use fast_image_resize::PixelType;
 use fast_image_resize::ResizeAlg;
@@ -22,6 +23,7 @@ use ndarray::{ArrayView, Ix4};
 use nonzero_ext::nonzero;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use std::io::Cursor;
 use std::num::NonZeroUsize;
@@ -48,8 +50,10 @@ pub enum ModelType {
 
 #[derive(Debug)]
 pub enum ModelResponse {
-    OneToOne(StoreKey),
-    OneToMany(Vec<StoreKey>),
+    /// Single embedding with optional metadata (e.g., classification confidence)
+    OneToOne(StoreKey, Option<HashMap<String, MetadataValue>>),
+    /// Multiple embeddings with optional metadata per embedding (e.g., face bounding boxes)
+    OneToMany(Vec<(StoreKey, Option<HashMap<String, MetadataValue>>)>),
 }
 
 pub struct Model {

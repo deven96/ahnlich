@@ -93,15 +93,23 @@ class AiStoreInfo(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class EmbeddingWithMetadata(betterproto.Message):
+    embedding: "__keyval__.StoreKey" = betterproto.message_field(1)
+    metadata: Optional["__keyval__.StoreValue"] = betterproto.message_field(
+        2, optional=True
+    )
+
+
+@dataclass(eq=False, repr=False)
 class MultipleEmbedding(betterproto.Message):
-    embeddings: List["__keyval__.StoreKey"] = betterproto.message_field(1)
+    embeddings: List["EmbeddingWithMetadata"] = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)
 class SingleInputToEmbedding(betterproto.Message):
     input: "__keyval__.StoreInput" = betterproto.message_field(1)
     multiple: "MultipleEmbedding" = betterproto.message_field(2, group="variant")
-    single: "__keyval__.StoreKey" = betterproto.message_field(3, group="variant")
+    single: "EmbeddingWithMetadata" = betterproto.message_field(3, group="variant")
 
 
 @dataclass(eq=False, repr=False)

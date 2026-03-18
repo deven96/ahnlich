@@ -773,6 +773,105 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
     )
 ```
 
+### Convert Store Input To Embeddings
+
+Converts raw inputs (text, images, audio) into embeddings without storing them.
+
+**Basic Example:**
+```python
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc.ai.models import AiModel
+from ahnlich_client_py.grpc.ai import preprocess
+from ahnlich_client_py.grpc import keyval
+
+async with Channel(host="127.0.0.1", port=1370) as channel:
+    client = AiServiceStub(channel)
+    
+    inputs = [keyval.StoreInput(raw_string="Hello world")]
+    
+    response = await client.convert_store_input_to_embeddings(
+        ai_query.ConvertStoreInputToEmbeddings(
+            store_inputs=inputs,
+            preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+            model=AiModel.ALL_MINI_LM_L6_V2,
+        )
+    )
+    
+    # Access embeddings
+    for item in response.values:
+        if item.single and item.single.embedding:
+            print(f"Embedding size: {len(item.single.embedding.key)}")
+```
+
+**Face Detection with Bounding Box Metadata (v0.2.1+):**
+
+Buffalo-L and SFace models return normalized bounding boxes (0-1 range) and confidence scores:
+
+```python
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc.ai.models import AiModel
+from ahnlich_client_py.grpc.ai import preprocess
+from ahnlich_client_py.grpc import keyval
+
+async with Channel(host="127.0.0.1", port=1370) as channel:
+    client = AiServiceStub(channel)
+    
+    # Load image
+    with open("group_photo.jpg", "rb") as f:
+        image_bytes = f.read()
+    
+    inputs = [keyval.StoreInput(image=image_bytes)]
+    
+    response = await client.convert_store_input_to_embeddings(
+        ai_query.ConvertStoreInputToEmbeddings(
+            store_inputs=inputs,
+            preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+            model=AiModel.BUFFALO_L,
+        )
+    )
+    
+    # Process detected faces with metadata
+    for item in response.values:
+        if item.multiple:
+            print(f"Detected {len(item.multiple.embeddings)} faces")
+            
+            for i, face_data in enumerate(item.multiple.embeddings):
+                # Access embedding
+                embedding = face_data.embedding.key  # 512-dim for Buffalo_L
+                print(f"Face {i}: {len(embedding)}-dim embedding")
+                
+                # Access bounding box metadata
+                if face_data.metadata:
+                    metadata = face_data.metadata.value
+                    
+                    bbox_x1 = float(metadata["bbox_x1"].value)
+                    bbox_y1 = float(metadata["bbox_y1"].value)
+                    bbox_x2 = float(metadata["bbox_x2"].value)
+                    bbox_y2 = float(metadata["bbox_y2"].value)
+                    confidence = float(metadata["confidence"].value)
+                    
+                    print(f"  BBox: ({bbox_x1:.3f}, {bbox_y1:.3f}) "
+                          f"to ({bbox_x2:.3f}, {bbox_y2:.3f})")
+                    print(f"  Confidence: {confidence:.3f}")
+```
+
+**Metadata Fields:**
+- `bbox_x1`, `bbox_y1`, `bbox_x2`, `bbox_y2`: Normalized coordinates (0.0-1.0)
+- `confidence`: Detection confidence score (0.0-1.0)
+
+To convert to pixel coordinates:
+```python
+from PIL import Image
+img = Image.open("photo.jpg")
+width, height = img.size
+pixel_x1 = int(bbox_x1 * width)
+pixel_y1 = int(bbox_y1 * height)
+```
+
 
 ## Bulk Requests
 Clients have the ability to send multiple requests at once, and these requests will be handled sequentially. The builder class takes care of this. The response is a list of all individual request responses.

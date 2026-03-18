@@ -77,9 +77,16 @@ pub struct AiStoreInfo {
     pub db_info: ::core::option::Option<super::super::db::server::StoreInfo>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct EmbeddingWithMetadata {
+    #[prost(message, optional, tag = "1")]
+    pub embedding: ::core::option::Option<super::super::keyval::StoreKey>,
+    #[prost(message, optional, tag = "2")]
+    pub metadata: ::core::option::Option<super::super::keyval::StoreValue>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct MultipleEmbedding {
     #[prost(message, repeated, tag = "1")]
-    pub embeddings: ::prost::alloc::vec::Vec<super::super::keyval::StoreKey>,
+    pub embeddings: ::prost::alloc::vec::Vec<EmbeddingWithMetadata>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SingleInputToEmbedding {
@@ -95,7 +102,7 @@ pub mod single_input_to_embedding {
         #[prost(message, tag = "2")]
         Multiple(super::MultipleEmbedding),
         #[prost(message, tag = "3")]
-        Single(super::super::super::keyval::StoreKey),
+        Single(super::EmbeddingWithMetadata),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

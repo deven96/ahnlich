@@ -12,10 +12,8 @@ enum Algorithm {
   HNSW = 4;
 }
 
-
 enum DistanceMetric {
   Euclidean = 0;
   DotProduct = 1;
   Cosine = 2;
 }
-

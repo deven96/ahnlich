@@ -6,6 +6,7 @@ import "ai/models.proto";
 import "client.proto";
 import "db/server.proto";
 import "keyval.proto";
+import "metadata.proto";
 import "shared/info.proto";
 import "similarity.proto";
 
@@ -68,15 +69,20 @@ message AIStoreInfo {
   optional db.server.StoreInfo db_info = 7;
 }
 
+message EmbeddingWithMetadata {
+  keyval.StoreKey embedding = 1;
+  optional keyval.StoreValue metadata = 2;
+}
+
 message MultipleEmbedding {
-  repeated keyval.StoreKey embeddings = 1;
+  repeated EmbeddingWithMetadata embeddings = 1;
 }
 
 message SingleInputToEmbedding {
   keyval.StoreInput input = 1;
   oneof variant {
     MultipleEmbedding multiple = 2;
-    keyval.StoreKey single = 3;
+    EmbeddingWithMetadata single = 3;
   }
 }
 

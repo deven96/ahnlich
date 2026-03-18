@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ahnlich-client-py"
-version = "0.2.0"
+version = "0.2.1"
 description = "A python client for interacting with Ahnlich DB and AI"
 authors = ["David Onuh <davidonuh1@gmail.com>"]
 readme = "README.md"

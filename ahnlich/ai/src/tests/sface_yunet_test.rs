@@ -730,3 +730,163 @@ async fn test_sface_yunet_high_confidence_threshold() {
         "Even with high threshold (0.75), at least one clear face should be detected"
     );
 }
+
+#[tokio::test]
+async fn test_sface_yunet_bounding_box_metadata() {
+    // Scenario: Verify that SFace+YuNet returns normalized bounding box metadata
+    // for each detected face. Bounding boxes should be in 0-1 range (normalized).
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "sface_bbox_test".to_string();
+    let image_bytes = include_bytes!("../../test_data/faces_multiple.jpg").to_vec();
+    let query_image_bytes = include_bytes!("../../test_data/single_face.jpg").to_vec();
+
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![
+            ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store_name.clone(),
+                    query_model: AiModel::SfaceYunet.into(),
+                    index_model: AiModel::SfaceYunet.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    store_original: false,
+                })),
+            },
+            ai_pipeline::AiQuery {
+                query: Some(Query::Set(ai_query_types::Set {
+                    store: store_name.clone(),
+                    inputs: vec![AiStoreEntry {
+                        key: Some(StoreInput {
+                            value: Some(Value::Image(image_bytes)),
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::new(),
+                        }),
+                    }],
+                    preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                    execution_provider: None,
+                    model_params: HashMap::new(),
+                })),
+            },
+        ],
+    };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+    assert_eq!(responses.len(), 2);
+
+    // Query to retrieve the stored faces with metadata
+    let get_response = client
+        .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            store: store_name.clone(),
+            search_input: Some(StoreInput {
+                value: Some(Value::Image(query_image_bytes)),
+            }),
+            condition: None,
+            closest_n: 10,
+            algorithm: Algorithm::CosineSimilarity.into(),
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: HashMap::new(),
+        }))
+        .await
+        .expect("GetSimN failed")
+        .into_inner();
+
+    assert!(
+        !get_response.entries.is_empty(),
+        "Should have at least one stored face"
+    );
+
+    // Verify bounding box metadata for each face
+    let mut found_bbox_count = 0;
+    for entry in &get_response.entries {
+        if let Some(value) = &entry.value {
+            // Check for bounding box coordinates
+            if let (Some(bbox_x1), Some(bbox_y1), Some(bbox_x2), Some(bbox_y2), Some(confidence)) = (
+                value.value.get("bbox_x1"),
+                value.value.get("bbox_y1"),
+                value.value.get("bbox_x2"),
+                value.value.get("bbox_y2"),
+                value.value.get("confidence"),
+            ) {
+                found_bbox_count += 1;
+
+                // Extract and verify coordinates are normalized (0-1 range)
+                let x1 = extract_float_from_metadata(bbox_x1);
+                let y1 = extract_float_from_metadata(bbox_y1);
+                let x2 = extract_float_from_metadata(bbox_x2);
+                let y2 = extract_float_from_metadata(bbox_y2);
+
+                assert!(
+                    (0.0..=1.0).contains(&x1),
+                    "bbox_x1 should be normalized (0-1), got: {}",
+                    x1
+                );
+                assert!(
+                    (0.0..=1.0).contains(&y1),
+                    "bbox_y1 should be normalized (0-1), got: {}",
+                    y1
+                );
+                assert!(
+                    (0.0..=1.0).contains(&x2),
+                    "bbox_x2 should be normalized (0-1), got: {}",
+                    x2
+                );
+                assert!(
+                    (0.0..=1.0).contains(&y2),
+                    "bbox_y2 should be normalized (0-1), got: {}",
+                    y2
+                );
+
+                // Verify bounding box makes sense (x2 > x1, y2 > y1)
+                assert!(x2 > x1, "x2 ({}) should be greater than x1 ({})", x2, x1);
+                assert!(y2 > y1, "y2 ({}) should be greater than y1 ({})", y2, y1);
+
+                // Verify confidence exists and is in valid range
+                let conf = extract_float_from_metadata(confidence);
+                assert!(
+                    (0.0..=1.0).contains(&conf),
+                    "Confidence should be in range [0,1], got: {}",
+                    conf
+                );
+
+                println!(
+                    "✓ SFace face bbox: [{:.3}, {:.3}, {:.3}, {:.3}], confidence: {:.3}",
+                    x1, y1, x2, y2, conf
+                );
+            }
+        }
+    }
+
+    assert_eq!(
+        found_bbox_count,
+        get_response.entries.len(),
+        "All faces should have bounding box metadata"
+    );
+    println!(
+        "✓ SFace: Successfully verified {} faces with normalized bounding box metadata",
+        found_bbox_count
+    );
+}
+
+// Helper function to extract f32 from MetadataValue
+fn extract_float_from_metadata(metadata: &MetadataValue) -> f32 {
+    if let Some(metadata_value::Value::RawString(s)) = &metadata.value {
+        s.parse::<f32>()
+            .unwrap_or_else(|_| panic!("Failed to parse float from: {}", s))
+    } else {
+        panic!("Expected RawString metadata value");
+    }
+}
