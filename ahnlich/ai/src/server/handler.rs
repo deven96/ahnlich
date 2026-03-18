@@ -61,7 +61,6 @@ use ahnlich_types::db::query::DropPredIndex as DbDropPredIndex;
 use ahnlich_types::db::query::GetPred as DbGetPred;
 use ahnlich_types::db::query::GetSimN as DbGetSimN;
 use ahnlich_types::db::server::Set as DbSet;
-use ahnlich_types::keyval;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
@@ -94,6 +93,28 @@ use utils::server::ListenerStreamOrAddress;
 use utils::server::ServerUtilsConfig;
 
 use ahnlich_client_rs::db::DbClient;
+
+/// Extract original image dimensions from store inputs and inject into model_params.
+/// This allows face detection models (Buffalo-L, SFace-Yunet) to normalize bounding boxes
+/// correctly by accounting for letterboxing and aspect ratio transformations.
+///
+/// For each image input, adds `orig_width_{idx}` and `orig_height_{idx}` to model_params.
+fn extract_and_inject_image_dimensions(
+    inputs: &[ahnlich_types::keyval::StoreInput],
+    model_params: &mut std::collections::HashMap<String, String>,
+) {
+    for (idx, store_input) in inputs.iter().enumerate() {
+        if let Some(ahnlich_types::keyval::store_input::Value::Image(image_bytes)) =
+            &store_input.value
+            && let Ok(img_array) =
+                crate::engine::ai::models::ImageArray::try_from(image_bytes.as_slice())
+        {
+            let (width, height) = img_array.dimensions();
+            model_params.insert(format!("orig_width_{}", idx), width.to_string());
+            model_params.insert(format!("orig_height_{}", idx), height.to_string());
+        }
+    }
+}
 
 const SERVICE_NAME: &str = "ahnlich-ai";
 
@@ -399,7 +420,10 @@ impl AiService for AIProxyServer {
         let search_input = params
             .search_input
             .ok_or_else(|| AIProxyError::InputNotSpecified("Search".to_string()))?;
-        let model_params = params.model_params;
+        let mut model_params = params.model_params;
+
+        // Extract image dimensions for face detection models to properly normalize bboxes
+        extract_and_inject_image_dimensions(std::slice::from_ref(&search_input), &mut model_params);
         let search_input = self
             .store_handler
             .get_ndarray_repr_for_store(
@@ -462,7 +486,16 @@ impl AiService for AIProxyServer {
     ) -> Result<tonic::Response<server::Set>, tonic::Status> {
         let params = request.into_inner();
         let model_manager = &self.model_manager;
-        let model_params = params.model_params;
+        let mut model_params = params.model_params;
+
+        // Extract image dimensions for face detection models to properly normalize bboxes
+        let store_inputs: Vec<_> = params
+            .inputs
+            .iter()
+            .filter_map(|input| input.key.clone())
+            .collect();
+        extract_and_inject_image_dimensions(&store_inputs, &mut model_params);
+
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let (db_inputs, delete_hashset) = self
             .store_handler
@@ -801,29 +834,8 @@ impl AiService for AIProxyServer {
         let input_len = inputs.len();
         let mut model_params = params.model_params;
 
-        // Extract original image dimensions and inject into model_params
-        // This allows face detection models (Buffalo-L, SFace) to normalize
-        // bounding boxes correctly accounting for aspect ratio
-        for (idx, store_input) in inputs.iter().enumerate() {
-            if let Some(keyval::store_input::Value::Image(image_bytes)) = &store_input.value {
-                // Try to decode image and get dimensions
-                if let Ok(img_array) =
-                    crate::engine::ai::models::ImageArray::try_from(image_bytes.as_slice())
-                {
-                    let (width, height) = img_array.dimensions();
-                    tracing::info!(
-                        "📐 Captured original dimensions for image {}: {}x{}",
-                        idx,
-                        width,
-                        height
-                    );
-                    model_params.insert(format!("orig_width_{}", idx), width.to_string());
-                    model_params.insert(format!("orig_height_{}", idx), height.to_string());
-                } else {
-                    tracing::warn!("❌ Failed to decode image {} for dimension extraction", idx);
-                }
-            }
-        }
+        // Extract image dimensions for face detection models to properly normalize bboxes
+        extract_and_inject_image_dimensions(&inputs, &mut model_params);
 
         let store_keys = ModelManager::handle_request(
             &self.model_manager,
