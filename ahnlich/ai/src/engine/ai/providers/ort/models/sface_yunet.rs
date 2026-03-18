@@ -1,6 +1,7 @@
 use super::super::InnerAIExecutionProvider;
 use super::super::executor::ExecutorWithSessionCache;
 use super::super::inference_model::ORTInferenceModel;
+use super::bbox_utils::apply_letterbox_correction;
 use super::face_align::{FaceDetection, apply_nms, crop_and_align_faces};
 use crate::engine::ai::models::{ModelInput, ModelResponse};
 use crate::error::AIProxyError;
@@ -185,15 +186,24 @@ impl SfaceYunetModel {
                         let detection = &all_detections[embedding_offset + idx];
                         let mut metadata = HashMap::new();
 
-                        // Normalize bounding box coordinates to 0-1 range
-                        // (based on 640x640 input image size)
-                        // This allows the backend to scale to any original image size
-                        // Clamp to [0, 1] to handle slight floating-point overflow
-                        let img_size = 640.0;
-                        let norm_x1 = (detection.bbox[0] / img_size).clamp(0.0, 1.0);
-                        let norm_y1 = (detection.bbox[1] / img_size).clamp(0.0, 1.0);
-                        let norm_x2 = (detection.bbox[2] / img_size).clamp(0.0, 1.0);
-                        let norm_y2 = (detection.bbox[3] / img_size).clamp(0.0, 1.0);
+                        // Get original image dimensions from model_params (if available)
+                        // The handler injects orig_width_0, orig_height_0 for the first image
+                        let orig_width = model_params
+                            .get("orig_width_0")
+                            .and_then(|s| s.parse::<f32>().ok())
+                            .unwrap_or(640.0);
+                        let orig_height = model_params
+                            .get("orig_height_0")
+                            .and_then(|s| s.parse::<f32>().ok())
+                            .unwrap_or(640.0);
+
+                        // Apply letterbox correction and normalize bounding box to 0-1 range
+                        let normalized_bbox = apply_letterbox_correction(
+                            &detection.bbox,
+                            orig_width,
+                            orig_height,
+                            640.0,
+                        );
 
                         // Store normalized bounding box coordinates (0-1 range)
                         metadata.insert(
@@ -201,7 +211,7 @@ impl SfaceYunetModel {
                             MetadataValue {
                                 value: Some(
                                     ahnlich_types::metadata::metadata_value::Value::RawString(
-                                        norm_x1.to_string(),
+                                        normalized_bbox.x1.to_string(),
                                     ),
                                 ),
                             },
@@ -211,7 +221,7 @@ impl SfaceYunetModel {
                             MetadataValue {
                                 value: Some(
                                     ahnlich_types::metadata::metadata_value::Value::RawString(
-                                        norm_y1.to_string(),
+                                        normalized_bbox.y1.to_string(),
                                     ),
                                 ),
                             },
@@ -221,7 +231,7 @@ impl SfaceYunetModel {
                             MetadataValue {
                                 value: Some(
                                     ahnlich_types::metadata::metadata_value::Value::RawString(
-                                        norm_x2.to_string(),
+                                        normalized_bbox.x2.to_string(),
                                     ),
                                 ),
                             },
@@ -231,7 +241,7 @@ impl SfaceYunetModel {
                             MetadataValue {
                                 value: Some(
                                     ahnlich_types::metadata::metadata_value::Value::RawString(
-                                        norm_y2.to_string(),
+                                        normalized_bbox.y2.to_string(),
                                     ),
                                 ),
                             },

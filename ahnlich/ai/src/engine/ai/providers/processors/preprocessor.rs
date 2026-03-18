@@ -89,6 +89,7 @@ impl ORTImagePreprocessor {
                 "height": 640
             },
             "image_processor_type": "CLIPImageProcessor",
+            "letterbox": true,  // Preserve aspect ratio with black bars
             "do_normalize": false
         });
 
@@ -110,7 +111,7 @@ impl ORTImagePreprocessor {
 
         let imagearray_to_ndarray = ImageArrayToNdArray;
 
-        // Create config for RetinaFace detection (640x640 input)
+        // Create config for RetinaFace detection (640x640 input with letterboxing)
         let config = json!({
             "do_resize": true,
             "size": {
@@ -118,6 +119,7 @@ impl ORTImagePreprocessor {
                 "height": 640
             },
             "image_processor_type": "CLIPImageProcessor",
+            "letterbox": true,  // Preserve aspect ratio with black bars
             "do_normalize": true,
             "image_mean": [127.5, 127.5, 127.5],
             "image_std": [128.0, 128.0, 128.0]
