@@ -353,9 +353,12 @@ impl SingleStageModel {
                         .axis_iter(Axis(0))
                         .into_par_iter()
                         .map(|embedding: ArrayView1<f32>| -> ModelResponse {
-                            ModelResponse::OneToOne(StoreKey {
-                                key: embedding.to_vec(),
-                            })
+                            ModelResponse::OneToOne(
+                                StoreKey {
+                                    key: embedding.to_vec(),
+                                },
+                                None,
+                            )
                         })
                         .collect();
                     store_keys.extend(new_store_keys);
@@ -389,9 +392,12 @@ impl SingleStageModel {
                         .axis_iter(Axis(0))
                         .into_par_iter()
                         .map(|embedding: ArrayView1<f32>| -> ModelResponse {
-                            ModelResponse::OneToOne(StoreKey {
-                                key: embedding.to_vec(),
-                            })
+                            ModelResponse::OneToOne(
+                                StoreKey {
+                                    key: embedding.to_vec(),
+                                },
+                                None,
+                            )
                         })
                         .collect();
                     store_keys.extend(new_store_keys);
@@ -429,9 +435,12 @@ impl SingleStageModel {
                         .axis_iter(Axis(0))
                         .into_par_iter()
                         .map(|embedding: ArrayView1<f32>| -> ModelResponse {
-                            ModelResponse::OneToOne(StoreKey {
-                                key: embedding.to_vec(),
-                            })
+                            ModelResponse::OneToOne(
+                                StoreKey {
+                                    key: embedding.to_vec(),
+                                },
+                                None,
+                            )
                         })
                         .collect();
                     store_keys.extend(new_store_keys);

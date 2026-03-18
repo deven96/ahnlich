@@ -591,6 +591,125 @@ func (c *ExampleAIClient) exampleDropNonLinearIndexAI(ctx context.Context) error
 }
 ```
 
+### Convert Store Input To Embeddings
+
+Converts raw inputs (text, images, audio) into embeddings without storing them.
+
+**Basic Example:**
+```go
+func (c *ExampleAIClient) exampleConvertToEmbeddings(ctx context.Context) error {
+    inputs := []*keyval.StoreInput{
+        {Value: &keyval.StoreInput_RawString{RawString: "Hello world"}},
+    }
+    
+    resp, err := c.client.ConvertStoreInputToEmbeddings(c.ctx, &aiquery.ConvertStoreInputToEmbeddings{
+        StoreInputs:      inputs,
+        PreprocessAction: preprocess.PreprocessAction_NoPreprocessing,
+        Model:            models.AiModel_ALL_MINI_LM_L6_V2,
+    })
+    if err != nil {
+        return err
+    }
+    
+    // Access embeddings
+    for _, item := range resp.Values {
+        if single := item.GetSingle(); single != nil {
+            if emb := single.GetEmbedding(); emb != nil {
+                fmt.Printf("Embedding size: %d\n", len(emb.Key))
+            }
+        }
+    }
+    return nil
+}
+```
+
+**Face Detection with Bounding Box Metadata (v0.2.2+):**
+
+Buffalo-L and SFace models return normalized bounding boxes (0-1 range) and confidence scores:
+
+```go
+import (
+    "os"
+    "strconv"
+)
+
+func (c *ExampleAIClient) exampleFaceDetection(ctx context.Context) error {
+    // Load image
+    imageBytes, err := os.ReadFile("group_photo.jpg")
+    if err != nil {
+        return err
+    }
+    
+    inputs := []*keyval.StoreInput{
+        {Value: &keyval.StoreInput_Image{Image: imageBytes}},
+    }
+    
+    resp, err := c.client.ConvertStoreInputToEmbeddings(c.ctx, &aiquery.ConvertStoreInputToEmbeddings{
+        StoreInputs:      inputs,
+        PreprocessAction: preprocess.PreprocessAction_ModelPreprocessing,
+        Model:            models.AiModel_BUFFALO_L,
+    })
+    if err != nil {
+        return err
+    }
+    
+    // Process detected faces with metadata
+    for _, item := range resp.Values {
+        if multiple := item.GetMultiple(); multiple != nil {
+            fmt.Printf("Detected %d faces\n", len(multiple.Embeddings))
+            
+            for i, faceData := range multiple.Embeddings {
+                // Access embedding
+                if emb := faceData.GetEmbedding(); emb != nil {
+                    fmt.Printf("Face %d: %d-dim embedding\n", i, len(emb.Key))
+                }
+                
+                // Access bounding box metadata
+                if metadata := faceData.GetMetadata(); metadata != nil {
+                    var x1, y1, x2, y2, conf float64
+                    
+                    if val, ok := metadata.Value["bbox_x1"]; ok {
+                        if rawStr := val.GetValue().(*keyval.MetadataValue_RawString); rawStr != nil {
+                            x1, _ = strconv.ParseFloat(rawStr.RawString, 64)
+                        }
+                    }
+                    if val, ok := metadata.Value["bbox_y1"]; ok {
+                        if rawStr := val.GetValue().(*keyval.MetadataValue_RawString); rawStr != nil {
+                            y1, _ = strconv.ParseFloat(rawStr.RawString, 64)
+                        }
+                    }
+                    if val, ok := metadata.Value["bbox_x2"]; ok {
+                        if rawStr := val.GetValue().(*keyval.MetadataValue_RawString); rawStr != nil {
+                            x2, _ = strconv.ParseFloat(rawStr.RawString, 64)
+                        }
+                    }
+                    if val, ok := metadata.Value["bbox_y2"]; ok {
+                        if rawStr := val.GetValue().(*keyval.MetadataValue_RawString); rawStr != nil {
+                            y2, _ = strconv.ParseFloat(rawStr.RawString, 64)
+                        }
+                    }
+                    if val, ok := metadata.Value["confidence"]; ok {
+                        if rawStr := val.GetValue().(*keyval.MetadataValue_RawString); rawStr != nil {
+                            conf, _ = strconv.ParseFloat(rawStr.RawString, 64)
+                        }
+                    }
+                    
+                    fmt.Printf("  BBox: (%.3f, %.3f) to (%.3f, %.3f), confidence: %.3f\n",
+                        x1, y1, x2, y2, conf)
+                }
+            }
+        }
+    }
+    return nil
+}
+```
+
+**Metadata Fields:**
+- `bbox_x1`, `bbox_y1`, `bbox_x2`, `bbox_y2`: Normalized coordinates (0.0-1.0)
+- `confidence`: Detection confidence score (0.0-1.0)
+
+To convert to pixel coordinates: `pixelX = bboxX * imageWidth`
+
 ## Bulk Requests
 
 Use pipeline to combine multiple calls:

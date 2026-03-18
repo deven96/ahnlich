@@ -281,19 +281,27 @@ impl AIStoreHandler {
 
         let output = std::iter::zip(store_keys.into_iter(), store_values.into_iter())
             .flat_map(|(k, v)| match k {
-                ModelResponse::OneToOne(key) => vec![DbStoreEntry {
-                    key: Some(key),
-                    value: Some(v),
-                }],
-                ModelResponse::OneToMany(keys) => {
+                ModelResponse::OneToOne(key, model_metadata) => {
+                    let mut value = v;
+                    // Merge model metadata if provided
+                    if let Some(meta) = model_metadata {
+                        value.value.extend(meta);
+                    }
+                    vec![DbStoreEntry {
+                        key: Some(key),
+                        value: Some(value),
+                    }]
+                }
+                ModelResponse::OneToMany(keys_with_metadata) => {
                     // For OneToMany models (e.g., Buffalo_L face recognition), add sequential
                     // index metadata to each output for identification and deletion
                     let model_details =
                         SupportedModels::from(&store.index_model).to_model_details();
                     let is_one_to_many = model_details.is_one_to_many();
-                    keys.into_iter()
+                    keys_with_metadata
+                        .into_iter()
                         .enumerate()
-                        .map(|(output_idx, single_key)| {
+                        .map(|(output_idx, (single_key, model_metadata))| {
                             let mut value = v.clone();
                             if is_one_to_many {
                                 // Add index as metadata for OneToMany models
@@ -305,6 +313,10 @@ impl AIStoreHandler {
                                         )),
                                     },
                                 );
+                            }
+                            // Merge model metadata if provided (e.g., bounding box info)
+                            if let Some(meta) = model_metadata {
+                                value.value.extend(meta);
                             }
                             DbStoreEntry {
                                 key: Some(single_key),
@@ -390,10 +402,10 @@ impl AIStoreHandler {
 
         match store_keys.pop() {
             Some(first_store_key) => match first_store_key {
-                ModelResponse::OneToOne(resp) => Ok(resp),
+                ModelResponse::OneToOne(resp, _metadata) => Ok(resp),
                 ModelResponse::OneToMany(mut many) => match many.len() {
                     0 => Err(AIProxyError::ModelInputToEmbeddingError),
-                    1 => Ok(many.pop().unwrap()),
+                    1 => Ok(many.pop().unwrap().0),
                     n => Err(AIProxyError::MultipleEmbeddingsForQuery(n)),
                 },
             },

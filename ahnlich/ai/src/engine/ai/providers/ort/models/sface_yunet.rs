@@ -6,9 +6,11 @@ use crate::engine::ai::models::{ModelInput, ModelResponse};
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
 use ahnlich_types::keyval::StoreKey;
+use ahnlich_types::metadata::MetadataValue;
 use hf_hub::api::sync::Api;
 use ndarray::{Array, Axis, Ix2, Ix3, Ix4, concatenate, s};
 use ort::Session;
+use std::collections::HashMap;
 use std::future::Future;
 use std::mem::size_of;
 use std::pin::Pin;
@@ -109,6 +111,7 @@ impl SfaceYunetModel {
 
         let batch_size = images.shape()[0];
         let mut all_cropped_faces: Vec<Array<f32, Ix3>> = Vec::new();
+        let mut all_detections: Vec<FaceDetection> = Vec::new();
         let mut face_counts: Vec<usize> = Vec::with_capacity(batch_size);
 
         // Stage 1: Detect and align faces from each image using YuNet
@@ -128,8 +131,9 @@ impl SfaceYunetModel {
             let num_faces = cropped_faces.shape()[0];
             face_counts.push(num_faces);
 
-            for face_idx in 0..num_faces {
+            for (face_idx, detection) in detections.iter().enumerate().take(num_faces) {
                 all_cropped_faces.push(cropped_faces.slice(s![face_idx, .., .., ..]).to_owned());
+                all_detections.push(detection.clone());
             }
         }
 
@@ -155,7 +159,7 @@ impl SfaceYunetModel {
             self.recognize_faces(faces_batch, &rec_session)?
         };
 
-        // Stage 3: Map 128-dim embeddings back to source images
+        // Stage 3: Map 128-dim embeddings back to source images with bounding box metadata
         let total_faces: usize = face_counts.iter().sum();
         let bytes_per_face =
             size_of::<ModelResponse>() + size_of::<StoreKey>() + (128 * size_of::<f32>()) + 64;
@@ -170,14 +174,88 @@ impl SfaceYunetModel {
             if num_faces == 0 {
                 results.push(ModelResponse::OneToMany(vec![]));
             } else {
-                let face_keys: Vec<StoreKey> = embeddings
+                let face_keys_with_metadata: Vec<(
+                    StoreKey,
+                    Option<HashMap<String, MetadataValue>>,
+                )> = embeddings
                     .slice(s![embedding_offset..embedding_offset + num_faces, ..])
                     .axis_iter(Axis(0))
-                    .map(|embedding| StoreKey {
-                        key: embedding.to_vec(),
+                    .enumerate()
+                    .map(|(idx, embedding)| {
+                        let detection = &all_detections[embedding_offset + idx];
+                        let mut metadata = HashMap::new();
+
+                        // Normalize bounding box coordinates to 0-1 range
+                        // (based on 640x640 input image size)
+                        // This allows the backend to scale to any original image size
+                        // Clamp to [0, 1] to handle slight floating-point overflow
+                        let img_size = 640.0;
+                        let norm_x1 = (detection.bbox[0] / img_size).clamp(0.0, 1.0);
+                        let norm_y1 = (detection.bbox[1] / img_size).clamp(0.0, 1.0);
+                        let norm_x2 = (detection.bbox[2] / img_size).clamp(0.0, 1.0);
+                        let norm_y2 = (detection.bbox[3] / img_size).clamp(0.0, 1.0);
+
+                        // Store normalized bounding box coordinates (0-1 range)
+                        metadata.insert(
+                            "bbox_x1".to_string(),
+                            MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        norm_x1.to_string(),
+                                    ),
+                                ),
+                            },
+                        );
+                        metadata.insert(
+                            "bbox_y1".to_string(),
+                            MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        norm_y1.to_string(),
+                                    ),
+                                ),
+                            },
+                        );
+                        metadata.insert(
+                            "bbox_x2".to_string(),
+                            MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        norm_x2.to_string(),
+                                    ),
+                                ),
+                            },
+                        );
+                        metadata.insert(
+                            "bbox_y2".to_string(),
+                            MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        norm_y2.to_string(),
+                                    ),
+                                ),
+                            },
+                        );
+                        metadata.insert(
+                            "confidence".to_string(),
+                            MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        detection.confidence.to_string(),
+                                    ),
+                                ),
+                            },
+                        );
+
+                        (
+                            StoreKey {
+                                key: embedding.to_vec(),
+                            },
+                            Some(metadata),
+                        )
                     })
                     .collect();
-                results.push(ModelResponse::OneToMany(face_keys));
+                results.push(ModelResponse::OneToMany(face_keys_with_metadata));
                 embedding_offset += num_faces;
             }
         }

@@ -147,3 +147,136 @@ await client.set(
 - **Inclusive detection** (e.g., group photos where you want all faces): Use a lower threshold like `0.3`
 - **Standard detection** (balanced): Use the model default (`0.5` for Buffalo\_L, `0.6` for SFace+YuNet)
 - **Strict detection** (e.g., ID verification where only clear faces matter): Use a higher threshold like `0.9`
+
+## Embedding Metadata
+
+Starting from version 0.2.2, face detection models (Buffalo\_L and SFace+YuNet) return **bounding box metadata** alongside embeddings. This allows you to access face location and confidence information without re-running detection.
+
+### Metadata Fields (Face Detection Models)
+
+For each detected face, the following metadata is automatically included:
+
+| Field | Type | Range | Description |
+| ----- | ----- | ----- | ----- |
+| `bbox_x1` | float | 0.0–1.0 | Normalized x-coordinate of top-left corner |
+| `bbox_y1` | float | 0.0–1.0 | Normalized y-coordinate of top-left corner |
+| `bbox_x2` | float | 0.0–1.0 | Normalized x-coordinate of bottom-right corner |
+| `bbox_y2` | float | 0.0–1.0 | Normalized y-coordinate of bottom-right corner |
+| `confidence` | float | 0.0–1.0 | Detection confidence score |
+
+**Coordinates are normalized** to the 0-1 range, making them independent of the original image resolution. To convert to pixel coordinates, multiply by the image width/height:
+
+```
+pixel_x1 = bbox_x1 * image_width
+pixel_y1 = bbox_y1 * image_height
+```
+
+### Metadata Storage
+
+When you insert images using face detection models:
+- Embeddings are stored in Ahnlich DB as usual
+- Metadata (bounding boxes, confidence) is merged into the `StoreValue` for each face
+- Metadata is returned in `GetSimN`, `GetPred`, and `ConvertStoreInputToEmbeddings` responses
+
+### API Response Structure
+
+The `ConvertStoreInputToEmbeddings` API returns `EmbeddingWithMetadata` for face models:
+
+```protobuf
+message EmbeddingWithMetadata {
+  keyval.StoreKey embedding = 1;           // The face embedding vector
+  optional keyval.StoreValue metadata = 2; // Bounding box + confidence
+}
+```
+
+For OneToMany models (face detection), multiple `EmbeddingWithMetadata` objects are returned—one per detected face.
+
+### Usage Examples
+
+**Rust** — accessing bounding box metadata:
+```rust
+use ahnlich_client_rs::prelude::*;
+
+let response = client.convert_to_embeddings(
+    store_name,
+    vec![StoreInput::Image(image_bytes)],
+    PreprocessAction::ModelPreprocessing,
+    None,
+    HashMap::new(),
+).await?;
+
+// For face detection models, variant is OneToMany
+if let Some(Variant::Multiple(multi)) = &response.values[0].variant {
+    for face in &multi.embeddings {
+        if let Some(embedding) = &face.embedding {
+            println!("Embedding dimensions: {}", embedding.key.len());
+        }
+        
+        if let Some(metadata) = &face.metadata {
+            let bbox_x1 = metadata.value.get("bbox_x1").unwrap();
+            let bbox_y1 = metadata.value.get("bbox_y1").unwrap();
+            let confidence = metadata.value.get("confidence").unwrap();
+            
+            println!("Face at ({}, {}) with confidence {}", 
+                     bbox_x1, bbox_y1, confidence);
+        }
+    }
+}
+```
+
+**Python** — accessing bounding box metadata:
+```python
+from ahnlich_client_py import AhnlichAIClient
+
+response = await client.convert_store_input_to_embeddings(
+    store="faces_store",
+    inputs=[image_bytes],
+    preprocess_action=PreprocessAction.ModelPreprocessing,
+)
+
+# Each face has embedding + metadata
+for face_data in response.values[0].multiple.embeddings:
+    embedding = face_data.embedding.key  # 512-dim vector for Buffalo_L
+    metadata = face_data.metadata.value
+    
+    bbox_x1 = float(metadata["bbox_x1"].value)
+    bbox_y1 = float(metadata["bbox_y1"].value)
+    confidence = float(metadata["confidence"].value)
+    
+    print(f"Face at ({bbox_x1}, {bbox_y1}) with confidence {confidence}")
+```
+
+**TypeScript** — accessing bounding box metadata:
+```typescript
+import { AhnlichAIClient } from '@deven96/ahnlich-client-node';
+
+const response = await client.convertStoreInputToEmbeddings({
+  store: "faces_store",
+  inputs: [{ image: imageBytes }],
+  preprocessAction: PreprocessAction.MODEL_PREPROCESSING,
+});
+
+// Each detected face has embedding + metadata
+for (const faceData of response.values[0].multiple.embeddings) {
+  const embedding = faceData.embedding.key; // Float32Array
+  const metadata = faceData.metadata.value;
+  
+  const bboxX1 = parseFloat(metadata.bbox_x1.value);
+  const bboxY1 = parseFloat(metadata.bbox_y1.value);
+  const confidence = parseFloat(metadata.confidence.value);
+  
+  console.log(`Face at (${bboxX1}, ${bboxY1}) with confidence ${confidence}`);
+}
+```
+
+### Use Cases for Metadata
+
+- **Face cropping**: Use bounding boxes to extract face regions from original images
+- **Visualization**: Draw bounding boxes on images to show detected faces
+- **Quality filtering**: Filter results by confidence score (e.g., only faces with confidence > 0.8)
+- **Spatial queries**: Find faces in specific image regions (e.g., "faces in the top-left quadrant")
+- **Deduplication**: Identify overlapping detections using bounding box coordinates
+
+### Models Without Metadata
+
+Text and image embedding models (MiniLM, BGE, ResNet, CLIP) do **not** return metadata. The `metadata` field will be `None` or empty for these models.

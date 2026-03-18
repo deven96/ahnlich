@@ -561,6 +561,112 @@ import { DropStore } from "ahnlich-client-node/grpc/ai/query_pb";
 await client.dropStore(new DropStore({ store: "ai_store", errorIfNotExists: true }));
 ```
 
+### Convert Store Input To Embeddings
+
+Converts raw inputs (text, images, audio) into embeddings without storing them.
+
+**Basic Example:**
+```typescript
+import { createPromiseClient } from "@connectrpc/connect";
+import { createConnectTransport } from "@connectrpc/connect-node";
+import { AiService } from "./grpc/services/ai_service_connect";
+import { AiModel, PreprocessAction } from "./grpc/ai";
+
+const transport = createConnectTransport({
+  baseUrl: "http://localhost:1370",
+  httpVersion: "2",
+});
+
+const client = createPromiseClient(AiService, transport);
+
+const inputs = [{ rawString: "Hello world" }];
+
+const response = await client.convertStoreInputToEmbeddings({
+  storeInputs: inputs,
+  preprocessAction: PreprocessAction.NO_PREPROCESSING,
+  model: AiModel.ALL_MINI_LM_L6_V2,
+});
+
+// Access embeddings
+for (const item of response.values) {
+  if (item.variant.case === "single") {
+    const embedding = item.variant.value.embedding;
+    console.log(`Embedding size: ${embedding.key.length}`);
+  }
+}
+```
+
+**Face Detection with Bounding Box Metadata (v0.2.1+):**
+
+Buffalo-L and SFace models return normalized bounding boxes (0-1 range) and confidence scores:
+
+```typescript
+import { createPromiseClient } from "@connectrpc/connect";
+import { createConnectTransport } from "@connectrpc/connect-node";
+import { AiService } from "./grpc/services/ai_service_connect";
+import { AiModel, PreprocessAction } from "./grpc/ai";
+import * as fs from "fs";
+
+const transport = createConnectTransport({
+  baseUrl: "http://localhost:1370",
+  httpVersion: "2",
+});
+
+const client = createPromiseClient(AiService, transport);
+
+// Load image
+const imageBytes = fs.readFileSync("group_photo.jpg");
+const inputs = [{ image: imageBytes }];
+
+const response = await client.convertStoreInputToEmbeddings({
+  storeInputs: inputs,
+  preprocessAction: PreprocessAction.MODEL_PREPROCESSING,
+  model: AiModel.BUFFALO_L,
+});
+
+// Process detected faces with metadata
+for (const item of response.values) {
+  if (item.variant.case === "multiple") {
+    const faces = item.variant.value.embeddings;
+    console.log(`Detected ${faces.length} faces`);
+    
+    for (const [i, faceData] of faces.entries()) {
+      // Access embedding
+      const embedding = faceData.embedding!.key; // Float32Array
+      console.log(`Face ${i}: ${embedding.length}-dim embedding`);
+      
+      // Access bounding box metadata
+      if (faceData.metadata) {
+        const metadata = faceData.metadata.value;
+        
+        const bboxX1 = parseFloat(metadata.bbox_x1!.value!.value as string);
+        const bboxY1 = parseFloat(metadata.bbox_y1!.value!.value as string);
+        const bboxX2 = parseFloat(metadata.bbox_x2!.value!.value as string);
+        const bboxY2 = parseFloat(metadata.bbox_y2!.value!.value as string);
+        const confidence = parseFloat(metadata.confidence!.value!.value as string);
+        
+        console.log(`  BBox: (${bboxX1.toFixed(3)}, ${bboxY1.toFixed(3)}) ` +
+                    `to (${bboxX2.toFixed(3)}, ${bboxY2.toFixed(3)})`);
+        console.log(`  Confidence: ${confidence.toFixed(3)}`);
+      }
+    }
+  }
+}
+```
+
+**Metadata Fields:**
+- `bbox_x1`, `bbox_y1`, `bbox_x2`, `bbox_y2`: Normalized coordinates (0.0-1.0)
+- `confidence`: Detection confidence score (0.0-1.0)
+
+To convert to pixel coordinates:
+```typescript
+import sharp from "sharp";
+const img = sharp("photo.jpg");
+const { width, height } = await img.metadata();
+const pixelX1 = Math.round(bboxX1 * width!);
+const pixelY1 = Math.round(bboxY1 * height!);
+```
+
 ---
 
 ## Tracing

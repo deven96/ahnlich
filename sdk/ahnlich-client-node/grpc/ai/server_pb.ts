@@ -586,13 +586,65 @@ export class AIStoreInfo extends Message<AIStoreInfo> {
 }
 
 /**
+ * @generated from message ai.server.EmbeddingWithMetadata
+ */
+export class EmbeddingWithMetadata extends Message<EmbeddingWithMetadata> {
+  /**
+   * @generated from field: keyval.StoreKey embedding = 1;
+   */
+  embedding?: StoreKey;
+
+  /**
+   * @generated from field: optional keyval.StoreValue metadata = 2;
+   */
+  metadata?: StoreValue;
+
+  constructor(data?: PartialMessage<EmbeddingWithMetadata>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "ai.server.EmbeddingWithMetadata";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "embedding", kind: "message", T: StoreKey },
+    { no: 2, name: "metadata", kind: "message", T: StoreValue, opt: true },
+  ]);
+
+  static fromBinary(
+    bytes: Uint8Array,
+    options?: Partial<BinaryReadOptions>,
+  ): EmbeddingWithMetadata {
+    return new EmbeddingWithMetadata().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): EmbeddingWithMetadata {
+    return new EmbeddingWithMetadata().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(
+    jsonString: string,
+    options?: Partial<JsonReadOptions>,
+  ): EmbeddingWithMetadata {
+    return new EmbeddingWithMetadata().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: EmbeddingWithMetadata | PlainMessage<EmbeddingWithMetadata> | undefined,
+    b: EmbeddingWithMetadata | PlainMessage<EmbeddingWithMetadata> | undefined,
+  ): boolean {
+    return proto3.util.equals(EmbeddingWithMetadata, a, b);
+  }
+}
+
+/**
  * @generated from message ai.server.MultipleEmbedding
  */
 export class MultipleEmbedding extends Message<MultipleEmbedding> {
   /**
-   * @generated from field: repeated keyval.StoreKey embeddings = 1;
+   * @generated from field: repeated ai.server.EmbeddingWithMetadata embeddings = 1;
    */
-  embeddings: StoreKey[] = [];
+  embeddings: EmbeddingWithMetadata[] = [];
 
   constructor(data?: PartialMessage<MultipleEmbedding>) {
     super();
@@ -602,7 +654,7 @@ export class MultipleEmbedding extends Message<MultipleEmbedding> {
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "ai.server.MultipleEmbedding";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "embeddings", kind: "message", T: StoreKey, repeated: true },
+    { no: 1, name: "embeddings", kind: "message", T: EmbeddingWithMetadata, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): MultipleEmbedding {
@@ -647,9 +699,9 @@ export class SingleInputToEmbedding extends Message<SingleInputToEmbedding> {
       }
     | {
         /**
-         * @generated from field: keyval.StoreKey single = 3;
+         * @generated from field: ai.server.EmbeddingWithMetadata single = 3;
          */
-        value: StoreKey;
+        value: EmbeddingWithMetadata;
         case: "single";
       }
     | { case: undefined; value?: undefined } = { case: undefined };
@@ -664,7 +716,7 @@ export class SingleInputToEmbedding extends Message<SingleInputToEmbedding> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "input", kind: "message", T: StoreInput },
     { no: 2, name: "multiple", kind: "message", T: MultipleEmbedding, oneof: "variant" },
-    { no: 3, name: "single", kind: "message", T: StoreKey, oneof: "variant" },
+    { no: 3, name: "single", kind: "message", T: EmbeddingWithMetadata, oneof: "variant" },
   ]);
 
   static fromBinary(
