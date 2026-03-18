@@ -25,6 +25,15 @@ use ahnlich_types::{
     services::ai_service::ai_service_client::AiServiceClient,
 };
 
+/// Returns optimized model parameters for face detection tests.
+/// Uses confidence=0.7 and NMS=0.2 for consistent test results.
+fn optimized_face_params() -> HashMap<String, String> {
+    let mut params = HashMap::new();
+    params.insert("confidence_threshold".to_string(), "0.7".to_string());
+    params.insert("nms_threshold".to_string(), "0.2".to_string());
+    params
+}
+
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
     AIProxyConfig::default()
@@ -90,7 +99,7 @@ async fn test_buffalo_l_face_detection() {
             }],
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
-            model_params: HashMap::new(),
+            model_params: optimized_face_params(),
         })),
     };
 
@@ -182,7 +191,7 @@ async fn test_buffalo_l_batch_multiple_images() {
             ],
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
-            model_params: HashMap::new(),
+            model_params: optimized_face_params(),
         })),
     };
 
@@ -204,14 +213,14 @@ async fn test_buffalo_l_batch_multiple_images() {
     {
         assert!(set_response.upsert.is_some());
         let upsert = set_response.upsert.as_ref().unwrap();
-        // 3 identical images with 6 faces each = 6 unique + 12 updates
+        // 3 identical images with 6 faces each = 6 unique + 12 updates (with confidence=0.7, NMS=0.2)
         assert_eq!(
             upsert.inserted, 6,
-            "Expected 6 unique faces from 3 identical images"
+            "Expected 6 unique faces from 3 identical images (confidence=0.7, NMS=0.2)"
         );
         assert_eq!(
             upsert.updated, 12,
-            "Expected 12 updates from duplicate faces (6 faces × 2 extra copies)"
+            "Expected 12 updates from duplicate faces (6 faces × 2 extra copies, confidence=0.7, NMS=0.2)"
         );
     } else {
         panic!("Expected Set response");
@@ -434,7 +443,7 @@ async fn test_buffalo_l_get_sim_n() {
             ],
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
-            model_params: HashMap::new(),
+            model_params: optimized_face_params(),
         })),
     };
 
@@ -450,7 +459,7 @@ async fn test_buffalo_l_get_sim_n() {
             algorithm: Algorithm::CosineSimilarity.into(),
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
-            model_params: HashMap::new(),
+            model_params: optimized_face_params(),
         })),
     };
 
@@ -473,8 +482,11 @@ async fn test_buffalo_l_get_sim_n() {
     {
         assert!(set_response.upsert.is_some());
         let upsert = set_response.upsert.as_ref().unwrap();
-        // single_face.jpg has 1 face, faces_multiple.jpg has 6 faces = 7 total
-        assert_eq!(upsert.inserted, 7, "Should insert 1 + 6 = 7 faces");
+        // single_face.jpg has 1 face, faces_multiple.jpg has 6 faces with optimized params = 7 total
+        assert_eq!(
+            upsert.inserted, 7,
+            "Should insert 1 + 6 = 7 faces (confidence=0.7, NMS=0.2)"
+        );
     }
 
     if let Some(ai_pipeline::AiServerResponse {

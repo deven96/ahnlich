@@ -554,6 +554,11 @@ impl ImageArray {
             NonZeroUsize::new(shape[0]).expect("Array rows should be non-zero"),
         )
     }
+
+    /// Returns the width and height of the image as u32 (for dimension tracking)
+    pub fn dimensions(&self) -> (u32, u32) {
+        self.image.dimensions()
+    }
 }
 
 impl From<&ModelInput> for AiStoreInputType {

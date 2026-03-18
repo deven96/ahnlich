@@ -399,6 +399,17 @@ impl BuffaloLModel {
             .and_then(|v| v.parse::<f32>().ok())
             .unwrap_or(DEFAULT_CONFIDENCE_THRESHOLD);
 
+        // Extract NMS IoU threshold from model_params or use default
+        // Lower values = less merging of nearby faces (more conservative)
+        // Higher values = more merging (more aggressive)
+        // Default 0.4 works well for most cases, but for group photos with
+        // people close together, lower values (0.2-0.3) prevent face merging
+        const DEFAULT_NMS_THRESHOLD: f32 = 0.4;
+        let nms_threshold = model_params
+            .get("nms_threshold")
+            .and_then(|v| v.parse::<f32>().ok())
+            .unwrap_or(DEFAULT_NMS_THRESHOLD);
+
         // Memory check: Allocating Vec for face detection results
         // 50: Conservative upper bound (typical images have 1-10 faces, but group photos can have more)
         // + 64: Vec overhead
@@ -481,7 +492,7 @@ impl BuffaloLModel {
 
         // Apply Non-Maximum Suppression to remove duplicate detections
         // Multi-scale detection produces ~4-6 duplicates per face, NMS keeps the best one
-        Ok(apply_nms(all_detections, 0.4))
+        Ok(apply_nms(all_detections, nms_threshold))
     }
 
     /// Run recognition model on cropped faces
