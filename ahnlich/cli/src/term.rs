@@ -305,4 +305,97 @@ impl Term {
         disable_raw_mode()?;
         Ok(())
     }
+
+    /// Run in non-interactive mode: read from stdin, execute, output results
+    ///
+    /// Behavior:
+    /// - Reads all input from stdin until EOF
+    /// - Executes queries via the client
+    /// - Outputs clean results to stdout (no colors, no prompts)
+    /// - Errors go to stderr
+    /// - Exits with code 1 on error, 0 on success
+    pub async fn run_non_interactive(&self) -> io::Result<()> {
+        use std::io::Read;
+
+        // Read all input from stdin
+        let mut input = String::new();
+        io::stdin().read_to_string(&mut input)?;
+
+        // Trim whitespace (common in piped input)
+        let input = input.trim();
+
+        if input.is_empty() {
+            eprintln!("Error: No input provided");
+            std::process::exit(1);
+        }
+
+        // Execute queries
+        match self.client.parse_queries(input).await {
+            Ok(responses) => {
+                // Output clean results (strip ANSI color codes)
+                for msg in responses {
+                    println!("{}", strip_ansi_codes(&msg));
+                }
+                Ok(())
+            }
+            Err(err) => {
+                // Error to stderr, exit with error code
+                eprintln!("{}", err);
+                std::process::exit(1);
+            }
+        }
+    }
+}
+
+/// Strip ANSI color codes from a string for clean output
+fn strip_ansi_codes(s: &str) -> String {
+    let mut result = String::new();
+    let mut chars = s.chars();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\x1b' {
+            // Skip ANSI escape sequence
+            if chars.next() == Some('[') {
+                // Skip until we hit a letter (end of escape sequence)
+                for ch in chars.by_ref() {
+                    if ch.is_ascii_alphabetic() {
+                        break;
+                    }
+                }
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_ansi_codes_no_codes() {
+        let input = "Hello World";
+        assert_eq!(strip_ansi_codes(input), "Hello World");
+    }
+
+    #[test]
+    fn test_strip_ansi_codes_with_color() {
+        let input = "\x1b[32mSuccess\x1b[0m";
+        assert_eq!(strip_ansi_codes(input), "Success");
+    }
+
+    #[test]
+    fn test_strip_ansi_codes_multiple_colors() {
+        let input = "\x1b[31mError:\x1b[0m \x1b[32mDetails\x1b[0m";
+        assert_eq!(strip_ansi_codes(input), "Error: Details");
+    }
+
+    #[test]
+    fn test_strip_ansi_codes_empty() {
+        let input = "";
+        assert_eq!(strip_ansi_codes(input), "");
+    }
 }

@@ -22,8 +22,13 @@ async fn main() -> std::io::Result<()> {
                 )));
             }
             let term = Term::new(client);
-            term.welcome_message()?;
-            term.run().await?;
+
+            if config.no_interactive {
+                term.run_non_interactive().await?;
+            } else {
+                term.welcome_message()?;
+                term.run().await?;
+            }
         }
     }
     Ok(())

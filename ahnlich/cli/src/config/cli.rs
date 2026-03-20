@@ -31,4 +31,8 @@ pub struct AhnlichCliConfig {
     /// Host to connect to Ahnlich AI or DB
     #[arg(long)]
     pub port: Option<u16>,
+
+    /// Run in non-interactive mode (read commands from stdin)
+    #[arg(long, default_value_t = false)]
+    pub no_interactive: bool,
 }

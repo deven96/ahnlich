@@ -34,6 +34,59 @@ ahnlich_cli ahnlich --agent db --host 127.0.0.1 --port 1369
 ahnlich_cli ahnlich --agent ai --host 127.0.0.1 --port 1370
 ```
 
+### Non-Interactive Mode
+
+For scripting, health checks, and automation, use `--no-interactive` to read commands from stdin:
+
+```bash
+# Simple health check
+echo 'PING' | ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369 --no-interactive
+
+# From a file
+cat commands.txt | ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370 --no-interactive
+
+# Heredoc
+ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369 --no-interactive << EOF
+PING
+LISTSTORES
+EOF
+```
+
+#### Docker Health Check
+
+Use non-interactive mode for Docker health checks:
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "echo 'PING' | ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369 --no-interactive"]
+  interval: 10s
+  timeout: 5s
+  retries: 3
+```
+
+#### Exit Codes
+
+- `0`: Success
+- `1`: Error (connection failure, invalid command, etc.)
+
+#### Output
+
+Non-interactive mode produces clean output without colors or prompts, suitable for parsing:
+
+```bash
+$ echo 'PING' | ahnlich-cli --no-interactive ...
+Success
+```
+
+Errors are written to stderr:
+
+```bash
+$ echo 'INVALID' | ahnlich-cli --no-interactive ...
+Error: Unknown command 'INVALID'
+$ echo $?
+1
+```
+
 ## Querying the DB
 
 The CLI accepts a range of commands for database operations. Commands are written in the following format:
