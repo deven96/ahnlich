@@ -209,6 +209,45 @@ services:
 
 ```
 
+Below is an example `docker-compose.yaml` configuration with health checks using the CLI in non-interactive mode:
+
+```yaml
+
+services:
+  ahnlich_db:
+    image: ghcr.io/deven96/ahnlich-db:latest
+    command: >
+      "ahnlich-db run --host 0.0.0.0"
+    ports:
+      - "1369:1369"
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'PING' | ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369 --no-interactive"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  ahnlich_ai:
+    image: ghcr.io/deven96/ahnlich-ai:latest
+    command: >
+      "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 \
+      --supported-models all-minilm-l6-v2"
+    ports:
+      - "1370:1370"
+    depends_on:
+      ahnlich_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'PING' | ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370 --no-interactive"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+```
+
+The `--no-interactive` flag allows the CLI to accept commands via stdin and exit immediately after processing, making it ideal for Docker health checks, CI/CD pipelines, and automated scripts.
+
 ### Execution Providers (Ahnlich AI)
 
 - `CUDA`: Only supports >= CUDAv12 and might need to `sudo apt install libcudnn9-dev-cuda-12`
