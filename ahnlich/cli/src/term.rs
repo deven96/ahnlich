@@ -314,21 +314,7 @@ impl Term {
     /// - Outputs clean results to stdout (no colors, no prompts)
     /// - Errors go to stderr
     /// - Exits with code 1 on error, 0 on success
-    pub async fn run_non_interactive(&self) -> io::Result<()> {
-        use std::io::Read;
-
-        // Read all input from stdin
-        let mut input = String::new();
-        io::stdin().read_to_string(&mut input)?;
-
-        // Trim whitespace (common in piped input)
-        let input = input.trim();
-
-        if input.is_empty() {
-            eprintln!("Error: No input provided");
-            std::process::exit(1);
-        }
-
+    pub async fn execute_non_interactive(&self, input: &str) -> io::Result<()> {
         // Execute queries
         match self.client.parse_queries(input).await {
             Ok(responses) => {
