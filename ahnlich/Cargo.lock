@@ -747,8 +747,10 @@ version = "0.0.0"
 dependencies = [
  "ahnlich_client_rs",
  "ahnlich_types",
+ "ai",
  "clap 4.5.59",
  "crossterm",
+ "db",
  "dirs 5.0.1",
  "dsl",
  "serde",
@@ -756,6 +758,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tonic 0.12.3",
+ "utils",
 ]
 
 [[package]]

@@ -88,8 +88,7 @@ pub mod server_response {
         StoreInfo(super::StoreInfo),
     }
 }
-#[derive(Hash, Eq, Ord, PartialOrd)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Hash, Eq, Ord, PartialOrd, Clone, PartialEq, ::prost::Message)]
 pub struct StoreInfo {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
@@ -98,9 +97,8 @@ pub struct StoreInfo {
     #[prost(uint64, tag = "3")]
     pub size_in_bytes: u64,
     #[prost(message, repeated, tag = "4")]
-    pub non_linear_indices: ::prost::alloc::vec::Vec<
-        super::super::algorithm::nonlinear::NonLinearIndex,
-    >,
+    pub non_linear_indices:
+        ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
     #[prost(string, repeated, tag = "5")]
     pub predicate_indices: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     #[prost(uint32, tag = "6")]
