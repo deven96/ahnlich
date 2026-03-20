@@ -24,12 +24,18 @@ services:
       - "1369:1369"
     volumes:
       - "./data/:/root/.ahnlich/data" # Persistence Location
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'PING' | ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369 --no-interactive"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   ahnlich_ai:
     image: ghcr.io/deven96/ahnlich-ai:latest
     depends_on:
       ahnlich_db:
-        condition: service_started
+        condition: service_healthy
     command: >
       "ahnlich-ai run --db-host ahnlich_db --host 0.0.0.0 \
       --supported-models all-minilm-l6-v2,resnet-50 \
@@ -41,3 +47,9 @@ services:
     volumes:
       - "./ahnlich_ai_model_cache:/root/.ahnlich/models" # Model cache storage
       - "./data/:/root/.ahnlich/data" # Persistence Location
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'PING' | ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370 --no-interactive"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
