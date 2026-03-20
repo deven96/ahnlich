@@ -35,3 +35,4 @@ profiling.json*
 #npm residue
 node_modules/
 .DS_Store
+docs/superpowers/
