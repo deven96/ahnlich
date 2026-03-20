@@ -1,11 +1,46 @@
 use ahnlich_ai_proxy::cli::AIProxyConfig;
 use ahnlich_ai_proxy::server::handler::AIProxyServer;
+use ahnlich_client_rs::{ai::AiClient, db::DbClient};
 use ahnlich_db::cli::ServerConfig;
 use ahnlich_db::server::handler::Server;
 use std::io::Write;
 use std::process::{Command, Stdio};
 use tokio::time::{Duration, timeout};
 use utils::server::AhnlichServerUtils;
+
+/// Polls the server with ping until it responds, or panics after the deadline.
+async fn wait_for_db_ready(port: u16) {
+    let addr = format!("http://127.0.0.1:{port}");
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    loop {
+        if tokio::time::Instant::now() > deadline {
+            panic!("DB server on port {port} did not become ready within 15s");
+        }
+        if let Ok(client) = DbClient::new(addr.clone()).await {
+            if client.ping(None).await.is_ok() {
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
+/// Polls the server with ping until it responds, or panics after the deadline.
+async fn wait_for_ai_ready(port: u16) {
+    let addr = format!("http://127.0.0.1:{port}");
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+    loop {
+        if tokio::time::Instant::now() > deadline {
+            panic!("AI server on port {port} did not become ready within 15s");
+        }
+        if let Ok(client) = AiClient::new(addr.clone()).await {
+            if client.ping(None).await.is_ok() {
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
 
 /// Provisions a DB server on an OS-selected port and returns the port number
 async fn provision_db_server() -> u16 {
@@ -15,8 +50,7 @@ async fn provision_db_server() -> u16 {
         .expect("Failed to create DB server");
     let port = server.local_addr().unwrap().port();
     tokio::spawn(async move { server.start().await });
-    // Wait for server to be ready (increase if tests are flaky)
-    tokio::time::sleep(Duration::from_millis(1000)).await;
+    wait_for_db_ready(port).await;
     port
 }
 
@@ -30,6 +64,7 @@ async fn provision_ai_server() -> u16 {
         .expect("Failed to create DB server");
     let db_port = db_server.local_addr().unwrap().port();
     tokio::spawn(async move { db_server.start().await });
+    wait_for_db_ready(db_port).await;
 
     // Then provision AI server connected to DB
     let mut ai_config = AIProxyConfig::default().os_select_port();
@@ -39,9 +74,8 @@ async fn provision_ai_server() -> u16 {
         .expect("Failed to create AI server");
     let ai_port = ai_server.local_addr().unwrap().port();
     tokio::spawn(async move { ai_server.start().await });
+    wait_for_ai_ready(ai_port).await;
 
-    // Wait for both servers to be ready
-    tokio::time::sleep(Duration::from_millis(1000)).await;
     ai_port
 }
 
@@ -57,7 +91,7 @@ async fn run_cli_command(agent: &str, port: u16, input: &str) -> std::process::O
     let input = input.to_string();
 
     let result = timeout(
-        Duration::from_secs(10),
+        Duration::from_secs(15),
         tokio::task::spawn_blocking(move || {
             let mut child = Command::new("cargo")
                 .args(&[
@@ -99,7 +133,7 @@ async fn run_cli_command(agent: &str, port: u16, input: &str) -> std::process::O
     match result {
         Ok(Ok(output)) => output,
         Ok(Err(e)) => panic!("Task failed: {}", e),
-        Err(_) => panic!("CLI command timed out after 10 seconds - likely waiting for stdin EOF"),
+        Err(_) => panic!("CLI command timed out after 15 seconds"),
     }
 }
 
