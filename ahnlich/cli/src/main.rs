@@ -10,9 +10,16 @@ async fn main() -> std::io::Result<()> {
         ahnlich_cli::config::cli::Commands::Ahnlich(config) => {
             // In non-interactive mode, check for input first before connecting
             if config.no_interactive {
-                use std::io::Read;
-                let mut input_raw = String::new();
-                io::stdin().read_to_string(&mut input_raw)?;
+                // Read stdin in a blocking task to avoid blocking the async runtime
+                let input_raw = tokio::task::spawn_blocking(|| {
+                    use std::io::Read;
+                    let mut input = String::new();
+                    io::stdin().read_to_string(&mut input)?;
+                    Ok::<String, io::Error>(input)
+                })
+                .await
+                .map_err(|e| io::Error::other(format!("Failed to join task: {}", e)))??;
+
                 let input = input_raw.trim();
 
                 if input.is_empty() {
