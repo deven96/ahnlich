@@ -111,10 +111,9 @@ jobs:
 
           - name: Extract version number from tag
             id: extract_version
-            working-directory: ./ahnlich
             run: |
-              # Extract only the numerical version part from the tag
-              VERSION=$(make workspace-crate-version CRATE_NAME=${{ needs.prebuild_preparation.outputs.bin_suffix }} | tail -n 1)
+              # Extract version from release tag (format: bin/<suffix>/<version>)
+              VERSION=$(echo "${{ github.event.release.tag_name }}" | cut -d'/' -f3)
               echo $VERSION
               echo "BIN_VERSION=$VERSION" >> $GITHUB_ENV
 
