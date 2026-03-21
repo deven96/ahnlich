@@ -17,8 +17,6 @@ PYPOETRY_TOML := $(PYTHON_PROJECT_DIR)/pyproject.toml
 # Default version bump rule 
 BUMP_RULE := patch
 
-# Default crate name
-CRATE_NAME := db
 
 help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "}; /^[a-zA-Z0-9_-]+:.*?## / {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST) | grep -v '^help:.*?## '
@@ -135,10 +133,6 @@ bump-ahnlich-ai: ## Bump ahnlich ai version. Rules for bump-ahnlich-ai: patch, m
 	@echo "Bumping ahnlich ai version with rule $(BUMP_RULE)"
 	@cd $(RUST_PROJECT_DIR) && cargo set-version --bump $(BUMP_RULE) --package $(AHNLICH_AI_NAME)
 	@echo "Ahnlich AI version bumped to $(BUMP_RULE)"
-
-workspace-crate-version: ## View current version of crate in workspace. Rules workspace-crate-version: <CRATE_NAME>.
-	@echo "Getting version of crate: $(CRATE_NAME)"
-	@cd $(RUST_PROJECT_DIR) && cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "$(CRATE_NAME)") | "\(.version)"'
 
 
 demo-tracing:
