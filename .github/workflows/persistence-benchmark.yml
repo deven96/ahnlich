@@ -1,0 +1,71 @@
+name: Ahnlich Test PRs for Persistence Performance Regression
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ahnlich/**
+    types: [labeled]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  run-persistence-benchmark-test:
+    # Only run if the PR has the 'benchmark-persistence' label
+    if: contains(github.event.pull_request.labels.*.name, 'benchmark-persistence')
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: main
+
+    - name: Set up Rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ahnlich
+    
+    - name: Install protoc
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
+    
+    - name: Cache Docker images.
+      uses: ScribeMD/docker-cache@0.5.0
+      with:
+        key: ${{ runner.os }}-cargo-${{ hashFiles('ahnlich/Cargo.lock') }}
+
+    - name: Install Cargo benchcmp
+      working-directory: ./ahnlich
+      run: cargo install critcmp
+
+    - name: Run persistence benchmarks on main branch
+      working-directory: ./ahnlich
+      run: cargo bench --bench persistence -- --save-baseline main
+
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
+        clean: false
+
+    - name: Run persistence benchmarks on PR branch
+      working-directory: ./ahnlich
+      run: cargo bench --bench persistence -- --save-baseline pr
+
+    - name: Compare benchmarks
+      working-directory: ./ahnlich
+      run: |
+        benchmark_output=$(critcmp main pr)
+        echo $benchmark_output
+        echo "## Persistence Benchmark Results" >> persistence_bench_results.md
+        echo "\`\`\`" >> persistence_bench_results.md
+        echo "$benchmark_output" >> persistence_bench_results.md
+        echo "\`\`\`" >> persistence_bench_results.md
+
+    - name: Comment PR with execution number
+      uses: thollander/actions-comment-pull-request@v2
+      with:
+        filePath: ahnlich/persistence_bench_results.md
+        comment_tag: persistence_benchmark
