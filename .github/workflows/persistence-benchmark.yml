@@ -40,7 +40,18 @@ jobs:
       working-directory: ./ahnlich
       run: cargo install critcmp
 
-    - name: Run persistence benchmarks on main branch
+    - name: Check if persistence benchmark exists on main
+      id: check_main
+      working-directory: ./ahnlich
+      run: |
+        if cargo bench --bench persistence --no-run 2>/dev/null; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run persistence benchmarks on main branch (if exists)
+      if: steps.check_main.outputs.exists == 'true'
       working-directory: ./ahnlich
       run: cargo bench --bench persistence -- --save-baseline main
 
@@ -54,7 +65,8 @@ jobs:
       working-directory: ./ahnlich
       run: cargo bench --bench persistence -- --save-baseline pr
 
-    - name: Compare benchmarks
+    - name: Compare benchmarks (if baseline exists)
+      if: steps.check_main.outputs.exists == 'true'
       working-directory: ./ahnlich
       run: |
         benchmark_output=$(critcmp main pr)
@@ -64,7 +76,18 @@ jobs:
         echo "$benchmark_output" >> persistence_bench_results.md
         echo "\`\`\`" >> persistence_bench_results.md
 
-    - name: Comment PR with execution number
+    - name: Report first-time benchmark (if no baseline)
+      if: steps.check_main.outputs.exists == 'false'
+      working-directory: ./ahnlich
+      run: |
+        echo "## Persistence Benchmark Results" >> persistence_bench_results.md
+        echo "" >> persistence_bench_results.md
+        echo "This is the first PR to add persistence benchmarks." >> persistence_bench_results.md
+        echo "No baseline comparison available - these results establish the baseline." >> persistence_bench_results.md
+        echo "" >> persistence_bench_results.md
+        echo "Benchmarks executed successfully on PR branch." >> persistence_bench_results.md
+
+    - name: Comment PR with results
       uses: thollander/actions-comment-pull-request@v2
       with:
         filePath: ahnlich/persistence_bench_results.md
