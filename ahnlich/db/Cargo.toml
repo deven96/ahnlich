@@ -63,3 +63,7 @@ harness = false
 [[bench]]
 name = "memory_profile"
 harness = false
+
+[[bench]]
+name = "persistence"
+harness = false
