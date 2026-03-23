@@ -22,7 +22,6 @@ bench = false
 serde.workspace = true
 ahash.workspace = true
 ndarray.workspace = true
-bincode.workspace = true
 itertools.workspace = true
 clap.workspace = true
 thiserror.workspace = true
