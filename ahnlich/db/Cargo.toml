@@ -55,6 +55,7 @@ rcgen = "0.13"
 tempfile = "3"
 ahnlich_client_rs = { path = "../client", version = "*" }
 bitcode = { version = "0.6", features = ["serde"] }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 
 [[bench]]
 name = "database"
