@@ -1,9 +1,9 @@
 use ahnlich_db::engine::store::StoreHandler;
-use ahnlich_types::algorithm::nonlinear::{non_linear_index, HnswConfig};
+use ahnlich_types::algorithm::nonlinear::{HnswConfig, non_linear_index};
 use ahnlich_types::keyval::{StoreKey, StoreName, StoreValue};
 use ahnlich_types::metadata::MetadataValue;
 use chrono;
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
@@ -11,8 +11,8 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::num::NonZeroUsize;
 use std::path::Path;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use tempfile::TempDir;
 use utils::persistence::AhnlichPersistenceUtils;
 
