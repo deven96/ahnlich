@@ -62,6 +62,13 @@ fn generate_random_metadata() -> HashMap<String, MetadataValue> {
     metadata
 }
 
+/// Creates a test store populated with random embeddings and optional metadata.
+///
+/// # Arguments
+/// * `size` - Number of entries to generate
+/// * `dimension` - Embedding vector dimension (typically 1024)
+/// * `with_hnsw` - If true, creates HNSW index with production config
+/// * `with_metadata` - If true, adds 3 metadata fields per entry
 fn create_test_store_with_data(
     size: usize,
     dimension: usize,
@@ -175,6 +182,15 @@ fn format_size(bytes: u64) -> String {
     }
 }
 
+/// Benchmark store persistence (serialization and deserialization) across multiple
+/// scenarios:
+/// - Store sizes: 100, 1K, 10K, 100K entries
+/// - Index configs: no-index, HNSW
+/// - Formats: JSON (serde_json), bitcode (with serde feature)
+///
+/// Each benchmark measures:
+/// - Serialize: time to write stores to disk + file size
+/// - Deserialize: time to read stores from disk + validation
 fn bench_persistence(c: &mut Criterion) {
     let sizes = [100, 1000, 10000, 100000];
     let dimension = 1024;
