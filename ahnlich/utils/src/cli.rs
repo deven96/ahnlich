@@ -58,7 +58,7 @@ pub struct CommandLineConfig {
     pub log_level: String,
 
     ///  Maximum client connections allowed
-    ///  Defaults to 1000
+    ///  Defaults to 512
     #[arg(long, default_value_t =
     DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).maximum_clients.clone())]
     pub maximum_clients: usize,
@@ -107,7 +107,7 @@ impl Default for CommandLineConfig {
             enable_tracing: false,
             otel_endpoint: None,
             log_level: String::from("info,hf_hub=warn"),
-            maximum_clients: 1000,
+            maximum_clients: 512,
             threadpool_size: 16,
             enable_auth: false,
             auth_config: None,

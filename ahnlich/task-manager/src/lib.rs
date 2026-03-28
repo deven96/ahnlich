@@ -168,4 +168,82 @@ impl TaskManager {
     pub fn task_count(&self) -> usize {
         self.task_tracker.len()
     }
+
+    /// Installs custom panic hook and allows app cleanup before dying
+    pub fn install_panic_hook(&self) {
+        let token = self.cancellation_token();
+        let default_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |hook| {
+            default_hook(hook);
+            log::error!("Thread panicked, shutting down all tasks..");
+            token.cancel();
+        }));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    struct PanicTask;
+
+    #[async_trait::async_trait]
+    impl Task for PanicTask {
+        fn task_name(&self) -> String {
+            "panic-task".to_string()
+        }
+        async fn run(&self) -> TaskState {
+            panic!("simulated papaya panic: assertion failed: len.is_power_of_two()");
+        }
+    }
+
+    struct WaitingTask {
+        cleaned_up: Arc<AtomicBool>,
+    }
+
+    #[async_trait::async_trait]
+    impl Task for WaitingTask {
+        fn task_name(&self) -> String {
+            "waiting-task".to_string()
+        }
+        async fn run(&self) -> TaskState {
+            // Yield back to the runtime repeatedly, simulating a long-running task
+            std::future::pending::<()>().await;
+            TaskState::Continue
+        }
+        async fn cleanup(&self) {
+            self.cleaned_up.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_panic_triggers_shutdown_of_all_tasks() {
+        let manager = TaskManager::new();
+        manager.install_panic_hook();
+
+        let cleaned_up = Arc::new(AtomicBool::new(false));
+
+        // Spawn a long-running task that should get cancelled when the panic fires
+        manager
+            .spawn_task_loop(WaitingTask {
+                cleaned_up: cleaned_up.clone(),
+            })
+            .await;
+
+        // Spawn a task that will panic
+        manager.spawn_task_loop(PanicTask).await;
+
+        // wait() should return because the panic hook cancels all tasks.
+        // If the hook doesn't work, this will hang forever — the test runner
+        // will kill it after its timeout.
+        manager.wait().await;
+
+        // The waiting task should have run its cleanup
+        assert!(
+            cleaned_up.load(Ordering::SeqCst),
+            "WaitingTask cleanup should have been called during shutdown"
+        );
+    }
 }
