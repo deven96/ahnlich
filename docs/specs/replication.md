@@ -90,7 +90,7 @@ Raft is a consensus algorithm designed to be understandable and practically impl
 Alternatives considered:
 
 | Algorithm      | Tradeoff                                                             |
-| -------------- | -------------------------------------------------------------------- |
+|----------------|----------------------------------------------------------------------|
 | Paxos          | Equivalent guarantees but harder to implement correctly              |
 | CRDTs          | Eventual consistency only; not suitable for ordered index operations |
 | Primary-backup | Simpler but no formalized correctness guarantees                     |
@@ -119,35 +119,35 @@ We implement three pluggable components:
 Client ──gRPC──▶ Server (DbService / AiService)
                     │
                     ▼
-              StoreHandler (in-memory stores)
+              StoreHandler/AIStoreHandler (in-memory stores)
                     │
                     ▼
               Persistence (periodic JSON snapshots)
 ```
 
-A single server process exposes one gRPC service. The `StoreHandler` manages all stores in memory. An optional `Persistence` task periodically serializes the stores to a JSON file on disk.
+A single server process exposes one gRPC service. The `StoreHandler`/`AIStoreHandler` manages all stores in memory. An optional `Persistence` task periodically serializes the stores to a JSON file on disk.
 
 ### Clustered Architecture
 
 ```
                            ┌──────────────────────────┐
-                           │        Leader             │
-Client ──gRPC──▶ Any Node  │  Public gRPC (--port)     │
-                    │       │  Cluster gRPC (--cluster- │
-                    │       │    addr): Raft RPCs +     │
-                    │       │    cluster admin          │
-                    │       └──────────────────────────┘
+                           │        Leader            │
+Client ──gRPC──▶ Any Node  │  Public gRPC (--port)    │
+                    │      │  Cluster gRPC (--cluster-│
+                    │      │    addr): Raft RPCs +    │
+                    │      │    cluster admin         │
+                    │      └──────────────────────────┘
                     │                    │
                     ▼                    │ Raft Log Replication
-             ┌──────────┐               │
-             │ Is this   │               ▼
-             │ the       │    ┌──────────────────────────┐
-             │ leader?   │    │      Follower(s)          │
-             │           │    │  Public gRPC (--port)      │
-             │ Yes → Execute  │  Cluster gRPC (--cluster-  │
-             │ No  → Forward  │    addr): Raft RPCs +      │
-             │ to leader │    │    cluster admin           │
-             └──────────┘    └──────────────────────────┘
+             ┌──────────----┐            │
+             │ Is this      │            ▼
+             │ the          │    ┌──────────────────────────---------------------------------┐
+             │ leader?      │    │      Follower(s)                                          │
+             │              │    │  Public gRPC (--port)                                     │
+             │ Yes → Execute│    |  Cluster gRPC (--cluster-addr): Raft RPCs + cluster admin │
+             │ No  → Forward│    |                                                           |
+             │ to leader    │    │                                                           |
+             └─────────-----┘    └──────────────────────────---------------------------------┘
 ```
 
 In cluster mode, each server process exposes **two** gRPC service surfaces on separate ports:
@@ -165,9 +165,9 @@ DB and AI run as **separate, independent Raft clusters**:
 ┌─────────────────────────────┐    ┌─────────────────────────────┐
 │       DB Raft Cluster       │    │       AI Raft Cluster       │
 │                             │    │                             │
-│  DB-Node-1 (leader)        │    │  AI-Node-1 (leader)        │
-│  DB-Node-2 (follower)      │    │  AI-Node-2 (follower)      │
-│  DB-Node-3 (follower)      │    │  AI-Node-3 (follower)      │
+│  DB-Node-1 (leader)         │    │  AI-Node-1 (leader)         │
+│  DB-Node-2 (follower)       │    │  AI-Node-2 (follower)       │
+│  DB-Node-3 (follower)       │    │  AI-Node-3 (follower)       │
 │                             │    │                             │
 │  State: StoreHandler        │    │  State: AIStoreHandler      │
 │  (vectors, indices, data)   │    │  (store metadata only)      │
@@ -188,10 +188,10 @@ DB and AI run as **separate, independent Raft clusters**:
 
 Each server process (DB or AI) exposes two gRPC services when clustering is enabled:
 
-| Service                      | Port Flag        | Purpose                                                                                                        |
-| ---------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------- |
-| Public (DbService/AiService) | `--port`         | Client-facing CRUD and query operations                                                                        |
-| Cluster                      | `--cluster-addr` | Node-to-node Raft RPCs (AppendEntries, Vote, InstallSnapshot) and cluster administration (membership, metrics) |
+| Service                       | Port Flag        | Purpose                                                                                                        |
+|-------------------------------|------------------|----------------------------------------------------------------------------------------------------------------|
+| Public (DbService/AiService)  | `--port`         | Client-facing CRUD and query operations                                                                        |
+| Cluster                       | `--cluster-addr` | Node-to-node Raft RPCs (AppendEntries, Vote, InstallSnapshot) and cluster administration (membership, metrics) |
 
 The Cluster service is **not** exposed in client SDKs. It is internal to the cluster.
 
@@ -201,19 +201,19 @@ The Cluster service is **not** exposed in client SDKs. It is internal to the clu
 
 ### DB: Raft-Routed Operations
 
-All DB mutations that modify store state are routed through Raft in cluster mode (i.e., when `--cluster-addr` is provided):
+All DB mutations that modify **DB store state** (the `StoreHandler`) are routed through Raft in cluster mode (i.e., when `--cluster-addr` is provided):
 
-| Operation                       | Proto RPC                                | Effect                                                                 |
-| ------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------- |
-| `CreateStore`                   | `db.query.CreateStore`                   | Creates a new store with specified dimensions, predicates, and indices |
-| `CreatePredIndex`               | `db.query.CreatePredIndex`               | Adds predicate indices to an existing store                            |
-| `CreateNonLinearAlgorithmIndex` | `db.query.CreateNonLinearAlgorithmIndex` | Adds non-linear algorithm indices (HNSW, KDTree) to a store            |
-| `Set`                           | `db.query.Set`                           | Upserts vector key-value pairs into a store                            |
-| `DelKey`                        | `db.query.DelKey`                        | Deletes entries by vector keys                                         |
-| `DelPred`                       | `db.query.DelPred`                       | Deletes entries matching a predicate condition                         |
-| `DropPredIndex`                 | `db.query.DropPredIndex`                 | Removes predicate indices from a store                                 |
-| `DropNonLinearAlgorithmIndex`   | `db.query.DropNonLinearAlgorithmIndex`   | Removes non-linear algorithm indices from a store                      |
-| `DropStore`                     | `db.query.DropStore`                     | Deletes an entire store                                                |
+| Operation                        | Proto RPC                               | Effect                                                                  |
+|----------------------------------|-----------------------------------------|-------------------------------------------------------------------------|
+| `CreateStore`                    | `db.query.CreateStore`                  | Creates a new store with specified dimensions, predicates, and indices  |
+| `CreatePredIndex`                | `db.query.CreatePredIndex`              | Adds predicate indices to an existing store                             |
+| `CreateNonLinearAlgorithmIndex`  | `db.query.CreateNonLinearAlgorithmIndex`| Adds non-linear algorithm indices (HNSW, KDTree) to a store             |
+| `Set`                            | `db.query.Set`                          | Upserts vector key-value pairs into a store                             |
+| `DelKey`                         | `db.query.DelKey`                       | Deletes entries by vector keys                                          |
+| `DelPred`                        | `db.query.DelPred`                      | Deletes entries matching a predicate condition                          |
+| `DropPredIndex`                  | `db.query.DropPredIndex`                | Removes predicate indices from a store                                  |
+| `DropNonLinearAlgorithmIndex`    | `db.query.DropNonLinearAlgorithmIndex`  | Removes non-linear algorithm indices from a store                       |
+| `DropStore`                      | `db.query.DropStore`                    | Deletes an entire store                                                 |
 
 **Not routed through Raft** (read-only operations):
 
@@ -224,26 +224,28 @@ All DB mutations that modify store state are routed through Raft in cluster mode
 
 Only AI operations that modify **AI-local state** (the `AIStoreHandler`) are routed through the AI Raft cluster:
 
-| Operation     | Proto RPC              | Effect                                                                                                    |
-| ------------- | ---------------------- | --------------------------------------------------------------------------------------------------------- |
-| `CreateStore` | `ai.query.CreateStore` | Registers a store in AIStoreHandler with model metadata, then delegates to DB to create the backing store |
-| `DropStore`   | `ai.query.DropStore`   | Removes store metadata from AIStoreHandler, then delegates to DB to drop the backing store                |
-| `PurgeStores` | `ai.query.PurgeStores` | Removes all stores from AIStoreHandler, then delegates to DB to purge                                     |
+| Operation     | Proto RPC              | Effect                                                                                                                    |
+|---------------|------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| `CreateStore` | `ai.query.CreateStore` | Registers a store in AIStoreHandler with model metadata, then delegates to DB via `db_client` to create the backing store |
+| `DropStore`   | `ai.query.DropStore`   | Removes store metadata from AIStoreHandler only (does **not** currently appear to drop the backing DB store)              |
+| `PurgeStores` | `ai.query.PurgeStores` | Removes all stores from AIStoreHandler only (does **not** currently appear to drop the backing DB stores)                 |
+
+> **Question**: Do `DropStore` and `PurgeStores` currently leave the underlying DB stores orphaned? This may need to be addressed — either by adding `db_client` delegation (matching `CreateStore`'s behavior) or by documenting that DB store cleanup is the user's responsibility.
 
 ### AI Delegation to DB
 
 The remaining AI mutations operate entirely through the DB client and do **not** go through the AI Raft cluster:
 
-| AI Operation                    | Delegation                                                                     |
-| ------------------------------- | ------------------------------------------------------------------------------ |
-| `CreatePredIndex`               | Forwards to DB's `CreatePredIndex` via `db_client`                             |
-| `CreateNonLinearAlgorithmIndex` | Forwards to DB's `CreateNonLinearAlgorithmIndex` via `db_client`               |
-| `Set`                           | Converts inputs to embeddings via model, then calls DB's `Set` via `db_client` |
-| `DelKey`                        | Forwards to DB's `DelKey` via `db_client`                                      |
-| `DelPred`                       | Forwards to DB's `DelPred` via `db_client`                                     |
-| `DropPredIndex`                 | Forwards to DB's `DropPredIndex` via `db_client`                               |
-| `DropNonLinearAlgorithmIndex`   | Forwards to DB's `DropNonLinearAlgorithmIndex` via `db_client`                 |
-| `GetKey`, `GetPred`, `GetSimN`  | Forwards to corresponding DB read operations via `db_client`                   |
+| AI Operation                     | Delegation                                                                     |
+|----------------------------------|--------------------------------------------------------------------------------|
+| `CreatePredIndex`                | Forwards to DB's `CreatePredIndex` via `db_client`                             |
+| `CreateNonLinearAlgorithmIndex`  | Forwards to DB's `CreateNonLinearAlgorithmIndex` via `db_client`               |
+| `Set`                            | Converts inputs to embeddings via model, then calls DB's `Set` via `db_client` |
+| `DelKey`                         | Forwards to DB's `DelKey` via `db_client`                                      |
+| `DelPred`                        | Forwards to DB's `DelPred` via `db_client`                                     |
+| `DropPredIndex`                  | Forwards to DB's `DropPredIndex` via `db_client`                               |
+| `DropNonLinearAlgorithmIndex`    | Forwards to DB's `DropNonLinearAlgorithmIndex` via `db_client`                 |
+| `GetKey`, `GetPred`, `GetSimN`   | Forwards to corresponding DB read operations via `db_client`                   |
 
 These operations modify DB state, not AI state. The DB Raft cluster handles their replication. The AI node is a stateless proxy for these operations.
 
@@ -256,7 +258,7 @@ Most read operations are served **locally by any node** — leader or follower �
 ```
 Client → GetSimN → Any Node
                       │
-                      ├─ Execute query on local StoreHandler
+                      ├─ Execute query on local `StoreHandler`/`AIStoreHandler`
                       │
                       └─ Return result
 ```
@@ -274,7 +276,7 @@ Client → ListStores → Any Node
                          │
                          ├─ ensure_linearizable()
                          │
-                         ├─ Execute ListStores on StoreHandler
+                         ├─ Execute ListStores on `StoreHandler`/`AIStoreHandler`
                          │
                          └─ Return result
 ```
@@ -407,29 +409,66 @@ AiCommand enum:
 
 ### Snapshot and Recovery
 
-openraft periodically triggers snapshots to compact the log. Our state machine snapshot captures the full in-memory state:
+Snapshots compact the Raft log by capturing the full in-memory state at a point in time, allowing older log entries to be purged. Two snapshot triggers work side by side — whichever fires first:
+
+**1. Count-based** (`--cluster-snapshot-logs`): Trigger a snapshot after N log entries since the last snapshot. This bounds log size during write bursts. This is openraft's built-in `snapshot_policy::LogsThenSnapshot(n)`.
+
+**2. Time-based with dirty check** (`--cluster-snapshot-interval`): A background task wakes every T milliseconds and checks whether any mutations have been applied since the last snapshot. If yes, trigger a snapshot; if no, skip. This catches slow trickles of writes that never hit the count threshold.
+
+```rust
+// Count-based: configured via openraft's snapshot policy (built-in)
+let config = openraft::Config {
+    snapshot_policy: SnapshotPolicy::LogsSinceLast(1000), // snapshot every 1000 entries
+    ..Default::default()
+};
+```
+
+```rust
+// Time-based: background task, same pattern as utils::Persistence
+struct RaftSnapshotTimer {
+    raft: Arc<Raft<TypeConfig>>,
+    interval_ms: u64,
+}
+
+impl Task for RaftSnapshotTimer {
+    async fn run(&self) -> TaskState {
+        tokio::time::sleep(Duration::from_millis(self.interval_ms)).await;
+
+        let metrics = self.raft.metrics().borrow().clone();
+
+        // Compare last snapshot index vs last applied index
+        if let (Some(snapshot), Some(last_applied)) = (metrics.snapshot, metrics.last_applied) {
+            if last_applied.index > snapshot.index {
+                // Mutations since last snapshot — trigger one
+                let _ = self.raft.trigger().snapshot().await;
+            }
+        }
+
+        TaskState::Continue
+    }
+}
+```
+
+Together, these ensure: high write volume → count trigger fires promptly; low write volume → interval trigger catches stragglers; idle cluster → interval fires but dirty check skips (no unnecessary snapshots).
+
+> **Open question for the team**: Do we want both triggers from the start, or ship with count-based only and add time-based later? Both are straightforward to implement, but having two snapshot mechanisms adds configuration surface. The time-based trigger follows the same `Task` pattern already used by `utils::Persistence` and the size calculation background task.
+
+Our state machine snapshot captures the full in-memory state:
 
 **DB snapshot contents:**
-
-- All stores (name → `Store` struct), where each store contains: `dimension` (required embedding size), `id_to_value` (vector key-value pairs), `predicate_indices`, `non_linear_indices`
+- All stores (name → `Store` struct), where each store contains: `dimension` (required embedding size), `id_to_value` (mapping of `StoreKeyId` → `(EmbeddingKey, Arc<StoreValue>)`), `predicate_indices`, `non_linear_indices`
 
 **AI snapshot contents:**
-
 - All AI store metadata (name → `AIStore` struct), where each AI store contains: `name`, `query_model`, `index_model`, `store_original` flag
 
-**Snapshot flow:**
+**Snapshot creation:**
 
-```
-1. openraft calls build_snapshot()
-2. State machine serializes StoreHandler state to bytes (JSON or bincode)
-3. Snapshot stored in Raft storage (RocksDB or in-memory)
-4. Old log entries before snapshot can be purged
+1. openraft calls `build_snapshot()`
+2. State machine serializes `StoreHandler`/`AIStoreHandler` state to bytes
+3. Snapshot is persisted to the storage backend (see [Raft Log and State Machine Storage](#raft-log-and-state-machine-storage))
+4. Log entries before the snapshot can be purged
 
-Recovery (on node restart or new node joining):
-1. openraft calls install_snapshot() with snapshot from leader
-2. State machine deserializes and replaces StoreHandler state
-3. Any log entries after the snapshot are replayed via apply()
-```
+**Recovery** (on node restart or new node joining): the storage backend restores the latest snapshot into memory, then replays any subsequent log entries. See [Raft Log and State Machine Storage](#raft-log-and-state-machine-storage) for the full recovery flow.
 
 ---
 
@@ -437,12 +476,30 @@ Recovery (on node restart or new node joining):
 
 ### Raft Log and State Machine Storage
 
-RocksDB is the default and recommended storage backend for Raft logs and state:
+The state machine (`StoreHandler` / `AIStoreHandler`) is always **in-memory** at runtime — all queries and mutations execute against in-memory data. The storage backend is a separate **durability layer** underneath that persists Raft state to survive restarts. It is not read during normal operation, only during startup/recovery.
 
-| Backend           | Flag Value                  | Durability                  | Use Case        |
-| ----------------- | --------------------------- | --------------------------- | --------------- |
-| RocksDB (default) | `--cluster-storage rocksdb` | Full (persisted to disk)    | All deployments |
-| Memory            | `--cluster-storage memory`  | None (data lost on restart) | Testing only    |
+**What the storage backend holds:**
+
+- **Raft log entries**: Each mutation (CreateStore, Set, DelKey, etc.) stored as a serialized command. Entries are persisted to the storage backend **before** they are considered committed — durability comes from the log, not from the state machine. A mutation is committed once a majority of nodes have persisted it to their own log. Only after commitment is the entry `apply()`-ed to the in-memory state machine.
+- **Snapshots**: Periodic serialized captures of the entire in-memory state (see [Snapshot and Recovery](#snapshot-and-recovery) for what each snapshot contains). Snapshots are an optimization for log compaction — without them, the entire log would need to be kept and replayed from entry #1 on every restart. Once a snapshot exists at log index N, entries before N can be purged.
+- **Raft metadata**: Current term, vote state, committed index — the bookkeeping openraft needs to resume correctly across restarts.
+
+**The state machine is a derived view**: The in-memory `StoreHandler`/`AIStoreHandler` can always be reconstructed by replaying the log (or loading a snapshot + replaying remaining entries). It is never written back to the storage backend after each `apply()` — the log entries already provide durability. The backend is written to when (1) new log entries are appended (before commitment), (2) a snapshot is triggered for log compaction, or (3) Raft metadata changes (elections, term changes).
+
+**Recovery flow** (on node restart):
+
+```
+1. Load latest snapshot from storage → deserialize into `StoreHandler`/`AIStoreHandler`
+2. Replay any log entries after the snapshot via apply()
+3. Node is now current and can rejoin the cluster
+```
+
+**Storage backends:**
+
+| Backend            | Flag Value                  | Durability                      | Use Case         |
+|--------------------|-----------------------------|---------------------------------|------------------|
+| RocksDB (default)  | `--cluster-storage rocksdb` | Full (persisted to disk)        | All deployments  |
+| Memory             | `--cluster-storage memory`  | None (data lost on restart)     | Testing only     |
 
 When using RocksDB, `--cluster-data-dir` specifies the directory for the database files.
 
@@ -534,27 +591,28 @@ This prevents unnecessary leader elections and minimizes disruption.
 
 Flags added to both `ahnlich-db run` and `ahnlich-ai run`:
 
-| Flag                      | Type   | Default   | Description                                                                                                                                                                                                                     |
-| ------------------------- | ------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--cluster-addr`          | string | (none)    | Address (`host:port`) for cluster traffic (Raft RPCs and cluster administration). Presence of this flag enables clustering. Node ID is automatically derived by hashing this address.                                           |
-| `--cluster-bootstrap`     | bool   | `false`   | Bootstrap a new single-node cluster. This node becomes the initial leader. Mutually exclusive with `--cluster-join`.                                                                                                            |
-| `--cluster-join`          | string | (none)    | Cluster address (`host:port`) of an existing cluster node. This node joins the cluster as a learner, receives a snapshot, and is automatically promoted to voter once caught up. Mutually exclusive with `--cluster-bootstrap`. |
-| `--cluster-storage`       | enum   | `rocksdb` | Cluster storage engine. `rocksdb` for durable on-disk storage (recommended), `memory` for non-durable in-memory storage (testing only).                                                                                         |
-| `--cluster-data-dir`      | path   | (none)    | Filesystem path for RocksDB storage files. Required when `--cluster-storage rocksdb`.                                                                                                                                           |
-| `--cluster-snapshot-logs` | u64    | `1000`    | Trigger a snapshot after this many log entries since the last snapshot. Larger values reduce snapshot frequency; smaller values keep log size bounded.                                                                          |
+| Flag                          | Type   | Default   | Description                                                                                                          |
+|-------------------------------|--------|-----------|----------------------------------------------------------------------------------------------------------------------|
+| `--cluster-addr`              | string | (none)    | Address (`host:port`) for cluster traffic (Raft RPCs and admin). Node ID is derived by hashing this address.         |
+| `--cluster-bootstrap`         | bool   | `false`   | Bootstrap a new single-node cluster. This node becomes the initial leader. Mutually exclusive with `--cluster-join`. |
+| `--cluster-join`              | string | (none)    | Cluster address of an existing node to join as a learner. Mutually exclusive with `--cluster-bootstrap`.             |
+| `--cluster-storage`           | enum   | `rocksdb` | Storage engine: `rocksdb` (recommended) or `memory` (testing only, no durability).                                   |
+| `--cluster-data-dir`          | path   | (none)    | Filesystem path for RocksDB files. Required when `--cluster-storage rocksdb`.                                        |
+| `--cluster-snapshot-logs`     | u64    | `1000`    | Snapshot after this many log entries. Larger = fewer snapshots; smaller = bounded log size.                          |
+| `--cluster-snapshot-interval` | u64    | `300000`  | Milliseconds between snapshot checks. If mutations occurred since last snapshot, triggers one.                       |
 
 ### CLI Cluster Commands
 
 Cluster administration is exposed via `ahnlich-cli cluster`:
 
-| Command             | Flags                                                          | Description                                                         |
-| ------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `add-learner`       | `--cluster-addr`, `--node-cluster-addr`, `--node-service-addr` | Add a learner (non-voting) node to the cluster.                     |
-| `change-membership` | `--cluster-addr`, `--node-ids`                                 | Change the set of voting members. Comma-delimited list of node IDs. |
-| `remove`            | `--cluster-addr`, `--node-id`                                  | Remove a node from the cluster.                                     |
-| `metrics`           | `--cluster-addr`                                               | Get cluster metrics (current term, commit index, leader, etc.).     |
-| `leader`            | `--cluster-addr`                                               | Get the current leader's node info.                                 |
-| `snapshot`          | `--cluster-addr`                                               | Trigger an immediate snapshot.                                      |
+| Command             | Flags                                                          | Description                                                            |
+|---------------------|----------------------------------------------------------------|------------------------------------------------------------------------|
+| `add-learner`       | `--cluster-addr`, `--node-cluster-addr`, `--node-service-addr` | Add a learner (non-voting) node to the cluster.                        |
+| `change-membership` | `--cluster-addr`, `--node-ids`                                 | Change the set of voting members. Comma-delimited list of node IDs.    |
+| `remove`            | `--cluster-addr`, `--node-id`                                  | Remove a node from the cluster.                                        |
+| `metrics`           | `--cluster-addr`                                               | Get cluster metrics (current term, commit index, leader, etc.).        |
+| `leader`            | `--cluster-addr`                                               | Get the current leader's node info.                                    |
+| `snapshot`          | `--cluster-addr`                                               | Trigger an immediate snapshot.                                         |
 
 ---
 
@@ -579,7 +637,9 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 
 **What this does NOT include**: Any changes to DB or AI server behavior. The crate is a library only.
 
-**Testing**: Unit tests for config parsing, type serialization/deserialization, storage operations.
+**Testing**:
+
+- Unit tests for config parsing, type serialization/deserialization, storage operations.
 
 ---
 
@@ -700,6 +760,7 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 **What this includes:**
 
 - **Extended integration tests:**
+
   - All DB CRUD operations through a 3-node cluster.
   - All AI CRUD operations through a 3-node AI + 3-node DB deployment.
   - Leader failover: kill leader, verify new leader elected, writes continue.
@@ -707,11 +768,15 @@ Each milestone is an independently mergeable PR that produces a working, testabl
   - Write to follower with forwarding.
   - Snapshot transfer to newly joined node with large data volume.
   - Pipeline operations through Raft.
+  
 - **CI configuration:**
+
   - Run cluster tests with `--test-threads=1` to avoid resource contention.
   - Add timeout annotations to prevent CI hangs during Raft election timeouts.
   - Monitor for flaky tests and stabilize.
+  
 - **Stress tests:**
+
   - Concurrent writes from multiple clients during leader failover.
   - Large snapshot transfer (many stores, many entries).
 
@@ -731,18 +796,18 @@ Each state machine implementation has unit tests covering:
 
 Integration tests start actual server processes and exercise the full gRPC path:
 
-| Scenario                      | What it validates                                                 |
-| ----------------------------- | ----------------------------------------------------------------- |
-| Single-node cluster CRUD      | Basic Raft path works end-to-end                                  |
-| 3-node replication            | Writes replicate to all followers                                 |
-| Single failover               | Leader death triggers election, new leader serves writes          |
-| Double failover (quorum loss) | Writes fail without quorum, cluster recovers when quorum restored |
-| Write to follower             | Leader forwarding works transparently                             |
-| Read from follower            | Follower serves `GetSimN`/`GetKey`/`GetPred` from local state     |
-| `ListStores` from follower    | Forwarded to leader, returns consistent result                    |
-| Node join with snapshot       | New node receives full state and begins replicating               |
-| Graceful shutdown             | Remaining nodes maintain quorum without unnecessary election      |
-| Restart with rocksdb          | Node recovers state from persisted Raft log/snapshots             |
+| Scenario                     | What it validates                                                    |
+|------------------------------|----------------------------------------------------------------------|
+| Single-node cluster CRUD     | Basic Raft path works end-to-end                                     |
+| 3-node replication           | Writes replicate to all followers                                    |
+| Single failover              | Leader death triggers election, new leader serves writes             |
+| Double failover (quorum loss)| Writes fail without quorum, cluster recovers when quorum restored    |
+| Write to follower            | Leader forwarding works transparently                                |
+| Read from follower           | Follower serves `GetSimN`/`GetKey`/`GetPred` from local state        |
+| `ListStores` from follower   | Forwarded to leader, returns consistent result                       |
+| Node join with snapshot      | New node receives full state and begins replicating                  |
+| Graceful shutdown            | Remaining nodes maintain quorum without unnecessary election         |
+| Restart with rocksdb         | Node recovers state from persisted Raft log/snapshots                |
 
 ### CI Considerations
 
@@ -759,13 +824,11 @@ Integration tests start actual server processes and exercise the full gRPC path:
 
 By default, most reads are served locally by any node (eventual consistency) and only `ListStores` is forwarded to the leader (linearizable). A future improvement could allow clients to override consistency per-request via a gRPC metadata header (e.g., `x-ahnlich-consistency: linearizable`) to force any read to go through the leader when strict consistency is needed.
 
-### Client SDK Leader Discovery (Future)
+### Client SDK Node Load Balancing (Future)
 
-Currently clients connect to a single node. A future improvement could add leader-aware clients that:
+Currently clients connect to a single node. A future improvement could add the ability for clients to connect to more than one node:
 
-- Discover the current leader via the cluster admin API.
-- Automatically reconnect to the new leader on failover.
-- Optionally load-balance reads across followers (with eventual consistency).
+- Load-balance reads across followers (with eventual consistency).
 
 ### Persistence Rework (Future)
 
@@ -790,6 +853,7 @@ This is a separate, larger project and is explicitly out of scope for this itera
 ## References
 
 - [Raft consensus algorithm paper](https://raft.github.io/raft.pdf)
+- [openraft documentation](https://docs.rs/openraft/latest/openraft/)
 - [openraft getting started guide](https://docs.rs/openraft/latest/openraft/docs/getting_started/index.html)
 - [GitHub issue #271: Horizontal scalability](https://github.com/deven96/ahnlich/issues/271)
 - [GitHub PR #276: Replication implementation discussion](https://github.com/deven96/ahnlich/pull/276)
