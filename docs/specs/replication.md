@@ -22,6 +22,7 @@ Raft-based replication for horizontal scalability of ahnlich-db and ahnlich-ai.
   - [AI Delegation to DB](#ai-delegation-to-db)
   - [Read Path](#read-path)
   - [Write Path (Leader Forwarding)](#write-path-leader-forwarding)
+  - [Client SDK Topology Discovery](#client-sdk-topology-discovery)
   - [Pipeline Operations](#pipeline-operations)
 - [State Machine Design](#state-machine-design)
   - [Shared Mutation Functions](#shared-mutation-functions)
@@ -60,7 +61,7 @@ This spec describes adding **Raft-based replication** to both ahnlich-db and ahn
 
 - Sharding / data partitioning across nodes. All nodes hold a full copy of all data.
 - Multi-region deployment with geo-aware routing.
-- Automatic load balancing or connection routing at the client SDK level.
+- A built-in `SmartClient` that automatically routes requests across cluster nodes (see [Future Work](#smart-client-future)). Clients are cluster-aware via `ClusterInfo` and can implement their own routing.
 
 ---
 
@@ -193,7 +194,7 @@ Each server process (DB or AI) exposes two gRPC services when clustering is enab
 | Public (DbService/AiService)  | `--port`         | Client-facing CRUD and query operations                                                                        |
 | Cluster                       | `--cluster-addr` | Node-to-node Raft RPCs (AppendEntries, Vote, InstallSnapshot) and cluster administration (membership, metrics) |
 
-The Cluster service is **not** exposed in client SDKs. It is internal to the cluster.
+The Cluster service is internal to the cluster; client SDKs do not connect to it. However, the **public** service will now expose a read-only `ClusterInfo` query (see [Client SDK Topology Discovery](#client-sdk-topology-discovery)) that returns cluster topology, enabling clients to discover nodes and implement their own routing without exposing any admin or Raft operations.
 
 ---
 
@@ -217,7 +218,7 @@ All DB mutations that modify **DB store state** (the `StoreHandler`) are routed 
 
 **Not routed through Raft** (read-only operations):
 
-- **Served locally by any node** (follower or leader): `GetKey`, `GetPred`, `GetSimN`, `ListClients`, `InfoServer`, `Ping` — these read from local state and tolerate slightly stale data.
+- **Served locally by any node** (follower or leader): `GetKey`, `GetPred`, `GetSimN`, `ListClients`, `InfoServer`, `ClusterInfo`, `Ping` — these read from local state and tolerate slightly stale data.
 - **Forwarded to leader** (`ensure_linearizable()`): `ListStores` — consistency-sensitive because users expect to see a store immediately after creating it.
 
 ### AI: Raft-Routed Operations
@@ -230,7 +231,7 @@ Only AI operations that modify **AI-local state** (the `AIStoreHandler`) are rou
 | `DropStore`   | `ai.query.DropStore`   | Removes store metadata from AIStoreHandler only (does **not** currently appear to drop the backing DB store)              |
 | `PurgeStores` | `ai.query.PurgeStores` | Removes all stores from AIStoreHandler only (does **not** currently appear to drop the backing DB stores)                 |
 
-> **Question**: Do `DropStore` and `PurgeStores` currently leave the underlying DB stores orphaned? This may need to be addressed — either by adding `db_client` delegation (matching `CreateStore`'s behavior) or by documenting that DB store cleanup is the user's responsibility.
+> **Note**: `DropStore` and `PurgeStores` currently leave the underlying DB stores orphaned. This will need to be addressed.
 
 ### AI Delegation to DB
 
@@ -302,6 +303,39 @@ Client → CreateStore → Follower
 ```
 
 This transparent forwarding means clients can connect to any node in the cluster without needing to discover the leader. The trade-off is an extra network hop for writes that hit followers.
+
+### Client SDK Topology Discovery
+
+The public service (on `--port`) exposes a read-only `ClusterInfo` query that returns the current cluster topology and per-node health. This is the single source of truth for cluster state visible to clients and monitoring tools. No admin or Raft operations are exposed.
+
+**Query and response types:**
+
+```rust
+// New query variant added to ServerQuery / AIServerQuery
+ClusterInfo
+
+// Response types (in ahnlich_types)
+pub struct ClusterNode {
+    pub node_id: u64,
+    pub addr: String,       // public gRPC address (--port)
+    pub role: NodeRole,
+    pub term: u64,          // current Raft term
+    pub commit_index: u64,  // last committed log index
+}
+
+pub enum NodeRole {
+    Leader,
+    Follower,
+    Learner,
+}
+
+// Response variant
+ClusterInfo(Vec<ClusterNode>)
+```
+
+**Standalone (non-clustered) nodes** return a single entry with `role: Leader`, so client code works uniformly regardless of deployment mode.
+
+Clients can use the `ClusterInfo` response to connect to multiple nodes and implement their own routing strategy — for example, sending writes to the leader and distributing reads across followers. The existing `DbClient`/`AiClient` is a thin gRPC wrapper with no single-node limitation; users can create one instance per node. The `SmartClient` described in [Future Work](#smart-client-future) is a convenience wrapper we may provide in the SDK, but users are free to build their own routing on top of `ClusterInfo` from day one.
 
 ### Pipeline Operations
 
@@ -564,13 +598,18 @@ ahnlich-db run --port 1372 --cluster-addr 127.0.0.1:9004 --cluster-join 127.0.0.
 
 ### Graceful Shutdown
 
-When a node receives SIGTERM:
+Raft cleanup is implemented as a `Task` with a `cleanup()` method, plugging into the existing `TaskManager` pattern. This means the same shutdown sequence runs regardless of trigger — SIGTERM, internal panic (via `install_panic_hook()`), or any other cancellation of the shared `CancellationToken`.
 
-1. If the node is a voter, it removes itself from the voter set.
-2. If the node is the leader, it transfers leadership to another node before stepping down.
+When shutdown is triggered:
+
+1. The `TaskManager` cancels its `CancellationToken`, signalling all tasks.
+2. The Raft cleanup task's `cleanup()` method runs:
+   a. If the node is a voter, it removes itself from the voter set.
+   b. If the node is the leader, it transfers leadership to another node before stepping down.
 3. The node completes in-flight requests and shuts down.
+4. `TaskManager::wait()` returns once all tasks (including Raft cleanup) have completed.
 
-This prevents unnecessary leader elections and minimizes disruption.
+This prevents unnecessary leader elections and minimizes disruption. Because it uses the `TaskManager`/`Task` pattern already established in the codebase, panics in any thread trigger the same orderly shutdown.
 
 ### Failure and Recovery
 
@@ -742,14 +781,15 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 
 **What this includes:**
 
+- **ClusterInfo query**: Add a `ClusterInfo` query to the public service that returns all cluster members with their public addresses, roles, term, and commit index. This is the single source of cluster health for clients and monitoring. Returns a single-entry response for standalone nodes.
 - **Auto-join completion**: When `--cluster-join` is specified, the node automatically completes the full join flow (add as learner → receive snapshot → promote to voter once caught up).
 - **Graceful shutdown**: On SIGTERM, if the node is a voter, remove itself from the voter set. If it's the leader, transfer leadership first. Complete in-flight requests before shutting down.
-- **Cluster health in InfoServer**: Add cluster role (leader/follower/learner), current term, commit index, and leader address to the `InfoServer` response. This gives clients and monitoring tools visibility into cluster state without using the admin API.
 
 **Testing**:
 
 - Integration test: start 3-node cluster, gracefully shut down one node, verify remaining 2 maintain quorum.
 - Integration test: auto-join a 4th node, verify it receives data and begins replicating.
+- Integration test: call `ClusterInfo` from a client, verify it returns all 3 nodes with correct roles, terms, and commit indices.
 
 ---
 
@@ -824,11 +864,15 @@ Integration tests start actual server processes and exercise the full gRPC path:
 
 By default, most reads are served locally by any node (eventual consistency) and only `ListStores` is forwarded to the leader (linearizable). A future improvement could allow clients to override consistency per-request via a gRPC metadata header (e.g., `x-ahnlich-consistency: linearizable`) to force any read to go through the leader when strict consistency is needed.
 
-### Client SDK Node Load Balancing (Future)
+### SmartClient: SDK-Side Routing (Future) {#smart-client-future}
 
-Currently clients connect to a single node. A future improvement could add the ability for clients to connect to more than one node:
+`ClusterInfo` provides the raw topology data for clients to build their own routing. A future `SmartClient` wrapper in the SDK would provide this out of the box:
 
-- Load-balance reads across followers (with eventual consistency).
+- **Seed-based discovery**: User provides one node address, `SmartClient` calls `ClusterInfo` to discover all members and connect to each.
+- **Write-to-leader routing**: Send writes directly to the leader, skipping the forwarding hop for lower latency.
+- **Read distribution**: Spread reads across followers for horizontal scaling.
+- **Background topology refresh**: Periodically poll `ClusterInfo` to track leadership changes and membership updates.
+- **Graceful fallback**: If the topology view is stale, server-side leader forwarding still works — `SmartClient` is an optimization, not a requirement.
 
 ### Persistence Rework (Future)
 
