@@ -698,7 +698,8 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 - **`replication/src/admin.rs`**: `ClusterAdminService` implementation (add_learner, change_membership, remove, metrics, leader, snapshot).
 - **`replication/proto/raft_internal.proto`**: Raft-internal RPCs with binary payload wrappers.
 - **`replication/proto/cluster_admin.proto`**: Cluster admin operations with `NodeInfo` structure.
-- Proto codegen wiring within the replication crate's build system (these are internal protos, not public client protos).
+- **`replication/build.rs`**: Proto codegen wiring within the replication crate's build system (these are internal protos, not public client protos).
+- **`replication/src/cluster_info.rs`**: A function that takes a Raft handle and returns `Vec<ClusterNode>` with each node's address, role, term, and commit index. Wired into DB in Milestone 2 and AI in Milestone 4.
 - **Shared serialization functions** (`utils/src/snapshot.rs`): `serialize_snapshot()` and `deserialize_snapshot()` using `serde_json`. These are the single source of truth for the serialization format, used by both Raft snapshots and standalone persistence.
 
 **What this does NOT include**: Any changes to DB or AI server behavior. The crate is a library only.
@@ -706,7 +707,7 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 **Testing**:
 
 - Unit tests for config parsing, type serialization/deserialization, storage operations.
-- Unit tests for shared serialization functions: round-trip for both `StoreHandler` and `AIStoreHandler` snapshot types.
+- Unit tests for shared serialization functions: round-trip with representative test structs (the actual `StoreHandler` and `AIStoreHandler` types live in higher-level crates; round-trip tests with those types belong in Milestones 2 and 4).
 
 ---
 
@@ -717,16 +718,19 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 **What this includes:**
 
 - **Shared mutation functions** (`db/src/engine/mutations.rs` or equivalent): One function per DB mutation that takes the decoded proto message and the `StoreHandler`, executes the mutation, and returns the result. Both the gRPC handler and the Raft state machine call these functions.
-- **DB state machine** (`db/src/replication/mod.rs`): Implements openraft's `StateMachineStore` trait. Applies log entries by decoding the proto payload and calling the shared mutation function. Supports snapshot build/install.
+- **DB state machine** (`db/src/replication/mod.rs`): Implements openraft's `StateMachineStore` trait. Applies log entries by decoding the proto payload and calling the shared mutation function. Snapshot build/install uses the shared serialization functions from Milestone 1.
 - **DB server changes** (`db/src/server/handler.rs`): In cluster mode, mutation gRPC handlers encode the request and submit via `raft.client_write()`. Most read handlers serve from local state. `ListStores` calls `ensure_linearizable()` and is forwarded to leader if on a follower (forwarding added in Milestone 3; until then, `ListStores` on followers returns an error).
+- **ClusterInfo query**: Wire the shared `ClusterInfo` handler from the replication crate into DB's public service.
 - **CLI flags** (`db/src/cli/server.rs`): All cluster flags from the Configuration section.
 - **Server startup** (`db/src/server/handler.rs`): Conditionally create Raft node, start cluster service, handle `--cluster-join` / `--cluster-bootstrap` flow.
 
 **Testing**:
 
+- Unit test for shared serialization round-trip with actual `StoreHandler` snapshot type.
 - Unit tests for DB state machine apply/snapshot/restore.
 - Integration test: single-node cluster performing all CRUD operations.
 - Integration test: 3-node cluster with basic replication verification.
+- Integration test: call `ClusterInfo` on a 3-node cluster, verify it returns all 3 nodes with correct roles, terms, and commit indices.
 
 ---
 
@@ -755,16 +759,19 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 **What this includes:**
 
 - **Shared mutation functions** for AI's CreateStore, DropStore, PurgeStores.
-- **AI state machine** (`ai/src/replication/mod.rs`): Applies only 3 AI commands. Other mutations flow through `db_client` to the DB cluster (leader forwarding from Milestone 3 ensures this works regardless of which DB node the `db_client` connects to).
+- **AI state machine** (`ai/src/replication/mod.rs`): Implements openraft's `StateMachineStore` trait. Applies log entries by decoding the proto payload and calling the shared mutation function. Only 3 AI commands (CreateStore, DropStore, PurgeStores) are replicated — other mutations flow through `db_client` to the DB cluster (leader forwarding from Milestone 3 ensures this works regardless of which DB node the `db_client` connects to). Snapshot build/install uses the shared serialization functions from Milestone 1.
 - **AI server changes** (`ai/src/server/handler.rs`): CreateStore, DropStore, PurgeStores routed through Raft when clustered.
+- **ClusterInfo query**: Wire the shared `ClusterInfo` handler into AI's public service.
 - **CLI flags** (`ai/src/cli/server.rs`): Same cluster flags as DB.
 - **Server startup**: Same 2-service-surface pattern as DB.
 
 **Testing**:
 
+- Unit test for shared serialization round-trip with actual `AIStoreHandler` snapshot type.
 - Unit tests for AI state machine apply/snapshot/restore.
 - Integration test: single-node AI cluster performing all CRUD operations.
 - Integration test: 3-node cluster with basic replication verification.
+- Integration test: call `ClusterInfo` on a 3-node AI cluster, verify it returns all 3 nodes with correct roles, terms, and commit indices.
 
 ---
 
@@ -797,8 +804,7 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 
 **Testing**:
 
-- Integration test: start a 3-node cluster, write data, kill and restart one node, verify data is restored from Raft.
-- Integration test: verify standalone mode persistence behavior is unchanged after the refactor.
+- Integration test: start a standalone node with persistence enabled, write data, restart, verify data is restored (standalone persistence still works after refactor).
 - Integration test: start a cluster with `--enable-persistence`, verify persistence task is not spawned and a log message is emitted.
 
 ---
@@ -809,7 +815,6 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 
 **What this includes:**
 
-- **ClusterInfo query**: Add a `ClusterInfo` query to the public service that returns all cluster members with their public addresses, roles, term, and commit index. This is the single source of cluster health for clients and monitoring. Returns a single-entry response for standalone nodes.
 - **Auto-join completion**: When `--cluster-join` is specified, the node automatically completes the full join flow (add as learner → receive snapshot → promote to voter once caught up).
 - **Graceful shutdown**: Implement Raft cleanup as a `Task` with a `cleanup()` method (see [Graceful Shutdown](#graceful-shutdown)). On any shutdown trigger, remove from voter set and transfer leadership if leader.
 
@@ -817,7 +822,6 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 
 - Integration test: start 3-node cluster, gracefully shut down one node, verify remaining 2 maintain quorum.
 - Integration test: auto-join a 4th node, verify it receives data and begins replicating.
-- Integration test: call `ClusterInfo` from a client, verify it returns all 3 nodes with correct roles, terms, and commit indices.
 
 ---
 
@@ -876,6 +880,7 @@ Integration tests start actual server processes and exercise the full gRPC path:
 | Node join with snapshot      | New node receives full state and begins replicating                  |
 | Graceful shutdown            | Remaining nodes maintain quorum without unnecessary election         |
 | Restart with rocksdb         | Node recovers state from persisted Raft log/snapshots                |
+| ClusterInfo query            | Returns correct topology for clustered and standalone nodes          |
 
 ### CI Considerations
 
