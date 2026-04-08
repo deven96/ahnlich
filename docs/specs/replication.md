@@ -498,7 +498,7 @@ Our state machine snapshot captures the full in-memory state:
 **Snapshot creation:**
 
 1. openraft calls `build_snapshot()`
-2. State machine serializes `StoreHandler`/`AIStoreHandler` state to bytes
+2. State machine serializes `StoreHandler`/`AIStoreHandler` state via shared serialization functions (see [Persistence Interaction](#persistence-interaction))
 3. Snapshot is persisted to the storage backend (see [Raft Log and State Machine Storage](#raft-log-and-state-machine-storage))
 4. Log entries before the snapshot can be purged
 
@@ -546,16 +546,42 @@ Both backends implement the same trait interface:
 
 ### Persistence Interaction
 
-Ahnlich has an existing standalone persistence mechanism (`utils::Persistence`) that periodically serializes the in-memory stores to a JSON file on disk. Importantly, `Persistence` is a **read-only observer**: it holds an `Arc` reference to the same store data that the `StoreHandler` uses, and periodically serializes it via `serde_json::to_writer`. It never writes back to the stores. This means there is no inherent conflict between `Persistence` and Raft — they do not compete for writes.
+Ahnlich has an existing standalone persistence mechanism (`utils::Persistence`) that periodically serializes the in-memory stores to a JSON file on disk via `serde_json`. In cluster mode, `utils::Persistence` is **disabled** — Raft snapshots and log replication handle all persistence. In standalone mode, persistence continues to work as before.
 
-In cluster mode, Raft's state machine is the authority for mutations (all writes go through Raft log → apply). `Persistence`, if left enabled, would simply observe the resulting in-memory state and snapshot it to disk independently, the same way it does in standalone mode.
+**Shared serialization layer**: Both Raft snapshots and standalone persistence use the same serialization/deserialization functions:
 
-- **In standalone mode** (no `--cluster-addr`): Standalone persistence operates as before (unchanged behavior).
-- **In cluster mode** (`--cluster-addr` provided): Raft log replication and Raft snapshots are the primary mechanisms for data consistency and recovery across nodes. `Persistence` can optionally remain active as a local backup.
+```rust
+// utils/src/snapshot.rs (conceptual)
 
-**On startup in cluster mode**: Raft reconciliation (snapshot install from leader + log replay) is authoritative. If `Persistence` is enabled, the local JSON snapshot could be loaded first as a "warm start" to reduce the amount of data the leader needs to transfer, with Raft then reconciling any differences on top. Alternatively, the local snapshot can be ignored entirely and the node can bootstrap purely from the Raft cluster.
+/// Serialize a store snapshot to bytes.
+pub fn serialize_snapshot<T: Serialize>(state: &T) -> Result<Vec<u8>, SnapshotError> {
+    serde_json::to_vec(state).map_err(SnapshotError::from)
+}
 
-> **Open question for the team**: Should we leave `Persistence` enabled in cluster mode as a local backup/warm-start mechanism, or disable it to keep the durability path simple (Raft-only)? From what I can tell, there is no technical conflict either way — this is a question of operational preference.
+/// Deserialize a store snapshot from bytes.
+pub fn deserialize_snapshot<T: DeserializeOwned>(data: &[u8]) -> Result<T, SnapshotError> {
+    serde_json::from_slice(data).map_err(SnapshotError::from)
+}
+```
+
+This means the serialization format is decided in exactly one place. If the format changes in the future, it changes for both paths.
+
+**How cluster mode disables persistence**: The `Persistence` task is only spawned when `--enable-persistence` is set and `--cluster-addr` is absent. When cluster flags are present, the persistence task is skipped and a log message indicates that Raft handles persistence:
+
+```rust
+// In server startup (utils/src/server.rs, conceptual)
+if let Some(persist_location) = self.config().persist_location {
+    if self.config().cluster_addr.is_some() {
+        log::info!("Cluster mode enabled — skipping standalone persistence (Raft handles persistence)");
+    } else {
+        let persistence_task = Persistence::task(...);
+        task_manager.spawn_task_loop(persistence_task).await;
+    }
+}
+```
+
+- **Standalone mode** (no `--cluster-addr`): `utils::Persistence` operates as before, refactored to call `serialize_snapshot()` instead of `serde_json::to_writer` directly.
+- **Cluster mode** (`--cluster-addr` provided): Raft log replication and Raft snapshots are the sole persistence mechanism. `utils::Persistence` is not spawned.
 
 ---
 
@@ -673,12 +699,14 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 - **`replication/proto/raft_internal.proto`**: Raft-internal RPCs with binary payload wrappers.
 - **`replication/proto/cluster_admin.proto`**: Cluster admin operations with `NodeInfo` structure.
 - Proto codegen wiring within the replication crate's build system (these are internal protos, not public client protos).
+- **Shared serialization functions** (`utils/src/snapshot.rs`): `serialize_snapshot()` and `deserialize_snapshot()` using `serde_json`. These are the single source of truth for the serialization format, used by both Raft snapshots and standalone persistence.
 
 **What this does NOT include**: Any changes to DB or AI server behavior. The crate is a library only.
 
 **Testing**:
 
 - Unit tests for config parsing, type serialization/deserialization, storage operations.
+- Unit tests for shared serialization functions: round-trip for both `StoreHandler` and `AIStoreHandler` snapshot types.
 
 ---
 
@@ -758,20 +786,20 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 
 ---
 
-### Milestone 6: Persistence Behavior in Cluster Mode
+### Milestone 6: Persistence in Cluster Mode
 
-**Goal**: Formalize the interaction between standalone persistence and Raft.
+**Goal**: Refactor standalone persistence to use shared serialization functions and disable `utils::Persistence` in cluster mode.
 
 **What this includes:**
 
-- Decide whether `Persistence` remains active in cluster mode (see open question in Storage section).
-- If active: Raft is authoritative, `Persistence` acts as local backup. On startup, optionally load local snapshot as warm-start, then let Raft reconcile.
-- If disabled: skip spawning `Persistence` in cluster mode. Raft snapshot/log storage is the sole durability mechanism.
+- **Refactor `utils::Persistence`**: Replace direct `serde_json::to_writer` / `serde_json::from_reader` calls with the shared serialization functions from Milestone 1. Standalone behavior is unchanged.
+- **Disable persistence in cluster mode**: Skip spawning the `Persistence` task when `--cluster-addr` is present. Log a message indicating Raft handles persistence.
 
 **Testing**:
 
-- Integration test: start a 3-node cluster, write data, kill and restart one node, verify data is restored from Raft (not from a persistence file).
-- Integration test: verify standalone mode persistence behavior is unchanged.
+- Integration test: start a 3-node cluster, write data, kill and restart one node, verify data is restored from Raft.
+- Integration test: verify standalone mode persistence behavior is unchanged after the refactor.
+- Integration test: start a cluster with `--enable-persistence`, verify persistence task is not spawned and a log message is emitted.
 
 ---
 
@@ -783,7 +811,7 @@ Each milestone is an independently mergeable PR that produces a working, testabl
 
 - **ClusterInfo query**: Add a `ClusterInfo` query to the public service that returns all cluster members with their public addresses, roles, term, and commit index. This is the single source of cluster health for clients and monitoring. Returns a single-entry response for standalone nodes.
 - **Auto-join completion**: When `--cluster-join` is specified, the node automatically completes the full join flow (add as learner → receive snapshot → promote to voter once caught up).
-- **Graceful shutdown**: On SIGTERM, if the node is a voter, remove itself from the voter set. If it's the leader, transfer leadership first. Complete in-flight requests before shutting down.
+- **Graceful shutdown**: Implement Raft cleanup as a `Task` with a `cleanup()` method (see [Graceful Shutdown](#graceful-shutdown)). On any shutdown trigger, remove from voter set and transfer leadership if leader.
 
 **Testing**:
 
@@ -874,13 +902,9 @@ By default, most reads are served locally by any node (eventual consistency) and
 - **Background topology refresh**: Periodically poll `ClusterInfo` to track leadership changes and membership updates.
 - **Graceful fallback**: If the topology view is stale, server-side leader forwarding still works — `SmartClient` is an optimization, not a requirement.
 
-### Persistence Rework (Future)
+### Standalone-to-Cluster Migration (Future)
 
-After the cluster implementation is complete, revisit the standalone persistence mechanism to:
-
-- Potentially allow bootstrapping a new cluster from a standalone node's persistence snapshot.
-- Potentially use standalone persistence as a secondary backup mechanism alongside Raft snapshots.
-- Define clear migration paths between standalone and clustered modes.
+- Allow bootstrapping a new cluster from a standalone node's existing persistence snapshot, avoiding a cold start when transitioning from standalone to clustered deployment.
 
 ### Sharding (Future)
 
