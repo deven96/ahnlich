@@ -22,6 +22,7 @@ use task_manager::BlockingTask;
 use task_manager::TaskManager;
 
 use tokio_util::sync::CancellationToken;
+#[cfg(not(feature = "dhat-heap"))]
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::auth::{AuthConfig, AuthInterceptor, load_tls_config};
 use utils::connection_layer::trace_with_parent;

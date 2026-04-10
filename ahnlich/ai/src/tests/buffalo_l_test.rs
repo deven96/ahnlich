@@ -1224,3 +1224,582 @@ fn extract_float_from_metadata(metadata: &MetadataValue) -> f32 {
         panic!("Expected RawString metadata value");
     }
 }
+
+fn extract_i32_from_metadata(metadata: &MetadataValue) -> i32 {
+    if let Some(metadata_value::Value::RawString(s)) = &metadata.value {
+        s.parse::<i32>()
+            .unwrap_or_else(|_| panic!("Failed to parse i32 from: {}", s))
+    } else {
+        panic!("Expected RawString metadata value");
+    }
+}
+
+#[tokio::test]
+async fn test_buffalo_l_gender_age_metadata() {
+    // Scenario: Verify that Buffalo_L returns gender/age attributes metadata
+    // for each detected face with valid format (probabilities in [0,1], sum to 1.0, etc.).
+    // Uses single_face.jpg (Jennifer Aniston) as test input.
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_gender_age_test".to_string();
+    let image_bytes = include_bytes!("../../test_data/single_face.jpg").to_vec();
+
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![
+            ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store_name.clone(),
+                    query_model: AiModel::BuffaloL.into(),
+                    index_model: AiModel::BuffaloL.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    store_original: false,
+                })),
+            },
+            ai_pipeline::AiQuery {
+                query: Some(Query::Set(ai_query_types::Set {
+                    store: store_name.clone(),
+                    inputs: vec![AiStoreEntry {
+                        key: Some(StoreInput {
+                            value: Some(Value::Image(image_bytes.clone())),
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::new(),
+                        }),
+                    }],
+                    preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                    execution_provider: None,
+                    model_params: HashMap::new(),
+                })),
+            },
+        ],
+    };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+    assert_eq!(responses.len(), 2);
+
+    // Query to retrieve the stored faces with metadata
+    let get_response = client
+        .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            store: store_name.clone(),
+            search_input: Some(StoreInput {
+                value: Some(Value::Image(image_bytes)),
+            }),
+            condition: None,
+            closest_n: 10,
+            algorithm: Algorithm::CosineSimilarity.into(),
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: HashMap::new(),
+        }))
+        .await
+        .expect("GetSimN failed")
+        .into_inner();
+
+    assert!(
+        !get_response.entries.is_empty(),
+        "Should have at least one stored face"
+    );
+
+    // Verify gender/age metadata for each face
+    let mut found_attrs_count = 0;
+    for entry in &get_response.entries {
+        if let Some(value) = &entry.value {
+            // Check for gender/age attributes
+            if let (Some(gender_female), Some(gender_male), Some(age)) = (
+                value.value.get("gender_female_prob"),
+                value.value.get("gender_male_prob"),
+                value.value.get("age"),
+            ) {
+                found_attrs_count += 1;
+
+                // Extract and verify gender probabilities
+                let female_prob = extract_float_from_metadata(gender_female);
+                let male_prob = extract_float_from_metadata(gender_male);
+
+                assert!(
+                    (0.0..=1.0).contains(&female_prob),
+                    "gender_female_prob should be in range [0,1], got: {}",
+                    female_prob
+                );
+                assert!(
+                    (0.0..=1.0).contains(&male_prob),
+                    "gender_male_prob should be in range [0,1], got: {}",
+                    male_prob
+                );
+
+                // Probabilities should sum to ~1.0 (allow small float error)
+                let sum = female_prob + male_prob;
+                assert!(
+                    (sum - 1.0).abs() < 0.01,
+                    "Gender probabilities should sum to 1.0, got: {}",
+                    sum
+                );
+
+                // Sanity check: At least one gender should be > 0.3 (not completely uncertain)
+                assert!(
+                    female_prob > 0.3 || male_prob > 0.3,
+                    "Model should have some gender confidence, got F:{} M:{}",
+                    female_prob,
+                    male_prob
+                );
+
+                // Extract and verify age
+                let age_val = extract_i32_from_metadata(age);
+                assert!(
+                    age_val >= 0 && age_val <= 120,
+                    "Age should be reasonable, got: {}",
+                    age_val
+                );
+
+                // Sanity check: Age should be realistic for a typical photo
+                assert!(
+                    age_val >= 5 && age_val <= 100,
+                    "Age should be realistic for a human face photo, got: {}",
+                    age_val
+                );
+
+                println!(
+                    "✓ Face attributes: gender=(F:{:.3}, M:{:.3}), age={}",
+                    female_prob, male_prob, age_val
+                );
+            }
+        }
+    }
+
+    assert_eq!(
+        found_attrs_count,
+        get_response.entries.len(),
+        "All faces should have gender/age attribute metadata"
+    );
+    println!(
+        "✓ Successfully verified {} faces with gender/age attributes",
+        found_attrs_count
+    );
+}
+
+#[tokio::test]
+async fn test_buffalo_l_gender_age_multi_face() {
+    // Semantic validation test: Verifies actual gender/age predictions on known test image.
+    // Uses faces_multiple.jpg (Friends cast: 3M, 3F expected, model achieves ~83% accuracy)
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_multi_face_test".to_string();
+    let image_bytes = include_bytes!("../../test_data/faces_multiple.jpg").to_vec();
+    let query_bytes = include_bytes!("../../test_data/single_face.jpg").to_vec();
+
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![
+            ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store_name.clone(),
+                    query_model: AiModel::BuffaloL.into(),
+                    index_model: AiModel::BuffaloL.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    store_original: false,
+                })),
+            },
+            ai_pipeline::AiQuery {
+                query: Some(Query::Set(ai_query_types::Set {
+                    store: store_name.clone(),
+                    inputs: vec![AiStoreEntry {
+                        key: Some(StoreInput {
+                            value: Some(Value::Image(image_bytes)),
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::new(),
+                        }),
+                    }],
+                    preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                    execution_provider: None,
+                    model_params: HashMap::new(),
+                })),
+            },
+        ],
+    };
+
+    client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    // Query to retrieve all stored faces with metadata
+    let get_response = client
+        .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            store: store_name.clone(),
+            search_input: Some(StoreInput {
+                value: Some(Value::Image(query_bytes)),
+            }),
+            condition: None,
+            closest_n: 10,
+            algorithm: Algorithm::CosineSimilarity.into(),
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: HashMap::new(),
+        }))
+        .await
+        .expect("GetSimN failed")
+        .into_inner();
+
+    // Should detect 6-7 faces (sometimes detects duplicate)
+    assert!(
+        get_response.entries.len() >= 6,
+        "Should detect at least 6 faces, got {}",
+        get_response.entries.len()
+    );
+
+    println!("\nBuffaloL Gender/Age Predictions:");
+    println!("================================");
+
+    let mut male_count = 0;
+    let mut female_count = 0;
+    let mut ages = Vec::new();
+
+    for (idx, entry) in get_response.entries.iter().enumerate() {
+        if let Some(value) = &entry.value {
+            if let (Some(gender_female), Some(gender_male), Some(age)) = (
+                value.value.get("gender_female_prob"),
+                value.value.get("gender_male_prob"),
+                value.value.get("age"),
+            ) {
+                let female_prob = extract_float_from_metadata(gender_female);
+                let male_prob = extract_float_from_metadata(gender_male);
+                let age_val = extract_i32_from_metadata(age);
+
+                // Verify probabilities are valid and sum to ~1.0
+                assert!(
+                    female_prob >= 0.0 && female_prob <= 1.0,
+                    "Female probability should be in [0,1], got {}",
+                    female_prob
+                );
+                assert!(
+                    male_prob >= 0.0 && male_prob <= 1.0,
+                    "Male probability should be in [0,1], got {}",
+                    male_prob
+                );
+                let prob_sum = female_prob + male_prob;
+                assert!(
+                    (prob_sum - 1.0).abs() < 0.01,
+                    "Gender probabilities should sum to ~1.0, got {}",
+                    prob_sum
+                );
+
+                // Verify age is reasonable for adults
+                assert!(
+                    age_val >= 18 && age_val <= 100,
+                    "Age should be reasonable (18-100), got {}",
+                    age_val
+                );
+
+                ages.push(age_val);
+
+                let predicted_gender = if female_prob > male_prob {
+                    female_count += 1;
+                    "Female"
+                } else {
+                    male_count += 1;
+                    "Male"
+                };
+                let confidence = if female_prob > male_prob {
+                    female_prob
+                } else {
+                    male_prob
+                };
+
+                println!(
+                    "Face {}: {} ({:.1}% confident), Age: {}",
+                    idx + 1,
+                    predicted_gender,
+                    confidence * 100.0,
+                    age_val
+                );
+            }
+        }
+    }
+
+    // Verify gender distribution: Friends cast has 3M, 3F
+    // Model achieves ~83% accuracy, so we expect at least 2 of each gender
+    assert!(
+        male_count >= 2,
+        "Should predict at least 2 males (got {}), actual distribution: {}M, {}F",
+        male_count,
+        male_count,
+        female_count
+    );
+    assert!(
+        female_count >= 2,
+        "Should predict at least 2 females (got {}), actual distribution: {}M, {}F",
+        female_count,
+        male_count,
+        female_count
+    );
+
+    // Verify we got gender predictions for all detected faces
+    assert_eq!(
+        male_count + female_count,
+        get_response.entries.len(),
+        "All faces should have gender predictions"
+    );
+
+    println!(
+        "\n✓ Gender distribution: {} males, {} females",
+        male_count, female_count
+    );
+    println!(
+        "✓ Age range: {}-{}",
+        ages.iter().min().unwrap(),
+        ages.iter().max().unwrap()
+    );
+}
+
+#[tokio::test]
+#[ignore] // Run manually with: cargo test test_buffalo_l_visualize_attributes -- --ignored --nocapture
+async fn test_buffalo_l_visualize_attributes() {
+    // Visual verification test: Draws bboxes, keypoints, and gender/age on test image
+    // Output saved to: /tmp/buffalo_l_attributes_debug.jpg
+    use image::Rgba;
+
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_visualize".to_string();
+    let image_bytes = include_bytes!("../../test_data/faces_multiple.jpg").to_vec();
+    let query_bytes = include_bytes!("../../test_data/single_face.jpg").to_vec();
+
+    // Load original image for drawing
+    let img = image::load_from_memory(&image_bytes).expect("Failed to load image");
+    let mut output_img = img.to_rgba8();
+    let (img_width, img_height) = output_img.dimensions();
+    eprintln!(
+        "DEBUG: Original image dimensions: {}x{}",
+        img_width, img_height
+    );
+
+    // Index the image
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![
+            ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store_name.clone(),
+                    query_model: AiModel::BuffaloL.into(),
+                    index_model: AiModel::BuffaloL.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    store_original: false,
+                })),
+            },
+            ai_pipeline::AiQuery {
+                query: Some(Query::Set(ai_query_types::Set {
+                    store: store_name.clone(),
+                    inputs: vec![AiStoreEntry {
+                        key: Some(StoreInput {
+                            value: Some(Value::Image(image_bytes.clone())),
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::new(),
+                        }),
+                    }],
+                    preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                    execution_provider: None,
+                    model_params: HashMap::new(),
+                })),
+            },
+        ],
+    };
+
+    client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    // Retrieve all stored faces with metadata
+    let get_response = client
+        .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            store: store_name.clone(),
+            search_input: Some(StoreInput {
+                value: Some(Value::Image(query_bytes)),
+            }),
+            condition: None,
+            closest_n: 20,
+            algorithm: Algorithm::CosineSimilarity.into(),
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: HashMap::new(),
+        }))
+        .await
+        .expect("GetSimN failed")
+        .into_inner();
+
+    println!("Found {} faces", get_response.entries.len());
+
+    // Draw each face
+    for (idx, entry) in get_response.entries.iter().enumerate() {
+        if let Some(value) = &entry.value {
+            // Extract gender/age
+            let female_prob = value
+                .value
+                .get("gender_female_prob")
+                .and_then(|v| {
+                    extract_float_from_metadata(v)
+                        .to_string()
+                        .parse::<f32>()
+                        .ok()
+                })
+                .unwrap_or(0.5);
+            let male_prob = value
+                .value
+                .get("gender_male_prob")
+                .and_then(|v| {
+                    extract_float_from_metadata(v)
+                        .to_string()
+                        .parse::<f32>()
+                        .ok()
+                })
+                .unwrap_or(0.5);
+            let age = value
+                .value
+                .get("age")
+                .and_then(|v| extract_i32_from_metadata(v).to_string().parse::<i32>().ok())
+                .unwrap_or(0);
+
+            let gender_label = if female_prob > male_prob {
+                format!("F({:.0}%)", female_prob * 100.0)
+            } else {
+                format!("M({:.0}%)", male_prob * 100.0)
+            };
+
+            // Extract bbox
+            if let (Some(x1), Some(y1), Some(x2), Some(y2)) = (
+                value.value.get("bbox_x1"),
+                value.value.get("bbox_y1"),
+                value.value.get("bbox_x2"),
+                value.value.get("bbox_y2"),
+            ) {
+                let x1_norm = extract_float_from_metadata(x1);
+                let y1_norm = extract_float_from_metadata(y1);
+                let x2_norm = extract_float_from_metadata(x2);
+                let y2_norm = extract_float_from_metadata(y2);
+
+                // Convert normalized coords to pixels
+                let x1_px = (x1_norm * img_width as f32) as i32;
+                let y1_px = (y1_norm * img_height as f32) as i32;
+                let x2_px = (x2_norm * img_width as f32) as i32;
+                let y2_px = (y2_norm * img_height as f32) as i32;
+
+                // Print bbox coordinates for manual verification
+                println!(
+                    "Face {}: {} Age:{} bbox=({},{}) to ({},{})",
+                    idx, gender_label, age, x1_px, y1_px, x2_px, y2_px
+                );
+
+                // Draw thick bbox (3 pixels wide) in cyan
+                let cyan = Rgba([0, 255, 255, 255]);
+                for thickness in 0..3 {
+                    // Top
+                    for x in (x1_px - thickness)..(x2_px + thickness) {
+                        if x >= 0
+                            && x < img_width as i32
+                            && (y1_px - thickness) >= 0
+                            && (y1_px - thickness) < img_height as i32
+                        {
+                            output_img.put_pixel(x as u32, (y1_px - thickness) as u32, cyan);
+                        }
+                    }
+                    // Bottom
+                    for x in (x1_px - thickness)..(x2_px + thickness) {
+                        if x >= 0
+                            && x < img_width as i32
+                            && (y2_px + thickness) >= 0
+                            && (y2_px + thickness) < img_height as i32
+                        {
+                            output_img.put_pixel(x as u32, (y2_px + thickness) as u32, cyan);
+                        }
+                    }
+                    // Left
+                    for y in (y1_px - thickness)..(y2_px + thickness) {
+                        if (x1_px - thickness) >= 0
+                            && (x1_px - thickness) < img_width as i32
+                            && y >= 0
+                            && y < img_height as i32
+                        {
+                            output_img.put_pixel((x1_px - thickness) as u32, y as u32, cyan);
+                        }
+                    }
+                    // Right
+                    for y in (y1_px - thickness)..(y2_px + thickness) {
+                        if (x2_px + thickness) >= 0
+                            && (x2_px + thickness) < img_width as i32
+                            && y >= 0
+                            && y < img_height as i32
+                        {
+                            output_img.put_pixel((x2_px + thickness) as u32, y as u32, cyan);
+                        }
+                    }
+                }
+
+                // Draw simple text label (manually rendered)
+                // We'll draw a background box and put the label in the console instead
+                let _label = format!("#{}", idx);
+                let label_bg_x = x1_px.max(0);
+                let label_bg_y = (y1_px - 25).max(0);
+
+                // Draw black background rectangle (20x20 pixels)
+                for ty in label_bg_y..(label_bg_y + 20).min(img_height as i32) {
+                    for tx in label_bg_x..(label_bg_x + 40).min(img_width as i32) {
+                        output_img.put_pixel(tx as u32, ty as u32, Rgba([0, 0, 0, 200]));
+                    }
+                }
+
+                // Draw white text "#{idx}" using simple pixel art (just the number)
+                // For simplicity, we'll just put a colored square with the index
+                let index_color = match idx % 7 {
+                    0 => Rgba([255, 0, 0, 255]),     // Red
+                    1 => Rgba([0, 255, 0, 255]),     // Green
+                    2 => Rgba([0, 0, 255, 255]),     // Blue
+                    3 => Rgba([255, 255, 0, 255]),   // Yellow
+                    4 => Rgba([255, 0, 255, 255]),   // Magenta
+                    5 => Rgba([0, 255, 255, 255]),   // Cyan
+                    _ => Rgba([255, 255, 255, 255]), // White
+                };
+
+                for ty in (label_bg_y + 2)..(label_bg_y + 18).min(img_height as i32) {
+                    for tx in (label_bg_x + 2)..(label_bg_x + 18).min(img_width as i32) {
+                        output_img.put_pixel(tx as u32, ty as u32, index_color);
+                    }
+                }
+            }
+        }
+    }
+
+    // Save annotated image
+    output_img
+        .save("/tmp/buffalo_l_attributes_debug.png")
+        .expect("Failed to save image");
+    println!("✓ Saved annotated image to /tmp/buffalo_l_attributes_debug.png");
+    println!("  Review the image to verify:");
+    println!("  - Green boxes around faces");
+    println!("  - Gender and age printed in console above");
+}
