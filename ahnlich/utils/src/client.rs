@@ -15,7 +15,7 @@ pub struct ClientHandler {
 impl ClientHandler {
     pub fn new(maximum_clients: usize) -> Self {
         Self {
-            clients: ConcurrentHashSet::with_capacity(maximum_clients),
+            clients: ConcurrentHashSet::with_capacity(maximum_clients.next_power_of_two()),
             maximum_clients,
         }
     }

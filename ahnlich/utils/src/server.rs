@@ -89,6 +89,9 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
         parallel::init_threadpool(self.config().threadpool_size);
         let task_manager = self.task_manager();
 
+        // install panic hook
+        task_manager.install_panic_hook();
+
         if let Some(persist_location) = self.config().persist_location {
             let persistence_task = Persistence::task(
                 self.write_flag(),
