@@ -1,3 +1,4 @@
+#[cfg(not(feature = "dhat-heap"))]
 use crate::allocator::GLOBAL_ALLOCATOR;
 use crate::client::ClientHandler;
 use crate::parallel;
@@ -66,8 +67,9 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
     /// - Listens for ctrl_c signal to trigger spawned tasks cancellation
     /// - Cancellation triggers clean up of loggers and tracers
     async fn start(self) -> IoResult<()> {
-        let service_name = self.config().service_name;
         let global_allocator_cap = self.config().allocator_size;
+        #[cfg(not(feature = "dhat-heap"))]
+        let service_name = self.config().service_name;
         // WARNING: `set_limit` fails if the global allocator has already allocated memory beyond
         // the size being set, therefore might point to a need to bump up the default
         // `allocator_size`

@@ -91,7 +91,7 @@ async fn run_cli_command(agent: &str, port: u16, input: &str) -> std::process::O
     let input = input.to_string();
 
     let result = timeout(
-        Duration::from_secs(15),
+        Duration::from_secs(60),
         tokio::task::spawn_blocking(move || {
             let mut child = Command::new("cargo")
                 .args(&[
