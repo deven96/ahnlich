@@ -11,6 +11,7 @@ use ahnlich_types::metadata::MetadataValue;
 use hf_hub::api::sync::Api;
 use ndarray::{Array, Axis, Ix2, Ix3, Ix4, s};
 use ort::Session;
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::future::Future;
 use std::mem::size_of;
@@ -29,6 +30,7 @@ use std::pin::Pin;
 pub(crate) struct BuffaloLModel {
     detection_cache: ExecutorWithSessionCache, // RetinaFace model session
     recognition_cache: ExecutorWithSessionCache, // ResNet50 model session
+    genderage_cache: ExecutorWithSessionCache, // Gender/Age model session
     model_batch_size: usize,
     anchors: Vec<Anchor>, // Pre-generated anchor boxes for RetinaFace bbox decoding
 }
@@ -69,6 +71,17 @@ impl BuffaloLModel {
             .try_get_with(InnerAIExecutionProvider::CPU)
             .await?;
 
+        // Load gender/age model
+        let genderage_file = repo
+            .get("genderage/model.onnx")
+            .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?;
+        let genderage_cache = ExecutorWithSessionCache::new(genderage_file, session_profiling);
+        genderage_cache
+            .try_get_with(InnerAIExecutionProvider::CPU)
+            .await?;
+
+        tracing::info!("Loaded gender/age model for BuffaloL");
+
         // Generate anchors for RetinaFace detection model
         // Input size is 640x640, with 3 FPN scales
         let anchors = Self::generate_anchors(640, 640);
@@ -76,6 +89,7 @@ impl BuffaloLModel {
         Ok(Box::new(Self {
             detection_cache: det_cache,
             recognition_cache: rec_cache,
+            genderage_cache,
             model_batch_size: 16,
             anchors,
         }))
@@ -212,32 +226,50 @@ impl BuffaloLModel {
             }
         }
 
-        // Stage 2: Batch recognize all detected faces in one forward pass
-        let embeddings = if all_cropped_faces.is_empty() {
-            Array::zeros((0, 512))
-        } else {
-            // Memory check: Stacking all detected faces into a single batch array
-            // 112×112×3: Face alignment normalizes all faces to this fixed size (ArcFace standard)
-            // + 64: ndarray struct overhead
-            let num_faces = all_cropped_faces.len();
-            let face_pixels = 112 * 112 * 3;
-            let estimated_bytes = num_faces * face_pixels * size_of::<f32>() + 64;
-            utils::allocator::check_memory_available(estimated_bytes)
-                .map_err(|e| AIProxyError::Allocation(e.into()))?;
+        // Stages 2 & 3: Run embedding extraction and gender/age prediction in parallel
+        // Both operations are independent and only depend on Stage 1 (face detection)
+        let exec_prov = execution_provider
+            .map(|ep| ep.into())
+            .unwrap_or(InnerAIExecutionProvider::CPU);
 
-            let faces_batch = ndarray::stack(
-                Axis(0),
-                &all_cropped_faces
-                    .iter()
-                    .map(|f| f.view())
-                    .collect::<Vec<_>>(),
-            )
-            .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+        let (embeddings, gender_age_attrs) = tokio::join!(
+            // Stage 2: Batch recognize all detected faces in one forward pass
+            async {
+                if all_cropped_faces.is_empty() {
+                    Ok(Array::zeros((0, 512)))
+                } else {
+                    // Memory check: Stacking all detected faces into a single batch array
+                    // 112×112×3: Face alignment normalizes all faces to this fixed size (ArcFace standard)
+                    // + 64: ndarray struct overhead
+                    let num_faces = all_cropped_faces.len();
+                    let face_pixels = 112 * 112 * 3;
+                    let estimated_bytes = num_faces * face_pixels * size_of::<f32>() + 64;
+                    utils::allocator::check_memory_available(estimated_bytes)
+                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
 
-            self.recognize_faces(faces_batch, &rec_session)?
-        };
+                    let faces_batch = ndarray::stack(
+                        Axis(0),
+                        &all_cropped_faces
+                            .iter()
+                            .map(|f| f.view())
+                            .collect::<Vec<_>>(),
+                    )
+                    .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
 
-        // Step 3: Map embeddings back to source images with bounding box metadata
+                    self.recognize_faces(faces_batch, &rec_session)
+                }
+            },
+            // Stage 3: Extract gender/age attributes using bbox-based affine transform
+            async {
+                let genderage_session = self.genderage_cache.try_get_with(exec_prov).await?;
+                Self::predict_gender_age(&genderage_session, &images, &all_detections).await
+            }
+        );
+
+        let embeddings = embeddings?;
+        let gender_age_attrs = gender_age_attrs?;
+
+        // Step 4: Map embeddings back to source images with bounding box metadata
         // Memory check: Building ModelResponse for each face embedding
         // 512: ResNet50 embedding dimension (fixed by model architecture)
         // + 64: Vec overhead for StoreKey
@@ -264,6 +296,8 @@ impl BuffaloLModel {
                     .enumerate()
                     .map(|(idx, embedding)| {
                         let detection = &all_detections[embedding_offset + idx];
+                        let (female_prob, male_prob, age) =
+                            gender_age_attrs[embedding_offset + idx];
                         let mut metadata = HashMap::new();
 
                         // Get original image dimensions from model_params (if available)
@@ -337,6 +371,40 @@ impl BuffaloLModel {
                             },
                         );
 
+                        // Gender probabilities
+                        metadata.insert(
+                            "gender_female_prob".to_string(),
+                            MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        female_prob.to_string(),
+                                    ),
+                                ),
+                            },
+                        );
+                        metadata.insert(
+                            "gender_male_prob".to_string(),
+                            MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        male_prob.to_string(),
+                                    ),
+                                ),
+                            },
+                        );
+
+                        // Age
+                        metadata.insert(
+                            "age".to_string(),
+                            MetadataValue {
+                                value: Some(
+                                    ahnlich_types::metadata::metadata_value::Value::RawString(
+                                        age.to_string(),
+                                    ),
+                                ),
+                            },
+                        );
+
                         (
                             StoreKey {
                                 key: embedding.to_vec(),
@@ -353,6 +421,107 @@ impl BuffaloLModel {
 
         Ok(results)
     }
+
+    /// Run gender/age prediction on a batch of aligned face crops
+    ///
+    /// Input: Batch of aligned face images (112x112 from recognition pipeline)
+    /// Output: Vec of (gender_female_prob, gender_male_prob, age) tuples
+    /// Extract gender and age attributes using bbox-based affine transformation.
+    /// Follows InsightFace's approach: scale = input_size / (max(w,h) * 1.5)
+    async fn predict_gender_age(
+        genderage_session: &Session,
+        letterboxed_images: &Array<f32, Ix4>,
+        detections: &[FaceDetection],
+    ) -> Result<Vec<(f32, f32, i32)>, AIProxyError> {
+        if detections.is_empty() {
+            return Ok(vec![]);
+        }
+
+        const INPUT_SIZE: usize = 96;
+        let (_, _, img_h, img_w) = letterboxed_images.dim();
+
+        // Parallelize crop extraction and preprocessing using rayon
+        // This is the CPU-intensive part (resizing, denormalization)
+        let preprocessed_crops: Result<Vec<_>, AIProxyError> = detections
+            .par_iter()
+            .map(|detection| {
+                let bbox = &detection.bbox;
+                let bbox_w = bbox[2] - bbox[0];
+                let bbox_h = bbox[3] - bbox[1];
+                let center_x = (bbox[0] + bbox[2]) / 2.0;
+                let center_y = (bbox[1] + bbox[3]) / 2.0;
+
+                let scale = INPUT_SIZE as f32 / (bbox_w.max(bbox_h) * 1.5);
+                let src_size = INPUT_SIZE as f32 / scale;
+
+                let src_x1 = ((center_x - src_size / 2.0).max(0.0) as usize).min(img_w);
+                let src_y1 = ((center_y - src_size / 2.0).max(0.0) as usize).min(img_h);
+                let src_x2 = ((src_x1 as f32 + src_size).min(img_w as f32) as usize).min(img_w);
+                let src_y2 = ((src_y1 as f32 + src_size).min(img_h as f32) as usize).min(img_h);
+
+                let crop_w = (src_x2 - src_x1).max(1);
+                let crop_h = (src_y2 - src_y1).max(1);
+
+                // Extract and resize crop to 96x96
+                let cropped = letterboxed_images
+                    .slice(s![0, .., src_y1..src_y2, src_x1..src_x2])
+                    .to_owned();
+                let mut resized = Array::zeros((3, INPUT_SIZE, INPUT_SIZE));
+
+                for (y, x) in (0..INPUT_SIZE).flat_map(|y| (0..INPUT_SIZE).map(move |x| (y, x))) {
+                    let src_y = ((y as f32 * crop_h as f32 / INPUT_SIZE as f32).floor() as usize)
+                        .min(crop_h - 1);
+                    let src_x = ((x as f32 * crop_w as f32 / INPUT_SIZE as f32).floor() as usize)
+                        .min(crop_w - 1);
+                    for c in 0..3 {
+                        resized[[c, y, x]] = cropped[[c, src_y, src_x]];
+                    }
+                }
+
+                // Denormalize [-1,1] -> [0,255] (model expects raw pixels)
+                Ok(resized.mapv(|v| (v + 1.0) * 127.5).insert_axis(Axis(0)))
+            })
+            .collect();
+
+        let preprocessed_crops = preprocessed_crops?;
+
+        // Run inference sequentially (ONNX sessions are not thread-safe)
+        let mut results = Vec::with_capacity(detections.len());
+        for input in preprocessed_crops.into_iter() {
+            let outputs =
+                genderage_session
+                    .run(ort::inputs!["data" => input.view()].map_err(|e| {
+                        AIProxyError::ModelProviderPreprocessingError(e.to_string())
+                    })?)
+                    .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
+
+            let combined = outputs[0]
+                .try_extract_tensor::<f32>()
+                .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+
+            if combined.shape() != [1, 3] {
+                return Err(AIProxyError::ModelProviderPostprocessingError(format!(
+                    "Expected output shape [1, 3], got {:?}",
+                    combined.shape()
+                )));
+            }
+
+            let female_logit = combined.view()[[0, 0]];
+            let male_logit = combined.view()[[0, 1]];
+            let age_raw = combined.view()[[0, 2]];
+
+            let exp_female = female_logit.exp();
+            let exp_male = male_logit.exp();
+            let female_prob = exp_female / (exp_female + exp_male);
+            let male_prob = exp_male / (exp_female + exp_male);
+            let age = (age_raw * 100.0).round() as i32;
+
+            results.push((female_prob, male_prob, age));
+        }
+
+        Ok(results)
+    }
+
     #[tracing::instrument(skip(self, image, session))]
     fn detect_faces(
         &self,
@@ -472,12 +641,19 @@ impl BuffaloLModel {
                 ];
 
                 // Decode landmarks from anchor + deltas
+                // Try treating landmarks as absolute pixel coordinates scaled to bbox
+                let bbox_cx = (bbox[0] + bbox[2]) / 2.0;
+                let bbox_cy = (bbox[1] + bbox[3]) / 2.0;
+                let bbox_w = bbox[2] - bbox[0];
+                let bbox_h = bbox[3] - bbox[1];
+
                 let mut landmarks = [[0.0f32; 2]; 5];
                 for j in 0..5 {
-                    let ldx = landmark_deltas_slice[i * 10 + j * 2] * 0.1;
-                    let ldy = landmark_deltas_slice[i * 10 + j * 2 + 1] * 0.1;
-                    landmarks[j][0] = anchor.x + ldx * anchor.width;
-                    landmarks[j][1] = anchor.y + ldy * anchor.height;
+                    let ldx = landmark_deltas_slice[i * 10 + j * 2];
+                    let ldy = landmark_deltas_slice[i * 10 + j * 2 + 1];
+                    // Landmarks relative to bbox center
+                    landmarks[j][0] = bbox_cx + ldx * bbox_w;
+                    landmarks[j][1] = bbox_cy + ldy * bbox_h;
                 }
 
                 all_detections.push(FaceDetection {
