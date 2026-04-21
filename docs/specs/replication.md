@@ -895,7 +895,7 @@ Integration tests start actual server processes and exercise the full gRPC path:
 
 ### Per-Request Consistency Override (Future)
 
-By default, most reads are served locally by any node (eventual consistency) and only `ListStores` is forwarded to the leader (linearizable). A future improvement could allow clients to override consistency per-request via a gRPC metadata header (e.g., `x-ahnlich-consistency: linearizable`) to force any read to go through the leader when strict consistency is needed.
+By default, most reads are served locally by any node (eventual consistency) and only `ListStores` is forwarded to the leader (linearizable). A future improvement could allow clients to override consistency per-request via a gRPC metadata header (e.g., `x-ahnlich-consistency: linearizable`) to force any request to go through the leader when strict consistency is needed.
 
 ### SmartClient: SDK-Side Routing (Future) {#smart-client-future}
 
