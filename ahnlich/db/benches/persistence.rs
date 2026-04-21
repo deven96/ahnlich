@@ -1,3 +1,4 @@
+// Persistence benchmarks for comparing JSON vs bitcode serialization performance
 use ahnlich_db::engine::store::StoreHandler;
 use ahnlich_types::algorithm::nonlinear::{HnswConfig, non_linear_index};
 use ahnlich_types::keyval::{StoreKey, StoreName, StoreValue};

@@ -36,3 +36,4 @@ profiling.json*
 node_modules/
 .DS_Store
 docs/superpowers/
+.worktrees/
