@@ -191,6 +191,12 @@ impl BuffaloLModel {
         execution_provider: Option<AIExecutionProvider>,
         model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
+        // Parse attributes parameter to check if genderage prediction is requested
+        let should_predict_genderage = model_params
+            .get("attributes")
+            .map(|attrs| attrs.split(',').any(|attr| attr.trim() == "genderage"))
+            .unwrap_or(false);
+
         let exec_prov = execution_provider
             .map(|ep| ep.into())
             .unwrap_or(InnerAIExecutionProvider::CPU);
@@ -232,42 +238,50 @@ impl BuffaloLModel {
             .map(|ep| ep.into())
             .unwrap_or(InnerAIExecutionProvider::CPU);
 
-        let (embeddings, gender_age_attrs) = tokio::join!(
-            // Stage 2: Batch recognize all detected faces in one forward pass
-            async {
-                if all_cropped_faces.is_empty() {
-                    Ok(Array::zeros((0, 512)))
-                } else {
-                    // Memory check: Stacking all detected faces into a single batch array
-                    // 112×112×3: Face alignment normalizes all faces to this fixed size (ArcFace standard)
-                    // + 64: ndarray struct overhead
-                    let num_faces = all_cropped_faces.len();
-                    let face_pixels = 112 * 112 * 3;
-                    let estimated_bytes = num_faces * face_pixels * size_of::<f32>() + 64;
-                    utils::allocator::check_memory_available(estimated_bytes)
-                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
+        // Stage 2: Batch recognize all detected faces in one forward pass
+        let recognize_stage = async {
+            if all_cropped_faces.is_empty() {
+                Ok(Array::zeros((0, 512)))
+            } else {
+                // Memory check: Stacking all detected faces into a single batch array
+                // 112×112×3: Face alignment normalizes all faces to this fixed size (ArcFace standard)
+                // + 64: ndarray struct overhead
+                let num_faces = all_cropped_faces.len();
+                let face_pixels = 112 * 112 * 3;
+                let estimated_bytes = num_faces * face_pixels * size_of::<f32>() + 64;
+                utils::allocator::check_memory_available(estimated_bytes)
+                    .map_err(|e| AIProxyError::Allocation(e.into()))?;
 
-                    let faces_batch = ndarray::stack(
-                        Axis(0),
-                        &all_cropped_faces
-                            .iter()
-                            .map(|f| f.view())
-                            .collect::<Vec<_>>(),
-                    )
-                    .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+                let faces_batch = ndarray::stack(
+                    Axis(0),
+                    &all_cropped_faces
+                        .iter()
+                        .map(|f| f.view())
+                        .collect::<Vec<_>>(),
+                )
+                .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
 
-                    self.recognize_faces(faces_batch, &rec_session)
-                }
-            },
-            // Stage 3: Extract gender/age attributes using bbox-based affine transform
-            async {
+                self.recognize_faces(faces_batch, &rec_session)
+            }
+        };
+
+        // Stage 3: Gender/Age prediction (optional, controlled by attributes parameter)
+        let (embeddings, gender_age_attrs_opt) = if should_predict_genderage {
+            // Run both recognition and genderage stages in parallel
+            let genderage_stage = async {
                 let genderage_session = self.genderage_cache.try_get_with(exec_prov).await?;
                 Self::predict_gender_age(&genderage_session, &images, &all_detections).await
-            }
-        );
+            };
 
-        let embeddings = embeddings?;
-        let gender_age_attrs = gender_age_attrs?;
+            let (emb, gender_age) = tokio::join!(recognize_stage, genderage_stage);
+            (emb?, Some(gender_age?))
+        } else {
+            // Run only recognition stage
+            (recognize_stage.await?, None)
+        };
+
+        let embeddings = embeddings;
+        let gender_age_attrs = gender_age_attrs_opt;
 
         // Step 4: Map embeddings back to source images with bounding box metadata
         // Memory check: Building ModelResponse for each face embedding
@@ -296,8 +310,6 @@ impl BuffaloLModel {
                     .enumerate()
                     .map(|(idx, embedding)| {
                         let detection = &all_detections[embedding_offset + idx];
-                        let (female_prob, male_prob, age) =
-                            gender_age_attrs[embedding_offset + idx];
                         let mut metadata = HashMap::new();
 
                         // Get original image dimensions from model_params (if available)
@@ -371,39 +383,45 @@ impl BuffaloLModel {
                             },
                         );
 
-                        // Gender probabilities
-                        metadata.insert(
-                            "gender_female_prob".to_string(),
-                            MetadataValue {
-                                value: Some(
-                                    ahnlich_types::metadata::metadata_value::Value::RawString(
-                                        female_prob.to_string(),
+                        // Conditionally include gender/age (only when attributes=genderage was requested)
+                        if let Some(ref genderage_vec) = gender_age_attrs
+                            && let Some(&(female_prob, male_prob, age)) =
+                                genderage_vec.get(embedding_offset + idx)
+                        {
+                            // Gender probabilities
+                            metadata.insert(
+                                "gender_female_prob".to_string(),
+                                MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            female_prob.to_string(),
+                                        ),
                                     ),
-                                ),
-                            },
-                        );
-                        metadata.insert(
-                            "gender_male_prob".to_string(),
-                            MetadataValue {
-                                value: Some(
-                                    ahnlich_types::metadata::metadata_value::Value::RawString(
-                                        male_prob.to_string(),
+                                },
+                            );
+                            metadata.insert(
+                                "gender_male_prob".to_string(),
+                                MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            male_prob.to_string(),
+                                        ),
                                     ),
-                                ),
-                            },
-                        );
+                                },
+                            );
 
-                        // Age
-                        metadata.insert(
-                            "age".to_string(),
-                            MetadataValue {
-                                value: Some(
-                                    ahnlich_types::metadata::metadata_value::Value::RawString(
-                                        age.to_string(),
+                            // Age
+                            metadata.insert(
+                                "age".to_string(),
+                                MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            age.to_string(),
+                                        ),
                                     ),
-                                ),
-                            },
-                        );
+                                },
+                            );
+                        }
 
                         (
                             StoreKey {

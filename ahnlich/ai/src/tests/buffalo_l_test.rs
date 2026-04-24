@@ -34,6 +34,14 @@ fn optimized_face_params() -> HashMap<String, String> {
     params
 }
 
+fn genderage_params() -> HashMap<String, String> {
+    let mut params = HashMap::new();
+    params.insert("confidence_threshold".to_string(), "0.7".to_string());
+    params.insert("nms_threshold".to_string(), "0.2".to_string());
+    params.insert("attributes".to_string(), "genderage".to_string());
+    params
+}
+
 static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
 static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
     AIProxyConfig::default()
@@ -1278,7 +1286,7 @@ async fn test_buffalo_l_gender_age_metadata() {
                     }],
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
-                    model_params: HashMap::new(),
+                    model_params: genderage_params(),
                 })),
             },
         ],
@@ -1304,7 +1312,7 @@ async fn test_buffalo_l_gender_age_metadata() {
             algorithm: Algorithm::CosineSimilarity.into(),
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
-            model_params: HashMap::new(),
+            model_params: genderage_params(),
         }))
         .await
         .expect("GetSimN failed")
@@ -1361,14 +1369,14 @@ async fn test_buffalo_l_gender_age_metadata() {
                 // Extract and verify age
                 let age_val = extract_i32_from_metadata(age);
                 assert!(
-                    age_val >= 0 && age_val <= 120,
+                    (0..=120).contains(&age_val),
                     "Age should be reasonable, got: {}",
                     age_val
                 );
 
                 // Sanity check: Age should be realistic for a typical photo
                 assert!(
-                    age_val >= 5 && age_val <= 100,
+                    (5..=100).contains(&age_val),
                     "Age should be realistic for a human face photo, got: {}",
                     age_val
                 );
@@ -1433,7 +1441,7 @@ async fn test_buffalo_l_gender_age_multi_face() {
                     }],
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
-                    model_params: HashMap::new(),
+                    model_params: genderage_params(),
                 })),
             },
         ],
@@ -1456,7 +1464,7 @@ async fn test_buffalo_l_gender_age_multi_face() {
             algorithm: Algorithm::CosineSimilarity.into(),
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
-            model_params: HashMap::new(),
+            model_params: genderage_params(),
         }))
         .await
         .expect("GetSimN failed")
@@ -1477,64 +1485,64 @@ async fn test_buffalo_l_gender_age_multi_face() {
     let mut ages = Vec::new();
 
     for (idx, entry) in get_response.entries.iter().enumerate() {
-        if let Some(value) = &entry.value {
-            if let (Some(gender_female), Some(gender_male), Some(age)) = (
+        if let Some(value) = &entry.value
+            && let (Some(gender_female), Some(gender_male), Some(age)) = (
                 value.value.get("gender_female_prob"),
                 value.value.get("gender_male_prob"),
                 value.value.get("age"),
-            ) {
-                let female_prob = extract_float_from_metadata(gender_female);
-                let male_prob = extract_float_from_metadata(gender_male);
-                let age_val = extract_i32_from_metadata(age);
+            )
+        {
+            let female_prob = extract_float_from_metadata(gender_female);
+            let male_prob = extract_float_from_metadata(gender_male);
+            let age_val = extract_i32_from_metadata(age);
 
-                // Verify probabilities are valid and sum to ~1.0
-                assert!(
-                    female_prob >= 0.0 && female_prob <= 1.0,
-                    "Female probability should be in [0,1], got {}",
-                    female_prob
-                );
-                assert!(
-                    male_prob >= 0.0 && male_prob <= 1.0,
-                    "Male probability should be in [0,1], got {}",
-                    male_prob
-                );
-                let prob_sum = female_prob + male_prob;
-                assert!(
-                    (prob_sum - 1.0).abs() < 0.01,
-                    "Gender probabilities should sum to ~1.0, got {}",
-                    prob_sum
-                );
+            // Verify probabilities are valid and sum to ~1.0
+            assert!(
+                (0.0..=1.0).contains(&female_prob),
+                "Female probability should be in [0,1], got {}",
+                female_prob
+            );
+            assert!(
+                (0.0..=1.0).contains(&male_prob),
+                "Male probability should be in [0,1], got {}",
+                male_prob
+            );
+            let prob_sum = female_prob + male_prob;
+            assert!(
+                (prob_sum - 1.0).abs() < 0.01,
+                "Gender probabilities should sum to ~1.0, got {}",
+                prob_sum
+            );
 
-                // Verify age is reasonable for adults
-                assert!(
-                    age_val >= 18 && age_val <= 100,
-                    "Age should be reasonable (18-100), got {}",
-                    age_val
-                );
+            // Verify age is reasonable for adults
+            assert!(
+                (18..=100).contains(&age_val),
+                "Age should be reasonable (18-100), got {}",
+                age_val
+            );
 
-                ages.push(age_val);
+            ages.push(age_val);
 
-                let predicted_gender = if female_prob > male_prob {
-                    female_count += 1;
-                    "Female"
-                } else {
-                    male_count += 1;
-                    "Male"
-                };
-                let confidence = if female_prob > male_prob {
-                    female_prob
-                } else {
-                    male_prob
-                };
+            let predicted_gender = if female_prob > male_prob {
+                female_count += 1;
+                "Female"
+            } else {
+                male_count += 1;
+                "Male"
+            };
+            let confidence = if female_prob > male_prob {
+                female_prob
+            } else {
+                male_prob
+            };
 
-                println!(
-                    "Face {}: {} ({:.1}% confident), Age: {}",
-                    idx + 1,
-                    predicted_gender,
-                    confidence * 100.0,
-                    age_val
-                );
-            }
+            println!(
+                "Face {}: {} ({:.1}% confident), Age: {}",
+                idx + 1,
+                predicted_gender,
+                confidence * 100.0,
+                age_val
+            );
         }
     }
 
@@ -1805,4 +1813,284 @@ async fn test_buffalo_l_visualize_attributes() {
     println!("  Review the image to verify:");
     println!("  - Green boxes around faces");
     println!("  - Gender and age printed in console above");
+}
+
+#[tokio::test]
+async fn test_buffalo_l_without_genderage() {
+    // Scenario: Verify default behavior when genderage attributes are NOT requested.
+    // Should still detect faces with bbox/confidence but NO gender/age metadata.
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_no_genderage".to_string();
+    let image_bytes = include_bytes!("../../test_data/faces_multiple.jpg").to_vec();
+    let query_bytes = include_bytes!("../../test_data/single_face.jpg").to_vec();
+
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![
+            ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store_name.clone(),
+                    query_model: AiModel::BuffaloL.into(),
+                    index_model: AiModel::BuffaloL.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    store_original: false,
+                })),
+            },
+            ai_pipeline::AiQuery {
+                query: Some(Query::Set(ai_query_types::Set {
+                    store: store_name.clone(),
+                    inputs: vec![AiStoreEntry {
+                        key: Some(StoreInput {
+                            value: Some(Value::Image(image_bytes)),
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::new(),
+                        }),
+                    }],
+                    preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                    execution_provider: None,
+                    model_params: optimized_face_params(), // No attributes=genderage
+                })),
+            },
+        ],
+    };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+    assert_eq!(responses.len(), 2);
+
+    // Query to retrieve the stored faces with metadata
+    let get_response = client
+        .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            store: store_name.clone(),
+            search_input: Some(StoreInput {
+                value: Some(Value::Image(query_bytes)),
+            }),
+            condition: None,
+            closest_n: 10,
+            algorithm: Algorithm::CosineSimilarity.into(),
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: optimized_face_params(), // No attributes=genderage
+        }))
+        .await
+        .expect("GetSimN failed")
+        .into_inner();
+
+    assert!(
+        !get_response.entries.is_empty(),
+        "Should detect at least one face"
+    );
+
+    // Verify first face has bbox/confidence but NO gender/age
+    let first_entry = &get_response.entries[0];
+    let metadata = first_entry
+        .value
+        .as_ref()
+        .expect("Expected value")
+        .value
+        .clone();
+
+    // Verify bbox and confidence ARE present
+    assert!(
+        metadata.contains_key("bbox_x1"),
+        "Should have bbox_x1 without genderage"
+    );
+    assert!(
+        metadata.contains_key("bbox_y1"),
+        "Should have bbox_y1 without genderage"
+    );
+    assert!(
+        metadata.contains_key("bbox_x2"),
+        "Should have bbox_x2 without genderage"
+    );
+    assert!(
+        metadata.contains_key("bbox_y2"),
+        "Should have bbox_y2 without genderage"
+    );
+    assert!(
+        metadata.contains_key("confidence"),
+        "Should have confidence without genderage"
+    );
+
+    // Verify gender/age fields are NOT present
+    assert!(
+        !metadata.contains_key("gender_female_prob"),
+        "Should NOT have gender_female_prob without attributes=genderage"
+    );
+    assert!(
+        !metadata.contains_key("gender_male_prob"),
+        "Should NOT have gender_male_prob without attributes=genderage"
+    );
+    assert!(
+        !metadata.contains_key("age"),
+        "Should NOT have age without attributes=genderage"
+    );
+
+    println!(
+        "✓ Successfully verified face detection without genderage: {} faces detected",
+        get_response.entries.len()
+    );
+    println!("✓ Metadata includes bbox/confidence but NOT gender/age fields");
+}
+
+#[tokio::test]
+async fn test_buffalo_l_genderage_opt_in() {
+    // Scenario: Verify explicit opt-in behavior when genderage attributes ARE requested.
+    // With attributes=genderage, should detect faces with ALL metadata: bbox, confidence, gender, age.
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_with_genderage".to_string();
+    let image_bytes = include_bytes!("../../test_data/single_face.jpg").to_vec();
+
+    let pipeline_request = ai_pipeline::AiRequestPipeline {
+        queries: vec![
+            ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store_name.clone(),
+                    query_model: AiModel::BuffaloL.into(),
+                    index_model: AiModel::BuffaloL.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    store_original: false,
+                })),
+            },
+            ai_pipeline::AiQuery {
+                query: Some(Query::Set(ai_query_types::Set {
+                    store: store_name.clone(),
+                    inputs: vec![AiStoreEntry {
+                        key: Some(StoreInput {
+                            value: Some(Value::Image(image_bytes.clone())),
+                        }),
+                        value: Some(StoreValue {
+                            value: HashMap::new(),
+                        }),
+                    }],
+                    preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                    execution_provider: None,
+                    model_params: genderage_params(), // WITH attributes=genderage
+                })),
+            },
+        ],
+    };
+
+    let response = client
+        .pipeline(tonic::Request::new(pipeline_request))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+    assert_eq!(responses.len(), 2);
+
+    // Query to retrieve the stored faces with metadata
+    let get_response = client
+        .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            store: store_name.clone(),
+            search_input: Some(StoreInput {
+                value: Some(Value::Image(image_bytes)),
+            }),
+            condition: None,
+            closest_n: 10,
+            algorithm: Algorithm::CosineSimilarity.into(),
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: genderage_params(), // WITH attributes=genderage
+        }))
+        .await
+        .expect("GetSimN failed")
+        .into_inner();
+
+    assert!(
+        !get_response.entries.is_empty(),
+        "Should detect at least one face"
+    );
+
+    // Verify first face has ALL metadata fields (bbox + confidence + gender + age)
+    let first_entry = &get_response.entries[0];
+    let metadata = first_entry
+        .value
+        .as_ref()
+        .expect("Expected value")
+        .value
+        .clone();
+
+    // Verify bbox and confidence ARE present
+    assert!(metadata.contains_key("bbox_x1"), "Should have bbox_x1");
+    assert!(metadata.contains_key("bbox_y1"), "Should have bbox_y1");
+    assert!(metadata.contains_key("bbox_x2"), "Should have bbox_x2");
+    assert!(metadata.contains_key("bbox_y2"), "Should have bbox_y2");
+    assert!(
+        metadata.contains_key("confidence"),
+        "Should have confidence"
+    );
+
+    // Verify gender/age fields ARE present with attributes=genderage
+    assert!(
+        metadata.contains_key("gender_female_prob"),
+        "Should have gender_female_prob with attributes=genderage"
+    );
+    assert!(
+        metadata.contains_key("gender_male_prob"),
+        "Should have gender_male_prob with attributes=genderage"
+    );
+    assert!(
+        metadata.contains_key("age"),
+        "Should have age with attributes=genderage"
+    );
+
+    // Verify values are in reasonable ranges
+    let female_prob = extract_float_from_metadata(&metadata["gender_female_prob"]);
+    let male_prob = extract_float_from_metadata(&metadata["gender_male_prob"]);
+    let age = extract_i32_from_metadata(&metadata["age"]);
+
+    assert!(
+        (0.0..=1.0).contains(&female_prob),
+        "Female probability should be 0-1, got {}",
+        female_prob
+    );
+    assert!(
+        (0.0..=1.0).contains(&male_prob),
+        "Male probability should be 0-1, got {}",
+        male_prob
+    );
+    assert!(
+        (0.0..=120.0).contains(&(age as f32)),
+        "Age should be 0-120, got {}",
+        age
+    );
+
+    // Probabilities should sum to ~1.0
+    let prob_sum = female_prob + male_prob;
+    assert!(
+        (0.99..=1.01).contains(&prob_sum),
+        "Gender probabilities should sum to ~1.0, got {}",
+        prob_sum
+    );
+
+    println!(
+        "✓ Successfully verified face detection WITH genderage: {} faces detected",
+        get_response.entries.len()
+    );
+    println!("✓ Metadata includes bbox, confidence, AND gender/age fields");
+    println!(
+        "✓ Values: female={:.3}, male={:.3}, age={}",
+        female_prob, male_prob, age
+    );
 }
