@@ -96,6 +96,7 @@ When `model_params` is empty (or omitted), models use their built-in defaults. M
 | Model | Parameter | Type | Default | Description |
 | ----- | ----- | ----- | ----- | ----- |
 | **Buffalo\_L** | `confidence_threshold` | float (0.0–1.0) | `0.5` | Minimum detection confidence for a face to be included. Higher values = fewer but more confident detections. |
+| **Buffalo\_L** | `attributes` | string (comma-separated) | (empty) | Optional attributes to compute. Use `genderage` to enable age and gender predictions. When omitted, only face embeddings and bounding boxes are computed. |
 | **SFace+YuNet** | `confidence_threshold` | float (0.0–1.0) | `0.6` | Minimum detection confidence for a face to be included. Higher values = fewer but more confident detections. |
 
 Text embedding models (MiniLM, BGE), image models (ResNet, CLIP), and audio models (CLAP) do not currently use `model_params`.
@@ -163,6 +164,14 @@ For each detected face, the following metadata is automatically included:
 | `bbox_x2` | float | 0.0–1.0 | Normalized x-coordinate of bottom-right corner |
 | `bbox_y2` | float | 0.0–1.0 | Normalized y-coordinate of bottom-right corner |
 | `confidence` | float | 0.0–1.0 | Detection confidence score |
+
+**Buffalo\_L only** — the following fields are included when `attributes=genderage` is specified:
+
+| Field | Type | Range | Description |
+| ----- | ----- | ----- | ----- |
+| `gender_female_prob` | float | 0.0–1.0 | Probability of female gender |
+| `gender_male_prob` | float | 0.0–1.0 | Probability of male gender |
+| `age` | float | 0.0–100.0 | Predicted age in years |
 
 **Coordinates are normalized** to the 0-1 range, making them independent of the original image resolution. To convert to pixel coordinates, multiply by the image width/height:
 
@@ -269,6 +278,85 @@ for (const faceData of response.values[0].multiple.embeddings) {
 }
 ```
 
+### Gender and Age Predictions (Buffalo_L)
+
+Buffalo_L can compute **age and gender predictions** for each detected face by setting `attributes=genderage` in `model_params`. This adds three additional metadata fields per face: `gender_female_prob`, `gender_male_prob`, and `age`.
+
+**Rust** — enabling gender and age predictions:
+```rust
+use std::collections::HashMap;
+use ahnlich_client_rs::prelude::*;
+
+let mut model_params = HashMap::new();
+model_params.insert("attributes".to_string(), "genderage".to_string());
+
+let response = client.convert_to_embeddings(
+    store_name,
+    vec![StoreInput::Image(image_bytes)],
+    PreprocessAction::ModelPreprocessing,
+    None,
+    model_params,
+).await?;
+
+// Access gender/age metadata
+if let Some(Variant::Multiple(multi)) = &response.values[0].variant {
+    for face in &multi.embeddings {
+        if let Some(metadata) = &face.metadata {
+            let female_prob = metadata.value.get("gender_female_prob").unwrap();
+            let male_prob = metadata.value.get("gender_male_prob").unwrap();
+            let age = metadata.value.get("age").unwrap();
+            
+            println!("Age: {}, Female: {}, Male: {}", age, female_prob, male_prob);
+        }
+    }
+}
+```
+
+**Python** — enabling gender and age predictions:
+```python
+from ahnlich_client_py import AhnlichAIClient
+
+response = await client.convert_store_input_to_embeddings(
+    store="faces_store",
+    inputs=[image_bytes],
+    preprocess_action=PreprocessAction.ModelPreprocessing,
+    model_params={"attributes": "genderage"}
+)
+
+# Access gender/age metadata
+for face_data in response.values[0].multiple.embeddings:
+    metadata = face_data.metadata.value
+    
+    female_prob = float(metadata["gender_female_prob"].value)
+    male_prob = float(metadata["gender_male_prob"].value)
+    age = float(metadata["age"].value)
+    
+    print(f"Age: {age}, Female: {female_prob}, Male: {male_prob}")
+```
+
+**TypeScript** — enabling gender and age predictions:
+```typescript
+import { AhnlichAIClient } from '@deven96/ahnlich-client-node';
+
+const response = await client.convertStoreInputToEmbeddings({
+  store: "faces_store",
+  inputs: [{ image: imageBytes }],
+  preprocessAction: PreprocessAction.MODEL_PREPROCESSING,
+  modelParams: { attributes: "genderage" }
+});
+
+// Access gender/age metadata
+for (const faceData of response.values[0].multiple.embeddings) {
+  const metadata = faceData.metadata.value;
+  
+  const femaleProb = parseFloat(metadata.gender_female_prob.value);
+  const maleProb = parseFloat(metadata.gender_male_prob.value);
+  const age = parseFloat(metadata.age.value);
+  
+  console.log(`Age: ${age}, Female: ${femaleProb}, Male: ${maleProb}`);
+}
+```
+
 ### Use Cases for Metadata
 
 - **Face cropping**: Use bounding boxes to extract face regions from original images
@@ -276,6 +364,11 @@ for (const faceData of response.values[0].multiple.embeddings) {
 - **Quality filtering**: Filter results by confidence score (e.g., only faces with confidence > 0.8)
 - **Spatial queries**: Find faces in specific image regions (e.g., "faces in the top-left quadrant")
 - **Deduplication**: Identify overlapping detections using bounding box coordinates
+- **Demographic analysis** (Buffalo_L with `attributes=genderage`):
+  - Age-based filtering (e.g., "find faces that appear under 18")
+  - Gender distribution analysis in group photos
+  - Age group clustering (children, adults, elderly)
+  - Demographic insights for audience analysis
 
 ### Models Without Metadata
 
