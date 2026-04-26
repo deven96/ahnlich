@@ -32,6 +32,7 @@ pub struct ServerUtilsConfig<'a> {
     // persistence stuff
     pub persistence_interval: u64,
     pub persist_location: &'a Option<std::path::PathBuf>,
+    pub enable_mmap: bool,
     // size calculation stuff
     pub size_calculation_interval: u64,
     // global allocator
@@ -98,6 +99,7 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
                 self.config().persistence_interval,
                 persist_location,
                 self.store_handler().get_snapshot(),
+                self.config().enable_mmap,
             );
             task_manager.spawn_task_loop(persistence_task).await;
         };

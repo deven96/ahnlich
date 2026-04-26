@@ -268,6 +268,11 @@ impl AIProxyConfig {
         self.db_auth_key = Some(api_key);
         self
     }
+
+    pub fn disable_mmap(mut self) -> Self {
+        self.common.enable_mmap = false;
+        self
+    }
 }
 
 impl fmt::Display for SupportedModels {

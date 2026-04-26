@@ -4305,3 +4305,219 @@ async fn test_get_store_in_pipeline() {
         responses[2]
     );
 }
+
+#[tokio::test]
+async fn test_mmap_persistence_performance() {
+    use std::time::Instant;
+
+    let mmap_file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ahnlich_mmap_test.dat");
+    let no_mmap_file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ahnlich_no_mmap_test.dat");
+
+    let _ = std::fs::remove_file(&mmap_file);
+    let _ = std::fs::remove_file(&no_mmap_file);
+
+    // Create a large store with lots of vectors to ensure file > 64KB threshold
+    // Vector dimension: 128, Number of vectors: 1000 = ~500KB file
+    let dimension = 128;
+    let num_vectors = 1000;
+
+    // First, create and persist a large store
+    let config_with_mmap = ServerConfig::default()
+        .os_select_port()
+        .persistence_interval(200)
+        .persist_location(mmap_file.clone());
+
+    let server = Server::new(&config_with_mmap)
+        .await
+        .expect("Failed to create server");
+    let write_flag = server.write_flag();
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Create store
+    let create_query = db_pipeline::DbQuery {
+        query: Some(Query::CreateStore(db_query_types::CreateStore {
+            store: "LargeStore".to_string(),
+            dimension,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: false,
+        })),
+    };
+
+    client
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries: vec![create_query],
+        }))
+        .await
+        .expect("Failed to create store");
+
+    // Insert many vectors in batches to create a large file
+    let batch_size = 100;
+    for batch_start in (0..num_vectors).step_by(batch_size) {
+        let batch_end = (batch_start + batch_size).min(num_vectors);
+        let mut inputs = Vec::new();
+
+        for i in batch_start..batch_end {
+            let key: Vec<f32> = (0..dimension)
+                .map(|j| ((i * dimension as usize + j as usize) as f32) * 0.01)
+                .collect();
+            inputs.push(DbStoreEntry {
+                key: Some(StoreKey { key }),
+                value: Some(StoreValue {
+                    value: HashMap::new(),
+                }),
+            });
+        }
+
+        let set_query = db_pipeline::DbQuery {
+            query: Some(Query::Set(db_query_types::Set {
+                store: "LargeStore".into(),
+                inputs,
+            })),
+        };
+
+        client
+            .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+                queries: vec![set_query],
+            }))
+            .await
+            .expect("Failed to insert batch");
+    }
+
+    // Trigger persistence by setting write flag and waiting
+    write_flag.store(true, Ordering::SeqCst);
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Verify the file was created and check its size
+    let file_metadata = std::fs::metadata(&mmap_file).expect("Persistence file not created");
+    let file_size_kb = file_metadata.len() / 1024;
+    println!(
+        "Persistence file size: {} KB ({} bytes)",
+        file_size_kb,
+        file_metadata.len()
+    );
+
+    // The file should be larger than the mmap threshold (64KB)
+    assert!(
+        file_metadata.len() > 64 * 1024,
+        "File size ({} bytes) should be > 64KB for meaningful mmap test",
+        file_metadata.len()
+    );
+
+    // Copy the file for the no-mmap test
+    std::fs::copy(&mmap_file, &no_mmap_file).expect("Failed to copy persistence file");
+
+    // Now test loading with mmap enabled (default)
+    let config_with_mmap = ServerConfig::default()
+        .os_select_port()
+        .persist_location(mmap_file.clone());
+
+    let start = Instant::now();
+    let server_mmap = Server::new(&config_with_mmap)
+        .await
+        .expect("Failed to create server with mmap");
+    let mmap_duration = start.elapsed();
+
+    // Verify the store was loaded correctly
+    let address = server_mmap.local_addr().expect("Could not get local addr");
+    tokio::spawn(async move { server_mmap.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client_mmap = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let list_query = db_pipeline::DbQuery {
+        query: Some(Query::ListStores(db_query_types::ListStores {})),
+    };
+
+    let response = client_mmap
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries: vec![list_query],
+        }))
+        .await
+        .expect("Failed to list stores");
+
+    // Verify store exists
+    let responses = response.into_inner().responses;
+    assert_eq!(responses.len(), 1);
+    if let Some(db_pipeline::db_server_response::Response::StoreList(store_list)) =
+        &responses[0].response
+    {
+        assert_eq!(store_list.stores.len(), 1);
+        assert_eq!(store_list.stores[0].name, "LargeStore");
+    } else {
+        panic!("Expected StoreList response");
+    }
+
+    // Now test loading with mmap disabled
+    let config_no_mmap = ServerConfig::default()
+        .os_select_port()
+        .persist_location(no_mmap_file.clone())
+        .disable_mmap(); // This is a new method we need to add
+
+    let start = Instant::now();
+    let server_no_mmap = Server::new(&config_no_mmap)
+        .await
+        .expect("Failed to create server without mmap");
+    let no_mmap_duration = start.elapsed();
+
+    // Verify the store was loaded correctly
+    let address = server_no_mmap
+        .local_addr()
+        .expect("Could not get local addr");
+    tokio::spawn(async move { server_no_mmap.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client_no_mmap = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let list_query = db_pipeline::DbQuery {
+        query: Some(Query::ListStores(db_query_types::ListStores {})),
+    };
+
+    let response = client_no_mmap
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries: vec![list_query],
+        }))
+        .await
+        .expect("Failed to list stores");
+
+    // Verify store exists
+    let responses = response.into_inner().responses;
+    assert_eq!(responses.len(), 1);
+    if let Some(db_pipeline::db_server_response::Response::StoreList(store_list)) =
+        &responses[0].response
+    {
+        assert_eq!(store_list.stores.len(), 1);
+        assert_eq!(store_list.stores[0].name, "LargeStore");
+    } else {
+        panic!("Expected StoreList response");
+    }
+
+    assert!(
+        mmap_duration < no_mmap_duration,
+        "Mmap should be strictly faster than buffered reading for large files. File: {} KB, mmap: {:?}, no mmap: {:?}",
+        file_size_kb,
+        mmap_duration,
+        no_mmap_duration
+    );
+
+    // Clean up
+    let _ = std::fs::remove_file(&mmap_file);
+    let _ = std::fs::remove_file(&no_mmap_file);
+}

@@ -1,10 +1,13 @@
+use memmap2::Mmap;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::BufReader;
+use std::io::BufWriter;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
@@ -14,6 +17,8 @@ use tempfile::NamedTempFile;
 use thiserror::Error;
 use tokio::time::Duration;
 use tokio::time::sleep;
+
+const MMAP_THRESHOLD: u64 = 64 * 1024; // 64KB
 
 pub trait AhnlichPersistenceUtils {
     type PersistenceObject: Serialize + DeserializeOwned + Send + Sync + 'static + Debug;
@@ -41,8 +46,8 @@ pub enum PersistenceTaskError {
 pub struct Persistence<T> {
     write_flag: Arc<AtomicBool>,
     persistence_interval: u64,
-    persist_location: std::path::PathBuf,
     persist_object: T,
+    persist_location: PathBuf,
 }
 
 #[async_trait::async_trait]
@@ -55,28 +60,31 @@ impl<T: Sync + Serialize + DeserializeOwned + Debug> Task for Persistence<T> {
         if self.has_potential_write().await {
             log::debug!("In potential write");
             let persist_location: &Path = self.persist_location.as_ref();
-            let writer = if let Ok(file) = NamedTempFile::new_in(
+            let writer = match NamedTempFile::new_in(
                 persist_location
                     .parent()
                     .expect("Could not get parent directory of persist location"),
             ) {
-                file
-            } else {
-                log::error!("Could not create persistence file, skipping");
-                return TaskState::Continue;
+                Ok(file) => file,
+                Err(e) => {
+                    log::error!("Could not create persistence file with err {e:?}, skipping");
+                    return TaskState::Continue;
+                }
             };
-            let temp_path = writer.path();
             // set write flag to false before writing to it
             let _ =
                 self.write_flag
                     .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst);
-            if let Err(e) = serde_json::to_writer(&writer, &self.persist_object) {
-                log::error!("Error writing stores to temp file {e:?}");
-            } else {
-                match std::fs::rename(temp_path, persist_location) {
-                    Ok(_) => log::debug!("Persisted stores to disk"),
-                    Err(e) => log::error!("Error writing temp file to persist location {e}"),
-                };
+            {
+                let buf_writer = BufWriter::new(&writer);
+                if let Err(e) = serde_json::to_writer(buf_writer, &self.persist_object) {
+                    log::error!("Error writing stores to temp file {e:?}");
+                    return TaskState::Continue;
+                }
+            }
+            match writer.persist(persist_location) {
+                Ok(_) => log::debug!("Persisted stores to disk"),
+                Err(e) => log::error!("Error persisting temp file to location {e}"),
             }
         }
         TaskState::Continue
@@ -84,11 +92,28 @@ impl<T: Sync + Serialize + DeserializeOwned + Debug> Task for Persistence<T> {
 }
 
 impl<T: Serialize + DeserializeOwned> Persistence<T> {
-    pub fn load_snapshot(persist_location: &std::path::PathBuf) -> Result<T, PersistenceTaskError> {
+    pub fn load_snapshot(
+        persist_location: &std::path::PathBuf,
+        enable_mmap: bool,
+    ) -> Result<T, PersistenceTaskError> {
         let file = File::open(persist_location)?;
-        let reader = BufReader::new(file);
-        let loaded: T = serde_json::from_reader(reader)?;
-        Ok(loaded)
+        let file_size = file.metadata()?.len();
+
+        Ok(if enable_mmap && file_size > MMAP_THRESHOLD {
+            log::debug!(
+                "Using mmap to load persistence file (size: {} bytes)",
+                file_size
+            );
+            let mmap = unsafe { Mmap::map(&file)? };
+            serde_json::from_slice(&mmap)?
+        } else {
+            log::debug!(
+                "Using buffered reader to load persistence file (size: {} bytes)",
+                file_size
+            );
+            let reader = BufReader::new(file);
+            serde_json::from_reader(reader)?
+        })
     }
 
     pub fn task(
@@ -96,6 +121,7 @@ impl<T: Serialize + DeserializeOwned> Persistence<T> {
         persistence_interval: u64,
         persist_location: &std::path::PathBuf,
         persist_object: T,
+        _enable_mmap: bool,
     ) -> Self {
         let _ = OpenOptions::new()
             .append(true)
