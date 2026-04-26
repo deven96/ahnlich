@@ -1193,6 +1193,7 @@ impl AhnlichServerUtils for AIProxyServer {
             service_name: SERVICE_NAME,
             persist_location: &self.config.common.persist_location,
             persistence_interval: self.config.common.persistence_interval,
+            enable_mmap: self.config.common.enable_mmap,
             size_calculation_interval: 0, // Not used by AI - only DB calculates sizes
             allocator_size: self.config.common.allocator_size,
             threadpool_size: self.config.common.threadpool_size,
@@ -1265,7 +1266,7 @@ impl AIProxyServer {
         let mut store_handler =
             AIStoreHandler::new(write_flag.clone(), config.supported_models.clone());
         if let Some(ref persist_location) = config.common.persist_location {
-            match Persistence::load_snapshot(persist_location) {
+            match Persistence::load_snapshot(persist_location, config.common.enable_mmap) {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");
                     if config.common.fail_on_startup_if_persist_load_fails {
