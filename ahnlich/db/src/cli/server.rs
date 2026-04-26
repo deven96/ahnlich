@@ -71,4 +71,9 @@ impl ServerConfig {
         self.common.tls_key = Some(tls_key);
         self
     }
+
+    pub fn disable_mmap(mut self) -> Self {
+        self.common.enable_mmap = false;
+        self
+    }
 }

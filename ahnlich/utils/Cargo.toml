@@ -36,3 +36,4 @@ http.workspace = true
 hyper = { version = "1", features = ["full"] }
 sha2 = "0.10"
 toml = "0.8"
+memmap2 = "0.9.10"

@@ -92,6 +92,13 @@ pub struct CommandLineConfig {
     #[arg(long, default_value_t =
     DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).size_calculation_interval.clone())]
     pub size_calculation_interval: u64,
+
+    /// Enable memory-mapped I/O for persistence loading
+    /// When enabled, large persistence files (>64KB) are loaded using mmap for better performance
+    /// Defaults to true when persistence is enabled
+    #[arg(long, default_value_t =
+    DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).enable_mmap.clone())]
+    pub enable_mmap: bool,
 }
 
 impl Default for CommandLineConfig {
@@ -114,6 +121,7 @@ impl Default for CommandLineConfig {
             tls_cert: None,
             tls_key: None,
             size_calculation_interval: 60,
+            enable_mmap: true, // Default to true for better performance
         }
     }
 }
