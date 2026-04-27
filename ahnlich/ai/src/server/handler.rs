@@ -58,6 +58,7 @@ use ahnlich_types::db::query::CreateStore as DbCreateStore;
 use ahnlich_types::db::query::DelPred;
 use ahnlich_types::db::query::DropNonLinearAlgorithmIndex as DbDropNonLinearAlgorithmIndex;
 use ahnlich_types::db::query::DropPredIndex as DbDropPredIndex;
+use ahnlich_types::db::query::DropStore as DbDropStore;
 use ahnlich_types::db::query::GetPred as DbGetPred;
 use ahnlich_types::db::query::GetSimN as DbGetSimN;
 use ahnlich_types::db::server::Set as DbSet;
@@ -696,12 +697,30 @@ impl AiService for AIProxyServer {
         request: tonic::Request<DropStore>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
         let drop_store_params = request.into_inner();
-        let dropped = self.store_handler.drop_store(
-            StoreName {
-                value: drop_store_params.store,
-            },
-            drop_store_params.error_if_not_exists,
-        )?;
+
+        let store_name = StoreName {
+            value: drop_store_params.store,
+        };
+
+        if let Ok(_) = self.store_handler.get(&store_name)
+            && let Some(db_client) = &self.db_client
+        {
+            let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
+            db_client
+                .drop_store(
+                    DbDropStore {
+                        store: store_name.value.clone(),
+                        error_if_not_exists: drop_store_params.error_if_not_exists,
+                    },
+                    parent_id,
+                )
+                .await?;
+        }
+
+        let dropped = self
+            .store_handler
+            .drop_store(store_name, drop_store_params.error_if_not_exists)?;
+
         Ok(tonic::Response::new(Del {
             deleted_count: dropped as u64,
         }))
@@ -791,6 +810,28 @@ impl AiService for AIProxyServer {
         &self,
         _request: tonic::Request<PurgeStores>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
+        let store_names: Vec<StoreName> = self
+            .store_handler
+            .list_stores()
+            .into_iter()
+            .map(|store| StoreName { value: store.name })
+            .collect();
+
+        if let Some(db_client) = &self.db_client {
+            let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
+            for store_name in &store_names {
+                db_client
+                    .drop_store(
+                        DbDropStore {
+                            store: store_name.value.clone(),
+                            error_if_not_exists: false,
+                        },
+                        parent_id.clone(),
+                    )
+                    .await?;
+            }
+        }
+
         let deleted_count = self.store_handler.purge_stores();
         Ok(tonic::Response::new(Del {
             deleted_count: deleted_count as u64,

@@ -5,7 +5,7 @@ use utils::server::AhnlichServerUtils;
 
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
-use std::{collections::HashMap, net::SocketAddr, sync::atomic::Ordering};
+use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::atomic::Ordering};
 
 use crate::{
     cli::{AIProxyConfig, server::SupportedModels},
@@ -29,6 +29,7 @@ use ahnlich_types::{
     },
     keyval::{AiStoreEntry, StoreInput, StoreName, StoreValue, store_input::Value},
     services::ai_service::ai_service_client::AiServiceClient,
+    services::db_service::db_service_client::DbServiceClient,
     shared::info::StoreUpsert,
 };
 use ahnlich_types::{
@@ -39,7 +40,6 @@ use ahnlich_types::{
     similarity::Similarity,
 };
 
-use std::path::PathBuf;
 use test_case::test_case;
 use tokio::time::Duration;
 use tonic::transport::Channel;
@@ -1241,6 +1241,91 @@ async fn test_ai_proxy_del_key_drop_store() {
 }
 
 #[tokio::test]
+async fn test_ai_proxy_drop_store_cascades_to_db() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let db_address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let mut config = AI_CONFIG.clone();
+    config.db_port = db_address.port();
+
+    let ai_server = AIProxyServer::new(config)
+        .await
+        .expect("Could not initialize ai proxy");
+    let ai_address = ai_server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    let channel = Channel::from_shared(format!("http://{}", ai_address))
+        .expect("Failed to create AI channel")
+        .connect()
+        .await
+        .expect("Failed to connect AI channel");
+    let mut ai_client = AiServiceClient::new(channel);
+
+    let channel = Channel::from_shared(format!("http://{}", db_address))
+        .expect("Failed to create DB channel")
+        .connect()
+        .await
+        .expect("Failed to connect DB channel");
+    let mut db_client = DbServiceClient::new(channel);
+
+    let store_name = "Cascade Store".to_string();
+    let response = ai_client
+        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
+            queries: vec![
+                ai_pipeline::AiQuery {
+                    query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                        store: store_name.clone(),
+                        query_model: AiModel::AllMiniLmL6V2.into(),
+                        index_model: AiModel::AllMiniLmL6V2.into(),
+                        predicates: vec![],
+                        non_linear_indices: vec![],
+                        error_if_exists: true,
+                        store_original: true,
+                    })),
+                },
+                ai_pipeline::AiQuery {
+                    query: Some(Query::DropStore(ai_query_types::DropStore {
+                        store: store_name.clone(),
+                        error_if_not_exists: true,
+                    })),
+                },
+                ai_pipeline::AiQuery {
+                    query: Some(Query::ListStores(ai_query_types::ListStores {})),
+                },
+            ],
+        }))
+        .await
+        .expect("Failed to execute AI pipeline")
+        .into_inner();
+
+    assert!(matches!(
+        &response.responses[0].response,
+        Some(ai_pipeline::ai_server_response::Response::Unit(_))
+    ));
+    assert!(matches!(
+        &response.responses[1].response,
+        Some(ai_pipeline::ai_server_response::Response::Del(d)) if d.deleted_count == 1
+    ));
+    if let Some(ai_pipeline::ai_server_response::Response::StoreList(store_list)) =
+        &response.responses[2].response
+    {
+        assert!(store_list.stores.is_empty());
+    } else {
+        panic!("Expected empty StoreList response");
+    }
+
+    let db_stores = db_client
+        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {}))
+        .await
+        .expect("Failed to list DB stores")
+        .into_inner();
+    assert!(db_stores.stores.is_empty());
+}
+
+#[tokio::test]
 async fn test_ai_proxy_del_pred() {
     let address = provision_test_servers().await;
     let address = format!("http://{}", address);
@@ -1600,6 +1685,102 @@ async fn test_ai_proxy_destroy_database() {
     } else {
         panic!("Expected empty StoreList response");
     }
+}
+
+#[tokio::test]
+async fn test_ai_proxy_purge_stores_cascades_to_db() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let db_address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let mut config = AI_CONFIG.clone();
+    config.db_port = db_address.port();
+
+    let ai_server = AIProxyServer::new(config)
+        .await
+        .expect("Could not initialize ai proxy");
+    let ai_address = ai_server.local_addr().expect("Could not get local addr");
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    let channel = Channel::from_shared(format!("http://{}", ai_address))
+        .expect("Failed to create AI channel")
+        .connect()
+        .await
+        .expect("Failed to connect AI channel");
+    let mut ai_client = AiServiceClient::new(channel);
+
+    let channel = Channel::from_shared(format!("http://{}", db_address))
+        .expect("Failed to create DB channel")
+        .connect()
+        .await
+        .expect("Failed to connect DB channel");
+    let mut db_client = DbServiceClient::new(channel);
+
+    let response = ai_client
+        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
+            queries: vec![
+                ai_pipeline::AiQuery {
+                    query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                        store: "Cascade One".to_string(),
+                        query_model: AiModel::AllMiniLmL6V2.into(),
+                        index_model: AiModel::AllMiniLmL6V2.into(),
+                        predicates: vec![],
+                        non_linear_indices: vec![],
+                        error_if_exists: true,
+                        store_original: true,
+                    })),
+                },
+                ai_pipeline::AiQuery {
+                    query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                        store: "Cascade Two".to_string(),
+                        query_model: AiModel::AllMiniLmL6V2.into(),
+                        index_model: AiModel::AllMiniLmL6V2.into(),
+                        predicates: vec![],
+                        non_linear_indices: vec![],
+                        error_if_exists: true,
+                        store_original: true,
+                    })),
+                },
+                ai_pipeline::AiQuery {
+                    query: Some(Query::PurgeStores(ai_query_types::PurgeStores {})),
+                },
+                ai_pipeline::AiQuery {
+                    query: Some(Query::ListStores(ai_query_types::ListStores {})),
+                },
+            ],
+        }))
+        .await
+        .expect("Failed to execute AI pipeline")
+        .into_inner();
+
+    assert!(matches!(
+        &response.responses[0].response,
+        Some(ai_pipeline::ai_server_response::Response::Unit(_))
+    ));
+    assert!(matches!(
+        &response.responses[1].response,
+        Some(ai_pipeline::ai_server_response::Response::Unit(_))
+    ));
+    assert!(matches!(
+        &response.responses[2].response,
+        Some(ai_pipeline::ai_server_response::Response::Del(d)) if d.deleted_count == 2
+    ));
+    if let Some(ai_pipeline::ai_server_response::Response::StoreList(store_list)) =
+        &response.responses[3].response
+    {
+        assert!(store_list.stores.is_empty());
+    } else {
+        panic!("Expected empty StoreList response");
+    }
+
+    let db_stores = db_client
+        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {}))
+        .await
+        .expect("Failed to list DB stores")
+        .into_inner();
+    assert!(db_stores.stores.is_empty());
 }
 
 #[tokio::test]

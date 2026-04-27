@@ -446,6 +446,9 @@ impl AIStoreHandler {
         let store_length = self.stores.pin().len();
         let guard = self.stores.guard();
         self.stores.clear(&guard);
+        if store_length > 0 {
+            self.set_write_flag();
+        }
         store_length
     }
 }
