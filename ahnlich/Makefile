@@ -158,4 +158,3 @@ all: format check test clippy generate-specs bumpversion bump-py-client bump-rs-
 	.DEFAULT: help # Running Make will run the help target
 
 MAKEFLAGS += --no-print-directory # dont add message about entering and leaving the working directory
-
