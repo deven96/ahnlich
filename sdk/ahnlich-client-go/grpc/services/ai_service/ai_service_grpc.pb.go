@@ -8,12 +8,14 @@ package ai_service
 
 import (
 	context "context"
-	pipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/pipeline"
-	query "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
-	server "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/server"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+
+	pipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/pipeline"
+	query "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+	server "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/server"
 )
 
 // This is a compile-time assertion to ensure that this generated file
