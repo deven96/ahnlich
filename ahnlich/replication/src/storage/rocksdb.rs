@@ -1,3 +1,9 @@
+// `clippy::result_large_err` fires on helper signatures that intentionally use
+// openraft's upstream `StorageError` type. Boxing or wrapping the error here
+// would only obscure the storage-layer contract we already use throughout this
+// module.
+#![allow(clippy::result_large_err)]
+
 use std::fmt::Debug;
 use std::ops::{Bound, RangeBounds};
 use std::path::Path;
