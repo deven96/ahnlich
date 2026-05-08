@@ -7,3 +7,4 @@ pub mod parallel;
 pub mod persistence;
 pub mod server;
 pub mod size_calculation;
+pub mod snapshot;
