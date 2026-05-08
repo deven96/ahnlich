@@ -1,0 +1,34 @@
+[package]
+name = "ahnlich-replication"
+version = "0.1.0"
+edition = "2024"
+description = "Internal Raft-based replication primitives for ahnlich-db and ahnlich-ai. Not a public client surface."
+
+[dependencies]
+openraft.workspace = true
+async-trait.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+utils = { path = "../utils", version = "*" }
+tokio.workspace = true
+futures.workspace = true
+tonic.workspace = true
+prost.workspace = true
+http.workspace = true
+log.workspace = true
+
+rocksdb = { version = "0.22" }
+
+[features]
+# Memory storage backend ships as a development/testing aid only. It has no
+# durability, since a node restart loses all Raft state, so it must not be selected
+# in production. Higher-level integration tests opt in via this feature.
+test-utils = []
+
+[build-dependencies]
+tonic-build.workspace = true
+
+[dev-dependencies]
+tempfile = "3.10"

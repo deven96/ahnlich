@@ -5,9 +5,10 @@ members = [
   "dsl",
   "cli",
   "client",
+  "replication",
   "similarity",
   "task-manager",
-  "tracer", 
+  "tracer",
   "utils",
   "types",
 ]
@@ -47,10 +48,12 @@ strum = { version = "0.26", features = ["derive"] }
 papaya = { version = "0.2.0", features = ["serde"] }
 parking_lot = "0.12"
 tonic = "0.12.3"
+tonic-build = "0.12.3"
 http = "1.2.0"
 prost = "0.13"
 pulp = "0.21.4"
 smallvec = "1.13"
+openraft = { version = "0.9", features = ["serde"] }
 
 [profile.release]
 lto = true
