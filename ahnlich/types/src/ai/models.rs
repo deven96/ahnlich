@@ -25,6 +25,7 @@ pub enum AiModel {
     SfaceYunet = 8,
     ClapAudio = 9,
     ClapText = 10,
+    JinaEmbeddingsV2BaseCode = 11,
 }
 impl AiModel {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -44,6 +45,7 @@ impl AiModel {
             Self::SfaceYunet => "SFACE_YUNET",
             Self::ClapAudio => "CLAP_AUDIO",
             Self::ClapText => "CLAP_TEXT",
+            Self::JinaEmbeddingsV2BaseCode => "JINA_EMBEDDINGS_V2_BASE_CODE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -60,6 +62,7 @@ impl AiModel {
             "SFACE_YUNET" => Some(Self::SfaceYunet),
             "CLAP_AUDIO" => Some(Self::ClapAudio),
             "CLAP_TEXT" => Some(Self::ClapText),
+            "JINA_EMBEDDINGS_V2_BASE_CODE" => Some(Self::JinaEmbeddingsV2BaseCode),
             _ => None,
         }
     }
