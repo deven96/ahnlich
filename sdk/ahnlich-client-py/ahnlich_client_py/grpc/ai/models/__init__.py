@@ -20,6 +20,7 @@ class AiModel(betterproto.Enum):
     SFACE_YUNET = 8
     CLAP_AUDIO = 9
     CLAP_TEXT = 10
+    JINA_EMBEDDINGS_V2_BASE_CODE = 11
 
 
 class AiStoreInputType(betterproto.Enum):

@@ -212,6 +212,18 @@ impl SupportedModels {
                 embedding_size: nonzero!(512usize),
                 input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
             },
+            SupportedModels::JinaEmbeddingsV2BaseCode => ModelDetails {
+                model_type: ModelType::Text {
+                    max_input_tokens: nonzero!(8192usize),
+                },
+                supported_model: SupportedModels::JinaEmbeddingsV2BaseCode,
+                description: String::from(
+                    "Jina Embeddings V2 Base Code model optimized for code and technical content. \
+                     Supports up to 8192 tokens with 768-dimensional embeddings.",
+                ),
+                embedding_size: nonzero!(768usize),
+                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
+            },
         }
     }
 
