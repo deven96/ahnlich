@@ -5,6 +5,28 @@
 // here would only obscure the openraft-mandated shape.
 #![allow(clippy::result_large_err, clippy::type_complexity)]
 
+// State machine storage for replicated application state.
+//
+// Raft splits persistence into two different responsibilities:
+//
+// 1. the log, which records proposed operations in order; and
+// 2. the state machine, which applies committed operations and becomes the
+//    authoritative application state.
+//
+// This module implements the second half for Ahnlich. It does not define the
+// DB-specific or AI-specific mutations themselves; those live behind
+// `StateMachineHandler`. What it does own is the generic machinery every
+// replicated state machine needs:
+//
+// - applying committed entries in order,
+// - tracking `last_applied`,
+// - tracking the latest effective membership,
+// - building snapshots from the current state, and
+// - restoring state from an installed snapshot.
+//
+// In other words: the log says what happened, and this module is responsible
+// for making that history real in application state.
+
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 
