@@ -49,6 +49,8 @@ pub enum SupportedModels {
     ClapAudio,
     #[clap(name = "clap-text")]
     ClapText,
+    #[clap(name = "jina-embeddings-v2-base-code")]
+    JinaEmbeddingsV2BaseCode,
 }
 
 #[derive(Parser)]
@@ -198,6 +200,7 @@ impl Default for AIProxyConfig {
                 SupportedModels::ClipVitB32Text,
                 SupportedModels::Resnet50,
                 SupportedModels::ClipVitB32Image,
+                SupportedModels::JinaEmbeddingsV2BaseCode,
             ],
             model_cache_location: home_dir()
                 .map(|mut path| {
@@ -289,6 +292,7 @@ impl fmt::Display for SupportedModels {
             SupportedModels::SfaceYunet => write!(f, "SFace-YuNet"),
             SupportedModels::ClapAudio => write!(f, "CLAP-Audio"),
             SupportedModels::ClapText => write!(f, "CLAP-Text"),
+            SupportedModels::JinaEmbeddingsV2BaseCode => write!(f, "jina-embeddings-v2-base-code"),
         }
     }
 }
@@ -307,6 +311,7 @@ impl From<&AiModel> for SupportedModels {
             AiModel::SfaceYunet => SupportedModels::SfaceYunet,
             AiModel::ClapAudio => SupportedModels::ClapAudio,
             AiModel::ClapText => SupportedModels::ClapText,
+            AiModel::JinaEmbeddingsV2BaseCode => SupportedModels::JinaEmbeddingsV2BaseCode,
         }
     }
 }
@@ -325,6 +330,7 @@ impl From<&SupportedModels> for AiModel {
             SupportedModels::SfaceYunet => AiModel::SfaceYunet,
             SupportedModels::ClapAudio => AiModel::ClapAudio,
             SupportedModels::ClapText => AiModel::ClapText,
+            SupportedModels::JinaEmbeddingsV2BaseCode => AiModel::JinaEmbeddingsV2BaseCode,
         }
     }
 }
