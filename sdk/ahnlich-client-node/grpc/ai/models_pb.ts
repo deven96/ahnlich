@@ -63,6 +63,11 @@ export enum AIModel {
    * @generated from enum value: CLAP_TEXT = 10;
    */
   CLAP_TEXT = 10,
+
+  /**
+   * @generated from enum value: JINA_EMBEDDINGS_V2_BASE_CODE = 11;
+   */
+  JINA_EMBEDDINGS_V2_BASE_CODE = 11,
 }
 // Retrieve enum metadata with: proto3.getEnumType(AIModel)
 proto3.util.setEnumType(AIModel, "ai.models.AIModel", [
@@ -77,6 +82,7 @@ proto3.util.setEnumType(AIModel, "ai.models.AIModel", [
   { no: 8, name: "SFACE_YUNET" },
   { no: 9, name: "CLAP_AUDIO" },
   { no: 10, name: "CLAP_TEXT" },
+  { no: 11, name: "JINA_EMBEDDINGS_V2_BASE_CODE" },
 ]);
 
 /**

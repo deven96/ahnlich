@@ -30,7 +30,10 @@ impl ORTTextPostprocessor {
             SupportedModels::AllMiniLML6V2
             | SupportedModels::AllMiniLML12V2
             | SupportedModels::BGEBaseEnV15
-            | SupportedModels::BGELargeEnV15 => OnnxOutputTransform::new("last_hidden_state"),
+            | SupportedModels::BGELargeEnV15
+            | SupportedModels::JinaEmbeddingsV2BaseCode => {
+                OnnxOutputTransform::new("last_hidden_state")
+            }
             SupportedModels::ClipVitB32Text => OnnxOutputTransform::new("text_embeds"),
             // CLAP text encoder outputs a projected 2D embedding named "text_embeds"
             SupportedModels::ClapText => OnnxOutputTransform::new("text_embeds"),
@@ -45,6 +48,9 @@ impl ORTTextPostprocessor {
             }
             SupportedModels::BGEBaseEnV15 | SupportedModels::BGELargeEnV15 => {
                 (Pooling::Regular(RegularPooling), Some(VectorNormalize))
+            }
+            SupportedModels::JinaEmbeddingsV2BaseCode => {
+                (Pooling::Mean(MeanPoolingBuilder), Some(VectorNormalize))
             }
             // CLIP text and CLAP text encoders output projected 2D embeddings; no pooling needed
             SupportedModels::ClipVitB32Text | SupportedModels::ClapText => {

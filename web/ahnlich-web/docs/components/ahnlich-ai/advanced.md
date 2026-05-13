@@ -17,6 +17,7 @@ Ahnlich AI includes several pre-trained models that can be configured depending 
 | ALL\_MINI\_LM\_L12\_V2 | all-minilm-l12-v2 | Text | 256 tokens | 384 | Larger variant of MiniLM. Higher accuracy for nuanced text similarity tasks, but with increased compute requirements. |
 | BGE\_BASE\_EN\_V15 |  bge-base-en-v1.5 | Text | 512 tokens | 768 | Base version of the BGE (English v1.5) model. Balanced performance and speed, suitable for production-scale applications. |
 | BGE\_LARGE\_EN\_V15 | bge-large-en-v1.5 | Text | 512 tokens | 1024 | High-accuracy embedding model for semantic search and retrieval. Best choice when precision is more important than latency. |
+| JINA\_CODE\_V2 | jina-embeddings-v2-base-code | Text (Code) | 8192 tokens | 768 | Specialized code embedding model supporting 30+ programming languages. Optimized for code search, documentation lookup, and code-to-text retrieval. |
 | RESNET50 | resnet-50 | Image | 224x224 px | 2048 | Convolutional Neural Network (CNN) for extracting embeddings from images. Useful for content-based image retrieval and clustering. |
 | CLIP\_VIT\_B32\_IMAGE | clip-vit-b32-image | Image | 224x224 px | 512 | Vision Transformer encoder from the CLIP model. Produces embeddings aligned with its paired text encoder for multimodal tasks. |
 | CLIP\_VIT\_B32\_TEXT | clip-vit-b32-text | Text | 77 tokens | 512 | Text encoder from CLIP. Designed to map textual inputs into the same space as CLIP image embeddings for text-to-image or image-to-text search. |
@@ -79,11 +80,157 @@ CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
 | ----- | ----- |
 | MiniLM (L6/L12) | Fast, efficient semantic similarity (FAQs, chatbots). |
 | BGE (Base/Large) | High semantic accuracy for production-scale applications. |
+| Jina Code V2 | Code search, documentation retrieval, and semantic code similarity across 30+ languages. |
 | ResNet50 | Image-to-image similarity and clustering. |
 | CLIP (Text+Image) | Multimodal retrieval (text-to-image / image-to-text search). |
 | Buffalo\_L | Face detection and recognition in images (e.g., group photos, ID verification). |
 | SFace+YuNet | Lightweight face detection and recognition (e.g., real-time face matching). |
 | CLAP (Audio+Text) | Audio similarity search and text-to-audio retrieval. |
+
+## Code Search with Jina Code V2
+
+The Jina Code V2 model is specifically designed for semantic code search across 30+ programming languages. It excels at:
+- Finding code snippets by natural language description
+- Searching for similar code patterns
+- Linking documentation to code
+- Code-to-code similarity search
+
+### Creating a Code Search Store
+
+```
+CREATESTORE code_repo QUERYMODEL jina-embeddings-v2-base-code INDEXMODEL jina-embeddings-v2-base-code
+```
+
+### Indexing Code Snippets
+
+**Rust**:
+```rust
+use ahnlich_client_rs::prelude::*;
+
+let code_snippets = vec![
+    StoreInput::RawString("fn fibonacci(n: u32) -> u32 { if n <= 1 { n } else { fibonacci(n-1) + fibonacci(n-2) } }".to_string()),
+    StoreInput::RawString("def binary_search(arr, target): left, right = 0, len(arr) - 1; while left <= right: ...".to_string()),
+    StoreInput::RawString("function quickSort(arr) { if (arr.length <= 1) return arr; const pivot = arr[0]; ...".to_string()),
+];
+
+let metadata = vec![
+    StoreValue::from([("language", "rust"), ("file", "algorithms.rs")]),
+    StoreValue::from([("language", "python"), ("file", "search.py")]),
+    StoreValue::from([("language", "javascript"), ("file", "sort.js")]),
+];
+
+client.set(
+    "code_repo".to_string(),
+    code_snippets,
+    PreprocessAction::ModelPreprocessing,
+    None,
+    HashMap::new(),
+).await?;
+```
+
+**Python**:
+```python
+from ahnlich_client_py import AhnlichAIClient
+from ahnlich_client_py.ai_query import Set, StoreInput
+
+code_snippets = [
+    StoreInput(raw_string="fn fibonacci(n: u32) -> u32 { if n <= 1 { n } else { fibonacci(n-1) + fibonacci(n-2) } }"),
+    StoreInput(raw_string="def binary_search(arr, target): left, right = 0, len(arr) - 1; while left <= right: ..."),
+    StoreInput(raw_string="function quickSort(arr) { if (arr.length <= 1) return arr; const pivot = arr[0]; ..."),
+]
+
+await client.set(
+    Set(
+        store="code_repo",
+        inputs=code_snippets,
+        preprocess_action=PreprocessAction.ModelPreprocessing,
+    )
+)
+```
+
+### Searching with Natural Language
+
+**Rust**:
+```rust
+// Search using natural language query
+let query = vec![StoreInput::RawString("implement recursive fibonacci sequence".to_string())];
+
+let results = client.get_sim_n(
+    "code_repo".to_string(),
+    query,
+    Condition::new(NonLinearAlgorithm::CosineSimilarity),
+    5, // top 5 results
+    PreprocessAction::ModelPreprocessing,
+    None,
+    HashMap::new(),
+).await?;
+
+// Results will contain the Rust fibonacci function with highest similarity
+```
+
+**Python**:
+```python
+# Search using natural language query
+from ahnlich_client_py.ai_query import GetSimN
+
+query = [StoreInput(raw_string="implement recursive fibonacci sequence")]
+
+results = await client.get_sim_n(
+    GetSimN(
+        store="code_repo",
+        search_input=query,
+        condition=Condition.with_algorithm(NonLinearAlgorithm.CosineSimilarity),
+        closest_n=5,
+        preprocess_action=PreprocessAction.ModelPreprocessing,
+    )
+)
+```
+
+### Searching with Code
+
+**Rust**:
+```rust
+// Find similar code patterns
+let code_query = vec![StoreInput::RawString(
+    "def fib(n): return n if n <= 1 else fib(n-1) + fib(n-2)".to_string()
+)];
+
+let results = client.get_sim_n(
+    "code_repo".to_string(),
+    code_query,
+    Condition::new(NonLinearAlgorithm::CosineSimilarity),
+    3,
+    PreprocessAction::ModelPreprocessing,
+    None,
+    HashMap::new(),
+).await?;
+
+// Will find the Rust fibonacci implementation despite being in a different language
+```
+
+**Python**:
+```python
+# Find similar code patterns
+code_query = [StoreInput(raw_string="def fib(n): return n if n <= 1 else fib(n-1) + fib(n-2)")]
+
+results = await client.get_sim_n(
+    GetSimN(
+        store="code_repo",
+        search_input=code_query,
+        condition=Condition.with_algorithm(NonLinearAlgorithm.CosineSimilarity),
+        closest_n=3,
+        preprocess_action=PreprocessAction.ModelPreprocessing,
+    )
+)
+```
+
+### Use Cases
+
+- **Documentation Search**: Index code examples and search with natural language questions
+- **Code Discovery**: Find similar implementations across different programming languages
+- **Refactoring Detection**: Identify duplicate or similar code patterns
+- **Code Review Assistance**: Find related code snippets for context
+- **IDE Integration**: Power semantic code search in development tools
 
 ## Model Parameters (`model_params`)
 

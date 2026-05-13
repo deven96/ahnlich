@@ -158,6 +158,12 @@ impl ModelConfig {
                 weights_file: "onnx/text_model.onnx".to_string(),
                 batch_size: 128,
             },
+            SupportedModels::JinaEmbeddingsV2BaseCode => Self {
+                modality: ORTModality::Text,
+                repo_name: "jinaai/jina-embeddings-v2-base-code".to_string(),
+                weights_file: "onnx/model.onnx".to_string(),
+                batch_size: 128,
+            },
             SupportedModels::BuffaloL | SupportedModels::SfaceYunet => {
                 // Multi-stage models don't use ModelConfig — handled separately below
                 return Err(AIProxyError::AIModelNotInitialized);
