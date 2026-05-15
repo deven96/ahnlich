@@ -150,7 +150,7 @@ where
 impl<C: RaftTypeConfig, H: StateMachineHandler<C>> StateMachineOps<C> for StateMachineStore<C, H>
 where
     C::Entry: AsRef<Entry<C>> + RaftLogId<C::NodeId> + Clone,
-    C::SnapshotData: From<Cursor<Vec<u8>>> + Into<Cursor<Vec<u8>>> + Clone,
+    C::SnapshotData: From<Cursor<Vec<u8>>> + Into<Cursor<Vec<u8>>>,
     C::R: Default,
 {
     type SnapshotBuilder = SnapshotBuilder<C, H>;
@@ -212,7 +212,7 @@ where
         meta: &SnapshotMeta<C::NodeId, C::Node>,
         snapshot: Box<C::SnapshotData>,
     ) -> Result<(), StorageError<C::NodeId>> {
-        let cursor: Cursor<Vec<u8>> = (*snapshot).clone().into();
+        let cursor: Cursor<Vec<u8>> = (*snapshot).into();
         let data = cursor.into_inner();
         let decoded = deserialize_snapshot::<H::Snapshot>(&data).map_err(|e| StorageError::IO {
             source: StorageIOError::read_state_machine(&e),

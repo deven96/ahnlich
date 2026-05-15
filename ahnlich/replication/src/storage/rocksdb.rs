@@ -18,6 +18,12 @@ use serde_json::{from_slice, to_vec};
 
 use super::{LogIdOf, LogStoreOps};
 
+const CF_LOGS: &str = "logs";
+const CF_META: &str = "meta";
+const META_VOTE: &str = "vote";
+const META_COMMITTED: &str = "committed";
+const META_LAST_PURGED_LOG_ID: &str = "last_purged_log_id";
+
 fn index_in_range<RB: RangeBounds<u64>>(range: &RB, idx: u64) -> bool {
     let start_ok = match range.start_bound() {
         Bound::Included(v) => idx >= *v,
@@ -47,8 +53,8 @@ impl<C: RaftTypeConfig> RocksLogStore<C> {
         opts.create_if_missing(true);
         opts.create_missing_column_families(true);
         let cfs = vec![
-            ColumnFamilyDescriptor::new("logs", Options::default()),
-            ColumnFamilyDescriptor::new("meta", Options::default()),
+            ColumnFamilyDescriptor::new(CF_LOGS, Options::default()),
+            ColumnFamilyDescriptor::new(CF_META, Options::default()),
         ];
         let db = DB::open_cf_descriptors(&opts, path, cfs).map_err(|e| StorageError::IO {
             source: StorageIOError::read_logs(&e),
@@ -60,13 +66,13 @@ impl<C: RaftTypeConfig> RocksLogStore<C> {
     }
 
     fn cf_logs(&self) -> Result<&rocksdb::ColumnFamily, StorageError<C::NodeId>> {
-        self.db.cf_handle("logs").ok_or_else(|| StorageError::IO {
+        self.db.cf_handle(CF_LOGS).ok_or_else(|| StorageError::IO {
             source: StorageIOError::read_logs(&std::io::Error::other("missing logs cf")),
         })
     }
 
     fn cf_meta(&self) -> Result<&rocksdb::ColumnFamily, StorageError<C::NodeId>> {
-        self.db.cf_handle("meta").ok_or_else(|| StorageError::IO {
+        self.db.cf_handle(CF_META).ok_or_else(|| StorageError::IO {
             source: StorageIOError::read_logs(&std::io::Error::other("missing meta cf")),
         })
     }
@@ -134,6 +140,37 @@ impl<C: RaftTypeConfig> RocksLogStore<C> {
             None => Ok(None),
         }
     }
+
+    fn put_vote(&self, vote: &Vote<C::NodeId>) -> Result<(), StorageError<C::NodeId>> {
+        self.put_meta(META_VOTE, vote)
+    }
+
+    fn get_vote(&self) -> Result<Option<Vote<C::NodeId>>, StorageError<C::NodeId>> {
+        self.get_meta(META_VOTE)
+    }
+
+    fn put_committed(
+        &self,
+        committed: Option<LogId<C::NodeId>>,
+    ) -> Result<(), StorageError<C::NodeId>> {
+        self.put_meta(META_COMMITTED, &committed)
+    }
+
+    fn get_committed(&self) -> Result<Option<LogId<C::NodeId>>, StorageError<C::NodeId>> {
+        self.get_meta(META_COMMITTED)
+    }
+
+    fn put_last_purged_log_id(
+        &self,
+        log_id: Option<LogIdOf<C>>,
+    ) -> Result<(), StorageError<C::NodeId>> {
+        self.put_meta(META_LAST_PURGED_LOG_ID, &log_id)
+    }
+
+    fn get_last_purged_log_id(&self) -> Result<Option<LogIdOf<C>>, StorageError<C::NodeId>> {
+        self.get_meta(META_LAST_PURGED_LOG_ID)
+            .map(|opt| opt.unwrap_or(None))
+    }
 }
 
 impl<C: RaftTypeConfig> RaftLogReader<C> for RocksLogStore<C>
@@ -167,7 +204,7 @@ where
     C::Entry: serde::Serialize + serde::de::DeserializeOwned + RaftLogId<C::NodeId> + Clone,
 {
     fn get_log_state_sync(&mut self) -> Result<LogState<C>, StorageError<C::NodeId>> {
-        let purged = self.get_meta::<Option<LogIdOf<C>>>("last_purged_log_id")?;
+        let purged = self.get_last_purged_log_id()?;
         let last = if let Some(item) = self
             .db
             .iterator_cf(self.cf_logs()?, IteratorMode::End)
@@ -183,7 +220,6 @@ where
         } else {
             None
         };
-        let purged = purged.unwrap_or(None);
         Ok(LogState {
             last_purged_log_id: purged.clone(),
             last_log_id: last.or(purged),
@@ -191,11 +227,11 @@ where
     }
 
     fn save_vote_sync(&mut self, vote: &Vote<C::NodeId>) -> Result<(), StorageError<C::NodeId>> {
-        self.put_meta("vote", vote)
+        self.put_vote(vote)
     }
 
     fn read_vote_sync(&mut self) -> Result<Option<Vote<C::NodeId>>, StorageError<C::NodeId>> {
-        self.get_meta("vote")
+        self.get_vote()
     }
 
     fn append_to_log_sync<I>(&mut self, entries: I) -> Result<(), StorageError<C::NodeId>>
@@ -240,18 +276,18 @@ where
                 source: StorageIOError::write_logs(&e),
             })?;
         }
-        self.put_meta("last_purged_log_id", &Some(log_id))
+        self.put_last_purged_log_id(Some(log_id))
     }
 
     fn save_committed_sync(
         &mut self,
         committed: Option<LogId<C::NodeId>>,
     ) -> Result<(), StorageError<C::NodeId>> {
-        self.put_meta("committed", &committed)
+        self.put_committed(committed)
     }
 
     fn read_committed_sync(&mut self) -> Result<Option<LogId<C::NodeId>>, StorageError<C::NodeId>> {
-        self.get_meta("committed")
+        self.get_committed()
     }
 }
 
