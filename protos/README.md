@@ -46,7 +46,7 @@ Defines server types and client connections.
 ### **AI & Algorithm Definitions**
 - `algorithm.proto`: Defines similarity algorithms (e.g., `CosineSimilarity`).
 - `ai/models.proto`: Defines AI models available for use.
-- `ai/execution_provider.proto`: Specifies execution providers (e.g., `CUDA`, `TENSOR_RT`).
+- `ai/execution_provider.proto`: Specifies execution providers (e.g., `CUDA`, `TENSOR_RT`, `ROCM`, `MIGRAPHX`).
 
 ## **Usage**
 To use these protofiles, generate language-specific gRPC stubs:

@@ -252,6 +252,8 @@ The `--no-interactive` flag allows the CLI to accept commands via stdin and exit
 
 - `CUDA`: Only supports >= CUDAv12 and might need to `sudo apt install libcudnn9-dev-cuda-12`
 - `CoreML (Apple)`: Not advised for NLP models due to often large dimensionality.
+- `ROCm` (AMD GPUs, Linux): Requires a ROCm runtime on the host (`rocm-hip-runtime`, `rocm-libs`) matching the ONNX Runtime build. Supported AMD Instinct accelerators are listed in the [ROCm compatibility matrix](https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html); select Radeon cards are also supported. When unsupported, ORT falls back to CPU. **Note:** upstream ONNX Runtime removed the ROCm execution provider in release 1.23. Newer ahnlich builds that bump the ORT pin should use `MIGraphX` instead.
+- `MIGraphX` (AMD GPUs, Linux): AMD's recommended replacement for the ROCm provider in `onnxruntime >= 1.23`. Requires the `migraphx` runtime to be installed (ships in AMD's ROCm apt repository).
 
 ### Contributing
 

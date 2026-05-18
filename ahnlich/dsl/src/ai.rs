@@ -39,6 +39,8 @@ fn parse_to_execution_provider(input: &str) -> Result<ExecutionProvider, DslErro
         "coreml" => Ok(ExecutionProvider::CoreMl),
         "directml" => Ok(ExecutionProvider::DirectMl),
         "tensorrt" => Ok(ExecutionProvider::TensorRt),
+        "rocm" => Ok(ExecutionProvider::Rocm),
+        "migraphx" => Ok(ExecutionProvider::Migraphx),
         a => Err(DslError::UnsupportedPreprocessingMode(a.to_string())),
     }
 }
