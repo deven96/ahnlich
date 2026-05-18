@@ -41,6 +41,18 @@ use super::{LogIdOf, StateMachineOps};
 
 pub trait StateMachineHandler<C: RaftTypeConfig>: Send + Sync + 'static {
     type Snapshot: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + 'static;
+
+    // Apply a single committed command to application state.
+    //
+    // `StateMachineStore` replays committed entries sequentially, not
+    // transactionally across a batch. Earlier entries in the same batch may
+    // already be reflected in application state if a later one fails.
+    //
+    // Because of that, ordinary domain/precondition validation is expected to
+    // happen before replication. Errors returned from `apply()` should
+    // therefore represent invariant violations, corruption, or
+    // storage/infrastructure failures rather than routine business-rule
+    // rejection.
     fn apply(&mut self, data: &C::D) -> Result<C::R, StorageError<C::NodeId>>;
     fn get_snapshot(&self) -> Self::Snapshot;
     fn restore_snapshot(&mut self, snapshot: Self::Snapshot);
@@ -90,11 +102,33 @@ impl<C: RaftTypeConfig, H: StateMachineHandler<C>> StateMachineStore<C, H> {
             })),
         }
     }
+
+    fn lock_inner(
+        &self,
+    ) -> Result<std::sync::MutexGuard<'_, StateMachineInner<C, H>>, StorageError<C::NodeId>> {
+        self.inner.lock().map_err(|_| StorageError::IO {
+            source: StorageIOError::read_state_machine(&std::io::Error::other(
+                "state machine lock poisoned",
+            )),
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct SnapshotBuilder<C: RaftTypeConfig, H: StateMachineHandler<C>> {
     inner: Arc<Mutex<StateMachineInner<C, H>>>,
+}
+
+impl<C: RaftTypeConfig, H: StateMachineHandler<C>> SnapshotBuilder<C, H> {
+    fn lock_inner(
+        &self,
+    ) -> Result<std::sync::MutexGuard<'_, StateMachineInner<C, H>>, StorageError<C::NodeId>> {
+        self.inner.lock().map_err(|_| StorageError::IO {
+            source: StorageIOError::read_state_machine(&std::io::Error::other(
+                "state machine lock poisoned",
+            )),
+        })
+    }
 }
 
 impl<C: RaftTypeConfig, H: StateMachineHandler<C>> RaftSnapshotBuilder<C> for SnapshotBuilder<C, H>
@@ -103,7 +137,7 @@ where
 {
     async fn build_snapshot(&mut self) -> Result<Snapshot<C>, StorageError<C::NodeId>> {
         let (snapshot, meta) = {
-            let mut inner = self.inner.lock().expect("state machine lock poisoned");
+            let mut inner = self.lock_inner()?;
             let snapshot = inner.handler.get_snapshot();
 
             inner.snapshot_idx += 1;
@@ -134,7 +168,7 @@ where
             source: StorageIOError::write_state_machine(&e),
         })?;
 
-        let mut inner = self.inner.lock().expect("state machine lock poisoned");
+        let mut inner = self.lock_inner()?;
         inner.current_snapshot = Some(StoredSnapshot {
             meta: meta.clone(),
             data: encoded.clone(),
@@ -164,7 +198,7 @@ where
         ),
         StorageError<C::NodeId>,
     > {
-        let inner = self.inner.lock().expect("state machine lock poisoned");
+        let inner = self.lock_inner()?;
         Ok((inner.last_applied.clone(), inner.last_membership.clone()))
     }
 
@@ -172,11 +206,15 @@ where
         &mut self,
         entries: &[C::Entry],
     ) -> Result<Vec<C::R>, StorageError<C::NodeId>> {
-        let mut inner = self.inner.lock().expect("state machine lock poisoned");
+        let mut inner = self.lock_inner()?;
         let mut responses = Vec::new();
 
         for entry in entries {
             let e = entry.as_ref();
+
+            // Replay is sequential rather than batch-atomic. Handlers are
+            // expected to reserve errors for invariant/storage failures, not
+            // routine domain validation.
             let log_id = e.get_log_id().clone();
 
             let response = match &e.payload {
@@ -218,7 +256,7 @@ where
             source: StorageIOError::read_state_machine(&e),
         })?;
 
-        let mut inner = self.inner.lock().expect("state machine lock poisoned");
+        let mut inner = self.lock_inner()?;
         inner.handler.restore_snapshot(decoded);
         inner.last_applied = meta.last_log_id.clone();
         inner.last_membership = meta.last_membership.clone();
@@ -232,7 +270,7 @@ where
     fn get_current_snapshot_sync(
         &mut self,
     ) -> Result<Option<Snapshot<C>>, StorageError<C::NodeId>> {
-        let inner = self.inner.lock().expect("state machine lock poisoned");
+        let inner = self.lock_inner()?;
         let Some(stored) = &inner.current_snapshot else {
             return Ok(None);
         };
