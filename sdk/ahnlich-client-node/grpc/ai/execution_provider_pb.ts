@@ -30,6 +30,27 @@ export enum ExecutionProvider {
    * @generated from enum value: CORE_ML = 3;
    */
   CORE_ML = 3,
+
+  /**
+   * ROCm execution provider for AMD GPUs (Linux + supported AMD Instinct /
+   * Radeon hardware). Requires the host to have a matching ROCm runtime
+   * installed and the ort/onnxruntime build configured with ROCm support.
+   * Note: upstream onnxruntime removed the ROCm provider in 1.23; for newer
+   * ORT builds prefer MIGRAPHX.
+   *
+   * @generated from enum value: ROCM = 4;
+   */
+  ROCM = 4,
+
+  /**
+   * MIGraphX execution provider for AMD GPUs (Linux + supported AMD Instinct
+   * hardware). AMD's recommended replacement for the ROCm provider in
+   * onnxruntime >= 1.23. Requires the host to have the MIGraphX runtime
+   * installed (ships in AMD's ROCm apt repository).
+   *
+   * @generated from enum value: MIGRAPHX = 5;
+   */
+  MIGRAPHX = 5,
 }
 // Retrieve enum metadata with: proto3.getEnumType(ExecutionProvider)
 proto3.util.setEnumType(ExecutionProvider, "ai.execution_provider.ExecutionProvider", [
@@ -37,4 +58,7 @@ proto3.util.setEnumType(ExecutionProvider, "ai.execution_provider.ExecutionProvi
   { no: 1, name: "CUDA" },
   { no: 2, name: "DIRECT_ML" },
   { no: 3, name: "CORE_ML" },
+  { no: 4, name: "ROCM" },
+  { no: 5, name: "MIGRAPHX" },
 ]);
+
