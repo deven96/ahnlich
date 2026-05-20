@@ -6,7 +6,7 @@ metadata:
   labels:
     {{- include "ahnlich-db.labels" . | nindent 4 }}
 spec:
-  minAvailable: {{ .Values.cluster.podDisruptionBudget.minAvailable }}
+  maxUnavailable: {{ .Values.cluster.podDisruptionBudget.maxUnavailable }}
   selector:
     matchLabels:
       {{- include "ahnlich-db.selectorLabels" . | nindent 6 }}

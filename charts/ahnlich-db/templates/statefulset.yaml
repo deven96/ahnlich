@@ -22,7 +22,7 @@ spec:
       containers:
         - name: ahnlich-db
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ include "ahnlich-db.pullPolicy" . }}
           {{- if .Values.cluster.enabled }}
           # Pod-0 on a fresh data dir bootstraps; pod-N (N>0) on a fresh data dir
           # joins via pod-0's headless DNS. Existing data dir means "recover" --

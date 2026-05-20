@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/deven96/ahnlich-db
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: ""                # empty: Always for :latest, IfNotPresent otherwise
 
 cluster:
   enabled: false
@@ -16,7 +16,7 @@ cluster:
     storageClass: ""            # uses the cluster's default StorageClass if empty
   podDisruptionBudget:
     enabled: true
-    minAvailable: 2             # never allow fewer than 2 of 3 pods during voluntary disruptions
+    maxUnavailable: 1           # tolerate one pod evicted at a time; scales with replicas
 
 service:
   type: ClusterIP

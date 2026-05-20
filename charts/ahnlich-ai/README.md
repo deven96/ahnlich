@@ -51,8 +51,12 @@ helm install my-ai charts/ahnlich-ai \
 |---|---|---|
 | `db.host` | `""` | **Required.** DNS name of the backing ahnlich-db Service. |
 | `db.port` | `1369` | DB port. |
+| `db.waitForReady.enabled` | `true` | Block AI startup with an initContainer until the DB Service port opens. Mirrors docker-compose `depends_on: service_healthy`. |
+| `db.waitForReady.image` | `busybox:1.36` | Image used for the wait probe (just needs `nc`). |
+| `db.waitForReady.timeoutSeconds` | `300` | How long to keep retrying before failing the pod. |
+| `db.waitForReady.intervalSeconds` | `2` | Poll interval between port checks. |
 
-The AI pod connects to the DB over gRPC. For a co-located DB install with default release name `my-ahnlich`, the value is typically `my-ahnlich-ahnlich-db` (same namespace) or `my-ahnlich-ahnlich-db.<db-namespace>.svc.cluster.local` (cross-namespace).
+The AI pod connects to the DB over gRPC. For a co-located DB install with default release name `my-ahnlich`, the value is typically `my-ahnlich-ahnlich-db` (same namespace) or `my-ahnlich-ahnlich-db.<db-namespace>.svc.cluster.local` (cross-namespace). Disable `db.waitForReady.enabled` if the DB lives somewhere k8s can't reach via a Service (external host, etc.) — though in that case the AI will still crash-restart until the connection succeeds, just without the initContainer's friendlier delay.
 
 ### Models
 

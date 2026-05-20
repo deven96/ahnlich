@@ -1,0 +1,40 @@
+# Umbrella defaults. Sub-chart blocks below are forwarded into each sub-chart
+# under its own values namespace; override via the sub-chart key, e.g.
+#   --set ahnlich-db.cluster.enabled=true
+#
+# Auto-wiring of ahnlich-ai -> ahnlich-db assumes the release is installed under
+# the name "ahnlich" so the DB Service resolves to "ahnlich-ahnlich-db". To use
+# a different release name, also override ahnlich-ai.db.host accordingly.
+
+# Top-level tracing toggles for the umbrella's own resources (the optional
+# in-cluster backend). Sub-chart tracing is controlled per sub-chart below.
+tracing:
+  enabled: false
+  backend:
+    enabled: false             # deploy the in-cluster tracing backend Deployment + Service
+    image:
+      repository: jaegertracing/all-in-one
+      tag: latest
+      pullPolicy: IfNotPresent
+    # Defaults below are Jaeger-shaped; override env / ports / image for other OTLP receivers.
+    env:
+      - name: COLLECTOR_OTLP_ENABLED
+        value: "true"
+    ports:
+      otlp: 4317               # what ahnlich-db / ahnlich-ai send to
+      ui: 16686                # web UI for browsing traces
+    service:
+      type: ClusterIP
+
+ahnlich-db:
+  tracing:
+    enabled: false             # set true to send traces to ahnlich-tracing-backend below
+    otelEndpoint: http://ahnlich-tracing-backend:4317
+
+ahnlich-ai:
+  db:
+    host: ahnlich-ahnlich-db   # auto-wired; assumes release name "ahnlich"
+    port: 1369
+  tracing:
+    enabled: false
+    otelEndpoint: http://ahnlich-tracing-backend:4317

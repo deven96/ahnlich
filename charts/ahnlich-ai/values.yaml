@@ -1,12 +1,20 @@
 image:
   repository: ghcr.io/deven96/ahnlich-ai
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: ""                # empty: Always for :latest, IfNotPresent otherwise
 
 # Backing ahnlich-db connection. Required.
 db:
   host: ""                      # e.g. my-ahnlich-ahnlich-db.default.svc.cluster.local
   port: 1369
+  # Block AI pod startup with an initContainer until the DB Service port is open.
+  # Matches the docker-compose `depends_on: service_healthy` behaviour. Disable
+  # if DB is reachable from somewhere k8s doesn't know about (external host, etc.).
+  waitForReady:
+    enabled: true
+    image: busybox:1.36.1
+    timeoutSeconds: 300         # how long to keep retrying before giving up
+    intervalSeconds: 2
 
 # Embedding models served by this AI instance. Comma-joined into --supported-models.
 models:
@@ -33,7 +41,7 @@ cluster:
     storageClass: ""
   podDisruptionBudget:
     enabled: true
-    minAvailable: 2
+    maxUnavailable: 1           # tolerate one pod evicted at a time; scales with replicas
 
 service:
   type: ClusterIP

@@ -29,3 +29,14 @@ app.kubernetes.io/component: database
 app.kubernetes.io/name: {{ include "ahnlich-db.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end -}}
+
+{{/* Effective pullPolicy: Always for :latest, IfNotPresent otherwise (unless user sets one). */}}
+{{- define "ahnlich-db.pullPolicy" -}}
+{{- if .Values.image.pullPolicy -}}
+{{- .Values.image.pullPolicy -}}
+{{- else if eq (.Values.image.tag | default .Chart.AppVersion) "latest" -}}
+Always
+{{- else -}}
+IfNotPresent
+{{- end -}}
+{{- end -}}

@@ -19,10 +19,32 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
+      {{- if .Values.db.waitForReady.enabled }}
+      # Block startup until the backing DB Service accepts TCP connections.
+      # The DB Service only routes to a pod once its readinessProbe passes,
+      # so an open port here means DB is at least PING-ready.
+      initContainers:
+        - name: wait-for-db
+          image: {{ .Values.db.waitForReady.image | quote }}
+          command:
+            - sh
+            - -c
+            - |
+              DEADLINE=$(( $(date +%s) + {{ .Values.db.waitForReady.timeoutSeconds }} ))
+              until nc -z {{ required "db.host is required" .Values.db.host }} {{ .Values.db.port }}; do
+                if [ $(date +%s) -ge $DEADLINE ]; then
+                  echo "timed out waiting for {{ .Values.db.host }}:{{ .Values.db.port }}"
+                  exit 1
+                fi
+                echo "waiting for {{ .Values.db.host }}:{{ .Values.db.port }} ..."
+                sleep {{ .Values.db.waitForReady.intervalSeconds }}
+              done
+              echo "{{ .Values.db.host }}:{{ .Values.db.port }} is up"
+      {{- end }}
       containers:
         - name: ahnlich-ai
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ include "ahnlich-ai.pullPolicy" . }}
           {{- if .Values.cluster.enabled }}
           # Pod-0 on a fresh data dir bootstraps; pod-N (N>0) on a fresh data dir
           # joins via pod-0's headless DNS. Existing data dir means "recover" --
