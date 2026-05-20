@@ -53,6 +53,9 @@ tracing:
   enabled: false
   otelEndpoint: ""              # e.g. http://jaeger-collector:4317
 
+# --log-level (env_logger / tracing-subscriber syntax). Empty = binary default ("info,hf_hub=warn").
+logLevel: ""
+
 probes:
   readiness:
     initialDelaySeconds: 5
@@ -72,6 +75,26 @@ resources: {}
 #   limits:
 #     cpu: 1000m
 #     memory: 2Gi
+
+# Extra environment variables. Use for Rust runtime knobs (RUST_LOG, RUST_BACKTRACE)
+# or any other process env. Supports name/value pairs and valueFrom (Secret/ConfigMap refs).
+env: []
+#   - name: RUST_LOG
+#     value: debug
+#   - name: RUST_BACKTRACE
+#     value: "1"
+#   - name: SOME_SECRET
+#     valueFrom:
+#       secretKeyRef:
+#         name: my-secret
+#         key: token
+
+# Bulk-import env from ConfigMaps or Secrets.
+envFrom: []
+#   - configMapRef:
+#       name: ahnlich-config
+#   - secretRef:
+#       name: ahnlich-secrets
 
 nodeSelector: {}
 tolerations: []

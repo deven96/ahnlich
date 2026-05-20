@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ahnlich-ai.fullname" . }}
+  labels:
+    {{- include "ahnlich-ai.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: client
+      port: {{ .Values.service.port }}
+      targetPort: client
+      protocol: TCP
+      appProtocol: grpc        # hint for Ingress/Gateway controllers that this is gRPC (HTTP/2)
+  selector:
+    {{- include "ahnlich-ai.selectorLabels" . | nindent 4 }}

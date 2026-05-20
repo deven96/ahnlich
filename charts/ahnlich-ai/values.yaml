@@ -1,0 +1,124 @@
+image:
+  repository: ghcr.io/deven96/ahnlich-ai
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Backing ahnlich-db connection. Required.
+db:
+  host: ""                      # e.g. my-ahnlich-ahnlich-db.default.svc.cluster.local
+  port: 1369
+
+# Embedding models served by this AI instance. Comma-joined into --supported-models.
+models:
+  supported:
+    - all-minilm-l6-v2
+    - resnet-50
+  # Persistent volume for the model cache. AI downloads models on first use and
+  # reuses them across restarts. Sized 20Gi by default; bump for larger model sets.
+  cache:
+    size: 20Gi
+    storageClass: ""            # uses the cluster's default StorageClass if empty
+    mountPath: /root/.ahnlich/models
+
+cluster:
+  enabled: false
+  replicas: 3
+  port: 1371                    # --cluster-addr port for Raft RPCs
+  storage: rocksdb              # rocksdb | memory (memory is testing only, no durability)
+  dataDir: /root/.ahnlich/raft  # --cluster-data-dir (RocksDB log + snapshots)
+  snapshotLogs: 1000            # --cluster-snapshot-logs (count-based snapshot trigger)
+  snapshotIntervalMs: 300000    # --cluster-snapshot-interval (time-based trigger)
+  persistence:
+    size: 10Gi                  # AI replicates only store metadata; logs grow slower than DB's
+    storageClass: ""
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
+
+service:
+  type: ClusterIP
+  port: 1370                    # --port, the public client-facing port
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  path: /
+  pathType: Prefix
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: ""
+
+gateway:
+  enabled: false
+  parentRefs:
+    - name: ""
+      namespace: ""
+      sectionName: ""
+  hostnames: []
+
+# Standalone persistence of AI-local store metadata. Only used when cluster.enabled=false.
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClass: ""
+  mountPath: /root/.ahnlich/data
+  fileName: ai.dat
+  intervalMs: 30000
+
+tracing:
+  enabled: false
+  otelEndpoint: ""              # e.g. http://jaeger-collector:4317
+
+# --log-level (env_logger / tracing-subscriber syntax). Empty = binary default ("info,hf_hub=warn").
+logLevel: ""
+
+probes:
+  readiness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    initialDelaySeconds: 60
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# AI is heavier than DB (ONNX model inference). Set requests/limits per workload.
+# GPU acceleration: add nvidia.com/gpu to limits and a matching nodeSelector.
+resources: {}
+#   requests:
+#     cpu: 500m
+#     memory: 2Gi
+#   limits:
+#     cpu: 2000m
+#     memory: 8Gi
+#     nvidia.com/gpu: 1
+
+# Extra environment variables. Use for Rust runtime knobs (RUST_LOG, RUST_BACKTRACE),
+# ORT_DYLIB_PATH for custom ONNX Runtime locations, or any other process env.
+# Supports name/value pairs and valueFrom (Secret/ConfigMap refs).
+env: []
+#   - name: RUST_LOG
+#     value: debug
+#   - name: RUST_BACKTRACE
+#     value: "1"
+#   - name: SOME_SECRET
+#     valueFrom:
+#       secretKeyRef:
+#         name: my-secret
+#         key: token
+
+# Bulk-import env from ConfigMaps or Secrets.
+envFrom: []
+#   - configMapRef:
+#       name: ahnlich-config
+#   - secretRef:
+#       name: ahnlich-secrets
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}

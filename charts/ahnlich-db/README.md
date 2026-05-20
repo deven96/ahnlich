@@ -123,6 +123,23 @@ The chart only ships the `GRPCRoute`. The `Gateway` itself is cluster-level and 
 
 Enabling `ingress.enabled` and `gateway.enabled` simultaneously is a misconfiguration; the chart fails the install with an explicit error.
 
+### Logging
+
+| Key | Default | Description |
+|---|---|---|
+| `logLevel` | `""` | Sets `--log-level` on the binary. Empty = the binary's default (`info,hf_hub=warn`). Example values: `debug`, `trace`, `info,ahnlich_db=debug`. |
+
+`ahnlich-db` reads its log filter from `--log-level`, **not** from `RUST_LOG`. Setting `RUST_LOG` via `env` has no effect.
+
+### Environment variables
+
+| Key | Default | Description |
+|---|---|---|
+| `env` | `[]` | List of `EnvVar` entries (`name/value` or `valueFrom`). |
+| `envFrom` | `[]` | List of `EnvFromSource` entries (`configMapRef` or `secretRef`). |
+
+For Rust runtime knobs not exposed as flags (`RUST_BACKTRACE=1`, etc.) or any other process env. Both keys take the standard k8s shape, so anything you can put in a Pod's `env`/`envFrom` works here. For log verbosity use `logLevel` above instead.
+
 ### Pod scheduling
 
 | Key | Default | Description |
