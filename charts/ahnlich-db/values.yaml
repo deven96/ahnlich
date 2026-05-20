@@ -1,0 +1,79 @@
+image:
+  repository: ghcr.io/deven96/ahnlich-db
+  tag: latest
+  pullPolicy: IfNotPresent
+
+cluster:
+  enabled: false
+  replicas: 3
+  port: 1370                    # --cluster-addr port for Raft RPCs
+  storage: rocksdb              # rocksdb | memory (memory is testing only, no durability)
+  dataDir: /root/.ahnlich/raft  # --cluster-data-dir (RocksDB log + snapshots)
+  snapshotLogs: 1000            # --cluster-snapshot-logs (count-based snapshot trigger)
+  snapshotIntervalMs: 300000    # --cluster-snapshot-interval (time-based trigger)
+  persistence:
+    size: 20Gi                  # larger default: Raft logs grow faster than periodic snapshots
+    storageClass: ""            # uses the cluster's default StorageClass if empty
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2             # never allow fewer than 2 of 3 pods during voluntary disruptions
+
+service:
+  type: ClusterIP
+  port: 1369                    # --port, the public client-facing port
+
+ingress:
+  enabled: false
+  className: ""                 # IngressClass name. Empty = cluster default.
+  host: ""                      # e.g. ahnlich-db.example.com
+  path: /
+  pathType: Prefix
+  annotations: {}               # controller-specific knobs (e.g. nginx-ingress backend-protocol GRPC)
+  tls:
+    enabled: false
+    secretName: ""              # name of an existing TLS Secret in this namespace
+
+gateway:
+  enabled: false
+  parentRefs:
+    - name: ""                  # required when gateway.enabled=true; the Gateway resource name
+      namespace: ""             # optional; defaults to this release's namespace
+      sectionName: ""           # optional; pin to a specific Gateway listener
+  hostnames: []                 # e.g. ["ahnlich-db.example.com"]
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: ""              # uses the cluster's default StorageClass if empty
+  mountPath: /root/.ahnlich/data
+  fileName: db.dat
+  intervalMs: 30000
+
+tracing:
+  enabled: false
+  otelEndpoint: ""              # e.g. http://jaeger-collector:4317
+
+probes:
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+resources: {}
+#   requests:
+#     cpu: 100m
+#     memory: 256Mi
+#   limits:
+#     cpu: 1000m
+#     memory: 2Gi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}

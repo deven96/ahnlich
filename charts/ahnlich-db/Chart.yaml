@@ -1,0 +1,13 @@
+apiVersion: v2
+name: ahnlich-db
+description: Helm chart for ahnlich-db, the in-memory vector database
+type: application
+version: 0.1.0
+appVersion: "latest"
+home: https://github.com/deven96/ahnlich
+sources:
+  - https://github.com/deven96/ahnlich
+keywords:
+  - vector-database
+  - similarity-search
+  - ahnlich
