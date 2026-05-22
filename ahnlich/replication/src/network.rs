@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::sync::Arc;
 
+use bitcode::{deserialize, serialize};
 use openraft::error::{InstallSnapshotError, NetworkError, RPCError, RaftError};
 use openraft::network::{RPCOption, RaftNetwork, RaftNetworkFactory};
 use openraft::raft::{
@@ -8,7 +9,6 @@ use openraft::raft::{
     VoteRequest, VoteResponse,
 };
 use openraft::{Raft, RaftTypeConfig};
-use serde_json::{from_slice, to_vec};
 use tonic::transport::{Channel, Endpoint};
 use tonic::{Request, Response, Status};
 
@@ -88,14 +88,14 @@ impl<C: RaftTypeConfig> RaftNetwork<C> for GrpcRaftNetwork<C> {
     {
         let mut client = self.client.clone();
         let payload = PbAppendEntriesRequest {
-            payload: to_vec(&rpc).map_err(rpc_err::<C, _>)?,
+            payload: serialize(&rpc).map_err(rpc_err::<C, _>)?,
         };
         let resp = client
             .append_entries(Request::new(payload))
             .await
             .map_err(rpc_err::<C, _>)?;
         let decoded: AppendEntriesResponse<C::NodeId> =
-            from_slice(&resp.into_inner().payload).map_err(rpc_err::<C, _>)?;
+            deserialize(&resp.into_inner().payload).map_err(rpc_err::<C, _>)?;
         Ok(decoded)
     }
 
@@ -109,14 +109,14 @@ impl<C: RaftTypeConfig> RaftNetwork<C> for GrpcRaftNetwork<C> {
     > {
         let mut client = self.client.clone();
         let payload = PbInstallSnapshotRequest {
-            payload: serde_json::to_vec(&rpc).map_err(rpc_err_install::<C, _>)?,
+            payload: serialize(&rpc).map_err(rpc_err_install::<C, _>)?,
         };
         let resp = client
             .install_snapshot(Request::new(payload))
             .await
             .map_err(rpc_err_install::<C, _>)?;
         let decoded: InstallSnapshotResponse<C::NodeId> =
-            serde_json::from_slice(&resp.into_inner().payload).map_err(rpc_err_install::<C, _>)?;
+            deserialize(&resp.into_inner().payload).map_err(rpc_err_install::<C, _>)?;
         Ok(decoded)
     }
 
@@ -127,14 +127,14 @@ impl<C: RaftTypeConfig> RaftNetwork<C> for GrpcRaftNetwork<C> {
     ) -> Result<VoteResponse<C::NodeId>, RPCError<C::NodeId, C::Node, RaftError<C::NodeId>>> {
         let mut client = self.client.clone();
         let payload = PbVoteRequest {
-            payload: to_vec(&rpc).map_err(rpc_err::<C, _>)?,
+            payload: serialize(&rpc).map_err(rpc_err::<C, _>)?,
         };
         let resp = client
             .vote(Request::new(payload))
             .await
             .map_err(rpc_err::<C, _>)?;
         let decoded: VoteResponse<C::NodeId> =
-            from_slice(&resp.into_inner().payload).map_err(rpc_err::<C, _>)?;
+            deserialize(&resp.into_inner().payload).map_err(rpc_err::<C, _>)?;
         Ok(decoded)
     }
 }
@@ -155,7 +155,7 @@ impl<C: RaftTypeConfig> RaftInternalService for GrpcRaftService<C> {
         &self,
         request: Request<PbAppendEntriesRequest>,
     ) -> Result<Response<PbAppendEntriesResponse>, Status> {
-        let rpc: AppendEntriesRequest<C> = from_slice(&request.into_inner().payload)
+        let rpc: AppendEntriesRequest<C> = deserialize(&request.into_inner().payload)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
         let resp = self
             .raft
@@ -163,7 +163,7 @@ impl<C: RaftTypeConfig> RaftInternalService for GrpcRaftService<C> {
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
         Ok(Response::new(PbAppendEntriesResponse {
-            payload: to_vec(&resp).map_err(|e| Status::internal(e.to_string()))?,
+            payload: serialize(&resp).map_err(|e| Status::internal(e.to_string()))?,
         }))
     }
 
@@ -171,7 +171,7 @@ impl<C: RaftTypeConfig> RaftInternalService for GrpcRaftService<C> {
         &self,
         request: Request<PbInstallSnapshotRequest>,
     ) -> Result<Response<PbInstallSnapshotResponse>, Status> {
-        let rpc: InstallSnapshotRequest<C> = from_slice(&request.into_inner().payload)
+        let rpc: InstallSnapshotRequest<C> = deserialize(&request.into_inner().payload)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
         let resp = self
             .raft
@@ -179,7 +179,7 @@ impl<C: RaftTypeConfig> RaftInternalService for GrpcRaftService<C> {
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
         Ok(Response::new(PbInstallSnapshotResponse {
-            payload: to_vec(&resp).map_err(|e| Status::internal(e.to_string()))?,
+            payload: serialize(&resp).map_err(|e| Status::internal(e.to_string()))?,
         }))
     }
 
@@ -187,7 +187,7 @@ impl<C: RaftTypeConfig> RaftInternalService for GrpcRaftService<C> {
         &self,
         request: Request<PbVoteRequest>,
     ) -> Result<Response<PbVoteResponse>, Status> {
-        let rpc: VoteRequest<C::NodeId> = from_slice(&request.into_inner().payload)
+        let rpc: VoteRequest<C::NodeId> = deserialize(&request.into_inner().payload)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
         let resp = self
             .raft
@@ -195,7 +195,7 @@ impl<C: RaftTypeConfig> RaftInternalService for GrpcRaftService<C> {
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
         Ok(Response::new(PbVoteResponse {
-            payload: to_vec(&resp).map_err(|e| Status::internal(e.to_string()))?,
+            payload: serialize(&resp).map_err(|e| Status::internal(e.to_string()))?,
         }))
     }
 }
