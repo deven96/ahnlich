@@ -47,7 +47,9 @@ name = "ahnlich-replication"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bitcode",
  "clap 4.5.59",
+ "criterion",
  "futures",
  "http 1.4.0",
  "log",
