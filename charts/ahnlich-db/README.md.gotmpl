@@ -32,62 +32,7 @@ helm install my-ahnlich charts/ahnlich-db \
   --set tracing.otelEndpoint=http://jaeger-collector:4317
 ```
 
-## Values
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| affinity | object | `{}` | Affinity rules for pod scheduling. |
-| cluster.dataDir | string | `"/root/.ahnlich/raft"` | `--cluster-data-dir` (RocksDB log + snapshots). |
-| cluster.enabled | bool | `false` | Run N replicas as a Raft cluster instead of a single standalone node. |
-| cluster.persistence.size | string | `"20Gi"` | PVC size for the Raft data dir (larger default: logs grow faster than periodic snapshots). |
-| cluster.persistence.storageClass | string | `""` | StorageClass for the Raft data dir. Empty uses the cluster default. |
-| cluster.podDisruptionBudget.enabled | bool | `true` | Create a PodDisruptionBudget in cluster mode. |
-| cluster.podDisruptionBudget.maxUnavailable | int | `1` | Pods that may be evicted at once; scales with replicas. |
-| cluster.port | int | `1370` | `--cluster-addr` port for Raft RPCs. |
-| cluster.replicas | int | `3` | StatefulSet replica count in cluster mode. |
-| cluster.snapshotIntervalMs | int | `300000` | `--cluster-snapshot-interval` time-based snapshot trigger (ms). |
-| cluster.snapshotLogs | int | `1000` | `--cluster-snapshot-logs` count-based snapshot trigger. |
-| cluster.storage | string | `"rocksdb"` | Raft storage backend: `rocksdb` (production) or `memory` (testing only, no durability). |
-| env | list | `[]` | Extra environment variables (name/value or valueFrom). Use for Rust runtime knobs like `RUST_BACKTRACE`. |
-| envFrom | list | `[]` | Bulk-import env from ConfigMaps or Secrets. |
-| gateway.enabled | bool | `false` | Create a GRPCRoute attached to an existing Gateway (mutually exclusive with `ingress`). |
-| gateway.hostnames | list | `[]` | Hostnames the route claims, e.g. `["ahnlich-db.example.com"]`. |
-| gateway.parentRefs | list | `[{"name":"","namespace":"","sectionName":""}]` | Existing Gateway references; `name` is required when `gateway.enabled`. |
-| image.pullPolicy | string | `""` | Pull policy. Empty selects `Always` for the `latest` tag, `IfNotPresent` otherwise. |
-| image.repository | string | `"ghcr.io/deven96/ahnlich-db"` | Image repository. |
-| image.tag | string | `"latest"` | Image tag. |
-| ingress.annotations | object | `{}` | Controller-specific annotations (e.g. nginx-ingress `backend-protocol: GRPC`). |
-| ingress.className | string | `""` | IngressClass name. Empty uses the cluster default. |
-| ingress.enabled | bool | `false` | Create an Ingress resource (requires an Ingress Controller in the cluster). |
-| ingress.host | string | `""` | Hostname, e.g. `ahnlich-db.example.com`. Required when `ingress.tls.enabled`. |
-| ingress.path | string | `"/"` | Path prefix. |
-| ingress.pathType | string | `"Prefix"` | Path type: `Prefix`, `Exact`, or `ImplementationSpecific`. |
-| ingress.tls.enabled | bool | `false` | Add a TLS block to the Ingress. |
-| ingress.tls.secretName | string | `""` | Name of an existing TLS Secret in this namespace. |
-| logLevel | string | `""` | `--log-level` (env_logger / tracing-subscriber syntax). Empty uses the binary default (`info,hf_hub=warn`). |
-| nodeSelector | object | `{}` | Node selector for pod scheduling. |
-| persistence.enabled | bool | `true` | Mount a PVC and pass `--enable-persistence` (standalone mode only). |
-| persistence.fileName | string | `"db.dat"` | Snapshot file name. |
-| persistence.intervalMs | int | `30000` | `--persistence-interval` value (ms). |
-| persistence.mountPath | string | `"/root/.ahnlich/data"` | In-container mount point for the snapshot. |
-| persistence.size | string | `"10Gi"` | PVC size for the JSON snapshot file. |
-| persistence.storageClass | string | `""` | StorageClass for the snapshot PVC. Empty uses the cluster default. |
-| podAnnotations | object | `{}` | Annotations added to the pod template. |
-| podLabels | object | `{}` | Extra labels added to the pod template (not the selector). |
-| probes.liveness.failureThreshold | int | `3` | Liveness probe failure threshold. |
-| probes.liveness.initialDelaySeconds | int | `30` | Liveness probe initial delay (s). |
-| probes.liveness.periodSeconds | int | `30` | Liveness probe period (s). |
-| probes.liveness.timeoutSeconds | int | `5` | Liveness probe timeout (s). |
-| probes.readiness.failureThreshold | int | `3` | Readiness probe failure threshold. |
-| probes.readiness.initialDelaySeconds | int | `5` | Readiness probe initial delay (s). |
-| probes.readiness.periodSeconds | int | `10` | Readiness probe period (s). |
-| probes.readiness.timeoutSeconds | int | `5` | Readiness probe timeout (s). |
-| resources | object | `{}` | Container resource requests/limits. |
-| service.port | int | `1369` | `--port`, the public client-facing gRPC port. |
-| service.type | string | `"ClusterIP"` | Service type: `ClusterIP`, `LoadBalancer`, or `NodePort`. |
-| tolerations | list | `[]` | Tolerations for pod scheduling. |
-| tracing.enabled | bool | `false` | Pass `--enable-tracing` and `--otel-endpoint`. |
-| tracing.otelEndpoint | string | `""` | OTLP gRPC endpoint, e.g. `http://jaeger-collector:4317`. |
+{{ template "chart.valuesSection" . }}
 
 The Service port advertises `appProtocol: grpc` so modern Ingress / Gateway controllers auto-configure HTTP/2 to the backend without per-controller annotations.
 

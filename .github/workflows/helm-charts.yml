@@ -13,6 +13,25 @@ permissions:
   contents: read
 
 jobs:
+  docs:
+    name: helm-docs up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate chart docs
+        run: |
+          docker run --rm -v "$(pwd):/helm-docs" -u "$(id -u)" \
+            jnorwood/helm-docs:v1.14.2 \
+            helm-docs --chart-search-root=charts
+
+      - name: Fail if docs are stale
+        run: |
+          if ! git diff --exit-code -- 'charts/*/README.md'; then
+            echo "::error::Chart README.md is out of date. Run 'helm-docs --chart-search-root=charts' and commit the result." >&2
+            exit 1
+          fi
+
   lint:
     name: Lint and template
     runs-on: ubuntu-latest

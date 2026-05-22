@@ -1,73 +1,117 @@
 image:
+  # -- Image repository.
   repository: ghcr.io/deven96/ahnlich-db
+  # -- Image tag.
   tag: latest
-  pullPolicy: ""                # empty: Always for :latest, IfNotPresent otherwise
+  # -- Pull policy. Empty selects `Always` for the `latest` tag, `IfNotPresent` otherwise.
+  pullPolicy: ""
 
 cluster:
+  # -- Run N replicas as a Raft cluster instead of a single standalone node.
   enabled: false
+  # -- StatefulSet replica count in cluster mode.
   replicas: 3
-  port: 1370                    # --cluster-addr port for Raft RPCs
-  storage: rocksdb              # rocksdb | memory (memory is testing only, no durability)
-  dataDir: /root/.ahnlich/raft  # --cluster-data-dir (RocksDB log + snapshots)
-  snapshotLogs: 1000            # --cluster-snapshot-logs (count-based snapshot trigger)
-  snapshotIntervalMs: 300000    # --cluster-snapshot-interval (time-based trigger)
+  # -- `--cluster-addr` port for Raft RPCs.
+  port: 1370
+  # -- Raft storage backend: `rocksdb` (production) or `memory` (testing only, no durability).
+  storage: rocksdb
+  # -- `--cluster-data-dir` (RocksDB log + snapshots).
+  dataDir: /root/.ahnlich/raft
+  # -- `--cluster-snapshot-logs` count-based snapshot trigger.
+  snapshotLogs: 1000
+  # -- `--cluster-snapshot-interval` time-based snapshot trigger (ms).
+  snapshotIntervalMs: 300000
   persistence:
-    size: 20Gi                  # larger default: Raft logs grow faster than periodic snapshots
-    storageClass: ""            # uses the cluster's default StorageClass if empty
+    # -- PVC size for the Raft data dir (larger default: logs grow faster than periodic snapshots).
+    size: 20Gi
+    # -- StorageClass for the Raft data dir. Empty uses the cluster default.
+    storageClass: ""
   podDisruptionBudget:
+    # -- Create a PodDisruptionBudget in cluster mode.
     enabled: true
-    maxUnavailable: 1           # tolerate one pod evicted at a time; scales with replicas
+    # -- Pods that may be evicted at once; scales with replicas.
+    maxUnavailable: 1
 
 service:
+  # -- Service type: `ClusterIP`, `LoadBalancer`, or `NodePort`.
   type: ClusterIP
-  port: 1369                    # --port, the public client-facing port
+  # -- `--port`, the public client-facing gRPC port.
+  port: 1369
 
 ingress:
+  # -- Create an Ingress resource (requires an Ingress Controller in the cluster).
   enabled: false
-  className: ""                 # IngressClass name. Empty = cluster default.
-  host: ""                      # e.g. ahnlich-db.example.com
+  # -- IngressClass name. Empty uses the cluster default.
+  className: ""
+  # -- Hostname, e.g. `ahnlich-db.example.com`. Required when `ingress.tls.enabled`.
+  host: ""
+  # -- Path prefix.
   path: /
+  # -- Path type: `Prefix`, `Exact`, or `ImplementationSpecific`.
   pathType: Prefix
-  annotations: {}               # controller-specific knobs (e.g. nginx-ingress backend-protocol GRPC)
+  # -- Controller-specific annotations (e.g. nginx-ingress `backend-protocol: GRPC`).
+  annotations: {}
   tls:
+    # -- Add a TLS block to the Ingress.
     enabled: false
-    secretName: ""              # name of an existing TLS Secret in this namespace
+    # -- Name of an existing TLS Secret in this namespace.
+    secretName: ""
 
 gateway:
+  # -- Create a GRPCRoute attached to an existing Gateway (mutually exclusive with `ingress`).
   enabled: false
+  # -- Existing Gateway references; `name` is required when `gateway.enabled`.
   parentRefs:
-    - name: ""                  # required when gateway.enabled=true; the Gateway resource name
-      namespace: ""             # optional; defaults to this release's namespace
-      sectionName: ""           # optional; pin to a specific Gateway listener
-  hostnames: []                 # e.g. ["ahnlich-db.example.com"]
+    - name: ""
+      namespace: ""
+      sectionName: ""
+  # -- Hostnames the route claims, e.g. `["ahnlich-db.example.com"]`.
+  hostnames: []
 
 persistence:
+  # -- Mount a PVC and pass `--enable-persistence` (standalone mode only).
   enabled: true
+  # -- PVC size for the JSON snapshot file.
   size: 10Gi
-  storageClass: ""              # uses the cluster's default StorageClass if empty
+  # -- StorageClass for the snapshot PVC. Empty uses the cluster default.
+  storageClass: ""
+  # -- In-container mount point for the snapshot.
   mountPath: /root/.ahnlich/data
+  # -- Snapshot file name.
   fileName: db.dat
+  # -- `--persistence-interval` value (ms).
   intervalMs: 30000
 
 tracing:
+  # -- Pass `--enable-tracing` and `--otel-endpoint`.
   enabled: false
-  otelEndpoint: ""              # e.g. http://jaeger-collector:4317
+  # -- OTLP gRPC endpoint, e.g. `http://jaeger-collector:4317`.
+  otelEndpoint: ""
 
-# --log-level (env_logger / tracing-subscriber syntax). Empty = binary default ("info,hf_hub=warn").
+# -- `--log-level` (env_logger / tracing-subscriber syntax). Empty uses the binary default (`info,hf_hub=warn`).
 logLevel: ""
 
 probes:
   readiness:
+    # -- Readiness probe initial delay (s).
     initialDelaySeconds: 5
+    # -- Readiness probe period (s).
     periodSeconds: 10
+    # -- Readiness probe timeout (s).
     timeoutSeconds: 5
+    # -- Readiness probe failure threshold.
     failureThreshold: 3
   liveness:
+    # -- Liveness probe initial delay (s).
     initialDelaySeconds: 30
+    # -- Liveness probe period (s).
     periodSeconds: 30
+    # -- Liveness probe timeout (s).
     timeoutSeconds: 5
+    # -- Liveness probe failure threshold.
     failureThreshold: 3
 
+# -- Container resource requests/limits.
 resources: {}
 #   requests:
 #     cpu: 100m
@@ -76,11 +120,8 @@ resources: {}
 #     cpu: 1000m
 #     memory: 2Gi
 
-# Extra environment variables. Use for Rust runtime knobs (RUST_LOG, RUST_BACKTRACE)
-# or any other process env. Supports name/value pairs and valueFrom (Secret/ConfigMap refs).
+# -- Extra environment variables (name/value or valueFrom). Use for Rust runtime knobs like `RUST_BACKTRACE`.
 env: []
-#   - name: RUST_LOG
-#     value: debug
 #   - name: RUST_BACKTRACE
 #     value: "1"
 #   - name: SOME_SECRET
@@ -89,14 +130,20 @@ env: []
 #         name: my-secret
 #         key: token
 
-# Bulk-import env from ConfigMaps or Secrets.
+# -- Bulk-import env from ConfigMaps or Secrets.
 envFrom: []
 #   - configMapRef:
 #       name: ahnlich-config
 #   - secretRef:
 #       name: ahnlich-secrets
 
+# -- Node selector for pod scheduling.
 nodeSelector: {}
+# -- Tolerations for pod scheduling.
 tolerations: []
+# -- Affinity rules for pod scheduling.
 affinity: {}
+# -- Annotations added to the pod template.
 podAnnotations: {}
+# -- Extra labels added to the pod template (not the selector).
+podLabels: {}

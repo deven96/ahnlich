@@ -38,25 +38,7 @@ The umbrella is a thin aggregator: it declares `ahnlich-db` and `ahnlich-ai` as 
 
 Set anything from the [`ahnlich-db`](../ahnlich-db/README.md) or [`ahnlich-ai`](../ahnlich-ai/README.md) charts via the namespaced key: `--set ahnlich-db.<key>=<value>` or `--set ahnlich-ai.<key>=<value>`.
 
-## Values
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| ahnlich-ai.db.host | string | `"ahnlich-ahnlich-db"` | DB Service name (auto-wired; assumes release name "ahnlich"). |
-| ahnlich-ai.db.port | int | `1369` | DB port. |
-| ahnlich-ai.tracing.enabled | bool | `false` | Send AI traces to the bundled backend. |
-| ahnlich-ai.tracing.otelEndpoint | string | `"http://ahnlich-tracing-backend:4317"` | OTLP endpoint (pre-wired to the bundled backend Service for release name "ahnlich"). |
-| ahnlich-db.tracing.enabled | bool | `false` | Send DB traces to the bundled backend. |
-| ahnlich-db.tracing.otelEndpoint | string | `"http://ahnlich-tracing-backend:4317"` | OTLP endpoint (pre-wired to the bundled backend Service for release name "ahnlich"). |
-| tracing.backend.enabled | bool | `false` | Deploy an in-cluster OTLP backend (Deployment + Service). |
-| tracing.backend.env | list | `[{"name":"COLLECTOR_OTLP_ENABLED","value":"true"}]` | Backend container env. Default is Jaeger-shaped. |
-| tracing.backend.image.pullPolicy | string | `"IfNotPresent"` | Backend image pull policy. |
-| tracing.backend.image.repository | string | `"jaegertracing/all-in-one"` | Backend image repository (default Jaeger all-in-one; swap for other OTLP receivers). |
-| tracing.backend.image.tag | string | `"latest"` | Backend image tag. |
-| tracing.backend.ports.otlp | int | `4317` | OTLP gRPC port the sub-charts send to. |
-| tracing.backend.ports.ui | int | `16686` | Browser UI port. |
-| tracing.backend.service.type | string | `"ClusterIP"` | Backend Service type. |
-| tracing.enabled | bool | `false` | Master switch for tracing wiring. Does nothing alone; pair with `tracing.backend.enabled` and/or per-sub-chart `tracing.enabled`. |
+{{ template "chart.valuesSection" . }}
 
 The backend's Service is named `<release>-tracing-backend`. With the default release name `ahnlich`, that resolves to `ahnlich-tracing-backend`, which is what the pre-wired `otelEndpoint` defaults point at. Install under a different name and you must override both `ahnlich-ai.db.host` and the `otelEndpoint`s — the chart fails at template time with the exact override command if you don't.
 

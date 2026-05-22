@@ -6,35 +6,47 @@
 # the name "ahnlich" so the DB Service resolves to "ahnlich-ahnlich-db". To use
 # a different release name, also override ahnlich-ai.db.host accordingly.
 
-# Top-level tracing toggles for the umbrella's own resources (the optional
-# in-cluster backend). Sub-chart tracing is controlled per sub-chart below.
 tracing:
+  # -- Master switch for tracing wiring. Does nothing alone; pair with `tracing.backend.enabled` and/or per-sub-chart `tracing.enabled`.
   enabled: false
   backend:
-    enabled: false             # deploy the in-cluster tracing backend Deployment + Service
+    # -- Deploy an in-cluster OTLP backend (Deployment + Service).
+    enabled: false
     image:
+      # -- Backend image repository (default Jaeger all-in-one; swap for other OTLP receivers).
       repository: jaegertracing/all-in-one
+      # -- Backend image tag.
       tag: latest
+      # -- Backend image pull policy.
       pullPolicy: IfNotPresent
-    # Defaults below are Jaeger-shaped; override env / ports / image for other OTLP receivers.
+    # -- Backend container env. Default is Jaeger-shaped.
     env:
       - name: COLLECTOR_OTLP_ENABLED
         value: "true"
     ports:
-      otlp: 4317               # what ahnlich-db / ahnlich-ai send to
-      ui: 16686                # web UI for browsing traces
+      # -- OTLP gRPC port the sub-charts send to.
+      otlp: 4317
+      # -- Browser UI port.
+      ui: 16686
     service:
+      # -- Backend Service type.
       type: ClusterIP
 
 ahnlich-db:
   tracing:
-    enabled: false             # set true to send traces to ahnlich-tracing-backend below
+    # -- Send DB traces to the bundled backend.
+    enabled: false
+    # -- OTLP endpoint (pre-wired to the bundled backend Service for release name "ahnlich").
     otelEndpoint: http://ahnlich-tracing-backend:4317
 
 ahnlich-ai:
   db:
-    host: ahnlich-ahnlich-db   # auto-wired; assumes release name "ahnlich"
+    # -- DB Service name (auto-wired; assumes release name "ahnlich").
+    host: ahnlich-ahnlich-db
+    # -- DB port.
     port: 1369
   tracing:
+    # -- Send AI traces to the bundled backend.
     enabled: false
+    # -- OTLP endpoint (pre-wired to the bundled backend Service for release name "ahnlich").
     otelEndpoint: http://ahnlich-tracing-backend:4317

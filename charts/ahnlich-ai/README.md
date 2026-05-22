@@ -37,149 +37,88 @@ helm install my-ai charts/ahnlich-ai \
 
 ## Values
 
-### Image
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| affinity | object | `{}` | Affinity rules for pod scheduling. |
+| cluster.dataDir | string | `"/root/.ahnlich/raft"` | `--cluster-data-dir` (RocksDB log + snapshots). |
+| cluster.enabled | bool | `false` | Run N replicas as an AI-local Raft cluster instead of a single standalone node. |
+| cluster.persistence.size | string | `"10Gi"` | PVC size for the Raft data dir (AI replicates only metadata, so logs grow slower than DB's). |
+| cluster.persistence.storageClass | string | `""` | StorageClass for the Raft data dir. Empty uses the cluster default. |
+| cluster.podDisruptionBudget.enabled | bool | `true` | Create a PodDisruptionBudget in cluster mode. |
+| cluster.podDisruptionBudget.maxUnavailable | int | `1` | Pods that may be evicted at once; scales with replicas. |
+| cluster.port | int | `1371` | `--cluster-addr` port for Raft RPCs. |
+| cluster.replicas | int | `3` | StatefulSet replica count in cluster mode. |
+| cluster.snapshotIntervalMs | int | `300000` | `--cluster-snapshot-interval` time-based snapshot trigger (ms). |
+| cluster.snapshotLogs | int | `1000` | `--cluster-snapshot-logs` count-based snapshot trigger. |
+| cluster.storage | string | `"rocksdb"` | Raft storage backend: `rocksdb` (production) or `memory` (testing only, no durability). |
+| db.host | string | `""` | DNS name of the backing ahnlich-db Service (required), e.g. `my-ahnlich-ahnlich-db`. |
+| db.port | int | `1369` | DB port. |
+| db.waitForReady.enabled | bool | `true` | Block AI startup with an initContainer until the DB Service port opens (mirrors docker-compose `depends_on: service_healthy`). |
+| db.waitForReady.image | string | `"busybox:1.36.1"` | Image used for the wait probe (needs `nc`). |
+| db.waitForReady.intervalSeconds | int | `2` | Poll interval between port checks (s). |
+| db.waitForReady.timeoutSeconds | int | `300` | How long to keep retrying before failing the pod (s). |
+| env | list | `[]` | Extra environment variables (name/value or valueFrom). Use for `RUST_BACKTRACE`, `ORT_DYLIB_PATH`, etc. |
+| envFrom | list | `[]` | Bulk-import env from ConfigMaps or Secrets. |
+| gateway.enabled | bool | `false` | Create a GRPCRoute attached to an existing Gateway (mutually exclusive with `ingress`). |
+| gateway.hostnames | list | `[]` | Hostnames the route claims, e.g. `["ai.example.com"]`. |
+| gateway.parentRefs | list | `[{"name":"","namespace":"","sectionName":""}]` | Existing Gateway references; `name` is required when `gateway.enabled`. |
+| image.pullPolicy | string | `""` | Pull policy. Empty selects `Always` for the `latest` tag, `IfNotPresent` otherwise. |
+| image.repository | string | `"ghcr.io/deven96/ahnlich-ai"` | Image repository. |
+| image.tag | string | `"latest"` | Image tag. |
+| ingress.annotations | object | `{}` | Controller-specific annotations (e.g. nginx-ingress `backend-protocol: GRPC`). |
+| ingress.className | string | `""` | IngressClass name. Empty uses the cluster default. |
+| ingress.enabled | bool | `false` | Create an Ingress resource (requires an Ingress Controller in the cluster). |
+| ingress.host | string | `""` | Hostname, e.g. `ai.example.com`. Required when `ingress.tls.enabled`. |
+| ingress.path | string | `"/"` | Path prefix. |
+| ingress.pathType | string | `"Prefix"` | Path type: `Prefix`, `Exact`, or `ImplementationSpecific`. |
+| ingress.tls.enabled | bool | `false` | Add a TLS block to the Ingress. |
+| ingress.tls.secretName | string | `""` | Name of an existing TLS Secret in this namespace. |
+| logLevel | string | `""` | `--log-level` (env_logger / tracing-subscriber syntax). Empty uses the binary default (`info,hf_hub=warn`). |
+| models.cache.mountPath | string | `"/root/.ahnlich/models"` | In-container model cache path. |
+| models.cache.size | string | `"20Gi"` | PVC size for the model cache. |
+| models.cache.storageClass | string | `""` | StorageClass for the model cache. Empty uses the cluster default. |
+| models.supported | list | `["all-minilm-l6-v2","resnet-50"]` | Model names served by this instance; comma-joined into `--supported-models`. |
+| nodeSelector | object | `{}` | Node selector for pod scheduling. |
+| persistence.enabled | bool | `true` | Mount a PVC and pass `--enable-persistence` (standalone mode only). |
+| persistence.fileName | string | `"ai.dat"` | Snapshot file name. |
+| persistence.intervalMs | int | `30000` | `--persistence-interval` value (ms). |
+| persistence.mountPath | string | `"/root/.ahnlich/data"` | In-container mount point for the snapshot. |
+| persistence.size | string | `"5Gi"` | PVC size for the AI-local metadata snapshot (small). |
+| persistence.storageClass | string | `""` | StorageClass for the snapshot PVC. Empty uses the cluster default. |
+| podAnnotations | object | `{}` | Annotations added to the pod template. |
+| podLabels | object | `{}` | Extra labels added to the pod template (not the selector). |
+| probes.liveness.failureThreshold | int | `3` | Liveness probe failure threshold. |
+| probes.liveness.initialDelaySeconds | int | `60` | Liveness probe initial delay (s); higher default to cover first-run model download. |
+| probes.liveness.periodSeconds | int | `30` | Liveness probe period (s). |
+| probes.liveness.timeoutSeconds | int | `5` | Liveness probe timeout (s). |
+| probes.readiness.failureThreshold | int | `3` | Readiness probe failure threshold. |
+| probes.readiness.initialDelaySeconds | int | `10` | Readiness probe initial delay (s). |
+| probes.readiness.periodSeconds | int | `10` | Readiness probe period (s). |
+| probes.readiness.timeoutSeconds | int | `5` | Readiness probe timeout (s). |
+| resources | object | `{}` | Container resource requests/limits. AI is heavier than DB; for GPU add `nvidia.com/gpu` to limits plus a matching nodeSelector. |
+| service.port | int | `1370` | `--port`, the public client-facing gRPC port. |
+| service.type | string | `"ClusterIP"` | Service type: `ClusterIP`, `LoadBalancer`, or `NodePort`. |
+| tolerations | list | `[]` | Tolerations for pod scheduling. |
+| tracing.enabled | bool | `false` | Pass `--enable-tracing` and `--otel-endpoint`. |
+| tracing.otelEndpoint | string | `""` | OTLP gRPC endpoint, e.g. `http://jaeger-collector:4317`. |
 
-| Key | Default | Description |
-|---|---|---|
-| `image.repository` | `ghcr.io/deven96/ahnlich-ai` | Image repository. |
-| `image.tag` | `latest` | Image tag. |
-| `image.pullPolicy` | `IfNotPresent` | Standard k8s pull policy. |
+## Notes
 
-### Backing DB
+- **Backing DB.** The AI pod connects to the DB over gRPC at `db.host:db.port`. For a co-located DB install named `my-ahnlich`, that's typically `my-ahnlich-ahnlich-db` (same namespace) or `my-ahnlich-ahnlich-db.<db-namespace>.svc.cluster.local` (cross-namespace). The `db.waitForReady` initContainer blocks startup until that port is reachable; disable it only if the DB lives somewhere k8s can't reach via a Service.
+- **Model cache.** Each replica gets its own model-cache PVC. Models are downloaded on first use and reused across restarts. The liveness probe's 60s initial delay covers first-run download.
+- **AI cluster scope.** In cluster mode the AI Raft cluster only replicates store metadata (CreateStore, DropStore, PurgeStores). All other mutations are proxied to the DB cluster via `db.host` and replicated by the DB's own Raft cluster.
+- **Logging.** `ahnlich-ai` reads its log filter from `--log-level`, **not** `RUST_LOG`. Use `logLevel` for verbosity; `env`/`envFrom` for other process env.
+- **GPU.** The image ships the CUDA ONNX Runtime. Add `nvidia.com/gpu` to `resources.limits` and a matching `nodeSelector` to schedule on GPU nodes.
 
-| Key | Default | Description |
-|---|---|---|
-| `db.host` | `""` | **Required.** DNS name of the backing ahnlich-db Service. |
-| `db.port` | `1369` | DB port. |
-| `db.waitForReady.enabled` | `true` | Block AI startup with an initContainer until the DB Service port opens. Mirrors docker-compose `depends_on: service_healthy`. |
-| `db.waitForReady.image` | `busybox:1.36` | Image used for the wait probe (just needs `nc`). |
-| `db.waitForReady.timeoutSeconds` | `300` | How long to keep retrying before failing the pod. |
-| `db.waitForReady.intervalSeconds` | `2` | Poll interval between port checks. |
-
-The AI pod connects to the DB over gRPC. For a co-located DB install with default release name `my-ahnlich`, the value is typically `my-ahnlich-ahnlich-db` (same namespace) or `my-ahnlich-ahnlich-db.<db-namespace>.svc.cluster.local` (cross-namespace). Disable `db.waitForReady.enabled` if the DB lives somewhere k8s can't reach via a Service (external host, etc.) — though in that case the AI will still crash-restart until the connection succeeds, just without the initContainer's friendlier delay.
-
-### Models
-
-| Key | Default | Description |
-|---|---|---|
-| `models.supported` | `[all-minilm-l6-v2, resnet-50]` | List of model names; joined into `--supported-models`. |
-| `models.cache.size` | `20Gi` | PVC size for the model cache. |
-| `models.cache.storageClass` | `""` | StorageClass; empty = cluster default. |
-| `models.cache.mountPath` | `/root/.ahnlich/models` | In-container model cache path. |
-
-Each replica gets its own model-cache PVC. Models are downloaded on first use and reused across restarts.
-
-### Service
-
-| Key | Default | Description |
-|---|---|---|
-| `service.type` | `ClusterIP` | One of `ClusterIP`, `LoadBalancer`, `NodePort`. |
-| `service.port` | `1370` | Public client-facing gRPC port. |
-
-`appProtocol: grpc` is set on the port for Ingress/Gateway controller auto-discovery.
-
-### Standalone persistence
-
-| Key | Default | Description |
-|---|---|---|
-| `persistence.enabled` | `true` | Mount a PVC at `mountPath` and pass `--enable-persistence`. |
-| `persistence.size` | `5Gi` | AI-local metadata is small; smaller default than DB. |
-| `persistence.storageClass` | `""` | StorageClass; empty = cluster default. |
-| `persistence.mountPath` | `/root/.ahnlich/data` | In-container mount point. |
-| `persistence.fileName` | `ai.dat` | Snapshot file name. |
-| `persistence.intervalMs` | `30000` | `--persistence-interval` value in ms. |
-
-Automatically suppressed when `cluster.enabled=true` (Raft snapshots and log replication replace standalone persistence).
-
-### Cluster (Raft) mode
-
-| Key | Default | Description |
-|---|---|---|
-| `cluster.enabled` | `false` | Run N replicas as an AI-local Raft cluster. |
-| `cluster.replicas` | `3` | StatefulSet replica count. |
-| `cluster.port` | `1371` | `--cluster-addr` port for Raft RPCs. |
-| `cluster.storage` | `rocksdb` | `rocksdb` (production) or `memory` (testing only). |
-| `cluster.dataDir` | `/root/.ahnlich/raft` | `--cluster-data-dir`. |
-| `cluster.snapshotLogs` | `1000` | Count-based snapshot trigger. |
-| `cluster.snapshotIntervalMs` | `300000` | Time-based snapshot trigger. |
-| `cluster.persistence.size` | `10Gi` | PVC size for the Raft data dir. |
-| `cluster.persistence.storageClass` | `""` | StorageClass; empty = cluster default. |
-| `cluster.podDisruptionBudget.enabled` | `true` | Protect quorum during voluntary disruptions. |
-| `cluster.podDisruptionBudget.minAvailable` | `2` | Minimum pods that must stay up. |
-
-The AI cluster only replicates store metadata (CreateStore, DropStore, PurgeStores). All other mutations are proxied to the DB cluster via `db.host` and replicated by the DB's own Raft cluster.
-
-### Tracing
-
-| Key | Default | Description |
-|---|---|---|
-| `tracing.enabled` | `false` | Pass `--enable-tracing --otel-endpoint=...`. |
-| `tracing.otelEndpoint` | `""` | OTLP gRPC endpoint. |
-
-The chart does not deploy a tracing backend.
-
-### Ingress and Gateway
-
-Identical surface to `ahnlich-db`:
-
-- `ingress.*` produces an `Ingress` resource (controller required in-cluster).
-- `gateway.*` produces a `GRPCRoute` attached to an existing Gateway.
-- Both enabled simultaneously is a misconfiguration; the chart fails the install.
-
-See the `ahnlich-db` README for the full key reference.
-
-### Logging
-
-| Key | Default | Description |
-|---|---|---|
-| `logLevel` | `""` | Sets `--log-level` on the binary. Empty = the binary's default (`info,hf_hub=warn`). Example values: `debug`, `trace`, `info,ahnlich_ai_proxy=debug`. |
-
-`ahnlich-ai` reads its log filter from `--log-level`, **not** from `RUST_LOG`. Setting `RUST_LOG` via `env` has no effect.
-
-### Environment variables
-
-| Key | Default | Description |
-|---|---|---|
-| `env` | `[]` | List of `EnvVar` entries (`name/value` or `valueFrom`). |
-| `envFrom` | `[]` | List of `EnvFromSource` entries (`configMapRef` or `secretRef`). |
-
-For process env not exposed as a flag (`RUST_BACKTRACE=1`, `ORT_DYLIB_PATH` for a custom ONNX Runtime build, etc.). Both keys take the standard k8s shape. For log verbosity use `logLevel` above instead.
-
-### Pod scheduling and resources
-
-| Key | Default | Description |
-|---|---|---|
-| `resources` | `{}` | Container `resources` block. AI is heavier than DB; set requests/limits per workload. |
-| `nodeSelector` | `{}` | Schedule on nodes matching these labels. |
-| `tolerations` | `[]` | Tolerate node taints. |
-| `affinity` | `{}` | Pod / node affinity. |
-| `podAnnotations` | `{}` | Free-form pod annotations. |
-
-GPU acceleration: add `nvidia.com/gpu` to `resources.limits` and a matching `nodeSelector` (typically `nvidia.com/gpu.present: "true"` or a vendor-specific label). The image ships with the CUDA ONNX Runtime.
-
-### Probes
-
-`probes.readiness.*` and `probes.liveness.*` accept the standard k8s timing fields. Both probes run `ahnlich-cli PING` (with `--agent ai`) against the local pod. Liveness `initialDelaySeconds` defaults to 60s to cover first-time model download on container start.
-
-## External access patterns
-
-Same three options as `ahnlich-db`:
-
-1. `service.type=LoadBalancer` — L4, one external IP per Service.
-2. `ingress.enabled=true` — shared edge router, TLS, hostname routing.
-3. `gateway.enabled=true` — Gateway API, gRPC-aware via `GRPCRoute` with optional per-method matching.
-
-For in-cluster clients (e.g., your own app calling the AI), leave `service.type=ClusterIP` and reach the AI at `<release>-ahnlich-ai.<namespace>.svc.cluster.local:<port>`.
+The Service port advertises `appProtocol: grpc` for Ingress/Gateway controller auto-discovery. Enabling `ingress.enabled` and `gateway.enabled` together is a misconfiguration; the chart fails the install with an explicit error. See the `ahnlich-db` README for the controller-specific gRPC notes and external-access patterns — the surface is identical here.
 
 ## Upgrading
 
-`helm upgrade my-ai charts/ahnlich-ai` rolls pods one at a time. PVCs (models cache and persistence data) survive the upgrade.
-
-In cluster mode, the PodDisruptionBudget at `minAvailable: 2` keeps quorum intact through rolling upgrades.
+`helm upgrade my-ai charts/ahnlich-ai` rolls pods one at a time. PVCs (model cache and persistence data) survive the upgrade. In cluster mode, the PodDisruptionBudget (`maxUnavailable: 1`) keeps quorum intact.
 
 ## Uninstalling
 
 ```bash
 helm uninstall my-ai
-kubectl delete pvc -l app.kubernetes.io/instance=my-ai      # only if you also want to drop the cached models / data
+kubectl delete pvc -l app.kubernetes.io/instance=my-ai   # only if you also want to drop cached models / data
 ```
