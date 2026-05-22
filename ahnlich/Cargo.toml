@@ -53,7 +53,7 @@ http = "1.2.0"
 prost = "0.13"
 pulp = "0.21.4"
 smallvec = "1.13"
-openraft = { version = "0.9", features = ["serde"] }
+openraft = { version = "0.9", features = ["serde", "storage-v2"] }
 
 [profile.release]
 lto = true
