@@ -1,4 +1,3 @@
-use openraft::BasicNode;
 use serde::{Deserialize, Serialize};
 
 use crate::proto::cluster_admin::NodeInfo;
@@ -24,11 +23,5 @@ impl From<&NodeInfo> for ReplicationNode {
             raft_addr: value.raft_addr.clone(),
             service_addr: value.service_addr.clone(),
         }
-    }
-}
-
-impl From<ReplicationNode> for BasicNode {
-    fn from(value: ReplicationNode) -> Self {
-        BasicNode::new(value.raft_addr)
     }
 }

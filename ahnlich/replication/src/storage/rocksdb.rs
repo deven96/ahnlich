@@ -12,11 +12,12 @@ use std::sync::Arc;
 use openraft::{
     LogId, LogState, OptionalSend, RaftLogId, RaftLogReader, RaftTypeConfig, StorageError,
     StorageIOError, Vote,
+    storage::{LogFlushed, RaftLogStorage},
 };
 use rocksdb::{ColumnFamilyDescriptor, DB, IteratorMode, Options};
 use serde_json::{from_slice, to_vec};
 
-use super::{LogIdOf, LogStoreOps};
+use super::LogIdOf;
 
 const CF_LOGS: &str = "logs";
 const CF_META: &str = "meta";
@@ -199,11 +200,11 @@ where
     }
 }
 
-impl<C: RaftTypeConfig> LogStoreOps<C> for RocksLogStore<C>
+impl<C: RaftTypeConfig> RocksLogStore<C>
 where
     C::Entry: serde::Serialize + serde::de::DeserializeOwned + RaftLogId<C::NodeId> + Clone,
 {
-    fn get_log_state_sync(&mut self) -> Result<LogState<C>, StorageError<C::NodeId>> {
+    fn get_log_state_sync(&self) -> Result<LogState<C>, StorageError<C::NodeId>> {
         let purged = self.get_last_purged_log_id()?;
         let last = if let Some(item) = self
             .db
@@ -226,17 +227,17 @@ where
         })
     }
 
-    fn save_vote_sync(&mut self, vote: &Vote<C::NodeId>) -> Result<(), StorageError<C::NodeId>> {
+    fn save_vote_sync(&self, vote: &Vote<C::NodeId>) -> Result<(), StorageError<C::NodeId>> {
         self.put_vote(vote)
     }
 
-    fn read_vote_sync(&mut self) -> Result<Option<Vote<C::NodeId>>, StorageError<C::NodeId>> {
+    fn read_vote_sync(&self) -> Result<Option<Vote<C::NodeId>>, StorageError<C::NodeId>> {
         self.get_vote()
     }
 
-    fn append_to_log_sync<I>(&mut self, entries: I) -> Result<(), StorageError<C::NodeId>>
+    fn append_to_log_sync<I>(&self, entries: I) -> Result<(), StorageError<C::NodeId>>
     where
-        I: IntoIterator<Item = C::Entry> + OptionalSend,
+        I: IntoIterator<Item = C::Entry>,
     {
         let cf = self.cf_logs()?;
         for entry in entries {
@@ -252,7 +253,7 @@ where
     }
 
     fn delete_conflict_logs_since_sync(
-        &mut self,
+        &self,
         log_id: LogId<C::NodeId>,
     ) -> Result<(), StorageError<C::NodeId>> {
         let cf = self.cf_logs()?;
@@ -266,7 +267,7 @@ where
     }
 
     fn purge_logs_upto_sync(
-        &mut self,
+        &self,
         log_id: LogId<C::NodeId>,
     ) -> Result<(), StorageError<C::NodeId>> {
         let cf = self.cf_logs()?;
@@ -280,14 +281,72 @@ where
     }
 
     fn save_committed_sync(
-        &mut self,
+        &self,
         committed: Option<LogId<C::NodeId>>,
     ) -> Result<(), StorageError<C::NodeId>> {
         self.put_committed(committed)
     }
 
-    fn read_committed_sync(&mut self) -> Result<Option<LogId<C::NodeId>>, StorageError<C::NodeId>> {
+    fn read_committed_sync(&self) -> Result<Option<LogId<C::NodeId>>, StorageError<C::NodeId>> {
         self.get_committed()
+    }
+}
+
+impl<C: RaftTypeConfig> RaftLogStorage<C> for RocksLogStore<C>
+where
+    C::Entry: serde::Serialize + serde::de::DeserializeOwned + RaftLogId<C::NodeId> + Clone,
+{
+    async fn get_log_state(&mut self) -> Result<LogState<C>, StorageError<C::NodeId>> {
+        self.get_log_state_sync()
+    }
+
+    async fn save_vote(&mut self, vote: &Vote<C::NodeId>) -> Result<(), StorageError<C::NodeId>> {
+        self.save_vote_sync(vote)
+    }
+
+    async fn read_vote(&mut self) -> Result<Option<Vote<C::NodeId>>, StorageError<C::NodeId>> {
+        self.read_vote_sync()
+    }
+
+    async fn append<I>(
+        &mut self,
+        entries: I,
+        callback: LogFlushed<C>,
+    ) -> Result<(), StorageError<C::NodeId>>
+    where
+        I: IntoIterator<Item = C::Entry> + OptionalSend,
+        I::IntoIter: OptionalSend,
+    {
+        self.append_to_log_sync(entries)?;
+        callback.log_io_completed(Ok(()));
+        Ok(())
+    }
+
+    async fn truncate(&mut self, log_id: LogId<C::NodeId>) -> Result<(), StorageError<C::NodeId>> {
+        self.delete_conflict_logs_since_sync(log_id)
+    }
+
+    async fn purge(&mut self, log_id: LogId<C::NodeId>) -> Result<(), StorageError<C::NodeId>> {
+        self.purge_logs_upto_sync(log_id)
+    }
+
+    async fn save_committed(
+        &mut self,
+        committed: Option<LogId<C::NodeId>>,
+    ) -> Result<(), StorageError<C::NodeId>> {
+        self.save_committed_sync(committed)
+    }
+
+    async fn read_committed(
+        &mut self,
+    ) -> Result<Option<LogId<C::NodeId>>, StorageError<C::NodeId>> {
+        self.read_committed_sync()
+    }
+
+    type LogReader = Self;
+
+    async fn get_log_reader(&mut self) -> Self::LogReader {
+        self.clone()
     }
 }
 
@@ -322,8 +381,7 @@ mod tests {
     #[test]
     fn rocks_log_store_round_trips_logs_and_meta() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let mut store =
-            RocksLogStore::<TestConfig>::open(dir.path()).expect("open rocks log store");
+        let store = RocksLogStore::<TestConfig>::open(dir.path()).expect("open rocks log store");
 
         let entries = vec![
             normal_entry(1, 1, 1, "alpha"),
@@ -367,8 +425,7 @@ mod tests {
     #[test]
     fn rocks_log_store_purge_and_conflict_delete_update_state() {
         let dir = tempfile::tempdir().expect("tempdir");
-        let mut store =
-            RocksLogStore::<TestConfig>::open(dir.path()).expect("open rocks log store");
+        let store = RocksLogStore::<TestConfig>::open(dir.path()).expect("open rocks log store");
 
         let entries = vec![
             normal_entry(1, 1, 1, "one"),

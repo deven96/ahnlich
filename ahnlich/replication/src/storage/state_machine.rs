@@ -1,8 +1,8 @@
 // `clippy::result_large_err` and `clippy::type_complexity` fire on signatures
 // that are dictated by openraft traits (`StorageError` is a fat enum from
-// upstream; the tuple shape returned by `last_applied_state_sync` is the
-// `RaftStorage` trait's contract). Boxing the error or aliasing the tuple
-// here would only obscure the openraft-mandated shape.
+// upstream; the tuple shape returned by `applied_state_sync` mirrors the
+// openraft state-machine contract). Boxing the error or aliasing the tuple
+// here would only obscure that upstream-mandated shape.
 #![allow(clippy::result_large_err, clippy::type_complexity)]
 
 // State machine storage for replicated application state.
@@ -32,12 +32,13 @@ use std::sync::{Arc, Mutex};
 
 use openraft::entry::RaftPayload;
 use openraft::{
-    Entry, EntryPayload, LogId, RaftLogId, RaftSnapshotBuilder, RaftTypeConfig, Snapshot,
-    SnapshotMeta, StorageError, StorageIOError, StoredMembership,
+    Entry, EntryPayload, LogId, OptionalSend, RaftLogId, RaftSnapshotBuilder, RaftTypeConfig,
+    Snapshot, SnapshotMeta, StorageError, StorageIOError, StoredMembership,
+    storage::RaftStateMachine,
 };
 use utils::snapshot::{deserialize_snapshot, serialize_snapshot};
 
-use super::{LogIdOf, StateMachineOps};
+use super::LogIdOf;
 
 pub trait StateMachineHandler<C: RaftTypeConfig>: Send + Sync + 'static {
     type Snapshot: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + 'static;
@@ -181,16 +182,14 @@ where
     }
 }
 
-impl<C: RaftTypeConfig, H: StateMachineHandler<C>> StateMachineOps<C> for StateMachineStore<C, H>
+impl<C: RaftTypeConfig, H: StateMachineHandler<C>> StateMachineStore<C, H>
 where
     C::Entry: AsRef<Entry<C>> + RaftLogId<C::NodeId> + Clone,
     C::SnapshotData: From<Cursor<Vec<u8>>> + Into<Cursor<Vec<u8>>>,
     C::R: Default,
 {
-    type SnapshotBuilder = SnapshotBuilder<C, H>;
-
-    fn last_applied_state_sync(
-        &mut self,
+    fn applied_state_sync(
+        &self,
     ) -> Result<
         (
             Option<LogId<C::NodeId>>,
@@ -202,10 +201,10 @@ where
         Ok((inner.last_applied.clone(), inner.last_membership.clone()))
     }
 
-    fn apply_to_state_machine_sync(
-        &mut self,
-        entries: &[C::Entry],
-    ) -> Result<Vec<C::R>, StorageError<C::NodeId>> {
+    fn apply_sync<I>(&self, entries: I) -> Result<Vec<C::R>, StorageError<C::NodeId>>
+    where
+        I: IntoIterator<Item = C::Entry>,
+    {
         let mut inner = self.lock_inner()?;
         let mut responses = Vec::new();
 
@@ -233,24 +232,24 @@ where
         Ok(responses)
     }
 
-    fn get_snapshot_builder_sync(&mut self) -> Self::SnapshotBuilder {
+    fn get_snapshot_builder_sync(&self) -> SnapshotBuilder<C, H> {
         SnapshotBuilder {
             inner: self.inner.clone(),
         }
     }
 
     fn begin_receiving_snapshot_sync(
-        &mut self,
+        &self,
     ) -> Result<Box<C::SnapshotData>, StorageError<C::NodeId>> {
         Ok(Box::new(C::SnapshotData::from(Cursor::new(Vec::new()))))
     }
 
     fn install_snapshot_sync(
-        &mut self,
+        &self,
         meta: &SnapshotMeta<C::NodeId, C::Node>,
-        snapshot: Box<C::SnapshotData>,
+        snapshot: C::SnapshotData,
     ) -> Result<(), StorageError<C::NodeId>> {
-        let cursor: Cursor<Vec<u8>> = (*snapshot).into();
+        let cursor: Cursor<Vec<u8>> = snapshot.into();
         let data = cursor.into_inner();
         let decoded = deserialize_snapshot::<H::Snapshot>(&data).map_err(|e| StorageError::IO {
             source: StorageIOError::read_state_machine(&e),
@@ -267,9 +266,7 @@ where
         Ok(())
     }
 
-    fn get_current_snapshot_sync(
-        &mut self,
-    ) -> Result<Option<Snapshot<C>>, StorageError<C::NodeId>> {
+    fn get_current_snapshot_sync(&self) -> Result<Option<Snapshot<C>>, StorageError<C::NodeId>> {
         let inner = self.lock_inner()?;
         let Some(stored) = &inner.current_snapshot else {
             return Ok(None);
@@ -279,6 +276,59 @@ where
             meta: stored.meta.clone(),
             snapshot: Box::new(C::SnapshotData::from(Cursor::new(stored.data.clone()))),
         }))
+    }
+}
+
+impl<C: RaftTypeConfig, H: StateMachineHandler<C>> RaftStateMachine<C> for StateMachineStore<C, H>
+where
+    C::Entry: AsRef<Entry<C>> + RaftLogId<C::NodeId> + Clone,
+    C::SnapshotData: From<Cursor<Vec<u8>>> + Into<Cursor<Vec<u8>>>,
+    C::R: Default,
+{
+    type SnapshotBuilder = SnapshotBuilder<C, H>;
+
+    async fn applied_state(
+        &mut self,
+    ) -> Result<
+        (
+            Option<LogId<C::NodeId>>,
+            StoredMembership<C::NodeId, C::Node>,
+        ),
+        StorageError<C::NodeId>,
+    > {
+        self.applied_state_sync()
+    }
+
+    async fn apply<I>(&mut self, entries: I) -> Result<Vec<C::R>, StorageError<C::NodeId>>
+    where
+        I: IntoIterator<Item = C::Entry> + OptionalSend,
+        I::IntoIter: OptionalSend,
+    {
+        self.apply_sync(entries)
+    }
+
+    async fn get_snapshot_builder(&mut self) -> Self::SnapshotBuilder {
+        self.get_snapshot_builder_sync()
+    }
+
+    async fn begin_receiving_snapshot(
+        &mut self,
+    ) -> Result<Box<C::SnapshotData>, StorageError<C::NodeId>> {
+        self.begin_receiving_snapshot_sync()
+    }
+
+    async fn install_snapshot(
+        &mut self,
+        meta: &SnapshotMeta<C::NodeId, C::Node>,
+        snapshot: Box<C::SnapshotData>,
+    ) -> Result<(), StorageError<C::NodeId>> {
+        self.install_snapshot_sync(meta, *snapshot)
+    }
+
+    async fn get_current_snapshot(
+        &mut self,
+    ) -> Result<Option<Snapshot<C>>, StorageError<C::NodeId>> {
+        self.get_current_snapshot_sync()
     }
 }
 
@@ -402,20 +452,18 @@ mod tests {
     #[test]
     fn failed_apply_does_not_advance_last_applied() {
         let handler = TestHandler::new(Some("boom"));
-        let mut store = StateMachineStore::<TestConfig, _>::new(
+        let store = StateMachineStore::<TestConfig, _>::new(
             handler.clone(),
             StoredMembership::new(None, membership(&[1])),
         );
 
         let entries = vec![normal_entry(1, 1, 1, "ok"), normal_entry(1, 1, 2, "boom")];
 
-        let err = store
-            .apply_to_state_machine_sync(&entries)
-            .expect_err("apply should fail");
+        let err = store.apply_sync(entries).expect_err("apply should fail");
         assert!(matches!(err, StorageError::IO { .. }));
 
         let (last_applied, last_membership) = store
-            .last_applied_state_sync()
+            .applied_state_sync()
             .expect("last_applied_state should succeed");
         assert_eq!(last_applied, Some(log_id(1, 1, 1)));
         assert_eq!(
@@ -437,9 +485,7 @@ mod tests {
             membership_entry(2, 2, 3, &[1, 2]),
             normal_entry(2, 2, 4, "beta"),
         ];
-        let responses = source
-            .apply_to_state_machine_sync(&entries)
-            .expect("apply should succeed");
+        let responses = source.apply_sync(entries).expect("apply should succeed");
         assert_eq!(
             responses,
             vec![
@@ -449,24 +495,25 @@ mod tests {
             ]
         );
 
-        let mut builder = source.get_snapshot_builder_sync();
+        let mut builder = source.get_snapshot_builder().await;
         let snapshot = builder
             .build_snapshot()
             .await
             .expect("snapshot build should succeed");
         let expected_membership = StoredMembership::new(Some(log_id(2, 2, 3)), membership(&[1, 2]));
+        let Snapshot { meta, snapshot } = snapshot;
 
         let fresh_handler = TestHandler::new(None);
-        let mut target = StateMachineStore::<TestConfig, _>::new(
+        let target = StateMachineStore::<TestConfig, _>::new(
             fresh_handler.clone(),
             StoredMembership::new(None, membership(&[9])),
         );
         target
-            .install_snapshot_sync(&snapshot.meta, snapshot.snapshot)
+            .install_snapshot_sync(&meta, *snapshot)
             .expect("install snapshot should succeed");
 
         let (last_applied, last_membership) = target
-            .last_applied_state_sync()
+            .applied_state_sync()
             .expect("last_applied_state should succeed");
         assert_eq!(last_applied, Some(log_id(2, 2, 4)));
         assert_eq!(last_membership, expected_membership.clone());

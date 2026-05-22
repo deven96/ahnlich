@@ -5,14 +5,15 @@ use std::sync::{Arc, Mutex};
 
 use openraft::{
     LogState, OptionalSend, RaftLogId, RaftLogReader, RaftTypeConfig, StorageError, Vote,
+    storage::{LogFlushed, RaftLogStorage},
 };
 
-use super::{LogIdOf, LogStoreOps};
+use super::LogIdOf;
 
 // In-memory log store. Gated by the `test-utils` feature (or `cfg(test)`); not
 // for production. A node restart loses all Raft state, which defeats the
 // purpose of replication. The presence of two log-store implementations also
-// validates the `LogStoreOps` trait shape.
+// validates the `RaftLogStorage` trait shape.
 
 #[derive(Debug, Clone)]
 pub struct MemLogStore<C: RaftTypeConfig> {
@@ -81,11 +82,11 @@ where
     }
 }
 
-impl<C: RaftTypeConfig> LogStoreOps<C> for MemLogStore<C>
+impl<C: RaftTypeConfig> RaftLogStorage<C> for MemLogStore<C>
 where
     C::Entry: RaftLogId<C::NodeId> + Clone,
 {
-    fn get_log_state_sync(&mut self) -> Result<LogState<C>, StorageError<C::NodeId>> {
+    async fn get_log_state(&mut self) -> Result<LogState<C>, StorageError<C::NodeId>> {
         let inner = self.lock_inner()?;
         Ok(LogState {
             last_purged_log_id: inner.last_purged_log_id.clone(),
@@ -93,29 +94,35 @@ where
         })
     }
 
-    fn save_vote_sync(&mut self, vote: &Vote<C::NodeId>) -> Result<(), StorageError<C::NodeId>> {
+    async fn save_vote(&mut self, vote: &Vote<C::NodeId>) -> Result<(), StorageError<C::NodeId>> {
         let mut inner = self.lock_inner()?;
         inner.vote = Some(vote.clone());
         Ok(())
     }
 
-    fn read_vote_sync(&mut self) -> Result<Option<Vote<C::NodeId>>, StorageError<C::NodeId>> {
+    async fn read_vote(&mut self) -> Result<Option<Vote<C::NodeId>>, StorageError<C::NodeId>> {
         let inner = self.lock_inner()?;
         Ok(inner.vote.clone())
     }
 
-    fn append_to_log_sync<I>(&mut self, entries: I) -> Result<(), StorageError<C::NodeId>>
+    async fn append<I>(
+        &mut self,
+        entries: I,
+        callback: LogFlushed<C>,
+    ) -> Result<(), StorageError<C::NodeId>>
     where
         I: IntoIterator<Item = C::Entry> + OptionalSend,
+        I::IntoIter: OptionalSend,
     {
         let mut inner = self.lock_inner()?;
         for entry in entries {
             inner.log.insert(entry.get_log_id().index, entry);
         }
+        callback.log_io_completed(Ok(()));
         Ok(())
     }
 
-    fn delete_conflict_logs_since_sync(
+    async fn truncate(
         &mut self,
         log_id: openraft::LogId<C::NodeId>,
     ) -> Result<(), StorageError<C::NodeId>> {
@@ -127,7 +134,7 @@ where
         Ok(())
     }
 
-    fn purge_logs_upto_sync(
+    async fn purge(
         &mut self,
         log_id: openraft::LogId<C::NodeId>,
     ) -> Result<(), StorageError<C::NodeId>> {
@@ -140,7 +147,7 @@ where
         Ok(())
     }
 
-    fn save_committed_sync(
+    async fn save_committed(
         &mut self,
         committed: Option<openraft::LogId<C::NodeId>>,
     ) -> Result<(), StorageError<C::NodeId>> {
@@ -149,10 +156,16 @@ where
         Ok(())
     }
 
-    fn read_committed_sync(
+    async fn read_committed(
         &mut self,
     ) -> Result<Option<openraft::LogId<C::NodeId>>, StorageError<C::NodeId>> {
         let inner = self.lock_inner()?;
         Ok(inner.committed.clone())
+    }
+
+    type LogReader = Self;
+
+    async fn get_log_reader(&mut self) -> Self::LogReader {
+        self.clone()
     }
 }
