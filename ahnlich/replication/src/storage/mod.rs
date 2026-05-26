@@ -8,6 +8,8 @@ use openraft::{LogId, RaftTypeConfig};
 #[cfg(any(test, feature = "test-utils"))]
 pub use memory::MemLogStore;
 pub use rocksdb::RocksLogStore;
-pub use state_machine::{SnapshotBuilder, StateMachineHandler, StateMachineStore};
+pub use state_machine::{
+    ReplicationFailureState, SnapshotBuilder, StateMachineHandler, StateMachineStore,
+};
 
 pub type LogIdOf<C> = LogId<<C as RaftTypeConfig>::NodeId>;

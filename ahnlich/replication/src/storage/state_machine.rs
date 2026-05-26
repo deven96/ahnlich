@@ -28,6 +28,8 @@
 // for making that history real in application state.
 
 use std::io::Cursor;
+use std::sync::RwLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use openraft::entry::RaftPayload;
@@ -40,20 +42,45 @@ use utils::snapshot::{deserialize_snapshot, serialize_snapshot};
 
 use super::LogIdOf;
 
+#[derive(Debug, Default)]
+pub struct ReplicationFailureState {
+    failed: AtomicBool,
+    reason: RwLock<Option<String>>,
+}
+
+impl ReplicationFailureState {
+    pub fn mark_failed(&self, reason: impl Into<String>) {
+        self.failed.store(true, Ordering::SeqCst);
+        *self
+            .reason
+            .write()
+            .expect("replication failure state lock poisoned") = Some(reason.into());
+    }
+
+    pub fn failed(&self) -> bool {
+        self.failed.load(Ordering::SeqCst)
+    }
+
+    pub fn reason(&self) -> Option<String> {
+        self.reason
+            .read()
+            .expect("replication failure state lock poisoned")
+            .clone()
+    }
+}
+
 pub trait StateMachineHandler<C: RaftTypeConfig>: Send + Sync + 'static {
     type Snapshot: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + 'static;
 
     // Apply a single committed command to application state.
     //
-    // `StateMachineStore` replays committed entries sequentially, not
-    // transactionally across a batch. Earlier entries in the same batch may
-    // already be reflected in application state if a later one fails.
+    // Ordinary domain/precondition validation must happen before
+    // `Raft::client_write`. By the time a command reaches committed replay, it
+    // should already be semantically valid.
     //
-    // Because of that, ordinary domain/precondition validation is expected to
-    // happen before replication. Errors returned from `apply()` should
-    // therefore represent invariant violations, corruption, or
-    // storage/infrastructure failures rather than routine business-rule
-    // rejection.
+    // Errors returned from `apply()` are therefore reserved for genuine
+    // storage, corruption, or invariant failures. In practice, such a failure
+    // is treated as node-fatal by the surrounding replication runtime.
     fn apply(&mut self, data: &C::D) -> Result<C::R, StorageError<C::NodeId>>;
     fn get_snapshot(&self) -> Self::Snapshot;
     fn restore_snapshot(&mut self, snapshot: Self::Snapshot);
@@ -81,18 +108,24 @@ struct StateMachineInner<C: RaftTypeConfig, H: StateMachineHandler<C>> {
 #[derive(Debug)]
 pub struct StateMachineStore<C: RaftTypeConfig, H: StateMachineHandler<C>> {
     inner: Arc<Mutex<StateMachineInner<C, H>>>,
+    failure_state: Arc<ReplicationFailureState>,
 }
 
 impl<C: RaftTypeConfig, H: StateMachineHandler<C>> Clone for StateMachineStore<C, H> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
+            failure_state: self.failure_state.clone(),
         }
     }
 }
 
 impl<C: RaftTypeConfig, H: StateMachineHandler<C>> StateMachineStore<C, H> {
-    pub fn new(handler: H, initial_membership: StoredMembership<C::NodeId, C::Node>) -> Self {
+    pub fn new(
+        handler: H,
+        initial_membership: StoredMembership<C::NodeId, C::Node>,
+        failure_state: Arc<ReplicationFailureState>,
+    ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(StateMachineInner {
                 handler,
@@ -101,16 +134,23 @@ impl<C: RaftTypeConfig, H: StateMachineHandler<C>> StateMachineStore<C, H> {
                 snapshot_idx: 0,
                 current_snapshot: None,
             })),
+            failure_state,
         }
+    }
+
+    pub fn failure_state(&self) -> Arc<ReplicationFailureState> {
+        self.failure_state.clone()
     }
 
     fn lock_inner(
         &self,
     ) -> Result<std::sync::MutexGuard<'_, StateMachineInner<C, H>>, StorageError<C::NodeId>> {
-        self.inner.lock().map_err(|_| StorageError::IO {
-            source: StorageIOError::read_state_machine(&std::io::Error::other(
-                "state machine lock poisoned",
-            )),
+        self.inner.lock().map_err(|_| {
+            let reason = "state machine lock poisoned";
+            self.failure_state.mark_failed(reason);
+            StorageError::IO {
+                source: StorageIOError::read_state_machine(&std::io::Error::other(reason)),
+            }
         })
     }
 }
@@ -118,16 +158,19 @@ impl<C: RaftTypeConfig, H: StateMachineHandler<C>> StateMachineStore<C, H> {
 #[derive(Debug, Clone)]
 pub struct SnapshotBuilder<C: RaftTypeConfig, H: StateMachineHandler<C>> {
     inner: Arc<Mutex<StateMachineInner<C, H>>>,
+    failure_state: Arc<ReplicationFailureState>,
 }
 
 impl<C: RaftTypeConfig, H: StateMachineHandler<C>> SnapshotBuilder<C, H> {
     fn lock_inner(
         &self,
     ) -> Result<std::sync::MutexGuard<'_, StateMachineInner<C, H>>, StorageError<C::NodeId>> {
-        self.inner.lock().map_err(|_| StorageError::IO {
-            source: StorageIOError::read_state_machine(&std::io::Error::other(
-                "state machine lock poisoned",
-            )),
+        self.inner.lock().map_err(|_| {
+            let reason = "state machine lock poisoned";
+            self.failure_state.mark_failed(reason);
+            StorageError::IO {
+                source: StorageIOError::read_state_machine(&std::io::Error::other(reason)),
+            }
         })
     }
 }
@@ -217,7 +260,11 @@ where
             let log_id = e.get_log_id().clone();
 
             let response = match &e.payload {
-                EntryPayload::Normal(data) => inner.handler.apply(data)?,
+                EntryPayload::Normal(data) => inner.handler.apply(data).map_err(|err| {
+                    self.failure_state
+                        .mark_failed(format!("state machine apply failed: {err}"));
+                    err
+                })?,
                 _ => C::R::default(),
             };
 
@@ -235,6 +282,7 @@ where
     fn get_snapshot_builder_sync(&self) -> SnapshotBuilder<C, H> {
         SnapshotBuilder {
             inner: self.inner.clone(),
+            failure_state: self.failure_state.clone(),
         }
     }
 
@@ -450,35 +498,67 @@ mod tests {
     }
 
     #[test]
-    fn failed_apply_does_not_advance_last_applied() {
-        let handler = TestHandler::new(Some("boom"));
+    fn poisoned_lock_marks_replication_failure_state() {
+        let handler = TestHandler::new(None);
+        let failure_state = Arc::new(ReplicationFailureState::default());
         let store = StateMachineStore::<TestConfig, _>::new(
-            handler.clone(),
+            handler,
             StoredMembership::new(None, membership(&[1])),
+            failure_state.clone(),
         );
 
-        let entries = vec![normal_entry(1, 1, 1, "ok"), normal_entry(1, 1, 2, "boom")];
+        let poison_target = store.clone();
+        let _ = std::thread::spawn(move || {
+            let _guard = poison_target
+                .inner
+                .lock()
+                .expect("lock should succeed before poison");
+            panic!("poison state machine lock");
+        })
+        .join();
 
-        let err = store.apply_sync(entries).expect_err("apply should fail");
-        assert!(matches!(err, StorageError::IO { .. }));
-
-        let (last_applied, last_membership) = store
+        let err = store
             .applied_state_sync()
-            .expect("last_applied_state should succeed");
-        assert_eq!(last_applied, Some(log_id(1, 1, 1)));
+            .expect_err("poisoned lock should return storage error");
+        assert!(matches!(err, StorageError::IO { .. }));
+        assert!(failure_state.failed());
         assert_eq!(
-            last_membership,
-            StoredMembership::new(None, membership(&[1]))
+            failure_state.reason(),
+            Some("state machine lock poisoned".to_owned())
         );
-        assert_eq!(handler.applied(), vec!["ok".to_owned()]);
+    }
+
+    #[test]
+    fn apply_failure_marks_replication_failure_state() {
+        let handler = TestHandler::new(Some("boom"));
+        let failure_state = Arc::new(ReplicationFailureState::default());
+        let store = StateMachineStore::<TestConfig, _>::new(
+            handler,
+            StoredMembership::new(None, membership(&[1])),
+            failure_state.clone(),
+        );
+
+        let err = store
+            .apply_sync(vec![normal_entry(1, 1, 1, "boom")])
+            .expect_err("apply should fail");
+        assert!(matches!(err, StorageError::IO { .. }));
+        assert!(failure_state.failed());
+        let reason = failure_state
+            .reason()
+            .expect("failure reason should be recorded");
+        assert!(reason.contains("state machine apply failed"));
+        assert!(reason.contains("intentional apply failure"));
     }
 
     #[tokio::test]
     async fn snapshot_round_trip_restores_state_and_membership() {
         let handler = TestHandler::new(None);
         let initial_membership = StoredMembership::new(Some(log_id(1, 1, 1)), membership(&[1]));
-        let mut source =
-            StateMachineStore::<TestConfig, _>::new(handler.clone(), initial_membership);
+        let mut source = StateMachineStore::<TestConfig, _>::new(
+            handler.clone(),
+            initial_membership,
+            Arc::new(ReplicationFailureState::default()),
+        );
 
         let entries = vec![
             normal_entry(1, 1, 2, "alpha"),
@@ -507,6 +587,7 @@ mod tests {
         let target = StateMachineStore::<TestConfig, _>::new(
             fresh_handler.clone(),
             StoredMembership::new(None, membership(&[9])),
+            Arc::new(ReplicationFailureState::default()),
         );
         target
             .install_snapshot_sync(&meta, *snapshot)
