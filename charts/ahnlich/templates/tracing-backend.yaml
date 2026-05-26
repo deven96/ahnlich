@@ -1,0 +1,53 @@
+{{- if and .Values.tracing.enabled .Values.tracing.backend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ahnlich.tracingBackendName" . }}
+  labels:
+    {{- include "ahnlich.tracingBackendLabels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ahnlich.tracingBackendSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ahnlich.tracingBackendSelectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: tracing-backend
+          image: "{{ .Values.tracing.backend.image.repository }}:{{ .Values.tracing.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.tracing.backend.image.pullPolicy }}
+          {{- with .Values.tracing.backend.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: otlp
+              containerPort: {{ .Values.tracing.backend.ports.otlp }}
+              protocol: TCP
+            - name: ui
+              containerPort: {{ .Values.tracing.backend.ports.ui }}
+              protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ahnlich.tracingBackendName" . }}
+  labels:
+    {{- include "ahnlich.tracingBackendLabels" . | nindent 4 }}
+spec:
+  type: {{ .Values.tracing.backend.service.type }}
+  selector:
+    {{- include "ahnlich.tracingBackendSelectorLabels" . | nindent 4 }}
+  ports:
+    - name: otlp
+      port: {{ .Values.tracing.backend.ports.otlp }}
+      targetPort: otlp
+      protocol: TCP
+    - name: ui
+      port: {{ .Values.tracing.backend.ports.ui }}
+      targetPort: ui
+      protocol: TCP
+{{- end }}

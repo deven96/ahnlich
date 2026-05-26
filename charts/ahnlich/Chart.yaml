@@ -1,0 +1,21 @@
+apiVersion: v2
+name: ahnlich
+description: Umbrella chart that deploys ahnlich-db and ahnlich-ai together with optional tracing backend.
+type: application
+version: 0.1.0
+appVersion: "latest"
+home: https://github.com/deven96/ahnlich
+sources:
+  - https://github.com/deven96/ahnlich
+keywords:
+  - vector-database
+  - embeddings
+  - ahnlich
+
+dependencies:
+  - name: ahnlich-db
+    version: "0.1.0"
+    repository: "file://../ahnlich-db"
+  - name: ahnlich-ai
+    version: "0.1.0"
+    repository: "file://../ahnlich-ai"

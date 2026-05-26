@@ -1,0 +1,13 @@
+{{- if and .Values.cluster.enabled .Values.cluster.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "ahnlich-ai.fullname" . }}
+  labels:
+    {{- include "ahnlich-ai.labels" . | nindent 4 }}
+spec:
+  maxUnavailable: {{ .Values.cluster.podDisruptionBudget.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "ahnlich-ai.selectorLabels" . | nindent 6 }}
+{{- end }}

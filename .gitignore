@@ -37,3 +37,7 @@ node_modules/
 .DS_Store
 docs/superpowers/
 .worktrees/
+
+# Helm vendored sub-chart packages (rebuilt from local sources via `helm dependency build`).
+# Chart.lock IS committed for reproducible builds.
+charts/*/charts/*.tgz

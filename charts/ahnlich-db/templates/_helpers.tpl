@@ -1,0 +1,42 @@
+{{- define "ahnlich-db.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{- define "ahnlich-db.fullname" -}}
+{{- if .Values.fullnameOverride -}}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default .Chart.Name .Values.nameOverride -}}
+{{- if contains $name .Release.Name -}}
+{{- .Release.Name | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{- define "ahnlich-db.labels" -}}
+helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+app.kubernetes.io/name: {{ include "ahnlich-db.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/component: database
+{{- end -}}
+
+{{/* Selector labels are the stable subset; changing them orphans existing pods. */}}
+{{- define "ahnlich-db.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "ahnlich-db.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end -}}
+
+{{/* Effective pullPolicy: Always for :latest, IfNotPresent otherwise (unless user sets one). */}}
+{{- define "ahnlich-db.pullPolicy" -}}
+{{- if .Values.image.pullPolicy -}}
+{{- .Values.image.pullPolicy -}}
+{{- else if eq (.Values.image.tag | default .Chart.AppVersion) "latest" -}}
+Always
+{{- else -}}
+IfNotPresent
+{{- end -}}
+{{- end -}}

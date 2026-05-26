@@ -1,0 +1,170 @@
+name: Helm Charts
+
+on:
+  pull_request:
+    paths:
+      - 'charts/**'
+      - '.github/workflows/helm-charts.yml'
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  docs:
+    name: helm-docs up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate chart docs
+        run: |
+          docker run --rm -v "$(pwd):/helm-docs" -u "$(id -u)" \
+            jnorwood/helm-docs:v1.14.2 \
+            helm-docs --chart-search-root=charts
+
+      - name: Fail if docs are stale
+        run: |
+          if ! git diff --exit-code -- 'charts/*/README.md'; then
+            echo "::error::Chart README.md is out of date. Run 'helm-docs --chart-search-root=charts' and commit the result." >&2
+            exit 1
+          fi
+
+  lint:
+    name: Lint and template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Build umbrella dependencies
+        run: helm dependency build charts/ahnlich
+
+      - name: Lint all charts
+        run: helm lint charts/ahnlich-db charts/ahnlich-ai charts/ahnlich
+
+      - name: Render standalone
+        run: |
+          helm template ahnlich charts/ahnlich-db >/dev/null
+          helm template ahnlich charts/ahnlich-ai --set db.host=test-db >/dev/null
+          helm template ahnlich charts/ahnlich >/dev/null
+
+      - name: Render cluster mode
+        run: |
+          helm template ahnlich charts/ahnlich-db --set cluster.enabled=true >/dev/null
+          helm template ahnlich charts/ahnlich-ai --set db.host=test-db --set cluster.enabled=true >/dev/null
+          helm template ahnlich charts/ahnlich \
+            --set ahnlich-db.cluster.enabled=true \
+            --set ahnlich-ai.cluster.enabled=true >/dev/null
+
+      - name: Validate release-name guard
+        run: |
+          # Should fail at template time when release name != "ahnlich" without overrides.
+          if helm template foo charts/ahnlich >/dev/null 2>&1; then
+            echo "release-name guard did not fire" >&2
+            exit 1
+          fi
+          # And should succeed with the documented override.
+          helm template foo charts/ahnlich --set ahnlich-ai.db.host=foo-ahnlich-db >/dev/null
+
+  smoke-standalone:
+    name: Standalone smoke install
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          wait: 120s
+
+      - name: Build umbrella dependencies
+        run: helm dependency build charts/ahnlich
+
+      - name: Install ahnlich
+        # Override the model set to just all-minilm-l6-v2 to keep first-run model
+        # download fast (CI runners have limited disk + bandwidth).
+        run: |
+          helm install ahnlich charts/ahnlich \
+            --set 'ahnlich-ai.models.supported={all-minilm-l6-v2}' \
+            --wait --timeout 10m
+
+      - name: PING DB
+        run: |
+          kubectl exec sts/ahnlich-ahnlich-db -- sh -c "echo PING | ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369 --no-interactive"
+
+      - name: PING AI
+        run: |
+          kubectl exec sts/ahnlich-ahnlich-ai -- sh -c "echo PING | ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370 --no-interactive"
+
+      - name: CREATESTORE via AI (validates AI to DB proxy)
+        run: |
+          kubectl exec sts/ahnlich-ahnlich-ai -- sh -c "echo 'CREATESTORE smoke QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2' | ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370 --no-interactive"
+
+      - name: LISTSTORES via DB (confirms store created end-to-end)
+        run: |
+          kubectl exec sts/ahnlich-ahnlich-db -- sh -c "echo LISTSTORES | ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369 --no-interactive" | tee /tmp/stores
+          grep -q '"smoke"' /tmp/stores
+
+      - name: Dump cluster state on failure
+        if: failure()
+        run: |
+          kubectl get pods,svc,pvc,events --all-namespaces
+          kubectl logs sts/ahnlich-ahnlich-db --tail 200 || true
+          kubectl logs sts/ahnlich-ahnlich-ai --tail 200 || true
+          kubectl logs sts/ahnlich-ahnlich-ai -c wait-for-db --tail 100 || true
+
+  smoke-cluster:
+    name: Cluster (Raft) smoke install
+    runs-on: ubuntu-latest
+    needs: lint
+    # The ahnlich binary does not yet accept the --cluster-* CLI flags. Flip
+    # this gate to `true` once the Raft CLI surface lands so chart-side cluster
+    # mode is exercised on every PR and release.
+    if: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          wait: 180s
+
+      - name: Build umbrella dependencies
+        run: helm dependency build charts/ahnlich
+
+      - name: Install ahnlich (cluster mode)
+        run: |
+          helm install ahnlich charts/ahnlich \
+            --set ahnlich-db.cluster.enabled=true \
+            --set ahnlich-ai.cluster.enabled=true \
+            --set 'ahnlich-ai.models.supported={all-minilm-l6-v2}' \
+            --wait --timeout 15m
+
+      - name: PING DB on follower pod
+        run: |
+          kubectl exec ahnlich-ahnlich-db-1 -- sh -c "echo PING | ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369 --no-interactive"
+
+      - name: PING AI on follower pod
+        run: |
+          kubectl exec ahnlich-ahnlich-ai-1 -- sh -c "echo PING | ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370 --no-interactive"
+
+      - name: Dump cluster state on failure
+        if: failure()
+        run: |
+          kubectl get pods,svc,pvc,events --all-namespaces
+          for p in ahnlich-ahnlich-db-0 ahnlich-ahnlich-db-1 ahnlich-ahnlich-db-2; do
+            kubectl logs "$p" --tail 200 || true
+          done
+          for p in ahnlich-ahnlich-ai-0 ahnlich-ahnlich-ai-1 ahnlich-ahnlich-ai-2; do
+            kubectl logs "$p" --tail 200 || true
+            kubectl logs "$p" -c wait-for-db --tail 100 || true
+          done
