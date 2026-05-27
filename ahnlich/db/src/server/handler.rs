@@ -1,21 +1,18 @@
 use crate::cli::ServerConfig;
+use crate::engine::operations;
 use crate::engine::store::StoreHandler;
 use crate::errors::ServerError;
 use ahnlich_types::db::pipeline::db_query::Query;
 use ahnlich_types::db::server::GetSimNEntry;
-use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName, StoreValue};
+use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName};
 use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use ahnlich_types::shared::info::ErrorResponse;
 
 use ahnlich_types::db::{pipeline, query, server};
 use ahnlich_types::{client as types_client, utils as types_utils};
-use itertools::Itertools;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::collections::HashMap;
 use std::future::Future;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use task_manager::BlockingTask;
@@ -48,32 +45,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateStore>,
     ) -> std::result::Result<tonic::Response<server::Unit>, tonic::Status> {
-        let create_store_params = request.into_inner();
-        let dimensions = match NonZeroUsize::new(create_store_params.dimension as usize) {
-            Some(val) => val,
-            None => {
-                return Err(tonic::Status::invalid_argument(
-                    "dimension must be greater than 0",
-                ));
-            }
-        };
-
-        let non_linear_indices = create_store_params
-            .non_linear_indices
-            .into_iter()
-            .filter_map(|index| index.index)
-            .collect();
-
-        self.store_handler
-            .create_store(
-                StoreName {
-                    value: create_store_params.store,
-                },
-                dimensions,
-                create_store_params.create_predicates.into_iter().collect(),
-                non_linear_indices,
-                create_store_params.error_if_exists,
-            )
+        operations::create_store(&self.store_handler, request.into_inner())
             .map(|_| tonic::Response::new(server::Unit {}))
             .map_err(|err| err.into())
     }
@@ -194,20 +166,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreatePredIndex>,
     ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
-        let params = request.into_inner();
-
-        let predicates = params
-            .predicates
-            .into_iter()
-            // .map(MetadataKey::new)
-            .collect();
-
-        let created = self.store_handler.create_pred_index(
-            &StoreName {
-                value: params.store,
-            },
-            predicates,
-        )?;
+        let created = operations::create_pred_index(&self.store_handler, request.into_inner())?;
 
         Ok(tonic::Response::new(server::CreateIndex {
             created_indexes: created as u64,
@@ -219,19 +178,9 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateNonLinearAlgorithmIndex>,
     ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
-        let params = request.into_inner();
-
-        let non_linear_indices = params
-            .non_linear_indices
-            .into_iter()
-            .filter_map(|val| val.index)
-            .collect();
-
-        let created = self.store_handler.create_non_linear_algorithm_index(
-            &StoreName {
-                value: params.store,
-            },
-            non_linear_indices,
+        let created = operations::create_non_linear_algorithm_index(
+            &self.store_handler,
+            request.into_inner(),
         )?;
 
         Ok(tonic::Response::new(server::CreateIndex {
@@ -244,21 +193,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropPredIndex>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let params = request.into_inner();
-
-        let predicates = params
-            .predicates
-            .into_iter()
-            // .map(MetadataKey::new)
-            .collect();
-
-        let del = self.store_handler.drop_pred_index_in_store(
-            &StoreName {
-                value: params.store,
-            },
-            predicates,
-            params.error_if_not_exists,
-        )?;
+        let del = operations::drop_pred_index(&self.store_handler, request.into_inner())?;
 
         Ok(tonic::Response::new(server::Del {
             deleted_count: del as u64,
@@ -270,23 +205,8 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropNonLinearAlgorithmIndex>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let params = request.into_inner();
-
-        let non_linear_indices = params
-            .non_linear_indices
-            .into_iter()
-            .filter_map(|val| {
-                ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm::try_from(val).ok()
-            })
-            .collect();
-
-        let del = self.store_handler.drop_non_linear_algorithm_index(
-            &StoreName {
-                value: params.store,
-            },
-            non_linear_indices,
-            params.error_if_not_exists,
-        )?;
+        let del =
+            operations::drop_non_linear_algorithm_index(&self.store_handler, request.into_inner())?;
 
         Ok(tonic::Response::new(server::Del {
             deleted_count: del as u64,
@@ -298,19 +218,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DelKey>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let params = request.into_inner();
-
-        let keys = params
-            .keys
-            .into_iter()
-            .map(|key| StoreKey { key: key.key })
-            .collect();
-        let del = self.store_handler.del_key_in_store(
-            &StoreName {
-                value: params.store,
-            },
-            keys,
-        )?;
+        let del = operations::del_key(&self.store_handler, request.into_inner())?;
 
         Ok(tonic::Response::new(server::Del {
             deleted_count: del as u64,
@@ -322,17 +230,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DelPred>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let params = request.into_inner();
-
-        let condition =
-            ahnlich_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
-
-        let del = self.store_handler.del_pred_in_store(
-            &StoreName {
-                value: params.store,
-            },
-            &condition,
-        )?;
+        let del = operations::del_pred(&self.store_handler, request.into_inner())?;
 
         Ok(tonic::Response::new(server::Del {
             deleted_count: del as u64,
@@ -344,13 +242,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropStore>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let drop_store_params = request.into_inner();
-        let dropped = self.store_handler.drop_store(
-            StoreName {
-                value: drop_store_params.store,
-            },
-            drop_store_params.error_if_not_exists,
-        )?;
+        let dropped = operations::drop_store(&self.store_handler, request.into_inner())?;
 
         Ok(tonic::Response::new(server::Del {
             deleted_count: dropped as u64,
@@ -380,14 +272,9 @@ impl DbService for Server {
         &self,
         _request: tonic::Request<query::ListStores>,
     ) -> std::result::Result<tonic::Response<server::StoreList>, tonic::Status> {
-        let stores = self
-            .store_handler
-            .list_stores()
-            .into_iter()
-            .sorted()
-            .collect();
-
-        Ok(tonic::Response::new(server::StoreList { stores }))
+        Ok(tonic::Response::new(operations::list_stores(
+            &self.store_handler,
+        )))
     }
 
     #[tracing::instrument(skip_all)]
@@ -439,28 +326,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::Set>,
     ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
-        let params = request.into_inner();
-        let inputs = params
-            .inputs
-            .into_par_iter()
-            .filter_map(|entry| match (entry.key, entry.value) {
-                (Some(key), Some(value)) => Some((key, value)),
-                (Some(key), None) => Some((
-                    key,
-                    StoreValue {
-                        value: HashMap::new(),
-                    },
-                )),
-                _ => None,
-            })
-            .collect();
-
-        let set = self.store_handler.set_in_store(
-            &StoreName {
-                value: params.store,
-            },
-            inputs,
-        )?;
+        let set = operations::set(&self.store_handler, request.into_inner())?;
 
         Ok(tonic::Response::new(server::Set { upsert: Some(set) }))
     }

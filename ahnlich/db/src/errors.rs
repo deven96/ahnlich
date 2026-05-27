@@ -7,6 +7,8 @@ use tonic::{Code, Status};
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum ServerError {
+    #[error("{0}")]
+    InvalidArgument(String),
     #[error("Predicate {0} not found in store, attempt CREATEPREDINDEX with predicate")]
     PredicateNotFound(String),
     #[error("Non linear algorithm {0:?} not found in store, create store with support")]
@@ -30,6 +32,7 @@ impl From<ServerError> for Status {
     fn from(input: ServerError) -> Status {
         let message = input.to_string();
         let code = match input {
+            ServerError::InvalidArgument(_) => Code::InvalidArgument,
             ServerError::StoreNotFound(_) => Code::NotFound,
             ServerError::StoreAlreadyExists(_) => Code::AlreadyExists,
             ServerError::StoreDimensionMismatch {

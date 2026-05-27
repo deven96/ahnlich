@@ -6,6 +6,7 @@ use crate::engine::ai::models::InputAction;
 use crate::engine::ai::models::Model;
 use crate::engine::ai::models::ModelDetails;
 use crate::engine::ai::models::ModelResponse;
+use crate::engine::operations;
 use crate::engine::store::AIStoreHandler;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
@@ -50,21 +51,10 @@ use ahnlich_types::ai::server::StoreInputToEmbeddingsList;
 use ahnlich_types::ai::server::StoreList;
 use ahnlich_types::ai::server::Unit;
 use ahnlich_types::ai::server::single_input_to_embedding::Variant;
-use ahnlich_types::db::pipeline::DbServerResponse;
-use ahnlich_types::db::pipeline::db_server_response::Response as DbResponse;
-use ahnlich_types::db::query::CreateNonLinearAlgorithmIndex as DbCreateNonLinearAlgorithmIndex;
-use ahnlich_types::db::query::CreatePredIndex as DbCreatePredIndex;
-use ahnlich_types::db::query::CreateStore as DbCreateStore;
-use ahnlich_types::db::query::DelPred;
-use ahnlich_types::db::query::DropNonLinearAlgorithmIndex as DbDropNonLinearAlgorithmIndex;
-use ahnlich_types::db::query::DropPredIndex as DbDropPredIndex;
-use ahnlich_types::db::query::DropStore as DbDropStore;
 use ahnlich_types::db::query::GetPred as DbGetPred;
 use ahnlich_types::db::query::GetSimN as DbGetSimN;
-use ahnlich_types::db::server::Set as DbSet;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
-use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicates::In;
 use ahnlich_types::predicates::Predicate;
 use ahnlich_types::predicates::PredicateCondition;
@@ -73,7 +63,6 @@ use ahnlich_types::predicates::predicate_condition::Kind;
 use ahnlich_types::services::ai_service::ai_service_server::AiService;
 use ahnlich_types::services::ai_service::ai_service_server::AiServiceServer;
 use ahnlich_types::shared::info::ErrorResponse;
-use itertools::Itertools;
 use rayon::prelude::*;
 use std::error::Error;
 use std::future::Future;
@@ -94,28 +83,6 @@ use utils::server::ListenerStreamOrAddress;
 use utils::server::ServerUtilsConfig;
 
 use ahnlich_client_rs::db::DbClient;
-
-/// Extract original image dimensions from store inputs and inject into model_params.
-/// This allows face detection models (Buffalo-L, SFace-Yunet) to normalize bounding boxes
-/// correctly by accounting for letterboxing and aspect ratio transformations.
-///
-/// For each image input, adds `orig_width_{idx}` and `orig_height_{idx}` to model_params.
-fn extract_and_inject_image_dimensions(
-    inputs: &[ahnlich_types::keyval::StoreInput],
-    model_params: &mut std::collections::HashMap<String, String>,
-) {
-    for (idx, store_input) in inputs.iter().enumerate() {
-        if let Some(ahnlich_types::keyval::store_input::Value::Image(image_bytes)) =
-            &store_input.value
-            && let Ok(img_array) =
-                crate::engine::ai::models::ImageArray::try_from(image_bytes.as_slice())
-        {
-            let (width, height) = img_array.dimensions();
-            model_params.insert(format!("orig_width_{}", idx), width.to_string());
-            model_params.insert(format!("orig_height_{}", idx), height.to_string());
-        }
-    }
-}
 
 const SERVICE_NAME: &str = "ahnlich-ai";
 
@@ -242,53 +209,14 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<CreateStore>,
     ) -> Result<tonic::Response<Unit>, tonic::Status> {
-        let params = request.into_inner();
-        let mut predicates = params.predicates;
-        if params.store_original {
-            predicates.push(AHNLICH_AI_RESERVED_META_KEY.to_string());
-        }
-        let index_model: AiModel = params
-            .index_model
-            .try_into()
-            .map_err(|_| AIProxyError::InputNotSpecified("Index model".to_string()))?;
-        let query_model: AiModel = params
-            .query_model
-            .try_into()
-            .map_err(|_| AIProxyError::InputNotSpecified("Query model".to_string()))?;
-        let model: ModelDetails = SupportedModels::from(&index_model).to_model_details();
-        // OneToMany models return multiple embeddings per input - add index predicate
-        // Currently used by face recognition models like Buffalo_L
-        if model.is_one_to_many() {
-            predicates.push(crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY.to_string());
-        }
-        let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let db_client = self
-            .db_client
-            .as_ref()
-            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
-            .clone();
-        db_client
-            .create_store(
-                DbCreateStore {
-                    store: params.store.clone(),
-                    dimension: model.embedding_size.get() as u32,
-                    create_predicates: predicates,
-                    non_linear_indices: params.non_linear_indices,
-                    error_if_exists: params.error_if_exists,
-                },
-                parent_id,
-            )
-            .await?;
-        let _ = self.store_handler.create_store(
-            StoreName {
-                value: params.store,
-            },
-            query_model,
-            index_model,
-            params.error_if_exists,
-            params.store_original,
-        )?;
-        Ok(tonic::Response::new(Unit {}))
+        let unit = operations::create_store(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(unit))
     }
 
     #[tracing::instrument(skip_all)]
@@ -296,26 +224,13 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<CreatePredIndex>,
     ) -> Result<tonic::Response<CreateIndex>, tonic::Status> {
-        let params = request.into_inner();
-        let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let db_client = self
-            .db_client
-            .as_ref()
-            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
-            .clone();
-
-        let res = db_client
-            .create_pred_index(
-                DbCreatePredIndex {
-                    store: params.store,
-                    predicates: params.predicates,
-                },
-                parent_id,
-            )
-            .await?;
-        Ok(tonic::Response::new(CreateIndex {
-            created_indexes: res.created_indexes,
-        }))
+        let res = operations::create_pred_index(
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
     }
 
     #[tracing::instrument(skip_all)]
@@ -323,26 +238,13 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<CreateNonLinearAlgorithmIndex>,
     ) -> Result<tonic::Response<CreateIndex>, tonic::Status> {
-        let params = request.into_inner();
-        let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let db_client = self
-            .db_client
-            .as_ref()
-            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
-            .clone();
-
-        let res = db_client
-            .create_non_linear_algorithm_index(
-                DbCreateNonLinearAlgorithmIndex {
-                    store: params.store,
-                    non_linear_indices: params.non_linear_indices,
-                },
-                parent_id,
-            )
-            .await?;
-        Ok(tonic::Response::new(CreateIndex {
-            created_indexes: res.created_indexes,
-        }))
+        let res = operations::create_non_linear_algorithm_index(
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
     }
 
     #[tracing::instrument(skip_all)]
@@ -424,7 +326,10 @@ impl AiService for AIProxyServer {
         let mut model_params = params.model_params;
 
         // Extract image dimensions for face detection models to properly normalize bboxes
-        extract_and_inject_image_dimensions(std::slice::from_ref(&search_input), &mut model_params);
+        operations::extract_and_inject_image_dimensions(
+            std::slice::from_ref(&search_input),
+            &mut model_params,
+        );
         let search_input = self
             .store_handler
             .get_ndarray_repr_for_store(
@@ -485,87 +390,15 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<Set>,
     ) -> Result<tonic::Response<server::Set>, tonic::Status> {
-        let params = request.into_inner();
-        let model_manager = &self.model_manager;
-        let mut model_params = params.model_params;
-
-        // Extract image dimensions for face detection models to properly normalize bboxes
-        let store_inputs: Vec<_> = params
-            .inputs
-            .iter()
-            .filter_map(|input| input.key.clone())
-            .collect();
-        extract_and_inject_image_dimensions(&store_inputs, &mut model_params);
-
-        let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let (db_inputs, delete_hashset) = self
-            .store_handler
-            .set(
-                &StoreName {
-                    value: params.store.clone(),
-                },
-                params
-                    .inputs
-                    .into_par_iter()
-                    .flat_map(|a| {
-                        a.key.map(|b| {
-                            (
-                                b,
-                                StoreValue {
-                                    value: a.value.map(|val| val.value).unwrap_or_default(),
-                                },
-                            )
-                        })
-                    })
-                    .collect(),
-                model_manager,
-                TryInto::<PreprocessAction>::try_into(params.preprocess_action)
-                    .map_err(AIProxyError::from)?,
-                params.execution_provider.and_then(|a| a.try_into().ok()),
-                model_params,
-            )
-            .await?;
-        let db_client = self
-            .db_client
-            .as_ref()
-            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
-            .clone();
-        let mut pipeline = db_client.pipeline(parent_id);
-        if let Some(del_hashset) = delete_hashset {
-            let delete_condition = DelPred {
-                store: params.store.clone(),
-                condition: Some(PredicateCondition {
-                    kind: Some(Kind::Value(Predicate {
-                        kind: Some(PredicateKind::In(In {
-                            key: AHNLICH_AI_RESERVED_META_KEY.to_string(),
-                            values: del_hashset.into_iter().collect(),
-                        })),
-                    })),
-                }),
-            };
-            pipeline.del_pred(delete_condition);
-        }
-        let set_params = ahnlich_types::db::query::Set {
-            store: params.store,
-            inputs: db_inputs,
-        };
-        pipeline.set(set_params);
-        match pipeline.exec().await?.responses.as_slice() {
-            [
-                DbServerResponse {
-                    response: Some(DbResponse::Set(DbSet { upsert })),
-                },
-            ]
-            | [
-                DbServerResponse {
-                    response: Some(DbResponse::Del(_)),
-                },
-                DbServerResponse {
-                    response: Some(DbResponse::Set(DbSet { upsert })),
-                },
-            ] => Ok(tonic::Response::new(server::Set { upsert: *upsert })),
-            e => return Err(AIProxyError::UnexpectedDBResponse(format!("{e:?}")).into()),
-        }
+        let res = operations::set(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            self.model_manager.as_ref(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
     }
 
     #[tracing::instrument(skip_all)]
@@ -573,29 +406,13 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<DropPredIndex>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
-        let mut params = request.into_inner();
-        params
-            .predicates
-            .retain(|val| val != AHNLICH_AI_RESERVED_META_KEY);
-        let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let db_client = self
-            .db_client
-            .as_ref()
-            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
-            .clone();
-        let res = db_client
-            .drop_pred_index(
-                DbDropPredIndex {
-                    store: params.store,
-                    predicates: params.predicates,
-                    error_if_not_exists: params.error_if_not_exists,
-                },
-                parent_id,
-            )
-            .await?;
-        Ok(tonic::Response::new(Del {
-            deleted_count: res.deleted_count,
-        }))
+        let res = operations::drop_pred_index(
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
     }
 
     #[tracing::instrument(skip_all)]
@@ -603,26 +420,13 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<DropNonLinearAlgorithmIndex>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
-        let params = request.into_inner();
-        let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let db_client = self
-            .db_client
-            .as_ref()
-            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
-            .clone();
-        let res = db_client
-            .drop_non_linear_algorithm_index(
-                DbDropNonLinearAlgorithmIndex {
-                    store: params.store,
-                    non_linear_indices: params.non_linear_indices,
-                    error_if_not_exists: params.error_if_not_exists,
-                },
-                parent_id,
-            )
-            .await?;
-        Ok(tonic::Response::new(Del {
-            deleted_count: res.deleted_count,
-        }))
+        let res = operations::drop_non_linear_algorithm_index(
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
     }
 
     #[tracing::instrument(skip_all)]
@@ -630,43 +434,14 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<DelKey>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
-        let params = request.into_inner();
-        let store_original = self.store_handler.store_original(StoreName {
-            value: params.store.clone(),
-        })?;
-        if !store_original {
-            return Err(AIProxyError::DelKeyError.into());
-        } else {
-            let key = params.keys;
-
-            let values = key
-                .into_iter()
-                .map(|a| a.try_into())
-                .collect::<Result<Vec<MetadataValue>, _>>()
-                .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
-
-            let del_pred_params = DelPred {
-                store: params.store,
-                condition: Some(PredicateCondition {
-                    kind: Some(Kind::Value(Predicate {
-                        kind: Some(PredicateKind::In(In {
-                            key: AHNLICH_AI_RESERVED_META_KEY.to_string(),
-                            values,
-                        })),
-                    })),
-                }),
-            };
-            let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-            let db_client = self
-                .db_client
-                .as_ref()
-                .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
-                .clone();
-            let res = db_client.del_pred(del_pred_params, parent_id).await?;
-            Ok(tonic::Response::new(Del {
-                deleted_count: res.deleted_count,
-            }))
-        }
+        let res = operations::del_key(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
     }
 
     #[tracing::instrument(skip_all)]
@@ -674,21 +449,13 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<AiDelPred>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
-        let params = request.into_inner();
-        let del_pred_params = DelPred {
-            store: params.store,
-            condition: params.condition,
-        };
-        let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-        let db_client = self
-            .db_client
-            .as_ref()
-            .ok_or_else(|| tonic::Status::failed_precondition("No DB client available"))?
-            .clone();
-        let res = db_client.del_pred(del_pred_params, parent_id).await?;
-        Ok(tonic::Response::new(Del {
-            deleted_count: res.deleted_count,
-        }))
+        let res = operations::del_pred(
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
     }
 
     #[tracing::instrument(skip_all)]
@@ -696,34 +463,14 @@ impl AiService for AIProxyServer {
         &self,
         request: tonic::Request<DropStore>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
-        let drop_store_params = request.into_inner();
-
-        let store_name = StoreName {
-            value: drop_store_params.store,
-        };
-
-        if let Ok(_) = self.store_handler.get(&store_name)
-            && let Some(db_client) = &self.db_client
-        {
-            let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-            db_client
-                .drop_store(
-                    DbDropStore {
-                        store: store_name.value.clone(),
-                        error_if_not_exists: drop_store_params.error_if_not_exists,
-                    },
-                    parent_id,
-                )
-                .await?;
-        }
-
-        let dropped = self
-            .store_handler
-            .drop_store(store_name, drop_store_params.error_if_not_exists)?;
-
-        Ok(tonic::Response::new(Del {
-            deleted_count: dropped as u64,
-        }))
+        let res = operations::drop_store(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
     }
 
     #[tracing::instrument(skip_all)]
@@ -739,43 +486,16 @@ impl AiService for AIProxyServer {
     #[tracing::instrument(skip_all)]
     async fn list_stores(
         &self,
-        _request: tonic::Request<ListStores>,
+        request: tonic::Request<ListStores>,
     ) -> Result<tonic::Response<StoreList>, tonic::Status> {
-        let mut stores: Vec<AiStoreInfo> = self
-            .store_handler
-            .list_stores()
-            .into_iter()
-            .sorted()
-            .collect();
-        // Enrich with predicate indices and db_info from DB, filtering out reserved keys
-        if let Some(db_client) = &self.db_client {
-            let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-            if let Ok(db_store_list) = db_client.list_stores(parent_id).await {
-                let db_map: std::collections::HashMap<
-                    String,
-                    ahnlich_types::db::server::StoreInfo,
-                > = db_store_list
-                    .stores
-                    .into_iter()
-                    .map(|s| (s.name.clone(), s))
-                    .collect();
-                for store in &mut stores {
-                    if let Some(db_store_info) = db_map.get(&store.name) {
-                        store.predicate_indices = db_store_info
-                            .predicate_indices
-                            .iter()
-                            .filter(|p| {
-                                *p != AHNLICH_AI_RESERVED_META_KEY
-                                    && *p != crate::AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY
-                            })
-                            .cloned()
-                            .collect();
-                        store.db_info = Some(db_store_info.clone());
-                    }
-                }
-            }
-        }
-        Ok(tonic::Response::new(server::StoreList { stores }))
+        let res = operations::list_stores(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
     }
 
     #[tracing::instrument(skip_all)]
@@ -808,34 +528,16 @@ impl AiService for AIProxyServer {
     #[tracing::instrument(skip_all)]
     async fn purge_stores(
         &self,
-        _request: tonic::Request<PurgeStores>,
+        request: tonic::Request<PurgeStores>,
     ) -> Result<tonic::Response<Del>, tonic::Status> {
-        let store_names: Vec<StoreName> = self
-            .store_handler
-            .list_stores()
-            .into_iter()
-            .map(|store| StoreName { value: store.name })
-            .collect();
-
-        if let Some(db_client) = &self.db_client {
-            let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-            for store_name in &store_names {
-                db_client
-                    .drop_store(
-                        DbDropStore {
-                            store: store_name.value.clone(),
-                            error_if_not_exists: false,
-                        },
-                        parent_id.clone(),
-                    )
-                    .await?;
-            }
-        }
-
-        let deleted_count = self.store_handler.purge_stores();
-        Ok(tonic::Response::new(Del {
-            deleted_count: deleted_count as u64,
-        }))
+        let res = operations::purge_stores(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
     }
 
     #[tracing::instrument(skip_all)]
@@ -876,7 +578,7 @@ impl AiService for AIProxyServer {
         let mut model_params = params.model_params;
 
         // Extract image dimensions for face detection models to properly normalize bboxes
-        extract_and_inject_image_dimensions(&inputs, &mut model_params);
+        operations::extract_and_inject_image_dimensions(&inputs, &mut model_params);
 
         let store_keys = ModelManager::handle_request(
             &self.model_manager,
