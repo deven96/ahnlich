@@ -41,6 +41,7 @@ use crate::{
     manager::ModelManager,
 };
 
+#[allow(clippy::result_large_err)]
 fn require_db_client(db_client: Option<Arc<DbClient>>) -> Result<Arc<DbClient>, Status> {
     db_client.ok_or_else(|| Status::failed_precondition("No DB client available"))
 }
