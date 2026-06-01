@@ -141,7 +141,9 @@ fn snapshot_round_trip_restores_store_state() {
                 &StoreName {
                     value: "products".to_owned(),
                 },
-                vec![StoreKey { key: vec![1.0, 2.0] }],
+                vec![StoreKey {
+                    key: vec![1.0, 2.0],
+                }],
             )
         })
         .expect("state machine access should succeed")
