@@ -1,15 +1,25 @@
 use crate::cli::ServerConfig;
 use crate::engine::operations;
 use crate::engine::store::StoreHandler;
+use crate::engine::store::StoresSnapshot;
 use crate::errors::ServerError;
+use crate::server::cluster::{ClusterRuntime, build_cluster_runtime, initialize_cluster_runtime};
+use crate::server::cluster_mutations::submit_db_command;
+use crate::server::cluster_queries::{
+    cluster_info_response, list_stores_response, read_store_handler,
+};
+use crate::server::cluster_tasks::spawn_cluster_tasks;
+use ahnlich_replication::types::DbCommand;
 use ahnlich_types::db::pipeline::db_query::Query;
 use ahnlich_types::db::server::GetSimNEntry;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName};
 use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
+use ahnlich_types::shared::cluster::{ClusterInfoQuery, ClusterInfoResponse};
 use ahnlich_types::shared::info::ErrorResponse;
 
 use ahnlich_types::db::{pipeline, query, server};
 use ahnlich_types::{client as types_client, utils as types_utils};
+use prost::Message;
 use std::future::Future;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
@@ -36,6 +46,7 @@ pub struct Server {
     client_handler: Arc<ClientHandler>,
     task_manager: Arc<TaskManager>,
     config: ServerConfig,
+    cluster: Option<ClusterRuntime>,
 }
 
 #[tonic::async_trait]
@@ -45,9 +56,20 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateStore>,
     ) -> std::result::Result<tonic::Response<server::Unit>, tonic::Status> {
-        operations::create_store(&self.store_handler, request.into_inner())
-            .map(|_| tonic::Response::new(server::Unit {}))
-            .map_err(|err| err.into())
+        let params = request.into_inner();
+
+        if self.cluster.is_some() {
+            let (): () = submit_db_command(
+                self.cluster.as_ref(),
+                "CreateStore",
+                DbCommand::CreateStore(params.encode_to_vec()),
+            )
+            .await?;
+        } else {
+            operations::create_store(&self.store_handler, params)?;
+        }
+
+        Ok(tonic::Response::new(server::Unit {}))
     }
 
     #[tracing::instrument(skip_all)]
@@ -62,22 +84,27 @@ impl DbService for Server {
             .map(|key| StoreKey { key: key.key })
             .collect();
 
-        let entries: Vec<DbStoreEntry> = self
-            .store_handler
-            .get_key_in_store(
-                &StoreName {
-                    value: params.store,
-                },
-                keys,
-            )?
-            .into_iter()
-            .map(|(embedding_key, store_value)| DbStoreEntry {
-                key: Some(StoreKey {
-                    key: embedding_key.as_slice().to_vec(),
-                }),
-                value: Some(Arc::unwrap_or_clone(store_value)),
-            })
-            .collect();
+        let entries: Vec<DbStoreEntry> = read_store_handler(
+            self.cluster.as_ref(),
+            &self.store_handler,
+            |store_handler| {
+                Ok(store_handler
+                    .get_key_in_store(
+                        &StoreName {
+                            value: params.store,
+                        },
+                        keys,
+                    )?
+                    .into_iter()
+                    .map(|(embedding_key, store_value)| DbStoreEntry {
+                        key: Some(StoreKey {
+                            key: embedding_key.as_slice().to_vec(),
+                        }),
+                        value: Some(Arc::unwrap_or_clone(store_value)),
+                    })
+                    .collect())
+            },
+        )?;
 
         Ok(tonic::Response::new(server::Get { entries }))
     }
@@ -92,22 +119,27 @@ impl DbService for Server {
         let condition =
             ahnlich_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
 
-        let entries = self
-            .store_handler
-            .get_pred_in_store(
-                &StoreName {
-                    value: params.store,
-                },
-                &condition,
-            )?
-            .into_iter()
-            .map(|(embedding_key, store_value)| DbStoreEntry {
-                key: Some(StoreKey {
-                    key: embedding_key.as_slice().to_vec(),
-                }),
-                value: Some(Arc::unwrap_or_clone(store_value)),
-            })
-            .collect();
+        let entries = read_store_handler(
+            self.cluster.as_ref(),
+            &self.store_handler,
+            |store_handler| {
+                Ok(store_handler
+                    .get_pred_in_store(
+                        &StoreName {
+                            value: params.store,
+                        },
+                        &condition,
+                    )?
+                    .into_iter()
+                    .map(|(embedding_key, store_value)| DbStoreEntry {
+                        key: Some(StoreKey {
+                            key: embedding_key.as_slice().to_vec(),
+                        }),
+                        value: Some(Arc::unwrap_or_clone(store_value)),
+                    })
+                    .collect())
+            },
+        )?;
 
         Ok(tonic::Response::new(server::Get { entries }))
     }
@@ -128,27 +160,33 @@ impl DbService for Server {
         let algorithm = ahnlich_types::algorithm::algorithms::Algorithm::try_from(params.algorithm)
             .map_err(|err| tonic::Status::invalid_argument(err.to_string()))?;
 
-        let entries = self
-            .store_handler
-            .get_sim_in_store(
-                &StoreName {
-                    value: params.store,
-                },
-                search_input,
-                types_utils::convert_to_nonzerousize(params.closest_n)
-                    .map_err(tonic::Status::invalid_argument)?,
-                algorithm,
-                params.condition,
-            )?
-            .into_iter()
-            .map(|(embedding_key, store_value, sim)| GetSimNEntry {
-                key: Some(StoreKey {
-                    key: embedding_key.as_slice().to_vec(),
-                }),
-                value: Some(Arc::unwrap_or_clone(store_value)),
-                similarity: Some(sim),
-            })
-            .collect();
+        let closest_n = types_utils::convert_to_nonzerousize(params.closest_n)
+            .map_err(tonic::Status::invalid_argument)?;
+        let entries = read_store_handler(
+            self.cluster.as_ref(),
+            &self.store_handler,
+            |store_handler| {
+                Ok(store_handler
+                    .get_sim_in_store(
+                        &StoreName {
+                            value: params.store,
+                        },
+                        search_input,
+                        closest_n,
+                        algorithm,
+                        params.condition,
+                    )?
+                    .into_iter()
+                    .map(|(embedding_key, store_value, sim)| GetSimNEntry {
+                        key: Some(StoreKey {
+                            key: embedding_key.as_slice().to_vec(),
+                        }),
+                        value: Some(Arc::unwrap_or_clone(store_value)),
+                        similarity: Some(sim),
+                    })
+                    .collect())
+            },
+        )?;
 
         Ok(tonic::Response::new(server::GetSimN { entries }))
     }
@@ -166,10 +204,21 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreatePredIndex>,
     ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
-        let created = operations::create_pred_index(&self.store_handler, request.into_inner())?;
+        let params = request.into_inner();
+
+        let created_indexes = (if self.cluster.is_some() {
+            submit_db_command(
+                self.cluster.as_ref(),
+                "CreatePredIndex",
+                DbCommand::CreatePredIndex(params.encode_to_vec()),
+            )
+            .await?
+        } else {
+            operations::create_pred_index(&self.store_handler, params)?
+        }) as u64;
 
         Ok(tonic::Response::new(server::CreateIndex {
-            created_indexes: created as u64,
+            created_indexes,
         }))
     }
 
@@ -178,13 +227,21 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateNonLinearAlgorithmIndex>,
     ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
-        let created = operations::create_non_linear_algorithm_index(
-            &self.store_handler,
-            request.into_inner(),
-        )?;
+        let params = request.into_inner();
+
+        let created_indexes = (if self.cluster.is_some() {
+            submit_db_command(
+                self.cluster.as_ref(),
+                "CreateNonLinearAlgorithmIndex",
+                DbCommand::CreateNonLinearAlgorithmIndex(params.encode_to_vec()),
+            )
+            .await?
+        } else {
+            operations::create_non_linear_algorithm_index(&self.store_handler, params)?
+        }) as u64;
 
         Ok(tonic::Response::new(server::CreateIndex {
-            created_indexes: created as u64,
+            created_indexes,
         }))
     }
 
@@ -193,11 +250,20 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropPredIndex>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let del = operations::drop_pred_index(&self.store_handler, request.into_inner())?;
+        let params = request.into_inner();
 
-        Ok(tonic::Response::new(server::Del {
-            deleted_count: del as u64,
-        }))
+        let deleted_count = (if self.cluster.is_some() {
+            submit_db_command(
+                self.cluster.as_ref(),
+                "DropPredIndex",
+                DbCommand::DropPredIndex(params.encode_to_vec()),
+            )
+            .await?
+        } else {
+            operations::drop_pred_index(&self.store_handler, params)?
+        }) as u64;
+
+        Ok(tonic::Response::new(server::Del { deleted_count }))
     }
 
     #[tracing::instrument(skip_all)]
@@ -205,12 +271,20 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropNonLinearAlgorithmIndex>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let del =
-            operations::drop_non_linear_algorithm_index(&self.store_handler, request.into_inner())?;
+        let params = request.into_inner();
 
-        Ok(tonic::Response::new(server::Del {
-            deleted_count: del as u64,
-        }))
+        let deleted_count = (if self.cluster.is_some() {
+            submit_db_command(
+                self.cluster.as_ref(),
+                "DropNonLinearAlgorithmIndex",
+                DbCommand::DropNonLinearAlgorithmIndex(params.encode_to_vec()),
+            )
+            .await?
+        } else {
+            operations::drop_non_linear_algorithm_index(&self.store_handler, params)?
+        }) as u64;
+
+        Ok(tonic::Response::new(server::Del { deleted_count }))
     }
 
     #[tracing::instrument(skip_all)]
@@ -218,11 +292,20 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DelKey>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let del = operations::del_key(&self.store_handler, request.into_inner())?;
+        let params = request.into_inner();
 
-        Ok(tonic::Response::new(server::Del {
-            deleted_count: del as u64,
-        }))
+        let deleted_count = (if self.cluster.is_some() {
+            submit_db_command(
+                self.cluster.as_ref(),
+                "DelKey",
+                DbCommand::DelKey(params.encode_to_vec()),
+            )
+            .await?
+        } else {
+            operations::del_key(&self.store_handler, params)?
+        }) as u64;
+
+        Ok(tonic::Response::new(server::Del { deleted_count }))
     }
 
     #[tracing::instrument(skip_all)]
@@ -230,11 +313,20 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DelPred>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let del = operations::del_pred(&self.store_handler, request.into_inner())?;
+        let params = request.into_inner();
 
-        Ok(tonic::Response::new(server::Del {
-            deleted_count: del as u64,
-        }))
+        let deleted_count = (if self.cluster.is_some() {
+            submit_db_command(
+                self.cluster.as_ref(),
+                "DelPred",
+                DbCommand::DelPred(params.encode_to_vec()),
+            )
+            .await?
+        } else {
+            operations::del_pred(&self.store_handler, params)?
+        }) as u64;
+
+        Ok(tonic::Response::new(server::Del { deleted_count }))
     }
 
     #[tracing::instrument(skip_all)]
@@ -242,11 +334,20 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropStore>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let dropped = operations::drop_store(&self.store_handler, request.into_inner())?;
+        let params = request.into_inner();
 
-        Ok(tonic::Response::new(server::Del {
-            deleted_count: dropped as u64,
-        }))
+        let deleted_count = (if self.cluster.is_some() {
+            submit_db_command(
+                self.cluster.as_ref(),
+                "DropStore",
+                DbCommand::DropStore(params.encode_to_vec()),
+            )
+            .await?
+        } else {
+            operations::drop_store(&self.store_handler, params)?
+        }) as u64;
+
+        Ok(tonic::Response::new(server::Del { deleted_count }))
     }
 
     #[tracing::instrument(skip_all)]
@@ -272,9 +373,8 @@ impl DbService for Server {
         &self,
         _request: tonic::Request<query::ListStores>,
     ) -> std::result::Result<tonic::Response<server::StoreList>, tonic::Status> {
-        Ok(tonic::Response::new(operations::list_stores(
-            &self.store_handler,
-        )))
+        let store_list = list_stores_response(self.cluster.as_ref(), &self.store_handler).await?;
+        Ok(tonic::Response::new(store_list))
     }
 
     #[tracing::instrument(skip_all)]
@@ -283,9 +383,15 @@ impl DbService for Server {
         request: tonic::Request<query::GetStore>,
     ) -> std::result::Result<tonic::Response<server::StoreInfo>, tonic::Status> {
         let params = request.into_inner();
-        let store_info = self.store_handler.get_store(&StoreName {
-            value: params.store,
-        })?;
+        let store_info = read_store_handler(
+            self.cluster.as_ref(),
+            &self.store_handler,
+            |store_handler| {
+                store_handler.get_store(&StoreName {
+                    value: params.store,
+                })
+            },
+        )?;
         Ok(tonic::Response::new(store_info))
     }
 
@@ -326,9 +432,30 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::Set>,
     ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
-        let set = operations::set(&self.store_handler, request.into_inner())?;
+        let params = request.into_inner();
+
+        let set = if self.cluster.is_some() {
+            submit_db_command(
+                self.cluster.as_ref(),
+                "Set",
+                DbCommand::Set(params.encode_to_vec()),
+            )
+            .await?
+        } else {
+            operations::set(&self.store_handler, params)?
+        };
 
         Ok(tonic::Response::new(server::Set { upsert: Some(set) }))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn cluster_info(
+        &self,
+        _request: tonic::Request<ClusterInfoQuery>,
+    ) -> std::result::Result<tonic::Response<ClusterInfoResponse>, tonic::Status> {
+        Ok(tonic::Response::new(
+            cluster_info_response(self.listener.local_addr(), self.cluster.as_ref()).await?,
+        ))
     }
 
     #[tracing::instrument(skip_all)]
@@ -611,6 +738,22 @@ impl DbService for Server {
                         }
                     }
                 }
+
+                Query::ClusterInfo(params) => {
+                    match self.cluster_info(tonic::Request::new(params)).await {
+                        Ok(res) => response_vec.push(
+                            pipeline::db_server_response::Response::ClusterInfo(res.into_inner()),
+                        ),
+                        Err(err) => {
+                            response_vec.push(pipeline::db_server_response::Response::Error(
+                                ErrorResponse {
+                                    message: err.message().to_string(),
+                                    code: err.code().into(),
+                                },
+                            ));
+                        }
+                    }
+                }
             }
         }
 
@@ -654,19 +797,28 @@ impl AhnlichServerUtils for Server {
         self.task_manager.clone()
     }
 
+    fn should_spawn_persistence(&self) -> bool {
+        !self.config.is_clustered()
+    }
+
     async fn spawn_tasks_before_server(
         &self,
         task_manager: &Arc<TaskManager>,
     ) -> std::io::Result<()> {
-        use crate::engine::store::StoresSnapshot;
-        use utils::size_calculation::SizeCalculation;
+        if let Some(cluster) = &self.cluster {
+            spawn_cluster_tasks(&self.config, task_manager, cluster).await?;
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            initialize_cluster_runtime(&self.config, self.listener.local_addr()?, cluster).await?;
+        } else {
+            use utils::size_calculation::SizeCalculation;
 
-        let size_calculation_task = SizeCalculation::task(
-            self.write_flag(),
-            self.config.common.size_calculation_interval,
-            StoresSnapshot::new(self.store_handler.get_stores()),
-        );
-        task_manager.spawn_task_loop(size_calculation_task).await;
+            let size_calculation_task = SizeCalculation::task(
+                self.write_flag(),
+                self.config.common.size_calculation_interval,
+                StoresSnapshot::new(self.store_handler.get_stores()),
+            );
+            task_manager.spawn_task_loop(size_calculation_task).await;
+        }
         Ok(())
     }
 }
@@ -680,9 +832,10 @@ impl Server {
             client_handler.clone(),
         )
         .await?;
-        let write_flag = Arc::new(AtomicBool::new(false));
-        let mut store_handler = StoreHandler::new(write_flag.clone());
-        if let Some(persist_location) = &config.common.persist_location {
+        let mut store_handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+        if !config.is_clustered()
+            && let Some(persist_location) = &config.common.persist_location
+        {
             match Persistence::load_snapshot(persist_location, config.common.enable_mmap) {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");
@@ -695,13 +848,29 @@ impl Server {
                 }
             }
         };
-        Ok(Self {
+        let mut server = Self {
             listener,
             store_handler: Arc::new(store_handler),
             client_handler,
             task_manager: Arc::new(TaskManager::new()),
             config: config.clone(),
-        })
+            cluster: None,
+        };
+
+        if config.is_clustered() {
+            let cluster_client_handler = Arc::new(ClientHandler::new(1024));
+            let cluster_addr = config
+                .cluster_addr
+                .ok_or_else(|| std::io::Error::other("cluster_addr is required in cluster mode"))?;
+            let cluster_listener =
+                ListenerStreamOrAddress::new(cluster_addr.to_string(), cluster_client_handler)
+                    .await?;
+            let service_addr = server.listener.local_addr()?;
+            server.cluster =
+                Some(build_cluster_runtime(config, service_addr, cluster_listener).await?);
+        }
+
+        Ok(server)
     }
 
     pub fn client_handler(&self) -> Arc<ClientHandler> {
@@ -710,6 +879,10 @@ impl Server {
 
     pub fn local_addr(&self) -> IoResult<SocketAddr> {
         self.listener.local_addr()
+    }
+
+    pub fn cluster_local_addr(&self) -> Option<SocketAddr> {
+        self.cluster.as_ref().map(|cluster| cluster.raft_addr)
     }
 
     /// initializes a server using server configuration

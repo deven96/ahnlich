@@ -12,7 +12,7 @@ pub struct ServerInfo {
     #[prost(uint64, tag = "5")]
     pub remaining: u64,
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, ::prost::Message)]
 pub struct StoreUpsert {
     #[prost(uint64, tag = "1")]
     pub inserted: u64,

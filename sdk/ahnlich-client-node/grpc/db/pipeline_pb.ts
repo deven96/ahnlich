@@ -31,6 +31,7 @@ import {
   Ping,
   Set,
 } from "./query_pb.js";
+import { ClusterInfoQuery, ClusterInfoResponse } from "../shared/cluster_pb.js";
 import {
   ClientList,
   CreateIndex,
@@ -173,6 +174,13 @@ export class DBQuery extends Message<DBQuery> {
         value: GetStore;
         case: "getStore";
       }
+    | {
+        /**
+         * @generated from field: shared.cluster.ClusterInfoQuery cluster_info = 18;
+         */
+        value: ClusterInfoQuery;
+        case: "clusterInfo";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<DBQuery>) {
@@ -212,6 +220,7 @@ export class DBQuery extends Message<DBQuery> {
     { no: 15, name: "list_clients", kind: "message", T: ListClients, oneof: "query" },
     { no: 16, name: "ping", kind: "message", T: Ping, oneof: "query" },
     { no: 17, name: "get_store", kind: "message", T: GetStore, oneof: "query" },
+    { no: 18, name: "cluster_info", kind: "message", T: ClusterInfoQuery, oneof: "query" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DBQuery {
@@ -366,6 +375,13 @@ export class DBServerResponse extends Message<DBServerResponse> {
         value: StoreInfo;
         case: "storeInfo";
       }
+    | {
+        /**
+         * @generated from field: shared.cluster.ClusterInfoResponse cluster_info = 13;
+         */
+        value: ClusterInfoResponse;
+        case: "clusterInfo";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<DBServerResponse>) {
@@ -388,6 +404,7 @@ export class DBServerResponse extends Message<DBServerResponse> {
     { no: 10, name: "create_index", kind: "message", T: CreateIndex, oneof: "response" },
     { no: 11, name: "error", kind: "message", T: ErrorResponse, oneof: "response" },
     { no: 12, name: "store_info", kind: "message", T: StoreInfo, oneof: "response" },
+    { no: 13, name: "cluster_info", kind: "message", T: ClusterInfoResponse, oneof: "response" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DBServerResponse {

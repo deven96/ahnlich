@@ -85,6 +85,10 @@ fn main() -> Result<()> {
             "#[derive(serde::Serialize, serde::Deserialize)]",
         )
         .type_attribute(
+            "shared.info.StoreUpsert",
+            "#[derive(serde::Serialize, serde::Deserialize)]",
+        )
+        .type_attribute(
             "metadata.MetadataValue",
             "#[derive(PartialOrd, Ord, Hash, Eq)]",
         )

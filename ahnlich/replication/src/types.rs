@@ -45,21 +45,22 @@ pub enum AiCommand {
 }
 
 /// Successful response from applying a DB Raft command. `Unit` covers
-/// mutations whose protocol response is empty (DropStore, DropPredIndex,
-/// etc.); `Bytes` carries a protobuf-encoded response message for mutations
-/// that produce one (Set's StoreUpsert counts, etc.). Decoding the bytes
-/// against the right protobuf type is the gRPC handler's responsibility:
-/// it knows what response shape the originating request expects.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// mutations whose protocol response is empty; `Bytes` carries an encoded raw
+/// operation result for mutations that return a value. The gRPC handler is
+/// responsible for decoding those bytes into the expected operation result
+/// type, then shaping them into public response messages.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub enum DbResponse {
+    #[default]
     Unit,
     Bytes(Vec<u8>),
 }
 
 /// Successful response from applying an AI Raft command. Same shape as
 /// [`DbResponse`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub enum AiResponse {
+    #[default]
     Unit,
     Bytes(Vec<u8>),
 }

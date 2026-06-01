@@ -5,6 +5,7 @@ package services.db_service;
 import "db/pipeline.proto";
 import "db/query.proto";
 import "db/server.proto";
+import "shared/cluster.proto";
 
 option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service;db_service";
 
@@ -34,6 +35,7 @@ service DBService {
   rpc ListClients(db.query.ListClients) returns (db.server.ClientList);
   rpc ListStores(db.query.ListStores) returns (db.server.StoreList);
   rpc InfoServer(db.query.InfoServer) returns (db.server.InfoServer);
+  rpc ClusterInfo(shared.cluster.ClusterInfoQuery) returns (shared.cluster.ClusterInfoResponse);
   rpc Ping(db.query.Ping) returns (db.server.Pong);
 
   /** Pipeline method for all methods **/

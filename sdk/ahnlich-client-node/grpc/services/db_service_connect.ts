@@ -36,6 +36,7 @@ import {
   Unit,
 } from "../db/server_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
+import { ClusterInfoQuery, ClusterInfoResponse } from "../shared/cluster_pb.js";
 import { DBRequestPipeline, DBResponsePipeline } from "../db/pipeline_pb.js";
 
 /**
@@ -196,6 +197,15 @@ export const DBService = {
       name: "InfoServer",
       I: InfoServer,
       O: InfoServer$1,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc services.db_service.DBService.ClusterInfo
+     */
+    clusterInfo: {
+      name: "ClusterInfo",
+      I: ClusterInfoQuery,
+      O: ClusterInfoResponse,
       kind: MethodKind.Unary,
     },
     /**

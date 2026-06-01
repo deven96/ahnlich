@@ -1243,6 +1243,7 @@ name = "db"
 version = "0.1.0"
 dependencies = [
  "ahash 0.8.12",
+ "ahnlich-replication",
  "ahnlich_client_rs",
  "ahnlich_similarity",
  "ahnlich_types",
@@ -1259,8 +1260,10 @@ dependencies = [
  "log",
  "ndarray",
  "once_cell",
+ "openraft",
  "papaya",
  "pretty_assertions",
+ "prost 0.13.5",
  "pulp",
  "rand 0.8.5",
  "rayon",

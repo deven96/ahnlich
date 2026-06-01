@@ -4,6 +4,7 @@ package db.pipeline;
 
 import "db/query.proto";
 import "db/server.proto";
+import "shared/cluster.proto";
 import "shared/info.proto";
 
 option go_package = "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/pipeline;pipeline";
@@ -31,6 +32,7 @@ message DBQuery {
     db.query.ListClients list_clients = 15;
     db.query.Ping ping = 16;
     db.query.GetStore get_store = 17;
+    shared.cluster.ClusterInfoQuery cluster_info = 18;
   }
 }
 
@@ -53,6 +55,7 @@ message DBServerResponse {
 
     shared.info.ErrorResponse error = 11;
     db.server.StoreInfo store_info = 12;
+    shared.cluster.ClusterInfoResponse cluster_info = 13;
   }
 }
 

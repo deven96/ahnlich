@@ -13,6 +13,7 @@ from betterproto.grpc.grpclib_server import ServiceBase
 from ...db import pipeline as __db_pipeline__
 from ...db import query as __db_query__
 from ...db import server as __db_server__
+from ...shared import cluster as __shared_cluster__
 
 if TYPE_CHECKING:
     import grpclib.server
@@ -293,6 +294,23 @@ class DbServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def cluster_info(
+        self,
+        shared_cluster_cluster_info_query: "__shared_cluster__.ClusterInfoQuery",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__shared_cluster__.ClusterInfoResponse":
+        return await self._unary_unary(
+            "/services.db_service.DBService/ClusterInfo",
+            shared_cluster_cluster_info_query,
+            __shared_cluster__.ClusterInfoResponse,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def ping(
         self,
         db_query_ping: "__db_query__.Ping",
@@ -408,6 +426,11 @@ class DbServiceBase(ServiceBase):
     async def info_server(
         self, db_query_info_server: "__db_query__.InfoServer"
     ) -> "__db_server__.InfoServer":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def cluster_info(
+        self, shared_cluster_cluster_info_query: "__shared_cluster__.ClusterInfoQuery"
+    ) -> "__shared_cluster__.ClusterInfoResponse":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def ping(self, db_query_ping: "__db_query__.Ping") -> "__db_server__.Pong":
@@ -540,6 +563,14 @@ class DbServiceBase(ServiceBase):
         response = await self.info_server(request)
         await stream.send_message(response)
 
+    async def __rpc_cluster_info(
+        self,
+        stream: "grpclib.server.Stream[__shared_cluster__.ClusterInfoQuery, __shared_cluster__.ClusterInfoResponse]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.cluster_info(request)
+        await stream.send_message(response)
+
     async def __rpc_ping(
         self, stream: "grpclib.server.Stream[__db_query__.Ping, __db_server__.Pong]"
     ) -> None:
@@ -652,6 +683,12 @@ class DbServiceBase(ServiceBase):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __db_query__.InfoServer,
                 __db_server__.InfoServer,
+            ),
+            "/services.db_service.DBService/ClusterInfo": grpclib.const.Handler(
+                self.__rpc_cluster_info,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __shared_cluster__.ClusterInfoQuery,
+                __shared_cluster__.ClusterInfoResponse,
             ),
             "/services.db_service.DBService/Ping": grpclib.const.Handler(
                 self.__rpc_ping,

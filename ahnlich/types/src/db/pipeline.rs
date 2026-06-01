@@ -3,7 +3,7 @@
 pub struct DbQuery {
     #[prost(
         oneof = "db_query::Query",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18"
     )]
     pub query: ::core::option::Option<db_query::Query>,
 }
@@ -45,6 +45,8 @@ pub mod db_query {
         Ping(super::super::query::Ping),
         #[prost(message, tag = "17")]
         GetStore(super::super::query::GetStore),
+        #[prost(message, tag = "18")]
+        ClusterInfo(super::super::super::shared::cluster::ClusterInfoQuery),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -56,7 +58,7 @@ pub struct DbRequestPipeline {
 pub struct DbServerResponse {
     #[prost(
         oneof = "db_server_response::Response",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13"
     )]
     pub response: ::core::option::Option<db_server_response::Response>,
 }
@@ -88,6 +90,8 @@ pub mod db_server_response {
         Error(super::super::super::shared::info::ErrorResponse),
         #[prost(message, tag = "12")]
         StoreInfo(super::super::server::StoreInfo),
+        #[prost(message, tag = "13")]
+        ClusterInfo(super::super::super::shared::cluster::ClusterInfoResponse),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

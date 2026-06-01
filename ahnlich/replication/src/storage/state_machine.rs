@@ -142,6 +142,11 @@ impl<C: RaftTypeConfig, H: StateMachineHandler<C>> StateMachineStore<C, H> {
         self.failure_state.clone()
     }
 
+    pub fn with_handler<R>(&self, f: impl FnOnce(&H) -> R) -> Result<R, StorageError<C::NodeId>> {
+        let inner = self.lock_inner()?;
+        Ok(f(&inner.handler))
+    }
+
     fn lock_inner(
         &self,
     ) -> Result<std::sync::MutexGuard<'_, StateMachineInner<C, H>>, StorageError<C::NodeId>> {

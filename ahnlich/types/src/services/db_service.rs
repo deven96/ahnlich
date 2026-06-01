@@ -391,6 +391,26 @@ pub mod db_service_client {
             ));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn cluster_info(
+            &mut self,
+            request: impl tonic::IntoRequest<super::super::super::shared::cluster::ClusterInfoQuery>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::shared::cluster::ClusterInfoResponse>,
+            tonic::Status,
+        > {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path =
+                http::uri::PathAndQuery::from_static("/services.db_service.DBService/ClusterInfo");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.db_service.DBService",
+                "ClusterInfo",
+            ));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn ping(
             &mut self,
             request: impl tonic::IntoRequest<super::super::super::db::query::Ping>,
@@ -533,6 +553,13 @@ pub mod db_service_server {
             request: tonic::Request<super::super::super::db::query::InfoServer>,
         ) -> std::result::Result<
             tonic::Response<super::super::super::db::server::InfoServer>,
+            tonic::Status,
+        >;
+        async fn cluster_info(
+            &self,
+            request: tonic::Request<super::super::super::shared::cluster::ClusterInfoQuery>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::super::shared::cluster::ClusterInfoResponse>,
             tonic::Status,
         >;
         async fn ping(
@@ -1280,6 +1307,51 @@ pub mod db_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = InfoServerSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/services.db_service.DBService/ClusterInfo" => {
+                    #[allow(non_camel_case_types)]
+                    struct ClusterInfoSvc<T: DbService>(pub Arc<T>);
+                    impl<T: DbService>
+                        tonic::server::UnaryService<
+                            super::super::super::shared::cluster::ClusterInfoQuery,
+                        > for ClusterInfoSvc<T>
+                    {
+                        type Response = super::super::super::shared::cluster::ClusterInfoResponse;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::super::shared::cluster::ClusterInfoQuery,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as DbService>::cluster_info(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ClusterInfoSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

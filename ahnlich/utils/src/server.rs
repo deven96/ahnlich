@@ -55,6 +55,10 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
 
     fn task_manager(&self) -> Arc<TaskManager>;
 
+    fn should_spawn_persistence(&self) -> bool {
+        true
+    }
+
     /// Spawn background tasks before server starts (e.g., model threads, size calculation)
     /// Returns error to fail fast if critical initialization fails
     async fn spawn_tasks_before_server(&self, _task_manager: &Arc<TaskManager>) -> IoResult<()> {
@@ -93,7 +97,9 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
         // install panic hook
         task_manager.install_panic_hook();
 
-        if let Some(persist_location) = self.config().persist_location {
+        if self.should_spawn_persistence()
+            && let Some(persist_location) = self.config().persist_location
+        {
             let persistence_task = Persistence::task(
                 self.write_flag(),
                 self.config().persistence_interval,

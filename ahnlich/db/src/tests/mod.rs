@@ -1,4 +1,6 @@
 mod auth_tests;
+mod cluster_tests;
+mod replication_store_tests;
 mod server_tests;
 
 use ahnlich_types::keyval::StoreKey;
