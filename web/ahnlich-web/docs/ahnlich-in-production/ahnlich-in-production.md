@@ -10,6 +10,7 @@ Ahnlich is production-ready and designed for deployment at scale. This section c
 ## What You'll Learn
 
 - **[Deployment](./deployment)** - Docker-based deployment strategies for cloud and on-premise
+- **[Kubernetes (Helm)](./kubernetes)** - Deploy DB and AI on Kubernetes with the official Helm charts
 - **[Tracing](./tracing)** - Distributed tracing setup for observability
 
 ## Architecture Overview
