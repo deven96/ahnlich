@@ -195,6 +195,20 @@ func (args *ClientsFlag) parseArgs() ([]string, error) {
 	return args.Flags, nil
 }
 
+// SupportedModelsFlag ... A struct to limit the models loaded by ahnlich-ai
+type SupportedModelsFlag struct {
+	Models []string
+	baseFlag
+}
+
+func (args *SupportedModelsFlag) parseArgs() ([]string, error) {
+	args.Flags = make([]string, 0)
+	if len(args.Models) > 0 {
+		args.Flags = append(args.Flags, "--supported-models", strings.Join(args.Models, ","))
+	}
+	return args.Flags, nil
+}
+
 // ExecFlag ... A struct to hold the execution type (run or build)
 type ExecFlag struct {
 	ExecType string
@@ -326,13 +340,14 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 			require.Truef(t, !cmd.ProcessState.Exited(), "ahnlich process exited", outBuf.String(), errBuf.String())
 			require.Truef(t, !cmd.ProcessState.Success(), "ahnlich process exited with success status", outBuf.String(), errBuf.String())
 		}
-		outBufString, errBufString := outBuf.String(), errBuf.String()
+		errBufString := errBuf.String()
+		require.NotContains(t, errBufString, "error:", "failed to start ahnlich: %s", errBufString)
+		require.NotContains(t, errBufString, "panicked", "ahnlich panicked: %s", errBufString)
+		require.NotContains(t, outBuf.String(), "panicked", "ahnlich panicked: %s", outBuf.String())
 
-		// Checking stderr for the Running message as well because the ahnlich writes warnings to stderr also
-		if strings.Contains(outBufString, "Running") || (strings.Contains(errBufString, "Running") && strings.Contains(errBufString, "Finished")) && (!strings.Contains(errBufString, "panicked") || !strings.Contains(outBufString, "panicked")) {
-			break
-		}
-		if (strings.Contains(outBufString, "Starting") || (strings.Contains(errBufString, "Starting"))) && (!strings.Contains(errBufString, "panicked") || !strings.Contains(outBufString, "panicked")) {
+		conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, port), RetryInterval)
+		if dialErr == nil {
+			conn.Close()
 			break
 		}
 		t.Log("Waiting for the ahnlich to start")

@@ -68,7 +68,7 @@ pub fn try_new_hashset_with_capacity<T: std::hash::Hash + Eq>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::panic::{AssertUnwindSafe, catch_unwind};
     use std::thread;
 
     /// Verifies a basic put/get round-trip on a map created via fallible constructor.
@@ -160,7 +160,8 @@ mod tests {
             }));
         }
         for h in handles {
-            h.join().expect("thread panicked during concurrent construction");
+            h.join()
+                .expect("thread panicked during concurrent construction");
         }
     }
 
@@ -177,7 +178,8 @@ mod tests {
             }));
         }
         for h in handles {
-            h.join().expect("thread panicked during concurrent set construction");
+            h.join()
+                .expect("thread panicked during concurrent set construction");
         }
     }
 
@@ -354,12 +356,13 @@ mod tests {
     fn fallible_catches_papaya_init_panic() {
         // Inject a panic by wrapping in catch_unwind and manually panicking
         // to verify the error-propagation pattern works end-to-end.
-        let result: Result<ConcurrentHashMap<i32, i32>, String> = catch_unwind(AssertUnwindSafe(|| {
-            // Use with_capacity(0) to show it still creates a valid map
-            // (capacity 0 does not allocate in papaya, so it never panics)
-            ConcurrentHashMap::with_capacity(0)
-        }))
-        .map_err(|_| "simulated failure".to_string());
+        let result: Result<ConcurrentHashMap<i32, i32>, String> =
+            catch_unwind(AssertUnwindSafe(|| {
+                // Use with_capacity(0) to show it still creates a valid map
+                // (capacity 0 does not allocate in papaya, so it never panics)
+                ConcurrentHashMap::with_capacity(0)
+            }))
+            .map_err(|_| "simulated failure".to_string());
 
         // with_capacity(0) is always ok, so this should be Ok
         assert!(result.is_ok());

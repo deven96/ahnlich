@@ -14,9 +14,8 @@ pub struct CreateStore {
     pub create_predicates: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// Non-linear algorithms for indexing.
     #[prost(message, repeated, tag = "4")]
-    pub non_linear_indices: ::prost::alloc::vec::Vec<
-        super::super::algorithm::nonlinear::NonLinearIndex,
-    >,
+    pub non_linear_indices:
+        ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
     /// Flag indicating whether to error if store already exists.
     #[prost(bool, tag = "5")]
     pub error_if_exists: bool,
@@ -56,7 +55,10 @@ pub struct GetSimN {
     #[prost(uint64, tag = "3")]
     pub closest_n: u64,
     /// The algorithm to use for similarity computation.
-    #[prost(enumeration = "super::super::algorithm::algorithms::Algorithm", tag = "4")]
+    #[prost(
+        enumeration = "super::super::algorithm::algorithms::Algorithm",
+        tag = "4"
+    )]
     pub algorithm: i32,
     /// The predicate condition to apply.
     #[prost(message, optional, tag = "5")]
@@ -82,9 +84,8 @@ pub struct CreateNonLinearAlgorithmIndex {
     pub store: ::prost::alloc::string::String,
     /// Non-linear algorithms to create indices for.
     #[prost(message, repeated, tag = "2")]
-    pub non_linear_indices: ::prost::alloc::vec::Vec<
-        super::super::algorithm::nonlinear::NonLinearIndex,
-    >,
+    pub non_linear_indices:
+        ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
 }
 /// Drops the specified predicates from the store.
 /// If `error_if_not_exists` is true, an error is returned if the predicate does not exist.

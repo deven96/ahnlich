@@ -22,9 +22,8 @@ pub struct CreateStore {
     pub predicates: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// Optional non-linear indices
     #[prost(message, repeated, tag = "5")]
-    pub non_linear_indices: ::prost::alloc::vec::Vec<
-        super::super::algorithm::nonlinear::NonLinearIndex,
-    >,
+    pub non_linear_indices:
+        ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
     /// Whether to throw an error if the store already exists
     #[prost(bool, tag = "6")]
     pub error_if_exists: bool,
@@ -61,7 +60,10 @@ pub struct GetSimN {
     #[prost(uint64, tag = "4")]
     pub closest_n: u64,
     /// Algorithm to use for similarity search
-    #[prost(enumeration = "super::super::algorithm::algorithms::Algorithm", tag = "5")]
+    #[prost(
+        enumeration = "super::super::algorithm::algorithms::Algorithm",
+        tag = "5"
+    )]
     pub algorithm: i32,
     /// Preprocessing actions to apply to input before querying
     #[prost(enumeration = "super::preprocess::PreprocessAction", tag = "6")]
@@ -75,10 +77,8 @@ pub struct GetSimN {
     pub execution_provider: ::core::option::Option<i32>,
     /// Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
     #[prost(map = "string, string", tag = "8")]
-    pub model_params: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub model_params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreatePredIndex {
@@ -100,9 +100,8 @@ pub struct CreateNonLinearAlgorithmIndex {
     pub store: ::prost::alloc::string::String,
     /// Non-linear indices to create
     #[prost(message, repeated, tag = "2")]
-    pub non_linear_indices: ::prost::alloc::vec::Vec<
-        super::super::algorithm::nonlinear::NonLinearIndex,
-    >,
+    pub non_linear_indices:
+        ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DropPredIndex {
@@ -232,10 +231,8 @@ pub struct Set {
     pub execution_provider: ::core::option::Option<i32>,
     /// Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
     #[prost(map = "string, string", tag = "5")]
-    pub model_params: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub model_params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConvertStoreInputToEmbeddings {
@@ -245,15 +242,17 @@ pub struct ConvertStoreInputToEmbeddings {
     #[prost(message, repeated, tag = "1")]
     pub store_inputs: ::prost::alloc::vec::Vec<super::super::keyval::StoreInput>,
     /// Preprocessing actions to apply to input before querying
-    #[prost(enumeration = "super::preprocess::PreprocessAction", optional, tag = "2")]
+    #[prost(
+        enumeration = "super::preprocess::PreprocessAction",
+        optional,
+        tag = "2"
+    )]
     pub preprocess_action: ::core::option::Option<i32>,
     /// AI model used for querying (string or image-based)
     #[prost(enumeration = "super::models::AiModel", tag = "3")]
     pub model: i32,
     /// Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
     #[prost(map = "string, string", tag = "4")]
-    pub model_params: ::std::collections::HashMap<
-        ::prost::alloc::string::String,
-        ::prost::alloc::string::String,
-    >,
+    pub model_params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
 }
