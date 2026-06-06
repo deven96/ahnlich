@@ -3,6 +3,7 @@ package ahnlichgotest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,6 +18,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+
+	aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+	dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+	aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+	dbsvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
 )
 
 const (
@@ -258,15 +265,16 @@ func execute(t *testing.T, execType string, binType string, args ...string) (*ex
 // RunAhnlich starts the Ahnlich process
 func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 	var (
-		cmd        *exec.Cmd
-		host       string
-		port       int
-		err        error
-		argsList   []string
-		execType   string
-		binaryType string
-		outBuf     bytes.Buffer
-		errBuf     bytes.Buffer
+		cmd         *exec.Cmd
+		host        string
+		port        int
+		err         error
+		argsList    []string
+		execType    string
+		binaryType  string
+		authEnabled bool
+		outBuf      bytes.Buffer
+		errBuf      bytes.Buffer
 	)
 	t.Cleanup(func() {
 		if cmd != nil {
@@ -300,6 +308,11 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 				_, err := opt.parseArgs()
 				require.NoError(t, err)
 				binaryType = arg.BinaryType
+			case *AuthFlag:
+				parsedArgs, err := opt.parseArgs()
+				require.NoError(t, err)
+				authEnabled = true
+				argsList = append(argsList, parsedArgs...)
 			default:
 				parsedArgs, err := opt.parseArgs()
 				require.NoError(t, err)
@@ -319,6 +332,16 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 		dbAhlichProcess = RunAhnlich(t, &BinaryFlag{BinaryType: "ahnlich-db"})
 	}
 	if dbAhlichProcess != nil {
+		if port == dbAhlichProcess.Port {
+			port, err = GetAvailablePort()
+			require.NoError(t, err)
+			for i := 0; i < len(argsList)-1; i++ {
+				if argsList[i] == "--port" {
+					argsList[i+1] = fmt.Sprint(port)
+					break
+				}
+			}
+		}
 		argsList = append(argsList, "--db-host", dbAhlichProcess.Host, "--db-port", fmt.Sprint(dbAhlichProcess.Port))
 	}
 	cmd, err = execute(t, execType, binaryType, argsList...)
@@ -345,9 +368,7 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 		require.NotContains(t, errBufString, "panicked", "ahnlich panicked: %s", errBufString)
 		require.NotContains(t, outBuf.String(), "panicked", "ahnlich panicked: %s", outBuf.String())
 
-		conn, dialErr := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, port), RetryInterval)
-		if dialErr == nil {
-			conn.Close()
+		if isAhnlichReady(binaryType, fmt.Sprintf("%s:%d", host, port), authEnabled) {
 			break
 		}
 		t.Log("Waiting for the ahnlich to start")
@@ -381,6 +402,56 @@ func (proc *AhnlichProcess) Kill() {
 		proc.Cmd.Process.Kill()
 	}
 
+}
+
+func isAhnlichReady(binaryType string, serverAddr string, authEnabled bool) bool {
+	if authEnabled {
+		return tcpReady(serverAddr)
+	}
+
+	switch binaryType {
+	case "ahnlich-ai":
+		return aiReady(serverAddr)
+	default:
+		return dbReady(serverAddr)
+	}
+}
+
+func tcpReady(serverAddr string) bool {
+	conn, err := net.DialTimeout("tcp", serverAddr, RetryInterval)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
+func aiReady(serverAddr string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), RetryInterval)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, serverAddr, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return false
+	}
+	defer conn.Close()
+
+	client := aisvc.NewAIServiceClient(conn)
+	_, err = client.Ping(ctx, &aiquery.Ping{})
+	return err == nil
+}
+
+func dbReady(serverAddr string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), RetryInterval)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, serverAddr, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return false
+	}
+	defer conn.Close()
+
+	client := dbsvc.NewDBServiceClient(conn)
+	_, err = client.Ping(ctx, &dbquery.Ping{})
+	return err == nil
 }
 
 // IsRunning ... checks if the Ahnlich process is running
