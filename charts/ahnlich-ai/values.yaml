@@ -120,6 +120,15 @@ tracing:
 logLevel: ""
 
 probes:
+  startup:
+    # -- Startup probe initial delay (s).
+    initialDelaySeconds: 10
+    # -- Startup probe period (s).
+    periodSeconds: 10
+    # -- Startup probe timeout (s).
+    timeoutSeconds: 5
+    # -- Startup probe failure threshold. `periodSeconds` × `failureThreshold` is the longest a first-run model download may take before the pod is restarted (default 10s × 30 = 5 min). Liveness and readiness are suspended until the startup probe first succeeds, so the pod is never killed mid-download. Raise this for large models or slow networks.
+    failureThreshold: 30
   readiness:
     # -- Readiness probe initial delay (s).
     initialDelaySeconds: 10
@@ -130,7 +139,7 @@ probes:
     # -- Readiness probe failure threshold.
     failureThreshold: 3
   liveness:
-    # -- Liveness probe initial delay (s); higher default to cover first-run model download.
+    # -- Liveness probe initial delay (s). The startup probe gates first-run model download, so this only applies once the app has started responding.
     initialDelaySeconds: 60
     # -- Liveness probe period (s).
     periodSeconds: 30
