@@ -26,6 +26,7 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
+use utils::fallible;
 use utils::persistence::AhnlichPersistenceUtils;
 
 type StoreEntry = (EmbeddingKey, Arc<StoreValue>);
@@ -148,7 +149,10 @@ impl std::ops::Deref for StoresSnapshot {
 impl StoreHandler {
     pub fn new(write_flag: Arc<AtomicBool>) -> Self {
         Self {
-            stores: Arc::new(ConcurrentHashMap::new()),
+            stores: fallible::try_new_arc_hashmap().unwrap_or_else(|e| {
+                eprintln!("Fatal: Failed to create StoreHandler stores: {e}");
+                std::process::abort();
+            }),
             write_flag,
         }
     }
@@ -547,7 +551,8 @@ impl Store {
     ) -> Self {
         Self {
             dimension,
-            id_to_value: ConcurrentHashMap::new(),
+            id_to_value: fallible::try_new_hashmap()
+                .expect("Failed to initialize store id_to_value map"),
             predicate_indices: PredicateIndices::init(predicates),
             non_linear_indices: NonLinearAlgorithmIndices::create(non_linear_indices, dimension),
             cached_len: AtomicU64::new(0),

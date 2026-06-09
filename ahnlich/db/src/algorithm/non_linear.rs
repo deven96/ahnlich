@@ -20,6 +20,7 @@ use serde::Serialize;
 use std::collections::HashSet;
 use std::mem::size_of_val;
 use std::num::NonZeroUsize;
+use utils::fallible;
 
 // Maintain an enum even though we have a trait as we want to know size
 #[derive(Debug, Serialize, Deserialize)]
@@ -173,7 +174,8 @@ impl NonLinearAlgorithmIndices {
 
     #[tracing::instrument]
     pub fn create(input: HashSet<NonLinearAlgorithmIndexConf>, dimension: NonZeroUsize) -> Self {
-        let algorithm_to_index = ConcurrentHashMap::new();
+        let algorithm_to_index = fallible::try_new_hashmap()
+            .expect("Failed to initialize NonLinearAlgorithmIndices algorithm_to_index map");
         for algo in input {
             let with_index = NonLinearAlgorithmWithIndex::create(algo, dimension);
             algorithm_to_index.insert((&algo).into(), with_index, &algorithm_to_index.guard());

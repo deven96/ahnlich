@@ -203,6 +203,12 @@ jobs:
             workspaces: ahnlich
             shared-key: ahnlich-rust
 
+        - name: Cache Ahnlich Home directory
+          uses: actions/cache@v4
+          with:
+            path: ~/.ahnlich
+            key: ${{ runner.os }}-ahnlich-models
+
         - name: Install Protoc
           uses: arduino/setup-protoc@v3
 

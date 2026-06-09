@@ -62,6 +62,7 @@ jobs:
         echo "\`\`\`" >> bench_results.md
 
     - name: Comment PR with execution number
+      continue-on-error: true
       uses: thollander/actions-comment-pull-request@v2
       with:
         filePath: ahnlich/bench_results.md

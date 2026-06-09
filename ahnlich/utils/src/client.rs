@@ -4,6 +4,8 @@ use std::collections::HashSet as StdHashSet;
 use std::net::SocketAddr;
 use std::time::SystemTime;
 
+use crate::fallible;
+
 /// Datastructure to keep track of clients that have connected to a server while allowing limiting
 /// the maximum number
 #[derive(Debug)]
@@ -15,7 +17,11 @@ pub struct ClientHandler {
 impl ClientHandler {
     pub fn new(maximum_clients: usize) -> Self {
         Self {
-            clients: ConcurrentHashSet::with_capacity(maximum_clients.next_power_of_two()),
+            clients: fallible::try_new_hashset_with_capacity(maximum_clients.next_power_of_two())
+                .unwrap_or_else(|e| {
+                    eprintln!("Fatal: Failed to create ClientHandler client set: {e}");
+                    std::process::abort();
+                }),
             maximum_clients,
         }
     }

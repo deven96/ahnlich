@@ -19,6 +19,7 @@ use std::collections::HashMap;
 use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 use std::sync::Arc;
+use utils::fallible;
 use utils::parallel;
 
 /// Predicates are essentially nested hashmaps that let us retrieve original keys that match a
@@ -74,12 +75,14 @@ impl PredicateIndices {
 
     #[tracing::instrument]
     pub(super) fn init(allowed_predicates: Vec<String>) -> Self {
-        let created = ConcurrentHashSet::new();
+        let created = fallible::try_new_hashset()
+            .expect("Failed to initialize PredicateIndices allowed_predicates set");
         for key in allowed_predicates {
             created.insert(key, &created.guard());
         }
         Self {
-            inner: InnerPredicateIndices::new(),
+            inner: fallible::try_new_hashmap()
+                .expect("Failed to initialize PredicateIndices inner map"),
             allowed_predicates: created,
         }
     }
@@ -291,7 +294,9 @@ impl PredicateIndex {
 
     #[tracing::instrument(skip(init), fields(input_length = init.len()))]
     fn init(init: Vec<(MetadataValue, StoreKeyId)>) -> Self {
-        let new = Self(InnerPredicateIndex::new());
+        let new = Self(
+            fallible::try_new_hashmap().expect("Failed to initialize PredicateIndex inner map"),
+        );
         new.add(init);
         new
     }
@@ -328,7 +333,8 @@ impl PredicateIndex {
                     } else {
                         // Use try_insert as it is very possible that the hashmap itself now has that key that
                         // was not previously there as it has been inserted on a different thread
-                        let new_hashset = ConcurrentHashSet::new();
+                        let new_hashset = fallible::try_new_hashset()
+                            .expect("Failed to initialize new predicate hashset");
                         new_hashset.insert(store_key_id.clone(), &new_hashset.guard());
                         if let Err(error_current) = pinned.try_insert(predicate_value, new_hashset)
                         {
