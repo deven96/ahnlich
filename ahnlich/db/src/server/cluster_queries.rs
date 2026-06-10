@@ -1,7 +1,7 @@
 use crate::engine::operations;
 use crate::engine::store::StoreHandler;
 use crate::errors::ServerError;
-use crate::server::cluster::ClusterRuntime;
+use crate::server::store_runtime::StoreRuntime;
 use ahnlich_replication::cluster_info;
 use ahnlich_replication::node::ReplicationNode;
 use ahnlich_types::db::server;
@@ -12,7 +12,6 @@ use ahnlich_types::shared::cluster::{
 use openraft::error::RaftError;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 fn map_cluster_role(role: cluster_info::NodeRole) -> i32 {
     match role {
@@ -27,10 +26,6 @@ fn map_cluster_health(health: cluster_info::NodeHealthStatus) -> i32 {
         cluster_info::NodeHealthStatus::Healthy => PublicNodeHealthStatus::Healthy as i32,
         cluster_info::NodeHealthStatus::Unreachable => PublicNodeHealthStatus::Unreachable as i32,
     }
-}
-
-pub(crate) fn map_storage_error(context: &str, err: openraft::StorageError<u64>) -> tonic::Status {
-    tonic::Status::internal(format!("{context}: {err}"))
 }
 
 pub(crate) fn map_linearizable_error(
@@ -52,26 +47,16 @@ pub(crate) fn map_linearizable_error(
 
 #[allow(clippy::result_large_err)]
 pub(crate) fn read_store_handler<R>(
-    cluster: Option<&ClusterRuntime>,
-    store_handler: &Arc<StoreHandler>,
+    runtime: &StoreRuntime,
     f: impl FnOnce(&StoreHandler) -> Result<R, ServerError>,
 ) -> Result<R, tonic::Status> {
-    if let Some(cluster) = cluster {
-        cluster
-            .state_machine
-            .with_handler(|handler| f(handler.store_handler()))
-            .map_err(|err| map_storage_error("failed to access clustered state machine", err))?
-            .map_err(Into::into)
-    } else {
-        f(store_handler).map_err(Into::into)
-    }
+    runtime.with_store_handler(f)
 }
 
 pub(crate) async fn list_stores_response(
-    cluster: Option<&ClusterRuntime>,
-    store_handler: &Arc<StoreHandler>,
+    runtime: &StoreRuntime,
 ) -> Result<server::StoreList, tonic::Status> {
-    if let Some(cluster) = cluster {
+    if let Some(cluster) = runtime.cluster() {
         cluster
             .raft
             .ensure_linearizable()
@@ -79,16 +64,16 @@ pub(crate) async fn list_stores_response(
             .map_err(map_linearizable_error)?;
     }
 
-    read_store_handler(cluster, store_handler, |store_handler| {
+    read_store_handler(runtime, |store_handler| {
         Ok(operations::list_stores(store_handler))
     })
 }
 
 pub(crate) async fn cluster_info_response(
     listener_addr: IoResult<SocketAddr>,
-    cluster: Option<&ClusterRuntime>,
+    runtime: &StoreRuntime,
 ) -> Result<ClusterInfoResponse, tonic::Status> {
-    if let Some(cluster) = cluster {
+    if let Some(cluster) = runtime.cluster() {
         let nodes = cluster_info::cluster_topology(cluster.raft.as_ref())
             .await
             .into_iter()

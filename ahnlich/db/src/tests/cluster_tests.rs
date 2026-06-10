@@ -305,6 +305,21 @@ async fn test_three_node_cluster_replication_and_follower_list_stores_error() {
         1
     );
 
+    let leader_store_list = leader_client
+        .list_stores(tonic::Request::new(db_query_types::ListStores {}))
+        .await
+        .expect("leader ListStores should succeed")
+        .into_inner();
+    assert_eq!(leader_store_list.stores.len(), 1);
+
+    let replicated_store = &leader_store_list.stores[0];
+    assert_eq!(replicated_store.name, "replicated-store");
+    assert_eq!(replicated_store.dimension, 3);
+    assert_eq!(replicated_store.len, 1);
+    assert!(replicated_store.size_in_bytes > 0);
+    assert!(replicated_store.non_linear_indices.is_empty());
+    assert!(replicated_store.predicate_indices.is_empty());
+
     let list_stores_error = follower_one_client
         .list_stores(tonic::Request::new(db_query_types::ListStores {}))
         .await
