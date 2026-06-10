@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::BTreeSet,
     io::{Result, Write},
     path::PathBuf,
 };
@@ -121,6 +121,7 @@ fn main() -> Result<()> {
 
 fn restructure_generated_code(out_dir: &PathBuf, file: &mut std::fs::File) {
     let generated_code: Vec<PathBuf> = WalkDir::new(out_dir)
+        .sort_by_file_name()
         .into_iter()
         .filter_map(|a| a.ok())
         .filter(|entry| {
@@ -132,7 +133,7 @@ fn restructure_generated_code(out_dir: &PathBuf, file: &mut std::fs::File) {
         .map(|entry| entry.into_path())
         .collect();
 
-    let mut module_names = HashSet::new();
+    let mut module_names = BTreeSet::new();
 
     for file in &generated_code {
         if let Some(file_name) = file.file_name().and_then(|n| n.to_str())

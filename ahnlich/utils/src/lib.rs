@@ -3,6 +3,7 @@ pub mod auth;
 pub mod cli;
 pub mod client;
 pub mod connection_layer;
+pub mod fallible;
 pub mod parallel;
 pub mod persistence;
 pub mod server;

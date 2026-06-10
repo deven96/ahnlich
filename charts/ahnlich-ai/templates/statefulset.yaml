@@ -115,6 +115,20 @@ spec:
               containerPort: {{ .Values.cluster.port }}
               protocol: TCP
             {{- end }}
+          # Holds off liveness/readiness until the server actually answers a PING --
+          # i.e. once first-run model download has finished. Without this, the liveness
+          # probe SIGKILLs the pod mid-download. periodSeconds x failureThreshold sets the
+          # max tolerated download time before the pod is restarted.
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "echo 'PING' | ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port {{ .Values.service.port }} --no-interactive"
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
           readinessProbe:
             exec:
               command:

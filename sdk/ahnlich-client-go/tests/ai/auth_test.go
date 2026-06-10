@@ -37,10 +37,7 @@ func TestAI_UnauthenticatedRequestRejected(t *testing.T) {
 	cfg := utils.GenerateTestTLS(t)
 	utils.WriteAuthConfig(t, cfg, map[string]string{"aiuser": "aipassword"})
 
-	proc := utils.RunAhnlich(t,
-		&utils.BinaryFlag{BinaryType: "ahnlich-ai"},
-		&utils.AuthFlag{Cfg: cfg},
-	)
+	proc := startAI(t, &utils.AuthFlag{Cfg: cfg})
 	defer proc.Kill()
 
 	conn, cancel := dialAIWithTLS(t, proc.ServerAddr, cfg)
@@ -57,10 +54,7 @@ func TestAI_WrongCredentialsRejected(t *testing.T) {
 	cfg := utils.GenerateTestTLS(t)
 	utils.WriteAuthConfig(t, cfg, map[string]string{"aiuser": "aipassword"})
 
-	proc := utils.RunAhnlich(t,
-		&utils.BinaryFlag{BinaryType: "ahnlich-ai"},
-		&utils.AuthFlag{Cfg: cfg},
-	)
+	proc := startAI(t, &utils.AuthFlag{Cfg: cfg})
 	defer proc.Kill()
 
 	conn, cancel := dialAIWithTLS(t, proc.ServerAddr, cfg)
@@ -77,10 +71,7 @@ func TestAI_ValidCredentialsAccepted(t *testing.T) {
 	cfg := utils.GenerateTestTLS(t)
 	utils.WriteAuthConfig(t, cfg, map[string]string{"aiuser": "aipassword"})
 
-	proc := utils.RunAhnlich(t,
-		&utils.BinaryFlag{BinaryType: "ahnlich-ai"},
-		&utils.AuthFlag{Cfg: cfg},
-	)
+	proc := startAI(t, &utils.AuthFlag{Cfg: cfg})
 	defer proc.Kill()
 
 	conn, cancel := dialAIWithTLS(t, proc.ServerAddr, cfg)
@@ -93,7 +84,7 @@ func TestAI_ValidCredentialsAccepted(t *testing.T) {
 }
 
 func TestAI_NoAuthServerAcceptsRequestsWithoutToken(t *testing.T) {
-	proc := utils.RunAhnlich(t, &utils.BinaryFlag{BinaryType: "ahnlich-ai"})
+	proc := startAI(t)
 	defer proc.Kill()
 
 	conn, cancel := dialAI(t, proc.ServerAddr)
@@ -109,10 +100,7 @@ func TestAI_WithAuthAndDBWithoutAuth(t *testing.T) {
 	cfg := utils.GenerateTestTLS(t)
 	utils.WriteAuthConfig(t, cfg, map[string]string{"aiuser": "aipassword"})
 
-	proc := utils.RunAhnlich(t,
-		&utils.BinaryFlag{BinaryType: "ahnlich-ai"},
-		&utils.AuthFlag{Cfg: cfg},
-	)
+	proc := startAI(t, &utils.AuthFlag{Cfg: cfg})
 	defer proc.Kill()
 
 	conn, cancel := dialAIWithTLS(t, proc.ServerAddr, cfg)

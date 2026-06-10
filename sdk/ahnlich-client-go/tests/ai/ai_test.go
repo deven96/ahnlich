@@ -26,11 +26,12 @@ import (
 )
 
 // Helper to start the AI process for tests
-func startAI(t *testing.T) *utils.AhnlichProcess {
-	return utils.RunAhnlich(
-		t,
+func startAI(t *testing.T, args ...utils.OptionalFlags) *utils.AhnlichProcess {
+	args = append([]utils.OptionalFlags{
 		&utils.BinaryFlag{BinaryType: "ahnlich-ai"},
-	)
+		&utils.SupportedModelsFlag{Models: []string{"all-minilm-l6-v2"}},
+	}, args...)
+	return utils.RunAhnlich(t, args...)
 }
 
 // Helper to dial the AI gRPC server
