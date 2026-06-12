@@ -11,6 +11,7 @@ use ahnlich_types::algorithm::nonlinear::{NonLinearAlgorithm, non_linear_index};
 use ahnlich_types::db::server::StoreInfo;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::{StoreKey, StoreValue};
+use ahnlich_types::schema::Schema;
 use ahnlich_types::predicates::{
     self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
 };
@@ -101,31 +102,36 @@ impl AhnlichPersistenceUtils for StoreHandler {
 impl utils::size_calculation::SizeCalculationHandler for StoresSnapshot {
     #[tracing::instrument(skip(self))]
     fn recalculate_all_sizes(&self) {
-        for (store_name, store) in self.0.iter(&self.0.guard()) {
-            // Only recalculate if this store has been modified
-            if store
-                .size_dirty
-                .compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
-                .is_ok()
-            {
-                let len = store.len();
-                let size = store.size();
-                store.cached_len.store(len as u64, Ordering::Relaxed);
-                store
-                    .cached_size_bytes
-                    .store(size as u64, Ordering::Relaxed);
-                log::trace!(
-                    "Recalculated size for store '{}': {} entries, {} bytes",
-                    store_name.value,
-                    len,
-                    size
-                );
+        let guard = self.0.guard();
+        for (_schema, inner_stores) in self.0.iter(&guard) {
+            let inner_guard = inner_stores.guard();
+            for (store_name, store) in inner_stores.iter(&inner_guard) {
+                // Only recalculate if this store has been modified
+                if store
+                    .size_dirty
+                    .compare_exchange(true, false, Ordering::Relaxed, Ordering::Relaxed)
+                    .is_ok()
+                {
+                    let len = store.len();
+                    let size = store.size();
+                    store.cached_len.store(len as u64, Ordering::Relaxed);
+                    store
+                        .cached_size_bytes
+                        .store(size as u64, Ordering::Relaxed);
+                    log::trace!(
+                        "Recalculated size for store '{}': {} entries, {} bytes",
+                        store_name.value,
+                        len,
+                        size
+                    );
+                }
             }
         }
     }
 }
 
-pub type Stores = Arc<ConcurrentHashMap<StoreName, Arc<Store>>>;
+pub type InnerStores = Arc<ConcurrentHashMap<StoreName, Arc<Store>>>;
+pub type Stores = Arc<ConcurrentHashMap<Schema, InnerStores>>;
 
 /// Newtype wrapper around Stores to implement SizeCalculationHandler
 /// (orphan rule prevents implementing foreign traits on Arc directly)
@@ -179,12 +185,37 @@ impl StoreHandler {
         self.stores = stores_snapshot;
     }
 
-    /// Returns a store using the store name, else returns an error
+    /// Returns the inner stores map for a given schema, creating it if it does not exist.
+    fn get_or_create_schema(&self, schema: &Schema) -> InnerStores {
+        let guard = self.stores.guard();
+        if let Some(inner) = self.stores.get(schema, &guard) {
+            return inner.clone();
+        }
+        drop(guard);
+        let new_inner: InnerStores = fallible::try_new_arc_hashmap()
+            .expect("Failed to create inner stores map for schema");
+        let guard = self.stores.guard();
+        match self.stores.try_insert(schema.clone(), new_inner.clone(), &guard) {
+            Ok(_) => new_inner,
+            Err(existing) => existing.clone(),
+        }
+    }
+
+    /// Returns the inner stores map for a given schema, or `None` if the schema does not exist.
+    fn get_schema(&self, schema: &Schema) -> Option<InnerStores> {
+        self.stores
+            .get(schema, &self.stores.guard())
+            .cloned()
+    }
+
+    /// Returns a store using the store name and schema, else returns an error
     #[tracing::instrument(skip(self))]
-    fn get(&self, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
-        let store = self
-            .stores
-            .get(store_name, &self.stores.guard())
+    fn get(&self, schema: &Schema, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
+        let inner_stores = self
+            .get_schema(schema)
+            .ok_or_else(|| ServerError::StoreNotFound(store_name.clone()))?;
+        let store = inner_stores
+            .get(store_name, &inner_stores.guard())
             .cloned()
             .ok_or(ServerError::StoreNotFound(store_name.clone()))?;
         Ok(store)
@@ -195,10 +226,11 @@ impl StoreHandler {
     pub(crate) fn create_pred_index(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         // TODO: create grpc datatype for metadata key
         predicates: Vec<String>,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(schema, store_name)?;
         let created_predicates = store.create_pred_index(predicates);
         if created_predicates > 0 {
             self.set_write_flag()
@@ -211,9 +243,10 @@ impl StoreHandler {
     pub(crate) fn create_non_linear_algorithm_index(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         non_linear_indices: StdHashSet<non_linear_index::Index>,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(schema, store_name)?;
         let created_predicates = store.create_non_linear_algorithm_index(non_linear_indices);
         if created_predicates > 0 {
             self.set_write_flag()
@@ -226,9 +259,10 @@ impl StoreHandler {
     pub(crate) fn del_key_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         keys: Vec<StoreKey>,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(schema, store_name)?;
         let deleted = store.delete_keys(keys.clone())?;
         if deleted > 0 {
             self.set_write_flag();
@@ -241,9 +275,10 @@ impl StoreHandler {
     pub(crate) fn del_pred_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         condition: &PredicateCondition,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(schema, store_name)?;
         let deleted = store.delete_matches(condition)?;
         if deleted > 0 {
             self.set_write_flag();
@@ -256,12 +291,13 @@ impl StoreHandler {
     pub fn get_sim_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         search_input: StoreKey,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     ) -> Result<Vec<StoreEntryWithSimilarity>, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(schema, store_name)?;
         let store_dimension = store.dimension.get();
         let input_dimension = search_input.key.len();
 
@@ -329,9 +365,10 @@ impl StoreHandler {
     pub fn get_pred_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         condition: &PredicateCondition,
     ) -> Result<Vec<StoreEntry>, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(schema, store_name)?;
         store.get_matches(condition)
     }
 
@@ -340,9 +377,10 @@ impl StoreHandler {
     pub(crate) fn get_key_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         keys: Vec<StoreKey>,
     ) -> Result<Vec<StoreEntry>, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(schema, store_name)?;
         store.get_keys(keys)
     }
 
@@ -351,9 +389,10 @@ impl StoreHandler {
     pub fn set_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         new: Vec<(StoreKey, StoreValue)>,
     ) -> Result<StoreUpsert, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(schema, store_name)?;
         let upsert = store.add(new)?;
         if upsert.modified() {
             self.set_write_flag();
@@ -364,9 +403,11 @@ impl StoreHandler {
     /// matches LISTSTORES - to return statistics of all stores
     #[tracing::instrument(skip(self))]
     pub(crate) fn list_stores(&self) -> StdHashSet<StoreInfo> {
-        self.stores
-            .iter(&self.stores.guard())
-            .map(|(store_name, store)| {
+        let guard = self.stores.guard();
+        let mut result = StdHashSet::new();
+        for (_schema, inner_stores) in self.stores.iter(&guard) {
+            let inner_guard = inner_stores.guard();
+            for (store_name, store) in inner_stores.iter(&inner_guard) {
                 // Lazy initialization: if size is dirty (e.g., newly created store),
                 // calculate it immediately. Background task will handle future updates.
                 let (len, size_in_bytes) = if store.size_dirty.load(Ordering::Relaxed) {
@@ -385,7 +426,7 @@ impl StoreHandler {
                     )
                 };
 
-                StoreInfo {
+                result.insert(StoreInfo {
                     name: store_name.clone().value,
                     len,
                     size_in_bytes,
@@ -397,15 +438,16 @@ impl StoreHandler {
                         .sorted()
                         .collect(),
                     dimension: store.dimension.get() as u32,
-                }
-            })
-            .collect()
+                });
+            }
+        }
+        result
     }
 
     /// Matches GETSTORE - Returns detailed info for a single store by name
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get_store(&self, store_name: &StoreName) -> Result<StoreInfo, ServerError> {
-        let store = self.get(store_name)?;
+    pub(crate) fn get_store(&self, store_name: &StoreName, schema: &Schema) -> Result<StoreInfo, ServerError> {
+        let store = self.get(schema, store_name)?;
         let (len, size_in_bytes) = if store.size_dirty.load(Ordering::Relaxed) {
             let len = store.len();
             let size = store.size();
@@ -442,18 +484,19 @@ impl StoreHandler {
     pub fn create_store(
         &self,
         store_name: StoreName,
+        schema: Schema,
         dimension: NonZeroUsize,
         // FIXME: update metadata key with grpc type key
         predicates: Vec<String>,
         non_linear_indices: StdHashSet<non_linear_index::Index>,
         error_if_exists: bool,
     ) -> Result<(), ServerError> {
-        if self
-            .stores
+        let inner_stores = self.get_or_create_schema(&schema);
+        if inner_stores
             .try_insert(
                 store_name.clone(),
                 Arc::new(Store::create(dimension, predicates, non_linear_indices)),
-                &self.stores.guard(),
+                &inner_stores.guard(),
             )
             .is_err()
             && error_if_exists
@@ -469,10 +512,11 @@ impl StoreHandler {
     pub(crate) fn drop_pred_index_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         predicates: Vec<String>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(schema, store_name)?;
         let deleted = store.drop_predicates(predicates, error_if_not_exists)?;
         if deleted > 0 {
             self.set_write_flag();
@@ -486,10 +530,11 @@ impl StoreHandler {
     pub(crate) fn drop_non_linear_algorithm_index(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         non_linear_indices: StdHashSet<NonLinearAlgorithm>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(schema, store_name)?;
         let deleted = store
             .non_linear_indices
             .remove_indices(non_linear_indices, error_if_not_exists)?;
@@ -504,9 +549,15 @@ impl StoreHandler {
     pub(crate) fn drop_store(
         &self,
         store_name: StoreName,
+        schema: &Schema,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
-        let pinned = self.stores.pin();
+        let inner_stores = match self.get_schema(schema) {
+            Some(inner) => inner,
+            None if error_if_not_exists => return Err(ServerError::StoreNotFound(store_name)),
+            None => return Ok(0),
+        };
+        let pinned = inner_stores.pin();
         let removed = pinned.remove(&store_name).is_some();
         if !removed && error_if_not_exists {
             return Err(ServerError::StoreNotFound(store_name));
@@ -518,6 +569,27 @@ impl StoreHandler {
             1
         };
         Ok(removed)
+    }
+
+    /// Drops all stores within a schema and removes the schema.
+    /// Returns the number of stores dropped.
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn drop_schema(&self, schema: &Schema) -> Result<usize, ServerError> {
+        if schema.as_str() == Schema::DEFAULT_NAME {
+            return Err(ServerError::InvalidArgument(
+                "Cannot drop the default 'public' schema".to_owned(),
+            ));
+        }
+        let pinned = self.stores.pin();
+        let removed = pinned.remove(schema);
+        match removed {
+            Some(inner) => {
+                let count = inner.pin().len();
+                self.set_write_flag();
+                Ok(count)
+            }
+            None => Ok(0),
+        }
     }
 }
 
