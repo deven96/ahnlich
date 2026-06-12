@@ -182,6 +182,9 @@ pub enum AIProxyError {
     #[error("Cannot call DelKey on store with `store_original` as false")]
     DelKeyError,
 
+    #[error("Invalid argument: {0}")]
+    InvalidArgument(String),
+
     #[error("Tokenizer for model failed to load: {message}")]
     ModelTokenizerLoadError { message: String },
 
@@ -233,7 +236,8 @@ impl From<AIProxyError> for Status {
             | AIProxyError::FaceModelNoPreprocessingError
             | AIProxyError::UnknownEnumValue(_)
             | AIProxyError::InputNotSpecified(_)
-            | AIProxyError::MultipleEmbeddingsForQuery(_) => Code::InvalidArgument,
+            |             AIProxyError::MultipleEmbeddingsForQuery(_) => Code::InvalidArgument,
+            AIProxyError::InvalidArgument(_) => Code::InvalidArgument,
             AIProxyError::TokenExceededError {
                 max_token_size: _,
                 input_token_size: _,
