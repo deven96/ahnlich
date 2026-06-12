@@ -83,6 +83,7 @@ pub struct StoreHandler {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     stores: Stores,
     pub write_flag: Arc<AtomicBool>,
+    default_schema: Schema,
 }
 
 impl AhnlichPersistenceUtils for StoreHandler {
@@ -160,6 +161,7 @@ impl StoreHandler {
                 std::process::abort();
             }),
             write_flag,
+            default_schema: Schema::default(),
         }
     }
 
@@ -208,11 +210,11 @@ impl StoreHandler {
             .cloned()
     }
 
-    /// Returns a store using the store name and schema, else returns an error
+    /// Returns a store using the store name and default schema, else returns an error
     #[tracing::instrument(skip(self))]
-    fn get(&self, schema: &Schema, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
+    fn get(&self, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
         let inner_stores = self
-            .get_schema(schema)
+            .get_schema(&self.default_schema)
             .ok_or_else(|| ServerError::StoreNotFound(store_name.clone()))?;
         let store = inner_stores
             .get(store_name, &inner_stores.guard())
@@ -226,11 +228,9 @@ impl StoreHandler {
     pub(crate) fn create_pred_index(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
-        // TODO: create grpc datatype for metadata key
         predicates: Vec<String>,
     ) -> Result<usize, ServerError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         let created_predicates = store.create_pred_index(predicates);
         if created_predicates > 0 {
             self.set_write_flag()
@@ -243,10 +243,9 @@ impl StoreHandler {
     pub(crate) fn create_non_linear_algorithm_index(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         non_linear_indices: StdHashSet<non_linear_index::Index>,
     ) -> Result<usize, ServerError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         let created_predicates = store.create_non_linear_algorithm_index(non_linear_indices);
         if created_predicates > 0 {
             self.set_write_flag()
@@ -259,10 +258,9 @@ impl StoreHandler {
     pub(crate) fn del_key_in_store(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         keys: Vec<StoreKey>,
     ) -> Result<usize, ServerError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         let deleted = store.delete_keys(keys.clone())?;
         if deleted > 0 {
             self.set_write_flag();
@@ -275,10 +273,9 @@ impl StoreHandler {
     pub(crate) fn del_pred_in_store(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         condition: &PredicateCondition,
     ) -> Result<usize, ServerError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         let deleted = store.delete_matches(condition)?;
         if deleted > 0 {
             self.set_write_flag();
@@ -291,13 +288,12 @@ impl StoreHandler {
     pub fn get_sim_in_store(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         search_input: StoreKey,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     ) -> Result<Vec<StoreEntryWithSimilarity>, ServerError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         let store_dimension = store.dimension.get();
         let input_dimension = search_input.key.len();
 
@@ -365,10 +361,9 @@ impl StoreHandler {
     pub fn get_pred_in_store(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         condition: &PredicateCondition,
     ) -> Result<Vec<StoreEntry>, ServerError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         store.get_matches(condition)
     }
 
@@ -377,10 +372,9 @@ impl StoreHandler {
     pub(crate) fn get_key_in_store(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         keys: Vec<StoreKey>,
     ) -> Result<Vec<StoreEntry>, ServerError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         store.get_keys(keys)
     }
 
@@ -389,10 +383,9 @@ impl StoreHandler {
     pub fn set_in_store(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         new: Vec<(StoreKey, StoreValue)>,
     ) -> Result<StoreUpsert, ServerError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         let upsert = store.add(new)?;
         if upsert.modified() {
             self.set_write_flag();
@@ -446,8 +439,8 @@ impl StoreHandler {
 
     /// Matches GETSTORE - Returns detailed info for a single store by name
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get_store(&self, store_name: &StoreName, schema: &Schema) -> Result<StoreInfo, ServerError> {
-        let store = self.get(schema, store_name)?;
+    pub(crate) fn get_store(&self, store_name: &StoreName) -> Result<StoreInfo, ServerError> {
+        let store = self.get(store_name)?;
         let (len, size_in_bytes) = if store.size_dirty.load(Ordering::Relaxed) {
             let len = store.len();
             let size = store.size();
@@ -484,14 +477,12 @@ impl StoreHandler {
     pub fn create_store(
         &self,
         store_name: StoreName,
-        schema: Schema,
         dimension: NonZeroUsize,
-        // FIXME: update metadata key with grpc type key
         predicates: Vec<String>,
         non_linear_indices: StdHashSet<non_linear_index::Index>,
         error_if_exists: bool,
     ) -> Result<(), ServerError> {
-        let inner_stores = self.get_or_create_schema(&schema);
+        let inner_stores = self.get_or_create_schema(&self.default_schema);
         if inner_stores
             .try_insert(
                 store_name.clone(),
@@ -512,11 +503,10 @@ impl StoreHandler {
     pub(crate) fn drop_pred_index_in_store(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         predicates: Vec<String>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         let deleted = store.drop_predicates(predicates, error_if_not_exists)?;
         if deleted > 0 {
             self.set_write_flag();
@@ -530,11 +520,10 @@ impl StoreHandler {
     pub(crate) fn drop_non_linear_algorithm_index(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         non_linear_indices: StdHashSet<NonLinearAlgorithm>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         let deleted = store
             .non_linear_indices
             .remove_indices(non_linear_indices, error_if_not_exists)?;
@@ -549,10 +538,9 @@ impl StoreHandler {
     pub(crate) fn drop_store(
         &self,
         store_name: StoreName,
-        schema: &Schema,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
-        let inner_stores = match self.get_schema(schema) {
+        let inner_stores = match self.get_schema(&self.default_schema) {
             Some(inner) => inner,
             None if error_if_not_exists => return Err(ServerError::StoreNotFound(store_name)),
             None => return Ok(0),
