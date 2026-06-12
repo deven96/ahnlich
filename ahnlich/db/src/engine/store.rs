@@ -197,7 +197,7 @@ impl StoreHandler {
         let guard = self.stores.guard();
         match self.stores.try_insert(schema.clone(), new_inner.clone(), &guard) {
             Ok(_) => new_inner,
-            Err(existing) => existing.clone(),
+            Err(existing) => existing.current.clone(),
         }
     }
 

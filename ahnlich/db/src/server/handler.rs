@@ -5,6 +5,7 @@ use crate::errors::ServerError;
 use ahnlich_types::db::pipeline::db_query::Query;
 use ahnlich_types::db::server::GetSimNEntry;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName};
+use ahnlich_types::schema::Schema;
 use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use ahnlich_types::shared::info::ErrorResponse;
 
@@ -68,6 +69,7 @@ impl DbService for Server {
                 &StoreName {
                     value: params.store,
                 },
+                &Schema::default(),
                 keys,
             )?
             .into_iter()
@@ -98,6 +100,7 @@ impl DbService for Server {
                 &StoreName {
                     value: params.store,
                 },
+                &Schema::default(),
                 &condition,
             )?
             .into_iter()
@@ -134,6 +137,7 @@ impl DbService for Server {
                 &StoreName {
                     value: params.store,
                 },
+                &Schema::default(),
                 search_input,
                 types_utils::convert_to_nonzerousize(params.closest_n)
                     .map_err(tonic::Status::invalid_argument)?,
@@ -285,7 +289,7 @@ impl DbService for Server {
         let params = request.into_inner();
         let store_info = self.store_handler.get_store(&StoreName {
             value: params.store,
-        })?;
+        }, &Schema::default())?;
         Ok(tonic::Response::new(store_info))
     }
 
