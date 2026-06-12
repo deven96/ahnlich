@@ -584,7 +584,8 @@ impl StoreHandler {
         let removed = pinned.remove(schema);
         match removed {
             Some(inner) => {
-                let count = inner.pin().len();
+                let pinned = inner.pin();
+                let count = pinned.len();
                 self.set_write_flag();
                 Ok(count)
             }
