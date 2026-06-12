@@ -28,7 +28,6 @@ use ahnlich_types::{
         In, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
         predicate_condition::Kind,
     },
-    schema::Schema,
 };
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -108,7 +107,6 @@ pub async fn create_store(
         StoreName {
             value: params.store,
         },
-        Schema::default(),
         query_model,
         index_model,
         params.error_if_exists,
@@ -178,7 +176,6 @@ pub async fn set(
             &StoreName {
                 value: params.store.clone(),
             },
-            &Schema::default(),
             params
                 .inputs
                 .into_par_iter()
@@ -293,7 +290,7 @@ pub async fn del_key(
 ) -> Result<Del, Status> {
     let store_original = store_handler.store_original(StoreName {
         value: params.store.clone(),
-    }, &Schema::default())?;
+    })?;
     if !store_original {
         return Err(AIProxyError::DelKeyError.into());
     }
@@ -357,7 +354,7 @@ pub async fn drop_store(
         value: params.store,
     };
 
-    if store_handler.get(&Schema::default(), &store_name).is_ok()
+    if store_handler.get(&store_name).is_ok()
         && let Some(db_client) = db_client
     {
         db_client
@@ -371,7 +368,7 @@ pub async fn drop_store(
             .await?;
     }
 
-    let dropped = store_handler.drop_store(store_name, &Schema::default(), params.error_if_not_exists)?;
+    let dropped = store_handler.drop_store(store_name, params.error_if_not_exists)?;
     Ok(Del {
         deleted_count: dropped as u64,
     })

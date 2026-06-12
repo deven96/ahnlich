@@ -7,7 +7,6 @@ use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::db::query;
 use ahnlich_types::db::server;
 use ahnlich_types::keyval::{StoreKey, StoreName, StoreValue};
-use ahnlich_types::schema::Schema;
 use ahnlich_types::shared::info::StoreUpsert;
 use itertools::Itertools;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -33,7 +32,6 @@ pub fn create_store(
         StoreName {
             value: params.store,
         },
-        Schema::default(),
         dimensions,
         params.create_predicates,
         non_linear_indices,
@@ -49,7 +47,6 @@ pub fn create_pred_index(
         &StoreName {
             value: params.store,
         },
-        &Schema::default(),
         params.predicates,
     )
 }
@@ -68,7 +65,6 @@ pub fn create_non_linear_algorithm_index(
         &StoreName {
             value: params.store,
         },
-        &Schema::default(),
         non_linear_indices,
     )
 }
@@ -81,7 +77,6 @@ pub fn drop_pred_index(
         &StoreName {
             value: params.store,
         },
-        &Schema::default(),
         params.predicates,
         params.error_if_not_exists,
     )
@@ -101,7 +96,6 @@ pub fn drop_non_linear_algorithm_index(
         &StoreName {
             value: params.store,
         },
-        &Schema::default(),
         non_linear_indices,
         params.error_if_not_exists,
     )
@@ -118,7 +112,6 @@ pub fn del_key(store_handler: &StoreHandler, params: query::DelKey) -> Result<us
         &StoreName {
             value: params.store,
         },
-        &Schema::default(),
         keys,
     )
 }
@@ -135,7 +128,6 @@ pub fn del_pred(
         &StoreName {
             value: params.store,
         },
-        &Schema::default(),
         &condition,
     )
 }
@@ -148,7 +140,6 @@ pub fn drop_store(
         StoreName {
             value: params.store,
         },
-        &Schema::default(),
         params.error_if_not_exists,
     )
 }
@@ -173,7 +164,6 @@ pub fn set(store_handler: &StoreHandler, params: query::Set) -> Result<StoreUpse
         &StoreName {
             value: params.store,
         },
-        &Schema::default(),
         inputs,
     )
 }

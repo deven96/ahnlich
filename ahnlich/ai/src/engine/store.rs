@@ -39,6 +39,7 @@ pub struct AIStoreHandler {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     stores: AIStores,
     pub write_flag: Arc<AtomicBool>,
+    default_schema: Schema,
     supported_models: Vec<SupportedModels>,
 }
 
@@ -72,6 +73,7 @@ impl AIStoreHandler {
                 std::process::abort();
             }),
             write_flag,
+            default_schema: Schema::default(),
             supported_models,
         }
     }
@@ -113,9 +115,9 @@ impl AIStoreHandler {
 
     /// Returns a store using the store name and schema, else returns an error
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get(&self, schema: &Schema, store_name: &StoreName) -> Result<Arc<AIStore>, AIProxyError> {
+    pub(crate) fn get(&self, store_name: &StoreName) -> Result<Arc<AIStore>, AIProxyError> {
         let inner_stores = self
-            .get_schema(schema)
+            .get_schema(&self.default_schema)
             .ok_or_else(|| AIProxyError::StoreNotFound(store_name.clone()))?;
         let store = inner_stores
             .get(store_name, &inner_stores.guard())
@@ -128,7 +130,6 @@ impl AIStoreHandler {
     pub(crate) fn create_store(
         &self,
         store_name: StoreName,
-        schema: Schema,
         query_model: AiModel,
         index_model: AiModel,
         error_if_exists: bool,
@@ -150,7 +151,7 @@ impl AIStoreHandler {
             });
         }
 
-        let inner_stores = self.get_or_create_schema(&schema);
+        let inner_stores = self.get_or_create_schema(&self.default_schema);
         if inner_stores
             .try_insert(
                 store_name.clone(),
@@ -199,8 +200,8 @@ impl AIStoreHandler {
 
     /// matches GETSTORE - to return info for a single store
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get_store(&self, store_name: &StoreName, schema: &Schema) -> Result<AiStoreInfo, AIProxyError> {
-        let store = self.get(schema, store_name)?;
+    pub(crate) fn get_store(&self, store_name: &StoreName) -> Result<AiStoreInfo, AIProxyError> {
+        let store = self.get(store_name)?;
         let model: ModelDetails = SupportedModels::from(&store.index_model).to_model_details();
         Ok(AiStoreInfo {
             name: store_name.value.clone(),
@@ -218,10 +219,9 @@ impl AIStoreHandler {
     pub(crate) fn validate_and_prepare_store_data(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         inputs: Vec<(StoreInput, StoreValue)>,
     ) -> Result<StoreValidateResponse, AIProxyError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         let index_model = store.index_model;
         let chunk_size = parallel::chunk_size(inputs.len());
         inputs
@@ -291,19 +291,18 @@ impl AIStoreHandler {
     pub(crate) async fn set(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         inputs: Vec<(StoreInput, StoreValue)>,
         model_manager: &ModelManager,
         preprocess_action: PreprocessAction,
         execution_provider: Option<ExecutionProvider>,
         model_params: std::collections::HashMap<String, String>,
     ) -> Result<StoreSetResponse, AIProxyError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         if inputs.is_empty() {
             return Ok((vec![], None));
         }
         let (validated_data, delete_hashset) =
-            self.validate_and_prepare_store_data(store_name, schema, inputs)?;
+            self.validate_and_prepare_store_data(store_name, inputs)?;
 
         let (store_inputs, store_values): (Vec<_>, Vec<_>) = validated_data.into_iter().unzip();
         let store_keys = model_manager
@@ -420,14 +419,13 @@ impl AIStoreHandler {
     pub(crate) async fn get_ndarray_repr_for_store(
         &self,
         store_name: &StoreName,
-        schema: &Schema,
         store_input: StoreInput,
         model_manager: &ModelManager,
         preprocess_action: PreprocessAction,
         execution_provider: Option<ExecutionProvider>,
         model_params: std::collections::HashMap<String, String>,
     ) -> Result<StoreKey, AIProxyError> {
-        let store = self.get(schema, store_name)?;
+        let store = self.get(store_name)?;
         let mut store_keys = model_manager
             .handle_request(
                 &store.query_model,
@@ -457,10 +455,9 @@ impl AIStoreHandler {
     pub(crate) fn drop_store(
         &self,
         store_name: StoreName,
-        schema: &Schema,
         error_if_not_exists: bool,
     ) -> Result<usize, AIProxyError> {
-        let inner_stores = match self.get_schema(schema) {
+        let inner_stores = match self.get_schema(&self.default_schema) {
             Some(inner) => inner,
             None if error_if_not_exists => return Err(AIProxyError::StoreNotFound(store_name)),
             None => return Ok(0),
@@ -502,8 +499,8 @@ impl AIStoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn store_original(&self, store_name: StoreName, schema: &Schema) -> Result<bool, AIProxyError> {
-        let store = self.get(schema, &store_name)?;
+    pub(crate) fn store_original(&self, store_name: StoreName) -> Result<bool, AIProxyError> {
+        let store = self.get(&store_name)?;
         Ok(store.store_original)
     }
 
