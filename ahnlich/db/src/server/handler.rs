@@ -14,6 +14,7 @@ use ahnlich_replication::types::DbCommand;
 use ahnlich_types::db::pipeline::db_query::Query;
 use ahnlich_types::db::server::GetSimNEntry;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName};
+use ahnlich_types::schema::Schema;
 use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use ahnlich_types::shared::cluster::{ClusterInfoQuery, ClusterInfoResponse};
 use ahnlich_types::shared::info::ErrorResponse;
