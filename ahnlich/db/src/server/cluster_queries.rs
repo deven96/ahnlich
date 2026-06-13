@@ -4,7 +4,7 @@ use crate::errors::ServerError;
 use crate::server::store_runtime::StoreRuntime;
 use ahnlich_replication::cluster_info;
 use ahnlich_replication::node::ReplicationNode;
-use ahnlich_types::db::server;
+use ahnlich_types::db::{query, server};
 use ahnlich_types::shared::cluster::{
     ClusterInfoResponse, ClusterNode, NodeHealthStatus as PublicNodeHealthStatus,
     NodeRole as PublicNodeRole,
@@ -55,6 +55,7 @@ pub(crate) fn read_store_handler<R>(
 
 pub(crate) async fn list_stores_response(
     runtime: &StoreRuntime,
+    params: query::ListStores,
 ) -> Result<server::StoreList, tonic::Status> {
     if let Some(cluster) = runtime.cluster() {
         cluster
@@ -65,7 +66,7 @@ pub(crate) async fn list_stores_response(
     }
 
     read_store_handler(runtime, |store_handler| {
-        Ok(operations::list_stores(store_handler))
+        Ok(operations::list_stores(store_handler, params))
     })
 }
 

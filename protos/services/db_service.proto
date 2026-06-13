@@ -30,6 +30,7 @@ service DBService {
   rpc DelKey(db.query.DelKey) returns (db.server.Del);
   rpc DelPred(db.query.DelPred) returns (db.server.Del);
   rpc DropStore(db.query.DropStore) returns (db.server.Del);
+  rpc DropSchema(db.query.DropSchema) returns (db.server.Del);
 
   /** Ancillary info methods **/
   rpc ListClients(db.query.ListClients) returns (db.server.ClientList);

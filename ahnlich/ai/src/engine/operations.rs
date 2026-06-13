@@ -1,6 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use ahnlich_client_rs::db::DbClient;
+use ahnlich_types::ai::query::DropSchema as AiDropSchema;
 use ahnlich_types::{
     ai::{
         models::AiModel,
@@ -28,6 +29,7 @@ use ahnlich_types::{
         In, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
         predicate_condition::Kind,
     },
+    schema::Schema,
 };
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -90,6 +92,12 @@ pub async fn create_store(
         predicates.push(AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY.to_string());
     }
 
+    let schema = params
+        .schema
+        .as_ref()
+        .map(|s| Schema::new(s.clone()))
+        .unwrap_or_default();
+
     require_db_client(db_client)?
         .create_store(
             DbCreateStore {
@@ -98,6 +106,7 @@ pub async fn create_store(
                 create_predicates: predicates,
                 non_linear_indices: params.non_linear_indices,
                 error_if_exists: params.error_if_exists,
+                schema: Some(schema.to_string()),
             },
             parent_id,
         )
@@ -107,6 +116,7 @@ pub async fn create_store(
         StoreName {
             value: params.store,
         },
+        &schema,
         query_model,
         index_model,
         params.error_if_exists,
@@ -353,6 +363,11 @@ pub async fn drop_store(
     let store_name = StoreName {
         value: params.store,
     };
+    let schema = params
+        .schema
+        .as_ref()
+        .map(|s| Schema::new(s.clone()))
+        .unwrap_or_default();
 
     if store_handler.get(&store_name).is_ok()
         && let Some(db_client) = db_client
@@ -362,13 +377,14 @@ pub async fn drop_store(
                 DbDropStore {
                     store: store_name.value.clone(),
                     error_if_not_exists: params.error_if_not_exists,
+                    schema: Some(schema.to_string()),
                 },
                 parent_id,
             )
             .await?;
     }
 
-    let dropped = store_handler.drop_store(store_name, params.error_if_not_exists)?;
+    let dropped = store_handler.drop_store(store_name, &schema, params.error_if_not_exists)?;
     Ok(Del {
         deleted_count: dropped as u64,
     })
@@ -381,7 +397,7 @@ pub async fn purge_stores(
     parent_id: Option<String>,
 ) -> Result<Del, Status> {
     let store_names: Vec<StoreName> = store_handler
-        .list_stores()
+        .list_stores(None)
         .into_iter()
         .map(|store| StoreName { value: store.name })
         .collect();
@@ -393,6 +409,7 @@ pub async fn purge_stores(
                     DbDropStore {
                         store: store_name.value.clone(),
                         error_if_not_exists: false,
+                        schema: None,
                     },
                     parent_id.clone(),
                 )
@@ -408,10 +425,15 @@ pub async fn purge_stores(
 pub async fn list_stores(
     store_handler: &AIStoreHandler,
     db_client: Option<Arc<DbClient>>,
-    _params: ListStores,
+    params: ListStores,
     parent_id: Option<String>,
 ) -> Result<StoreList, Status> {
-    let mut stores: Vec<AiStoreInfo> = store_handler.list_stores().into_iter().sorted().collect();
+    let filter_schema = params.schema.as_ref().map(|s| Schema::new(s.clone()));
+    let mut stores: Vec<AiStoreInfo> = store_handler
+        .list_stores(filter_schema.as_ref())
+        .into_iter()
+        .sorted()
+        .collect();
 
     if let Some(db_client) = db_client
         && let Ok(db_store_list) = db_client.list_stores(parent_id).await
@@ -438,4 +460,18 @@ pub async fn list_stores(
     }
 
     Ok(StoreList { stores })
+}
+
+pub async fn drop_schema(
+    store_handler: &AIStoreHandler,
+    _db_client: Option<Arc<DbClient>>,
+    params: AiDropSchema,
+    _parent_id: Option<String>,
+) -> Result<Del, Status> {
+    let schema = Schema::new(params.schema);
+
+    let dropped = store_handler.drop_schema(&schema)?;
+    Ok(Del {
+        deleted_count: dropped as u64,
+    })
 }

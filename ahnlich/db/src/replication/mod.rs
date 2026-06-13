@@ -161,6 +161,13 @@ impl StateMachineHandler<DbTypeConfig> for DbStateMachine {
 
                 encode_raw_result!(query::DropStore, &dropped)
             }
+            DbCommand::DropSchema(payload) => {
+                let params = decode_payload!(query::DropSchema, payload)?;
+                let dropped = operations::drop_schema(&self.store_handler, params)
+                    .map_err(|err| operation_error!(query::DropSchema, err))?;
+
+                encode_raw_result!(query::DropSchema, &dropped)
+            }
         }
     }
 

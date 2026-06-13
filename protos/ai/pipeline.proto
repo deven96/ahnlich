@@ -29,6 +29,7 @@ message AIQuery {
     ai.query.ConvertStoreInputToEmbeddings convert_store_input_to_embeddings = 17;
     ai.query.DelPred del_pred = 18;
     ai.query.GetStore get_store = 19;
+    ai.query.DropSchema drop_schema = 20;
   }
 }
 

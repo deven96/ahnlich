@@ -26,6 +26,7 @@ use ahnlich_types::ai::query::DelKey;
 use ahnlich_types::ai::query::DelPred as AiDelPred;
 use ahnlich_types::ai::query::DropNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::DropPredIndex;
+use ahnlich_types::ai::query::DropSchema as AiDropSchema;
 use ahnlich_types::ai::query::DropStore;
 use ahnlich_types::ai::query::GetKey;
 use ahnlich_types::ai::query::GetPred;
@@ -474,6 +475,21 @@ impl AiService for AIProxyServer {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn drop_schema(
+        &self,
+        request: tonic::Request<AiDropSchema>,
+    ) -> Result<tonic::Response<Del>, tonic::Status> {
+        let res = operations::drop_schema(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn list_clients(
         &self,
         _request: tonic::Request<ListClients>,
@@ -905,6 +921,20 @@ impl AiService for AIProxyServer {
                     match self.get_store(tonic::Request::new(params)).await {
                         Ok(res) => response_vec
                             .push(ai_server_response::Response::StoreInfo(res.into_inner())),
+                        Err(err) => {
+                            response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                                message: err.message().to_string(),
+                                code: err.code().into(),
+                            }));
+                        }
+                    }
+                }
+
+                Query::DropSchema(params) => {
+                    match self.drop_schema(tonic::Request::new(params)).await {
+                        Ok(res) => {
+                            response_vec.push(ai_server_response::Response::Del(res.into_inner()))
+                        }
                         Err(err) => {
                             response_vec.push(ai_server_response::Response::Error(ErrorResponse {
                                 message: err.message().to_string(),

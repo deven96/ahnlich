@@ -31,6 +31,9 @@ pub struct CreateStore {
     /// Flag to store original data. Used if you wanna keep the original(image or text) input sent
     #[prost(bool, tag = "7")]
     pub store_original: bool,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "8")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetPred {
@@ -174,6 +177,9 @@ pub struct DropStore {
     /// Flag to throw an error if the store does not exist
     #[prost(bool, tag = "2")]
     pub error_if_not_exists: bool,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetKey {
@@ -192,9 +198,14 @@ pub struct InfoServer {}
 /// Lists all clients currently connected to the server
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ListClients {}
-/// Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ListStores {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListStores {
+    /// Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
+    ///
+    /// Optional schema/namespace to filter stores. If unset, lists all schemas.
+    #[prost(string, optional, tag = "1")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetStore {
     /// Gets detailed information about a specific store by name. Returns an error if the store does not exist.
@@ -202,6 +213,17 @@ pub struct GetStore {
     /// Store name
     #[prost(string, tag = "1")]
     pub store: ::prost::alloc::string::String,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "2")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DropSchema {
+    /// Drops an entire schema and all stores within it. Cannot drop the "public" default schema.
+    ///
+    /// The name of the schema to drop.
+    #[prost(string, tag = "1")]
+    pub schema: ::prost::alloc::string::String,
 }
 /// Purges (deletes) all stores on the server, effectively destroying all stored data
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]

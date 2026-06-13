@@ -91,6 +91,7 @@ async fn test_buffalo_l_face_detection() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })),
     };
 
@@ -165,6 +166,7 @@ async fn test_buffalo_l_batch_multiple_images() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })),
     };
 
@@ -259,6 +261,7 @@ async fn test_buffalo_l_no_faces() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })),
     };
 
@@ -334,6 +337,7 @@ async fn test_buffalo_l_single_face() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })),
     };
 
@@ -409,6 +413,7 @@ async fn test_buffalo_l_get_sim_n() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })),
     };
 
@@ -603,6 +608,7 @@ async fn test_buffalo_l_get_sim_n_multi_face_query_errors() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -690,6 +696,7 @@ async fn test_buffalo_l_face_index_metadata() {
         non_linear_indices: vec![],
         error_if_exists: true,
         store_original: false,
+        schema: None,
     };
 
     // Store the image
@@ -847,6 +854,7 @@ async fn test_buffalo_l_mixed_batch_no_face_does_not_fail_batch() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -942,6 +950,7 @@ async fn test_buffalo_l_high_confidence_threshold() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })),
     };
 
@@ -1002,6 +1011,7 @@ async fn test_buffalo_l_high_confidence_threshold() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })),
     };
 
@@ -1102,6 +1112,7 @@ async fn test_buffalo_l_bounding_box_metadata() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -1271,6 +1282,7 @@ async fn test_buffalo_l_gender_age_metadata() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -1426,6 +1438,7 @@ async fn test_buffalo_l_gender_age_multi_face() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -1620,6 +1633,7 @@ async fn test_buffalo_l_visualize_attributes() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -1841,6 +1855,7 @@ async fn test_buffalo_l_without_genderage() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -1970,6 +1985,7 @@ async fn test_buffalo_l_genderage_opt_in() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {

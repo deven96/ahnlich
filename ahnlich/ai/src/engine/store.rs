@@ -100,7 +100,10 @@ impl AIStoreHandler {
         let new_inner: AIInnerStores = fallible::try_new_arc_hashmap()
             .expect("Failed to create inner AI stores map for schema");
         let guard = self.stores.guard();
-        match self.stores.try_insert(schema.clone(), new_inner.clone(), &guard) {
+        match self
+            .stores
+            .try_insert(schema.clone(), new_inner.clone(), &guard)
+        {
             Ok(_) => new_inner,
             Err(existing) => existing.current.clone(),
         }
@@ -108,28 +111,33 @@ impl AIStoreHandler {
 
     /// Returns the inner stores map for a given schema, or `None` if the schema does not exist.
     fn get_schema(&self, schema: &Schema) -> Option<AIInnerStores> {
-        self.stores
-            .get(schema, &self.stores.guard())
-            .cloned()
+        self.stores.get(schema, &self.stores.guard()).cloned()
     }
 
     /// Returns a store using the store name and schema, else returns an error
     #[tracing::instrument(skip(self))]
     pub(crate) fn get(&self, store_name: &StoreName) -> Result<Arc<AIStore>, AIProxyError> {
-        let inner_stores = self
-            .get_schema(&self.default_schema)
-            .ok_or_else(|| AIProxyError::StoreNotFound(store_name.clone()))?;
-        let store = inner_stores
-            .get(store_name, &inner_stores.guard())
-            .cloned()
-            .ok_or(AIProxyError::StoreNotFound(store_name.clone()))?;
-        Ok(store)
+        let guard = self.stores.guard();
+        if let Some(inner_stores) = self.stores.get(&self.default_schema, &guard) {
+            let inner_guard = inner_stores.guard();
+            if let Some(store) = inner_stores.get(store_name, &inner_guard) {
+                return Ok(store.clone());
+            }
+        }
+        for (_, inner_stores) in self.stores.iter(&guard) {
+            let inner_guard = inner_stores.guard();
+            if let Some(store) = inner_stores.get(store_name, &inner_guard) {
+                return Ok(store.clone());
+            }
+        }
+        Err(AIProxyError::StoreNotFound(store_name.clone()))
     }
 
     #[tracing::instrument(skip(self))]
     pub(crate) fn create_store(
         &self,
         store_name: StoreName,
+        schema: &Schema,
         query_model: AiModel,
         index_model: AiModel,
         error_if_exists: bool,
@@ -151,7 +159,7 @@ impl AIStoreHandler {
             });
         }
 
-        let inner_stores = self.get_or_create_schema(&self.default_schema);
+        let inner_stores = self.get_or_create_schema(schema);
         if inner_stores
             .try_insert(
                 store_name.clone(),
@@ -174,11 +182,18 @@ impl AIStoreHandler {
 
     /// matches LISTSTORES - to return statistics of all stores
     #[tracing::instrument(skip(self))]
-    pub(crate) fn list_stores(&self) -> StdHashSet<AiStoreInfo> {
+    pub(crate) fn list_stores(&self, schema: Option<&Schema>) -> StdHashSet<AiStoreInfo> {
         let guard = self.stores.guard();
         let mut result = StdHashSet::new();
-        for (_schema, inner_stores) in self.stores.iter(&guard) {
-            let inner_stores: &AIInnerStores = inner_stores;
+        let inner_stores_list: Vec<AIInnerStores> = if let Some(schema) = schema {
+            self.stores
+                .get(schema, &guard)
+                .map(|s| vec![s.clone()])
+                .unwrap_or_default()
+        } else {
+            self.stores.iter(&guard).map(|(_, v)| v.clone()).collect()
+        };
+        for inner_stores in inner_stores_list {
             let inner_guard = inner_stores.guard();
             for (store_name, store) in inner_stores.iter(&inner_guard) {
                 let model: ModelDetails =
@@ -455,9 +470,10 @@ impl AIStoreHandler {
     pub(crate) fn drop_store(
         &self,
         store_name: StoreName,
+        schema: &Schema,
         error_if_not_exists: bool,
     ) -> Result<usize, AIProxyError> {
-        let inner_stores = match self.get_schema(&self.default_schema) {
+        let inner_stores = match self.get_schema(schema) {
             Some(inner) => inner,
             None if error_if_not_exists => return Err(AIProxyError::StoreNotFound(store_name)),
             None => return Ok(0),

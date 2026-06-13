@@ -355,6 +355,26 @@ impl DbService for Server {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn drop_schema(
+        &self,
+        request: tonic::Request<query::DropSchema>,
+    ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        let params = request.into_inner();
+
+        let dropped = match &self.runtime {
+            StoreRuntime::Cluster(cluster) => {
+                submit_db_command!(Some(cluster), query::DropSchema, params, DbCommand::DropSchema)
+                    .await?
+            }
+            StoreRuntime::Standalone(store_handler) => operations::drop_schema(store_handler, params)?,
+        };
+
+        Ok(tonic::Response::new(server::Del {
+            deleted_count: dropped,
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn list_clients(
         &self,
         _request: tonic::Request<query::ListClients>,
@@ -375,9 +395,9 @@ impl DbService for Server {
     #[tracing::instrument(skip_all)]
     async fn list_stores(
         &self,
-        _request: tonic::Request<query::ListStores>,
+        request: tonic::Request<query::ListStores>,
     ) -> std::result::Result<tonic::Response<server::StoreList>, tonic::Status> {
-        let store_list = list_stores_response(&self.runtime).await?;
+        let store_list = list_stores_response(&self.runtime, request.into_inner()).await?;
         Ok(tonic::Response::new(store_list))
     }
 
@@ -740,6 +760,22 @@ impl DbService for Server {
                         Ok(res) => response_vec.push(
                             pipeline::db_server_response::Response::ClusterInfo(res.into_inner()),
                         ),
+                        Err(err) => {
+                            response_vec.push(pipeline::db_server_response::Response::Error(
+                                ErrorResponse {
+                                    message: err.message().to_string(),
+                                    code: err.code().into(),
+                                },
+                            ));
+                        }
+                    }
+                }
+
+                Query::DropSchema(params) => {
+                    match self.drop_schema(tonic::Request::new(params)).await {
+                        Ok(res) => response_vec.push(pipeline::db_server_response::Response::Del(
+                            res.into_inner(),
+                        )),
                         Err(err) => {
                             response_vec.push(pipeline::db_server_response::Response::Error(
                                 ErrorResponse {

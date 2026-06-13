@@ -151,6 +151,7 @@ async fn test_ai_proxy_create_store_success() {
         non_linear_indices: vec![],
         error_if_exists: true,
         store_original: true,
+        schema: None,
     };
     let response = client
         .create_store(tonic::Request::new(create_store))
@@ -161,7 +162,7 @@ async fn test_ai_proxy_create_store_success() {
     assert_eq!(expected, response.into_inner());
 
     // list stores to verify it's present.
-    let message = ahnlich_types::ai::query::ListStores {};
+    let message = ahnlich_types::ai::query::ListStores { schema: None };
     let response = client
         .list_stores(tonic::Request::new(message))
         .await
@@ -221,6 +222,7 @@ async fn test_ai_store_get_key_works() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -347,6 +349,7 @@ async fn test_ai_store_no_original() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: false,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -469,6 +472,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -598,6 +602,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -759,6 +764,7 @@ async fn test_convert_store_input_to_embeddings(index: usize, model: i32) {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -909,6 +915,7 @@ async fn test_convert_store_input_to_embeddings_without_db(index: usize, model: 
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1005,6 +1012,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1147,6 +1155,7 @@ async fn test_ai_proxy_del_key_drop_store() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1158,6 +1167,7 @@ async fn test_ai_proxy_del_key_drop_store() {
                 non_linear_indices: vec![],
                 error_if_exists: false,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1187,6 +1197,7 @@ async fn test_ai_proxy_del_key_drop_store() {
             query: Some(Query::DropStore(ai_query_types::DropStore {
                 store: store_name.clone(),
                 error_if_not_exists: true,
+                schema: None,
             })),
         },
     ];
@@ -1284,16 +1295,20 @@ async fn test_ai_proxy_drop_store_cascades_to_db() {
                         non_linear_indices: vec![],
                         error_if_exists: true,
                         store_original: true,
+                        schema: None,
                     })),
                 },
                 ai_pipeline::AiQuery {
                     query: Some(Query::DropStore(ai_query_types::DropStore {
                         store: store_name.clone(),
                         error_if_not_exists: true,
+                        schema: None,
                     })),
                 },
                 ai_pipeline::AiQuery {
-                    query: Some(Query::ListStores(ai_query_types::ListStores {})),
+                    query: Some(Query::ListStores(ai_query_types::ListStores {
+                        schema: None,
+                    })),
                 },
             ],
         }))
@@ -1318,7 +1333,9 @@ async fn test_ai_proxy_drop_store_cascades_to_db() {
     }
 
     let db_stores = db_client
-        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {}))
+        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {
+            schema: None,
+        }))
         .await
         .expect("Failed to list DB stores")
         .into_inner();
@@ -1394,6 +1411,7 @@ async fn test_ai_proxy_del_pred() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1505,6 +1523,7 @@ async fn test_ai_proxy_test_with_persistence() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1516,12 +1535,14 @@ async fn test_ai_proxy_test_with_persistence() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::DropStore(ai_query_types::DropStore {
                 store: store_name.clone(),
                 error_if_not_exists: true,
+                schema: None,
             })),
         },
     ];
@@ -1580,7 +1601,9 @@ async fn test_ai_proxy_test_with_persistence() {
 
     // Verify persisted data
     let list_response = persisted_client
-        .list_stores(tonic::Request::new(ai_query_types::ListStores {}))
+        .list_stores(tonic::Request::new(ai_query_types::ListStores {
+            schema: None,
+        }))
         .await
         .expect("Failed to list stores");
 
@@ -1628,16 +1651,21 @@ async fn test_ai_proxy_destroy_database() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
-            query: Some(Query::ListStores(ai_query_types::ListStores {})),
+            query: Some(Query::ListStores(ai_query_types::ListStores {
+                schema: None,
+            })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::PurgeStores(ai_query_types::PurgeStores {})),
         },
         ai_pipeline::AiQuery {
-            query: Some(Query::ListStores(ai_query_types::ListStores {})),
+            query: Some(Query::ListStores(ai_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -1730,6 +1758,7 @@ async fn test_ai_proxy_purge_stores_cascades_to_db() {
                         non_linear_indices: vec![],
                         error_if_exists: true,
                         store_original: true,
+                        schema: None,
                     })),
                 },
                 ai_pipeline::AiQuery {
@@ -1741,13 +1770,16 @@ async fn test_ai_proxy_purge_stores_cascades_to_db() {
                         non_linear_indices: vec![],
                         error_if_exists: true,
                         store_original: true,
+                        schema: None,
                     })),
                 },
                 ai_pipeline::AiQuery {
                     query: Some(Query::PurgeStores(ai_query_types::PurgeStores {})),
                 },
                 ai_pipeline::AiQuery {
-                    query: Some(Query::ListStores(ai_query_types::ListStores {})),
+                    query: Some(Query::ListStores(ai_query_types::ListStores {
+                        schema: None,
+                    })),
                 },
             ],
         }))
@@ -1776,7 +1808,9 @@ async fn test_ai_proxy_purge_stores_cascades_to_db() {
     }
 
     let db_stores = db_client
-        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {}))
+        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {
+            schema: None,
+        }))
         .await
         .expect("Failed to list DB stores")
         .into_inner();
@@ -1875,10 +1909,13 @@ async fn test_ai_proxy_binary_store_actions() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
-            query: Some(Query::ListStores(ai_query_types::ListStores {})),
+            query: Some(Query::ListStores(ai_query_types::ListStores {
+                schema: None,
+            })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::CreatePredIndex(ai_query_types::CreatePredIndex {
@@ -2060,6 +2097,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -2141,6 +2179,7 @@ async fn test_ai_proxy_create_store_errors_unsupported_models() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         })),
     }];
 
@@ -2191,6 +2230,7 @@ async fn test_ai_proxy_embedding_size_mismatch_error() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         })),
     }];
 
