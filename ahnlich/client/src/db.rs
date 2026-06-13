@@ -104,7 +104,8 @@ impl DbPipeline {
     }
 
     pub fn list_stores(&mut self) {
-        self.queries.push(Query::ListStores(ListStores {}));
+        self.queries
+            .push(Query::ListStores(ListStores { schema: None }));
     }
 
     pub fn list_clients(&mut self) {
@@ -347,14 +348,17 @@ impl DbClient {
         store: String,
         tracing_id: Option<String>,
     ) -> Result<StoreInfo, AhnlichError> {
-        let mut req = tonic::Request::new(GetStore { store });
+        let mut req = tonic::Request::new(GetStore {
+            store,
+            schema: None,
+        });
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().get_store(req).await?.into_inner())
     }
 
     pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
-        let mut req = tonic::Request::new(ListStores {});
+        let mut req = tonic::Request::new(ListStores { schema: None });
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().list_stores(req).await?.into_inner())
@@ -451,6 +455,7 @@ mod test {
             create_predicates: vec![],
             non_linear_indices: vec![],
             error_if_exists: true,
+            schema: None,
         });
         pipeline.create_store(CreateStore {
             store: "Main".to_string(),
@@ -458,6 +463,7 @@ mod test {
             create_predicates: vec![],
             non_linear_indices: vec![],
             error_if_exists: true,
+            schema: None,
         });
         pipeline.create_store(CreateStore {
             store: "Main".to_string(),
@@ -465,6 +471,7 @@ mod test {
             create_predicates: vec![],
             non_linear_indices: vec![],
             error_if_exists: false,
+            schema: None,
         });
         pipeline.list_stores();
 
@@ -525,6 +532,7 @@ mod test {
             dimension: 3,
             non_linear_indices: vec![],
             error_if_exists: true,
+            schema: None,
         };
 
         assert!(
@@ -720,6 +728,7 @@ mod test {
             create_predicates: vec![],
             non_linear_indices: vec![],
             error_if_exists: true,
+            schema: None,
         });
         pipeline.create_store(CreateStore {
             store: "Main".to_string(),
@@ -727,6 +736,7 @@ mod test {
             create_predicates: vec![],
             non_linear_indices: vec![],
             error_if_exists: true,
+            schema: None,
         });
         pipeline.create_store(CreateStore {
             store: "Main".to_string(),
@@ -734,6 +744,7 @@ mod test {
             create_predicates: vec![],
             non_linear_indices: vec![],
             error_if_exists: false,
+            schema: None,
         });
         pipeline.list_stores();
 
@@ -811,6 +822,7 @@ mod test {
                 index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
             }],
             error_if_exists: true,
+            schema: None,
         };
 
         assert!(
@@ -931,6 +943,7 @@ mod test {
             dimension: 3,
             non_linear_indices: vec![],
             error_if_exists: true,
+            schema: None,
         };
 
         assert!(

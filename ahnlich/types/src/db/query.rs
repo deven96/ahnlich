@@ -20,6 +20,9 @@ pub struct CreateStore {
     /// Flag indicating whether to error if store already exists.
     #[prost(bool, tag = "5")]
     pub error_if_exists: bool,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "6")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Retrieves values from the store based on provided keys.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -150,13 +153,20 @@ pub struct DropStore {
     /// Flag indicating whether to error if store does not exist.
     #[prost(bool, tag = "2")]
     pub error_if_not_exists: bool,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// A request to get server information such as host, port, and version.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct InfoServer {}
 /// A request to list all the stores on the server, along with their size or length.
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ListStores {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListStores {
+    /// Optional schema/namespace to filter stores. If unset, lists all schemas.
+    #[prost(string, optional, tag = "1")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
+}
 /// A request to list all the clients currently connected to the server.
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ListClients {}
@@ -169,6 +179,17 @@ pub struct GetStore {
     /// The name of the store.
     #[prost(string, tag = "1")]
     pub store: ::prost::alloc::string::String,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "2")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// Drops an entire schema and all stores within it.
+/// Cannot drop the "public" default schema.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct DropSchema {
+    /// The name of the schema to drop.
+    #[prost(string, tag = "1")]
+    pub schema: ::prost::alloc::string::String,
 }
 /// A request to set multiple key-value entries in the store.
 /// Validation is done for each vector before updating the store.

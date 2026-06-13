@@ -38,11 +38,10 @@ fn main() -> Result<()> {
     if let Ok(entries) = std::fs::read_dir(out_dir) {
         for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
-            let preserve = [
-                "utils",
-                "schema.rs",
-            ];
-            if path.file_name().is_some_and(|name| !preserve.contains(&name.to_str().unwrap_or("")))
+            let preserve = ["utils", "schema.rs"];
+            if path
+                .file_name()
+                .is_some_and(|name| !preserve.contains(&name.to_str().unwrap_or("")))
             {
                 if path.is_dir() {
                     std::fs::remove_dir_all(&path).expect("Failed to remove directory");

@@ -30,6 +30,7 @@ message CreateStore {
   repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 5; // Optional non-linear indices
   bool error_if_exists = 6; // Whether to throw an error if the store already exists
   bool store_original = 7; // Flag to store original data. Used if you wanna keep the original(image or text) input sent
+  optional string schema = 8; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message GetPred {
@@ -99,6 +100,7 @@ message DropStore {
   // Destroys the store, and updates indices accordingly
   string store = 1; // Store name
   bool error_if_not_exists = 2; // Flag to throw an error if the store does not exist
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message GetKey {
@@ -117,11 +119,18 @@ message ListClients {
 
 message ListStores {
   // Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
+  optional string schema = 1; // Optional schema/namespace to filter stores. If unset, lists all schemas.
 }
 
 message GetStore {
   // Gets detailed information about a specific store by name. Returns an error if the store does not exist.
   string store = 1; // Store name
+  optional string schema = 2; // Optional schema/namespace for the store. Defaults to "public".
+}
+
+message DropSchema {
+  // Drops an entire schema and all stores within it. Cannot drop the "public" default schema.
+  string schema = 1; // The name of the schema to drop.
 }
 
 message PurgeStores {

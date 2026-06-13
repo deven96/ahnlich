@@ -191,7 +191,9 @@ async fn test_simple_stores_list() {
     let mut client = DbServiceClient::connect(channel).await.expect("Failure");
 
     let response = client
-        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {}))
+        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {
+            schema: None,
+        }))
         .await
         .expect("Failed to get store's list");
 
@@ -222,6 +224,7 @@ async fn test_create_stores() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -231,10 +234,13 @@ async fn test_create_stores() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -327,6 +333,7 @@ async fn test_del_pred() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should not error as it is correct query
@@ -384,7 +391,9 @@ async fn test_del_pred() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
         db_pipeline::DbQuery {
             query: Some(Query::DelPred(db_query_types::DelPred {
@@ -438,7 +447,9 @@ async fn test_del_pred() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -580,6 +591,7 @@ async fn test_del_key() {
                 create_predicates: vec!["role".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should not error but delete nothing (empty store)
@@ -616,7 +628,9 @@ async fn test_del_key() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
         // Should error due to dimension mismatch
         db_pipeline::DbQuery {
@@ -637,7 +651,9 @@ async fn test_del_key() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -776,6 +792,7 @@ async fn test_server_with_persistence() {
                 create_predicates: vec!["role".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should not error but delete nothing
@@ -817,7 +834,9 @@ async fn test_server_with_persistence() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
         // Should error due to dimension mismatch
         db_pipeline::DbQuery {
@@ -838,7 +857,9 @@ async fn test_server_with_persistence() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -976,6 +997,7 @@ async fn test_server_with_persistence() {
                 create_predicates: vec!["role".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should not error as store exists
@@ -1085,6 +1107,7 @@ async fn test_set_in_store() {
                 create_predicates: vec!["role".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Valid set operation
@@ -1145,7 +1168,9 @@ async fn test_set_in_store() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -1260,6 +1285,7 @@ async fn test_remove_non_linear_indices() {
                 }],
 
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -1507,6 +1533,7 @@ async fn test_get_sim_n_non_linear() {
                     index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                 }],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -1717,6 +1744,7 @@ async fn test_get_sim_n() {
                 create_predicates: vec!["medal".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -2085,6 +2113,7 @@ async fn test_get_pred() {
                 create_predicates: vec!["medal".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -2292,6 +2321,7 @@ async fn test_get_key() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -2521,6 +2551,7 @@ async fn test_create_pred_index() {
                 create_predicates: vec!["galaxy".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -2913,6 +2944,7 @@ async fn test_drop_pred_index() {
                 create_predicates: vec!["galaxy".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should not error (error_if_not_exists=false)
@@ -3018,6 +3050,7 @@ async fn test_drop_stores() {
             query: Some(Query::DropStore(db_query_types::DropStore {
                 store: "Main".to_string(),
                 error_if_not_exists: false,
+                schema: None,
             })),
         },
         // Create store
@@ -3028,17 +3061,21 @@ async fn test_drop_stores() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // List stores
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
         // Should succeed (store exists)
         db_pipeline::DbQuery {
             query: Some(Query::DropStore(db_query_types::DropStore {
                 store: "Main".to_string(),
                 error_if_not_exists: true,
+                schema: None,
             })),
         },
         // Should error (store doesn't exist)
@@ -3046,6 +3083,7 @@ async fn test_drop_stores() {
             query: Some(Query::DropStore(db_query_types::DropStore {
                 store: "Main".to_string(),
                 error_if_not_exists: true,
+                schema: None,
             })),
         },
     ];
@@ -3142,6 +3180,7 @@ async fn test_server_persistence_with_hnsw_index() {
                     index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),
                 }],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -3271,6 +3310,7 @@ async fn test_server_persistence_with_hnsw_index() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should get persisted data
@@ -3393,6 +3433,7 @@ async fn test_create_store_with_hnsw_configuration() {
                     index: Some(non_linear_index::Index::Hnsw(hnsw_config)),
                 }],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -3456,7 +3497,9 @@ async fn test_create_store_with_hnsw_configuration() {
         },
         // List stores to verify config is reflected
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -3575,6 +3618,7 @@ async fn test_duplicate_nonlinear_index_prevention() {
                     index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),
                 }],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Try to create the same HNSW index again - should be idempotent, returns 0
@@ -3752,6 +3796,7 @@ async fn test_hnsw_recall_with_config_reconstruction() {
                         index: Some(non_linear_index::Index::Hnsw(low_config)),
                     }],
                     error_if_exists: true,
+                    schema: None,
                 })),
             }],
         }))
@@ -3981,6 +4026,7 @@ async fn test_list_stores_returns_nonlinear_config() {
                     },
                 ],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Create a store without nonlinear indices
@@ -3991,11 +4037,14 @@ async fn test_list_stores_returns_nonlinear_config() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // List stores
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -4133,6 +4182,7 @@ async fn test_get_store_not_found() {
     let result = client
         .get_store(tonic::Request::new(db_query_types::GetStore {
             store: "NonExistent".to_string(),
+            schema: None,
         }))
         .await;
 
@@ -4174,6 +4224,7 @@ async fn test_get_store_success() {
             index: Some(non_linear_index::Index::Hnsw(hnsw_config)),
         }],
         error_if_exists: true,
+        schema: None,
     };
 
     client
@@ -4208,6 +4259,7 @@ async fn test_get_store_success() {
     let store_info = client
         .get_store(tonic::Request::new(db_query_types::GetStore {
             store: "TestGetStore".to_string(),
+            schema: None,
         }))
         .await
         .expect("GetStore failed")
@@ -4247,17 +4299,20 @@ async fn test_get_store_in_pipeline() {
                 create_predicates: vec!["tag".to_string()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
             query: Some(Query::GetStore(db_query_types::GetStore {
                 store: "PipelineStore".to_string(),
+                schema: None,
             })),
         },
         // GetStore on non-existent store should return error in pipeline
         db_pipeline::DbQuery {
             query: Some(Query::GetStore(db_query_types::GetStore {
                 store: "DoesNotExist".to_string(),
+                schema: None,
             })),
         },
     ];
@@ -4350,6 +4405,7 @@ async fn test_mmap_persistence_performance() {
             create_predicates: vec![],
             non_linear_indices: vec![],
             error_if_exists: false,
+            schema: None,
         })),
     };
 
@@ -4439,7 +4495,9 @@ async fn test_mmap_persistence_performance() {
         .expect("Failed to connect");
 
     let list_query = db_pipeline::DbQuery {
-        query: Some(Query::ListStores(db_query_types::ListStores {})),
+        query: Some(Query::ListStores(db_query_types::ListStores {
+            schema: None,
+        })),
     };
 
     let response = client_mmap
@@ -4487,7 +4545,9 @@ async fn test_mmap_persistence_performance() {
         .expect("Failed to connect");
 
     let list_query = db_pipeline::DbQuery {
-        query: Some(Query::ListStores(db_query_types::ListStores {})),
+        query: Some(Query::ListStores(db_query_types::ListStores {
+            schema: None,
+        })),
     };
 
     let response = client_no_mmap

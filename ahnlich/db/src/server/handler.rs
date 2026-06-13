@@ -250,6 +250,18 @@ impl DbService for Server {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn drop_schema(
+        &self,
+        request: tonic::Request<query::DropSchema>,
+    ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        let dropped = operations::drop_schema(&self.store_handler, request.into_inner())?;
+
+        Ok(tonic::Response::new(server::Del {
+            deleted_count: dropped,
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn list_clients(
         &self,
         _request: tonic::Request<query::ListClients>,
@@ -270,10 +282,11 @@ impl DbService for Server {
     #[tracing::instrument(skip_all)]
     async fn list_stores(
         &self,
-        _request: tonic::Request<query::ListStores>,
+        request: tonic::Request<query::ListStores>,
     ) -> std::result::Result<tonic::Response<server::StoreList>, tonic::Status> {
         Ok(tonic::Response::new(operations::list_stores(
             &self.store_handler,
+            request.into_inner(),
         )))
     }
 
@@ -601,6 +614,22 @@ impl DbService for Server {
                         Ok(res) => response_vec.push(
                             pipeline::db_server_response::Response::StoreInfo(res.into_inner()),
                         ),
+                        Err(err) => {
+                            response_vec.push(pipeline::db_server_response::Response::Error(
+                                ErrorResponse {
+                                    message: err.message().to_string(),
+                                    code: err.code().into(),
+                                },
+                            ));
+                        }
+                    }
+                }
+
+                Query::DropSchema(params) => {
+                    match self.drop_schema(tonic::Request::new(params)).await {
+                        Ok(res) => response_vec.push(pipeline::db_server_response::Response::Del(
+                            res.into_inner(),
+                        )),
                         Err(err) => {
                             response_vec.push(pipeline::db_server_response::Response::Error(
                                 ErrorResponse {

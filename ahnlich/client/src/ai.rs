@@ -113,7 +113,8 @@ impl AiPipeline {
     }
 
     pub fn list_stores(&mut self) {
-        self.queries.push(Query::ListStores(ListStores {}));
+        self.queries
+            .push(Query::ListStores(ListStores { schema: None }));
     }
 
     pub fn list_clients(&mut self) {
@@ -348,14 +349,17 @@ impl AiClient {
         store: String,
         tracing_id: Option<String>,
     ) -> Result<AiStoreInfo, AhnlichError> {
-        let mut req = tonic::Request::new(GetStore { store });
+        let mut req = tonic::Request::new(GetStore {
+            store,
+            schema: None,
+        });
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().get_store(req).await?.into_inner())
     }
 
     pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
-        let mut req = tonic::Request::new(ListStores {});
+        let mut req = tonic::Request::new(ListStores { schema: None });
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().list_stores(req).await?.into_inner())
@@ -544,6 +548,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
 
         let create_store_params_2 = CreateStore {
@@ -554,6 +559,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
 
         let create_store_params_no_error = CreateStore {
@@ -564,6 +570,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: false,
             store_original: true,
+            schema: None,
         };
 
         pipeline.create_store(create_store_params);
@@ -578,6 +585,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
 
         pipeline.create_store(create_store_params);
@@ -649,6 +657,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
 
         assert!(
@@ -715,6 +724,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
         pipeline.create_store(create_store_params);
 
@@ -726,6 +736,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
         pipeline.create_store(create_store_params_2);
 
@@ -737,6 +748,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
 
         pipeline.create_store(create_store_params_3);
@@ -745,6 +757,7 @@ mod test {
         let drop_store_params = DropStore {
             store: "Less".into(),
             error_if_not_exists: true,
+            schema: None,
         };
 
         pipeline.drop_store(drop_store_params);
@@ -820,6 +833,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
         pipeline.create_store(create_store_params);
 
@@ -1012,6 +1026,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
 
         pipeline.create_store(create_store_params);
@@ -1190,6 +1205,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
 
         pipeline.create_store(create_store_params);
@@ -1325,6 +1341,7 @@ mod test {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         };
 
         let mut pipeline = ai_client.pipeline(None);

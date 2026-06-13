@@ -236,7 +236,7 @@ impl From<AIProxyError> for Status {
             | AIProxyError::FaceModelNoPreprocessingError
             | AIProxyError::UnknownEnumValue(_)
             | AIProxyError::InputNotSpecified(_)
-            |             AIProxyError::MultipleEmbeddingsForQuery(_) => Code::InvalidArgument,
+            | AIProxyError::MultipleEmbeddingsForQuery(_) => Code::InvalidArgument,
             AIProxyError::InvalidArgument(_) => Code::InvalidArgument,
             AIProxyError::TokenExceededError {
                 max_token_size: _,

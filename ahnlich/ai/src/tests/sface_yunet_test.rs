@@ -75,6 +75,7 @@ async fn test_sface_yunet_face_detection() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -154,6 +155,7 @@ async fn test_sface_yunet_single_face() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -227,6 +229,7 @@ async fn test_sface_yunet_no_faces() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -302,6 +305,7 @@ async fn test_sface_yunet_get_sim_n() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -420,6 +424,7 @@ async fn test_sface_yunet_multi_face_query_errors() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -508,6 +513,7 @@ async fn test_sface_yunet_mixed_batch_no_face_does_not_fail_batch() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -602,6 +608,7 @@ async fn test_sface_yunet_high_confidence_threshold() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })),
     };
 
@@ -659,6 +666,7 @@ async fn test_sface_yunet_high_confidence_threshold() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })),
     };
 
@@ -759,6 +767,7 @@ async fn test_sface_yunet_bounding_box_metadata() {
                     non_linear_indices: vec![],
                     error_if_exists: true,
                     store_original: false,
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {

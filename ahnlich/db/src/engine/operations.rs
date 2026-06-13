@@ -2,17 +2,25 @@ use std::collections::HashMap;
 use std::collections::HashSet as StdHashSet;
 use std::num::NonZeroUsize;
 
-use ahnlich_types::algorithm::nonlinear::non_linear_index;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::algorithm::nonlinear::non_linear_index;
 use ahnlich_types::db::query;
 use ahnlich_types::db::server;
 use ahnlich_types::keyval::{StoreKey, StoreName, StoreValue};
+use ahnlich_types::schema::Schema;
 use ahnlich_types::shared::info::StoreUpsert;
 use itertools::Itertools;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::engine::store::StoreHandler;
 use crate::errors::ServerError;
+
+fn resolve_schema(schema: &Option<String>) -> Schema {
+    schema
+        .as_ref()
+        .map(|s| Schema::new(s.clone()))
+        .unwrap_or_default()
+}
 
 pub fn create_store(
     store_handler: &StoreHandler,
@@ -28,10 +36,13 @@ pub fn create_store(
         .filter_map(|index| index.index)
         .collect();
 
+    let schema = resolve_schema(&params.schema);
+
     store_handler.create_store(
         StoreName {
             value: params.store,
         },
+        &schema,
         dimensions,
         params.create_predicates,
         non_linear_indices,
@@ -136,10 +147,12 @@ pub fn drop_store(
     store_handler: &StoreHandler,
     params: query::DropStore,
 ) -> Result<usize, ServerError> {
+    let schema = resolve_schema(&params.schema);
     store_handler.drop_store(
         StoreName {
             value: params.store,
         },
+        &schema,
         params.error_if_not_exists,
     )
 }
@@ -168,7 +181,21 @@ pub fn set(store_handler: &StoreHandler, params: query::Set) -> Result<StoreUpse
     )
 }
 
-pub fn list_stores(store_handler: &StoreHandler) -> server::StoreList {
-    let stores = store_handler.list_stores().into_iter().sorted().collect();
+pub fn list_stores(store_handler: &StoreHandler, params: query::ListStores) -> server::StoreList {
+    let schema = params.schema.as_ref().map(|s| Schema::new(s.clone()));
+    let stores = store_handler
+        .list_stores(schema.as_ref())
+        .into_iter()
+        .sorted()
+        .collect();
     server::StoreList { stores }
+}
+
+pub fn drop_schema(
+    store_handler: &StoreHandler,
+    params: query::DropSchema,
+) -> Result<u64, ServerError> {
+    let schema = Schema::new(params.schema);
+    let dropped = store_handler.drop_schema(&schema)?;
+    Ok(dropped as u64)
 }

@@ -128,6 +128,7 @@ async fn test_clap_cross_modal_audio_indexed_text_queried() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: false,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -217,6 +218,7 @@ async fn test_clap_audio_to_audio_retrieval() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: false,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -289,6 +291,7 @@ async fn test_clap_text_to_text_retrieval() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: false,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -402,6 +405,7 @@ async fn test_clap_audio_no_preprocessing_rejected() {
                     non_linear_indices: vec![],
                     error_if_exists: false,
                     store_original: false,
+                    schema: None,
                 })),
             }],
         }))
@@ -467,6 +471,7 @@ async fn test_clap_audio_too_long_rejected() {
                     non_linear_indices: vec![],
                     error_if_exists: false,
                     store_original: false,
+                    schema: None,
                 })),
             }],
         }))
@@ -533,6 +538,7 @@ async fn test_clap_short_audio_accepted() {
                         non_linear_indices: vec![],
                         error_if_exists: false,
                         store_original: false,
+                        schema: None,
                     })),
                 },
                 ai_pipeline::AiQuery {

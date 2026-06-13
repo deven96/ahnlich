@@ -31,6 +31,7 @@ message DBQuery {
     db.query.ListClients list_clients = 15;
     db.query.Ping ping = 16;
     db.query.GetStore get_store = 17;
+    db.query.DropSchema drop_schema = 18;
   }
 }
 

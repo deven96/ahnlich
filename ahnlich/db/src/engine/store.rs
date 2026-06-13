@@ -11,10 +11,10 @@ use ahnlich_types::algorithm::nonlinear::{NonLinearAlgorithm, non_linear_index};
 use ahnlich_types::db::server::StoreInfo;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::{StoreKey, StoreValue};
-use ahnlich_types::schema::Schema;
 use ahnlich_types::predicates::{
     self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
 };
+use ahnlich_types::schema::Schema;
 use ahnlich_types::shared::info::StoreUpsert;
 use ahnlich_types::similarity::Similarity;
 use papaya::HashMap as ConcurrentHashMap;
@@ -194,10 +194,13 @@ impl StoreHandler {
             return inner.clone();
         }
         drop(guard);
-        let new_inner: InnerStores = fallible::try_new_arc_hashmap()
-            .expect("Failed to create inner stores map for schema");
+        let new_inner: InnerStores =
+            fallible::try_new_arc_hashmap().expect("Failed to create inner stores map for schema");
         let guard = self.stores.guard();
-        match self.stores.try_insert(schema.clone(), new_inner.clone(), &guard) {
+        match self
+            .stores
+            .try_insert(schema.clone(), new_inner.clone(), &guard)
+        {
             Ok(_) => new_inner,
             Err(existing) => existing.current.clone(),
         }
@@ -205,22 +208,26 @@ impl StoreHandler {
 
     /// Returns the inner stores map for a given schema, or `None` if the schema does not exist.
     fn get_schema(&self, schema: &Schema) -> Option<InnerStores> {
-        self.stores
-            .get(schema, &self.stores.guard())
-            .cloned()
+        self.stores.get(schema, &self.stores.guard()).cloned()
     }
 
     /// Returns a store using the store name and default schema, else returns an error
     #[tracing::instrument(skip(self))]
     fn get(&self, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
-        let inner_stores = self
-            .get_schema(&self.default_schema)
-            .ok_or_else(|| ServerError::StoreNotFound(store_name.clone()))?;
-        let store = inner_stores
-            .get(store_name, &inner_stores.guard())
-            .cloned()
-            .ok_or(ServerError::StoreNotFound(store_name.clone()))?;
-        Ok(store)
+        let guard = self.stores.guard();
+        if let Some(inner_stores) = self.stores.get(&self.default_schema, &guard) {
+            let inner_guard = inner_stores.guard();
+            if let Some(store) = inner_stores.get(store_name, &inner_guard) {
+                return Ok(store.clone());
+            }
+        }
+        for (_, inner_stores) in self.stores.iter(&guard) {
+            let inner_guard = inner_stores.guard();
+            if let Some(store) = inner_stores.get(store_name, &inner_guard) {
+                return Ok(store.clone());
+            }
+        }
+        Err(ServerError::StoreNotFound(store_name.clone()))
     }
 
     /// Matches CREATEPREDINDEX - reindexes a store with some predicate values
@@ -395,10 +402,18 @@ impl StoreHandler {
 
     /// matches LISTSTORES - to return statistics of all stores
     #[tracing::instrument(skip(self))]
-    pub(crate) fn list_stores(&self) -> StdHashSet<StoreInfo> {
+    pub(crate) fn list_stores(&self, schema: Option<&Schema>) -> StdHashSet<StoreInfo> {
         let guard = self.stores.guard();
         let mut result = StdHashSet::new();
-        for (_schema, inner_stores) in self.stores.iter(&guard) {
+        let schemas: Vec<InnerStores> = if let Some(schema) = schema {
+            self.stores
+                .get(schema, &guard)
+                .map(|s| vec![s.clone()])
+                .unwrap_or_default()
+        } else {
+            self.stores.iter(&guard).map(|(_, v)| v.clone()).collect()
+        };
+        for inner_stores in schemas {
             let inner_guard = inner_stores.guard();
             for (store_name, store) in inner_stores.iter(&inner_guard) {
                 // Lazy initialization: if size is dirty (e.g., newly created store),
@@ -477,12 +492,13 @@ impl StoreHandler {
     pub fn create_store(
         &self,
         store_name: StoreName,
+        schema: &Schema,
         dimension: NonZeroUsize,
         predicates: Vec<String>,
         non_linear_indices: StdHashSet<non_linear_index::Index>,
         error_if_exists: bool,
     ) -> Result<(), ServerError> {
-        let inner_stores = self.get_or_create_schema(&self.default_schema);
+        let inner_stores = self.get_or_create_schema(schema);
         if inner_stores
             .try_insert(
                 store_name.clone(),
@@ -538,9 +554,10 @@ impl StoreHandler {
     pub(crate) fn drop_store(
         &self,
         store_name: StoreName,
+        schema: &Schema,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
-        let inner_stores = match self.get_schema(&self.default_schema) {
+        let inner_stores = match self.get_schema(schema) {
             Some(inner) => inner,
             None if error_if_not_exists => return Err(ServerError::StoreNotFound(store_name)),
             None => return Ok(0),
@@ -1130,6 +1147,7 @@ mod tests {
                     StoreName {
                         value: store_name.to_string(),
                     },
+                    &Schema::default(),
                     NonZeroUsize::new(size).unwrap(),
                     predicates,
                     StdHashSet::new(),
@@ -1162,6 +1180,7 @@ mod tests {
                     StoreName {
                         value: store_name.to_string(),
                     },
+                    &Schema::default(),
                     NonZeroUsize::new(size).unwrap(),
                     predicates,
                     StdHashSet::new(),
@@ -1727,7 +1746,7 @@ mod tests {
                 )],
             )
             .unwrap();
-        let stores = handler.list_stores();
+        let stores = handler.list_stores(None);
         assert_eq!(
             stores,
             StdHashSet::from_iter([
