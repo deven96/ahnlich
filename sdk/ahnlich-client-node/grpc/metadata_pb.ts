@@ -3,14 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type {
-  BinaryReadOptions,
-  FieldList,
-  JsonReadOptions,
-  JsonValue,
-  PartialMessage,
-  PlainMessage,
-} from "@bufbuild/protobuf";
+import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
@@ -20,29 +13,25 @@ export class MetadataValue extends Message<MetadataValue> {
   /**
    * @generated from oneof metadata.MetadataValue.value
    */
-  value:
-    | {
-        /**
-         * @generated from field: string raw_string = 2;
-         */
-        value: string;
-        case: "rawString";
-      }
-    | {
-        /**
-         * @generated from field: bytes image = 3;
-         */
-        value: Uint8Array;
-        case: "image";
-      }
-    | {
-        /**
-         * @generated from field: bytes audio = 4;
-         */
-        value: Uint8Array;
-        case: "audio";
-      }
-    | { case: undefined; value?: undefined } = { case: undefined };
+  value: {
+    /**
+     * @generated from field: string raw_string = 2;
+     */
+    value: string;
+    case: "rawString";
+  } | {
+    /**
+     * @generated from field: bytes image = 3;
+     */
+    value: Uint8Array;
+    case: "image";
+  } | {
+    /**
+     * @generated from field: bytes audio = 4;
+     */
+    value: Uint8Array;
+    case: "audio";
+  } | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<MetadataValue>) {
     super();
@@ -69,10 +58,8 @@ export class MetadataValue extends Message<MetadataValue> {
     return new MetadataValue().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: MetadataValue | PlainMessage<MetadataValue> | undefined,
-    b: MetadataValue | PlainMessage<MetadataValue> | undefined,
-  ): boolean {
+  static equals(a: MetadataValue | PlainMessage<MetadataValue> | undefined, b: MetadataValue | PlainMessage<MetadataValue> | undefined): boolean {
     return proto3.util.equals(MetadataValue, a, b);
   }
 }
+

@@ -4,15 +4,21 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Optional,
+)
 
 import betterproto
 import grpclib
 from betterproto.grpc.grpclib_server import ServiceBase
 
-from ...db import pipeline as __db_pipeline__
-from ...db import query as __db_query__
-from ...db import server as __db_server__
+from ...db import (
+    pipeline as __db_pipeline__,
+    query as __db_query__,
+    server as __db_server__,
+)
 
 if TYPE_CHECKING:
     import grpclib.server
@@ -242,6 +248,23 @@ class DbServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def drop_schema(
+        self,
+        db_query_drop_schema: "__db_query__.DropSchema",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__db_server__.Del":
+        return await self._unary_unary(
+            "/services.db_service.DBService/DropSchema",
+            db_query_drop_schema,
+            __db_server__.Del,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def list_clients(
         self,
         db_query_list_clients: "__db_query__.ListClients",
@@ -395,6 +418,11 @@ class DbServiceBase(ServiceBase):
     ) -> "__db_server__.Del":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def drop_schema(
+        self, db_query_drop_schema: "__db_query__.DropSchema"
+    ) -> "__db_server__.Del":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def list_clients(
         self, db_query_list_clients: "__db_query__.ListClients"
     ) -> "__db_server__.ClientList":
@@ -516,6 +544,14 @@ class DbServiceBase(ServiceBase):
         response = await self.drop_store(request)
         await stream.send_message(response)
 
+    async def __rpc_drop_schema(
+        self,
+        stream: "grpclib.server.Stream[__db_query__.DropSchema, __db_server__.Del]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.drop_schema(request)
+        await stream.send_message(response)
+
     async def __rpc_list_clients(
         self,
         stream: "grpclib.server.Stream[__db_query__.ListClients, __db_server__.ClientList]",
@@ -633,6 +669,12 @@ class DbServiceBase(ServiceBase):
                 self.__rpc_drop_store,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __db_query__.DropStore,
+                __db_server__.Del,
+            ),
+            "/services.db_service.DBService/DropSchema": grpclib.const.Handler(
+                self.__rpc_drop_schema,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __db_query__.DropSchema,
                 __db_server__.Del,
             ),
             "/services.db_service.DBService/ListClients": grpclib.const.Handler(

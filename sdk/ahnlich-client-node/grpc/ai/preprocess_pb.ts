@@ -24,3 +24,4 @@ proto3.util.setEnumType(PreprocessAction, "ai.preprocess.PreprocessAction", [
   { no: 0, name: "NoPreprocessing" },
   { no: 1, name: "ModelPreprocessing" },
 ]);
+

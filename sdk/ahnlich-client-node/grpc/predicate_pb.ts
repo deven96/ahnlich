@@ -3,14 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type {
-  BinaryReadOptions,
-  FieldList,
-  JsonReadOptions,
-  JsonValue,
-  PartialMessage,
-  PlainMessage,
-} from "@bufbuild/protobuf";
+import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
 import { MetadataValue } from "./metadata_pb.js";
 
@@ -21,36 +14,31 @@ export class Predicate extends Message<Predicate> {
   /**
    * @generated from oneof predicates.Predicate.kind
    */
-  kind:
-    | {
-        /**
-         * @generated from field: predicates.Equals equals = 1;
-         */
-        value: Equals;
-        case: "equals";
-      }
-    | {
-        /**
-         * @generated from field: predicates.NotEquals not_equals = 2;
-         */
-        value: NotEquals;
-        case: "notEquals";
-      }
-    | {
-        /**
-         * @generated from field: predicates.In in = 3;
-         */
-        value: In;
-        case: "in";
-      }
-    | {
-        /**
-         * @generated from field: predicates.NotIn not_in = 4;
-         */
-        value: NotIn;
-        case: "notIn";
-      }
-    | { case: undefined; value?: undefined } = { case: undefined };
+  kind: {
+    /**
+     * @generated from field: predicates.Equals equals = 1;
+     */
+    value: Equals;
+    case: "equals";
+  } | {
+    /**
+     * @generated from field: predicates.NotEquals not_equals = 2;
+     */
+    value: NotEquals;
+    case: "notEquals";
+  } | {
+    /**
+     * @generated from field: predicates.In in = 3;
+     */
+    value: In;
+    case: "in";
+  } | {
+    /**
+     * @generated from field: predicates.NotIn not_in = 4;
+     */
+    value: NotIn;
+    case: "notIn";
+  } | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<Predicate>) {
     super();
@@ -78,10 +66,7 @@ export class Predicate extends Message<Predicate> {
     return new Predicate().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: Predicate | PlainMessage<Predicate> | undefined,
-    b: Predicate | PlainMessage<Predicate> | undefined,
-  ): boolean {
+  static equals(a: Predicate | PlainMessage<Predicate> | undefined, b: Predicate | PlainMessage<Predicate> | undefined): boolean {
     return proto3.util.equals(Predicate, a, b);
   }
 }
@@ -124,10 +109,7 @@ export class Equals extends Message<Equals> {
     return new Equals().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: Equals | PlainMessage<Equals> | undefined,
-    b: Equals | PlainMessage<Equals> | undefined,
-  ): boolean {
+  static equals(a: Equals | PlainMessage<Equals> | undefined, b: Equals | PlainMessage<Equals> | undefined): boolean {
     return proto3.util.equals(Equals, a, b);
   }
 }
@@ -170,10 +152,7 @@ export class NotEquals extends Message<NotEquals> {
     return new NotEquals().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: NotEquals | PlainMessage<NotEquals> | undefined,
-    b: NotEquals | PlainMessage<NotEquals> | undefined,
-  ): boolean {
+  static equals(a: NotEquals | PlainMessage<NotEquals> | undefined, b: NotEquals | PlainMessage<NotEquals> | undefined): boolean {
     return proto3.util.equals(NotEquals, a, b);
   }
 }
@@ -216,10 +195,7 @@ export class In extends Message<In> {
     return new In().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: In | PlainMessage<In> | undefined,
-    b: In | PlainMessage<In> | undefined,
-  ): boolean {
+  static equals(a: In | PlainMessage<In> | undefined, b: In | PlainMessage<In> | undefined): boolean {
     return proto3.util.equals(In, a, b);
   }
 }
@@ -262,10 +238,7 @@ export class NotIn extends Message<NotIn> {
     return new NotIn().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: NotIn | PlainMessage<NotIn> | undefined,
-    b: NotIn | PlainMessage<NotIn> | undefined,
-  ): boolean {
+  static equals(a: NotIn | PlainMessage<NotIn> | undefined, b: NotIn | PlainMessage<NotIn> | undefined): boolean {
     return proto3.util.equals(NotIn, a, b);
   }
 }
@@ -277,29 +250,25 @@ export class PredicateCondition extends Message<PredicateCondition> {
   /**
    * @generated from oneof predicates.PredicateCondition.kind
    */
-  kind:
-    | {
-        /**
-         * @generated from field: predicates.Predicate value = 1;
-         */
-        value: Predicate;
-        case: "value";
-      }
-    | {
-        /**
-         * @generated from field: predicates.AndCondition and = 2;
-         */
-        value: AndCondition;
-        case: "and";
-      }
-    | {
-        /**
-         * @generated from field: predicates.OrCondition or = 3;
-         */
-        value: OrCondition;
-        case: "or";
-      }
-    | { case: undefined; value?: undefined } = { case: undefined };
+  kind: {
+    /**
+     * @generated from field: predicates.Predicate value = 1;
+     */
+    value: Predicate;
+    case: "value";
+  } | {
+    /**
+     * @generated from field: predicates.AndCondition and = 2;
+     */
+    value: AndCondition;
+    case: "and";
+  } | {
+    /**
+     * @generated from field: predicates.OrCondition or = 3;
+     */
+    value: OrCondition;
+    case: "or";
+  } | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<PredicateCondition>) {
     super();
@@ -322,17 +291,11 @@ export class PredicateCondition extends Message<PredicateCondition> {
     return new PredicateCondition().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(
-    jsonString: string,
-    options?: Partial<JsonReadOptions>,
-  ): PredicateCondition {
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): PredicateCondition {
     return new PredicateCondition().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: PredicateCondition | PlainMessage<PredicateCondition> | undefined,
-    b: PredicateCondition | PlainMessage<PredicateCondition> | undefined,
-  ): boolean {
+  static equals(a: PredicateCondition | PlainMessage<PredicateCondition> | undefined, b: PredicateCondition | PlainMessage<PredicateCondition> | undefined): boolean {
     return proto3.util.equals(PredicateCondition, a, b);
   }
 }
@@ -375,10 +338,7 @@ export class AndCondition extends Message<AndCondition> {
     return new AndCondition().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: AndCondition | PlainMessage<AndCondition> | undefined,
-    b: AndCondition | PlainMessage<AndCondition> | undefined,
-  ): boolean {
+  static equals(a: AndCondition | PlainMessage<AndCondition> | undefined, b: AndCondition | PlainMessage<AndCondition> | undefined): boolean {
     return proto3.util.equals(AndCondition, a, b);
   }
 }
@@ -421,10 +381,8 @@ export class OrCondition extends Message<OrCondition> {
     return new OrCondition().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: OrCondition | PlainMessage<OrCondition> | undefined,
-    b: OrCondition | PlainMessage<OrCondition> | undefined,
-  ): boolean {
+  static equals(a: OrCondition | PlainMessage<OrCondition> | undefined, b: OrCondition | PlainMessage<OrCondition> | undefined): boolean {
     return proto3.util.equals(OrCondition, a, b);
   }
 }
+

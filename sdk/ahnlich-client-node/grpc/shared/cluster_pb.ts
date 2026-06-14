@@ -12,14 +12,7 @@
 // additions to db.query / db.server / ai.query / ai.server land in the
 // milestones that actually wire them up (M2 for DB, M4 for AI).
 
-import type {
-  BinaryReadOptions,
-  FieldList,
-  JsonReadOptions,
-  JsonValue,
-  PartialMessage,
-  PlainMessage,
-} from "@bufbuild/protobuf";
+import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
 
 /**
@@ -152,10 +145,7 @@ export class ClusterNode extends Message<ClusterNode> {
     return new ClusterNode().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: ClusterNode | PlainMessage<ClusterNode> | undefined,
-    b: ClusterNode | PlainMessage<ClusterNode> | undefined,
-  ): boolean {
+  static equals(a: ClusterNode | PlainMessage<ClusterNode> | undefined, b: ClusterNode | PlainMessage<ClusterNode> | undefined): boolean {
     return proto3.util.equals(ClusterNode, a, b);
   }
 }
@@ -171,7 +161,8 @@ export class ClusterInfoQuery extends Message<ClusterInfoQuery> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "shared.cluster.ClusterInfoQuery";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ClusterInfoQuery {
     return new ClusterInfoQuery().fromBinary(bytes, options);
@@ -185,10 +176,7 @@ export class ClusterInfoQuery extends Message<ClusterInfoQuery> {
     return new ClusterInfoQuery().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: ClusterInfoQuery | PlainMessage<ClusterInfoQuery> | undefined,
-    b: ClusterInfoQuery | PlainMessage<ClusterInfoQuery> | undefined,
-  ): boolean {
+  static equals(a: ClusterInfoQuery | PlainMessage<ClusterInfoQuery> | undefined, b: ClusterInfoQuery | PlainMessage<ClusterInfoQuery> | undefined): boolean {
     return proto3.util.equals(ClusterInfoQuery, a, b);
   }
 }
@@ -221,17 +209,12 @@ export class ClusterInfoResponse extends Message<ClusterInfoResponse> {
     return new ClusterInfoResponse().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(
-    jsonString: string,
-    options?: Partial<JsonReadOptions>,
-  ): ClusterInfoResponse {
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ClusterInfoResponse {
     return new ClusterInfoResponse().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: ClusterInfoResponse | PlainMessage<ClusterInfoResponse> | undefined,
-    b: ClusterInfoResponse | PlainMessage<ClusterInfoResponse> | undefined,
-  ): boolean {
+  static equals(a: ClusterInfoResponse | PlainMessage<ClusterInfoResponse> | undefined, b: ClusterInfoResponse | PlainMessage<ClusterInfoResponse> | undefined): boolean {
     return proto3.util.equals(ClusterInfoResponse, a, b);
   }
 }
+

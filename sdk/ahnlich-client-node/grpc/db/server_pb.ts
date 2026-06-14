@@ -3,14 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type {
-  BinaryReadOptions,
-  FieldList,
-  JsonReadOptions,
-  JsonValue,
-  PartialMessage,
-  PlainMessage,
-} from "@bufbuild/protobuf";
+import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
 import { ConnectedClient } from "../client_pb.js";
 import { ServerInfo, StoreUpsert } from "../shared/info_pb.js";
@@ -29,7 +22,8 @@ export class Unit extends Message<Unit> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "db.server.Unit";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Unit {
     return new Unit().fromBinary(bytes, options);
@@ -43,10 +37,7 @@ export class Unit extends Message<Unit> {
     return new Unit().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: Unit | PlainMessage<Unit> | undefined,
-    b: Unit | PlainMessage<Unit> | undefined,
-  ): boolean {
+  static equals(a: Unit | PlainMessage<Unit> | undefined, b: Unit | PlainMessage<Unit> | undefined): boolean {
     return proto3.util.equals(Unit, a, b);
   }
 }
@@ -62,7 +53,8 @@ export class Pong extends Message<Pong> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "db.server.Pong";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Pong {
     return new Pong().fromBinary(bytes, options);
@@ -76,10 +68,7 @@ export class Pong extends Message<Pong> {
     return new Pong().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: Pong | PlainMessage<Pong> | undefined,
-    b: Pong | PlainMessage<Pong> | undefined,
-  ): boolean {
+  static equals(a: Pong | PlainMessage<Pong> | undefined, b: Pong | PlainMessage<Pong> | undefined): boolean {
     return proto3.util.equals(Pong, a, b);
   }
 }
@@ -116,10 +105,7 @@ export class ClientList extends Message<ClientList> {
     return new ClientList().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: ClientList | PlainMessage<ClientList> | undefined,
-    b: ClientList | PlainMessage<ClientList> | undefined,
-  ): boolean {
+  static equals(a: ClientList | PlainMessage<ClientList> | undefined, b: ClientList | PlainMessage<ClientList> | undefined): boolean {
     return proto3.util.equals(ClientList, a, b);
   }
 }
@@ -156,10 +142,7 @@ export class StoreList extends Message<StoreList> {
     return new StoreList().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: StoreList | PlainMessage<StoreList> | undefined,
-    b: StoreList | PlainMessage<StoreList> | undefined,
-  ): boolean {
+  static equals(a: StoreList | PlainMessage<StoreList> | undefined, b: StoreList | PlainMessage<StoreList> | undefined): boolean {
     return proto3.util.equals(StoreList, a, b);
   }
 }
@@ -196,10 +179,7 @@ export class InfoServer extends Message<InfoServer> {
     return new InfoServer().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: InfoServer | PlainMessage<InfoServer> | undefined,
-    b: InfoServer | PlainMessage<InfoServer> | undefined,
-  ): boolean {
+  static equals(a: InfoServer | PlainMessage<InfoServer> | undefined, b: InfoServer | PlainMessage<InfoServer> | undefined): boolean {
     return proto3.util.equals(InfoServer, a, b);
   }
 }
@@ -236,10 +216,7 @@ export class Set extends Message<Set> {
     return new Set().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: Set | PlainMessage<Set> | undefined,
-    b: Set | PlainMessage<Set> | undefined,
-  ): boolean {
+  static equals(a: Set | PlainMessage<Set> | undefined, b: Set | PlainMessage<Set> | undefined): boolean {
     return proto3.util.equals(Set, a, b);
   }
 }
@@ -276,10 +253,7 @@ export class Get extends Message<Get> {
     return new Get().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: Get | PlainMessage<Get> | undefined,
-    b: Get | PlainMessage<Get> | undefined,
-  ): boolean {
+  static equals(a: Get | PlainMessage<Get> | undefined, b: Get | PlainMessage<Get> | undefined): boolean {
     return proto3.util.equals(Get, a, b);
   }
 }
@@ -328,10 +302,7 @@ export class GetSimNEntry extends Message<GetSimNEntry> {
     return new GetSimNEntry().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: GetSimNEntry | PlainMessage<GetSimNEntry> | undefined,
-    b: GetSimNEntry | PlainMessage<GetSimNEntry> | undefined,
-  ): boolean {
+  static equals(a: GetSimNEntry | PlainMessage<GetSimNEntry> | undefined, b: GetSimNEntry | PlainMessage<GetSimNEntry> | undefined): boolean {
     return proto3.util.equals(GetSimNEntry, a, b);
   }
 }
@@ -368,10 +339,7 @@ export class GetSimN extends Message<GetSimN> {
     return new GetSimN().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: GetSimN | PlainMessage<GetSimN> | undefined,
-    b: GetSimN | PlainMessage<GetSimN> | undefined,
-  ): boolean {
+  static equals(a: GetSimN | PlainMessage<GetSimN> | undefined, b: GetSimN | PlainMessage<GetSimN> | undefined): boolean {
     return proto3.util.equals(GetSimN, a, b);
   }
 }
@@ -408,10 +376,7 @@ export class Del extends Message<Del> {
     return new Del().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: Del | PlainMessage<Del> | undefined,
-    b: Del | PlainMessage<Del> | undefined,
-  ): boolean {
+  static equals(a: Del | PlainMessage<Del> | undefined, b: Del | PlainMessage<Del> | undefined): boolean {
     return proto3.util.equals(Del, a, b);
   }
 }
@@ -448,10 +413,7 @@ export class CreateIndex extends Message<CreateIndex> {
     return new CreateIndex().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: CreateIndex | PlainMessage<CreateIndex> | undefined,
-    b: CreateIndex | PlainMessage<CreateIndex> | undefined,
-  ): boolean {
+  static equals(a: CreateIndex | PlainMessage<CreateIndex> | undefined, b: CreateIndex | PlainMessage<CreateIndex> | undefined): boolean {
     return proto3.util.equals(CreateIndex, a, b);
   }
 }
@@ -463,85 +425,73 @@ export class ServerResponse extends Message<ServerResponse> {
   /**
    * @generated from oneof db.server.ServerResponse.response
    */
-  response:
-    | {
-        /**
-         * @generated from field: db.server.Unit unit = 1;
-         */
-        value: Unit;
-        case: "unit";
-      }
-    | {
-        /**
-         * @generated from field: db.server.Pong pong = 2;
-         */
-        value: Pong;
-        case: "pong";
-      }
-    | {
-        /**
-         * @generated from field: db.server.ClientList client_list = 3;
-         */
-        value: ClientList;
-        case: "clientList";
-      }
-    | {
-        /**
-         * @generated from field: db.server.StoreList store_list = 4;
-         */
-        value: StoreList;
-        case: "storeList";
-      }
-    | {
-        /**
-         * @generated from field: db.server.InfoServer info_server = 5;
-         */
-        value: InfoServer;
-        case: "infoServer";
-      }
-    | {
-        /**
-         * @generated from field: db.server.Set set = 6;
-         */
-        value: Set;
-        case: "set";
-      }
-    | {
-        /**
-         * @generated from field: db.server.Get get = 7;
-         */
-        value: Get;
-        case: "get";
-      }
-    | {
-        /**
-         * @generated from field: db.server.GetSimN get_sim_n = 8;
-         */
-        value: GetSimN;
-        case: "getSimN";
-      }
-    | {
-        /**
-         * @generated from field: db.server.Del del = 9;
-         */
-        value: Del;
-        case: "del";
-      }
-    | {
-        /**
-         * @generated from field: db.server.CreateIndex create_index = 10;
-         */
-        value: CreateIndex;
-        case: "createIndex";
-      }
-    | {
-        /**
-         * @generated from field: db.server.StoreInfo store_info = 11;
-         */
-        value: StoreInfo;
-        case: "storeInfo";
-      }
-    | { case: undefined; value?: undefined } = { case: undefined };
+  response: {
+    /**
+     * @generated from field: db.server.Unit unit = 1;
+     */
+    value: Unit;
+    case: "unit";
+  } | {
+    /**
+     * @generated from field: db.server.Pong pong = 2;
+     */
+    value: Pong;
+    case: "pong";
+  } | {
+    /**
+     * @generated from field: db.server.ClientList client_list = 3;
+     */
+    value: ClientList;
+    case: "clientList";
+  } | {
+    /**
+     * @generated from field: db.server.StoreList store_list = 4;
+     */
+    value: StoreList;
+    case: "storeList";
+  } | {
+    /**
+     * @generated from field: db.server.InfoServer info_server = 5;
+     */
+    value: InfoServer;
+    case: "infoServer";
+  } | {
+    /**
+     * @generated from field: db.server.Set set = 6;
+     */
+    value: Set;
+    case: "set";
+  } | {
+    /**
+     * @generated from field: db.server.Get get = 7;
+     */
+    value: Get;
+    case: "get";
+  } | {
+    /**
+     * @generated from field: db.server.GetSimN get_sim_n = 8;
+     */
+    value: GetSimN;
+    case: "getSimN";
+  } | {
+    /**
+     * @generated from field: db.server.Del del = 9;
+     */
+    value: Del;
+    case: "del";
+  } | {
+    /**
+     * @generated from field: db.server.CreateIndex create_index = 10;
+     */
+    value: CreateIndex;
+    case: "createIndex";
+  } | {
+    /**
+     * @generated from field: db.server.StoreInfo store_info = 11;
+     */
+    value: StoreInfo;
+    case: "storeInfo";
+  } | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<ServerResponse>) {
     super();
@@ -576,10 +526,7 @@ export class ServerResponse extends Message<ServerResponse> {
     return new ServerResponse().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: ServerResponse | PlainMessage<ServerResponse> | undefined,
-    b: ServerResponse | PlainMessage<ServerResponse> | undefined,
-  ): boolean {
+  static equals(a: ServerResponse | PlainMessage<ServerResponse> | undefined, b: ServerResponse | PlainMessage<ServerResponse> | undefined): boolean {
     return proto3.util.equals(ServerResponse, a, b);
   }
 }
@@ -630,13 +577,7 @@ export class StoreInfo extends Message<StoreInfo> {
     { no: 2, name: "len", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
     { no: 3, name: "size_in_bytes", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
     { no: 4, name: "non_linear_indices", kind: "message", T: NonLinearIndex, repeated: true },
-    {
-      no: 5,
-      name: "predicate_indices",
-      kind: "scalar",
-      T: 9 /* ScalarType.STRING */,
-      repeated: true,
-    },
+    { no: 5, name: "predicate_indices", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
     { no: 6, name: "dimension", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
   ]);
 
@@ -652,10 +593,8 @@ export class StoreInfo extends Message<StoreInfo> {
     return new StoreInfo().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: StoreInfo | PlainMessage<StoreInfo> | undefined,
-    b: StoreInfo | PlainMessage<StoreInfo> | undefined,
-  ): boolean {
+  static equals(a: StoreInfo | PlainMessage<StoreInfo> | undefined, b: StoreInfo | PlainMessage<StoreInfo> | undefined): boolean {
     return proto3.util.equals(StoreInfo, a, b);
   }
 }
+

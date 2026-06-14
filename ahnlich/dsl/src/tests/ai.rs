@@ -55,7 +55,7 @@ fn test_multi_query_parse() {
         parse_ai_query(input).expect("Could not parse query input"),
         vec![
             AiQuery::InfoServer(InfoServer {}),
-            AiQuery::ListStores(ListStores {})
+            AiQuery::ListStores(ListStores { schema: None })
         ]
     );
 }
@@ -81,6 +81,7 @@ fn test_get_store_parse() {
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::GetStore(GetStore {
             store: "my_store".to_string(),
+            schema: None,
         })]
     );
     let input = r#"getstore test-store-1"#;
@@ -88,6 +89,7 @@ fn test_get_store_parse() {
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::GetStore(GetStore {
             store: "test-store-1".to_string(),
+            schema: None,
         })]
     );
 }
@@ -99,7 +101,8 @@ fn test_drop_store_parse() {
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::DropStore(DropStore {
             store: "random".to_string(),
-            error_if_not_exists: true
+            error_if_not_exists: true,
+            schema: None,
         })]
     );
     let input = r#"dropstore yeezy_store IF exists"#;
@@ -108,6 +111,7 @@ fn test_drop_store_parse() {
         vec![AiQuery::DropStore(DropStore {
             store: "yeezy_store".to_string(),
             error_if_not_exists: false,
+            schema: None,
         })]
     );
     let input = r#"dropstore yeezy IF NOT exists"#;
@@ -166,6 +170,7 @@ fn test_create_store_parse() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })]
     );
     let input = r#"CREATEstore IF NOT EXISTS storename QUERYMODEL resnet-50 INDEXMODEL all-minilm-l6-v2 PREDICATES (department, faculty) STOREORIGINAL"#;
@@ -179,6 +184,7 @@ fn test_create_store_parse() {
             non_linear_indices: vec![],
             error_if_exists: false,
             store_original: true,
+            schema: None,
         })]
     );
     let input = r#"createstore school QUERYMODEL all-minilm-l6-v2 INDEXMODEL resnet-50 NONLINEARALGORITHMINDEX (kdtree) STOREORIGINAL"#;
@@ -194,6 +200,7 @@ fn test_create_store_parse() {
             }],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         })]
     );
 }
