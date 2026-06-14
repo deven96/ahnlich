@@ -85,7 +85,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
         let end_pos = statement.as_span().end_pos().pos();
         let query = match statement.as_rule() {
             Rule::ping => AiQuery::Ping(Ping {}),
-            Rule::list_stores => AiQuery::ListStores(ListStores {}),
+            Rule::list_stores => AiQuery::ListStores(ListStores { schema: None }),
             Rule::info_server => AiQuery::InfoServer(InfoServer {}),
             Rule::purge_stores => AiQuery::PurgeStores(PurgeStores {}),
             Rule::ai_set_in_store => {
@@ -192,6 +192,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     non_linear_indices,
                     error_if_exists,
                     store_original,
+                    schema: None,
                 })
             }
             Rule::ai_get_sim_n => {
@@ -323,6 +324,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                 AiQuery::DropStore(DropStore {
                     store,
                     error_if_not_exists,
+                    schema: None,
                 })
             }
             Rule::get_store => {
@@ -332,7 +334,10 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
-                AiQuery::GetStore(GetStore { store })
+                AiQuery::GetStore(GetStore {
+                    store,
+                    schema: None,
+                })
             }
             _ => return Err(DslError::UnexpectedSpan((start_pos, end_pos))),
         };

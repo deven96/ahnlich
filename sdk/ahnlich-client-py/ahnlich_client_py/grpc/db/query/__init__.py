@@ -4,14 +4,21 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import List
+from typing import (
+    List,
+    Optional,
+)
 
 import betterproto
 
-from ... import keyval as __keyval__
-from ... import predicates as __predicates__
-from ...algorithm import algorithms as __algorithm_algorithms__
-from ...algorithm import nonlinear as __algorithm_nonlinear__
+from ... import (
+    keyval as __keyval__,
+    predicates as __predicates__,
+)
+from ...algorithm import (
+    algorithms as __algorithm_algorithms__,
+    nonlinear as __algorithm_nonlinear__,
+)
 
 
 @dataclass(eq=False, repr=False)
@@ -28,6 +35,7 @@ class CreateStore(betterproto.Message):
         betterproto.message_field(4)
     )
     error_if_exists: bool = betterproto.bool_field(5)
+    schema: Optional[str] = betterproto.string_field(6, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -144,6 +152,7 @@ class DropStore(betterproto.Message):
 
     store: str = betterproto.string_field(1)
     error_if_not_exists: bool = betterproto.bool_field(2)
+    schema: Optional[str] = betterproto.string_field(3, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -159,7 +168,7 @@ class ListStores(betterproto.Message):
     A request to list all the stores on the server, along with their size or length.
     """
 
-    pass
+    schema: Optional[str] = betterproto.string_field(1, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -183,6 +192,17 @@ class GetStore(betterproto.Message):
     """
 
     store: str = betterproto.string_field(1)
+    schema: Optional[str] = betterproto.string_field(2, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class DropSchema(betterproto.Message):
+    """
+    Drops an entire schema and all stores within it.
+     Cannot drop the "public" default schema.
+    """
+
+    schema: str = betterproto.string_field(1)
 
 
 @dataclass(eq=False, repr=False)

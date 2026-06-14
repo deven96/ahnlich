@@ -8,10 +8,11 @@ from typing import List
 
 import betterproto
 
-from ...shared import cluster as __shared_cluster__
 from ...shared import info as __shared_info__
-from .. import query as _query__
-from .. import server as _server__
+from .. import (
+    query as _query__,
+    server as _server__,
+)
 
 
 @dataclass(eq=False, repr=False)
@@ -41,9 +42,7 @@ class DbQuery(betterproto.Message):
     list_clients: "_query__.ListClients" = betterproto.message_field(15, group="query")
     ping: "_query__.Ping" = betterproto.message_field(16, group="query")
     get_store: "_query__.GetStore" = betterproto.message_field(17, group="query")
-    cluster_info: "__shared_cluster__.ClusterInfoQuery" = betterproto.message_field(
-        18, group="query"
-    )
+    drop_schema: "_query__.DropSchema" = betterproto.message_field(18, group="query")
 
 
 @dataclass(eq=False, repr=False)
@@ -69,9 +68,6 @@ class DbServerResponse(betterproto.Message):
         11, group="response"
     )
     store_info: "_server__.StoreInfo" = betterproto.message_field(12, group="response")
-    cluster_info: "__shared_cluster__.ClusterInfoResponse" = betterproto.message_field(
-        13, group="response"
-    )
 
 
 @dataclass(eq=False, repr=False)

@@ -2258,3 +2258,201 @@ async fn test_ai_proxy_embedding_size_mismatch_error() {
 
     assert_eq!(response.into_inner(), expected);
 }
+
+/// Helper: provisions DB + AI servers with only AllMiniLML6V2 model loaded
+async fn provision_test_servers_limited() -> SocketAddr {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let db_port = server.local_addr().unwrap().port();
+
+    tokio::spawn(async move { server.start().await });
+
+    let mut config = AI_CONFIG_LIMITED_MODELS.clone();
+    config.db_port = db_port;
+
+    let ai_server = AIProxyServer::new(config)
+        .await
+        .expect("Could not initialize ai proxy");
+
+    let ai_address = ai_server.local_addr().expect("Could not get local addr");
+
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    ai_address
+}
+
+/// Test: Create stores in different schemas and list them via AI proxy
+#[tokio::test]
+async fn test_ai_schema_create_store_in_schema() {
+    let address = provision_test_servers_limited().await;
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    // Create a store in default schema
+    let create_store = ahnlich_types::ai::query::CreateStore {
+        store: "AiPublicStore".to_string(),
+        query_model: AiModel::AllMiniLmL6V2.into(),
+        index_model: AiModel::AllMiniLmL6V2.into(),
+        predicates: vec![],
+        non_linear_indices: vec![],
+        error_if_exists: true,
+        store_original: true,
+        schema: None,
+    };
+    client
+        .create_store(tonic::Request::new(create_store))
+        .await
+        .expect("Failed to create store in default schema");
+
+    // Create a store in custom schema
+    let create_store = ahnlich_types::ai::query::CreateStore {
+        store: "AiCustomStore".to_string(),
+        query_model: AiModel::AllMiniLmL6V2.into(),
+        index_model: AiModel::AllMiniLmL6V2.into(),
+        predicates: vec![],
+        non_linear_indices: vec![],
+        error_if_exists: true,
+        store_original: true,
+        schema: Some("ai_custom".to_string()),
+    };
+    client
+        .create_store(tonic::Request::new(create_store))
+        .await
+        .expect("Failed to create store in custom schema");
+
+    // List stores filtered by public schema
+    let message = ahnlich_types::ai::query::ListStores {
+        schema: Some("public".to_string()),
+    };
+    let response = client
+        .list_stores(tonic::Request::new(message))
+        .await
+        .expect("Failed to list stores")
+        .into_inner();
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "AiPublicStore");
+
+    // List stores filtered by custom schema
+    let message = ahnlich_types::ai::query::ListStores {
+        schema: Some("ai_custom".to_string()),
+    };
+    let response = client
+        .list_stores(tonic::Request::new(message))
+        .await
+        .expect("Failed to list stores")
+        .into_inner();
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "AiCustomStore");
+
+    // List stores with no filter - should return all 2 stores
+    let message = ahnlich_types::ai::query::ListStores { schema: None };
+    let response = client
+        .list_stores(tonic::Request::new(message))
+        .await
+        .expect("Failed to list stores without filter")
+        .into_inner();
+    assert_eq!(response.stores.len(), 2);
+}
+
+/// Test: DropSchema through AI proxy
+#[tokio::test]
+async fn test_ai_schema_drop_schema() {
+    let address = provision_test_servers_limited().await;
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    // Create a store in a schema to drop
+    let create_store = ahnlich_types::ai::query::CreateStore {
+        store: "AiDropSchemaStore".to_string(),
+        query_model: AiModel::AllMiniLmL6V2.into(),
+        index_model: AiModel::AllMiniLmL6V2.into(),
+        predicates: vec![],
+        non_linear_indices: vec![],
+        error_if_exists: true,
+        store_original: true,
+        schema: Some("ai_tobedropped".to_string()),
+    };
+    client
+        .create_store(tonic::Request::new(create_store))
+        .await
+        .expect("Failed to create store in schema to drop");
+
+    // Create another store in the same schema
+    let create_store = ahnlich_types::ai::query::CreateStore {
+        store: "AiDropSchemaStore2".to_string(),
+        query_model: AiModel::AllMiniLmL6V2.into(),
+        index_model: AiModel::AllMiniLmL6V2.into(),
+        predicates: vec![],
+        non_linear_indices: vec![],
+        error_if_exists: true,
+        store_original: true,
+        schema: Some("ai_tobedropped".to_string()),
+    };
+    client
+        .create_store(tonic::Request::new(create_store))
+        .await
+        .expect("Failed to create second store in schema to drop");
+
+    // Drop the schema
+    let response = client
+        .drop_schema(tonic::Request::new(ahnlich_types::ai::query::DropSchema {
+            schema: "ai_tobedropped".to_string(),
+        }))
+        .await
+        .expect("DropSchema failed")
+        .into_inner();
+    assert_eq!(response.deleted_count, 2);
+
+    // Verify stores in dropped schema are gone by listing with schema filter
+    let message = ahnlich_types::ai::query::ListStores {
+        schema: Some("ai_tobedropped".to_string()),
+    };
+    let response = client
+        .list_stores(tonic::Request::new(message))
+        .await
+        .expect("Failed to list stores")
+        .into_inner();
+    assert_eq!(response.stores.len(), 0);
+}
+
+/// Test: Dropping the "public" schema through AI proxy should fail
+#[tokio::test]
+async fn test_ai_schema_drop_public_schema_fails() {
+    let address = provision_test_servers_limited().await;
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    // Attempt to drop "public" schema
+    let result = client
+        .drop_schema(tonic::Request::new(ahnlich_types::ai::query::DropSchema {
+            schema: "public".to_string(),
+        }))
+        .await;
+
+    assert!(
+        result.is_err(),
+        "Dropping public schema should return an error"
+    );
+    let status = result.unwrap_err();
+    assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    assert!(
+        status.message().contains("public"),
+        "Error message should reference 'public': {}",
+        status.message()
+    );
+}

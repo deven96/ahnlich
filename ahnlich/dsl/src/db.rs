@@ -53,7 +53,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
         let query = match statement.as_rule() {
             Rule::ping => DBQuery::Ping(Ping {}),
             Rule::list_clients => DBQuery::ListClients(ListClients {}),
-            Rule::list_stores => DBQuery::ListStores(ListStores {}),
+            Rule::list_stores => DBQuery::ListStores(ListStores { schema: None }),
             Rule::info_server => DBQuery::InfoServer(InfoServer {}),
             Rule::get_store => {
                 let mut inner_pairs = statement.into_inner();
@@ -62,7 +62,10 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
-                DBQuery::GetStore(GetStore { store })
+                DBQuery::GetStore(GetStore {
+                    store,
+                    schema: None,
+                })
             }
             Rule::set_in_store => {
                 let mut inner_pairs = statement.into_inner();
@@ -131,6 +134,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     create_predicates,
                     non_linear_indices,
                     error_if_exists,
+                    schema: None,
                 })
             }
             Rule::get_sim_n => {
@@ -249,6 +253,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                 DBQuery::DropStore(DropStore {
                     store,
                     error_if_not_exists,
+                    schema: None,
                 })
             }
             _ => return Err(DslError::UnexpectedSpan((start_pos, end_pos))),

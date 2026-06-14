@@ -3,48 +3,10 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type {
-  BinaryReadOptions,
-  FieldList,
-  JsonReadOptions,
-  JsonValue,
-  PartialMessage,
-  PlainMessage,
-} from "@bufbuild/protobuf";
+import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
-import {
-  CreateNonLinearAlgorithmIndex,
-  CreatePredIndex,
-  CreateStore,
-  DelKey,
-  DelPred,
-  DropNonLinearAlgorithmIndex,
-  DropPredIndex,
-  DropStore,
-  GetKey,
-  GetPred,
-  GetSimN,
-  GetStore,
-  InfoServer,
-  ListClients,
-  ListStores,
-  Ping,
-  Set,
-} from "./query_pb.js";
-import { ClusterInfoQuery, ClusterInfoResponse } from "../shared/cluster_pb.js";
-import {
-  ClientList,
-  CreateIndex,
-  Del,
-  Get,
-  GetSimN as GetSimN$1,
-  InfoServer as InfoServer$1,
-  Pong,
-  Set as Set$1,
-  StoreInfo,
-  StoreList,
-  Unit,
-} from "./server_pb.js";
+import { CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set } from "./query_pb.js";
+import { ClientList, CreateIndex, Del, Get, GetSimN as GetSimN$1, InfoServer as InfoServer$1, Pong, Set as Set$1, StoreInfo, StoreList, Unit } from "./server_pb.js";
 import { ErrorResponse } from "../shared/info_pb.js";
 
 /**
@@ -54,134 +16,115 @@ export class DBQuery extends Message<DBQuery> {
   /**
    * @generated from oneof db.pipeline.DBQuery.query
    */
-  query:
-    | {
-        /**
-         * @generated from field: db.query.CreateStore create_store = 1;
-         */
-        value: CreateStore;
-        case: "createStore";
-      }
-    | {
-        /**
-         * @generated from field: db.query.GetKey get_key = 2;
-         */
-        value: GetKey;
-        case: "getKey";
-      }
-    | {
-        /**
-         * @generated from field: db.query.GetPred get_pred = 3;
-         */
-        value: GetPred;
-        case: "getPred";
-      }
-    | {
-        /**
-         * @generated from field: db.query.GetSimN get_sim_n = 4;
-         */
-        value: GetSimN;
-        case: "getSimN";
-      }
-    | {
-        /**
-         * @generated from field: db.query.CreatePredIndex create_pred_index = 5;
-         */
-        value: CreatePredIndex;
-        case: "createPredIndex";
-      }
-    | {
-        /**
-         * @generated from field: db.query.CreateNonLinearAlgorithmIndex create_non_linear_algorithm_index = 6;
-         */
-        value: CreateNonLinearAlgorithmIndex;
-        case: "createNonLinearAlgorithmIndex";
-      }
-    | {
-        /**
-         * @generated from field: db.query.DropPredIndex drop_pred_index = 7;
-         */
-        value: DropPredIndex;
-        case: "dropPredIndex";
-      }
-    | {
-        /**
-         * @generated from field: db.query.DropNonLinearAlgorithmIndex drop_non_linear_algorithm_index = 8;
-         */
-        value: DropNonLinearAlgorithmIndex;
-        case: "dropNonLinearAlgorithmIndex";
-      }
-    | {
-        /**
-         * @generated from field: db.query.Set set = 9;
-         */
-        value: Set;
-        case: "set";
-      }
-    | {
-        /**
-         * @generated from field: db.query.DelKey del_key = 10;
-         */
-        value: DelKey;
-        case: "delKey";
-      }
-    | {
-        /**
-         * @generated from field: db.query.DelPred del_pred = 11;
-         */
-        value: DelPred;
-        case: "delPred";
-      }
-    | {
-        /**
-         * @generated from field: db.query.DropStore drop_store = 12;
-         */
-        value: DropStore;
-        case: "dropStore";
-      }
-    | {
-        /**
-         * @generated from field: db.query.InfoServer info_server = 13;
-         */
-        value: InfoServer;
-        case: "infoServer";
-      }
-    | {
-        /**
-         * @generated from field: db.query.ListStores list_stores = 14;
-         */
-        value: ListStores;
-        case: "listStores";
-      }
-    | {
-        /**
-         * @generated from field: db.query.ListClients list_clients = 15;
-         */
-        value: ListClients;
-        case: "listClients";
-      }
-    | {
-        /**
-         * @generated from field: db.query.Ping ping = 16;
-         */
-        value: Ping;
-        case: "ping";
-      }
-    | {
-        /**
-         * @generated from field: db.query.GetStore get_store = 17;
-         */
-        value: GetStore;
-        case: "getStore";
-      }
-    | {
-        /**
-         * @generated from field: shared.cluster.ClusterInfoQuery cluster_info = 18;
-         */
-        value: ClusterInfoQuery;
-        case: "clusterInfo";
-      }
-    | { case: undefined; value?: undefined } = { case: undefined };
+  query: {
+    /**
+     * @generated from field: db.query.CreateStore create_store = 1;
+     */
+    value: CreateStore;
+    case: "createStore";
+  } | {
+    /**
+     * @generated from field: db.query.GetKey get_key = 2;
+     */
+    value: GetKey;
+    case: "getKey";
+  } | {
+    /**
+     * @generated from field: db.query.GetPred get_pred = 3;
+     */
+    value: GetPred;
+    case: "getPred";
+  } | {
+    /**
+     * @generated from field: db.query.GetSimN get_sim_n = 4;
+     */
+    value: GetSimN;
+    case: "getSimN";
+  } | {
+    /**
+     * @generated from field: db.query.CreatePredIndex create_pred_index = 5;
+     */
+    value: CreatePredIndex;
+    case: "createPredIndex";
+  } | {
+    /**
+     * @generated from field: db.query.CreateNonLinearAlgorithmIndex create_non_linear_algorithm_index = 6;
+     */
+    value: CreateNonLinearAlgorithmIndex;
+    case: "createNonLinearAlgorithmIndex";
+  } | {
+    /**
+     * @generated from field: db.query.DropPredIndex drop_pred_index = 7;
+     */
+    value: DropPredIndex;
+    case: "dropPredIndex";
+  } | {
+    /**
+     * @generated from field: db.query.DropNonLinearAlgorithmIndex drop_non_linear_algorithm_index = 8;
+     */
+    value: DropNonLinearAlgorithmIndex;
+    case: "dropNonLinearAlgorithmIndex";
+  } | {
+    /**
+     * @generated from field: db.query.Set set = 9;
+     */
+    value: Set;
+    case: "set";
+  } | {
+    /**
+     * @generated from field: db.query.DelKey del_key = 10;
+     */
+    value: DelKey;
+    case: "delKey";
+  } | {
+    /**
+     * @generated from field: db.query.DelPred del_pred = 11;
+     */
+    value: DelPred;
+    case: "delPred";
+  } | {
+    /**
+     * @generated from field: db.query.DropStore drop_store = 12;
+     */
+    value: DropStore;
+    case: "dropStore";
+  } | {
+    /**
+     * @generated from field: db.query.InfoServer info_server = 13;
+     */
+    value: InfoServer;
+    case: "infoServer";
+  } | {
+    /**
+     * @generated from field: db.query.ListStores list_stores = 14;
+     */
+    value: ListStores;
+    case: "listStores";
+  } | {
+    /**
+     * @generated from field: db.query.ListClients list_clients = 15;
+     */
+    value: ListClients;
+    case: "listClients";
+  } | {
+    /**
+     * @generated from field: db.query.Ping ping = 16;
+     */
+    value: Ping;
+    case: "ping";
+  } | {
+    /**
+     * @generated from field: db.query.GetStore get_store = 17;
+     */
+    value: GetStore;
+    case: "getStore";
+  } | {
+    /**
+     * @generated from field: db.query.DropSchema drop_schema = 18;
+     */
+    value: DropSchema;
+    case: "dropSchema";
+  } | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<DBQuery>) {
     super();
@@ -196,21 +139,9 @@ export class DBQuery extends Message<DBQuery> {
     { no: 3, name: "get_pred", kind: "message", T: GetPred, oneof: "query" },
     { no: 4, name: "get_sim_n", kind: "message", T: GetSimN, oneof: "query" },
     { no: 5, name: "create_pred_index", kind: "message", T: CreatePredIndex, oneof: "query" },
-    {
-      no: 6,
-      name: "create_non_linear_algorithm_index",
-      kind: "message",
-      T: CreateNonLinearAlgorithmIndex,
-      oneof: "query",
-    },
+    { no: 6, name: "create_non_linear_algorithm_index", kind: "message", T: CreateNonLinearAlgorithmIndex, oneof: "query" },
     { no: 7, name: "drop_pred_index", kind: "message", T: DropPredIndex, oneof: "query" },
-    {
-      no: 8,
-      name: "drop_non_linear_algorithm_index",
-      kind: "message",
-      T: DropNonLinearAlgorithmIndex,
-      oneof: "query",
-    },
+    { no: 8, name: "drop_non_linear_algorithm_index", kind: "message", T: DropNonLinearAlgorithmIndex, oneof: "query" },
     { no: 9, name: "set", kind: "message", T: Set, oneof: "query" },
     { no: 10, name: "del_key", kind: "message", T: DelKey, oneof: "query" },
     { no: 11, name: "del_pred", kind: "message", T: DelPred, oneof: "query" },
@@ -220,7 +151,7 @@ export class DBQuery extends Message<DBQuery> {
     { no: 15, name: "list_clients", kind: "message", T: ListClients, oneof: "query" },
     { no: 16, name: "ping", kind: "message", T: Ping, oneof: "query" },
     { no: 17, name: "get_store", kind: "message", T: GetStore, oneof: "query" },
-    { no: 18, name: "cluster_info", kind: "message", T: ClusterInfoQuery, oneof: "query" },
+    { no: 18, name: "drop_schema", kind: "message", T: DropSchema, oneof: "query" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DBQuery {
@@ -235,10 +166,7 @@ export class DBQuery extends Message<DBQuery> {
     return new DBQuery().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: DBQuery | PlainMessage<DBQuery> | undefined,
-    b: DBQuery | PlainMessage<DBQuery> | undefined,
-  ): boolean {
+  static equals(a: DBQuery | PlainMessage<DBQuery> | undefined, b: DBQuery | PlainMessage<DBQuery> | undefined): boolean {
     return proto3.util.equals(DBQuery, a, b);
   }
 }
@@ -275,10 +203,7 @@ export class DBRequestPipeline extends Message<DBRequestPipeline> {
     return new DBRequestPipeline().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: DBRequestPipeline | PlainMessage<DBRequestPipeline> | undefined,
-    b: DBRequestPipeline | PlainMessage<DBRequestPipeline> | undefined,
-  ): boolean {
+  static equals(a: DBRequestPipeline | PlainMessage<DBRequestPipeline> | undefined, b: DBRequestPipeline | PlainMessage<DBRequestPipeline> | undefined): boolean {
     return proto3.util.equals(DBRequestPipeline, a, b);
   }
 }
@@ -290,99 +215,79 @@ export class DBServerResponse extends Message<DBServerResponse> {
   /**
    * @generated from oneof db.pipeline.DBServerResponse.response
    */
-  response:
-    | {
-        /**
-         * @generated from field: db.server.Unit unit = 1;
-         */
-        value: Unit;
-        case: "unit";
-      }
-    | {
-        /**
-         * @generated from field: db.server.Pong pong = 2;
-         */
-        value: Pong;
-        case: "pong";
-      }
-    | {
-        /**
-         * @generated from field: db.server.ClientList client_list = 3;
-         */
-        value: ClientList;
-        case: "clientList";
-      }
-    | {
-        /**
-         * @generated from field: db.server.StoreList store_list = 4;
-         */
-        value: StoreList;
-        case: "storeList";
-      }
-    | {
-        /**
-         * @generated from field: db.server.InfoServer info_server = 5;
-         */
-        value: InfoServer$1;
-        case: "infoServer";
-      }
-    | {
-        /**
-         * @generated from field: db.server.Set set = 6;
-         */
-        value: Set$1;
-        case: "set";
-      }
-    | {
-        /**
-         * @generated from field: db.server.Get get = 7;
-         */
-        value: Get;
-        case: "get";
-      }
-    | {
-        /**
-         * @generated from field: db.server.GetSimN get_sim_n = 8;
-         */
-        value: GetSimN$1;
-        case: "getSimN";
-      }
-    | {
-        /**
-         * @generated from field: db.server.Del del = 9;
-         */
-        value: Del;
-        case: "del";
-      }
-    | {
-        /**
-         * @generated from field: db.server.CreateIndex create_index = 10;
-         */
-        value: CreateIndex;
-        case: "createIndex";
-      }
-    | {
-        /**
-         * @generated from field: shared.info.ErrorResponse error = 11;
-         */
-        value: ErrorResponse;
-        case: "error";
-      }
-    | {
-        /**
-         * @generated from field: db.server.StoreInfo store_info = 12;
-         */
-        value: StoreInfo;
-        case: "storeInfo";
-      }
-    | {
-        /**
-         * @generated from field: shared.cluster.ClusterInfoResponse cluster_info = 13;
-         */
-        value: ClusterInfoResponse;
-        case: "clusterInfo";
-      }
-    | { case: undefined; value?: undefined } = { case: undefined };
+  response: {
+    /**
+     * @generated from field: db.server.Unit unit = 1;
+     */
+    value: Unit;
+    case: "unit";
+  } | {
+    /**
+     * @generated from field: db.server.Pong pong = 2;
+     */
+    value: Pong;
+    case: "pong";
+  } | {
+    /**
+     * @generated from field: db.server.ClientList client_list = 3;
+     */
+    value: ClientList;
+    case: "clientList";
+  } | {
+    /**
+     * @generated from field: db.server.StoreList store_list = 4;
+     */
+    value: StoreList;
+    case: "storeList";
+  } | {
+    /**
+     * @generated from field: db.server.InfoServer info_server = 5;
+     */
+    value: InfoServer$1;
+    case: "infoServer";
+  } | {
+    /**
+     * @generated from field: db.server.Set set = 6;
+     */
+    value: Set$1;
+    case: "set";
+  } | {
+    /**
+     * @generated from field: db.server.Get get = 7;
+     */
+    value: Get;
+    case: "get";
+  } | {
+    /**
+     * @generated from field: db.server.GetSimN get_sim_n = 8;
+     */
+    value: GetSimN$1;
+    case: "getSimN";
+  } | {
+    /**
+     * @generated from field: db.server.Del del = 9;
+     */
+    value: Del;
+    case: "del";
+  } | {
+    /**
+     * @generated from field: db.server.CreateIndex create_index = 10;
+     */
+    value: CreateIndex;
+    case: "createIndex";
+  } | {
+    /**
+     * @generated from field: shared.info.ErrorResponse error = 11;
+     */
+    value: ErrorResponse;
+    case: "error";
+  } | {
+    /**
+     * @generated from field: db.server.StoreInfo store_info = 12;
+     */
+    value: StoreInfo;
+    case: "storeInfo";
+  } | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<DBServerResponse>) {
     super();
@@ -404,7 +309,6 @@ export class DBServerResponse extends Message<DBServerResponse> {
     { no: 10, name: "create_index", kind: "message", T: CreateIndex, oneof: "response" },
     { no: 11, name: "error", kind: "message", T: ErrorResponse, oneof: "response" },
     { no: 12, name: "store_info", kind: "message", T: StoreInfo, oneof: "response" },
-    { no: 13, name: "cluster_info", kind: "message", T: ClusterInfoResponse, oneof: "response" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DBServerResponse {
@@ -419,10 +323,7 @@ export class DBServerResponse extends Message<DBServerResponse> {
     return new DBServerResponse().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: DBServerResponse | PlainMessage<DBServerResponse> | undefined,
-    b: DBServerResponse | PlainMessage<DBServerResponse> | undefined,
-  ): boolean {
+  static equals(a: DBServerResponse | PlainMessage<DBServerResponse> | undefined, b: DBServerResponse | PlainMessage<DBServerResponse> | undefined): boolean {
     return proto3.util.equals(DBServerResponse, a, b);
   }
 }
@@ -455,17 +356,12 @@ export class DBResponsePipeline extends Message<DBResponsePipeline> {
     return new DBResponsePipeline().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(
-    jsonString: string,
-    options?: Partial<JsonReadOptions>,
-  ): DBResponsePipeline {
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DBResponsePipeline {
     return new DBResponsePipeline().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: DBResponsePipeline | PlainMessage<DBResponsePipeline> | undefined,
-    b: DBResponsePipeline | PlainMessage<DBResponsePipeline> | undefined,
-  ): boolean {
+  static equals(a: DBResponsePipeline | PlainMessage<DBResponsePipeline> | undefined, b: DBResponsePipeline | PlainMessage<DBResponsePipeline> | undefined): boolean {
     return proto3.util.equals(DBResponsePipeline, a, b);
   }
 }
+

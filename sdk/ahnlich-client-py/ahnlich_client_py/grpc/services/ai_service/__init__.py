@@ -4,15 +4,21 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Optional,
+)
 
 import betterproto
 import grpclib
 from betterproto.grpc.grpclib_server import ServiceBase
 
-from ...ai import pipeline as __ai_pipeline__
-from ...ai import query as __ai_query__
-from ...ai import server as __ai_server__
+from ...ai import (
+    pipeline as __ai_pipeline__,
+    query as __ai_query__,
+    server as __ai_server__,
+)
 
 if TYPE_CHECKING:
     import grpclib.server
@@ -242,6 +248,23 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def drop_schema(
+        self,
+        ai_query_drop_schema: "__ai_query__.DropSchema",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__ai_server__.Del":
+        return await self._unary_unary(
+            "/services.ai_service.AIService/DropSchema",
+            ai_query_drop_schema,
+            __ai_server__.Del,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def list_clients(
         self,
         ai_query_list_clients: "__ai_query__.ListClients",
@@ -429,6 +452,11 @@ class AiServiceBase(ServiceBase):
     ) -> "__ai_server__.Del":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def drop_schema(
+        self, ai_query_drop_schema: "__ai_query__.DropSchema"
+    ) -> "__ai_server__.Del":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def list_clients(
         self, ai_query_list_clients: "__ai_query__.ListClients"
     ) -> "__ai_server__.ClientList":
@@ -559,6 +587,14 @@ class AiServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.drop_store(request)
+        await stream.send_message(response)
+
+    async def __rpc_drop_schema(
+        self,
+        stream: "grpclib.server.Stream[__ai_query__.DropSchema, __ai_server__.Del]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.drop_schema(request)
         await stream.send_message(response)
 
     async def __rpc_list_clients(
@@ -694,6 +730,12 @@ class AiServiceBase(ServiceBase):
                 self.__rpc_drop_store,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __ai_query__.DropStore,
+                __ai_server__.Del,
+            ),
+            "/services.ai_service.AIService/DropSchema": grpclib.const.Handler(
+                self.__rpc_drop_schema,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __ai_query__.DropSchema,
                 __ai_server__.Del,
             ),
             "/services.ai_service.AIService/ListClients": grpclib.const.Handler(

@@ -4,17 +4,27 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import (
+    Dict,
+    List,
+    Optional,
+)
 
 import betterproto
 
-from ... import keyval as __keyval__
-from ... import predicates as __predicates__
-from ...algorithm import algorithms as __algorithm_algorithms__
-from ...algorithm import nonlinear as __algorithm_nonlinear__
-from .. import execution_provider as _execution_provider__
-from .. import models as _models__
-from .. import preprocess as _preprocess__
+from ... import (
+    keyval as __keyval__,
+    predicates as __predicates__,
+)
+from ...algorithm import (
+    algorithms as __algorithm_algorithms__,
+    nonlinear as __algorithm_nonlinear__,
+)
+from .. import (
+    execution_provider as _execution_provider__,
+    models as _models__,
+    preprocess as _preprocess__,
+)
 
 
 @dataclass(eq=False, repr=False)
@@ -37,6 +47,7 @@ class CreateStore(betterproto.Message):
     )
     error_if_exists: bool = betterproto.bool_field(6)
     store_original: bool = betterproto.bool_field(7)
+    schema: Optional[str] = betterproto.string_field(8, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -152,6 +163,7 @@ class DropStore(betterproto.Message):
     """
 
     error_if_not_exists: bool = betterproto.bool_field(2)
+    schema: Optional[str] = betterproto.string_field(3, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -176,7 +188,10 @@ class ListClients(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ListStores(betterproto.Message):
-    pass
+    schema: Optional[str] = betterproto.string_field(1, optional=True)
+    """
+    Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -184,6 +199,16 @@ class GetStore(betterproto.Message):
     store: str = betterproto.string_field(1)
     """
     Gets detailed information about a specific store by name. Returns an error if the store does not exist.
+    """
+
+    schema: Optional[str] = betterproto.string_field(2, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class DropSchema(betterproto.Message):
+    schema: str = betterproto.string_field(1)
+    """
+    Drops an entire schema and all stores within it. Cannot drop the "public" default schema.
     """
 
 

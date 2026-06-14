@@ -3,41 +3,8 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import {
-  ConvertStoreInputToEmbeddings,
-  CreateNonLinearAlgorithmIndex,
-  CreatePredIndex,
-  CreateStore,
-  DelKey,
-  DelPred,
-  DropNonLinearAlgorithmIndex,
-  DropPredIndex,
-  DropStore,
-  GetKey,
-  GetPred,
-  GetSimN,
-  GetStore,
-  InfoServer,
-  ListClients,
-  ListStores,
-  Ping,
-  PurgeStores,
-  Set,
-} from "../ai/query_pb.js";
-import {
-  AIStoreInfo,
-  ClientList,
-  CreateIndex,
-  Del,
-  Get,
-  GetSimN as GetSimN$1,
-  InfoServer as InfoServer$1,
-  Pong,
-  Set as Set$1,
-  StoreInputToEmbeddingsList,
-  StoreList,
-  Unit,
-} from "../ai/server_pb.js";
+import { ConvertStoreInputToEmbeddings, CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, PurgeStores, Set } from "../ai/query_pb.js";
+import { AIStoreInfo, ClientList, CreateIndex, Del, Get, GetSimN as GetSimN$1, InfoServer as InfoServer$1, Pong, Set as Set$1, StoreInputToEmbeddingsList, StoreList, Unit } from "../ai/server_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 import { AIRequestPipeline, AIResponsePipeline } from "../ai/pipeline_pb.js";
 
@@ -173,6 +140,15 @@ export const AIService = {
       kind: MethodKind.Unary,
     },
     /**
+     * @generated from rpc services.ai_service.AIService.DropSchema
+     */
+    dropSchema: {
+      name: "DropSchema",
+      I: DropSchema,
+      O: Del,
+      kind: MethodKind.Unary,
+    },
+    /**
      * * Ancillary info methods *
      *
      * @generated from rpc services.ai_service.AIService.ListClients
@@ -239,5 +215,6 @@ export const AIService = {
       O: AIResponsePipeline,
       kind: MethodKind.Unary,
     },
-  },
+  }
 } as const;
+

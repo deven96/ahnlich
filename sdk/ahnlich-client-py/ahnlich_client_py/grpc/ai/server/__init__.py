@@ -4,13 +4,18 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import (
+    List,
+    Optional,
+)
 
 import betterproto
 
-from ... import client as __client__
-from ... import keyval as __keyval__
-from ... import similarity as __similarity__
+from ... import (
+    client as __client__,
+    keyval as __keyval__,
+    similarity as __similarity__,
+)
 from ...db import server as __db_server__
 from ...shared import info as __shared_info__
 from .. import models as _models__

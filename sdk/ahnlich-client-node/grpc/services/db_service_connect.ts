@@ -3,38 +3,8 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import {
-  CreateNonLinearAlgorithmIndex,
-  CreatePredIndex,
-  CreateStore,
-  DelKey,
-  DelPred,
-  DropNonLinearAlgorithmIndex,
-  DropPredIndex,
-  DropStore,
-  GetKey,
-  GetPred,
-  GetSimN,
-  GetStore,
-  InfoServer,
-  ListClients,
-  ListStores,
-  Ping,
-  Set,
-} from "../db/query_pb.js";
-import {
-  ClientList,
-  CreateIndex,
-  Del,
-  Get,
-  GetSimN as GetSimN$1,
-  InfoServer as InfoServer$1,
-  Pong,
-  Set as Set$1,
-  StoreInfo,
-  StoreList,
-  Unit,
-} from "../db/server_pb.js";
+import { CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set } from "../db/query_pb.js";
+import { ClientList, CreateIndex, Del, Get, GetSimN as GetSimN$1, InfoServer as InfoServer$1, Pong, Set as Set$1, StoreInfo, StoreList, Unit } from "../db/server_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 import { ClusterInfoQuery, ClusterInfoResponse } from "../shared/cluster_pb.js";
 import { DBRequestPipeline, DBResponsePipeline } from "../db/pipeline_pb.js";
@@ -171,6 +141,15 @@ export const DBService = {
       kind: MethodKind.Unary,
     },
     /**
+     * @generated from rpc services.db_service.DBService.DropSchema
+     */
+    dropSchema: {
+      name: "DropSchema",
+      I: DropSchema,
+      O: Del,
+      kind: MethodKind.Unary,
+    },
+    /**
      * * Ancillary info methods *
      *
      * @generated from rpc services.db_service.DBService.ListClients
@@ -228,5 +207,6 @@ export const DBService = {
       O: DBResponsePipeline,
       kind: MethodKind.Unary,
     },
-  },
+  }
 } as const;
+

@@ -3,14 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type {
-  BinaryReadOptions,
-  FieldList,
-  JsonReadOptions,
-  JsonValue,
-  PartialMessage,
-  PlainMessage,
-} from "@bufbuild/protobuf";
+import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
 import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
 import { AIModel } from "./models_pb.js";
 import { NonLinearAlgorithm, NonLinearIndex } from "../algorithm/nonlinear_pb.js";
@@ -80,6 +73,13 @@ export class CreateStore extends Message<CreateStore> {
    */
   storeOriginal = false;
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 8;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<CreateStore>) {
     super();
     proto3.util.initPartial(data, this);
@@ -95,6 +95,7 @@ export class CreateStore extends Message<CreateStore> {
     { no: 5, name: "non_linear_indices", kind: "message", T: NonLinearIndex, repeated: true },
     { no: 6, name: "error_if_exists", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 7, name: "store_original", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 8, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateStore {
@@ -109,10 +110,7 @@ export class CreateStore extends Message<CreateStore> {
     return new CreateStore().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: CreateStore | PlainMessage<CreateStore> | undefined,
-    b: CreateStore | PlainMessage<CreateStore> | undefined,
-  ): boolean {
+  static equals(a: CreateStore | PlainMessage<CreateStore> | undefined, b: CreateStore | PlainMessage<CreateStore> | undefined): boolean {
     return proto3.util.equals(CreateStore, a, b);
   }
 }
@@ -162,10 +160,7 @@ export class GetPred extends Message<GetPred> {
     return new GetPred().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: GetPred | PlainMessage<GetPred> | undefined,
-    b: GetPred | PlainMessage<GetPred> | undefined,
-  ): boolean {
+  static equals(a: GetPred | PlainMessage<GetPred> | undefined, b: GetPred | PlainMessage<GetPred> | undefined): boolean {
     return proto3.util.equals(GetPred, a, b);
   }
 }
@@ -246,20 +241,8 @@ export class GetSimN extends Message<GetSimN> {
     { no: 4, name: "closest_n", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
     { no: 5, name: "algorithm", kind: "enum", T: proto3.getEnumType(Algorithm) },
     { no: 6, name: "preprocess_action", kind: "enum", T: proto3.getEnumType(PreprocessAction) },
-    {
-      no: 7,
-      name: "execution_provider",
-      kind: "enum",
-      T: proto3.getEnumType(ExecutionProvider),
-      opt: true,
-    },
-    {
-      no: 8,
-      name: "model_params",
-      kind: "map",
-      K: 9 /* ScalarType.STRING */,
-      V: { kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    },
+    { no: 7, name: "execution_provider", kind: "enum", T: proto3.getEnumType(ExecutionProvider), opt: true },
+    { no: 8, name: "model_params", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "scalar", T: 9 /* ScalarType.STRING */} },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetSimN {
@@ -274,10 +257,7 @@ export class GetSimN extends Message<GetSimN> {
     return new GetSimN().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: GetSimN | PlainMessage<GetSimN> | undefined,
-    b: GetSimN | PlainMessage<GetSimN> | undefined,
-  ): boolean {
+  static equals(a: GetSimN | PlainMessage<GetSimN> | undefined, b: GetSimN | PlainMessage<GetSimN> | undefined): boolean {
     return proto3.util.equals(GetSimN, a, b);
   }
 }
@@ -326,10 +306,7 @@ export class CreatePredIndex extends Message<CreatePredIndex> {
     return new CreatePredIndex().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: CreatePredIndex | PlainMessage<CreatePredIndex> | undefined,
-    b: CreatePredIndex | PlainMessage<CreatePredIndex> | undefined,
-  ): boolean {
+  static equals(a: CreatePredIndex | PlainMessage<CreatePredIndex> | undefined, b: CreatePredIndex | PlainMessage<CreatePredIndex> | undefined): boolean {
     return proto3.util.equals(CreatePredIndex, a, b);
   }
 }
@@ -366,31 +343,19 @@ export class CreateNonLinearAlgorithmIndex extends Message<CreateNonLinearAlgori
     { no: 2, name: "non_linear_indices", kind: "message", T: NonLinearIndex, repeated: true },
   ]);
 
-  static fromBinary(
-    bytes: Uint8Array,
-    options?: Partial<BinaryReadOptions>,
-  ): CreateNonLinearAlgorithmIndex {
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateNonLinearAlgorithmIndex {
     return new CreateNonLinearAlgorithmIndex().fromBinary(bytes, options);
   }
 
-  static fromJson(
-    jsonValue: JsonValue,
-    options?: Partial<JsonReadOptions>,
-  ): CreateNonLinearAlgorithmIndex {
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): CreateNonLinearAlgorithmIndex {
     return new CreateNonLinearAlgorithmIndex().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(
-    jsonString: string,
-    options?: Partial<JsonReadOptions>,
-  ): CreateNonLinearAlgorithmIndex {
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): CreateNonLinearAlgorithmIndex {
     return new CreateNonLinearAlgorithmIndex().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: CreateNonLinearAlgorithmIndex | PlainMessage<CreateNonLinearAlgorithmIndex> | undefined,
-    b: CreateNonLinearAlgorithmIndex | PlainMessage<CreateNonLinearAlgorithmIndex> | undefined,
-  ): boolean {
+  static equals(a: CreateNonLinearAlgorithmIndex | PlainMessage<CreateNonLinearAlgorithmIndex> | undefined, b: CreateNonLinearAlgorithmIndex | PlainMessage<CreateNonLinearAlgorithmIndex> | undefined): boolean {
     return proto3.util.equals(CreateNonLinearAlgorithmIndex, a, b);
   }
 }
@@ -448,10 +413,7 @@ export class DropPredIndex extends Message<DropPredIndex> {
     return new DropPredIndex().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: DropPredIndex | PlainMessage<DropPredIndex> | undefined,
-    b: DropPredIndex | PlainMessage<DropPredIndex> | undefined,
-  ): boolean {
+  static equals(a: DropPredIndex | PlainMessage<DropPredIndex> | undefined, b: DropPredIndex | PlainMessage<DropPredIndex> | undefined): boolean {
     return proto3.util.equals(DropPredIndex, a, b);
   }
 }
@@ -493,41 +455,23 @@ export class DropNonLinearAlgorithmIndex extends Message<DropNonLinearAlgorithmI
   static readonly typeName = "ai.query.DropNonLinearAlgorithmIndex";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    {
-      no: 2,
-      name: "non_linear_indices",
-      kind: "enum",
-      T: proto3.getEnumType(NonLinearAlgorithm),
-      repeated: true,
-    },
+    { no: 2, name: "non_linear_indices", kind: "enum", T: proto3.getEnumType(NonLinearAlgorithm), repeated: true },
     { no: 3, name: "error_if_not_exists", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
-  static fromBinary(
-    bytes: Uint8Array,
-    options?: Partial<BinaryReadOptions>,
-  ): DropNonLinearAlgorithmIndex {
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DropNonLinearAlgorithmIndex {
     return new DropNonLinearAlgorithmIndex().fromBinary(bytes, options);
   }
 
-  static fromJson(
-    jsonValue: JsonValue,
-    options?: Partial<JsonReadOptions>,
-  ): DropNonLinearAlgorithmIndex {
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DropNonLinearAlgorithmIndex {
     return new DropNonLinearAlgorithmIndex().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(
-    jsonString: string,
-    options?: Partial<JsonReadOptions>,
-  ): DropNonLinearAlgorithmIndex {
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DropNonLinearAlgorithmIndex {
     return new DropNonLinearAlgorithmIndex().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: DropNonLinearAlgorithmIndex | PlainMessage<DropNonLinearAlgorithmIndex> | undefined,
-    b: DropNonLinearAlgorithmIndex | PlainMessage<DropNonLinearAlgorithmIndex> | undefined,
-  ): boolean {
+  static equals(a: DropNonLinearAlgorithmIndex | PlainMessage<DropNonLinearAlgorithmIndex> | undefined, b: DropNonLinearAlgorithmIndex | PlainMessage<DropNonLinearAlgorithmIndex> | undefined): boolean {
     return proto3.util.equals(DropNonLinearAlgorithmIndex, a, b);
   }
 }
@@ -577,10 +521,7 @@ export class DelKey extends Message<DelKey> {
     return new DelKey().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: DelKey | PlainMessage<DelKey> | undefined,
-    b: DelKey | PlainMessage<DelKey> | undefined,
-  ): boolean {
+  static equals(a: DelKey | PlainMessage<DelKey> | undefined, b: DelKey | PlainMessage<DelKey> | undefined): boolean {
     return proto3.util.equals(DelKey, a, b);
   }
 }
@@ -631,10 +572,7 @@ export class DelPred extends Message<DelPred> {
     return new DelPred().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: DelPred | PlainMessage<DelPred> | undefined,
-    b: DelPred | PlainMessage<DelPred> | undefined,
-  ): boolean {
+  static equals(a: DelPred | PlainMessage<DelPred> | undefined, b: DelPred | PlainMessage<DelPred> | undefined): boolean {
     return proto3.util.equals(DelPred, a, b);
   }
 }
@@ -660,6 +598,13 @@ export class DropStore extends Message<DropStore> {
    */
   errorIfNotExists = false;
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 3;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<DropStore>) {
     super();
     proto3.util.initPartial(data, this);
@@ -670,6 +615,7 @@ export class DropStore extends Message<DropStore> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "error_if_not_exists", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 3, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DropStore {
@@ -684,10 +630,7 @@ export class DropStore extends Message<DropStore> {
     return new DropStore().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: DropStore | PlainMessage<DropStore> | undefined,
-    b: DropStore | PlainMessage<DropStore> | undefined,
-  ): boolean {
+  static equals(a: DropStore | PlainMessage<DropStore> | undefined, b: DropStore | PlainMessage<DropStore> | undefined): boolean {
     return proto3.util.equals(DropStore, a, b);
   }
 }
@@ -736,10 +679,7 @@ export class GetKey extends Message<GetKey> {
     return new GetKey().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: GetKey | PlainMessage<GetKey> | undefined,
-    b: GetKey | PlainMessage<GetKey> | undefined,
-  ): boolean {
+  static equals(a: GetKey | PlainMessage<GetKey> | undefined, b: GetKey | PlainMessage<GetKey> | undefined): boolean {
     return proto3.util.equals(GetKey, a, b);
   }
 }
@@ -757,7 +697,8 @@ export class InfoServer extends Message<InfoServer> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "ai.query.InfoServer";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): InfoServer {
     return new InfoServer().fromBinary(bytes, options);
@@ -771,10 +712,7 @@ export class InfoServer extends Message<InfoServer> {
     return new InfoServer().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: InfoServer | PlainMessage<InfoServer> | undefined,
-    b: InfoServer | PlainMessage<InfoServer> | undefined,
-  ): boolean {
+  static equals(a: InfoServer | PlainMessage<InfoServer> | undefined, b: InfoServer | PlainMessage<InfoServer> | undefined): boolean {
     return proto3.util.equals(InfoServer, a, b);
   }
 }
@@ -792,7 +730,8 @@ export class ListClients extends Message<ListClients> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "ai.query.ListClients";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListClients {
     return new ListClients().fromBinary(bytes, options);
@@ -806,20 +745,24 @@ export class ListClients extends Message<ListClients> {
     return new ListClients().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: ListClients | PlainMessage<ListClients> | undefined,
-    b: ListClients | PlainMessage<ListClients> | undefined,
-  ): boolean {
+  static equals(a: ListClients | PlainMessage<ListClients> | undefined, b: ListClients | PlainMessage<ListClients> | undefined): boolean {
     return proto3.util.equals(ListClients, a, b);
   }
 }
 
 /**
- * Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
- *
  * @generated from message ai.query.ListStores
  */
 export class ListStores extends Message<ListStores> {
+  /**
+   * Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
+   *
+   * Optional schema/namespace to filter stores. If unset, lists all schemas.
+   *
+   * @generated from field: optional string schema = 1;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<ListStores>) {
     super();
     proto3.util.initPartial(data, this);
@@ -827,7 +770,9 @@ export class ListStores extends Message<ListStores> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "ai.query.ListStores";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListStores {
     return new ListStores().fromBinary(bytes, options);
@@ -841,10 +786,7 @@ export class ListStores extends Message<ListStores> {
     return new ListStores().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: ListStores | PlainMessage<ListStores> | undefined,
-    b: ListStores | PlainMessage<ListStores> | undefined,
-  ): boolean {
+  static equals(a: ListStores | PlainMessage<ListStores> | undefined, b: ListStores | PlainMessage<ListStores> | undefined): boolean {
     return proto3.util.equals(ListStores, a, b);
   }
 }
@@ -862,6 +804,13 @@ export class GetStore extends Message<GetStore> {
    */
   store = "";
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 2;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<GetStore>) {
     super();
     proto3.util.initPartial(data, this);
@@ -871,6 +820,7 @@ export class GetStore extends Message<GetStore> {
   static readonly typeName = "ai.query.GetStore";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetStore {
@@ -885,11 +835,49 @@ export class GetStore extends Message<GetStore> {
     return new GetStore().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: GetStore | PlainMessage<GetStore> | undefined,
-    b: GetStore | PlainMessage<GetStore> | undefined,
-  ): boolean {
+  static equals(a: GetStore | PlainMessage<GetStore> | undefined, b: GetStore | PlainMessage<GetStore> | undefined): boolean {
     return proto3.util.equals(GetStore, a, b);
+  }
+}
+
+/**
+ * @generated from message ai.query.DropSchema
+ */
+export class DropSchema extends Message<DropSchema> {
+  /**
+   * Drops an entire schema and all stores within it. Cannot drop the "public" default schema.
+   *
+   * The name of the schema to drop.
+   *
+   * @generated from field: string schema = 1;
+   */
+  schema = "";
+
+  constructor(data?: PartialMessage<DropSchema>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "ai.query.DropSchema";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DropSchema {
+    return new DropSchema().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DropSchema {
+    return new DropSchema().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DropSchema {
+    return new DropSchema().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: DropSchema | PlainMessage<DropSchema> | undefined, b: DropSchema | PlainMessage<DropSchema> | undefined): boolean {
+    return proto3.util.equals(DropSchema, a, b);
   }
 }
 
@@ -906,7 +894,8 @@ export class PurgeStores extends Message<PurgeStores> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "ai.query.PurgeStores";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): PurgeStores {
     return new PurgeStores().fromBinary(bytes, options);
@@ -920,10 +909,7 @@ export class PurgeStores extends Message<PurgeStores> {
     return new PurgeStores().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: PurgeStores | PlainMessage<PurgeStores> | undefined,
-    b: PurgeStores | PlainMessage<PurgeStores> | undefined,
-  ): boolean {
+  static equals(a: PurgeStores | PlainMessage<PurgeStores> | undefined, b: PurgeStores | PlainMessage<PurgeStores> | undefined): boolean {
     return proto3.util.equals(PurgeStores, a, b);
   }
 }
@@ -941,7 +927,8 @@ export class Ping extends Message<Ping> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "ai.query.Ping";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+  ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Ping {
     return new Ping().fromBinary(bytes, options);
@@ -955,10 +942,7 @@ export class Ping extends Message<Ping> {
     return new Ping().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: Ping | PlainMessage<Ping> | undefined,
-    b: Ping | PlainMessage<Ping> | undefined,
-  ): boolean {
+  static equals(a: Ping | PlainMessage<Ping> | undefined, b: Ping | PlainMessage<Ping> | undefined): boolean {
     return proto3.util.equals(Ping, a, b);
   }
 }
@@ -1016,20 +1000,8 @@ export class Set extends Message<Set> {
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "inputs", kind: "message", T: AiStoreEntry, repeated: true },
     { no: 3, name: "preprocess_action", kind: "enum", T: proto3.getEnumType(PreprocessAction) },
-    {
-      no: 4,
-      name: "execution_provider",
-      kind: "enum",
-      T: proto3.getEnumType(ExecutionProvider),
-      opt: true,
-    },
-    {
-      no: 5,
-      name: "model_params",
-      kind: "map",
-      K: 9 /* ScalarType.STRING */,
-      V: { kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    },
+    { no: 4, name: "execution_provider", kind: "enum", T: proto3.getEnumType(ExecutionProvider), opt: true },
+    { no: 5, name: "model_params", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "scalar", T: 9 /* ScalarType.STRING */} },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Set {
@@ -1044,10 +1016,7 @@ export class Set extends Message<Set> {
     return new Set().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: Set | PlainMessage<Set> | undefined,
-    b: Set | PlainMessage<Set> | undefined,
-  ): boolean {
+  static equals(a: Set | PlainMessage<Set> | undefined, b: Set | PlainMessage<Set> | undefined): boolean {
     return proto3.util.equals(Set, a, b);
   }
 }
@@ -1095,48 +1064,25 @@ export class ConvertStoreInputToEmbeddings extends Message<ConvertStoreInputToEm
   static readonly typeName = "ai.query.ConvertStoreInputToEmbeddings";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store_inputs", kind: "message", T: StoreInput, repeated: true },
-    {
-      no: 2,
-      name: "preprocess_action",
-      kind: "enum",
-      T: proto3.getEnumType(PreprocessAction),
-      opt: true,
-    },
+    { no: 2, name: "preprocess_action", kind: "enum", T: proto3.getEnumType(PreprocessAction), opt: true },
     { no: 3, name: "model", kind: "enum", T: proto3.getEnumType(AIModel) },
-    {
-      no: 4,
-      name: "model_params",
-      kind: "map",
-      K: 9 /* ScalarType.STRING */,
-      V: { kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    },
+    { no: 4, name: "model_params", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "scalar", T: 9 /* ScalarType.STRING */} },
   ]);
 
-  static fromBinary(
-    bytes: Uint8Array,
-    options?: Partial<BinaryReadOptions>,
-  ): ConvertStoreInputToEmbeddings {
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ConvertStoreInputToEmbeddings {
     return new ConvertStoreInputToEmbeddings().fromBinary(bytes, options);
   }
 
-  static fromJson(
-    jsonValue: JsonValue,
-    options?: Partial<JsonReadOptions>,
-  ): ConvertStoreInputToEmbeddings {
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ConvertStoreInputToEmbeddings {
     return new ConvertStoreInputToEmbeddings().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(
-    jsonString: string,
-    options?: Partial<JsonReadOptions>,
-  ): ConvertStoreInputToEmbeddings {
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ConvertStoreInputToEmbeddings {
     return new ConvertStoreInputToEmbeddings().fromJsonString(jsonString, options);
   }
 
-  static equals(
-    a: ConvertStoreInputToEmbeddings | PlainMessage<ConvertStoreInputToEmbeddings> | undefined,
-    b: ConvertStoreInputToEmbeddings | PlainMessage<ConvertStoreInputToEmbeddings> | undefined,
-  ): boolean {
+  static equals(a: ConvertStoreInputToEmbeddings | PlainMessage<ConvertStoreInputToEmbeddings> | undefined, b: ConvertStoreInputToEmbeddings | PlainMessage<ConvertStoreInputToEmbeddings> | undefined): boolean {
     return proto3.util.equals(ConvertStoreInputToEmbeddings, a, b);
   }
 }
+

@@ -4581,3 +4581,336 @@ async fn test_mmap_persistence_performance() {
     let _ = std::fs::remove_file(&mmap_file);
     let _ = std::fs::remove_file(&no_mmap_file);
 }
+
+/// Test: Create stores in different schemas and list them with schema filtering
+#[tokio::test]
+async fn test_schema_create_and_list_in_schema() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Create a store in default schema
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "PublicStore".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: None,
+        }))
+        .await
+        .expect("CreateStore in default schema failed");
+
+    // Create a store in custom schema
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "CustomStore".to_string(),
+            dimension: 5,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("custom".to_string()),
+        }))
+        .await
+        .expect("CreateStore in custom schema failed");
+
+    // Create another store in custom schema
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "CustomStore2".to_string(),
+            dimension: 7,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("custom".to_string()),
+        }))
+        .await
+        .expect("Create second store in custom schema failed");
+
+    // List stores filtered by public schema
+    let response = client
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: Some("public".to_string()),
+        }))
+        .await
+        .expect("ListStores with public schema failed")
+        .into_inner();
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "PublicStore");
+
+    // List stores filtered by custom schema
+    let response = client
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: Some("custom".to_string()),
+        }))
+        .await
+        .expect("ListStores with custom schema failed")
+        .into_inner();
+    assert_eq!(response.stores.len(), 2);
+    let names: Vec<&str> = response.stores.iter().map(|s| s.name.as_str()).collect();
+    assert!(names.contains(&"CustomStore"));
+    assert!(names.contains(&"CustomStore2"));
+
+    // List stores with no schema filter - should return all 3 stores
+    let response = client
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: None,
+        }))
+        .await
+        .expect("ListStores without schema filter failed")
+        .into_inner();
+    assert_eq!(response.stores.len(), 3);
+}
+
+/// Test: GetStore with schema parameter
+#[tokio::test]
+async fn test_schema_get_store_in_schema() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Create store in custom schema
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "SchemaGetStore".to_string(),
+            dimension: 4,
+            create_predicates: vec!["tag".to_string()],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("myschema".to_string()),
+        }))
+        .await
+        .expect("CreateStore failed");
+
+    // GetStore with schema specified
+    let store_info = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "SchemaGetStore".to_string(),
+            schema: Some("myschema".to_string()),
+        }))
+        .await
+        .expect("GetStore with schema failed")
+        .into_inner();
+
+    assert_eq!(store_info.name, "SchemaGetStore");
+    assert_eq!(store_info.dimension, 4);
+    assert_eq!(store_info.predicate_indices, vec!["tag".to_string()]);
+
+    // GetStore without schema should also find it via fallback
+    let store_info = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "SchemaGetStore".to_string(),
+            schema: None,
+        }))
+        .await
+        .expect("GetStore without schema failed")
+        .into_inner();
+
+    assert_eq!(store_info.name, "SchemaGetStore");
+    assert_eq!(store_info.dimension, 4);
+}
+
+/// Test: DropStore with schema parameter
+#[tokio::test]
+async fn test_schema_drop_store_in_schema() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Create store in custom schema
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "DropInSchema".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("dropschema".to_string()),
+        }))
+        .await
+        .expect("CreateStore failed");
+
+    // Verify store exists via GetStore
+    client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "DropInSchema".to_string(),
+            schema: Some("dropschema".to_string()),
+        }))
+        .await
+        .expect("GetStore should succeed before drop");
+
+    // Drop store with schema specified
+    client
+        .drop_store(tonic::Request::new(db_query_types::DropStore {
+            store: "DropInSchema".to_string(),
+            error_if_not_exists: true,
+            schema: Some("dropschema".to_string()),
+        }))
+        .await
+        .expect("DropStore failed");
+
+    // Verify store is gone
+    let result = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "DropInSchema".to_string(),
+            schema: Some("dropschema".to_string()),
+        }))
+        .await;
+
+    assert!(result.is_err(), "GetStore should fail after drop");
+}
+
+/// Test: DropSchema to remove an entire non-public schema
+#[tokio::test]
+async fn test_schema_drop_schema() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Create two stores in a schema to drop
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "DropSchemaStore1".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("tobedropped".to_string()),
+        }))
+        .await
+        .expect("CreateStore 1 failed");
+
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "DropSchemaStore2".to_string(),
+            dimension: 5,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("tobedropped".to_string()),
+        }))
+        .await
+        .expect("CreateStore 2 failed");
+
+    // Also create a store in public schema to verify isolation
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "PublicSurvivor".to_string(),
+            dimension: 2,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: None,
+        }))
+        .await
+        .expect("CreateStore in public failed");
+
+    // Drop the schema
+    let response = client
+        .drop_schema(tonic::Request::new(db_query_types::DropSchema {
+            schema: "tobedropped".to_string(),
+        }))
+        .await
+        .expect("DropSchema failed")
+        .into_inner();
+    assert_eq!(response.deleted_count, 2);
+
+    // Verify stores in dropped schema are gone
+    let result = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "DropSchemaStore1".to_string(),
+            schema: Some("tobedropped".to_string()),
+        }))
+        .await;
+    assert!(result.is_err(), "Store in dropped schema should be gone");
+
+    // Verify public schema store still exists
+    let pub_store = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "PublicSurvivor".to_string(),
+            schema: None,
+        }))
+        .await
+        .expect("Public store should still exist")
+        .into_inner();
+    assert_eq!(pub_store.name, "PublicSurvivor");
+
+    // Verify list stores filtered by public schema shows only the survivor
+    let response = client
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: Some("public".to_string()),
+        }))
+        .await
+        .expect("ListStores failed")
+        .into_inner();
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "PublicSurvivor");
+}
+
+/// Test: Dropping the "public" schema should fail
+#[tokio::test]
+async fn test_schema_drop_public_schema_fails() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Attempt to drop "public" schema
+    let result = client
+        .drop_schema(tonic::Request::new(db_query_types::DropSchema {
+            schema: "public".to_string(),
+        }))
+        .await;
+
+    assert!(
+        result.is_err(),
+        "Dropping public schema should return an error"
+    );
+    let status = result.unwrap_err();
+    assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    assert!(
+        status.message().contains("public"),
+        "Error message should reference 'public': {}",
+        status.message()
+    );
+}

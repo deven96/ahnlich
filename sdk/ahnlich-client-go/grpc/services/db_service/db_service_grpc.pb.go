@@ -8,15 +8,12 @@ package db_service
 
 import (
 	context "context"
-
-	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
-
 	pipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/pipeline"
 	query "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
 	server "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/server"
-	cluster "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/shared/cluster"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -38,10 +35,10 @@ const (
 	DBService_DelKey_FullMethodName                        = "/services.db_service.DBService/DelKey"
 	DBService_DelPred_FullMethodName                       = "/services.db_service.DBService/DelPred"
 	DBService_DropStore_FullMethodName                     = "/services.db_service.DBService/DropStore"
+	DBService_DropSchema_FullMethodName                    = "/services.db_service.DBService/DropSchema"
 	DBService_ListClients_FullMethodName                   = "/services.db_service.DBService/ListClients"
 	DBService_ListStores_FullMethodName                    = "/services.db_service.DBService/ListStores"
 	DBService_InfoServer_FullMethodName                    = "/services.db_service.DBService/InfoServer"
-	DBService_ClusterInfo_FullMethodName                   = "/services.db_service.DBService/ClusterInfo"
 	DBService_Ping_FullMethodName                          = "/services.db_service.DBService/Ping"
 	DBService_Pipeline_FullMethodName                      = "/services.db_service.DBService/Pipeline"
 )
@@ -67,11 +64,11 @@ type DBServiceClient interface {
 	DelKey(ctx context.Context, in *query.DelKey, opts ...grpc.CallOption) (*server.Del, error)
 	DelPred(ctx context.Context, in *query.DelPred, opts ...grpc.CallOption) (*server.Del, error)
 	DropStore(ctx context.Context, in *query.DropStore, opts ...grpc.CallOption) (*server.Del, error)
+	DropSchema(ctx context.Context, in *query.DropSchema, opts ...grpc.CallOption) (*server.Del, error)
 	// * Ancillary info methods *
 	ListClients(ctx context.Context, in *query.ListClients, opts ...grpc.CallOption) (*server.ClientList, error)
 	ListStores(ctx context.Context, in *query.ListStores, opts ...grpc.CallOption) (*server.StoreList, error)
 	InfoServer(ctx context.Context, in *query.InfoServer, opts ...grpc.CallOption) (*server.InfoServer, error)
-	ClusterInfo(ctx context.Context, in *cluster.ClusterInfoQuery, opts ...grpc.CallOption) (*cluster.ClusterInfoResponse, error)
 	Ping(ctx context.Context, in *query.Ping, opts ...grpc.CallOption) (*server.Pong, error)
 	// * Pipeline method for all methods *
 	Pipeline(ctx context.Context, in *pipeline.DBRequestPipeline, opts ...grpc.CallOption) (*pipeline.DBResponsePipeline, error)
@@ -215,6 +212,16 @@ func (c *dBServiceClient) DropStore(ctx context.Context, in *query.DropStore, op
 	return out, nil
 }
 
+func (c *dBServiceClient) DropSchema(ctx context.Context, in *query.DropSchema, opts ...grpc.CallOption) (*server.Del, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(server.Del)
+	err := c.cc.Invoke(ctx, DBService_DropSchema_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *dBServiceClient) ListClients(ctx context.Context, in *query.ListClients, opts ...grpc.CallOption) (*server.ClientList, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(server.ClientList)
@@ -239,16 +246,6 @@ func (c *dBServiceClient) InfoServer(ctx context.Context, in *query.InfoServer, 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(server.InfoServer)
 	err := c.cc.Invoke(ctx, DBService_InfoServer_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *dBServiceClient) ClusterInfo(ctx context.Context, in *cluster.ClusterInfoQuery, opts ...grpc.CallOption) (*cluster.ClusterInfoResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(cluster.ClusterInfoResponse)
-	err := c.cc.Invoke(ctx, DBService_ClusterInfo_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -296,11 +293,11 @@ type DBServiceServer interface {
 	DelKey(context.Context, *query.DelKey) (*server.Del, error)
 	DelPred(context.Context, *query.DelPred) (*server.Del, error)
 	DropStore(context.Context, *query.DropStore) (*server.Del, error)
+	DropSchema(context.Context, *query.DropSchema) (*server.Del, error)
 	// * Ancillary info methods *
 	ListClients(context.Context, *query.ListClients) (*server.ClientList, error)
 	ListStores(context.Context, *query.ListStores) (*server.StoreList, error)
 	InfoServer(context.Context, *query.InfoServer) (*server.InfoServer, error)
-	ClusterInfo(context.Context, *cluster.ClusterInfoQuery) (*cluster.ClusterInfoResponse, error)
 	Ping(context.Context, *query.Ping) (*server.Pong, error)
 	// * Pipeline method for all methods *
 	Pipeline(context.Context, *pipeline.DBRequestPipeline) (*pipeline.DBResponsePipeline, error)
@@ -353,6 +350,9 @@ func (UnimplementedDBServiceServer) DelPred(context.Context, *query.DelPred) (*s
 func (UnimplementedDBServiceServer) DropStore(context.Context, *query.DropStore) (*server.Del, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DropStore not implemented")
 }
+func (UnimplementedDBServiceServer) DropSchema(context.Context, *query.DropSchema) (*server.Del, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DropSchema not implemented")
+}
 func (UnimplementedDBServiceServer) ListClients(context.Context, *query.ListClients) (*server.ClientList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListClients not implemented")
 }
@@ -361,9 +361,6 @@ func (UnimplementedDBServiceServer) ListStores(context.Context, *query.ListStore
 }
 func (UnimplementedDBServiceServer) InfoServer(context.Context, *query.InfoServer) (*server.InfoServer, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InfoServer not implemented")
-}
-func (UnimplementedDBServiceServer) ClusterInfo(context.Context, *cluster.ClusterInfoQuery) (*cluster.ClusterInfoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ClusterInfo not implemented")
 }
 func (UnimplementedDBServiceServer) Ping(context.Context, *query.Ping) (*server.Pong, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
@@ -626,6 +623,24 @@ func _DBService_DropStore_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DBService_DropSchema_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(query.DropSchema)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DBServiceServer).DropSchema(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DBService_DropSchema_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DBServiceServer).DropSchema(ctx, req.(*query.DropSchema))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DBService_ListClients_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(query.ListClients)
 	if err := dec(in); err != nil {
@@ -676,24 +691,6 @@ func _DBService_InfoServer_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DBServiceServer).InfoServer(ctx, req.(*query.InfoServer))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _DBService_ClusterInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(cluster.ClusterInfoQuery)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(DBServiceServer).ClusterInfo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: DBService_ClusterInfo_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DBServiceServer).ClusterInfo(ctx, req.(*cluster.ClusterInfoQuery))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -794,6 +791,10 @@ var DBService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DBService_DropStore_Handler,
 		},
 		{
+			MethodName: "DropSchema",
+			Handler:    _DBService_DropSchema_Handler,
+		},
+		{
 			MethodName: "ListClients",
 			Handler:    _DBService_ListClients_Handler,
 		},
@@ -804,10 +805,6 @@ var DBService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InfoServer",
 			Handler:    _DBService_InfoServer_Handler,
-		},
-		{
-			MethodName: "ClusterInfo",
-			Handler:    _DBService_ClusterInfo_Handler,
 		},
 		{
 			MethodName: "Ping",
