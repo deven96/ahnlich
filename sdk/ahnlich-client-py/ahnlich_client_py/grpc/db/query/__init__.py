@@ -4,21 +4,14 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import (
-    List,
-    Optional,
-)
+from typing import List, Optional
 
 import betterproto
 
-from ... import (
-    keyval as __keyval__,
-    predicates as __predicates__,
-)
-from ...algorithm import (
-    algorithms as __algorithm_algorithms__,
-    nonlinear as __algorithm_nonlinear__,
-)
+from ... import keyval as __keyval__
+from ... import predicates as __predicates__
+from ...algorithm import algorithms as __algorithm_algorithms__
+from ...algorithm import nonlinear as __algorithm_nonlinear__
 
 
 @dataclass(eq=False, repr=False)

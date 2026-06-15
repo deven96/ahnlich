@@ -3,7 +3,14 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
+import type {
+  BinaryReadOptions,
+  FieldList,
+  JsonReadOptions,
+  JsonValue,
+  PartialMessage,
+  PlainMessage,
+} from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
@@ -52,8 +59,10 @@ export class Version extends Message<Version> {
     return new Version().fromJsonString(jsonString, options);
   }
 
-  static equals(a: Version | PlainMessage<Version> | undefined, b: Version | PlainMessage<Version> | undefined): boolean {
+  static equals(
+    a: Version | PlainMessage<Version> | undefined,
+    b: Version | PlainMessage<Version> | undefined,
+  ): boolean {
     return proto3.util.equals(Version, a, b);
   }
 }
-

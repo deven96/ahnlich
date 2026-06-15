@@ -4,27 +4,17 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import (
-    Dict,
-    List,
-    Optional,
-)
+from typing import Dict, List, Optional
 
 import betterproto
 
-from ... import (
-    keyval as __keyval__,
-    predicates as __predicates__,
-)
-from ...algorithm import (
-    algorithms as __algorithm_algorithms__,
-    nonlinear as __algorithm_nonlinear__,
-)
-from .. import (
-    execution_provider as _execution_provider__,
-    models as _models__,
-    preprocess as _preprocess__,
-)
+from ... import keyval as __keyval__
+from ... import predicates as __predicates__
+from ...algorithm import algorithms as __algorithm_algorithms__
+from ...algorithm import nonlinear as __algorithm_nonlinear__
+from .. import execution_provider as _execution_provider__
+from .. import models as _models__
+from .. import preprocess as _preprocess__
 
 
 @dataclass(eq=False, repr=False)

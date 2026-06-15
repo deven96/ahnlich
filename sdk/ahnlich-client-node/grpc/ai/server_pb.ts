@@ -3,7 +3,14 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
+import type {
+  BinaryReadOptions,
+  FieldList,
+  JsonReadOptions,
+  JsonValue,
+  PartialMessage,
+  PlainMessage,
+} from "@bufbuild/protobuf";
 import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
 import { ConnectedClient } from "../client_pb.js";
 import { ServerInfo, StoreUpsert } from "../shared/info_pb.js";
@@ -23,8 +30,7 @@ export class Unit extends Message<Unit> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "ai.server.Unit";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-  ]);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Unit {
     return new Unit().fromBinary(bytes, options);
@@ -38,7 +44,10 @@ export class Unit extends Message<Unit> {
     return new Unit().fromJsonString(jsonString, options);
   }
 
-  static equals(a: Unit | PlainMessage<Unit> | undefined, b: Unit | PlainMessage<Unit> | undefined): boolean {
+  static equals(
+    a: Unit | PlainMessage<Unit> | undefined,
+    b: Unit | PlainMessage<Unit> | undefined,
+  ): boolean {
     return proto3.util.equals(Unit, a, b);
   }
 }
@@ -54,8 +63,7 @@ export class Pong extends Message<Pong> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "ai.server.Pong";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => [
-  ]);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Pong {
     return new Pong().fromBinary(bytes, options);
@@ -69,7 +77,10 @@ export class Pong extends Message<Pong> {
     return new Pong().fromJsonString(jsonString, options);
   }
 
-  static equals(a: Pong | PlainMessage<Pong> | undefined, b: Pong | PlainMessage<Pong> | undefined): boolean {
+  static equals(
+    a: Pong | PlainMessage<Pong> | undefined,
+    b: Pong | PlainMessage<Pong> | undefined,
+  ): boolean {
     return proto3.util.equals(Pong, a, b);
   }
 }
@@ -106,7 +117,10 @@ export class ClientList extends Message<ClientList> {
     return new ClientList().fromJsonString(jsonString, options);
   }
 
-  static equals(a: ClientList | PlainMessage<ClientList> | undefined, b: ClientList | PlainMessage<ClientList> | undefined): boolean {
+  static equals(
+    a: ClientList | PlainMessage<ClientList> | undefined,
+    b: ClientList | PlainMessage<ClientList> | undefined,
+  ): boolean {
     return proto3.util.equals(ClientList, a, b);
   }
 }
@@ -143,7 +157,10 @@ export class StoreList extends Message<StoreList> {
     return new StoreList().fromJsonString(jsonString, options);
   }
 
-  static equals(a: StoreList | PlainMessage<StoreList> | undefined, b: StoreList | PlainMessage<StoreList> | undefined): boolean {
+  static equals(
+    a: StoreList | PlainMessage<StoreList> | undefined,
+    b: StoreList | PlainMessage<StoreList> | undefined,
+  ): boolean {
     return proto3.util.equals(StoreList, a, b);
   }
 }
@@ -180,7 +197,10 @@ export class InfoServer extends Message<InfoServer> {
     return new InfoServer().fromJsonString(jsonString, options);
   }
 
-  static equals(a: InfoServer | PlainMessage<InfoServer> | undefined, b: InfoServer | PlainMessage<InfoServer> | undefined): boolean {
+  static equals(
+    a: InfoServer | PlainMessage<InfoServer> | undefined,
+    b: InfoServer | PlainMessage<InfoServer> | undefined,
+  ): boolean {
     return proto3.util.equals(InfoServer, a, b);
   }
 }
@@ -217,7 +237,10 @@ export class Set extends Message<Set> {
     return new Set().fromJsonString(jsonString, options);
   }
 
-  static equals(a: Set | PlainMessage<Set> | undefined, b: Set | PlainMessage<Set> | undefined): boolean {
+  static equals(
+    a: Set | PlainMessage<Set> | undefined,
+    b: Set | PlainMessage<Set> | undefined,
+  ): boolean {
     return proto3.util.equals(Set, a, b);
   }
 }
@@ -260,7 +283,10 @@ export class GetEntry extends Message<GetEntry> {
     return new GetEntry().fromJsonString(jsonString, options);
   }
 
-  static equals(a: GetEntry | PlainMessage<GetEntry> | undefined, b: GetEntry | PlainMessage<GetEntry> | undefined): boolean {
+  static equals(
+    a: GetEntry | PlainMessage<GetEntry> | undefined,
+    b: GetEntry | PlainMessage<GetEntry> | undefined,
+  ): boolean {
     return proto3.util.equals(GetEntry, a, b);
   }
 }
@@ -297,7 +323,10 @@ export class Get extends Message<Get> {
     return new Get().fromJsonString(jsonString, options);
   }
 
-  static equals(a: Get | PlainMessage<Get> | undefined, b: Get | PlainMessage<Get> | undefined): boolean {
+  static equals(
+    a: Get | PlainMessage<Get> | undefined,
+    b: Get | PlainMessage<Get> | undefined,
+  ): boolean {
     return proto3.util.equals(Get, a, b);
   }
 }
@@ -346,7 +375,10 @@ export class GetSimNEntry extends Message<GetSimNEntry> {
     return new GetSimNEntry().fromJsonString(jsonString, options);
   }
 
-  static equals(a: GetSimNEntry | PlainMessage<GetSimNEntry> | undefined, b: GetSimNEntry | PlainMessage<GetSimNEntry> | undefined): boolean {
+  static equals(
+    a: GetSimNEntry | PlainMessage<GetSimNEntry> | undefined,
+    b: GetSimNEntry | PlainMessage<GetSimNEntry> | undefined,
+  ): boolean {
     return proto3.util.equals(GetSimNEntry, a, b);
   }
 }
@@ -383,7 +415,10 @@ export class GetSimN extends Message<GetSimN> {
     return new GetSimN().fromJsonString(jsonString, options);
   }
 
-  static equals(a: GetSimN | PlainMessage<GetSimN> | undefined, b: GetSimN | PlainMessage<GetSimN> | undefined): boolean {
+  static equals(
+    a: GetSimN | PlainMessage<GetSimN> | undefined,
+    b: GetSimN | PlainMessage<GetSimN> | undefined,
+  ): boolean {
     return proto3.util.equals(GetSimN, a, b);
   }
 }
@@ -420,7 +455,10 @@ export class Del extends Message<Del> {
     return new Del().fromJsonString(jsonString, options);
   }
 
-  static equals(a: Del | PlainMessage<Del> | undefined, b: Del | PlainMessage<Del> | undefined): boolean {
+  static equals(
+    a: Del | PlainMessage<Del> | undefined,
+    b: Del | PlainMessage<Del> | undefined,
+  ): boolean {
     return proto3.util.equals(Del, a, b);
   }
 }
@@ -457,7 +495,10 @@ export class CreateIndex extends Message<CreateIndex> {
     return new CreateIndex().fromJsonString(jsonString, options);
   }
 
-  static equals(a: CreateIndex | PlainMessage<CreateIndex> | undefined, b: CreateIndex | PlainMessage<CreateIndex> | undefined): boolean {
+  static equals(
+    a: CreateIndex | PlainMessage<CreateIndex> | undefined,
+    b: CreateIndex | PlainMessage<CreateIndex> | undefined,
+  ): boolean {
     return proto3.util.equals(CreateIndex, a, b);
   }
 }
@@ -513,7 +554,13 @@ export class AIStoreInfo extends Message<AIStoreInfo> {
     { no: 2, name: "query_model", kind: "enum", T: proto3.getEnumType(AIModel) },
     { no: 3, name: "index_model", kind: "enum", T: proto3.getEnumType(AIModel) },
     { no: 4, name: "embedding_size", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
-    { no: 5, name: "predicate_indices", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    {
+      no: 5,
+      name: "predicate_indices",
+      kind: "scalar",
+      T: 9 /* ScalarType.STRING */,
+      repeated: true,
+    },
     { no: 6, name: "dimension", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
     { no: 7, name: "db_info", kind: "message", T: StoreInfo, opt: true },
   ]);
@@ -530,7 +577,10 @@ export class AIStoreInfo extends Message<AIStoreInfo> {
     return new AIStoreInfo().fromJsonString(jsonString, options);
   }
 
-  static equals(a: AIStoreInfo | PlainMessage<AIStoreInfo> | undefined, b: AIStoreInfo | PlainMessage<AIStoreInfo> | undefined): boolean {
+  static equals(
+    a: AIStoreInfo | PlainMessage<AIStoreInfo> | undefined,
+    b: AIStoreInfo | PlainMessage<AIStoreInfo> | undefined,
+  ): boolean {
     return proto3.util.equals(AIStoreInfo, a, b);
   }
 }
@@ -561,7 +611,10 @@ export class EmbeddingWithMetadata extends Message<EmbeddingWithMetadata> {
     { no: 2, name: "metadata", kind: "message", T: StoreValue, opt: true },
   ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): EmbeddingWithMetadata {
+  static fromBinary(
+    bytes: Uint8Array,
+    options?: Partial<BinaryReadOptions>,
+  ): EmbeddingWithMetadata {
     return new EmbeddingWithMetadata().fromBinary(bytes, options);
   }
 
@@ -569,11 +622,17 @@ export class EmbeddingWithMetadata extends Message<EmbeddingWithMetadata> {
     return new EmbeddingWithMetadata().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): EmbeddingWithMetadata {
+  static fromJsonString(
+    jsonString: string,
+    options?: Partial<JsonReadOptions>,
+  ): EmbeddingWithMetadata {
     return new EmbeddingWithMetadata().fromJsonString(jsonString, options);
   }
 
-  static equals(a: EmbeddingWithMetadata | PlainMessage<EmbeddingWithMetadata> | undefined, b: EmbeddingWithMetadata | PlainMessage<EmbeddingWithMetadata> | undefined): boolean {
+  static equals(
+    a: EmbeddingWithMetadata | PlainMessage<EmbeddingWithMetadata> | undefined,
+    b: EmbeddingWithMetadata | PlainMessage<EmbeddingWithMetadata> | undefined,
+  ): boolean {
     return proto3.util.equals(EmbeddingWithMetadata, a, b);
   }
 }
@@ -610,7 +669,10 @@ export class MultipleEmbedding extends Message<MultipleEmbedding> {
     return new MultipleEmbedding().fromJsonString(jsonString, options);
   }
 
-  static equals(a: MultipleEmbedding | PlainMessage<MultipleEmbedding> | undefined, b: MultipleEmbedding | PlainMessage<MultipleEmbedding> | undefined): boolean {
+  static equals(
+    a: MultipleEmbedding | PlainMessage<MultipleEmbedding> | undefined,
+    b: MultipleEmbedding | PlainMessage<MultipleEmbedding> | undefined,
+  ): boolean {
     return proto3.util.equals(MultipleEmbedding, a, b);
   }
 }
@@ -627,19 +689,22 @@ export class SingleInputToEmbedding extends Message<SingleInputToEmbedding> {
   /**
    * @generated from oneof ai.server.SingleInputToEmbedding.variant
    */
-  variant: {
-    /**
-     * @generated from field: ai.server.MultipleEmbedding multiple = 2;
-     */
-    value: MultipleEmbedding;
-    case: "multiple";
-  } | {
-    /**
-     * @generated from field: ai.server.EmbeddingWithMetadata single = 3;
-     */
-    value: EmbeddingWithMetadata;
-    case: "single";
-  } | { case: undefined; value?: undefined } = { case: undefined };
+  variant:
+    | {
+        /**
+         * @generated from field: ai.server.MultipleEmbedding multiple = 2;
+         */
+        value: MultipleEmbedding;
+        case: "multiple";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.EmbeddingWithMetadata single = 3;
+         */
+        value: EmbeddingWithMetadata;
+        case: "single";
+      }
+    | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<SingleInputToEmbedding>) {
     super();
@@ -654,19 +719,31 @@ export class SingleInputToEmbedding extends Message<SingleInputToEmbedding> {
     { no: 3, name: "single", kind: "message", T: EmbeddingWithMetadata, oneof: "variant" },
   ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): SingleInputToEmbedding {
+  static fromBinary(
+    bytes: Uint8Array,
+    options?: Partial<BinaryReadOptions>,
+  ): SingleInputToEmbedding {
     return new SingleInputToEmbedding().fromBinary(bytes, options);
   }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): SingleInputToEmbedding {
+  static fromJson(
+    jsonValue: JsonValue,
+    options?: Partial<JsonReadOptions>,
+  ): SingleInputToEmbedding {
     return new SingleInputToEmbedding().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): SingleInputToEmbedding {
+  static fromJsonString(
+    jsonString: string,
+    options?: Partial<JsonReadOptions>,
+  ): SingleInputToEmbedding {
     return new SingleInputToEmbedding().fromJsonString(jsonString, options);
   }
 
-  static equals(a: SingleInputToEmbedding | PlainMessage<SingleInputToEmbedding> | undefined, b: SingleInputToEmbedding | PlainMessage<SingleInputToEmbedding> | undefined): boolean {
+  static equals(
+    a: SingleInputToEmbedding | PlainMessage<SingleInputToEmbedding> | undefined,
+    b: SingleInputToEmbedding | PlainMessage<SingleInputToEmbedding> | undefined,
+  ): boolean {
     return proto3.util.equals(SingleInputToEmbedding, a, b);
   }
 }
@@ -691,20 +768,31 @@ export class StoreInputToEmbeddingsList extends Message<StoreInputToEmbeddingsLi
     { no: 1, name: "values", kind: "message", T: SingleInputToEmbedding, repeated: true },
   ]);
 
-  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StoreInputToEmbeddingsList {
+  static fromBinary(
+    bytes: Uint8Array,
+    options?: Partial<BinaryReadOptions>,
+  ): StoreInputToEmbeddingsList {
     return new StoreInputToEmbeddingsList().fromBinary(bytes, options);
   }
 
-  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): StoreInputToEmbeddingsList {
+  static fromJson(
+    jsonValue: JsonValue,
+    options?: Partial<JsonReadOptions>,
+  ): StoreInputToEmbeddingsList {
     return new StoreInputToEmbeddingsList().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): StoreInputToEmbeddingsList {
+  static fromJsonString(
+    jsonString: string,
+    options?: Partial<JsonReadOptions>,
+  ): StoreInputToEmbeddingsList {
     return new StoreInputToEmbeddingsList().fromJsonString(jsonString, options);
   }
 
-  static equals(a: StoreInputToEmbeddingsList | PlainMessage<StoreInputToEmbeddingsList> | undefined, b: StoreInputToEmbeddingsList | PlainMessage<StoreInputToEmbeddingsList> | undefined): boolean {
+  static equals(
+    a: StoreInputToEmbeddingsList | PlainMessage<StoreInputToEmbeddingsList> | undefined,
+    b: StoreInputToEmbeddingsList | PlainMessage<StoreInputToEmbeddingsList> | undefined,
+  ): boolean {
     return proto3.util.equals(StoreInputToEmbeddingsList, a, b);
   }
 }
-

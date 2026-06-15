@@ -38,4 +38,3 @@ proto3.util.setEnumType(ExecutionProvider, "ai.execution_provider.ExecutionProvi
   { no: 2, name: "DIRECT_ML" },
   { no: 3, name: "CORE_ML" },
 ]);
-

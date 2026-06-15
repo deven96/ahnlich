@@ -3,7 +3,14 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
+import type {
+  BinaryReadOptions,
+  FieldList,
+  JsonReadOptions,
+  JsonValue,
+  PartialMessage,
+  PlainMessage,
+} from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
 import { MetadataValue } from "./metadata_pb.js";
 
@@ -39,7 +46,10 @@ export class StoreName extends Message<StoreName> {
     return new StoreName().fromJsonString(jsonString, options);
   }
 
-  static equals(a: StoreName | PlainMessage<StoreName> | undefined, b: StoreName | PlainMessage<StoreName> | undefined): boolean {
+  static equals(
+    a: StoreName | PlainMessage<StoreName> | undefined,
+    b: StoreName | PlainMessage<StoreName> | undefined,
+  ): boolean {
     return proto3.util.equals(StoreName, a, b);
   }
 }
@@ -76,7 +86,10 @@ export class StoreKey extends Message<StoreKey> {
     return new StoreKey().fromJsonString(jsonString, options);
   }
 
-  static equals(a: StoreKey | PlainMessage<StoreKey> | undefined, b: StoreKey | PlainMessage<StoreKey> | undefined): boolean {
+  static equals(
+    a: StoreKey | PlainMessage<StoreKey> | undefined,
+    b: StoreKey | PlainMessage<StoreKey> | undefined,
+  ): boolean {
     return proto3.util.equals(StoreKey, a, b);
   }
 }
@@ -88,25 +101,29 @@ export class StoreInput extends Message<StoreInput> {
   /**
    * @generated from oneof keyval.StoreInput.value
    */
-  value: {
-    /**
-     * @generated from field: string raw_string = 2;
-     */
-    value: string;
-    case: "rawString";
-  } | {
-    /**
-     * @generated from field: bytes image = 3;
-     */
-    value: Uint8Array;
-    case: "image";
-  } | {
-    /**
-     * @generated from field: bytes audio = 4;
-     */
-    value: Uint8Array;
-    case: "audio";
-  } | { case: undefined; value?: undefined } = { case: undefined };
+  value:
+    | {
+        /**
+         * @generated from field: string raw_string = 2;
+         */
+        value: string;
+        case: "rawString";
+      }
+    | {
+        /**
+         * @generated from field: bytes image = 3;
+         */
+        value: Uint8Array;
+        case: "image";
+      }
+    | {
+        /**
+         * @generated from field: bytes audio = 4;
+         */
+        value: Uint8Array;
+        case: "audio";
+      }
+    | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<StoreInput>) {
     super();
@@ -133,7 +150,10 @@ export class StoreInput extends Message<StoreInput> {
     return new StoreInput().fromJsonString(jsonString, options);
   }
 
-  static equals(a: StoreInput | PlainMessage<StoreInput> | undefined, b: StoreInput | PlainMessage<StoreInput> | undefined): boolean {
+  static equals(
+    a: StoreInput | PlainMessage<StoreInput> | undefined,
+    b: StoreInput | PlainMessage<StoreInput> | undefined,
+  ): boolean {
     return proto3.util.equals(StoreInput, a, b);
   }
 }
@@ -178,7 +198,10 @@ export class DbStoreEntry extends Message<DbStoreEntry> {
     return new DbStoreEntry().fromJsonString(jsonString, options);
   }
 
-  static equals(a: DbStoreEntry | PlainMessage<DbStoreEntry> | undefined, b: DbStoreEntry | PlainMessage<DbStoreEntry> | undefined): boolean {
+  static equals(
+    a: DbStoreEntry | PlainMessage<DbStoreEntry> | undefined,
+    b: DbStoreEntry | PlainMessage<DbStoreEntry> | undefined,
+  ): boolean {
     return proto3.util.equals(DbStoreEntry, a, b);
   }
 }
@@ -223,7 +246,10 @@ export class AiStoreEntry extends Message<AiStoreEntry> {
     return new AiStoreEntry().fromJsonString(jsonString, options);
   }
 
-  static equals(a: AiStoreEntry | PlainMessage<AiStoreEntry> | undefined, b: AiStoreEntry | PlainMessage<AiStoreEntry> | undefined): boolean {
+  static equals(
+    a: AiStoreEntry | PlainMessage<AiStoreEntry> | undefined,
+    b: AiStoreEntry | PlainMessage<AiStoreEntry> | undefined,
+  ): boolean {
     return proto3.util.equals(AiStoreEntry, a, b);
   }
 }
@@ -245,7 +271,13 @@ export class StoreValue extends Message<StoreValue> {
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "keyval.StoreValue";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "value", kind: "map", K: 9 /* ScalarType.STRING */, V: {kind: "message", T: MetadataValue} },
+    {
+      no: 1,
+      name: "value",
+      kind: "map",
+      K: 9 /* ScalarType.STRING */,
+      V: { kind: "message", T: MetadataValue },
+    },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StoreValue {
@@ -260,8 +292,10 @@ export class StoreValue extends Message<StoreValue> {
     return new StoreValue().fromJsonString(jsonString, options);
   }
 
-  static equals(a: StoreValue | PlainMessage<StoreValue> | undefined, b: StoreValue | PlainMessage<StoreValue> | undefined): boolean {
+  static equals(
+    a: StoreValue | PlainMessage<StoreValue> | undefined,
+    b: StoreValue | PlainMessage<StoreValue> | undefined,
+  ): boolean {
     return proto3.util.equals(StoreValue, a, b);
   }
 }
-

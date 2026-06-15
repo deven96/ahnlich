@@ -9,10 +9,8 @@ from typing import List
 import betterproto
 
 from ...shared import info as __shared_info__
-from .. import (
-    query as _query__,
-    server as _server__,
-)
+from .. import query as _query__
+from .. import server as _server__
 
 
 @dataclass(eq=False, repr=False)

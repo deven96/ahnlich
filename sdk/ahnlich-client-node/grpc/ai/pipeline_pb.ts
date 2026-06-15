@@ -3,10 +3,51 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
+import type {
+  BinaryReadOptions,
+  FieldList,
+  JsonReadOptions,
+  JsonValue,
+  PartialMessage,
+  PlainMessage,
+} from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
-import { ConvertStoreInputToEmbeddings, CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, PurgeStores, Set } from "./query_pb.js";
-import { AIStoreInfo, ClientList, CreateIndex, Del, Get, GetSimN as GetSimN$1, InfoServer as InfoServer$1, Pong, Set as Set$1, StoreInputToEmbeddingsList, StoreList, Unit } from "./server_pb.js";
+import {
+  ConvertStoreInputToEmbeddings,
+  CreateNonLinearAlgorithmIndex,
+  CreatePredIndex,
+  CreateStore,
+  DelKey,
+  DelPred,
+  DropNonLinearAlgorithmIndex,
+  DropPredIndex,
+  DropSchema,
+  DropStore,
+  GetKey,
+  GetPred,
+  GetSimN,
+  GetStore,
+  InfoServer,
+  ListClients,
+  ListStores,
+  Ping,
+  PurgeStores,
+  Set,
+} from "./query_pb.js";
+import {
+  AIStoreInfo,
+  ClientList,
+  CreateIndex,
+  Del,
+  Get,
+  GetSimN as GetSimN$1,
+  InfoServer as InfoServer$1,
+  Pong,
+  Set as Set$1,
+  StoreInputToEmbeddingsList,
+  StoreList,
+  Unit,
+} from "./server_pb.js";
 import { ErrorResponse } from "../shared/info_pb.js";
 
 /**
@@ -16,127 +57,148 @@ export class AIQuery extends Message<AIQuery> {
   /**
    * @generated from oneof ai.pipeline.AIQuery.query
    */
-  query: {
-    /**
-     * @generated from field: ai.query.CreateStore create_store = 1;
-     */
-    value: CreateStore;
-    case: "createStore";
-  } | {
-    /**
-     * @generated from field: ai.query.GetPred get_pred = 2;
-     */
-    value: GetPred;
-    case: "getPred";
-  } | {
-    /**
-     * @generated from field: ai.query.GetSimN get_sim_n = 3;
-     */
-    value: GetSimN;
-    case: "getSimN";
-  } | {
-    /**
-     * @generated from field: ai.query.CreatePredIndex create_pred_index = 4;
-     */
-    value: CreatePredIndex;
-    case: "createPredIndex";
-  } | {
-    /**
-     * @generated from field: ai.query.CreateNonLinearAlgorithmIndex create_non_linear_algorithm_index = 5;
-     */
-    value: CreateNonLinearAlgorithmIndex;
-    case: "createNonLinearAlgorithmIndex";
-  } | {
-    /**
-     * @generated from field: ai.query.DropPredIndex drop_pred_index = 6;
-     */
-    value: DropPredIndex;
-    case: "dropPredIndex";
-  } | {
-    /**
-     * @generated from field: ai.query.DropNonLinearAlgorithmIndex drop_non_linear_algorithm_index = 7;
-     */
-    value: DropNonLinearAlgorithmIndex;
-    case: "dropNonLinearAlgorithmIndex";
-  } | {
-    /**
-     * @generated from field: ai.query.Set set = 8;
-     */
-    value: Set;
-    case: "set";
-  } | {
-    /**
-     * @generated from field: ai.query.DelKey del_key = 9;
-     */
-    value: DelKey;
-    case: "delKey";
-  } | {
-    /**
-     * @generated from field: ai.query.DropStore drop_store = 10;
-     */
-    value: DropStore;
-    case: "dropStore";
-  } | {
-    /**
-     * @generated from field: ai.query.GetKey get_key = 11;
-     */
-    value: GetKey;
-    case: "getKey";
-  } | {
-    /**
-     * @generated from field: ai.query.InfoServer info_server = 12;
-     */
-    value: InfoServer;
-    case: "infoServer";
-  } | {
-    /**
-     * @generated from field: ai.query.ListClients list_clients = 13;
-     */
-    value: ListClients;
-    case: "listClients";
-  } | {
-    /**
-     * @generated from field: ai.query.ListStores list_stores = 14;
-     */
-    value: ListStores;
-    case: "listStores";
-  } | {
-    /**
-     * @generated from field: ai.query.PurgeStores purge_stores = 15;
-     */
-    value: PurgeStores;
-    case: "purgeStores";
-  } | {
-    /**
-     * @generated from field: ai.query.Ping ping = 16;
-     */
-    value: Ping;
-    case: "ping";
-  } | {
-    /**
-     * @generated from field: ai.query.ConvertStoreInputToEmbeddings convert_store_input_to_embeddings = 17;
-     */
-    value: ConvertStoreInputToEmbeddings;
-    case: "convertStoreInputToEmbeddings";
-  } | {
-    /**
-     * @generated from field: ai.query.DelPred del_pred = 18;
-     */
-    value: DelPred;
-    case: "delPred";
-  } | {
-    /**
-     * @generated from field: ai.query.GetStore get_store = 19;
-     */
-    value: GetStore;
-    case: "getStore";
-  } | {
-    /**
-     * @generated from field: ai.query.DropSchema drop_schema = 20;
-     */
-    value: DropSchema;
-    case: "dropSchema";
-  } | { case: undefined; value?: undefined } = { case: undefined };
+  query:
+    | {
+        /**
+         * @generated from field: ai.query.CreateStore create_store = 1;
+         */
+        value: CreateStore;
+        case: "createStore";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.GetPred get_pred = 2;
+         */
+        value: GetPred;
+        case: "getPred";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.GetSimN get_sim_n = 3;
+         */
+        value: GetSimN;
+        case: "getSimN";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.CreatePredIndex create_pred_index = 4;
+         */
+        value: CreatePredIndex;
+        case: "createPredIndex";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.CreateNonLinearAlgorithmIndex create_non_linear_algorithm_index = 5;
+         */
+        value: CreateNonLinearAlgorithmIndex;
+        case: "createNonLinearAlgorithmIndex";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.DropPredIndex drop_pred_index = 6;
+         */
+        value: DropPredIndex;
+        case: "dropPredIndex";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.DropNonLinearAlgorithmIndex drop_non_linear_algorithm_index = 7;
+         */
+        value: DropNonLinearAlgorithmIndex;
+        case: "dropNonLinearAlgorithmIndex";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.Set set = 8;
+         */
+        value: Set;
+        case: "set";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.DelKey del_key = 9;
+         */
+        value: DelKey;
+        case: "delKey";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.DropStore drop_store = 10;
+         */
+        value: DropStore;
+        case: "dropStore";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.GetKey get_key = 11;
+         */
+        value: GetKey;
+        case: "getKey";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.InfoServer info_server = 12;
+         */
+        value: InfoServer;
+        case: "infoServer";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.ListClients list_clients = 13;
+         */
+        value: ListClients;
+        case: "listClients";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.ListStores list_stores = 14;
+         */
+        value: ListStores;
+        case: "listStores";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.PurgeStores purge_stores = 15;
+         */
+        value: PurgeStores;
+        case: "purgeStores";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.Ping ping = 16;
+         */
+        value: Ping;
+        case: "ping";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.ConvertStoreInputToEmbeddings convert_store_input_to_embeddings = 17;
+         */
+        value: ConvertStoreInputToEmbeddings;
+        case: "convertStoreInputToEmbeddings";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.DelPred del_pred = 18;
+         */
+        value: DelPred;
+        case: "delPred";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.GetStore get_store = 19;
+         */
+        value: GetStore;
+        case: "getStore";
+      }
+    | {
+        /**
+         * @generated from field: ai.query.DropSchema drop_schema = 20;
+         */
+        value: DropSchema;
+        case: "dropSchema";
+      }
+    | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<AIQuery>) {
     super();
@@ -150,9 +212,21 @@ export class AIQuery extends Message<AIQuery> {
     { no: 2, name: "get_pred", kind: "message", T: GetPred, oneof: "query" },
     { no: 3, name: "get_sim_n", kind: "message", T: GetSimN, oneof: "query" },
     { no: 4, name: "create_pred_index", kind: "message", T: CreatePredIndex, oneof: "query" },
-    { no: 5, name: "create_non_linear_algorithm_index", kind: "message", T: CreateNonLinearAlgorithmIndex, oneof: "query" },
+    {
+      no: 5,
+      name: "create_non_linear_algorithm_index",
+      kind: "message",
+      T: CreateNonLinearAlgorithmIndex,
+      oneof: "query",
+    },
     { no: 6, name: "drop_pred_index", kind: "message", T: DropPredIndex, oneof: "query" },
-    { no: 7, name: "drop_non_linear_algorithm_index", kind: "message", T: DropNonLinearAlgorithmIndex, oneof: "query" },
+    {
+      no: 7,
+      name: "drop_non_linear_algorithm_index",
+      kind: "message",
+      T: DropNonLinearAlgorithmIndex,
+      oneof: "query",
+    },
     { no: 8, name: "set", kind: "message", T: Set, oneof: "query" },
     { no: 9, name: "del_key", kind: "message", T: DelKey, oneof: "query" },
     { no: 10, name: "drop_store", kind: "message", T: DropStore, oneof: "query" },
@@ -162,7 +236,13 @@ export class AIQuery extends Message<AIQuery> {
     { no: 14, name: "list_stores", kind: "message", T: ListStores, oneof: "query" },
     { no: 15, name: "purge_stores", kind: "message", T: PurgeStores, oneof: "query" },
     { no: 16, name: "ping", kind: "message", T: Ping, oneof: "query" },
-    { no: 17, name: "convert_store_input_to_embeddings", kind: "message", T: ConvertStoreInputToEmbeddings, oneof: "query" },
+    {
+      no: 17,
+      name: "convert_store_input_to_embeddings",
+      kind: "message",
+      T: ConvertStoreInputToEmbeddings,
+      oneof: "query",
+    },
     { no: 18, name: "del_pred", kind: "message", T: DelPred, oneof: "query" },
     { no: 19, name: "get_store", kind: "message", T: GetStore, oneof: "query" },
     { no: 20, name: "drop_schema", kind: "message", T: DropSchema, oneof: "query" },
@@ -180,7 +260,10 @@ export class AIQuery extends Message<AIQuery> {
     return new AIQuery().fromJsonString(jsonString, options);
   }
 
-  static equals(a: AIQuery | PlainMessage<AIQuery> | undefined, b: AIQuery | PlainMessage<AIQuery> | undefined): boolean {
+  static equals(
+    a: AIQuery | PlainMessage<AIQuery> | undefined,
+    b: AIQuery | PlainMessage<AIQuery> | undefined,
+  ): boolean {
     return proto3.util.equals(AIQuery, a, b);
   }
 }
@@ -217,7 +300,10 @@ export class AIRequestPipeline extends Message<AIRequestPipeline> {
     return new AIRequestPipeline().fromJsonString(jsonString, options);
   }
 
-  static equals(a: AIRequestPipeline | PlainMessage<AIRequestPipeline> | undefined, b: AIRequestPipeline | PlainMessage<AIRequestPipeline> | undefined): boolean {
+  static equals(
+    a: AIRequestPipeline | PlainMessage<AIRequestPipeline> | undefined,
+    b: AIRequestPipeline | PlainMessage<AIRequestPipeline> | undefined,
+  ): boolean {
     return proto3.util.equals(AIRequestPipeline, a, b);
   }
 }
@@ -229,85 +315,99 @@ export class AIServerResponse extends Message<AIServerResponse> {
   /**
    * @generated from oneof ai.pipeline.AIServerResponse.response
    */
-  response: {
-    /**
-     * @generated from field: ai.server.Unit unit = 1;
-     */
-    value: Unit;
-    case: "unit";
-  } | {
-    /**
-     * @generated from field: ai.server.Pong pong = 2;
-     */
-    value: Pong;
-    case: "pong";
-  } | {
-    /**
-     * @generated from field: ai.server.ClientList client_list = 3;
-     */
-    value: ClientList;
-    case: "clientList";
-  } | {
-    /**
-     * @generated from field: ai.server.StoreList store_list = 4;
-     */
-    value: StoreList;
-    case: "storeList";
-  } | {
-    /**
-     * @generated from field: ai.server.InfoServer info_server = 5;
-     */
-    value: InfoServer$1;
-    case: "infoServer";
-  } | {
-    /**
-     * @generated from field: ai.server.Set set = 6;
-     */
-    value: Set$1;
-    case: "set";
-  } | {
-    /**
-     * @generated from field: ai.server.Get get = 7;
-     */
-    value: Get;
-    case: "get";
-  } | {
-    /**
-     * @generated from field: ai.server.GetSimN get_sim_n = 8;
-     */
-    value: GetSimN$1;
-    case: "getSimN";
-  } | {
-    /**
-     * @generated from field: ai.server.Del del = 9;
-     */
-    value: Del;
-    case: "del";
-  } | {
-    /**
-     * @generated from field: ai.server.CreateIndex create_index = 10;
-     */
-    value: CreateIndex;
-    case: "createIndex";
-  } | {
-    /**
-     * @generated from field: shared.info.ErrorResponse error = 11;
-     */
-    value: ErrorResponse;
-    case: "error";
-  } | {
-    /**
-     * @generated from field: ai.server.StoreInputToEmbeddingsList store_input_to_embeddings_list = 12;
-     */
-    value: StoreInputToEmbeddingsList;
-    case: "storeInputToEmbeddingsList";
-  } | {
-    /**
-     * @generated from field: ai.server.AIStoreInfo store_info = 13;
-     */
-    value: AIStoreInfo;
-    case: "storeInfo";
-  } | { case: undefined; value?: undefined } = { case: undefined };
+  response:
+    | {
+        /**
+         * @generated from field: ai.server.Unit unit = 1;
+         */
+        value: Unit;
+        case: "unit";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.Pong pong = 2;
+         */
+        value: Pong;
+        case: "pong";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.ClientList client_list = 3;
+         */
+        value: ClientList;
+        case: "clientList";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.StoreList store_list = 4;
+         */
+        value: StoreList;
+        case: "storeList";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.InfoServer info_server = 5;
+         */
+        value: InfoServer$1;
+        case: "infoServer";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.Set set = 6;
+         */
+        value: Set$1;
+        case: "set";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.Get get = 7;
+         */
+        value: Get;
+        case: "get";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.GetSimN get_sim_n = 8;
+         */
+        value: GetSimN$1;
+        case: "getSimN";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.Del del = 9;
+         */
+        value: Del;
+        case: "del";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.CreateIndex create_index = 10;
+         */
+        value: CreateIndex;
+        case: "createIndex";
+      }
+    | {
+        /**
+         * @generated from field: shared.info.ErrorResponse error = 11;
+         */
+        value: ErrorResponse;
+        case: "error";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.StoreInputToEmbeddingsList store_input_to_embeddings_list = 12;
+         */
+        value: StoreInputToEmbeddingsList;
+        case: "storeInputToEmbeddingsList";
+      }
+    | {
+        /**
+         * @generated from field: ai.server.AIStoreInfo store_info = 13;
+         */
+        value: AIStoreInfo;
+        case: "storeInfo";
+      }
+    | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<AIServerResponse>) {
     super();
@@ -328,7 +428,13 @@ export class AIServerResponse extends Message<AIServerResponse> {
     { no: 9, name: "del", kind: "message", T: Del, oneof: "response" },
     { no: 10, name: "create_index", kind: "message", T: CreateIndex, oneof: "response" },
     { no: 11, name: "error", kind: "message", T: ErrorResponse, oneof: "response" },
-    { no: 12, name: "store_input_to_embeddings_list", kind: "message", T: StoreInputToEmbeddingsList, oneof: "response" },
+    {
+      no: 12,
+      name: "store_input_to_embeddings_list",
+      kind: "message",
+      T: StoreInputToEmbeddingsList,
+      oneof: "response",
+    },
     { no: 13, name: "store_info", kind: "message", T: AIStoreInfo, oneof: "response" },
   ]);
 
@@ -344,7 +450,10 @@ export class AIServerResponse extends Message<AIServerResponse> {
     return new AIServerResponse().fromJsonString(jsonString, options);
   }
 
-  static equals(a: AIServerResponse | PlainMessage<AIServerResponse> | undefined, b: AIServerResponse | PlainMessage<AIServerResponse> | undefined): boolean {
+  static equals(
+    a: AIServerResponse | PlainMessage<AIServerResponse> | undefined,
+    b: AIServerResponse | PlainMessage<AIServerResponse> | undefined,
+  ): boolean {
     return proto3.util.equals(AIServerResponse, a, b);
   }
 }
@@ -377,12 +486,17 @@ export class AIResponsePipeline extends Message<AIResponsePipeline> {
     return new AIResponsePipeline().fromJson(jsonValue, options);
   }
 
-  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): AIResponsePipeline {
+  static fromJsonString(
+    jsonString: string,
+    options?: Partial<JsonReadOptions>,
+  ): AIResponsePipeline {
     return new AIResponsePipeline().fromJsonString(jsonString, options);
   }
 
-  static equals(a: AIResponsePipeline | PlainMessage<AIResponsePipeline> | undefined, b: AIResponsePipeline | PlainMessage<AIResponsePipeline> | undefined): boolean {
+  static equals(
+    a: AIResponsePipeline | PlainMessage<AIResponsePipeline> | undefined,
+    b: AIResponsePipeline | PlainMessage<AIResponsePipeline> | undefined,
+  ): boolean {
     return proto3.util.equals(AIResponsePipeline, a, b);
   }
 }
-
