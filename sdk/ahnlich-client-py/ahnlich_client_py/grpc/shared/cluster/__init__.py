@@ -4,10 +4,7 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import (
-    List,
-    Optional,
-)
+from typing import List, Optional
 
 import betterproto
 

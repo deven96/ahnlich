@@ -68,4 +68,3 @@ proto3.util.setEnumType(DistanceMetric, "algorithm.algorithms.DistanceMetric", [
   { no: 1, name: "DotProduct" },
   { no: 2, name: "Cosine" },
 ]);
-

@@ -8,11 +8,9 @@ from typing import List
 
 import betterproto
 
-from ... import (
-    client as __client__,
-    keyval as __keyval__,
-    similarity as __similarity__,
-)
+from ... import client as __client__
+from ... import keyval as __keyval__
+from ... import similarity as __similarity__
 from ...algorithm import nonlinear as __algorithm_nonlinear__
 from ...shared import info as __shared_info__
 

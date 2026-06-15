@@ -112,4 +112,3 @@ proto3.util.setEnumType(AIStoreInputType, "ai.models.AIStoreInputType", [
   { no: 1, name: "IMAGE" },
   { no: 2, name: "AUDIO" },
 ]);
-

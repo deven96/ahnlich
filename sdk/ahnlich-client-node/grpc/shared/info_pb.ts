@@ -3,7 +3,14 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
+import type {
+  BinaryReadOptions,
+  FieldList,
+  JsonReadOptions,
+  JsonValue,
+  PartialMessage,
+  PlainMessage,
+} from "@bufbuild/protobuf";
 import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
 import { ServerType } from "../server_types_pb.js";
 
@@ -63,7 +70,10 @@ export class ServerInfo extends Message<ServerInfo> {
     return new ServerInfo().fromJsonString(jsonString, options);
   }
 
-  static equals(a: ServerInfo | PlainMessage<ServerInfo> | undefined, b: ServerInfo | PlainMessage<ServerInfo> | undefined): boolean {
+  static equals(
+    a: ServerInfo | PlainMessage<ServerInfo> | undefined,
+    b: ServerInfo | PlainMessage<ServerInfo> | undefined,
+  ): boolean {
     return proto3.util.equals(ServerInfo, a, b);
   }
 }
@@ -106,7 +116,10 @@ export class StoreUpsert extends Message<StoreUpsert> {
     return new StoreUpsert().fromJsonString(jsonString, options);
   }
 
-  static equals(a: StoreUpsert | PlainMessage<StoreUpsert> | undefined, b: StoreUpsert | PlainMessage<StoreUpsert> | undefined): boolean {
+  static equals(
+    a: StoreUpsert | PlainMessage<StoreUpsert> | undefined,
+    b: StoreUpsert | PlainMessage<StoreUpsert> | undefined,
+  ): boolean {
     return proto3.util.equals(StoreUpsert, a, b);
   }
 }
@@ -149,8 +162,10 @@ export class ErrorResponse extends Message<ErrorResponse> {
     return new ErrorResponse().fromJsonString(jsonString, options);
   }
 
-  static equals(a: ErrorResponse | PlainMessage<ErrorResponse> | undefined, b: ErrorResponse | PlainMessage<ErrorResponse> | undefined): boolean {
+  static equals(
+    a: ErrorResponse | PlainMessage<ErrorResponse> | undefined,
+    b: ErrorResponse | PlainMessage<ErrorResponse> | undefined,
+  ): boolean {
     return proto3.util.equals(ErrorResponse, a, b);
   }
 }
-

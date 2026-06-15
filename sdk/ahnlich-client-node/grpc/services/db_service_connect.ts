@@ -3,8 +3,39 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set } from "../db/query_pb.js";
-import { ClientList, CreateIndex, Del, Get, GetSimN as GetSimN$1, InfoServer as InfoServer$1, Pong, Set as Set$1, StoreInfo, StoreList, Unit } from "../db/server_pb.js";
+import {
+  CreateNonLinearAlgorithmIndex,
+  CreatePredIndex,
+  CreateStore,
+  DelKey,
+  DelPred,
+  DropNonLinearAlgorithmIndex,
+  DropPredIndex,
+  DropSchema,
+  DropStore,
+  GetKey,
+  GetPred,
+  GetSimN,
+  GetStore,
+  InfoServer,
+  ListClients,
+  ListStores,
+  Ping,
+  Set,
+} from "../db/query_pb.js";
+import {
+  ClientList,
+  CreateIndex,
+  Del,
+  Get,
+  GetSimN as GetSimN$1,
+  InfoServer as InfoServer$1,
+  Pong,
+  Set as Set$1,
+  StoreInfo,
+  StoreList,
+  Unit,
+} from "../db/server_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 import { DBRequestPipeline, DBResponsePipeline } from "../db/pipeline_pb.js";
 
@@ -197,6 +228,5 @@ export const DBService = {
       O: DBResponsePipeline,
       kind: MethodKind.Unary,
     },
-  }
+  },
 } as const;
-

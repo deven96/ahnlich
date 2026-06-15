@@ -3,7 +3,14 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
+import type {
+  BinaryReadOptions,
+  FieldList,
+  JsonReadOptions,
+  JsonValue,
+  PartialMessage,
+  PlainMessage,
+} from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
@@ -38,8 +45,10 @@ export class Similarity extends Message<Similarity> {
     return new Similarity().fromJsonString(jsonString, options);
   }
 
-  static equals(a: Similarity | PlainMessage<Similarity> | undefined, b: Similarity | PlainMessage<Similarity> | undefined): boolean {
+  static equals(
+    a: Similarity | PlainMessage<Similarity> | undefined,
+    b: Similarity | PlainMessage<Similarity> | undefined,
+  ): boolean {
     return proto3.util.equals(Similarity, a, b);
   }
 }
-

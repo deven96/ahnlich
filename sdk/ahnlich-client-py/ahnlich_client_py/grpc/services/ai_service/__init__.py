@@ -4,21 +4,15 @@
 # This file has been @generated
 
 from dataclasses import dataclass
-from typing import (
-    TYPE_CHECKING,
-    Dict,
-    Optional,
-)
+from typing import TYPE_CHECKING, Dict, Optional
 
 import betterproto
 import grpclib
 from betterproto.grpc.grpclib_server import ServiceBase
 
-from ...ai import (
-    pipeline as __ai_pipeline__,
-    query as __ai_query__,
-    server as __ai_server__,
-)
+from ...ai import pipeline as __ai_pipeline__
+from ...ai import query as __ai_query__
+from ...ai import server as __ai_server__
 
 if TYPE_CHECKING:
     import grpclib.server

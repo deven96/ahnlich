@@ -24,4 +24,3 @@ proto3.util.setEnumType(ServerType, "server_types.ServerType", [
   { no: 0, name: "AI" },
   { no: 1, name: "Database" },
 ]);
-

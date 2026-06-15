@@ -3,7 +3,14 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
+import type {
+  BinaryReadOptions,
+  FieldList,
+  JsonReadOptions,
+  JsonValue,
+  PartialMessage,
+  PlainMessage,
+} from "@bufbuild/protobuf";
 import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
@@ -44,8 +51,10 @@ export class ConnectedClient extends Message<ConnectedClient> {
     return new ConnectedClient().fromJsonString(jsonString, options);
   }
 
-  static equals(a: ConnectedClient | PlainMessage<ConnectedClient> | undefined, b: ConnectedClient | PlainMessage<ConnectedClient> | undefined): boolean {
+  static equals(
+    a: ConnectedClient | PlainMessage<ConnectedClient> | undefined,
+    b: ConnectedClient | PlainMessage<ConnectedClient> | undefined,
+  ): boolean {
     return proto3.util.equals(ConnectedClient, a, b);
   }
 }
-
