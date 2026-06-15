@@ -6,6 +6,7 @@ use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicates::{Predicate, PredicateCondition, predicate::Kind as PredicateKind};
+use ahnlich_types::schema::Schema;
 use criterion::{Criterion, criterion_group, criterion_main};
 
 use rayon::iter::ParallelIterator;
@@ -38,8 +39,7 @@ fn generate_storekey_store_value(size: usize, dimension: usize) -> Vec<(StoreKey
 
 fn initialize_store_handler() -> Arc<StoreHandler> {
     let write_flag = Arc::new(AtomicBool::new(false));
-    let handler = Arc::new(StoreHandler::new(write_flag));
-    handler
+    Arc::new(StoreHandler::new(write_flag))
 }
 
 fn bench_retrieval(c: &mut Criterion) {
@@ -67,6 +67,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 NonZeroUsize::new(dimension).unwrap(),
                 vec![],
                 HashSet::new(),
@@ -124,6 +125,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 NonZeroUsize::new(dimension).unwrap(),
                 vec![],
                 HashSet::from_iter([non_linear_index::Index::Kdtree(KdTreeConfig {})]),
@@ -181,6 +183,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 NonZeroUsize::new(dimension).unwrap(),
                 vec![],
                 HashSet::from_iter([non_linear_index::Index::Hnsw(HnswConfig {
@@ -252,6 +255,7 @@ fn bench_retrieval(c: &mut Criterion) {
                     StoreName {
                         value: store_name.to_string(),
                     },
+                    &Schema::default(),
                     NonZeroUsize::new(dimension).unwrap(),
                     vec![],
                     HashSet::new(),
@@ -304,13 +308,13 @@ fn bench_insertion(c: &mut Criterion) {
                 StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 NonZeroUsize::new(dimension).unwrap(),
                 vec![],
                 HashSet::new(),
                 true,
             )
             .unwrap();
-        let dimension = dimension.clone();
         let random_array = vec![(
             StoreKey {
                 key: (0..dimension)
@@ -351,6 +355,7 @@ fn bench_insertion(c: &mut Criterion) {
                 StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 NonZeroUsize::new(dimension).unwrap(),
                 vec![],
                 HashSet::new(),
@@ -389,6 +394,7 @@ fn bench_predicate_queries(c: &mut Criterion) {
                 StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 NonZeroUsize::new(dimension).unwrap(),
                 vec![], // No predicate indices
                 HashSet::new(),
@@ -478,6 +484,7 @@ fn bench_predicate_queries(c: &mut Criterion) {
                 StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 NonZeroUsize::new(dimension).unwrap(),
                 vec!["category".to_string()], // WITH predicate index
                 HashSet::new(),

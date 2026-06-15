@@ -1,0 +1,8 @@
+{
+  "test_ai_store": {
+    "index_model": "AllMiniLmL6V2",
+    "name": "test_ai_store",
+    "query_model": "AllMiniLmL6V2",
+    "store_original": false
+  }
+}

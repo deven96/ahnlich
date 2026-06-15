@@ -712,7 +712,11 @@ impl Server {
         let write_flag = Arc::new(AtomicBool::new(false));
         let mut store_handler = StoreHandler::new(write_flag.clone());
         if let Some(persist_location) = &config.common.persist_location {
-            match Persistence::load_snapshot(persist_location, config.common.enable_mmap) {
+            match Persistence::load_snapshot_with_migration(
+                persist_location,
+                config.common.enable_mmap,
+                StoreHandler::load_and_migrate_snapshot,
+            ) {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");
                     if config.common.fail_on_startup_if_persist_load_fails {

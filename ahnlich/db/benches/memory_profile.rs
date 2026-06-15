@@ -5,6 +5,7 @@ use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicates::{Predicate, PredicateCondition, predicate::Kind as PredicateKind};
+use ahnlich_types::schema::Schema;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
@@ -36,6 +37,7 @@ fn profile_batch_insertion(size: usize) {
             StoreName {
                 value: store_name.to_string(),
             },
+            &Schema::default(),
             NonZeroUsize::new(dimension).unwrap(),
             vec![],
             HashSet::new(),
@@ -75,6 +77,7 @@ fn profile_similarity_queries(size: usize, num_queries: usize) {
             StoreName {
                 value: store_name.to_string(),
             },
+            &Schema::default(),
             NonZeroUsize::new(dimension).unwrap(),
             vec![],
             HashSet::new(),
@@ -141,6 +144,7 @@ fn profile_predicate_queries(size: usize, num_queries: usize, with_index: bool) 
             StoreName {
                 value: store_name.to_string(),
             },
+            &Schema::default(),
             NonZeroUsize::new(dimension).unwrap(),
             predicate_indices,
             HashSet::new(),

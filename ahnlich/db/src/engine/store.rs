@@ -187,6 +187,33 @@ impl StoreHandler {
         self.stores = stores_snapshot;
     }
 
+    /// Migrates a flat (pre-schema) persistence snapshot into the nested schema format.
+    /// Reads the old `HashMap<StoreName, Store>` JSON format and wraps it under `"public"`.
+    pub(crate) fn load_and_migrate_snapshot(
+        bytes: &[u8],
+    ) -> Result<Stores, utils::persistence::PersistenceTaskError> {
+        use std::collections::HashMap;
+        use utils::fallible;
+
+        let flat_stores: HashMap<StoreName, Store> = serde_json::from_slice(bytes)
+            .map_err(utils::persistence::PersistenceTaskError::SerdeError)?;
+        let inner_stores = fallible::try_new_arc_hashmap()
+            .map_err(utils::persistence::PersistenceTaskError::MigrationError)?;
+        {
+            let guard = inner_stores.pin();
+            for (name, store) in flat_stores {
+                guard.insert(name, Arc::new(store));
+            }
+        }
+        let stores = fallible::try_new_arc_hashmap()
+            .map_err(utils::persistence::PersistenceTaskError::MigrationError)?;
+        {
+            let guard = stores.pin();
+            guard.insert(Schema::default(), inner_stores);
+        }
+        Ok(stores)
+    }
+
     /// Returns the inner stores map for a given schema, creating it if it does not exist.
     fn get_or_create_schema(&self, schema: &Schema) -> InnerStores {
         let guard = self.stores.guard();

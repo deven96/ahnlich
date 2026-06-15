@@ -40,6 +40,8 @@ pub enum PersistenceTaskError {
     FileError(#[from] std::io::Error),
     #[error("SerdeError {0}")]
     SerdeError(#[from] serde_json::error::Error),
+    #[error("MigrationError {0}")]
+    MigrationError(String),
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +98,14 @@ impl<T: Serialize + DeserializeOwned> Persistence<T> {
         persist_location: &std::path::PathBuf,
         enable_mmap: bool,
     ) -> Result<T, PersistenceTaskError> {
+        let bytes = Self::read_snapshot_raw(persist_location, enable_mmap)?;
+        Ok(serde_json::from_slice(&bytes)?)
+    }
+
+    pub fn read_snapshot_raw(
+        persist_location: &std::path::PathBuf,
+        enable_mmap: bool,
+    ) -> Result<Vec<u8>, PersistenceTaskError> {
         let file = File::open(persist_location)?;
         let file_size = file.metadata()?.len();
 
@@ -105,15 +115,35 @@ impl<T: Serialize + DeserializeOwned> Persistence<T> {
                 file_size
             );
             let mmap = unsafe { Mmap::map(&file)? };
-            serde_json::from_slice(&mmap)?
+            mmap.to_vec()
         } else {
             log::debug!(
                 "Using buffered reader to load persistence file (size: {} bytes)",
                 file_size
             );
             let reader = BufReader::new(file);
-            serde_json::from_reader(reader)?
+            let mut bytes = Vec::with_capacity(file_size as usize);
+            use std::io::Read;
+            reader.take(file_size).read_to_end(&mut bytes)?;
+            bytes
         })
+    }
+
+    pub fn load_snapshot_with_migration<F>(
+        persist_location: &std::path::PathBuf,
+        enable_mmap: bool,
+        migrate: F,
+    ) -> Result<T, PersistenceTaskError>
+    where
+        F: FnOnce(&[u8]) -> Result<T, PersistenceTaskError>,
+    {
+        match Self::load_snapshot(persist_location, enable_mmap) {
+            Ok(snapshot) => Ok(snapshot),
+            Err(_) => {
+                let bytes = Self::read_snapshot_raw(persist_location, enable_mmap)?;
+                migrate(&bytes)
+            }
+        }
     }
 
     pub fn task(

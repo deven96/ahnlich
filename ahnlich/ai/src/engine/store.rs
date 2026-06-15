@@ -90,6 +90,32 @@ impl AIStoreHandler {
         self.stores = stores_snapshot;
     }
 
+    /// Migrates a flat (pre-schema) AI persistence snapshot into the nested schema format.
+    /// Reads the old `HashMap<StoreName, AIStore>` JSON format and wraps it under `"public"`.
+    pub(crate) fn load_and_migrate_snapshot(
+        bytes: &[u8],
+    ) -> Result<AIStores, utils::persistence::PersistenceTaskError> {
+        use std::collections::HashMap;
+
+        let flat_stores: HashMap<StoreName, AIStore> = serde_json::from_slice(bytes)
+            .map_err(utils::persistence::PersistenceTaskError::SerdeError)?;
+        let inner_stores = fallible::try_new_arc_hashmap()
+            .map_err(|e| utils::persistence::PersistenceTaskError::MigrationError(e))?;
+        {
+            let guard = inner_stores.pin();
+            for (name, store) in flat_stores {
+                guard.insert(name, Arc::new(store));
+            }
+        }
+        let stores = fallible::try_new_arc_hashmap()
+            .map_err(|e| utils::persistence::PersistenceTaskError::MigrationError(e))?;
+        {
+            let guard = stores.pin();
+            guard.insert(Schema::default(), inner_stores);
+        }
+        Ok(stores)
+    }
+
     /// Returns the inner stores map for a given schema, creating it if it does not exist.
     fn get_or_create_schema(&self, schema: &Schema) -> AIInnerStores {
         let guard = self.stores.guard();

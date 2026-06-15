@@ -26,9 +26,11 @@ import (
 	dbsvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
 )
 
+// MaxRetries is the maximum number of retries to check if the Ahnlich process is running.
+// RetryInterval is the interval between retries to check if the Ahnlich process is running.
 const (
-	MaxRetries    = 120             // MaxRetries ... Maximum number of retries to check if the Ahnlich process is running
-	RetryInterval = 1 * time.Second // RetryInterval ... Interval between retries to check if the Ahnlich process is running
+	MaxRetries    = 120
+	RetryInterval = 1 * time.Second
 )
 
 // AhnlichProcess ... A struct to hold the Ahnlich process information
