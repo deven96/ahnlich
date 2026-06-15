@@ -1,3 +1,4 @@
+// Package db_test contains integration tests for DB operations.
 package db_test
 
 import (

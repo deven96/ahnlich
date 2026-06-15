@@ -1,0 +1,16 @@
+{
+  "fixture_store": {
+    "dimension": 3,
+    "id_to_value": {},
+    "predicate_indices": {
+      "inner": {},
+      "allowed_predicates": []
+    },
+    "non_linear_indices": {
+      "algorithm_to_index": {}
+    },
+    "cached_len": 0,
+    "cached_size_bytes": 0,
+    "size_dirty": true
+  }
+}

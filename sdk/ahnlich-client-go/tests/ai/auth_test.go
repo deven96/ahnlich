@@ -1,3 +1,4 @@
+// Package ai_test contains integration tests for AI proxy operations.
 package ai_test
 
 import (

@@ -1,3 +1,4 @@
+// Package ahnlichgotest provides test utilities for ahnlich Go SDK tests.
 package ahnlichgotest
 
 import (
