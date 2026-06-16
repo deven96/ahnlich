@@ -5,6 +5,22 @@ use openraft::error::RaftError;
 use serde::de::DeserializeOwned;
 use std::any::{Any, TypeId};
 
+macro_rules! command_name {
+    ($ty:ty) => {{
+        let full = stringify!($ty);
+        full.rsplit("::").next().unwrap_or(full)
+    }};
+}
+
+macro_rules! submit_db_command {
+    ($cluster:expr, $query_ty:ty, $params:expr, $builder:path) => {{
+        crate::server::cluster_mutations::submit_db_command_inner::<$query_ty, _>(
+            $cluster, $params, $builder,
+        )
+    }};
+}
+pub(crate) use submit_db_command;
+
 pub(crate) fn map_client_write_error(
     command_name: &str,
     err: RaftError<u64, openraft::error::ClientWriteError<u64, ReplicationNode>>,
@@ -40,14 +56,18 @@ async fn submit_raw_db_command(
         .map_err(|err| map_client_write_error(command_name, err))
 }
 
-pub(crate) async fn submit_db_command<T>(
+pub(crate) async fn submit_db_command_inner<Q, T>(
     cluster: Option<&ClusterRuntime>,
-    command_name: &str,
-    command: DbCommand,
+    params: Q,
+    command_builder: impl FnOnce(Vec<u8>) -> DbCommand,
 ) -> Result<T, tonic::Status>
 where
+    Q: prost::Message,
     T: DeserializeOwned + 'static,
 {
+    let command_name = command_name!(Q);
+    let command = command_builder(params.encode_to_vec());
+
     match submit_raw_db_command(cluster, command_name, command).await? {
         DbResponse::Bytes(bytes) => bitcode::deserialize(bytes.as_slice()).map_err(|err| {
             tonic::Status::internal(format!("failed to decode {command_name} raw result: {err}",))

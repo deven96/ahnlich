@@ -20,7 +20,6 @@ use ahnlich_types::shared::info::ErrorResponse;
 
 use ahnlich_types::db::{pipeline, query, server};
 use ahnlich_types::{client as types_client, utils as types_utils};
-use prost::Message;
 use std::future::Future;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
@@ -60,10 +59,11 @@ impl DbService for Server {
 
         match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                let (): () = submit_db_command(
+                let (): () = submit_db_command!(
                     Some(cluster),
-                    "CreateStore",
-                    DbCommand::CreateStore(params.encode_to_vec()),
+                    query::CreateStore,
+                    params,
+                    DbCommand::CreateStore
                 )
                 .await?;
             }
@@ -199,10 +199,11 @@ impl DbService for Server {
 
         let created_indexes = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command(
+                submit_db_command!(
                     Some(cluster),
-                    "CreatePredIndex",
-                    DbCommand::CreatePredIndex(params.encode_to_vec()),
+                    query::CreatePredIndex,
+                    params,
+                    DbCommand::CreatePredIndex
                 )
                 .await?
             }
@@ -225,10 +226,11 @@ impl DbService for Server {
 
         let created_indexes = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command(
+                submit_db_command!(
                     Some(cluster),
-                    "CreateNonLinearAlgorithmIndex",
-                    DbCommand::CreateNonLinearAlgorithmIndex(params.encode_to_vec()),
+                    query::CreateNonLinearAlgorithmIndex,
+                    params,
+                    DbCommand::CreateNonLinearAlgorithmIndex
                 )
                 .await?
             }
@@ -251,10 +253,11 @@ impl DbService for Server {
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command(
+                submit_db_command!(
                     Some(cluster),
-                    "DropPredIndex",
-                    DbCommand::DropPredIndex(params.encode_to_vec()),
+                    query::DropPredIndex,
+                    params,
+                    DbCommand::DropPredIndex
                 )
                 .await?
             }
@@ -275,10 +278,11 @@ impl DbService for Server {
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command(
+                submit_db_command!(
                     Some(cluster),
-                    "DropNonLinearAlgorithmIndex",
-                    DbCommand::DropNonLinearAlgorithmIndex(params.encode_to_vec()),
+                    query::DropNonLinearAlgorithmIndex,
+                    params,
+                    DbCommand::DropNonLinearAlgorithmIndex
                 )
                 .await?
             }
@@ -299,12 +303,7 @@ impl DbService for Server {
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command(
-                    Some(cluster),
-                    "DelKey",
-                    DbCommand::DelKey(params.encode_to_vec()),
-                )
-                .await?
+                submit_db_command!(Some(cluster), query::DelKey, params, DbCommand::DelKey).await?
             }
             StoreRuntime::Standalone(store_handler) => operations::del_key(store_handler, params)?,
         }) as u64;
@@ -321,12 +320,8 @@ impl DbService for Server {
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command(
-                    Some(cluster),
-                    "DelPred",
-                    DbCommand::DelPred(params.encode_to_vec()),
-                )
-                .await?
+                submit_db_command!(Some(cluster), query::DelPred, params, DbCommand::DelPred)
+                    .await?
             }
             StoreRuntime::Standalone(store_handler) => operations::del_pred(store_handler, params)?,
         }) as u64;
@@ -343,10 +338,11 @@ impl DbService for Server {
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command(
+                submit_db_command!(
                     Some(cluster),
-                    "DropStore",
-                    DbCommand::DropStore(params.encode_to_vec()),
+                    query::DropStore,
+                    params,
+                    DbCommand::DropStore
                 )
                 .await?
             }
@@ -440,8 +436,7 @@ impl DbService for Server {
 
         let set = match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command(Some(cluster), "Set", DbCommand::Set(params.encode_to_vec()))
-                    .await?
+                submit_db_command!(Some(cluster), query::Set, params, DbCommand::Set).await?
             }
             StoreRuntime::Standalone(store_handler) => operations::set(store_handler, params)?,
         };

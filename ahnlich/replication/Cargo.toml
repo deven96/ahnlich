@@ -11,7 +11,7 @@ clap.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-bitcode = { version = "0.6", features = ["serde"] }
+bitcode.workspace = true
 utils = { path = "../utils", version = "*" }
 tokio.workspace = true
 futures.workspace = true

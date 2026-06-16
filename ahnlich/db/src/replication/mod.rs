@@ -10,12 +10,10 @@ use ahnlich_replication::types::{DbCommand, DbResponse};
 use ahnlich_types::db::query;
 use openraft::{StorageError, StorageIOError};
 use prost::Message;
-use serde::Serialize;
 use utils::persistence::AhnlichPersistenceUtils;
 
 use crate::engine::operations;
 use crate::engine::store::{StoreHandler, Stores};
-use crate::errors::ServerError;
 
 openraft::declare_raft_types!(
     pub DbTypeConfig:
@@ -46,36 +44,50 @@ impl DbStateMachine {
     }
 }
 
-fn decode_payload<M: Message + Default>(
-    command_name: &str,
-    payload: &[u8],
-) -> Result<M, StorageError<u64>> {
-    M::decode(payload).map_err(|err| StorageError::IO {
-        source: StorageIOError::read_state_machine(&std::io::Error::other(format!(
-            "failed to decode {command_name} raft payload: {err}",
-        ))),
-    })
+macro_rules! command_name {
+    ($ty:ty) => {{
+        let full = stringify!($ty);
+        full.rsplit("::").next().unwrap_or(full)
+    }};
 }
 
-fn encode_raw_result<T: Serialize>(
-    command_name: &str,
-    result: &T,
-) -> Result<DbResponse, StorageError<u64>> {
-    bitcode::serialize(result)
-        .map(DbResponse::Bytes)
-        .map_err(|err| StorageError::IO {
-            source: StorageIOError::write_state_machine(&std::io::Error::other(format!(
-                "failed to encode {command_name} raw result: {err}",
+macro_rules! decode_payload {
+    ($ty:ty, $payload:expr) => {{
+        let command_name = command_name!($ty);
+
+        <$ty>::decode($payload.as_slice()).map_err(|err| StorageError::IO {
+            source: StorageIOError::read_state_machine(&std::io::Error::other(format!(
+                "failed to decode {command_name} raft payload: {err}",
             ))),
         })
+    }};
 }
 
-fn operation_error(command_name: &str, err: ServerError) -> StorageError<u64> {
-    StorageError::IO {
-        source: StorageIOError::write_state_machine(&std::io::Error::other(format!(
-            "{command_name} apply failed: {err}",
-        ))),
-    }
+macro_rules! encode_raw_result {
+    ($ty:ty, $result:expr) => {{
+        let command_name = command_name!($ty);
+
+        bitcode::serialize($result)
+            .map(DbResponse::Bytes)
+            .map_err(|err| StorageError::IO {
+                source: StorageIOError::write_state_machine(&std::io::Error::other(format!(
+                    "failed to encode {command_name} raw result: {err}",
+                ))),
+            })
+    }};
+}
+
+macro_rules! operation_error {
+    ($ty:ty, $err:expr) => {{
+        let command_name = command_name!($ty);
+
+        StorageError::IO {
+            source: StorageIOError::write_state_machine(&std::io::Error::other(format!(
+                "{command_name} apply failed: {}",
+                $err,
+            ))),
+        }
+    }};
 }
 
 impl StateMachineHandler<DbTypeConfig> for DbStateMachine {
@@ -84,74 +96,70 @@ impl StateMachineHandler<DbTypeConfig> for DbStateMachine {
     fn apply(&mut self, data: &DbCommand) -> Result<DbResponse, StorageError<u64>> {
         match data {
             DbCommand::CreateStore(payload) => {
-                let params = decode_payload::<query::CreateStore>("CreateStore", payload)?;
+                let params = decode_payload!(query::CreateStore, payload)?;
                 operations::create_store(&self.store_handler, params)
                     .map(|_| DbResponse::Unit)
-                    .map_err(|err| operation_error("CreateStore", err))
+                    .map_err(|err| operation_error!(query::CreateStore, err))
             }
             DbCommand::CreatePredIndex(payload) => {
-                let params = decode_payload::<query::CreatePredIndex>("CreatePredIndex", payload)?;
+                let params = decode_payload!(query::CreatePredIndex, payload)?;
                 let created = operations::create_pred_index(&self.store_handler, params)
-                    .map_err(|err| operation_error("CreatePredIndex", err))?;
+                    .map_err(|err| operation_error!(query::CreatePredIndex, err))?;
 
-                encode_raw_result("CreatePredIndex", &created)
+                encode_raw_result!(query::CreatePredIndex, &created)
             }
             DbCommand::CreateNonLinearAlgorithmIndex(payload) => {
-                let params = decode_payload::<query::CreateNonLinearAlgorithmIndex>(
-                    "CreateNonLinearAlgorithmIndex",
-                    payload,
-                )?;
+                let params = decode_payload!(query::CreateNonLinearAlgorithmIndex, payload)?;
                 let created =
                     operations::create_non_linear_algorithm_index(&self.store_handler, params)
-                        .map_err(|err| operation_error("CreateNonLinearAlgorithmIndex", err))?;
+                        .map_err(|err| {
+                            operation_error!(query::CreateNonLinearAlgorithmIndex, err)
+                        })?;
 
-                encode_raw_result("CreateNonLinearAlgorithmIndex", &created)
+                encode_raw_result!(query::CreateNonLinearAlgorithmIndex, &created)
             }
             DbCommand::Set(payload) => {
-                let params = decode_payload::<query::Set>("Set", payload)?;
+                let params = decode_payload!(query::Set, payload)?;
                 let upsert = operations::set(&self.store_handler, params)
-                    .map_err(|err| operation_error("Set", err))?;
+                    .map_err(|err| operation_error!(query::Set, err))?;
 
-                encode_raw_result("Set", &upsert)
+                encode_raw_result!(query::Set, &upsert)
             }
             DbCommand::DelKey(payload) => {
-                let params = decode_payload::<query::DelKey>("DelKey", payload)?;
+                let params = decode_payload!(query::DelKey, payload)?;
                 let deleted = operations::del_key(&self.store_handler, params)
-                    .map_err(|err| operation_error("DelKey", err))?;
+                    .map_err(|err| operation_error!(query::DelKey, err))?;
 
-                encode_raw_result("DelKey", &deleted)
+                encode_raw_result!(query::DelKey, &deleted)
             }
             DbCommand::DelPred(payload) => {
-                let params = decode_payload::<query::DelPred>("DelPred", payload)?;
+                let params = decode_payload!(query::DelPred, payload)?;
                 let deleted = operations::del_pred(&self.store_handler, params)
-                    .map_err(|err| operation_error("DelPred", err))?;
+                    .map_err(|err| operation_error!(query::DelPred, err))?;
 
-                encode_raw_result("DelPred", &deleted)
+                encode_raw_result!(query::DelPred, &deleted)
             }
             DbCommand::DropPredIndex(payload) => {
-                let params = decode_payload::<query::DropPredIndex>("DropPredIndex", payload)?;
+                let params = decode_payload!(query::DropPredIndex, payload)?;
                 let deleted = operations::drop_pred_index(&self.store_handler, params)
-                    .map_err(|err| operation_error("DropPredIndex", err))?;
+                    .map_err(|err| operation_error!(query::DropPredIndex, err))?;
 
-                encode_raw_result("DropPredIndex", &deleted)
+                encode_raw_result!(query::DropPredIndex, &deleted)
             }
             DbCommand::DropNonLinearAlgorithmIndex(payload) => {
-                let params = decode_payload::<query::DropNonLinearAlgorithmIndex>(
-                    "DropNonLinearAlgorithmIndex",
-                    payload,
-                )?;
+                let params = decode_payload!(query::DropNonLinearAlgorithmIndex, payload)?;
                 let deleted =
                     operations::drop_non_linear_algorithm_index(&self.store_handler, params)
-                        .map_err(|err| operation_error("DropNonLinearAlgorithmIndex", err))?;
+                        .map_err(|err| operation_error!(query::DropNonLinearAlgorithmIndex, err))?;
 
-                encode_raw_result("DropNonLinearAlgorithmIndex", &deleted)
+                encode_raw_result!(query::DropNonLinearAlgorithmIndex, &deleted)
             }
             DbCommand::DropStore(payload) => {
-                let params = decode_payload::<query::DropStore>("DropStore", payload)?;
+                let params = decode_payload!(query::DropStore, payload)?;
                 let dropped = operations::drop_store(&self.store_handler, params)
-                    .map_err(|err| operation_error("DropStore", err))?;
+                    .map_err(|err| operation_error!(query::DropStore, err))?;
 
-                encode_raw_result("DropStore", &dropped)
+                encode_raw_result!(query::DropStore, &dropped)
             }
         }
     }

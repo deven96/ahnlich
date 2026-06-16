@@ -45,7 +45,7 @@ tonic.workspace = true
 prost.workspace = true
 openraft.workspace = true
 ahnlich-replication = { path = "../replication", version = "*" }
-bitcode = { version = "0.6", features = ["serde"] }
+bitcode.workspace = true
 
 [dev-dependencies]
 futures.workspace = true
