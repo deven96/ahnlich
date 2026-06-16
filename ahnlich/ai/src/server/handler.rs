@@ -1042,7 +1042,7 @@ impl AIProxyServer {
             match Persistence::load_snapshot_with_migration(
                 persist_location,
                 config.common.enable_mmap,
-                AIStoreHandler::load_and_migrate_snapshot,
+                AIStoreHandler::load_snapshot,
             ) {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");

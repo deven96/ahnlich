@@ -29,6 +29,7 @@ use std::sync::atomic::Ordering;
 use utils::fallible;
 use utils::parallel;
 use utils::persistence::AhnlichPersistenceUtils;
+use utils::persistence::VersionedPersistence;
 
 use super::ai::models::ModelDetails;
 use super::ai::models::ModelResponse;
@@ -52,7 +53,7 @@ type StoreValidateResponse = (
     Option<StdHashSet<MetadataValue>>,
 );
 impl AhnlichPersistenceUtils for AIStoreHandler {
-    type PersistenceObject = AIStores;
+    type PersistenceObject = super::versioned::VersionedAiStores;
 
     #[tracing::instrument(skip_all)]
     fn write_flag(&self) -> Arc<AtomicBool> {
@@ -61,7 +62,7 @@ impl AhnlichPersistenceUtils for AIStoreHandler {
 
     #[tracing::instrument(skip(self))]
     fn get_snapshot(&self) -> Self::PersistenceObject {
-        self.stores.clone()
+        super::versioned::VersionedAiStores::current(self.stores.clone())
     }
 }
 
@@ -90,30 +91,14 @@ impl AIStoreHandler {
         self.stores = stores_snapshot;
     }
 
-    /// Migrates a flat (pre-schema) AI persistence snapshot into the nested schema format.
-    /// Reads the old `HashMap<StoreName, AIStore>` JSON format and wraps it under `"public"`.
-    pub(crate) fn load_and_migrate_snapshot(
+    /// Loads and migrates a persistence snapshot using the versioned format.
+    pub(crate) fn load_snapshot(
         bytes: &[u8],
     ) -> Result<AIStores, utils::persistence::PersistenceTaskError> {
-        use std::collections::HashMap;
-
-        let flat_stores: HashMap<StoreName, AIStore> = serde_json::from_slice(bytes)
-            .map_err(utils::persistence::PersistenceTaskError::SerdeError)?;
-        let inner_stores = fallible::try_new_arc_hashmap()
-            .map_err(utils::persistence::PersistenceTaskError::MigrationError)?;
-        {
-            let guard = inner_stores.pin();
-            for (name, store) in flat_stores {
-                guard.insert(name, Arc::new(store));
-            }
-        }
-        let stores = fallible::try_new_arc_hashmap()
-            .map_err(utils::persistence::PersistenceTaskError::MigrationError)?;
-        {
-            let guard = stores.pin();
-            guard.insert(Schema::default(), inner_stores);
-        }
-        Ok(stores)
+        let versioned = super::versioned::VersionedAiStores::load_and_migrate(bytes)?;
+        versioned
+            .into_latest()
+            .map_err(|e| utils::persistence::PersistenceTaskError::MigrationError(e))
     }
 
     /// Returns the inner stores map for a given schema, creating it if it does not exist.
@@ -524,7 +509,7 @@ impl AIStoreHandler {
     pub(crate) fn drop_schema(&self, schema: &Schema) -> Result<usize, AIProxyError> {
         if schema.as_str() == Schema::DEFAULT_NAME {
             return Err(AIProxyError::InvalidArgument(
-                "Cannot drop the default 'public' schema".to_owned(),
+                format!("Cannot drop the default '{}' schema", Schema::DEFAULT_NAME),
             ));
         }
         let pinned = self.stores.pin();

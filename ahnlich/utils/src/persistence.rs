@@ -1,6 +1,7 @@
 use memmap2::Mmap;
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::Deserialize;
+use serde::Serialize;
 use std::fmt::Debug;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -19,6 +20,66 @@ use tokio::time::Duration;
 use tokio::time::sleep;
 
 const MMAP_THRESHOLD: u64 = 64 * 1024; // 64KB
+
+#[derive(Error, Debug)]
+pub enum VersionError {
+    #[error("Persistence file version {file_version} is too new for this ahnlich binary (max supported: {max_version}). Please upgrade ahnlich.")]
+    VersionTooNew {
+        file_version: u32,
+        max_version: u32,
+    },
+
+    #[error("Persistence file version {file_version} is too old (minimum supported: {min_version}). Migration path removed.")]
+    VersionTooOld {
+        file_version: u32,
+        min_version: u32,
+    },
+}
+
+/// Trait for versioned persistence types.
+pub trait VersionedPersistence: Sized + Serialize + for<'de> Deserialize<'de> {
+    /// The current version this binary writes.
+    const CURRENT_VERSION: u32;
+
+    /// The minimum version this binary can read.
+    const MIN_VERSION: u32;
+
+    /// Validate version compatibility from raw bytes.
+    fn validate_version(bytes: &[u8]) -> Result<(), VersionError> {
+        #[derive(Deserialize)]
+        struct VersionOnly {
+            #[serde(rename = "db_version")]
+            db_version: Option<String>,
+        }
+
+        let version = match serde_json::from_slice::<VersionOnly>(bytes) {
+            Ok(v) => v
+                .db_version
+                .and_then(|s| s.parse::<u32>().ok())
+                .unwrap_or(1),
+            Err(_) => 1,
+        };
+
+        if version > Self::CURRENT_VERSION {
+            return Err(VersionError::VersionTooNew {
+                file_version: version,
+                max_version: Self::CURRENT_VERSION,
+            });
+        }
+
+        if version < Self::MIN_VERSION {
+            return Err(VersionError::VersionTooOld {
+                file_version: version,
+                min_version: Self::MIN_VERSION,
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Load from bytes with automatic migration from older formats.
+    fn load_and_migrate(bytes: &[u8]) -> Result<Self, PersistenceTaskError>;
+}
 
 pub trait AhnlichPersistenceUtils {
     type PersistenceObject: Serialize + DeserializeOwned + Send + Sync + 'static + Debug;
@@ -42,6 +103,8 @@ pub enum PersistenceTaskError {
     SerdeError(#[from] serde_json::error::Error),
     #[error("MigrationError {0}")]
     MigrationError(String),
+    #[error("VersionError {0}")]
+    Version(#[from] VersionError),
 }
 
 #[derive(Debug, Clone)]

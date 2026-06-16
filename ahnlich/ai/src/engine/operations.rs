@@ -92,11 +92,12 @@ pub async fn create_store(
         predicates.push(AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY.to_string());
     }
 
-    let schema = params
-        .schema
-        .as_ref()
-        .map(|s| Schema::new(s.clone()))
-        .unwrap_or_default();
+    let schema = match &params.schema {
+        Some(s) => {
+            Schema::try_new(s.clone()).map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))?
+        }
+        None => Schema::default(),
+    };
 
     require_db_client(db_client)?
         .create_store(
@@ -363,11 +364,12 @@ pub async fn drop_store(
     let store_name = StoreName {
         value: params.store,
     };
-    let schema = params
-        .schema
-        .as_ref()
-        .map(|s| Schema::new(s.clone()))
-        .unwrap_or_default();
+    let schema = match &params.schema {
+        Some(s) => {
+            Schema::try_new(s.clone()).map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))?
+        }
+        None => Schema::default(),
+    };
 
     if store_handler.get(&store_name).is_ok()
         && let Some(db_client) = db_client
@@ -428,7 +430,11 @@ pub async fn list_stores(
     params: ListStores,
     parent_id: Option<String>,
 ) -> Result<StoreList, Status> {
-    let filter_schema = params.schema.as_ref().map(|s| Schema::new(s.clone()));
+    let filter_schema = params
+        .schema
+        .as_ref()
+        .filter(|s| !s.is_empty())
+        .map(|s| Schema::new(s.clone()));
     let mut stores: Vec<AiStoreInfo> = store_handler
         .list_stores(filter_schema.as_ref())
         .into_iter()
@@ -468,7 +474,8 @@ pub async fn drop_schema(
     params: AiDropSchema,
     _parent_id: Option<String>,
 ) -> Result<Del, Status> {
-    let schema = Schema::new(params.schema);
+    let schema = Schema::try_new(params.schema)
+        .map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))?;
 
     let dropped = store_handler.drop_schema(&schema)?;
     Ok(Del {

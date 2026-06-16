@@ -7,6 +7,9 @@ use std::fmt;
 /// on top of the flat store namespace. Every store belongs to exactly
 /// one schema. The schema `"public"` is the default used when none is
 /// specified, preserving backward compatibility with existing stores.
+///
+/// Schema names are case-sensitive, so `"Public"` and `"public"` are
+/// treated as distinct schemas.
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct Schema(String);
 
@@ -23,6 +26,16 @@ impl Schema {
         let name = name.into();
         assert!(!name.is_empty(), "Schema name cannot be empty");
         Self(name)
+    }
+
+    /// Creates a new `Schema` with the given name, returning an error if `name` is empty.
+    pub fn try_new(name: impl Into<String>) -> Result<Self, &'static str> {
+        let name = name.into();
+        if name.is_empty() {
+            Err("Schema name cannot be empty")
+        } else {
+            Ok(Self(name))
+        }
     }
 
     /// Returns the schema name as a string slice.

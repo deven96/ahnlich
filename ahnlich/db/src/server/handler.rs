@@ -889,7 +889,7 @@ impl Server {
                 match Persistence::load_snapshot_with_migration(
                     persist_location,
                     config.common.enable_mmap,
-                    StoreHandler::load_and_migrate_snapshot,
+                    StoreHandler::load_snapshot,
                 ) {
                     Err(e) => {
                         log::error!("Failed to load snapshot from persist location {e}");
