@@ -100,7 +100,7 @@ impl AIStoreHandler {
         let flat_stores: HashMap<StoreName, AIStore> = serde_json::from_slice(bytes)
             .map_err(utils::persistence::PersistenceTaskError::SerdeError)?;
         let inner_stores = fallible::try_new_arc_hashmap()
-            .map_err(|e| utils::persistence::PersistenceTaskError::MigrationError(e))?;
+            .map_err(utils::persistence::PersistenceTaskError::MigrationError)?;
         {
             let guard = inner_stores.pin();
             for (name, store) in flat_stores {
@@ -108,7 +108,7 @@ impl AIStoreHandler {
             }
         }
         let stores = fallible::try_new_arc_hashmap()
-            .map_err(|e| utils::persistence::PersistenceTaskError::MigrationError(e))?;
+            .map_err(utils::persistence::PersistenceTaskError::MigrationError)?;
         {
             let guard = stores.pin();
             guard.insert(Schema::default(), inner_stores);
