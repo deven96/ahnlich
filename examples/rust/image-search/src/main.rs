@@ -8,10 +8,10 @@ use ahnlich_client_rs::ai::AiClient;
 use ahnlich_types::{
     ai::query::{CreateStore, GetSimN, Set},
     algorithm::algorithms::Algorithm,
-    keyval::{store_input::Value, AiStoreEntry, StoreInput, StoreValue},
+    keyval::{AiStoreEntry, StoreInput, StoreValue, store_input::Value},
 };
 
-use ahnlich_types::metadata::{metadata_value::Value as MValue, MetadataValue};
+use ahnlich_types::metadata::{MetadataValue, metadata_value::Value as MValue};
 
 use clap::{Parser, Subcommand};
 use tokio;
@@ -68,6 +68,7 @@ async fn index_mode() {
         non_linear_indices: vec![],
         error_if_exists: false,
         store_original: true,
+        schema: None,
     };
 
     client
