@@ -1,5 +1,5 @@
-use crate::engine::store::Stores;
 use crate::engine::store::StoreHandler;
+use crate::engine::store::Stores;
 use ahnlich_types::schema::Schema;
 use serde_json::json;
 
@@ -46,7 +46,8 @@ fn test_db_migrate_from_committed_fixture() {
     );
 
     let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
-    let migrated: Stores = StoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
+    let migrated: Stores =
+        StoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
     let guard = migrated.guard();
     let inner = migrated
         .get(&Schema::default(), &guard)
@@ -83,8 +84,5 @@ fn test_db_load_v2_snapshot() {
     assert_eq!(inner.len(), 1, "Expected 1 DB store under public schema");
     let pinned = inner.pin();
     let (key, _) = pinned.iter().next().expect("No store in result");
-    assert_eq!(
-        key.value, "fixture_store",
-        "Store name preserved in V2"
-    );
+    assert_eq!(key.value, "fixture_store", "Store name preserved in V2");
 }

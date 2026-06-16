@@ -114,8 +114,5 @@ fn test_ai_load_v2_snapshot() {
     assert_eq!(inner.len(), 1, "Expected 1 AI store under public schema");
     let pinned = inner.pin();
     let (key, _) = pinned.iter().next().expect("No store in result");
-    assert_eq!(
-        key.value, "test_ai_store",
-        "Store name preserved in V2"
-    );
+    assert_eq!(key.value, "test_ai_store", "Store name preserved in V2");
 }
