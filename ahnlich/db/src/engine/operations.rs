@@ -201,8 +201,8 @@ pub fn drop_schema(
     store_handler: &StoreHandler,
     params: query::DropSchema,
 ) -> Result<u64, ServerError> {
-    let schema = Schema::try_new(params.schema)
-        .map_err(|e| ServerError::InvalidArgument(e.to_owned()))?;
+    let schema =
+        Schema::try_new(params.schema).map_err(|e| ServerError::InvalidArgument(e.to_owned()))?;
     let dropped = store_handler.drop_schema(&schema)?;
     Ok(dropped as u64)
 }

@@ -474,8 +474,8 @@ pub async fn drop_schema(
     params: AiDropSchema,
     _parent_id: Option<String>,
 ) -> Result<Del, Status> {
-    let schema = Schema::try_new(params.schema)
-        .map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))?;
+    let schema =
+        Schema::try_new(params.schema).map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))?;
 
     let dropped = store_handler.drop_schema(&schema)?;
     Ok(Del {

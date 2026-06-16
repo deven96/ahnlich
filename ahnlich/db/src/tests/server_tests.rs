@@ -4932,8 +4932,7 @@ fn test_migrate_old_flat_snapshot() {
     let old_format_bytes = serde_json::to_vec(&pinned).expect("Failed to serialize old format");
 
     // Now simulate loading this old-format snapshot via migration
-    let migrated =
-        StoreHandler::load_and_migrate_snapshot(&old_format_bytes).expect("Migration failed");
+    let migrated = StoreHandler::load_snapshot(&old_format_bytes).expect("Migration failed");
 
     // Verify: migrated stores should contain the store under "public"
     let migrated_guard = migrated.guard();
@@ -4987,8 +4986,7 @@ fn test_migrate_old_flat_snapshot_json_file() {
 
     // Now read it back and verify it migrates correctly
     let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
-    let migrated =
-        StoreHandler::load_and_migrate_snapshot(&read_bytes).expect("Migration of fixture failed");
+    let migrated = StoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
 
     let migrated_guard = migrated.guard();
     let migrated_inner = migrated
@@ -5017,8 +5015,7 @@ fn test_migrate_from_committed_db_fixture() {
 
     let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
 
-    let migrated =
-        StoreHandler::load_and_migrate_snapshot(&read_bytes).expect("Migration of fixture failed");
+    let migrated = StoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
 
     let migrated_guard = migrated.guard();
     let migrated_inner = migrated

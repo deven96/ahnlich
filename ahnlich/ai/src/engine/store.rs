@@ -98,7 +98,7 @@ impl AIStoreHandler {
         let versioned = super::versioned::VersionedAiStores::load_and_migrate(bytes)?;
         versioned
             .into_latest()
-            .map_err(|e| utils::persistence::PersistenceTaskError::MigrationError(e))
+            .map_err(utils::persistence::PersistenceTaskError::MigrationError)
     }
 
     /// Returns the inner stores map for a given schema, creating it if it does not exist.
@@ -508,9 +508,10 @@ impl AIStoreHandler {
     #[tracing::instrument(skip(self))]
     pub(crate) fn drop_schema(&self, schema: &Schema) -> Result<usize, AIProxyError> {
         if schema.as_str() == Schema::DEFAULT_NAME {
-            return Err(AIProxyError::InvalidArgument(
-                format!("Cannot drop the default '{}' schema", Schema::DEFAULT_NAME),
-            ));
+            return Err(AIProxyError::InvalidArgument(format!(
+                "Cannot drop the default '{}' schema",
+                Schema::DEFAULT_NAME
+            )));
         }
         let pinned = self.stores.pin();
         let removed = pinned.remove(schema);

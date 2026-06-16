@@ -1,7 +1,7 @@
 use memmap2::Mmap;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -23,17 +23,15 @@ const MMAP_THRESHOLD: u64 = 64 * 1024; // 64KB
 
 #[derive(Error, Debug)]
 pub enum VersionError {
-    #[error("Persistence file version {file_version} is too new for this ahnlich binary (max supported: {max_version}). Please upgrade ahnlich.")]
-    VersionTooNew {
-        file_version: u32,
-        max_version: u32,
-    },
+    #[error(
+        "Persistence file version {file_version} is too new for this ahnlich binary (max supported: {max_version}). Please upgrade ahnlich."
+    )]
+    VersionTooNew { file_version: u32, max_version: u32 },
 
-    #[error("Persistence file version {file_version} is too old (minimum supported: {min_version}). Migration path removed.")]
-    VersionTooOld {
-        file_version: u32,
-        min_version: u32,
-    },
+    #[error(
+        "Persistence file version {file_version} is too old (minimum supported: {min_version}). Migration path removed."
+    )]
+    VersionTooOld { file_version: u32, min_version: u32 },
 }
 
 /// Trait for versioned persistence types.

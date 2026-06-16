@@ -58,16 +58,16 @@ impl VersionedAiStores {
     }
 
     fn migrate_v1_to_v2(v1_stores: AiStoresV1) -> Result<AIStores, String> {
-        let inner_stores = fallible::try_new_arc_hashmap()
-            .map_err(|e| format!("Migration failed: {e}"))?;
+        let inner_stores =
+            fallible::try_new_arc_hashmap().map_err(|e| format!("Migration failed: {e}"))?;
         {
             let guard = inner_stores.pin();
             for (name, store) in v1_stores {
                 guard.insert(name, Arc::new(store));
             }
         }
-        let stores = fallible::try_new_arc_hashmap()
-            .map_err(|e| format!("Migration failed: {e}"))?;
+        let stores =
+            fallible::try_new_arc_hashmap().map_err(|e| format!("Migration failed: {e}"))?;
         {
             let guard = stores.pin();
             guard.insert(Schema::default(), inner_stores);

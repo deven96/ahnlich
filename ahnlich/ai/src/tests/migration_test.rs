@@ -17,8 +17,7 @@ fn test_ai_migrate_old_flat_snapshot_via_json() {
 
     let json_bytes = serde_json::to_vec(&old_format).expect("Failed to serialize old format");
 
-    let migrated: AIStores =
-        AIStoreHandler::load_and_migrate_snapshot(&json_bytes).expect("Migration failed");
+    let migrated: AIStores = AIStoreHandler::load_snapshot(&json_bytes).expect("Migration failed");
 
     let guard = migrated.guard();
     let inner = migrated
@@ -50,8 +49,8 @@ fn test_ai_migrate_old_flat_snapshot_via_file() {
 
     // Read back and migrate
     let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
-    let migrated: AIStores = AIStoreHandler::load_and_migrate_snapshot(&read_bytes)
-        .expect("Migration of fixture failed");
+    let migrated: AIStores =
+        AIStoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
 
     let guard = migrated.guard();
     let inner = migrated
@@ -77,7 +76,7 @@ fn test_ai_migrate_from_committed_fixture() {
     let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
 
     let migrated: AIStores =
-        AIStoreHandler::load_and_migrate_snapshot(&read_bytes).expect("Migration of fixture failed");
+        AIStoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
 
     let guard = migrated.guard();
     let inner = migrated
