@@ -90,3 +90,32 @@ fn test_ai_migrate_from_committed_fixture() {
         "Store name preserved after migration"
     );
 }
+
+#[test]
+fn test_ai_load_v2_snapshot() {
+    let fixture_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("tests")
+        .join("fixtures")
+        .join("ai_v2_snapshot.json");
+
+    assert!(
+        fixture_path.exists(),
+        "V2 fixture not found: {:?}",
+        fixture_path
+    );
+
+    let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
+    let loaded: AIStores = AIStoreHandler::load_snapshot(&read_bytes).expect("V2 load failed");
+    let guard = loaded.guard();
+    let inner = loaded
+        .get(&Schema::default(), &guard)
+        .expect("No public schema after V2 load");
+    assert_eq!(inner.len(), 1, "Expected 1 AI store under public schema");
+    let pinned = inner.pin();
+    let (key, _) = pinned.iter().next().expect("No store in result");
+    assert_eq!(
+        key.value, "test_ai_store",
+        "Store name preserved in V2"
+    );
+}
