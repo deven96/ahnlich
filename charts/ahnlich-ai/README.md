@@ -88,13 +88,17 @@ helm install my-ai charts/ahnlich-ai \
 | podAnnotations | object | `{}` | Annotations added to the pod template. |
 | podLabels | object | `{}` | Extra labels added to the pod template (not the selector). |
 | probes.liveness.failureThreshold | int | `3` | Liveness probe failure threshold. |
-| probes.liveness.initialDelaySeconds | int | `60` | Liveness probe initial delay (s); higher default to cover first-run model download. |
+| probes.liveness.initialDelaySeconds | int | `60` | Liveness probe initial delay (s). The startup probe gates first-run model download, so this only applies once the app has started responding. |
 | probes.liveness.periodSeconds | int | `30` | Liveness probe period (s). |
 | probes.liveness.timeoutSeconds | int | `5` | Liveness probe timeout (s). |
 | probes.readiness.failureThreshold | int | `3` | Readiness probe failure threshold. |
 | probes.readiness.initialDelaySeconds | int | `10` | Readiness probe initial delay (s). |
 | probes.readiness.periodSeconds | int | `10` | Readiness probe period (s). |
 | probes.readiness.timeoutSeconds | int | `5` | Readiness probe timeout (s). |
+| probes.startup.failureThreshold | int | `30` | Startup probe failure threshold. `periodSeconds` × `failureThreshold` is the longest a first-run model download may take before the pod is restarted (default 10s × 30 = 5 min). Liveness and readiness are suspended until the startup probe first succeeds, so the pod is never killed mid-download. Raise this for large models or slow networks. |
+| probes.startup.initialDelaySeconds | int | `10` | Startup probe initial delay (s). |
+| probes.startup.periodSeconds | int | `10` | Startup probe period (s). |
+| probes.startup.timeoutSeconds | int | `5` | Startup probe timeout (s). |
 | resources | object | `{}` | Container resource requests/limits. AI is heavier than DB; for GPU add `nvidia.com/gpu` to limits plus a matching nodeSelector. |
 | service.port | int | `1370` | `--port`, the public client-facing gRPC port. |
 | service.type | string | `"ClusterIP"` | Service type: `ClusterIP`, `LoadBalancer`, or `NodePort`. |

@@ -22,6 +22,14 @@ use std::{
     sync::atomic::{AtomicU8, Ordering},
 };
 
+/// Wrapper around papaya `HashMap::new()` that forces immediate allocation
+/// inside `catch_unwind` to surface initialization panics at construction time
+/// rather than on the first insert.
+fn new_hashmap<K: std::hash::Hash + Eq, V>() -> papaya::HashMap<K, V> {
+    std::panic::catch_unwind(|| papaya::HashMap::with_capacity(1))
+        .expect("papaya HashMap initialization failed (allocation or assertion)")
+}
+
 /// HNSW represents a Hierarchical Navigable Small World graph.
 ///
 /// The graph is organized into multiple layers. Each layer contains a set of node IDs,
@@ -135,8 +143,8 @@ impl<D: DistanceFn> HNSW<D> {
             maximum_connections: config.maximum_connections,
             maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
-            graph: papaya::HashMap::new(),
-            nodes: papaya::HashMap::new(),
+            graph: new_hashmap(),
+            nodes: new_hashmap(),
             enter_point: RwLock::new(SmallVec::new()),
             distance_algorithm,
             keep_pruned_connections: config.keep_pruned_connections,
@@ -752,8 +760,8 @@ impl Default for HNSW<LinearAlgorithm> {
             maximum_connections: config.maximum_connections,
             maximum_connections_zero: config.maximum_connections_zero,
             inv_log_m, // ln(1/M)
-            graph: papaya::HashMap::new(),
-            nodes: papaya::HashMap::new(),
+            graph: new_hashmap(),
+            nodes: new_hashmap(),
             enter_point: RwLock::new(SmallVec::new()),
             distance_algorithm,
 
@@ -795,7 +803,7 @@ impl From<&Node> for TempNode {
 
 impl From<TempNode> for Node {
     fn from(temp: TempNode) -> Self {
-        let neighbours = papaya::HashMap::new();
+        let neighbours = new_hashmap();
         {
             let guard = neighbours.pin();
             for (layer, node_ids) in temp.neighbours {
@@ -866,7 +874,7 @@ impl<D: DistanceFn> From<&HNSW<D>> for TempHNSW<D> {
 
 impl<D: DistanceFn> From<TempHNSW<D>> for HNSW<D> {
     fn from(temp: TempHNSW<D>) -> Self {
-        let graph = papaya::HashMap::new();
+        let graph = new_hashmap();
         {
             let guard = graph.pin();
             for (layer, ids) in temp.graph {
@@ -875,7 +883,7 @@ impl<D: DistanceFn> From<TempHNSW<D>> for HNSW<D> {
             }
         }
 
-        let nodes = papaya::HashMap::new();
+        let nodes = new_hashmap();
         {
             let guard = nodes.pin();
             for (id, temp_node) in temp.nodes {

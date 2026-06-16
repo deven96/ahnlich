@@ -25,6 +25,7 @@ use std::collections::HashSet as StdHashSet;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+use utils::fallible;
 use utils::parallel;
 use utils::persistence::AhnlichPersistenceUtils;
 
@@ -64,7 +65,10 @@ impl AhnlichPersistenceUtils for AIStoreHandler {
 impl AIStoreHandler {
     pub fn new(write_flag: Arc<AtomicBool>, supported_models: Vec<SupportedModels>) -> Self {
         Self {
-            stores: Arc::new(ConcurrentHashMap::new()),
+            stores: Arc::new(fallible::try_new_hashmap().unwrap_or_else(|e| {
+                eprintln!("Fatal: Failed to create AIStoreHandler stores: {e}");
+                std::process::abort();
+            })),
             write_flag,
             supported_models,
         }
