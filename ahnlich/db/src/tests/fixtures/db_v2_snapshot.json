@@ -4,13 +4,86 @@
     "public": {
       "fixture_store": {
         "dimension": 3,
-        "id_to_value": {},
+        "id_to_value": {
+          "15178017180037765037": [
+            [
+              0.2,
+              0.7,
+              0.3
+            ],
+            {
+              "value": {
+                "color": "str:green",
+                "name": "str:item2",
+                "category": "str:vegetable"
+              }
+            }
+          ],
+          "11596182387809500963": [
+            [
+              0.5,
+              0.1,
+              0.8
+            ],
+            {
+              "value": {
+                "name": "str:item1",
+                "category": "str:fruit",
+                "color": "str:red"
+              }
+            }
+          ]
+        },
         "predicate_indices": {
-          "inner": {},
-          "allowed_predicates": []
+          "inner": {
+            "color": {
+              "str:red": [
+                "11596182387809500963"
+              ],
+              "str:green": [
+                "15178017180037765037"
+              ]
+            },
+            "category": {
+              "str:vegetable": [
+                "15178017180037765037"
+              ],
+              "str:fruit": [
+                "11596182387809500963"
+              ]
+            }
+          },
+          "allowed_predicates": [
+            "color",
+            "category"
+          ]
         },
         "non_linear_indices": {
-          "algorithm_to_index": {}
+          "algorithm_to_index": {
+            "KdTree": {
+              "KDTree": {
+                "root": {
+                  "point": [
+                    0.5,
+                    0.1,
+                    0.8
+                  ],
+                  "left": {
+                    "point": [
+                      0.2,
+                      0.7,
+                      0.3
+                    ],
+                    "left": null,
+                    "right": null
+                  },
+                  "right": null
+                },
+                "dimension": 3,
+                "depth": 3
+              }
+            }
+          }
         },
         "cached_len": 0,
         "cached_size_bytes": 0,

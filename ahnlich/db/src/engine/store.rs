@@ -38,9 +38,23 @@ type StoreEntryWithSimilarity = (EmbeddingKey, Arc<StoreValue>, Similarity);
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
 pub(crate) struct StoreKeyId(u64);
+
+impl Serialize for StoreKeyId {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for StoreKeyId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        use serde::de;
+        let s = String::deserialize(deserializer)?;
+        let val = s.parse::<u64>().map_err(de::Error::custom)?;
+        Ok(StoreKeyId(val))
+    }
+}
 
 #[cfg(test)]
 impl From<u64> for StoreKeyId {
@@ -227,12 +241,6 @@ impl StoreHandler {
     fn get(&self, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
         let guard = self.stores.guard();
         if let Some(inner_stores) = self.stores.get(&self.default_schema, &guard) {
-            let inner_guard = inner_stores.guard();
-            if let Some(store) = inner_stores.get(store_name, &inner_guard) {
-                return Ok(store.clone());
-            }
-        }
-        for (_, inner_stores) in self.stores.iter(&guard) {
             let inner_guard = inner_stores.guard();
             if let Some(store) = inner_stores.get(store_name, &inner_guard) {
                 return Ok(store.clone());
@@ -465,8 +473,18 @@ impl StoreHandler {
 
     /// Matches GETSTORE - Returns detailed info for a single store by name
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get_store(&self, store_name: &StoreName) -> Result<StoreInfo, ServerError> {
-        let store = self.get(store_name)?;
+    pub(crate) fn get_store(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+    ) -> Result<StoreInfo, ServerError> {
+        let inner_stores = self
+            .get_schema(schema)
+            .ok_or_else(|| ServerError::StoreNotFound(store_name.clone()))?;
+        let guard = inner_stores.guard();
+        let store = inner_stores
+            .get(store_name, &guard)
+            .ok_or_else(|| ServerError::StoreNotFound(store_name.clone()))?;
         let (len, size_in_bytes) = if store.size_dirty.load(Ordering::Relaxed) {
             let len = store.len();
             let size = store.size();

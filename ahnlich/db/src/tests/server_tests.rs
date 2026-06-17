@@ -4702,15 +4702,17 @@ async fn test_schema_get_store_in_schema() {
     assert_eq!(store_info.dimension, 4);
     assert_eq!(store_info.predicate_indices, vec!["tag".to_string()]);
 
-    // GetStore without schema should also find it via fallback
-    let store_info = client
+    // GetStore without schema should NOT find it (defaults to public schema only)
+    let result = client
         .get_store(tonic::Request::new(db_query_types::GetStore {
             store: "SchemaGetStore".to_string(),
             schema: None,
         }))
-        .await
-        .expect("GetStore without schema failed")
-        .into_inner();
+        .await;
+    assert!(
+        result.is_err(),
+        "GetStore without schema should fail for stores in non-public schema"
+    );
 
     assert_eq!(store_info.name, "SchemaGetStore");
     assert_eq!(store_info.dimension, 4);

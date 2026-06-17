@@ -14,6 +14,7 @@ use ahnlich_replication::types::DbCommand;
 use ahnlich_types::db::pipeline::db_query::Query;
 use ahnlich_types::db::server::GetSimNEntry;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName};
+use ahnlich_types::schema::Schema;
 use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use ahnlich_types::shared::cluster::{ClusterInfoQuery, ClusterInfoResponse};
 use ahnlich_types::shared::info::ErrorResponse;
@@ -407,10 +408,19 @@ impl DbService for Server {
         request: tonic::Request<query::GetStore>,
     ) -> std::result::Result<tonic::Response<server::StoreInfo>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .map(Schema::try_new)
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
         let store_info = read_store_handler(&self.runtime, |store_handler| {
-            store_handler.get_store(&StoreName {
-                value: params.store,
-            })
+            store_handler.get_store(
+                &StoreName {
+                    value: params.store,
+                },
+                &schema,
+            )
         })?;
         Ok(tonic::Response::new(store_info))
     }

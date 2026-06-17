@@ -62,6 +62,113 @@ fn test_db_migrate_from_committed_fixture() {
 }
 
 #[test]
+#[ignore]
+fn generate_db_v2_fixture() {
+    use crate::engine::store::StoreHandler;
+    use ahnlich_types::algorithm::nonlinear::KdTreeConfig;
+    use ahnlich_types::algorithm::nonlinear::non_linear_index;
+    use ahnlich_types::keyval::{StoreKey, StoreName, StoreValue};
+    use ahnlich_types::metadata::{MetadataValue, metadata_value};
+    use ahnlich_types::schema::Schema;
+    use std::collections::{HashMap, HashSet};
+    use std::num::NonZeroUsize;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    use utils::persistence::AhnlichPersistenceUtils;
+
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let predicates = vec!["category".to_string(), "color".to_string()];
+    let mut non_linear_indices: HashSet<non_linear_index::Index> = HashSet::new();
+    non_linear_indices.insert(non_linear_index::Index::Kdtree(KdTreeConfig {}));
+    handler
+        .create_store(
+            StoreName {
+                value: "fixture_store".to_string(),
+            },
+            &Schema::default(),
+            NonZeroUsize::new(3).unwrap(),
+            predicates,
+            non_linear_indices,
+            false,
+        )
+        .unwrap();
+
+    // Insert entry 1
+    let key1 = StoreKey {
+        key: vec![0.5f32, 0.1, 0.8],
+    };
+    let mut meta1 = HashMap::new();
+    meta1.insert(
+        "name".to_string(),
+        MetadataValue {
+            value: Some(metadata_value::Value::RawString("item1".to_string())),
+        },
+    );
+    meta1.insert(
+        "category".to_string(),
+        MetadataValue {
+            value: Some(metadata_value::Value::RawString("fruit".to_string())),
+        },
+    );
+    meta1.insert(
+        "color".to_string(),
+        MetadataValue {
+            value: Some(metadata_value::Value::RawString("red".to_string())),
+        },
+    );
+    handler
+        .set_in_store(
+            &StoreName {
+                value: "fixture_store".to_string(),
+            },
+            vec![(key1, StoreValue { value: meta1 })],
+        )
+        .unwrap();
+
+    // Insert entry 2
+    let key2 = StoreKey {
+        key: vec![0.2f32, 0.7, 0.3],
+    };
+    let mut meta2 = HashMap::new();
+    meta2.insert(
+        "name".to_string(),
+        MetadataValue {
+            value: Some(metadata_value::Value::RawString("item2".to_string())),
+        },
+    );
+    meta2.insert(
+        "category".to_string(),
+        MetadataValue {
+            value: Some(metadata_value::Value::RawString("vegetable".to_string())),
+        },
+    );
+    meta2.insert(
+        "color".to_string(),
+        MetadataValue {
+            value: Some(metadata_value::Value::RawString("green".to_string())),
+        },
+    );
+    handler
+        .set_in_store(
+            &StoreName {
+                value: "fixture_store".to_string(),
+            },
+            vec![(key2, StoreValue { value: meta2 })],
+        )
+        .unwrap();
+
+    let snapshot = handler.get_snapshot();
+    let json = serde_json::to_string_pretty(&snapshot).expect("Serialization failed");
+    let fixture_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("tests")
+        .join("fixtures")
+        .join("db_v2_snapshot.json");
+    std::fs::write(&fixture_path, &json).expect("Failed to write fixture");
+    eprintln!("Generated fixture at: {:?}", fixture_path);
+}
+
+#[test]
 fn test_db_load_v2_snapshot() {
     let fixture_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("src")
@@ -83,6 +190,6 @@ fn test_db_load_v2_snapshot() {
         .expect("No public schema after V2 load");
     assert_eq!(inner.len(), 1, "Expected 1 DB store under public schema");
     let pinned = inner.pin();
-    let (key, _) = pinned.iter().next().expect("No store in result");
+    let (key, _store) = pinned.iter().next().expect("No store in result");
     assert_eq!(key.value, "fixture_store", "Store name preserved in V2");
 }
