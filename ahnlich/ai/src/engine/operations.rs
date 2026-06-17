@@ -398,8 +398,9 @@ pub async fn purge_stores(
     _params: PurgeStores,
     parent_id: Option<String>,
 ) -> Result<Del, Status> {
+    let schema = Schema::default();
     let store_names: Vec<StoreName> = store_handler
-        .list_stores(None)
+        .list_stores(Some(&schema))
         .into_iter()
         .map(|store| StoreName { value: store.name })
         .collect();
@@ -411,7 +412,7 @@ pub async fn purge_stores(
                     DbDropStore {
                         store: store_name.value.clone(),
                         error_if_not_exists: false,
-                        schema: None,
+                        schema: Some(schema.to_string()),
                     },
                     parent_id.clone(),
                 )
