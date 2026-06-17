@@ -13,7 +13,7 @@ pub const DB_CURRENT_VERSION: u32 = 2;
 pub const DB_MIN_VERSION: u32 = 1;
 
 type DbStoresV1 = HashMap<StoreName, Store>;
-type DbStoresV1Nested = HashMap<Schema, DbStoresV1>;
+type DbStoresV2 = HashMap<Schema, DbStoresV1>;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "db_version")]
@@ -35,7 +35,7 @@ impl VersionedPersistence for VersionedDbStores {
         match serde_json::from_slice::<VersionedDbStores>(bytes) {
             Ok(versioned) => Ok(versioned),
             Err(_) => {
-                if let Ok(nested) = serde_json::from_slice::<DbStoresV1Nested>(bytes) {
+                if let Ok(nested) = serde_json::from_slice::<DbStoresV2>(bytes) {
                     log::warn!("No db_version tag, detected schema-nested (V1n) format");
                     let stores = Self::migrate_v1n_to_v2(nested)
                         .map_err(PersistenceTaskError::MigrationError)?;
@@ -50,7 +50,7 @@ impl VersionedPersistence for VersionedDbStores {
 }
 
 impl VersionedDbStores {
-    fn migrate_v1n_to_v2(v1_nested: DbStoresV1Nested) -> Result<Stores, String> {
+    fn migrate_v1n_to_v2(v1_nested: DbStoresV2) -> Result<Stores, String> {
         let stores =
             fallible::try_new_arc_hashmap().map_err(|e| format!("Migration failed: {e}"))?;
         for (schema_name, inner) in v1_nested {
