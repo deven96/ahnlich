@@ -162,6 +162,7 @@ async fn test_single_node_clustered_pipeline_and_cluster_info() {
                     create_predicates: vec![],
                     non_linear_indices: vec![],
                     error_if_exists: true,
+                    schema: None,
                 })),
             },
             DbQuery {
@@ -171,7 +172,9 @@ async fn test_single_node_clustered_pipeline_and_cluster_info() {
                 })),
             },
             DbQuery {
-                query: Some(Query::ListStores(db_query_types::ListStores {})),
+                query: Some(Query::ListStores(db_query_types::ListStores {
+                    schema: None,
+                })),
             },
             DbQuery {
                 query: Some(Query::ClusterInfo(ClusterInfoQuery {})),
@@ -275,6 +278,7 @@ async fn test_three_node_cluster_replication_and_follower_list_stores_error() {
             create_predicates: vec![],
             non_linear_indices: vec![],
             error_if_exists: true,
+            schema: None,
         }))
         .await
         .expect("leader create_store should succeed");
@@ -306,7 +310,9 @@ async fn test_three_node_cluster_replication_and_follower_list_stores_error() {
     );
 
     let leader_store_list = leader_client
-        .list_stores(tonic::Request::new(db_query_types::ListStores {}))
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: None,
+        }))
         .await
         .expect("leader ListStores should succeed")
         .into_inner();
@@ -321,13 +327,17 @@ async fn test_three_node_cluster_replication_and_follower_list_stores_error() {
     assert!(replicated_store.predicate_indices.is_empty());
 
     let list_stores_error = follower_one_client
-        .list_stores(tonic::Request::new(db_query_types::ListStores {}))
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: None,
+        }))
         .await
         .expect_err("follower ListStores should error in M2");
     assert_eq!(list_stores_error.code(), Code::FailedPrecondition);
 
     let second_list_stores_error = follower_two_client
-        .list_stores(tonic::Request::new(db_query_types::ListStores {}))
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: None,
+        }))
         .await
         .expect_err("second follower ListStores should error in M2");
     assert_eq!(second_list_stores_error.code(), Code::FailedPrecondition);

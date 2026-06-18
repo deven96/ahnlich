@@ -542,6 +542,11 @@ export class AIStoreInfo extends Message<AIStoreInfo> {
    */
   dbInfo?: StoreInfo;
 
+  /**
+   * @generated from field: optional string schema = 8;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<AIStoreInfo>) {
     super();
     proto3.util.initPartial(data, this);
@@ -563,6 +568,7 @@ export class AIStoreInfo extends Message<AIStoreInfo> {
     },
     { no: 6, name: "dimension", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
     { no: 7, name: "db_info", kind: "message", T: StoreInfo, opt: true },
+    { no: 8, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AIStoreInfo {

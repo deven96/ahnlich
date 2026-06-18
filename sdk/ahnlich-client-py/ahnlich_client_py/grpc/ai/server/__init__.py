@@ -90,6 +90,7 @@ class AiStoreInfo(betterproto.Message):
     db_info: Optional["__db_server__.StoreInfo"] = betterproto.message_field(
         7, optional=True
     )
+    schema: Optional[str] = betterproto.string_field(8, optional=True)
 
 
 @dataclass(eq=False, repr=False)

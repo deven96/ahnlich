@@ -172,7 +172,10 @@ impl StateMachineHandler<DbTypeConfig> for DbStateMachine {
     }
 
     fn get_snapshot(&self) -> Self::Snapshot {
-        self.store_handler.get_snapshot()
+        self.store_handler
+            .get_snapshot()
+            .into_latest()
+            .expect("snapshot should be at latest version")
     }
 
     fn restore_snapshot(&mut self, snapshot: Self::Snapshot) {
@@ -211,6 +214,7 @@ mod tests {
             create_predicates: Vec::new(),
             non_linear_indices: Vec::new(),
             error_if_exists: true,
+            schema: None,
         }
     }
 
@@ -230,6 +234,7 @@ mod tests {
         query::DropStore {
             store: store.to_owned(),
             error_if_not_exists: true,
+            schema: None,
         }
     }
 
@@ -279,7 +284,10 @@ mod tests {
             }
         );
 
-        let stores = operations::list_stores(state_machine.store_handler());
+        let stores = operations::list_stores(
+            state_machine.store_handler(),
+            query::ListStores { schema: None },
+        );
         assert_eq!(stores.stores.len(), 1);
         assert_eq!(stores.stores[0].name, "products");
         assert_eq!(stores.stores[0].len, 1);
@@ -314,9 +322,12 @@ mod tests {
         let deleted_count = decode_count_response(response);
         assert_eq!(deleted_count, 1);
         assert!(
-            operations::list_stores(state_machine.store_handler())
-                .stores
-                .is_empty()
+            operations::list_stores(
+                state_machine.store_handler(),
+                query::ListStores { schema: None }
+            )
+            .stores
+            .is_empty()
         );
     }
 
@@ -330,9 +341,12 @@ mod tests {
 
         assert!(matches!(err, StorageError::IO { .. }));
         assert!(
-            operations::list_stores(state_machine.store_handler())
-                .stores
-                .is_empty()
+            operations::list_stores(
+                state_machine.store_handler(),
+                query::ListStores { schema: None }
+            )
+            .stores
+            .is_empty()
         );
         assert!(
             !state_machine

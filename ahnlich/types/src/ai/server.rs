@@ -75,6 +75,8 @@ pub struct AiStoreInfo {
     pub dimension: u32,
     #[prost(message, optional, tag = "7")]
     pub db_info: ::core::option::Option<super::super::db::server::StoreInfo>,
+    #[prost(string, optional, tag = "8")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct EmbeddingWithMetadata {

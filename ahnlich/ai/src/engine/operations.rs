@@ -398,21 +398,14 @@ pub async fn purge_stores(
     _params: PurgeStores,
     parent_id: Option<String>,
 ) -> Result<Del, Status> {
-    let schema = Schema::default();
-    let store_names: Vec<StoreName> = store_handler
-        .list_stores(Some(&schema))
-        .into_iter()
-        .map(|store| StoreName { value: store.name })
-        .collect();
-
     if let Some(db_client) = db_client {
-        for store_name in &store_names {
+        for (schema, store_name) in store_handler.all_store_names_by_schema() {
             db_client
                 .drop_store(
                     DbDropStore {
-                        store: store_name.value.clone(),
+                        store: store_name.value,
                         error_if_not_exists: false,
-                        schema: Some(schema.to_string()),
+                        schema: Some(schema),
                     },
                     parent_id.clone(),
                 )

@@ -64,6 +64,7 @@ fn create_store_query(store: &str, dimension: u32) -> query::CreateStore {
         create_predicates: Vec::new(),
         non_linear_indices: Vec::new(),
         error_if_exists: true,
+        schema: None,
     }
 }
 
@@ -83,6 +84,7 @@ fn drop_store_query(store: &str) -> query::DropStore {
     query::DropStore {
         store: store.to_owned(),
         error_if_not_exists: true,
+        schema: None,
     }
 }
 

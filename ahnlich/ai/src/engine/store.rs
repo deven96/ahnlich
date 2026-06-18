@@ -192,33 +192,43 @@ impl AIStoreHandler {
     }
 
     /// matches LISTSTORES - to return statistics of all stores
+    /// When schema is None, defaults to the public schema.
     #[tracing::instrument(skip(self))]
     pub(crate) fn list_stores(&self, schema: Option<&Schema>) -> StdHashSet<AiStoreInfo> {
         let guard = self.stores.guard();
         let mut result = StdHashSet::new();
-        let inner_stores_list: Vec<AIInnerStores> = if let Some(schema) = schema {
-            self.stores
-                .get(schema, &guard)
-                .map(|s| vec![s.clone()])
-                .unwrap_or_default()
-        } else {
-            self.stores.iter(&guard).map(|(_, v)| v.clone()).collect()
+        let schema = schema.unwrap_or(&self.default_schema);
+        let inner_stores = match self.stores.get(schema, &guard) {
+            Some(s) => s.clone(),
+            None => return result,
         };
-        for inner_stores in inner_stores_list {
-            let inner_guard = inner_stores.guard();
-            for (store_name, store) in inner_stores.iter(&inner_guard) {
-                let model: ModelDetails =
-                    SupportedModels::from(&store.index_model).to_model_details();
+        let inner_guard = inner_stores.guard();
+        for (store_name, store) in inner_stores.iter(&inner_guard) {
+            let model: ModelDetails = SupportedModels::from(&store.index_model).to_model_details();
 
-                result.insert(AiStoreInfo {
-                    name: store_name.value.clone(),
-                    query_model: store.query_model.into(),
-                    index_model: store.index_model.into(),
-                    embedding_size: model.embedding_size.get() as u64,
-                    predicate_indices: vec![],
-                    dimension: model.embedding_size.get() as u32,
-                    db_info: None,
-                });
+            result.insert(AiStoreInfo {
+                name: store_name.value.clone(),
+                query_model: store.query_model.into(),
+                index_model: store.index_model.into(),
+                embedding_size: model.embedding_size.get() as u64,
+                predicate_indices: vec![],
+                dimension: model.embedding_size.get() as u32,
+                db_info: None,
+                schema: Some(schema.to_string()),
+            });
+        }
+        result
+    }
+
+    /// Iterates all stores across every schema, returning (schema, store_name) pairs.
+    /// Used internally by purge_stores to clean up DB stores across all schemas.
+    pub(crate) fn all_store_names_by_schema(&self) -> Vec<(String, StoreName)> {
+        let guard = self.stores.guard();
+        let mut result = Vec::new();
+        for (schema, inner_stores) in self.stores.iter(&guard) {
+            let inner_guard = inner_stores.guard();
+            for store_name in inner_stores.keys(&inner_guard) {
+                result.push((schema.to_string(), store_name.clone()));
             }
         }
         result
@@ -226,7 +236,11 @@ impl AIStoreHandler {
 
     /// matches GETSTORE - to return info for a single store
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get_store(&self, store_name: &StoreName) -> Result<AiStoreInfo, AIProxyError> {
+    pub(crate) fn get_store(
+        &self,
+        store_name: &StoreName,
+        schema: Option<&str>,
+    ) -> Result<AiStoreInfo, AIProxyError> {
         let store = self.get(store_name)?;
         let model: ModelDetails = SupportedModels::from(&store.index_model).to_model_details();
         Ok(AiStoreInfo {
@@ -237,6 +251,7 @@ impl AIStoreHandler {
             predicate_indices: vec![],
             dimension: model.embedding_size.get() as u32,
             db_info: None,
+            schema: schema.map(|s| s.to_owned()),
         })
     }
 

@@ -7,16 +7,14 @@
 package query
 
 import (
-	reflect "reflect"
-	sync "sync"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-
 	algorithms "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms"
 	nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
 	keyval "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
 	predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
