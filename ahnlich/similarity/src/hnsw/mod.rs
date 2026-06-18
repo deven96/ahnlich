@@ -40,9 +40,6 @@ pub(crate) type NodeIdBuildHasher = std::hash::BuildHasherDefault<PassThroughHas
 pub(crate) type NodeIdHashSet = std::collections::HashSet<NodeId, NodeIdBuildHasher>;
 
 /// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
-///
-/// Uses string-based serde since this type is used as JSON map keys,
-/// which are always strings in JSON.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub struct LayerIndex(pub u16);
 
@@ -99,9 +96,6 @@ impl Ord for LayerIndex {
 }
 
 /// NodeId wraps a u64 hash of the node's embedding to uniquely identify a node across all layers.
-///
-/// Uses string-based serde for JSON compatibility since this type is used as JSON map keys,
-/// which are always strings in JSON. Accepts both numbers and strings during deserialization.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NodeId(pub u64);
 
