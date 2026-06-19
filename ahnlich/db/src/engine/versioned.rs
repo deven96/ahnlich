@@ -15,6 +15,21 @@ pub const DB_MIN_VERSION: u32 = 1;
 type DbStoresV1 = HashMap<StoreName, Store>;
 type DbStoresV2 = HashMap<Schema, DbStoresV1>;
 
+#[derive(Debug, Deserialize)]
+struct TaggedDbStoresV1 {
+    stores: DbStoresV1,
+}
+
+#[derive(Debug, Deserialize)]
+struct TaggedDbStoresV2 {
+    stores: DbStoresV2,
+}
+
+#[derive(Debug, Deserialize)]
+struct DbVersionTag {
+    db_version: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "db_version")]
 pub enum VersionedDbStores {
@@ -32,9 +47,20 @@ impl VersionedPersistence for VersionedDbStores {
     fn load_and_migrate(bytes: &[u8]) -> Result<Self, PersistenceTaskError> {
         Self::validate_version(bytes)?;
 
-        match serde_json::from_slice::<VersionedDbStores>(bytes) {
-            Ok(versioned) => Ok(versioned),
-            Err(_) => {
+        match Self::snapshot_version(bytes) {
+            Some(1) => {
+                let tagged: TaggedDbStoresV1 = serde_json::from_slice(bytes)?;
+                Ok(VersionedDbStores::V1 {
+                    stores: tagged.stores,
+                })
+            }
+            Some(2) => {
+                let tagged: TaggedDbStoresV2 = serde_json::from_slice(bytes)?;
+                let stores = Self::migrate_v1n_to_v2(tagged.stores)
+                    .map_err(PersistenceTaskError::MigrationError)?;
+                Ok(VersionedDbStores::V2 { stores })
+            }
+            _ => {
                 if let Ok(nested) = serde_json::from_slice::<DbStoresV2>(bytes) {
                     log::warn!("No db_version tag, detected schema-nested (V1n) format");
                     let stores = Self::migrate_v1n_to_v2(nested)
@@ -50,6 +76,13 @@ impl VersionedPersistence for VersionedDbStores {
 }
 
 impl VersionedDbStores {
+    fn snapshot_version(bytes: &[u8]) -> Option<u32> {
+        serde_json::from_slice::<DbVersionTag>(bytes)
+            .ok()
+            .and_then(|tag| tag.db_version)
+            .and_then(|version| version.parse::<u32>().ok())
+    }
+
     fn migrate_v1n_to_v2(v1_nested: DbStoresV2) -> Result<Stores, String> {
         let stores =
             fallible::try_new_arc_hashmap().map_err(|e| format!("Migration failed: {e}"))?;

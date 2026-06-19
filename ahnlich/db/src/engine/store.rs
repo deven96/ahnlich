@@ -38,23 +38,9 @@ type StoreEntryWithSimilarity = (EmbeddingKey, Arc<StoreValue>, Similarity);
 /// potentially larger
 /// We should be only able to generate a store key id from a 1D vector except during tests
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub(crate) struct StoreKeyId(u64);
-
-impl Serialize for StoreKeyId {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.collect_str(&self.0)
-    }
-}
-
-impl<'de> Deserialize<'de> for StoreKeyId {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        use serde::de;
-        let s = String::deserialize(deserializer)?;
-        let val = s.parse::<u64>().map_err(de::Error::custom)?;
-        Ok(StoreKeyId(val))
-    }
-}
 
 #[cfg(test)]
 impl From<u64> for StoreKeyId {

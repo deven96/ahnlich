@@ -364,10 +364,17 @@ impl DbService for Server {
 
         let dropped = match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command!(Some(cluster), query::DropSchema, params, DbCommand::DropSchema)
-                    .await?
+                submit_db_command!(
+                    Some(cluster),
+                    query::DropSchema,
+                    params,
+                    DbCommand::DropSchema
+                )
+                .await?
             }
-            StoreRuntime::Standalone(store_handler) => operations::drop_schema(store_handler, params)?,
+            StoreRuntime::Standalone(store_handler) => {
+                operations::drop_schema(store_handler, params)?
+            }
         };
 
         Ok(tonic::Response::new(server::Del {

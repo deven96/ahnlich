@@ -14,8 +14,8 @@
             {
               "value": {
                 "color": "str:green",
-                "name": "str:item2",
-                "category": "str:vegetable"
+                "category": "str:vegetable",
+                "name": "str:item2"
               }
             }
           ],
@@ -27,35 +27,35 @@
             ],
             {
               "value": {
+                "color": "str:red",
                 "name": "str:item1",
-                "category": "str:fruit",
-                "color": "str:red"
+                "category": "str:fruit"
               }
             }
           ]
         },
         "predicate_indices": {
           "inner": {
-            "color": {
-              "str:red": [
-                "11596182387809500963"
+            "category": {
+              "str:fruit": [
+                11596182387809500963
               ],
-              "str:green": [
-                "15178017180037765037"
+              "str:vegetable": [
+                15178017180037765037
               ]
             },
-            "category": {
-              "str:vegetable": [
-                "15178017180037765037"
+            "color": {
+              "str:green": [
+                15178017180037765037
               ],
-              "str:fruit": [
-                "11596182387809500963"
+              "str:red": [
+                11596182387809500963
               ]
             }
           },
           "allowed_predicates": [
-            "color",
-            "category"
+            "category",
+            "color"
           ]
         },
         "non_linear_indices": {

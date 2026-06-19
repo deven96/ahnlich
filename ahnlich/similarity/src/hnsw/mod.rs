@@ -41,46 +41,9 @@ pub(crate) type NodeIdHashSet = std::collections::HashSet<NodeId, NodeIdBuildHas
 
 /// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct LayerIndex(pub u16);
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for LayerIndex {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        if serializer.is_human_readable() {
-            serializer.collect_str(&self.0)
-        } else {
-            self.0.serialize(serializer)
-        }
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for LayerIndex {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        use serde::de;
-        if deserializer.is_human_readable() {
-            struct LayerIndexVisitor;
-            impl de::Visitor<'_> for LayerIndexVisitor {
-                type Value = LayerIndex;
-                fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                    f.write_str("a u16 number or string representation")
-                }
-                fn visit_u16<E: de::Error>(self, v: u16) -> Result<LayerIndex, E> {
-                    Ok(LayerIndex(v))
-                }
-                fn visit_u64<E: de::Error>(self, v: u64) -> Result<LayerIndex, E> {
-                    Ok(LayerIndex(v as u16))
-                }
-                fn visit_str<E: de::Error>(self, v: &str) -> Result<LayerIndex, E> {
-                    v.parse::<u16>().map(LayerIndex).map_err(de::Error::custom)
-                }
-            }
-            deserializer.deserialize_any(LayerIndexVisitor)
-        } else {
-            u16::deserialize(deserializer).map(LayerIndex)
-        }
-    }
-}
 
 impl Eq for LayerIndex {}
 
@@ -97,43 +60,9 @@ impl Ord for LayerIndex {
 
 /// NodeId wraps a u64 hash of the node's embedding to uniquely identify a node across all layers.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct NodeId(pub u64);
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for NodeId {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        if serializer.is_human_readable() {
-            serializer.collect_str(&self.0)
-        } else {
-            self.0.serialize(serializer)
-        }
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for NodeId {
-    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        use serde::de;
-        if deserializer.is_human_readable() {
-            struct NodeIdVisitor;
-            impl de::Visitor<'_> for NodeIdVisitor {
-                type Value = NodeId;
-                fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                    f.write_str("a u64 number or string representation")
-                }
-                fn visit_u64<E: de::Error>(self, v: u64) -> Result<NodeId, E> {
-                    Ok(NodeId(v))
-                }
-                fn visit_str<E: de::Error>(self, v: &str) -> Result<NodeId, E> {
-                    v.parse::<u64>().map(NodeId).map_err(de::Error::custom)
-                }
-            }
-            deserializer.deserialize_any(NodeIdVisitor)
-        } else {
-            u64::deserialize(deserializer).map(NodeId)
-        }
-    }
-}
 
 /// Node represents a single element in the HNSW graph.
 ///

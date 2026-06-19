@@ -1478,6 +1478,8 @@ async fn test_ai_proxy_del_pred() {
 
 #[tokio::test]
 async fn test_ai_proxy_test_with_persistence() {
+    let _ = std::fs::remove_file(&*PERSISTENCE_FILE);
+
     // Setup servers with persistence
     let server = Server::new(&CONFIG)
         .await
@@ -2349,14 +2351,15 @@ async fn test_ai_schema_create_store_in_schema() {
     assert_eq!(response.stores.len(), 1);
     assert_eq!(response.stores[0].name, "AiCustomStore");
 
-    // List stores with no filter - should return all 2 stores
+    // List stores with no filter - should default to public schema
     let message = ahnlich_types::ai::query::ListStores { schema: None };
     let response = client
         .list_stores(tonic::Request::new(message))
         .await
         .expect("Failed to list stores without filter")
         .into_inner();
-    assert_eq!(response.stores.len(), 2);
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "AiPublicStore");
 }
 
 /// Test: DropSchema through AI proxy

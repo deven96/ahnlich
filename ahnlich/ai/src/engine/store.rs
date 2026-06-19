@@ -191,7 +191,7 @@ impl AIStoreHandler {
         Ok(())
     }
 
-    /// matches LISTSTORES - to return statistics of all stores
+    /// matches LISTSTORES - to return statistics of all stores.
     /// When schema is None, defaults to the public schema.
     #[tracing::instrument(skip(self))]
     pub(crate) fn list_stores(&self, schema: Option<&Schema>) -> StdHashSet<AiStoreInfo> {
