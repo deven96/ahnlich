@@ -4649,7 +4649,7 @@ async fn test_schema_create_and_list_in_schema() {
     assert!(names.contains(&"CustomStore"));
     assert!(names.contains(&"CustomStore2"));
 
-    // List stores with no schema filter - should return all 3 stores
+    // List stores with no schema filter - should default to public schema
     let response = client
         .list_stores(tonic::Request::new(db_query_types::ListStores {
             schema: None,
@@ -4657,7 +4657,8 @@ async fn test_schema_create_and_list_in_schema() {
         .await
         .expect("ListStores without schema filter failed")
         .into_inner();
-    assert_eq!(response.stores.len(), 3);
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "PublicStore");
 }
 
 /// Test: GetStore with schema parameter

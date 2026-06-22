@@ -171,11 +171,15 @@ impl StateMachineHandler<DbTypeConfig> for DbStateMachine {
         }
     }
 
-    fn get_snapshot(&self) -> Self::Snapshot {
+    fn get_snapshot(&self) -> Result<Self::Snapshot, StorageError<u64>> {
         self.store_handler
             .get_snapshot()
             .into_latest()
-            .expect("snapshot should be at latest version")
+            .map_err(|err| StorageError::IO {
+                source: StorageIOError::read_state_machine(&std::io::Error::other(format!(
+                    "failed to convert DB snapshot to latest version: {err}",
+                ))),
+            })
     }
 
     fn restore_snapshot(&mut self, snapshot: Self::Snapshot) {

@@ -358,7 +358,15 @@ impl DbClient {
     }
 
     pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
-        let mut req = tonic::Request::new(ListStores { schema: None });
+        self.list_stores_with_schema(None, tracing_id).await
+    }
+
+    pub async fn list_stores_with_schema(
+        &self,
+        schema: Option<String>,
+        tracing_id: Option<String>,
+    ) -> Result<StoreList, AhnlichError> {
+        let mut req = tonic::Request::new(ListStores { schema });
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().list_stores(req).await?.into_inner())

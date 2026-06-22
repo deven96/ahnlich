@@ -82,7 +82,7 @@ pub trait StateMachineHandler<C: RaftTypeConfig>: Send + Sync + 'static {
     // storage, corruption, or invariant failures. In practice, such a failure
     // is treated as node-fatal by the surrounding replication runtime.
     fn apply(&mut self, data: &C::D) -> Result<C::R, StorageError<C::NodeId>>;
-    fn get_snapshot(&self) -> Self::Snapshot;
+    fn get_snapshot(&self) -> Result<Self::Snapshot, StorageError<C::NodeId>>;
     fn restore_snapshot(&mut self, snapshot: Self::Snapshot);
 }
 
@@ -187,7 +187,7 @@ where
     async fn build_snapshot(&mut self) -> Result<Snapshot<C>, StorageError<C::NodeId>> {
         let (snapshot, meta) = {
             let mut inner = self.lock_inner()?;
-            let snapshot = inner.handler.get_snapshot();
+            let snapshot = inner.handler.get_snapshot()?;
 
             inner.snapshot_idx += 1;
 
@@ -455,10 +455,10 @@ mod tests {
             Ok(format!("applied:{data}"))
         }
 
-        fn get_snapshot(&self) -> Self::Snapshot {
-            TestSnapshot {
+        fn get_snapshot(&self) -> Result<Self::Snapshot, StorageError<u64>> {
+            Ok(TestSnapshot {
                 applied: self.applied(),
-            }
+            })
         }
 
         fn restore_snapshot(&mut self, snapshot: Self::Snapshot) {

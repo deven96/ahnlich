@@ -436,7 +436,9 @@ pub async fn list_stores(
         .collect();
 
     if let Some(db_client) = db_client
-        && let Ok(db_store_list) = db_client.list_stores(parent_id).await
+        && let Ok(db_store_list) = db_client
+            .list_stores_with_schema(params.schema.clone(), parent_id)
+            .await
     {
         let db_map: HashMap<String, ahnlich_types::db::server::StoreInfo> = db_store_list
             .stores

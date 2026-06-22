@@ -405,54 +405,51 @@ impl StoreHandler {
         Ok(upsert)
     }
 
-    /// matches LISTSTORES - to return statistics of all stores
+    /// matches LISTSTORES - to return statistics of stores in a schema.
+    /// When schema is None, defaults to the public schema.
     #[tracing::instrument(skip(self))]
     pub(crate) fn list_stores(&self, schema: Option<&Schema>) -> StdHashSet<StoreInfo> {
         let guard = self.stores.guard();
         let mut result = StdHashSet::new();
-        let schemas: Vec<InnerStores> = if let Some(schema) = schema {
-            self.stores
-                .get(schema, &guard)
-                .map(|s| vec![s.clone()])
-                .unwrap_or_default()
-        } else {
-            self.stores.iter(&guard).map(|(_, v)| v.clone()).collect()
+        let schema = schema.unwrap_or(&self.default_schema);
+        let inner_stores = match self.stores.get(schema, &guard) {
+            Some(stores) => stores.clone(),
+            None => return result,
         };
-        for inner_stores in schemas {
-            let inner_guard = inner_stores.guard();
-            for (store_name, store) in inner_stores.iter(&inner_guard) {
-                // Lazy initialization: if size is dirty (e.g., newly created store),
-                // calculate it immediately. Background task will handle future updates.
-                let (len, size_in_bytes) = if store.size_dirty.load(Ordering::Relaxed) {
-                    let len = store.len();
-                    let size = store.size();
-                    store.cached_len.store(len as u64, Ordering::Relaxed);
-                    store
-                        .cached_size_bytes
-                        .store(size as u64, Ordering::Relaxed);
-                    store.size_dirty.store(false, Ordering::Relaxed);
-                    (len as u64, size as u64)
-                } else {
-                    (
-                        store.cached_len.load(Ordering::Relaxed),
-                        store.cached_size_bytes.load(Ordering::Relaxed),
-                    )
-                };
 
-                result.insert(StoreInfo {
-                    name: store_name.clone().value,
-                    len,
-                    size_in_bytes,
-                    non_linear_indices: store.non_linear_indices.non_linear_index_configs(),
-                    predicate_indices: store
-                        .predicate_indices
-                        .current_predicates()
-                        .into_iter()
-                        .sorted()
-                        .collect(),
-                    dimension: store.dimension.get() as u32,
-                });
-            }
+        let inner_guard = inner_stores.guard();
+        for (store_name, store) in inner_stores.iter(&inner_guard) {
+            // Lazy initialization: if size is dirty (e.g., newly created store),
+            // calculate it immediately. Background task will handle future updates.
+            let (len, size_in_bytes) = if store.size_dirty.load(Ordering::Relaxed) {
+                let len = store.len();
+                let size = store.size();
+                store.cached_len.store(len as u64, Ordering::Relaxed);
+                store
+                    .cached_size_bytes
+                    .store(size as u64, Ordering::Relaxed);
+                store.size_dirty.store(false, Ordering::Relaxed);
+                (len as u64, size as u64)
+            } else {
+                (
+                    store.cached_len.load(Ordering::Relaxed),
+                    store.cached_size_bytes.load(Ordering::Relaxed),
+                )
+            };
+
+            result.insert(StoreInfo {
+                name: store_name.clone().value,
+                len,
+                size_in_bytes,
+                non_linear_indices: store.non_linear_indices.non_linear_index_configs(),
+                predicate_indices: store
+                    .predicate_indices
+                    .current_predicates()
+                    .into_iter()
+                    .sorted()
+                    .collect(),
+                dimension: store.dimension.get() as u32,
+            });
         }
         result
     }
