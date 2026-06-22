@@ -4,11 +4,13 @@ on:
   push:
     branches: ["main"]
     paths:
+      - .github/workflows/test.yml
       - ahnlich/**
       - sdk/**
   pull_request:
     branches: ["main"]
     paths:
+      - .github/workflows/test.yml
       - ahnlich/**
       - sdk/**
 
