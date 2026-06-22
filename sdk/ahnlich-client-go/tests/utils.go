@@ -12,8 +12,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -31,6 +33,17 @@ import (
 const (
 	MaxRetries    = 120
 	RetryInterval = 1 * time.Second
+)
+
+type buildResult struct {
+	once sync.Once
+	path string
+	err  error
+}
+
+var (
+	buildsMu sync.Mutex
+	builds   = make(map[string]*buildResult)
 )
 
 // AhnlichProcess ... A struct to hold the Ahnlich process information
@@ -229,12 +242,12 @@ func (args *ExecFlag) parseArgs() ([]string, error) {
 	if args.ExecType != "" {
 		validTypes := []string{"run", "build"}
 		if !contains(validTypes, args.ExecType) {
-			args.Flags = append(args.Flags, "run")
+			args.Flags = append(args.Flags, "build")
 		} else {
 			args.Flags = append(args.Flags, args.ExecType)
 		}
 	} else {
-		args.Flags = append(args.Flags, "run")
+		args.Flags = append(args.Flags, "build")
 	}
 	args.ExecType = args.Flags[0]
 	return args.Flags, nil
@@ -250,18 +263,61 @@ func execute(t *testing.T, execType string, binType string, args ...string) (*ex
 	serverPath := filepath.Join(rootDir, "..", "..", "ahnlich")
 
 	t.Log("execute() args", "rootDir", rootDir, "execType", execType, "args", args)
-	lookPath := "cargo"
-	commands := []string{execType}
-	if execType == "run" {
-		commands = append(commands, "--bin", binType, "run")
+	if execType == "build" {
+		binaryPath, err := ensureBinaryBuilt(t, serverPath, binType)
+		if err != nil {
+			return nil, err
+		}
+		cmd := exec.Command(binaryPath, args...)
+		cmd.Dir = serverPath
+		return cmd, nil
 	}
-	if _, err := exec.LookPath(lookPath); err != nil {
+
+	if _, err := exec.LookPath("cargo"); err != nil {
 		return nil, err
 	}
-	commands = append(commands, args...)
-	cmd := exec.Command(lookPath, commands...)
+	commands := append([]string{"run", "--bin", binType, "run"}, args...)
+	cmd := exec.Command("cargo", commands...)
 	cmd.Dir = serverPath
 	return cmd, nil
+}
+
+func ensureBinaryBuilt(t *testing.T, serverPath string, binType string) (string, error) {
+	build := getBuildResult(serverPath, binType)
+	build.once.Do(func() {
+		buildCmd := exec.Command("cargo", "build", "--bin", binType)
+		buildCmd.Dir = serverPath
+		buildOutput, err := buildCmd.CombinedOutput()
+		if len(buildOutput) > 0 {
+			t.Logf("execute() cargo build output for %s:\n%s", binType, string(buildOutput))
+		}
+		if err != nil {
+			build.err = fmt.Errorf("cargo build --bin %s failed: %w", binType, err)
+			return
+		}
+
+		binaryName := binType
+		if runtime.GOOS == "windows" {
+			binaryName += ".exe"
+		}
+		build.path = filepath.Join(serverPath, "target", "debug", binaryName)
+		if _, err := os.Stat(build.path); err != nil {
+			build.err = err
+		}
+	})
+	return build.path, build.err
+}
+
+func getBuildResult(serverPath string, binType string) *buildResult {
+	key := serverPath + string(os.PathListSeparator) + binType
+	buildsMu.Lock()
+	defer buildsMu.Unlock()
+	if build, ok := builds[key]; ok {
+		return build
+	}
+	build := &buildResult{}
+	builds[key] = build
+	return build
 }
 
 // RunAhnlich starts the Ahnlich process
@@ -374,7 +430,7 @@ func RunAhnlich(t *testing.T, args ...OptionalFlags) *AhnlichProcess {
 			break
 		}
 		t.Log("Waiting for the ahnlich to start")
-		require.Truef(t, i < MaxRetries-1, "ahnlich did not start within the expected time %v", RetryInterval*time.Duration(MaxRetries), outBuf.String(), errBuf.String())
+		require.Truef(t, i < MaxRetries-1, "ahnlich did not start within the expected time %v\nstdout:\n%s\nstderr:\n%s", RetryInterval*time.Duration(MaxRetries), outBuf.String(), errBuf.String())
 		time.Sleep(RetryInterval)
 	}
 
