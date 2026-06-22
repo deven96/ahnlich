@@ -271,6 +271,7 @@ func execute(t *testing.T, execType string, binType string, args ...string) (*ex
 		commands := append([]string{"run"}, args...)
 		cmd := exec.Command(binaryPath, commands...)
 		cmd.Dir = serverPath
+		setRuntimeLibraryPath(cmd, serverPath)
 		return cmd, nil
 	}
 
@@ -319,6 +320,26 @@ func getBuildResult(serverPath string, binType string) *buildResult {
 	build := &buildResult{}
 	builds[key] = build
 	return build
+}
+
+func setRuntimeLibraryPath(cmd *exec.Cmd, serverPath string) {
+	envName := "LD_LIBRARY_PATH"
+	switch runtime.GOOS {
+	case "darwin":
+		envName = "DYLD_LIBRARY_PATH"
+	case "windows":
+		envName = "PATH"
+	}
+
+	libraryPaths := []string{
+		filepath.Join(serverPath, "target", "debug"),
+		filepath.Join(serverPath, "target", "debug", "deps"),
+	}
+	value := strings.Join(libraryPaths, string(os.PathListSeparator))
+	if existing := os.Getenv(envName); existing != "" {
+		value += string(os.PathListSeparator) + existing
+	}
+	cmd.Env = append(os.Environ(), envName+"="+value)
 }
 
 // RunAhnlich starts the Ahnlich process
