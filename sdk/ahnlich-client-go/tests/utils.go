@@ -268,7 +268,8 @@ func execute(t *testing.T, execType string, binType string, args ...string) (*ex
 		if err != nil {
 			return nil, err
 		}
-		cmd := exec.Command(binaryPath, args...)
+		commands := append([]string{"run"}, args...)
+		cmd := exec.Command(binaryPath, commands...)
 		cmd.Dir = serverPath
 		return cmd, nil
 	}
