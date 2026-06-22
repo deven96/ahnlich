@@ -175,7 +175,7 @@ generate:
 help-bins:
 	@echo "→ ahnlich build"
 	pushd "$(AHNLICH_DIR)" && \
-	cargo build && \
+	CGO_ENABLED=0 cargo build --bin ahnlich-db --bin ahnlich-ai && \
 	echo "→ ahnlich build complete" && \
 	popd
 	@echo
