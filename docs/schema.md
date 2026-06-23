@@ -1,79 +1,147 @@
-# Multi-Schema
+# Multi-Schema Support
 
-Stores in ahnlich can be organized into named schemas, providing lightweight namespacing. Every store belongs to exactly one schema.
+Ahnlich stores can be grouped into named schemas. A schema is a lightweight namespace: store names only need to be unique within the same schema, and each store belongs to exactly one schema.
 
 ## Default Schema
 
-When a store is created without specifying a schema, it is placed into the `"public"` schema. The `"public"` schema is always available and cannot be dropped.
+`public` is the default schema. When a request omits the optional `schema` field, the server resolves the operation against `public`.
+
+The `public` schema is always available and cannot be dropped.
+
+## Schema Names
+
+Schema names use the same CLI-friendly identifier shape as store names: letters, numbers, `_`, and `-`.
+
+Examples:
+
+```text
+analytics
+tenant_1
+customer-eu
+```
 
 ## Operations
 
 ### CreateStore
 
-Takes an optional `schema` field. If omitted (or set to `None`), the store is created in the `"public"` schema:
+`CreateStore` accepts an optional `schema` field.
 
-```
-CREATESTORE my_store DIMENSION 2 PREDICATES (author, country)
+If `schema` is omitted, the store is created in `public`.
+
+DB DSL:
+
+```text
+CREATESTORE articles DIMENSION 384 PREDICATES (author, category)
+CREATESTORE articles DIMENSION 384 PREDICATES (author, category) SCHEMA analytics
 ```
 
-To create in a custom schema, use the `SCHEMA` keyword:
+AI DSL:
 
-```
-CREATESTORE my_store DIMENSION 2 PREDICATES (author, country) SCHEMA my_schema
+```text
+CREATESTORE images QUERYMODEL clip-vit-b32-image INDEXMODEL clip-vit-b32-image STOREORIGINAL
+CREATESTORE images QUERYMODEL clip-vit-b32-image INDEXMODEL clip-vit-b32-image STOREORIGINAL SCHEMA media
 ```
 
 ### GetStore
 
-Takes an optional `schema` field:
+`GetStore` accepts an optional `schema` field.
 
-- If `schema` is provided, the store is looked up within that schema only.
-- If `schema` is `None`, the server searches all schemas in an arbitrary order and returns the first match. An exact-match lookup (where the store is in `"public"` and `schema` is `None`) takes priority.
+If `schema` is omitted, the lookup is performed in `public`.
+
+```text
+GETSTORE articles
+GETSTORE articles SCHEMA analytics
+```
 
 ### DropStore
 
-Takes an optional `schema` field. If `None`, the search logic follows the same rules as GetStore.
+`DropStore` accepts an optional `schema` field.
+
+If `schema` is omitted, the store is dropped from `public`.
+
+```text
+DROPSTORE articles
+DROPSTORE articles IF EXISTS SCHEMA analytics
+```
 
 ### ListStores
 
-Takes an optional `schema` field:
+`ListStores` accepts an optional `schema` field.
 
-- If `schema` is provided, only stores within that schema are returned.
-- If `schema` is `None`, all stores across all schemas are returned.
+If `schema` is omitted, only stores in `public` are returned. Omitting the schema does not list every store in every schema.
 
-### DropSchema *(new RPC)*
+```text
+LISTSTORES
+LISTSTORES SCHEMA analytics
+```
 
-Drops all stores within a schema and removes the schema itself.
+### DropSchema
 
-- Dropping `"public"` returns an `InvalidArgument` error.
-- Dropping a non-existent schema returns an error.
-- Dropping a schema cascades: all stores in that schema are removed from both the AI proxy and the underlying DB.
+`DropSchema` removes a non-public schema and all stores inside it.
+
+```text
+DROPSCHEMA analytics
+```
+
+Rules:
+
+- Dropping `public` returns an `InvalidArgument` error.
+- Dropping a schema that does not exist returns an error.
+- Dropping a schema cascades through the service that receives the request. For AI, the proxy now drops the schema in the backing DB first, then removes the local AI stores for that schema.
 
 ## Protobuf
 
-The `schema` field and `DropSchema` RPC were added to all relevant messages in the protobuf definitions under `protos/`:
+The schema feature is exposed in the protobuf definitions under `protos/`.
 
-**`protos/db/query.proto`** and **`protos/ai/query.proto`**:
-- `CreateStore`, `GetStore`, `DropStore`, `ListStores` — each got an optional `string schema = ...` field (the field number varies by message).
-- `DropSchema` — new message with a `string schema` field.
+`protos/db/query.proto` and `protos/ai/query.proto`:
 
-**`protos/services/db_service.proto`** and **`protos/services/ai_service.proto`**:
-- New `rpc DropSchema(DropSchema) returns (DropSchemaResponse);` on both services.
+- `CreateStore`, `GetStore`, `DropStore`, and `ListStores` include an optional `string schema` field.
+- `DropSchema` includes a required `string schema` field.
+
+`protos/db/pipeline.proto` and `protos/ai/pipeline.proto`:
+
+- Pipelines include `DropSchema` query variants.
+
+`protos/services/db_service.proto` and `protos/services/ai_service.proto`:
+
+- Both services expose `rpc DropSchema(...)`.
+
+## CLI DSL
+
+The CLI DSL supports schema parsing for both DB and AI commands:
+
+```text
+CREATESTORE ... SCHEMA <schema_name>
+GETSTORE <store_name> SCHEMA <schema_name>
+DROPSTORE <store_name> IF EXISTS SCHEMA <schema_name>
+LISTSTORES SCHEMA <schema_name>
+DROPSCHEMA <schema_name>
+```
+
+The `SCHEMA` keyword is optional for create/get/drop/list store commands. If it is omitted, the command targets `public`.
+
+`DROPSCHEMA` always requires a schema name.
 
 ## Architecture
 
-- The DB engine stores stores as `HashMap<Schema, HashMap<StoreName, Store>>` — the schema is the outer key.
-- The AI proxy mirrors this structure: `ConcurrentHashMap<Schema, ConcurrentHashMap<StoreName, AIStore>>`.
-- When `DropSchema` is called on the AI proxy, it cascades to the DB by both dropping the schema remotely and clearing all stores in that schema locally.
-- `purge_stores` (DestroyDatabase) clears all schemas and all stores across all schemas.
+The DB engine stores data as a schema map containing per-schema store maps:
 
-## CLI
-
-The CLI DSL supports the `SCHEMA` keyword in `CREATESTORE`, `GETSTORE`, `DROPSTORE`, and `LISTSTORES`. It also supports `DROPSCHEMA` as a new top-level command:
-
-```
-DROPSCHEMA my_schema
+```text
+HashMap<Schema, HashMap<StoreName, Store>>
 ```
 
-## SDK
+The AI proxy mirrors the same shape for AI stores:
 
-All SDKs (Go, Python, Node.js) have regenerated protobuf stubs that include the `schema` field and `DropSchema` RPC. The hand-written client wrappers have not been modified — usage requires constructing the protobuf messages directly or using the generated service stubs.
+```text
+ConcurrentHashMap<Schema, ConcurrentHashMap<StoreName, AIStore>>
+```
+
+Schema-aware operations resolve the schema before looking up or mutating the store. For public-default operations, that resolved schema is `public`.
+
+`PurgeStores` still clears all schemas and all stores.
+
+## SDKs
+
+The generated Go, Python, Node.js, and Rust protobuf stubs include the schema fields and `DropSchema` RPC.
+
+The Rust DB client has schema-aware helpers for list/get store operations that are used by the AI proxy when enriching AI store metadata. Other hand-written SDK convenience wrappers may still require constructing the generated protobuf request directly when using schema-specific calls.

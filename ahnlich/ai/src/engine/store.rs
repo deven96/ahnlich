@@ -241,7 +241,18 @@ impl AIStoreHandler {
         store_name: &StoreName,
         schema: Option<&str>,
     ) -> Result<AiStoreInfo, AIProxyError> {
-        let store = self.get(store_name)?;
+        let schema = schema
+            .map(|s| Schema::try_new(s.to_owned()))
+            .transpose()
+            .map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))?
+            .unwrap_or_else(|| self.default_schema.clone());
+        let inner_stores = self
+            .get_schema(&schema)
+            .ok_or_else(|| AIProxyError::StoreNotFound(store_name.clone()))?;
+        let guard = inner_stores.guard();
+        let store = inner_stores
+            .get(store_name, &guard)
+            .ok_or_else(|| AIProxyError::StoreNotFound(store_name.clone()))?;
         let model: ModelDetails = SupportedModels::from(&store.index_model).to_model_details();
         Ok(AiStoreInfo {
             name: store_name.value.clone(),
@@ -251,7 +262,7 @@ impl AIStoreHandler {
             predicate_indices: vec![],
             dimension: model.embedding_size.get() as u32,
             db_info: None,
-            schema: schema.map(|s| s.to_owned()),
+            schema: Some(schema.to_string()),
         })
     }
 

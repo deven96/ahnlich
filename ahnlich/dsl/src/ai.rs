@@ -8,6 +8,7 @@ use crate::{
     shared::{
         parse_create_non_linear_algorithm_index, parse_create_pred_index,
         parse_drop_non_linear_algorithm_index, parse_drop_pred_index, parse_drop_store,
+        parse_schema_clause,
     },
 };
 use ahnlich_types::ai::{
@@ -17,8 +18,8 @@ use ahnlich_types::ai::{
     preprocess::PreprocessAction,
     query::{
         CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
-        DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetPred, GetSimN, GetStore,
-        InfoServer, ListStores, Ping, PurgeStores, Set,
+        DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetPred, GetSimN,
+        GetStore, InfoServer, ListStores, Ping, PurgeStores, Set,
     },
 };
 use pest::Parser;
@@ -63,6 +64,7 @@ pub const COMMANDS: &[&str] = &[
     "liststores",
     "infoserver",
     "purgestores",
+    "dropschema",
     "dropstore",                     // store_name if exists can be handled dynamically
     "createpredindex",               // (key_1, key_2) in store_name
     "droppredindex",                 // if exists (key1, key2) in store_name
@@ -85,7 +87,14 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
         let end_pos = statement.as_span().end_pos().pos();
         let query = match statement.as_rule() {
             Rule::ping => AiQuery::Ping(Ping {}),
-            Rule::list_stores => AiQuery::ListStores(ListStores { schema: None }),
+            Rule::list_stores => {
+                let schema = statement
+                    .into_inner()
+                    .next()
+                    .map(parse_schema_clause)
+                    .transpose()?;
+                AiQuery::ListStores(ListStores { schema })
+            }
             Rule::info_server => AiQuery::InfoServer(InfoServer {}),
             Rule::purge_stores => AiQuery::PurgeStores(PurgeStores {}),
             Rule::ai_set_in_store => {
@@ -183,7 +192,19 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     && next_pair.as_rule() == Rule::store_original
                 {
                     store_original = true;
+                    inner_pairs.next();
                 }
+                let schema = if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::schema_clause
+                {
+                    Some(parse_schema_clause(
+                        inner_pairs
+                            .next()
+                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?,
+                    )?)
+                } else {
+                    None
+                };
                 AiQuery::CreateStore(CreateStore {
                     store,
                     query_model,
@@ -192,7 +213,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     non_linear_indices,
                     error_if_exists,
                     store_original,
-                    schema: None,
+                    schema,
                 })
             }
             Rule::ai_get_sim_n => {
@@ -320,11 +341,11 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                 })
             }
             Rule::drop_store => {
-                let (store, error_if_not_exists) = parse_drop_store(statement)?;
+                let (store, error_if_not_exists, schema) = parse_drop_store(statement)?;
                 AiQuery::DropStore(DropStore {
                     store,
                     error_if_not_exists,
-                    schema: None,
+                    schema,
                 })
             }
             Rule::get_store => {
@@ -334,10 +355,17 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
-                AiQuery::GetStore(GetStore {
-                    store,
-                    schema: None,
-                })
+                let schema = inner_pairs.next().map(parse_schema_clause).transpose()?;
+                AiQuery::GetStore(GetStore { store, schema })
+            }
+            Rule::drop_schema => {
+                let mut inner_pairs = statement.into_inner();
+                let schema = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+                AiQuery::DropSchema(DropSchema { schema })
             }
             _ => return Err(DslError::UnexpectedSpan((start_pos, end_pos))),
         };

@@ -466,12 +466,16 @@ pub async fn list_stores(
 
 pub async fn drop_schema(
     store_handler: &AIStoreHandler,
-    _db_client: Option<Arc<DbClient>>,
+    db_client: Option<Arc<DbClient>>,
     params: AiDropSchema,
-    _parent_id: Option<String>,
+    parent_id: Option<String>,
 ) -> Result<Del, Status> {
     let schema =
         Schema::try_new(params.schema).map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))?;
+
+    if let Some(db_client) = db_client {
+        db_client.drop_schema(schema.to_string(), parent_id).await?;
+    }
 
     let dropped = store_handler.drop_schema(&schema)?;
     Ok(Del {

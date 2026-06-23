@@ -529,7 +529,9 @@ impl AiService for AIProxyServer {
         // Enrich with predicate indices and db_info from DB, filtering out reserved keys
         if let Some(db_client) = &self.db_client {
             let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-            let db_store_info = db_client.get_store(params.store, parent_id).await?;
+            let db_store_info = db_client
+                .get_store_with_schema(params.store, params.schema, parent_id)
+                .await?;
             store_info.predicate_indices = db_store_info
                 .predicate_indices
                 .iter()
