@@ -8,14 +8,15 @@ use crate::{
     shared::{
         parse_create_non_linear_algorithm_index, parse_create_pred_index,
         parse_drop_non_linear_algorithm_index, parse_drop_pred_index, parse_drop_store,
+        parse_schema_clause,
     },
 };
 use ahnlich_types::db::{
     pipeline::db_query::Query as DBQuery,
     query::{
         CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
-        DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN, GetStore,
-        InfoServer, ListClients, ListStores, Ping, Set,
+        DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred,
+        GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set,
     },
 };
 use pest::Parser;
@@ -28,6 +29,7 @@ pub const COMMANDS: &[&str] = &[
     "ping",
     "listclients",
     "liststores",
+    "dropschema",
     "getstore",
     "infoserver",
     "dropstore",                     // store_name if exists can be handled dynamically
@@ -53,7 +55,14 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
         let query = match statement.as_rule() {
             Rule::ping => DBQuery::Ping(Ping {}),
             Rule::list_clients => DBQuery::ListClients(ListClients {}),
-            Rule::list_stores => DBQuery::ListStores(ListStores {}),
+            Rule::list_stores => {
+                let schema = statement
+                    .into_inner()
+                    .next()
+                    .map(parse_schema_clause)
+                    .transpose()?;
+                DBQuery::ListStores(ListStores { schema })
+            }
             Rule::info_server => DBQuery::InfoServer(InfoServer {}),
             Rule::get_store => {
                 let mut inner_pairs = statement.into_inner();
@@ -62,7 +71,8 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
-                DBQuery::GetStore(GetStore { store })
+                let schema = inner_pairs.next().map(parse_schema_clause).transpose()?;
+                DBQuery::GetStore(GetStore { store, schema })
             }
             Rule::set_in_store => {
                 let mut inner_pairs = statement.into_inner();
@@ -125,12 +135,24 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                         .map(non_linear_to_index)
                         .collect();
                 };
+                let schema = if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::schema_clause
+                {
+                    Some(parse_schema_clause(
+                        inner_pairs
+                            .next()
+                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?,
+                    )?)
+                } else {
+                    None
+                };
                 DBQuery::CreateStore(CreateStore {
                     store,
                     dimension,
                     create_predicates,
                     non_linear_indices,
                     error_if_exists,
+                    schema,
                 })
             }
             Rule::get_sim_n => {
@@ -245,11 +267,21 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                 })
             }
             Rule::drop_store => {
-                let (store, error_if_not_exists) = parse_drop_store(statement)?;
+                let (store, error_if_not_exists, schema) = parse_drop_store(statement)?;
                 DBQuery::DropStore(DropStore {
                     store,
                     error_if_not_exists,
+                    schema,
                 })
+            }
+            Rule::drop_schema => {
+                let mut inner_pairs = statement.into_inner();
+                let schema = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+                DBQuery::DropSchema(DropSchema { schema })
             }
             _ => return Err(DslError::UnexpectedSpan((start_pos, end_pos))),
         };

@@ -3,7 +3,25 @@ use pest::iterators::Pair;
 
 use crate::{algorithm::to_non_linear, error::DslError, parser::Rule};
 
-pub(crate) fn parse_drop_store(statement: Pair<Rule>) -> Result<(String, bool), DslError> {
+pub(crate) fn parse_schema_clause(pair: Pair<Rule>) -> Result<String, DslError> {
+    match pair.as_rule() {
+        Rule::schema_clause => {
+            let start_pos = pair.as_span().start_pos().pos();
+            let end_pos = pair.as_span().end_pos().pos();
+            Ok(pair
+                .into_inner()
+                .next()
+                .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                .as_str()
+                .to_string())
+        }
+        e => Err(DslError::UnsupportedRule(e)),
+    }
+}
+
+pub(crate) fn parse_drop_store(
+    statement: Pair<Rule>,
+) -> Result<(String, bool, Option<String>), DslError> {
     match statement.as_rule() {
         Rule::drop_store => {
             let start_pos = statement.as_span().start_pos().pos();
@@ -14,18 +32,20 @@ pub(crate) fn parse_drop_store(statement: Pair<Rule>) -> Result<(String, bool), 
                 .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                 .as_str()
                 .to_string();
-            let if_exists = match inner_pairs.next() {
-                None => false,
-                Some(p) => {
-                    if p.as_str().trim().to_lowercase() != "if exists" {
-                        let start_pos = p.as_span().start_pos().pos();
-                        let end_pos = p.as_span().end_pos().pos();
+            let mut if_exists = false;
+            let mut schema = None;
+            for pair in inner_pairs {
+                match pair.as_rule() {
+                    Rule::if_exists => if_exists = true,
+                    Rule::schema_clause => schema = Some(parse_schema_clause(pair)?),
+                    _ => {
+                        let start_pos = pair.as_span().start_pos().pos();
+                        let end_pos = pair.as_span().end_pos().pos();
                         return Err(DslError::UnexpectedSpan((start_pos, end_pos)));
                     }
-                    true
                 }
-            };
-            Ok((store, !if_exists))
+            }
+            Ok((store, !if_exists, schema))
         }
         e => Err(DslError::UnsupportedRule(e)),
     }

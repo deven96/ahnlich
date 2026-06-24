@@ -8,8 +8,8 @@ use ahnlich_types::{
         pipeline::db_query::Query as DBQuery,
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
-            DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetKey, GetPred, GetSimN,
-            GetStore, InfoServer, ListClients, ListStores, Ping, Set,
+            DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred,
+            GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set,
         },
     },
     keyval::{DbStoreEntry, StoreKey, StoreValue},
@@ -50,8 +50,59 @@ fn test_multi_query_parse() {
         parse_db_query(input).expect("Could not parse query input"),
         vec![
             DBQuery::InfoServer(InfoServer {}),
-            DBQuery::ListStores(ListStores {})
+            DBQuery::ListStores(ListStores { schema: None })
         ]
+    );
+}
+
+#[test]
+fn test_schema_query_parse() {
+    let input = r#"LISTSTORES SCHEMA tenant_1"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::ListStores(ListStores {
+            schema: Some("tenant_1".to_string()),
+        })]
+    );
+
+    let input = r#"CREATESTORE IF NOT EXISTS school DIMENSION 39 PREDICATES (department, faculty) SCHEMA academics"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::CreateStore(CreateStore {
+            store: "school".to_string(),
+            dimension: 39,
+            create_predicates: vec!["department".to_string(), "faculty".to_string()],
+            non_linear_indices: vec![],
+            error_if_exists: false,
+            schema: Some("academics".to_string()),
+        })]
+    );
+
+    let input = r#"GETSTORE school SCHEMA academics"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::GetStore(GetStore {
+            store: "school".to_string(),
+            schema: Some("academics".to_string()),
+        })]
+    );
+
+    let input = r#"DROPSTORE school IF EXISTS SCHEMA academics"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::DropStore(DropStore {
+            store: "school".to_string(),
+            error_if_not_exists: false,
+            schema: Some("academics".to_string()),
+        })]
+    );
+
+    let input = r#"DROPSCHEMA academics"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::DropSchema(DropSchema {
+            schema: "academics".to_string(),
+        })]
     );
 }
 
@@ -80,7 +131,8 @@ fn test_create_store_parse() {
             dimension: 23,
             create_predicates: vec![],
             non_linear_indices: vec![],
-            error_if_exists: true
+            error_if_exists: true,
+            schema: None,
         })]
     );
     let input = r#"CREATEstore IF NOT EXISTS testing DIMENSION 43"#;
@@ -91,7 +143,8 @@ fn test_create_store_parse() {
             dimension: 43,
             create_predicates: vec![],
             non_linear_indices: vec![],
-            error_if_exists: false
+            error_if_exists: false,
+            schema: None,
         })]
     );
     let input = r#"CREATEstore IF NOT EXISTS school DIMENSION 39 PREDICATES (department, faculty)"#;
@@ -102,7 +155,8 @@ fn test_create_store_parse() {
             dimension: 39,
             create_predicates: vec!["department".to_string(), "faculty".to_string()],
             non_linear_indices: vec![],
-            error_if_exists: false
+            error_if_exists: false,
+            schema: None,
         })]
     );
     let input = r#"CREATEstore school DIMENSION 39 NONLINEARALGORITHMINDEX (kdtree)"#;
@@ -115,7 +169,8 @@ fn test_create_store_parse() {
             non_linear_indices: vec![NonLinearIndex {
                 index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
             }],
-            error_if_exists: true
+            error_if_exists: true,
+            schema: None,
         })]
     );
     let input = r#"CREATEstore school DIMENSION 77 PREDICATES(name, surname) NONLINEARALGORITHMINDEX (kdtree)"#;
@@ -128,7 +183,8 @@ fn test_create_store_parse() {
             non_linear_indices: vec![NonLinearIndex {
                 index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
             }],
-            error_if_exists: true
+            error_if_exists: true,
+            schema: None,
         })]
     );
 }
@@ -140,7 +196,8 @@ fn test_drop_store_parse() {
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::DropStore(DropStore {
             store: "random".to_string(),
-            error_if_not_exists: true
+            error_if_not_exists: true,
+            schema: None,
         })]
     );
     let input = r#"dropstore yeezy_store IF exists"#;
@@ -149,6 +206,7 @@ fn test_drop_store_parse() {
         vec![DBQuery::DropStore(DropStore {
             store: "yeezy_store".to_string(),
             error_if_not_exists: false,
+            schema: None,
         })]
     );
     let input = r#"dropstore yeezy IF NOT exists"#;
@@ -448,6 +506,7 @@ fn test_get_pred_parse() {
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::GetStore(GetStore {
             store: "my_store".to_string(),
+            schema: None,
         })]
     );
     let input = r#"GETSTORE TestStore123"#;
@@ -455,6 +514,7 @@ fn test_get_pred_parse() {
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::GetStore(GetStore {
             store: "TestStore123".to_string(),
+            schema: None,
         })]
     );
     let input = r#"GETPRED ((pages in (0, 1, 2)) AND (author != dickens) OR (author NOT in (jk-rowlins, rick-riodan)) ) in bookshelf"#;

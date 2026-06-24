@@ -14,6 +14,7 @@ use ahnlich_replication::types::DbCommand;
 use ahnlich_types::db::pipeline::db_query::Query;
 use ahnlich_types::db::server::GetSimNEntry;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName};
+use ahnlich_types::schema::Schema;
 use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use ahnlich_types::shared::cluster::{ClusterInfoQuery, ClusterInfoResponse};
 use ahnlich_types::shared::info::ErrorResponse;
@@ -355,6 +356,33 @@ impl DbService for Server {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn drop_schema(
+        &self,
+        request: tonic::Request<query::DropSchema>,
+    ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
+        let params = request.into_inner();
+
+        let dropped = match &self.runtime {
+            StoreRuntime::Cluster(cluster) => {
+                submit_db_command!(
+                    Some(cluster),
+                    query::DropSchema,
+                    params,
+                    DbCommand::DropSchema
+                )
+                .await?
+            }
+            StoreRuntime::Standalone(store_handler) => {
+                operations::drop_schema(store_handler, params)?
+            }
+        };
+
+        Ok(tonic::Response::new(server::Del {
+            deleted_count: dropped,
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn list_clients(
         &self,
         _request: tonic::Request<query::ListClients>,
@@ -375,9 +403,9 @@ impl DbService for Server {
     #[tracing::instrument(skip_all)]
     async fn list_stores(
         &self,
-        _request: tonic::Request<query::ListStores>,
+        request: tonic::Request<query::ListStores>,
     ) -> std::result::Result<tonic::Response<server::StoreList>, tonic::Status> {
-        let store_list = list_stores_response(&self.runtime).await?;
+        let store_list = list_stores_response(&self.runtime, request.into_inner()).await?;
         Ok(tonic::Response::new(store_list))
     }
 
@@ -387,10 +415,19 @@ impl DbService for Server {
         request: tonic::Request<query::GetStore>,
     ) -> std::result::Result<tonic::Response<server::StoreInfo>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .map(Schema::try_new)
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
         let store_info = read_store_handler(&self.runtime, |store_handler| {
-            store_handler.get_store(&StoreName {
-                value: params.store,
-            })
+            store_handler.get_store(
+                &StoreName {
+                    value: params.store,
+                },
+                &schema,
+            )
         })?;
         Ok(tonic::Response::new(store_info))
     }
@@ -750,6 +787,22 @@ impl DbService for Server {
                         }
                     }
                 }
+
+                Query::DropSchema(params) => {
+                    match self.drop_schema(tonic::Request::new(params)).await {
+                        Ok(res) => response_vec.push(pipeline::db_server_response::Response::Del(
+                            res.into_inner(),
+                        )),
+                        Err(err) => {
+                            response_vec.push(pipeline::db_server_response::Response::Error(
+                                ErrorResponse {
+                                    message: err.message().to_string(),
+                                    code: err.code().into(),
+                                },
+                            ));
+                        }
+                    }
+                }
             }
         }
 
@@ -847,9 +900,14 @@ impl Server {
                 build_cluster_runtime(config, service_addr, cluster_listener).await?,
             )
         } else {
-            let mut store_handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+            let write_flag = Arc::new(AtomicBool::new(false));
+            let mut store_handler = StoreHandler::new(write_flag);
             if let Some(persist_location) = &config.common.persist_location {
-                match Persistence::load_snapshot(persist_location, config.common.enable_mmap) {
+                match Persistence::load_snapshot_with_migration(
+                    persist_location,
+                    config.common.enable_mmap,
+                    StoreHandler::load_snapshot,
+                ) {
                     Err(e) => {
                         log::error!("Failed to load snapshot from persist location {e}");
                         if config.common.fail_on_startup_if_persist_load_fails {

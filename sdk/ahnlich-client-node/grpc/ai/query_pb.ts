@@ -80,6 +80,13 @@ export class CreateStore extends Message<CreateStore> {
    */
   storeOriginal = false;
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 8;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<CreateStore>) {
     super();
     proto3.util.initPartial(data, this);
@@ -95,6 +102,7 @@ export class CreateStore extends Message<CreateStore> {
     { no: 5, name: "non_linear_indices", kind: "message", T: NonLinearIndex, repeated: true },
     { no: 6, name: "error_if_exists", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 7, name: "store_original", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 8, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreateStore {
@@ -660,6 +668,13 @@ export class DropStore extends Message<DropStore> {
    */
   errorIfNotExists = false;
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 3;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<DropStore>) {
     super();
     proto3.util.initPartial(data, this);
@@ -670,6 +685,7 @@ export class DropStore extends Message<DropStore> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "error_if_not_exists", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 3, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DropStore {
@@ -815,11 +831,18 @@ export class ListClients extends Message<ListClients> {
 }
 
 /**
- * Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
- *
  * @generated from message ai.query.ListStores
  */
 export class ListStores extends Message<ListStores> {
+  /**
+   * Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
+   *
+   * Optional schema/namespace to filter stores. If unset, lists all schemas.
+   *
+   * @generated from field: optional string schema = 1;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<ListStores>) {
     super();
     proto3.util.initPartial(data, this);
@@ -827,7 +850,9 @@ export class ListStores extends Message<ListStores> {
 
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "ai.query.ListStores";
-  static readonly fields: FieldList = proto3.util.newFieldList(() => []);
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListStores {
     return new ListStores().fromBinary(bytes, options);
@@ -862,6 +887,13 @@ export class GetStore extends Message<GetStore> {
    */
   store = "";
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 2;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<GetStore>) {
     super();
     proto3.util.initPartial(data, this);
@@ -871,6 +903,7 @@ export class GetStore extends Message<GetStore> {
   static readonly typeName = "ai.query.GetStore";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetStore {
@@ -890,6 +923,50 @@ export class GetStore extends Message<GetStore> {
     b: GetStore | PlainMessage<GetStore> | undefined,
   ): boolean {
     return proto3.util.equals(GetStore, a, b);
+  }
+}
+
+/**
+ * @generated from message ai.query.DropSchema
+ */
+export class DropSchema extends Message<DropSchema> {
+  /**
+   * Drops an entire schema and all stores within it. Cannot drop the "public" default schema.
+   *
+   * The name of the schema to drop.
+   *
+   * @generated from field: string schema = 1;
+   */
+  schema = "";
+
+  constructor(data?: PartialMessage<DropSchema>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "ai.query.DropSchema";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DropSchema {
+    return new DropSchema().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): DropSchema {
+    return new DropSchema().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): DropSchema {
+    return new DropSchema().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: DropSchema | PlainMessage<DropSchema> | undefined,
+    b: DropSchema | PlainMessage<DropSchema> | undefined,
+  ): boolean {
+    return proto3.util.equals(DropSchema, a, b);
   }
 }
 

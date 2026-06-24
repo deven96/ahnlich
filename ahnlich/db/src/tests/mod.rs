@@ -1,5 +1,6 @@
 mod auth_tests;
 mod cluster_tests;
+mod migration_test;
 mod replication_store_tests;
 mod server_tests;
 

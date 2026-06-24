@@ -16,6 +16,7 @@ use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::metadata::metadata_value;
+use ahnlich_types::schema::Schema;
 use fallible_collections::FallibleVec;
 use papaya::HashMap as ConcurrentHashMap;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
@@ -28,6 +29,7 @@ use std::sync::atomic::Ordering;
 use utils::fallible;
 use utils::parallel;
 use utils::persistence::AhnlichPersistenceUtils;
+use utils::persistence::VersionedPersistence;
 
 use super::ai::models::ModelDetails;
 use super::ai::models::ModelResponse;
@@ -38,10 +40,12 @@ pub struct AIStoreHandler {
     /// Making use of a concurrent hashmap, we should be able to create an engine that manages stores
     stores: AIStores,
     pub write_flag: Arc<AtomicBool>,
+    default_schema: Schema,
     supported_models: Vec<SupportedModels>,
 }
 
-pub type AIStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
+pub type AIInnerStores = Arc<ConcurrentHashMap<StoreName, Arc<AIStore>>>;
+pub type AIStores = Arc<ConcurrentHashMap<Schema, AIInnerStores>>;
 
 type StoreSetResponse = (Vec<DbStoreEntry>, Option<StdHashSet<MetadataValue>>);
 type StoreValidateResponse = (
@@ -49,7 +53,7 @@ type StoreValidateResponse = (
     Option<StdHashSet<MetadataValue>>,
 );
 impl AhnlichPersistenceUtils for AIStoreHandler {
-    type PersistenceObject = AIStores;
+    type PersistenceObject = super::versioned::VersionedAiStores;
 
     #[tracing::instrument(skip_all)]
     fn write_flag(&self) -> Arc<AtomicBool> {
@@ -58,18 +62,19 @@ impl AhnlichPersistenceUtils for AIStoreHandler {
 
     #[tracing::instrument(skip(self))]
     fn get_snapshot(&self) -> Self::PersistenceObject {
-        self.stores.clone()
+        super::versioned::VersionedAiStores::current(self.stores.clone())
     }
 }
 
 impl AIStoreHandler {
     pub fn new(write_flag: Arc<AtomicBool>, supported_models: Vec<SupportedModels>) -> Self {
         Self {
-            stores: Arc::new(fallible::try_new_hashmap().unwrap_or_else(|e| {
+            stores: fallible::try_new_arc_hashmap().unwrap_or_else(|e| {
                 eprintln!("Fatal: Failed to create AIStoreHandler stores: {e}");
                 std::process::abort();
-            })),
+            }),
             write_flag,
+            default_schema: Schema::default(),
             supported_models,
         }
     }
@@ -86,10 +91,64 @@ impl AIStoreHandler {
         self.stores = stores_snapshot;
     }
 
+    /// Loads and migrates a persistence snapshot using the versioned format.
+    pub(crate) fn load_snapshot(
+        bytes: &[u8],
+    ) -> Result<AIStores, utils::persistence::PersistenceTaskError> {
+        let versioned = super::versioned::VersionedAiStores::load_and_migrate(bytes)?;
+        versioned
+            .into_latest()
+            .map_err(utils::persistence::PersistenceTaskError::MigrationError)
+    }
+
+    /// Returns the inner stores map for a given schema, creating it if it does not exist.
+    fn get_or_create_schema(&self, schema: &Schema) -> AIInnerStores {
+        let guard = self.stores.guard();
+        if let Some(inner) = self.stores.get(schema, &guard) {
+            return AIInnerStores::clone(inner);
+        }
+        drop(guard);
+        let new_inner: AIInnerStores = fallible::try_new_arc_hashmap()
+            .expect("Failed to create inner AI stores map for schema");
+        let guard = self.stores.guard();
+        match self
+            .stores
+            .try_insert(schema.clone(), new_inner.clone(), &guard)
+        {
+            Ok(_) => new_inner,
+            Err(existing) => existing.current.clone(),
+        }
+    }
+
+    /// Returns the inner stores map for a given schema, or `None` if the schema does not exist.
+    fn get_schema(&self, schema: &Schema) -> Option<AIInnerStores> {
+        self.stores.get(schema, &self.stores.guard()).cloned()
+    }
+
+    /// Returns a store using the store name and schema, else returns an error
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn get(&self, store_name: &StoreName) -> Result<Arc<AIStore>, AIProxyError> {
+        let guard = self.stores.guard();
+        if let Some(inner_stores) = self.stores.get(&self.default_schema, &guard) {
+            let inner_guard = inner_stores.guard();
+            if let Some(store) = inner_stores.get(store_name, &inner_guard) {
+                return Ok(store.clone());
+            }
+        }
+        for (_, inner_stores) in self.stores.iter(&guard) {
+            let inner_guard = inner_stores.guard();
+            if let Some(store) = inner_stores.get(store_name, &inner_guard) {
+                return Ok(store.clone());
+            }
+        }
+        Err(AIProxyError::StoreNotFound(store_name.clone()))
+    }
+
     #[tracing::instrument(skip(self))]
     pub(crate) fn create_store(
         &self,
         store_name: StoreName,
+        schema: &Schema,
         query_model: AiModel,
         index_model: AiModel,
         error_if_exists: bool,
@@ -111,8 +170,8 @@ impl AIStoreHandler {
             });
         }
 
-        if self
-            .stores
+        let inner_stores = self.get_or_create_schema(schema);
+        if inner_stores
             .try_insert(
                 store_name.clone(),
                 Arc::new(AIStore::create(
@@ -121,7 +180,7 @@ impl AIStoreHandler {
                     index_model,
                     store_original,
                 )),
-                &self.stores.guard(),
+                &inner_stores.guard(),
             )
             .is_err()
             && error_if_exists
@@ -132,32 +191,68 @@ impl AIStoreHandler {
         Ok(())
     }
 
-    /// matches LISTSTORES - to return statistics of all stores
+    /// matches LISTSTORES - to return statistics of all stores.
+    /// When schema is None, defaults to the public schema.
     #[tracing::instrument(skip(self))]
-    pub(crate) fn list_stores(&self) -> StdHashSet<AiStoreInfo> {
-        self.stores
-            .iter(&self.stores.guard())
-            .map(|(store_name, store)| {
-                let model: ModelDetails =
-                    SupportedModels::from(&store.index_model).to_model_details();
+    pub(crate) fn list_stores(&self, schema: Option<&Schema>) -> StdHashSet<AiStoreInfo> {
+        let guard = self.stores.guard();
+        let mut result = StdHashSet::new();
+        let schema = schema.unwrap_or(&self.default_schema);
+        let inner_stores = match self.stores.get(schema, &guard) {
+            Some(s) => s.clone(),
+            None => return result,
+        };
+        let inner_guard = inner_stores.guard();
+        for (store_name, store) in inner_stores.iter(&inner_guard) {
+            let model: ModelDetails = SupportedModels::from(&store.index_model).to_model_details();
 
-                AiStoreInfo {
-                    name: store_name.value.clone(),
-                    query_model: store.query_model.into(),
-                    index_model: store.index_model.into(),
-                    embedding_size: model.embedding_size.get() as u64,
-                    predicate_indices: vec![],
-                    dimension: model.embedding_size.get() as u32,
-                    db_info: None,
-                }
-            })
-            .collect()
+            result.insert(AiStoreInfo {
+                name: store_name.value.clone(),
+                query_model: store.query_model.into(),
+                index_model: store.index_model.into(),
+                embedding_size: model.embedding_size.get() as u64,
+                predicate_indices: vec![],
+                dimension: model.embedding_size.get() as u32,
+                db_info: None,
+                schema: Some(schema.to_string()),
+            });
+        }
+        result
+    }
+
+    /// Iterates all stores across every schema, returning (schema, store_name) pairs.
+    /// Used internally by purge_stores to clean up DB stores across all schemas.
+    pub(crate) fn all_store_names_by_schema(&self) -> Vec<(String, StoreName)> {
+        let guard = self.stores.guard();
+        let mut result = Vec::new();
+        for (schema, inner_stores) in self.stores.iter(&guard) {
+            let inner_guard = inner_stores.guard();
+            for store_name in inner_stores.keys(&inner_guard) {
+                result.push((schema.to_string(), store_name.clone()));
+            }
+        }
+        result
     }
 
     /// matches GETSTORE - to return info for a single store
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get_store(&self, store_name: &StoreName) -> Result<AiStoreInfo, AIProxyError> {
-        let store = self.get(store_name)?;
+    pub(crate) fn get_store(
+        &self,
+        store_name: &StoreName,
+        schema: Option<&str>,
+    ) -> Result<AiStoreInfo, AIProxyError> {
+        let schema = schema
+            .map(|s| Schema::try_new(s.to_owned()))
+            .transpose()
+            .map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))?
+            .unwrap_or_else(|| self.default_schema.clone());
+        let inner_stores = self
+            .get_schema(&schema)
+            .ok_or_else(|| AIProxyError::StoreNotFound(store_name.clone()))?;
+        let guard = inner_stores.guard();
+        let store = inner_stores
+            .get(store_name, &guard)
+            .ok_or_else(|| AIProxyError::StoreNotFound(store_name.clone()))?;
         let model: ModelDetails = SupportedModels::from(&store.index_model).to_model_details();
         Ok(AiStoreInfo {
             name: store_name.value.clone(),
@@ -167,18 +262,8 @@ impl AIStoreHandler {
             predicate_indices: vec![],
             dimension: model.embedding_size.get() as u32,
             db_info: None,
+            schema: Some(schema.to_string()),
         })
-    }
-
-    /// Returns a store using the store name, else returns an error
-    #[tracing::instrument(skip(self))]
-    pub(crate) fn get(&self, store_name: &StoreName) -> Result<Arc<AIStore>, AIProxyError> {
-        let store = self
-            .stores
-            .get(store_name, &self.stores.guard())
-            .cloned()
-            .ok_or(AIProxyError::StoreNotFound(store_name.clone()))?;
-        Ok(store)
     }
 
     /// Validates storeinputs against a store and checks storevalue for reservedkey.
@@ -422,9 +507,15 @@ impl AIStoreHandler {
     pub(crate) fn drop_store(
         &self,
         store_name: StoreName,
+        schema: &Schema,
         error_if_not_exists: bool,
     ) -> Result<usize, AIProxyError> {
-        let pinned = self.stores.pin();
+        let inner_stores = match self.get_schema(schema) {
+            Some(inner) => inner,
+            None if error_if_not_exists => return Err(AIProxyError::StoreNotFound(store_name)),
+            None => return Ok(0),
+        };
+        let pinned = inner_stores.pin();
         let removed = pinned.remove(&store_name).is_some();
         if !removed && error_if_not_exists {
             return Err(AIProxyError::StoreNotFound(store_name));
@@ -438,6 +529,29 @@ impl AIStoreHandler {
         Ok(removed)
     }
 
+    /// Drops all stores within a schema and removes the schema.
+    /// Returns the number of stores dropped.
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn drop_schema(&self, schema: &Schema) -> Result<usize, AIProxyError> {
+        if schema.as_str() == Schema::DEFAULT_NAME {
+            return Err(AIProxyError::InvalidArgument(format!(
+                "Cannot drop the default '{}' schema",
+                Schema::DEFAULT_NAME
+            )));
+        }
+        let pinned = self.stores.pin();
+        let removed = pinned.remove(schema);
+        match removed {
+            Some(inner) => {
+                let pinned = inner.pin();
+                let count = pinned.len();
+                self.set_write_flag();
+                Ok(count)
+            }
+            None => Ok(0),
+        }
+    }
+
     #[tracing::instrument(skip(self))]
     pub(crate) fn store_original(&self, store_name: StoreName) -> Result<bool, AIProxyError> {
         let store = self.get(&store_name)?;
@@ -447,8 +561,12 @@ impl AIStoreHandler {
     /// Matches DestroyDatabase - Drops all the stores in the database
     #[tracing::instrument(skip(self))]
     pub(crate) fn purge_stores(&self) -> usize {
-        let store_length = self.stores.pin().len();
         let guard = self.stores.guard();
+        let store_length: usize = self
+            .stores
+            .iter(&guard)
+            .map(|(_, inner)| inner.pin().len())
+            .sum();
         self.stores.clear(&guard);
         if store_length > 0 {
             self.set_write_flag();

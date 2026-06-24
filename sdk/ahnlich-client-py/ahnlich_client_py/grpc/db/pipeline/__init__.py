@@ -44,6 +44,7 @@ class DbQuery(betterproto.Message):
     cluster_info: "__shared_cluster__.ClusterInfoQuery" = betterproto.message_field(
         18, group="query"
     )
+    drop_schema: "_query__.DropSchema" = betterproto.message_field(19, group="query")
 
 
 @dataclass(eq=False, repr=False)

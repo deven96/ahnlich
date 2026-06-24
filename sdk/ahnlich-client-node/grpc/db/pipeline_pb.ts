@@ -20,6 +20,7 @@ import {
   DelPred,
   DropNonLinearAlgorithmIndex,
   DropPredIndex,
+  DropSchema,
   DropStore,
   GetKey,
   GetPred,
@@ -181,6 +182,13 @@ export class DBQuery extends Message<DBQuery> {
         value: ClusterInfoQuery;
         case: "clusterInfo";
       }
+    | {
+        /**
+         * @generated from field: db.query.DropSchema drop_schema = 19;
+         */
+        value: DropSchema;
+        case: "dropSchema";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<DBQuery>) {
@@ -221,6 +229,7 @@ export class DBQuery extends Message<DBQuery> {
     { no: 16, name: "ping", kind: "message", T: Ping, oneof: "query" },
     { no: 17, name: "get_store", kind: "message", T: GetStore, oneof: "query" },
     { no: 18, name: "cluster_info", kind: "message", T: ClusterInfoQuery, oneof: "query" },
+    { no: 19, name: "drop_schema", kind: "message", T: DropSchema, oneof: "query" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DBQuery {

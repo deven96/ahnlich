@@ -26,6 +26,7 @@ use ahnlich_types::ai::query::DelKey;
 use ahnlich_types::ai::query::DelPred as AiDelPred;
 use ahnlich_types::ai::query::DropNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::DropPredIndex;
+use ahnlich_types::ai::query::DropSchema as AiDropSchema;
 use ahnlich_types::ai::query::DropStore;
 use ahnlich_types::ai::query::GetKey;
 use ahnlich_types::ai::query::GetPred;
@@ -474,6 +475,21 @@ impl AiService for AIProxyServer {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn drop_schema(
+        &self,
+        request: tonic::Request<AiDropSchema>,
+    ) -> Result<tonic::Response<Del>, tonic::Status> {
+        let res = operations::drop_schema(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn list_clients(
         &self,
         _request: tonic::Request<ListClients>,
@@ -504,13 +520,18 @@ impl AiService for AIProxyServer {
         request: tonic::Request<GetStore>,
     ) -> Result<tonic::Response<AiStoreInfo>, tonic::Status> {
         let params = request.into_inner();
-        let mut store_info = self.store_handler.get_store(&StoreName {
-            value: params.store.clone(),
-        })?;
+        let mut store_info = self.store_handler.get_store(
+            &StoreName {
+                value: params.store.clone(),
+            },
+            params.schema.as_deref(),
+        )?;
         // Enrich with predicate indices and db_info from DB, filtering out reserved keys
         if let Some(db_client) = &self.db_client {
             let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
-            let db_store_info = db_client.get_store(params.store, parent_id).await?;
+            let db_store_info = db_client
+                .get_store_with_schema(params.store, params.schema, parent_id)
+                .await?;
             store_info.predicate_indices = db_store_info
                 .predicate_indices
                 .iter()
@@ -913,6 +934,20 @@ impl AiService for AIProxyServer {
                         }
                     }
                 }
+
+                Query::DropSchema(params) => {
+                    match self.drop_schema(tonic::Request::new(params)).await {
+                        Ok(res) => {
+                            response_vec.push(ai_server_response::Response::Del(res.into_inner()))
+                        }
+                        Err(err) => {
+                            response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                                message: err.message().to_string(),
+                                code: err.code().into(),
+                            }));
+                        }
+                    }
+                }
             }
         }
         let response_vec = response_vec
@@ -1009,7 +1044,11 @@ impl AIProxyServer {
         let mut store_handler =
             AIStoreHandler::new(write_flag.clone(), config.supported_models.clone());
         if let Some(ref persist_location) = config.common.persist_location {
-            match Persistence::load_snapshot(persist_location, config.common.enable_mmap) {
+            match Persistence::load_snapshot_with_migration(
+                persist_location,
+                config.common.enable_mmap,
+                AIStoreHandler::load_snapshot,
+            ) {
                 Err(e) => {
                     log::error!("Failed to load snapshot from persist location {e}");
                     if config.common.fail_on_startup_if_persist_load_fails {

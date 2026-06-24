@@ -12,6 +12,7 @@ import {
   DelPred,
   DropNonLinearAlgorithmIndex,
   DropPredIndex,
+  DropSchema,
   DropStore,
   GetKey,
   GetPred,
@@ -169,6 +170,15 @@ export const AIService = {
     dropStore: {
       name: "DropStore",
       I: DropStore,
+      O: Del,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc services.ai_service.AIService.DropSchema
+     */
+    dropSchema: {
+      name: "DropSchema",
+      I: DropSchema,
       O: Del,
       kind: MethodKind.Unary,
     },

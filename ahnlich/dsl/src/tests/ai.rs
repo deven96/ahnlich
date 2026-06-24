@@ -7,8 +7,8 @@ use ahnlich_types::{
         preprocess::PreprocessAction,
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
-            DropNonLinearAlgorithmIndex, DropPredIndex, DropStore, GetPred, GetSimN, GetStore,
-            InfoServer, ListStores, Ping, PurgeStores, Set,
+            DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetPred, GetSimN,
+            GetStore, InfoServer, ListStores, Ping, PurgeStores, Set,
         },
     },
     algorithm::{
@@ -55,8 +55,61 @@ fn test_multi_query_parse() {
         parse_ai_query(input).expect("Could not parse query input"),
         vec![
             AiQuery::InfoServer(InfoServer {}),
-            AiQuery::ListStores(ListStores {})
+            AiQuery::ListStores(ListStores { schema: None })
         ]
+    );
+}
+
+#[test]
+fn test_schema_query_parse() {
+    let input = r#"LISTSTORES SCHEMA tenant_1"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::ListStores(ListStores {
+            schema: Some("tenant_1".to_string()),
+        })]
+    );
+
+    let input = r#"CREATESTORE IF NOT EXISTS school QUERYMODEL all-minilm-l6-v2 INDEXMODEL resnet-50 PREDICATES (department, faculty) STOREORIGINAL SCHEMA academics"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::CreateStore(CreateStore {
+            store: "school".to_string(),
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            index_model: AiModel::Resnet50 as i32,
+            predicates: vec!["department".to_string(), "faculty".to_string()],
+            non_linear_indices: vec![],
+            error_if_exists: false,
+            store_original: true,
+            schema: Some("academics".to_string()),
+        })]
+    );
+
+    let input = r#"GETSTORE school SCHEMA academics"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::GetStore(GetStore {
+            store: "school".to_string(),
+            schema: Some("academics".to_string()),
+        })]
+    );
+
+    let input = r#"DROPSTORE school IF EXISTS SCHEMA academics"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::DropStore(DropStore {
+            store: "school".to_string(),
+            error_if_not_exists: false,
+            schema: Some("academics".to_string()),
+        })]
+    );
+
+    let input = r#"DROPSCHEMA academics"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::DropSchema(DropSchema {
+            schema: "academics".to_string(),
+        })]
     );
 }
 
@@ -81,6 +134,7 @@ fn test_get_store_parse() {
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::GetStore(GetStore {
             store: "my_store".to_string(),
+            schema: None,
         })]
     );
     let input = r#"getstore test-store-1"#;
@@ -88,6 +142,7 @@ fn test_get_store_parse() {
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::GetStore(GetStore {
             store: "test-store-1".to_string(),
+            schema: None,
         })]
     );
 }
@@ -99,7 +154,8 @@ fn test_drop_store_parse() {
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::DropStore(DropStore {
             store: "random".to_string(),
-            error_if_not_exists: true
+            error_if_not_exists: true,
+            schema: None,
         })]
     );
     let input = r#"dropstore yeezy_store IF exists"#;
@@ -108,6 +164,7 @@ fn test_drop_store_parse() {
         vec![AiQuery::DropStore(DropStore {
             store: "yeezy_store".to_string(),
             error_if_not_exists: false,
+            schema: None,
         })]
     );
     let input = r#"dropstore yeezy IF NOT exists"#;
@@ -166,6 +223,7 @@ fn test_create_store_parse() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: false,
+            schema: None,
         })]
     );
     let input = r#"CREATEstore IF NOT EXISTS storename QUERYMODEL resnet-50 INDEXMODEL all-minilm-l6-v2 PREDICATES (department, faculty) STOREORIGINAL"#;
@@ -179,6 +237,7 @@ fn test_create_store_parse() {
             non_linear_indices: vec![],
             error_if_exists: false,
             store_original: true,
+            schema: None,
         })]
     );
     let input = r#"createstore school QUERYMODEL all-minilm-l6-v2 INDEXMODEL resnet-50 NONLINEARALGORITHMINDEX (kdtree) STOREORIGINAL"#;
@@ -194,6 +253,7 @@ fn test_create_store_parse() {
             }],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         })]
     );
 }

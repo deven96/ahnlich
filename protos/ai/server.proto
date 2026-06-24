@@ -67,6 +67,7 @@ message AIStoreInfo {
   repeated string predicate_indices = 5;
   uint32 dimension = 6;
   optional db.server.StoreInfo db_info = 7;
+  optional string schema = 8;
 }
 
 message EmbeddingWithMetadata {

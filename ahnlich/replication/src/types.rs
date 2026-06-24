@@ -32,6 +32,7 @@ pub enum DbCommand {
     DropPredIndex(Vec<u8>),
     DropNonLinearAlgorithmIndex(Vec<u8>),
     DropStore(Vec<u8>),
+    DropSchema(Vec<u8>),
 }
 
 /// AI Raft commands. Only operations that mutate AI-local state

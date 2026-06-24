@@ -21,6 +21,7 @@ import {
   DelPred,
   DropNonLinearAlgorithmIndex,
   DropPredIndex,
+  DropSchema,
   DropStore,
   GetKey,
   GetPred,
@@ -190,6 +191,13 @@ export class AIQuery extends Message<AIQuery> {
         value: GetStore;
         case: "getStore";
       }
+    | {
+        /**
+         * @generated from field: ai.query.DropSchema drop_schema = 20;
+         */
+        value: DropSchema;
+        case: "dropSchema";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<AIQuery>) {
@@ -237,6 +245,7 @@ export class AIQuery extends Message<AIQuery> {
     },
     { no: 18, name: "del_pred", kind: "message", T: DelPred, oneof: "query" },
     { no: 19, name: "get_store", kind: "message", T: GetStore, oneof: "query" },
+    { no: 20, name: "drop_schema", kind: "message", T: DropSchema, oneof: "query" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AIQuery {

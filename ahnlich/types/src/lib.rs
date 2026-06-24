@@ -5,6 +5,7 @@ pub mod db;
 pub mod keyval;
 pub mod metadata;
 pub mod predicates;
+pub mod schema;
 pub mod server_types;
 pub mod services;
 pub mod shared;

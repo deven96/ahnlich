@@ -42,6 +42,7 @@ pub(crate) type NodeIdHashSet = std::collections::HashSet<NodeId, NodeIdBuildHas
 /// LayerIndex is just a wrapper around u16 to represent a layer in HNSW.
 #[derive(Debug, Clone, Copy, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct LayerIndex(pub u16);
 
 impl Eq for LayerIndex {}
@@ -60,6 +61,7 @@ impl Ord for LayerIndex {
 /// NodeId wraps a u64 hash of the node's embedding to uniquely identify a node across all layers.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct NodeId(pub u64);
 
 /// Node represents a single element in the HNSW graph.

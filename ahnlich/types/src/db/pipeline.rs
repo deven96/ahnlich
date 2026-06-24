@@ -3,7 +3,7 @@
 pub struct DbQuery {
     #[prost(
         oneof = "db_query::Query",
-        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18"
+        tags = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19"
     )]
     pub query: ::core::option::Option<db_query::Query>,
 }
@@ -47,6 +47,8 @@ pub mod db_query {
         GetStore(super::super::query::GetStore),
         #[prost(message, tag = "18")]
         ClusterInfo(super::super::super::shared::cluster::ClusterInfoQuery),
+        #[prost(message, tag = "19")]
+        DropSchema(super::super::query::DropSchema),
     }
 }
 #[derive(Clone, PartialEq, ::prost::Message)]

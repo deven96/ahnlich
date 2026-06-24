@@ -95,10 +95,14 @@ const config: Config = {
         theme: {
           customCss: './src/css/custom.css',
         },
-        gtag: {
-          trackingID: process.env.G_TRACKING_ID,
-          anonymizeIP: true,
-        },
+        ...(process.env.G_TRACKING_ID
+          ? {
+              gtag: {
+                trackingID: process.env.G_TRACKING_ID,
+                anonymizeIP: true,
+              },
+            }
+          : {}),
       } satisfies Preset.Options,
     ],
   ],

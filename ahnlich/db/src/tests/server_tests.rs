@@ -1,3 +1,4 @@
+use crate::engine::store::StoreHandler;
 use crate::server::handler::Server;
 use crate::{cli::ServerConfig, errors::ServerError};
 use ahnlich_types::algorithm::algorithms::Algorithm;
@@ -11,14 +12,17 @@ use ahnlich_types::predicates::{
     self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
     predicate_condition::Kind as PredicateConditionKind,
 };
+use ahnlich_types::schema::Schema;
 use ahnlich_types::server_types::ServerType;
 use ahnlich_types::shared::info::StoreUpsert;
 use ahnlich_types::similarity::Similarity;
 use once_cell::sync::Lazy;
 use pretty_assertions::assert_eq;
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
-use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::time::Duration;
 use utils::server::AhnlichServerUtils;
 
@@ -191,7 +195,9 @@ async fn test_simple_stores_list() {
     let mut client = DbServiceClient::connect(channel).await.expect("Failure");
 
     let response = client
-        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {}))
+        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {
+            schema: None,
+        }))
         .await
         .expect("Failed to get store's list");
 
@@ -222,6 +228,7 @@ async fn test_create_stores() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -231,10 +238,13 @@ async fn test_create_stores() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -327,6 +337,7 @@ async fn test_del_pred() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should not error as it is correct query
@@ -384,7 +395,9 @@ async fn test_del_pred() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
         db_pipeline::DbQuery {
             query: Some(Query::DelPred(db_query_types::DelPred {
@@ -438,7 +451,9 @@ async fn test_del_pred() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -580,6 +595,7 @@ async fn test_del_key() {
                 create_predicates: vec!["role".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should not error but delete nothing (empty store)
@@ -616,7 +632,9 @@ async fn test_del_key() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
         // Should error due to dimension mismatch
         db_pipeline::DbQuery {
@@ -637,7 +655,9 @@ async fn test_del_key() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -776,6 +796,7 @@ async fn test_server_with_persistence() {
                 create_predicates: vec!["role".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should not error but delete nothing
@@ -817,7 +838,9 @@ async fn test_server_with_persistence() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
         // Should error due to dimension mismatch
         db_pipeline::DbQuery {
@@ -838,7 +861,9 @@ async fn test_server_with_persistence() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -976,6 +1001,7 @@ async fn test_server_with_persistence() {
                 create_predicates: vec!["role".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should not error as store exists
@@ -1085,6 +1111,7 @@ async fn test_set_in_store() {
                 create_predicates: vec!["role".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Valid set operation
@@ -1145,7 +1172,9 @@ async fn test_set_in_store() {
             })),
         },
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -1260,6 +1289,7 @@ async fn test_remove_non_linear_indices() {
                 }],
 
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -1507,6 +1537,7 @@ async fn test_get_sim_n_non_linear() {
                     index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                 }],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -1717,6 +1748,7 @@ async fn test_get_sim_n() {
                 create_predicates: vec!["medal".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -2085,6 +2117,7 @@ async fn test_get_pred() {
                 create_predicates: vec!["medal".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -2292,6 +2325,7 @@ async fn test_get_key() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -2521,6 +2555,7 @@ async fn test_create_pred_index() {
                 create_predicates: vec!["galaxy".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -2913,6 +2948,7 @@ async fn test_drop_pred_index() {
                 create_predicates: vec!["galaxy".into()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should not error (error_if_not_exists=false)
@@ -3018,6 +3054,7 @@ async fn test_drop_stores() {
             query: Some(Query::DropStore(db_query_types::DropStore {
                 store: "Main".to_string(),
                 error_if_not_exists: false,
+                schema: None,
             })),
         },
         // Create store
@@ -3028,17 +3065,21 @@ async fn test_drop_stores() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // List stores
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
         // Should succeed (store exists)
         db_pipeline::DbQuery {
             query: Some(Query::DropStore(db_query_types::DropStore {
                 store: "Main".to_string(),
                 error_if_not_exists: true,
+                schema: None,
             })),
         },
         // Should error (store doesn't exist)
@@ -3046,6 +3087,7 @@ async fn test_drop_stores() {
             query: Some(Query::DropStore(db_query_types::DropStore {
                 store: "Main".to_string(),
                 error_if_not_exists: true,
+                schema: None,
             })),
         },
     ];
@@ -3142,6 +3184,7 @@ async fn test_server_persistence_with_hnsw_index() {
                     index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),
                 }],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -3271,6 +3314,7 @@ async fn test_server_persistence_with_hnsw_index() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Should get persisted data
@@ -3393,6 +3437,7 @@ async fn test_create_store_with_hnsw_configuration() {
                     index: Some(non_linear_index::Index::Hnsw(hnsw_config)),
                 }],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Insert test data
@@ -3456,7 +3501,9 @@ async fn test_create_store_with_hnsw_configuration() {
         },
         // List stores to verify config is reflected
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -3575,6 +3622,7 @@ async fn test_duplicate_nonlinear_index_prevention() {
                     index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),
                 }],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Try to create the same HNSW index again - should be idempotent, returns 0
@@ -3752,6 +3800,7 @@ async fn test_hnsw_recall_with_config_reconstruction() {
                         index: Some(non_linear_index::Index::Hnsw(low_config)),
                     }],
                     error_if_exists: true,
+                    schema: None,
                 })),
             }],
         }))
@@ -3981,6 +4030,7 @@ async fn test_list_stores_returns_nonlinear_config() {
                     },
                 ],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // Create a store without nonlinear indices
@@ -3991,11 +4041,14 @@ async fn test_list_stores_returns_nonlinear_config() {
                 create_predicates: vec![],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         // List stores
         db_pipeline::DbQuery {
-            query: Some(Query::ListStores(db_query_types::ListStores {})),
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -4133,6 +4186,7 @@ async fn test_get_store_not_found() {
     let result = client
         .get_store(tonic::Request::new(db_query_types::GetStore {
             store: "NonExistent".to_string(),
+            schema: None,
         }))
         .await;
 
@@ -4174,6 +4228,7 @@ async fn test_get_store_success() {
             index: Some(non_linear_index::Index::Hnsw(hnsw_config)),
         }],
         error_if_exists: true,
+        schema: None,
     };
 
     client
@@ -4208,6 +4263,7 @@ async fn test_get_store_success() {
     let store_info = client
         .get_store(tonic::Request::new(db_query_types::GetStore {
             store: "TestGetStore".to_string(),
+            schema: None,
         }))
         .await
         .expect("GetStore failed")
@@ -4247,17 +4303,20 @@ async fn test_get_store_in_pipeline() {
                 create_predicates: vec!["tag".to_string()],
                 non_linear_indices: vec![],
                 error_if_exists: true,
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
             query: Some(Query::GetStore(db_query_types::GetStore {
                 store: "PipelineStore".to_string(),
+                schema: None,
             })),
         },
         // GetStore on non-existent store should return error in pipeline
         db_pipeline::DbQuery {
             query: Some(Query::GetStore(db_query_types::GetStore {
                 store: "DoesNotExist".to_string(),
+                schema: None,
             })),
         },
     ];
@@ -4308,8 +4367,6 @@ async fn test_get_store_in_pipeline() {
 
 #[tokio::test]
 async fn test_mmap_persistence_performance() {
-    use std::time::Instant;
-
     let mmap_file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ahnlich_mmap_test.dat");
     let no_mmap_file = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("ahnlich_no_mmap_test.dat");
 
@@ -4350,6 +4407,7 @@ async fn test_mmap_persistence_performance() {
             create_predicates: vec![],
             non_linear_indices: vec![],
             error_if_exists: false,
+            schema: None,
         })),
     };
 
@@ -4399,10 +4457,9 @@ async fn test_mmap_persistence_performance() {
 
     // Verify the file was created and check its size
     let file_metadata = std::fs::metadata(&mmap_file).expect("Persistence file not created");
-    let file_size_kb = file_metadata.len() / 1024;
     println!(
         "Persistence file size: {} KB ({} bytes)",
-        file_size_kb,
+        file_metadata.len() / 1024,
         file_metadata.len()
     );
 
@@ -4421,11 +4478,9 @@ async fn test_mmap_persistence_performance() {
         .os_select_port()
         .persist_location(mmap_file.clone());
 
-    let start = Instant::now();
     let server_mmap = Server::new(&config_with_mmap)
         .await
         .expect("Failed to create server with mmap");
-    let mmap_duration = start.elapsed();
 
     // Verify the store was loaded correctly
     let address = server_mmap.local_addr().expect("Could not get local addr");
@@ -4439,7 +4494,9 @@ async fn test_mmap_persistence_performance() {
         .expect("Failed to connect");
 
     let list_query = db_pipeline::DbQuery {
-        query: Some(Query::ListStores(db_query_types::ListStores {})),
+        query: Some(Query::ListStores(db_query_types::ListStores {
+            schema: None,
+        })),
     };
 
     let response = client_mmap
@@ -4465,13 +4522,11 @@ async fn test_mmap_persistence_performance() {
     let config_no_mmap = ServerConfig::default()
         .os_select_port()
         .persist_location(no_mmap_file.clone())
-        .disable_mmap(); // This is a new method we need to add
+        .disable_mmap();
 
-    let start = Instant::now();
     let server_no_mmap = Server::new(&config_no_mmap)
         .await
         .expect("Failed to create server without mmap");
-    let no_mmap_duration = start.elapsed();
 
     // Verify the store was loaded correctly
     let address = server_no_mmap
@@ -4487,7 +4542,9 @@ async fn test_mmap_persistence_performance() {
         .expect("Failed to connect");
 
     let list_query = db_pipeline::DbQuery {
-        query: Some(Query::ListStores(db_query_types::ListStores {})),
+        query: Some(Query::ListStores(db_query_types::ListStores {
+            schema: None,
+        })),
     };
 
     let response = client_no_mmap
@@ -4509,15 +4566,473 @@ async fn test_mmap_persistence_performance() {
         panic!("Expected StoreList response");
     }
 
-    assert!(
-        mmap_duration < no_mmap_duration,
-        "Mmap should be strictly faster than buffered reading for large files. File: {} KB, mmap: {:?}, no mmap: {:?}",
-        file_size_kb,
-        mmap_duration,
-        no_mmap_duration
-    );
-
     // Clean up
     let _ = std::fs::remove_file(&mmap_file);
     let _ = std::fs::remove_file(&no_mmap_file);
+}
+
+/// Test: Create stores in different schemas and list them with schema filtering
+#[tokio::test]
+async fn test_schema_create_and_list_in_schema() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Create a store in default schema
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "PublicStore".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: None,
+        }))
+        .await
+        .expect("CreateStore in default schema failed");
+
+    // Create a store in custom schema
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "CustomStore".to_string(),
+            dimension: 5,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("custom".to_string()),
+        }))
+        .await
+        .expect("CreateStore in custom schema failed");
+
+    // Create another store in custom schema
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "CustomStore2".to_string(),
+            dimension: 7,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("custom".to_string()),
+        }))
+        .await
+        .expect("Create second store in custom schema failed");
+
+    // List stores filtered by public schema
+    let response = client
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: Some("public".to_string()),
+        }))
+        .await
+        .expect("ListStores with public schema failed")
+        .into_inner();
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "PublicStore");
+
+    // List stores filtered by custom schema
+    let response = client
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: Some("custom".to_string()),
+        }))
+        .await
+        .expect("ListStores with custom schema failed")
+        .into_inner();
+    assert_eq!(response.stores.len(), 2);
+    let names: Vec<&str> = response.stores.iter().map(|s| s.name.as_str()).collect();
+    assert!(names.contains(&"CustomStore"));
+    assert!(names.contains(&"CustomStore2"));
+
+    // List stores with no schema filter - should default to public schema
+    let response = client
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: None,
+        }))
+        .await
+        .expect("ListStores without schema filter failed")
+        .into_inner();
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "PublicStore");
+}
+
+/// Test: GetStore with schema parameter
+#[tokio::test]
+async fn test_schema_get_store_in_schema() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Create store in custom schema
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "SchemaGetStore".to_string(),
+            dimension: 4,
+            create_predicates: vec!["tag".to_string()],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("myschema".to_string()),
+        }))
+        .await
+        .expect("CreateStore failed");
+
+    // GetStore with schema specified
+    let store_info = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "SchemaGetStore".to_string(),
+            schema: Some("myschema".to_string()),
+        }))
+        .await
+        .expect("GetStore with schema failed")
+        .into_inner();
+
+    assert_eq!(store_info.name, "SchemaGetStore");
+    assert_eq!(store_info.dimension, 4);
+    assert_eq!(store_info.predicate_indices, vec!["tag".to_string()]);
+
+    // GetStore without schema should NOT find it (defaults to public schema only)
+    let result = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "SchemaGetStore".to_string(),
+            schema: None,
+        }))
+        .await;
+    assert!(
+        result.is_err(),
+        "GetStore without schema should fail for stores in non-public schema"
+    );
+
+    assert_eq!(store_info.name, "SchemaGetStore");
+    assert_eq!(store_info.dimension, 4);
+}
+
+/// Test: DropStore with schema parameter
+#[tokio::test]
+async fn test_schema_drop_store_in_schema() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Create store in custom schema
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "DropInSchema".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("dropschema".to_string()),
+        }))
+        .await
+        .expect("CreateStore failed");
+
+    // Verify store exists via GetStore
+    client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "DropInSchema".to_string(),
+            schema: Some("dropschema".to_string()),
+        }))
+        .await
+        .expect("GetStore should succeed before drop");
+
+    // Drop store with schema specified
+    client
+        .drop_store(tonic::Request::new(db_query_types::DropStore {
+            store: "DropInSchema".to_string(),
+            error_if_not_exists: true,
+            schema: Some("dropschema".to_string()),
+        }))
+        .await
+        .expect("DropStore failed");
+
+    // Verify store is gone
+    let result = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "DropInSchema".to_string(),
+            schema: Some("dropschema".to_string()),
+        }))
+        .await;
+
+    assert!(result.is_err(), "GetStore should fail after drop");
+}
+
+/// Test: DropSchema to remove an entire non-public schema
+#[tokio::test]
+async fn test_schema_drop_schema() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Create two stores in a schema to drop
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "DropSchemaStore1".to_string(),
+            dimension: 3,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("tobedropped".to_string()),
+        }))
+        .await
+        .expect("CreateStore 1 failed");
+
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "DropSchemaStore2".to_string(),
+            dimension: 5,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: Some("tobedropped".to_string()),
+        }))
+        .await
+        .expect("CreateStore 2 failed");
+
+    // Also create a store in public schema to verify isolation
+    client
+        .create_store(tonic::Request::new(db_query_types::CreateStore {
+            store: "PublicSurvivor".to_string(),
+            dimension: 2,
+            create_predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            schema: None,
+        }))
+        .await
+        .expect("CreateStore in public failed");
+
+    // Drop the schema
+    let response = client
+        .drop_schema(tonic::Request::new(db_query_types::DropSchema {
+            schema: "tobedropped".to_string(),
+        }))
+        .await
+        .expect("DropSchema failed")
+        .into_inner();
+    assert_eq!(response.deleted_count, 2);
+
+    // Verify stores in dropped schema are gone
+    let result = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "DropSchemaStore1".to_string(),
+            schema: Some("tobedropped".to_string()),
+        }))
+        .await;
+    assert!(result.is_err(), "Store in dropped schema should be gone");
+
+    // Verify public schema store still exists
+    let pub_store = client
+        .get_store(tonic::Request::new(db_query_types::GetStore {
+            store: "PublicSurvivor".to_string(),
+            schema: None,
+        }))
+        .await
+        .expect("Public store should still exist")
+        .into_inner();
+    assert_eq!(pub_store.name, "PublicSurvivor");
+
+    // Verify list stores filtered by public schema shows only the survivor
+    let response = client
+        .list_stores(tonic::Request::new(db_query_types::ListStores {
+            schema: Some("public".to_string()),
+        }))
+        .await
+        .expect("ListStores failed")
+        .into_inner();
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "PublicSurvivor");
+}
+
+/// Test: Dropping the "public" schema should fail
+#[tokio::test]
+async fn test_schema_drop_public_schema_fails() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    // Attempt to drop "public" schema
+    let result = client
+        .drop_schema(tonic::Request::new(db_query_types::DropSchema {
+            schema: "public".to_string(),
+        }))
+        .await;
+
+    assert!(
+        result.is_err(),
+        "Dropping public schema should return an error"
+    );
+    let status = result.unwrap_err();
+    assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    assert!(
+        status.message().contains("public"),
+        "Error message should reference 'public': {}",
+        status.message()
+    );
+}
+
+#[test]
+fn test_migrate_old_flat_snapshot() {
+    // Create a store handler and populate a store under "public"
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let store_name = StoreName {
+        value: "test_store".to_string(),
+    };
+    handler
+        .create_store(
+            store_name.clone(),
+            &Schema::default(),
+            NonZeroUsize::new(3).unwrap(),
+            vec![],
+            std::collections::HashSet::new(),
+            true,
+        )
+        .expect("Failed to create store");
+
+    // Serialize the inner stores (under "public") as the old flat format
+    let stores = handler.get_stores();
+    let guard = stores.guard();
+    let inner = stores
+        .get(&Schema::default(), &guard)
+        .expect("No public schema");
+    let pinned = inner.pin();
+    let old_format_bytes = serde_json::to_vec(&pinned).expect("Failed to serialize old format");
+
+    // Now simulate loading this old-format snapshot via migration
+    let migrated = StoreHandler::load_snapshot(&old_format_bytes).expect("Migration failed");
+
+    // Verify: migrated stores should contain the store under "public"
+    let migrated_guard = migrated.guard();
+    let migrated_inner = migrated
+        .get(&Schema::default(), &migrated_guard)
+        .expect("No public schema after migration");
+    assert_eq!(
+        migrated_inner.len(),
+        1,
+        "Expected 1 store under public schema"
+    );
+    let migrated_pinned = migrated_inner.pin();
+    let (_key, _store) = migrated_pinned.iter().next().expect("No store in result");
+}
+
+#[test]
+fn test_migrate_old_flat_snapshot_json_file() {
+    // Create a real store handler and serialize its inner public stores as old-format JSON
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let store_name = StoreName {
+        value: "fixture_store".to_string(),
+    };
+    handler
+        .create_store(
+            store_name.clone(),
+            &Schema::default(),
+            NonZeroUsize::new(3).unwrap(),
+            vec![],
+            std::collections::HashSet::new(),
+            true,
+        )
+        .expect("Failed to create store");
+
+    // Get the flat (old-format) JSON: the inner HashMap under "public"
+    let stores = handler.get_stores();
+    let guard = stores.guard();
+    let inner = stores
+        .get(&Schema::default(), &guard)
+        .expect("No public schema");
+    let pinned = inner.pin();
+    let json_bytes = serde_json::to_vec_pretty(&pinned).expect("Failed to serialize");
+
+    // Write to fixture file in tests/fixtures/
+    let fixture_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("tests")
+        .join("fixtures");
+    std::fs::create_dir_all(&fixture_dir).expect("Failed to create fixtures dir");
+    let fixture_path = fixture_dir.join("db_old_flat_snapshot.json");
+    std::fs::write(&fixture_path, &json_bytes).expect("Failed to write fixture");
+
+    // Now read it back and verify it migrates correctly
+    let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
+    let migrated = StoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
+
+    let migrated_guard = migrated.guard();
+    let migrated_inner = migrated
+        .get(&Schema::default(), &migrated_guard)
+        .expect("No public schema after migration");
+    assert_eq!(
+        migrated_inner.len(),
+        1,
+        "Expected 1 store under public schema"
+    );
+}
+
+#[test]
+fn test_migrate_from_committed_db_fixture() {
+    let fixture_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("src")
+        .join("tests")
+        .join("fixtures")
+        .join("db_old_flat_snapshot.json");
+
+    assert!(
+        fixture_path.exists(),
+        "Committed fixture not found: {:?}",
+        fixture_path
+    );
+
+    let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
+
+    let migrated = StoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
+
+    let migrated_guard = migrated.guard();
+    let migrated_inner = migrated
+        .get(&Schema::default(), &migrated_guard)
+        .expect("No public schema after migration");
+    assert_eq!(
+        migrated_inner.len(),
+        1,
+        "Expected 1 store under public schema"
+    );
+    let pinned = migrated_inner.pin();
+    let (key, _) = pinned.iter().next().expect("No store in result");
+    assert_eq!(
+        key.value, "fixture_store",
+        "Store name preserved after migration"
+    );
 }

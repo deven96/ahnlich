@@ -4,11 +4,13 @@ on:
   push:
     branches: ["main"]
     paths:
+      - .github/workflows/test.yml
       - ahnlich/**
       - sdk/**
   pull_request:
     branches: ["main"]
     paths:
+      - .github/workflows/test.yml
       - ahnlich/**
       - sdk/**
 
@@ -324,6 +326,10 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     needs: ["run-rust-tests", "run-python-tests", "run-go-tests", "run-node-tests"]
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
 
     steps:
     - name: Download Rust Test Output

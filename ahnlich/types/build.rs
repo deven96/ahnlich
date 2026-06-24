@@ -38,7 +38,11 @@ fn main() -> Result<()> {
     if let Ok(entries) = std::fs::read_dir(out_dir) {
         for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
-            if path.file_name().is_some_and(|name| name != "utils") {
+            let preserve = ["utils", "schema.rs"];
+            if path
+                .file_name()
+                .is_some_and(|name| !preserve.contains(&name.to_str().unwrap_or("")))
+            {
                 if path.is_dir() {
                     std::fs::remove_dir_all(&path).expect("Failed to remove directory");
                 } else {
@@ -172,6 +176,7 @@ fn restructure_generated_code(out_dir: &PathBuf, file: &mut std::fs::File) {
     }
 
     module_names.insert("utils");
+    module_names.insert("schema");
 
     let buffer = module_names
         .into_iter()

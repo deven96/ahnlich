@@ -44,6 +44,7 @@ class AiQuery(betterproto.Message):
     )
     del_pred: "_query__.DelPred" = betterproto.message_field(18, group="query")
     get_store: "_query__.GetStore" = betterproto.message_field(19, group="query")
+    drop_schema: "_query__.DropSchema" = betterproto.message_field(20, group="query")
 
 
 @dataclass(eq=False, repr=False)

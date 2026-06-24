@@ -33,6 +33,7 @@ message DBQuery {
     db.query.Ping ping = 16;
     db.query.GetStore get_store = 17;
     shared.cluster.ClusterInfoQuery cluster_info = 18;
+    db.query.DropSchema drop_schema = 19;
   }
 }
 

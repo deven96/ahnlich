@@ -71,6 +71,7 @@ async fn test_jina_code_model_loads_and_produces_embeddings() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         })),
     };
 
@@ -174,6 +175,7 @@ app.listen(3000);"#;
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         })),
     };
 
@@ -342,6 +344,7 @@ async fn test_jina_code_natural_language_query() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         })),
     };
 
@@ -467,6 +470,7 @@ async fn test_jina_code_embedding_dimensions() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         })),
     };
 
@@ -490,7 +494,9 @@ async fn test_jina_code_embedding_dimensions() {
 
     // List stores to check dimensions
     let list_stores_query = ai_pipeline::AiQuery {
-        query: Some(Query::ListStores(ai_query_types::ListStores {})),
+        query: Some(Query::ListStores(ai_query_types::ListStores {
+            schema: None,
+        })),
     };
 
     let pipelined_request = ai_pipeline::AiRequestPipeline {

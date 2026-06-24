@@ -151,6 +151,7 @@ async fn test_ai_proxy_create_store_success() {
         non_linear_indices: vec![],
         error_if_exists: true,
         store_original: true,
+        schema: None,
     };
     let response = client
         .create_store(tonic::Request::new(create_store))
@@ -161,7 +162,7 @@ async fn test_ai_proxy_create_store_success() {
     assert_eq!(expected, response.into_inner());
 
     // list stores to verify it's present.
-    let message = ahnlich_types::ai::query::ListStores {};
+    let message = ahnlich_types::ai::query::ListStores { schema: None };
     let response = client
         .list_stores(tonic::Request::new(message))
         .await
@@ -221,6 +222,7 @@ async fn test_ai_store_get_key_works() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -347,6 +349,7 @@ async fn test_ai_store_no_original() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: false,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -469,6 +472,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -598,6 +602,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -759,6 +764,7 @@ async fn test_convert_store_input_to_embeddings(index: usize, model: i32) {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -909,6 +915,7 @@ async fn test_convert_store_input_to_embeddings_without_db(index: usize, model: 
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1005,6 +1012,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1147,6 +1155,7 @@ async fn test_ai_proxy_del_key_drop_store() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1158,6 +1167,7 @@ async fn test_ai_proxy_del_key_drop_store() {
                 non_linear_indices: vec![],
                 error_if_exists: false,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1187,6 +1197,7 @@ async fn test_ai_proxy_del_key_drop_store() {
             query: Some(Query::DropStore(ai_query_types::DropStore {
                 store: store_name.clone(),
                 error_if_not_exists: true,
+                schema: None,
             })),
         },
     ];
@@ -1284,16 +1295,20 @@ async fn test_ai_proxy_drop_store_cascades_to_db() {
                         non_linear_indices: vec![],
                         error_if_exists: true,
                         store_original: true,
+                        schema: None,
                     })),
                 },
                 ai_pipeline::AiQuery {
                     query: Some(Query::DropStore(ai_query_types::DropStore {
                         store: store_name.clone(),
                         error_if_not_exists: true,
+                        schema: None,
                     })),
                 },
                 ai_pipeline::AiQuery {
-                    query: Some(Query::ListStores(ai_query_types::ListStores {})),
+                    query: Some(Query::ListStores(ai_query_types::ListStores {
+                        schema: None,
+                    })),
                 },
             ],
         }))
@@ -1318,7 +1333,9 @@ async fn test_ai_proxy_drop_store_cascades_to_db() {
     }
 
     let db_stores = db_client
-        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {}))
+        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {
+            schema: None,
+        }))
         .await
         .expect("Failed to list DB stores")
         .into_inner();
@@ -1394,6 +1411,7 @@ async fn test_ai_proxy_del_pred() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1460,6 +1478,8 @@ async fn test_ai_proxy_del_pred() {
 
 #[tokio::test]
 async fn test_ai_proxy_test_with_persistence() {
+    let _ = std::fs::remove_file(&*PERSISTENCE_FILE);
+
     // Setup servers with persistence
     let server = Server::new(&CONFIG)
         .await
@@ -1505,6 +1525,7 @@ async fn test_ai_proxy_test_with_persistence() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1516,12 +1537,14 @@ async fn test_ai_proxy_test_with_persistence() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::DropStore(ai_query_types::DropStore {
                 store: store_name.clone(),
                 error_if_not_exists: true,
+                schema: None,
             })),
         },
     ];
@@ -1580,7 +1603,9 @@ async fn test_ai_proxy_test_with_persistence() {
 
     // Verify persisted data
     let list_response = persisted_client
-        .list_stores(tonic::Request::new(ai_query_types::ListStores {}))
+        .list_stores(tonic::Request::new(ai_query_types::ListStores {
+            schema: None,
+        }))
         .await
         .expect("Failed to list stores");
 
@@ -1628,16 +1653,21 @@ async fn test_ai_proxy_destroy_database() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
-            query: Some(Query::ListStores(ai_query_types::ListStores {})),
+            query: Some(Query::ListStores(ai_query_types::ListStores {
+                schema: None,
+            })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::PurgeStores(ai_query_types::PurgeStores {})),
         },
         ai_pipeline::AiQuery {
-            query: Some(Query::ListStores(ai_query_types::ListStores {})),
+            query: Some(Query::ListStores(ai_query_types::ListStores {
+                schema: None,
+            })),
         },
     ];
 
@@ -1730,6 +1760,7 @@ async fn test_ai_proxy_purge_stores_cascades_to_db() {
                         non_linear_indices: vec![],
                         error_if_exists: true,
                         store_original: true,
+                        schema: None,
                     })),
                 },
                 ai_pipeline::AiQuery {
@@ -1741,13 +1772,16 @@ async fn test_ai_proxy_purge_stores_cascades_to_db() {
                         non_linear_indices: vec![],
                         error_if_exists: true,
                         store_original: true,
+                        schema: None,
                     })),
                 },
                 ai_pipeline::AiQuery {
                     query: Some(Query::PurgeStores(ai_query_types::PurgeStores {})),
                 },
                 ai_pipeline::AiQuery {
-                    query: Some(Query::ListStores(ai_query_types::ListStores {})),
+                    query: Some(Query::ListStores(ai_query_types::ListStores {
+                        schema: None,
+                    })),
                 },
             ],
         }))
@@ -1776,7 +1810,9 @@ async fn test_ai_proxy_purge_stores_cascades_to_db() {
     }
 
     let db_stores = db_client
-        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {}))
+        .list_stores(tonic::Request::new(ahnlich_types::db::query::ListStores {
+            schema: None,
+        }))
         .await
         .expect("Failed to list DB stores")
         .into_inner();
@@ -1875,10 +1911,13 @@ async fn test_ai_proxy_binary_store_actions() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
-            query: Some(Query::ListStores(ai_query_types::ListStores {})),
+            query: Some(Query::ListStores(ai_query_types::ListStores {
+                schema: None,
+            })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::CreatePredIndex(ai_query_types::CreatePredIndex {
@@ -2060,6 +2099,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
                 non_linear_indices: vec![],
                 error_if_exists: true,
                 store_original: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -2141,6 +2181,7 @@ async fn test_ai_proxy_create_store_errors_unsupported_models() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         })),
     }];
 
@@ -2191,6 +2232,7 @@ async fn test_ai_proxy_embedding_size_mismatch_error() {
             non_linear_indices: vec![],
             error_if_exists: true,
             store_original: true,
+            schema: None,
         })),
     }];
 
@@ -2217,4 +2259,203 @@ async fn test_ai_proxy_embedding_size_mismatch_error() {
     };
 
     assert_eq!(response.into_inner(), expected);
+}
+
+/// Helper: provisions DB + AI servers with only AllMiniLML6V2 model loaded
+async fn provision_test_servers_limited() -> SocketAddr {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let db_port = server.local_addr().unwrap().port();
+
+    tokio::spawn(async move { server.start().await });
+
+    let mut config = AI_CONFIG_LIMITED_MODELS.clone();
+    config.db_port = db_port;
+
+    let ai_server = AIProxyServer::new(config)
+        .await
+        .expect("Could not initialize ai proxy");
+
+    let ai_address = ai_server.local_addr().expect("Could not get local addr");
+
+    let _ = tokio::spawn(async move { ai_server.start().await });
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    ai_address
+}
+
+/// Test: Create stores in different schemas and list them via AI proxy
+#[tokio::test]
+async fn test_ai_schema_create_store_in_schema() {
+    let address = provision_test_servers_limited().await;
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    // Create a store in default schema
+    let create_store = ahnlich_types::ai::query::CreateStore {
+        store: "AiPublicStore".to_string(),
+        query_model: AiModel::AllMiniLmL6V2.into(),
+        index_model: AiModel::AllMiniLmL6V2.into(),
+        predicates: vec![],
+        non_linear_indices: vec![],
+        error_if_exists: true,
+        store_original: true,
+        schema: None,
+    };
+    client
+        .create_store(tonic::Request::new(create_store))
+        .await
+        .expect("Failed to create store in default schema");
+
+    // Create a store in custom schema
+    let create_store = ahnlich_types::ai::query::CreateStore {
+        store: "AiCustomStore".to_string(),
+        query_model: AiModel::AllMiniLmL6V2.into(),
+        index_model: AiModel::AllMiniLmL6V2.into(),
+        predicates: vec![],
+        non_linear_indices: vec![],
+        error_if_exists: true,
+        store_original: true,
+        schema: Some("ai_custom".to_string()),
+    };
+    client
+        .create_store(tonic::Request::new(create_store))
+        .await
+        .expect("Failed to create store in custom schema");
+
+    // List stores filtered by public schema
+    let message = ahnlich_types::ai::query::ListStores {
+        schema: Some("public".to_string()),
+    };
+    let response = client
+        .list_stores(tonic::Request::new(message))
+        .await
+        .expect("Failed to list stores")
+        .into_inner();
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "AiPublicStore");
+
+    // List stores filtered by custom schema
+    let message = ahnlich_types::ai::query::ListStores {
+        schema: Some("ai_custom".to_string()),
+    };
+    let response = client
+        .list_stores(tonic::Request::new(message))
+        .await
+        .expect("Failed to list stores")
+        .into_inner();
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "AiCustomStore");
+
+    // List stores with no filter - should default to public schema
+    let message = ahnlich_types::ai::query::ListStores { schema: None };
+    let response = client
+        .list_stores(tonic::Request::new(message))
+        .await
+        .expect("Failed to list stores without filter")
+        .into_inner();
+    assert_eq!(response.stores.len(), 1);
+    assert_eq!(response.stores[0].name, "AiPublicStore");
+}
+
+/// Test: DropSchema through AI proxy
+#[tokio::test]
+async fn test_ai_schema_drop_schema() {
+    let address = provision_test_servers_limited().await;
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    // Create a store in a schema to drop
+    let create_store = ahnlich_types::ai::query::CreateStore {
+        store: "AiDropSchemaStore".to_string(),
+        query_model: AiModel::AllMiniLmL6V2.into(),
+        index_model: AiModel::AllMiniLmL6V2.into(),
+        predicates: vec![],
+        non_linear_indices: vec![],
+        error_if_exists: true,
+        store_original: true,
+        schema: Some("ai_tobedropped".to_string()),
+    };
+    client
+        .create_store(tonic::Request::new(create_store))
+        .await
+        .expect("Failed to create store in schema to drop");
+
+    // Create another store in the same schema
+    let create_store = ahnlich_types::ai::query::CreateStore {
+        store: "AiDropSchemaStore2".to_string(),
+        query_model: AiModel::AllMiniLmL6V2.into(),
+        index_model: AiModel::AllMiniLmL6V2.into(),
+        predicates: vec![],
+        non_linear_indices: vec![],
+        error_if_exists: true,
+        store_original: true,
+        schema: Some("ai_tobedropped".to_string()),
+    };
+    client
+        .create_store(tonic::Request::new(create_store))
+        .await
+        .expect("Failed to create second store in schema to drop");
+
+    // Drop the schema
+    let response = client
+        .drop_schema(tonic::Request::new(ahnlich_types::ai::query::DropSchema {
+            schema: "ai_tobedropped".to_string(),
+        }))
+        .await
+        .expect("DropSchema failed")
+        .into_inner();
+    assert_eq!(response.deleted_count, 2);
+
+    // Verify stores in dropped schema are gone by listing with schema filter
+    let message = ahnlich_types::ai::query::ListStores {
+        schema: Some("ai_tobedropped".to_string()),
+    };
+    let response = client
+        .list_stores(tonic::Request::new(message))
+        .await
+        .expect("Failed to list stores")
+        .into_inner();
+    assert_eq!(response.stores.len(), 0);
+}
+
+/// Test: Dropping the "public" schema through AI proxy should fail
+#[tokio::test]
+async fn test_ai_schema_drop_public_schema_fails() {
+    let address = provision_test_servers_limited().await;
+
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    // Attempt to drop "public" schema
+    let result = client
+        .drop_schema(tonic::Request::new(ahnlich_types::ai::query::DropSchema {
+            schema: "public".to_string(),
+        }))
+        .await;
+
+    assert!(
+        result.is_err(),
+        "Dropping public schema should return an error"
+    );
+    let status = result.unwrap_err();
+    assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    assert!(
+        status.message().contains("public"),
+        "Error message should reference 'public': {}",
+        status.message()
+    );
 }

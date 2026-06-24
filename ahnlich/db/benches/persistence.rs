@@ -3,7 +3,7 @@ use ahnlich_db::engine::store::StoreHandler;
 use ahnlich_types::algorithm::nonlinear::{HnswConfig, non_linear_index};
 use ahnlich_types::keyval::{StoreKey, StoreName, StoreValue};
 use ahnlich_types::metadata::MetadataValue;
-use chrono;
+use ahnlich_types::schema::Schema;
 use criterion::{Criterion, criterion_group, criterion_main};
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -98,6 +98,7 @@ fn create_test_store_with_data(
     handler
         .create_store(
             store_name.clone(),
+            &Schema::default(),
             NonZeroUsize::new(dimension).unwrap(),
             vec![],
             non_linear_indices,
