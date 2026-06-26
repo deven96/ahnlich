@@ -32,15 +32,19 @@ LIST CONNECTED CLIENTS
 ### 2. Store Management
 
 #### LIST STORES
-Show all existing vector stores. Returns store name, entry count, size in bytes, predicate indices, dimension, and the configuration of any non-linear indices (HNSW config parameters or k-d tree) on each store.
+Show vector stores in the selected schema. Returns store name, entry count, size in bytes, predicate indices, dimension, and the configuration of any non-linear indices (HNSW config parameters or k-d tree) on each store.
 ```
-LIST STORES
+LISTSTORES
+LISTSTORES SCHEMA analytics
 ```
+
+If `SCHEMA` is omitted, only stores in `public` are returned.
 
 #### GET STORE
 Get detailed information about a specific store by name. Returns the same info as LIST STORES but for a single store. Returns an error if the store does not exist.
 ```
 GETSTORE <store_name>
+GETSTORE <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -52,6 +56,7 @@ GETSTORE my_store
 Create a new store with a given dimension and algorithm.
 ```
 CREATE STORE <store_name> DIMENSION <n> ALGORITHM <cosine|euclidean|kdtree>
+CREATESTORE <store_name> DIMENSION <n> SCHEMA analytics
 ```
 
 #### Example:
@@ -63,11 +68,18 @@ CREATE STORE my_store DIMENSION 128 ALGORITHM cosine
 Remove a store and its contents.
 ```
 DROP STORE <store_name>
+DROPSTORE <store_name> IF EXISTS SCHEMA analytics
 ```
 
 #### Example:
 ```
 DROP STORE my_store
+```
+
+#### DROP SCHEMA
+Remove a non-public schema and all stores inside it. The `public` schema cannot be dropped.
+```
+DROPSCHEMA analytics
 ```
 
 

@@ -164,7 +164,7 @@ pub struct InfoServer {}
 /// A request to list all the stores on the server, along with their size or length.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListStores {
-    /// Optional schema/namespace to filter stores. If unset, lists all schemas.
+    /// Optional schema/namespace to filter stores. Defaults to "public" when unset.
     #[prost(string, optional, tag = "1")]
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }

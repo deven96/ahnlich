@@ -777,7 +777,7 @@ type ListStores struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Schema *string `protobuf:"bytes,1,opt,name=schema,proto3,oneof" json:"schema,omitempty"` // Optional schema/namespace to filter stores. If unset, lists all schemas.
+	Schema *string `protobuf:"bytes,1,opt,name=schema,proto3,oneof" json:"schema,omitempty"` // Optional schema/namespace to filter stores. Defaults to "public" when unset.
 }
 
 func (x *ListStores) Reset() {

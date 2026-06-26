@@ -837,7 +837,7 @@ export class ListStores extends Message<ListStores> {
   /**
    * Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
    *
-   * Optional schema/namespace to filter stores. If unset, lists all schemas.
+   * Optional schema/namespace to filter stores. Defaults to "public" when unset.
    *
    * @generated from field: optional string schema = 1;
    */

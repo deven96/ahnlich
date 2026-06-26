@@ -751,7 +751,7 @@ export class InfoServer extends Message<InfoServer> {
  */
 export class ListStores extends Message<ListStores> {
   /**
-   * Optional schema/namespace to filter stores. If unset, lists all schemas.
+   * Optional schema/namespace to filter stores. Defaults to "public" when unset.
    *
    * @generated from field: optional string schema = 1;
    */

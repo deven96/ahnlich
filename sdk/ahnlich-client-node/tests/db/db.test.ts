@@ -8,6 +8,7 @@ import {
   Ping,
   CreateNonLinearAlgorithmIndex,
   DropNonLinearAlgorithmIndex,
+  DropSchema,
 } from "../../grpc/db/query_pb.js";
 import { StoreKey, StoreValue, DbStoreEntry } from "../../grpc/keyval_pb.js";
 import { MetadataValue } from "../../grpc/metadata_pb.js";
@@ -59,6 +60,36 @@ describe("DB client", () => {
     expect(storeInfo).toBeDefined();
     expect(storeInfo!.dimension).toBe(3);
     expect(storeInfo!.predicateIndices).toContain("label");
+  });
+
+  test("schema-scoped store lifecycle", async () => {
+    const client = createDbClient(address);
+    const schema = "tenant_alpha";
+    const storeName = "schema_scoped_store";
+
+    await client.createStore(
+      new CreateStore({
+        store: storeName,
+        dimension: 3,
+        errorIfExists: true,
+        schema,
+      }),
+    );
+
+    const defaultList = await client.listStores(new ListStores());
+    expect(defaultList.stores.map((s) => s.name)).not.toContain(storeName);
+
+    const schemaList = await client.listStores(new ListStores({ schema }));
+    expect(schemaList.stores.map((s) => s.name)).toContain(storeName);
+
+    const storeInfo = await client.getStore(new GetStore({ store: storeName, schema }));
+    expect(storeInfo.name).toBe(storeName);
+
+    const dropResp = await client.dropSchema(new DropSchema({ schema }));
+    expect(Number(dropResp.deletedCount)).toBe(1);
+
+    const afterDrop = await client.listStores(new ListStores({ schema }));
+    expect(afterDrop.stores).toHaveLength(0);
   });
 
   test("get store returns store info", async () => {

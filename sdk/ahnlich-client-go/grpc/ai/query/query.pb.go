@@ -859,7 +859,7 @@ type ListStores struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
-	Schema *string `protobuf:"bytes,1,opt,name=schema,proto3,oneof" json:"schema,omitempty"` // Optional schema/namespace to filter stores. If unset, lists all schemas.
+	Schema *string `protobuf:"bytes,1,opt,name=schema,proto3,oneof" json:"schema,omitempty"` // Optional schema/namespace to filter stores. Defaults to "public" when unset.
 }
 
 func (x *ListStores) Reset() {

@@ -119,7 +119,7 @@ message ListClients {
 
 message ListStores {
   // Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
-  optional string schema = 1; // Optional schema/namespace to filter stores. If unset, lists all schemas.
+  optional string schema = 1; // Optional schema/namespace to filter stores. Defaults to "public" when unset.
 }
 
 message GetStore {

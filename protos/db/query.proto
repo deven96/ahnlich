@@ -104,7 +104,7 @@ message InfoServer {}
 
 // A request to list all the stores on the server, along with their size or length.
 message ListStores {
-  optional string schema = 1; // Optional schema/namespace to filter stores. If unset, lists all schemas.
+  optional string schema = 1; // Optional schema/namespace to filter stores. Defaults to "public" when unset.
 }
 
 // A request to list all the clients currently connected to the server.

@@ -201,7 +201,7 @@ pub struct ListClients {}
 pub struct ListStores {
     /// Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
     ///
-    /// Optional schema/namespace to filter stores. If unset, lists all schemas.
+    /// Optional schema/namespace to filter stores. Defaults to "public" when unset.
     #[prost(string, optional, tag = "1")]
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }

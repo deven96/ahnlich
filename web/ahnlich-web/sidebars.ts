@@ -50,6 +50,7 @@ const sidebars: SidebarsConfig = {
             'components/ahnlich-cli/ai-commands',
           ],
         },
+        'components/schemas/schemas',
         {
           type: 'category',
           label: '🗄️ Ahnlich DB',
@@ -125,6 +126,7 @@ const sidebars: SidebarsConfig = {
         id: 'client-libraries/client-libraries'
       },
       items: [
+        'client-libraries/schema-support',
         {
           type: 'category',
           label: 'Python',

@@ -32,11 +32,12 @@ INFOSERVER
 
 ## 3. List Stores
 #### Description
-Displays all stores currently created in Ahnlich AI.
+Displays AI stores in the selected schema. If no schema is supplied, only `public` stores are returned.
 
 #### Command
 ```
-LIST STORES
+LISTSTORES
+LISTSTORES SCHEMA media
 ```
 
 ## 4. Get Store
@@ -46,6 +47,7 @@ Get detailed information about a specific store by name. Returns store name, que
 #### Command
 ```
 GETSTORE my_store
+GETSTORE my_store SCHEMA media
 ```
 
 ## 5. Create Store
@@ -55,6 +57,7 @@ Creates a new store with specified index and query models.
 #### Command
 ```
 CREATESTORE my_store INDEXMODEL all-minilm-l6-v2 QUERYMODEL all-minilm-l6-v2
+CREATESTORE my_store INDEXMODEL all-minilm-l6-v2 QUERYMODEL all-minilm-l6-v2 SCHEMA media
 ```
 
 - **Rust**
@@ -89,9 +92,19 @@ Removes a store and its contents permanently.
 #### Command
 ```
 DROPSTORE article_store
+DROPSTORE article_store IF EXISTS SCHEMA media
 ```
 
-## 8. Get Sim N
+## 8. Drop Schema
+#### Description
+Drops a non-public schema and all AI stores inside it. Ahnlich AI also drops the backing DB schema before removing its local AI stores. The `public` schema cannot be dropped.
+
+#### Command
+```
+DROPSCHEMA media
+```
+
+## 9. Get Sim N
 #### Description
 Retrieve the top N most similar vectors to a given raw input.
 
@@ -100,7 +113,7 @@ Retrieve the top N most similar vectors to a given raw input.
 GETSIMN 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store WHERE (category != "sports")
 ```
 
-## 9. Get By Predicate
+## 10. Get By Predicate
 #### Description
 Retrieve all items in a store that satisfy a metadata condition.
 
@@ -109,7 +122,7 @@ Retrieve all items in a store that satisfy a metadata condition.
 GETPRED (category = "news") IN article_store
 ```
 
-## 10. Create Predicate Index
+## 11. Create Predicate Index
 #### Description
 Create an index on metadata to optimize predicate queries.
 
@@ -118,7 +131,7 @@ Create an index on metadata to optimize predicate queries.
 CREATEPREDICATEINDEX category IN article_store
 ```
 
-## 11. Drop Predicate Index
+## 12. Drop Predicate Index
 #### Description
 Remove a previously created metadata index.
 
@@ -127,7 +140,7 @@ Remove a previously created metadata index.
 DROPPREDICATEINDEX category IN article_store
 ```
 
-## 12. Create Non Linear Algorithm Index
+## 13. Create Non Linear Algorithm Index
 #### Description
 Create an advanced index (e.g., KDTree, HNSW) for faster similarity searches.
 
@@ -139,7 +152,7 @@ CREATENONLINEARALGORITHMINDEX kdtree IN geo_store
 CREATENONLINEARALGORITHMINDEX hnsw IN geo_store
 ```
 
-## 13. Drop Non Linear Algorithm Index
+## 14. Drop Non Linear Algorithm Index
 #### Description
 Drop a previously created non-linear index.
 
@@ -148,7 +161,7 @@ Drop a previously created non-linear index.
 DROPNONLINEARALGORITHMINDEX kdtree IN geo_store
 ```
 
-## 14. Delete Key
+## 15. Delete Key
 #### Description
 Remove a specific key from a store.
 
@@ -168,6 +181,7 @@ DELETEKEY doc1 IN article_store
 | CREATE STORE my_store INDEXMODEL all-minilm-l6-v2 QUERYMODEL all-minilm-l6-v2 | ```client.create_store("my_store", "all-minilm-l6-v2", "all-minilm-l6-v2")?;``` | ```client.create_store("my_store", index_model="all-minilm-l6-v2", query_model="all-minilm-l6-v2")``` | ```client.CreateStore(ctx, "my_store", "all-minilm-l6-v2", "all-minilm-l6-v2")``` |
 | SET doc1 "The future of AI in healthcare" WITH &#123;"category":"news"&#125; IN article_store | ```client.set("article_store", "doc1", "The future of AI in healthcare", hashmap!{"category"=>"news"})?;``` | ```client.set("article_store", "doc1", "The future of AI in healthcare", {"category":"news"})``` | ```client.Set(ctx, "article_store", "doc1", "The future of AI in healthcare", map[string]string{"category":"news"})``` |
 | DROP STORE article_store | ```client.drop_store("article_store")?;``` | ```client.drop_store("article_store")``` | ```client.DropStore(ctx, "article_store")``` |
+| DROPSCHEMA media | construct generated `DropSchema` request | construct generated `DropSchema` request | construct generated `DropSchema` request |
 | GET SIM N 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store WHERE (category != "sports") | ```client.get_sim_n("article_store", "renewable energy storage", 3, "cosine", Some("category!='sports'"))?;``` | ```client.get_sim_n("article_store", "renewable energy storage", 3, "cosine", predicate="category!='sports'")``` | ```client.GetSimN(ctx, "article_store", "renewable energy storage", 3, "cosine", "category!='sports'")``` |
 | GET BY PREDICATE (category = "news") IN article_store | ```client.get_by_predicate("article_store", "category='news'")?;``` | ```client.get_by_predicate("article_store", "category='news'")``` | ```client.GetByPredicate(ctx, "article_store", "category='news'")``` |
 | CREATE PREDICATE INDEX category IN article_store | ```client.create_predicate_index("article_store", "category")?;``` | ```client.create_predicate_index("article_store", "category")``` | ```client.CreatePredicateIndex(ctx, "article_store", "category")``` |
