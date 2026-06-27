@@ -52,6 +52,14 @@ type StoreValidateResponse = (
     Vec<(StoreInput, StoreValue)>,
     Option<StdHashSet<MetadataValue>>,
 );
+
+pub(crate) struct ModelExecutionParams<'a> {
+    pub(crate) model_manager: &'a ModelManager,
+    pub(crate) preprocess_action: PreprocessAction,
+    pub(crate) execution_provider: Option<ExecutionProvider>,
+    pub(crate) model_params: std::collections::HashMap<String, String>,
+}
+
 impl AhnlichPersistenceUtils for AIStoreHandler {
     type PersistenceObject = super::versioned::VersionedAiStores;
 
@@ -338,16 +346,13 @@ impl AIStoreHandler {
     }
 
     /// Stores storeinput into ahnlich db
-    #[tracing::instrument(skip(self, inputs), fields(input_length=inputs.len()))]
+    #[tracing::instrument(skip(self, inputs, model_execution_params), fields(input_length=inputs.len()))]
     pub(crate) async fn set(
         &self,
         store_name: &StoreName,
         schema: &Schema,
         inputs: Vec<(StoreInput, StoreValue)>,
-        model_manager: &ModelManager,
-        preprocess_action: PreprocessAction,
-        execution_provider: Option<ExecutionProvider>,
-        model_params: std::collections::HashMap<String, String>,
+        model_execution_params: ModelExecutionParams<'_>,
     ) -> Result<StoreSetResponse, AIProxyError> {
         let store = self.get(store_name, schema)?;
         if inputs.is_empty() {
@@ -357,14 +362,15 @@ impl AIStoreHandler {
             self.validate_and_prepare_store_data(store_name, schema, inputs)?;
 
         let (store_inputs, store_values): (Vec<_>, Vec<_>) = validated_data.into_iter().unzip();
-        let store_keys = model_manager
+        let store_keys = model_execution_params
+            .model_manager
             .handle_request(
                 &store.index_model,
                 store_inputs,
-                preprocess_action,
+                model_execution_params.preprocess_action,
                 InputAction::Index,
-                execution_provider,
-                model_params,
+                model_execution_params.execution_provider,
+                model_execution_params.model_params,
             )
             .await?;
 
@@ -467,26 +473,24 @@ impl AIStoreHandler {
             .collect()
     }
 
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, model_execution_params))]
     pub(crate) async fn get_ndarray_repr_for_store(
         &self,
         store_name: &StoreName,
         schema: &Schema,
         store_input: StoreInput,
-        model_manager: &ModelManager,
-        preprocess_action: PreprocessAction,
-        execution_provider: Option<ExecutionProvider>,
-        model_params: std::collections::HashMap<String, String>,
+        model_execution_params: ModelExecutionParams<'_>,
     ) -> Result<StoreKey, AIProxyError> {
         let store = self.get(store_name, schema)?;
-        let mut store_keys = model_manager
+        let mut store_keys = model_execution_params
+            .model_manager
             .handle_request(
                 &store.query_model,
                 vec![store_input],
-                preprocess_action,
+                model_execution_params.preprocess_action,
                 InputAction::Query,
-                execution_provider,
-                model_params,
+                model_execution_params.execution_provider,
+                model_execution_params.model_params,
             )
             .await?;
 

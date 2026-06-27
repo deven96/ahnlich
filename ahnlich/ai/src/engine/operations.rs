@@ -38,7 +38,10 @@ use tonic::Status;
 use crate::{
     AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY, AHNLICH_AI_RESERVED_META_KEY,
     cli::server::SupportedModels,
-    engine::{ai::models::ModelDetails, store::AIStoreHandler},
+    engine::{
+        ai::models::ModelDetails,
+        store::{AIStoreHandler, ModelExecutionParams},
+    },
     error::AIProxyError,
     manager::ModelManager,
 };
@@ -211,11 +214,13 @@ pub async fn set(
                     })
                 })
                 .collect(),
-            model_manager,
-            TryInto::<PreprocessAction>::try_into(params.preprocess_action)
-                .map_err(AIProxyError::from)?,
-            params.execution_provider.and_then(|a| a.try_into().ok()),
-            model_params,
+            ModelExecutionParams {
+                model_manager,
+                preprocess_action: TryInto::<PreprocessAction>::try_into(params.preprocess_action)
+                    .map_err(AIProxyError::from)?,
+                execution_provider: params.execution_provider.and_then(|a| a.try_into().ok()),
+                model_params,
+            },
         )
         .await?;
 

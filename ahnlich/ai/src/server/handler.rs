@@ -8,6 +8,7 @@ use crate::engine::ai::models::ModelDetails;
 use crate::engine::ai::models::ModelResponse;
 use crate::engine::operations;
 use crate::engine::store::AIStoreHandler;
+use crate::engine::store::ModelExecutionParams;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use ahnlich_types::ai::models::AiModel;
@@ -363,11 +364,15 @@ impl AiService for AIProxyServer {
                 },
                 &schema,
                 search_input,
-                &self.model_manager,
-                TryInto::<PreprocessAction>::try_into(params.preprocess_action)
+                ModelExecutionParams {
+                    model_manager: &self.model_manager,
+                    preprocess_action: TryInto::<PreprocessAction>::try_into(
+                        params.preprocess_action,
+                    )
                     .map_err(AIProxyError::from)?,
-                params.execution_provider.and_then(|a| a.try_into().ok()),
-                model_params,
+                    execution_provider: params.execution_provider.and_then(|a| a.try_into().ok()),
+                    model_params,
+                },
             )
             .await?;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
