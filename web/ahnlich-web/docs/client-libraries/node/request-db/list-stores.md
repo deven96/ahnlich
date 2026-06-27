@@ -27,7 +27,7 @@ import { ListStores } from "ahnlich-client-node/grpc/db/query_pb";
 async function listStores() {
   const client = createDbClient("127.0.0.1:1369");
 
-  const response = await client.listStores(new ListStores());
+  const response = await client.listStores(new ListStores({ schema: "analytics" }));
 
   // Get store names
   console.log(response.stores.map((s) => s.name));

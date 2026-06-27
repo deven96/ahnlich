@@ -29,7 +29,7 @@ async def list_stores():
     client = DbServiceStub(channel)
     tracing_id = "00-80e1afed08e019fc1110464cfa66635c-7a085853722dc6d2-01"
     response = await client.list_stores(
-      db_query.ListStores(),
+      db_query.ListStores(schema="analytics"),
       metadata={"ahnlich-trace-id": tracing_id}
     )
     print(f"Stores: {[store.name for store in response.stores]}")

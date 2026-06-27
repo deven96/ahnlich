@@ -31,7 +31,7 @@ async def get_ai_store_info():
         client = AiServiceStub(channel)
 
         response = await client.get_store(
-            ai_query.GetStore(store="ai_store")
+            ai_query.GetStore(store="ai_store", schema="analytics")
         )
 
         print(f"Store name: {response.name}")
@@ -55,6 +55,7 @@ if __name__ == "__main__":
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `store` | `str` | Yes | The name of the AI store to retrieve |
+| `schema` | `str` | No | Schema containing the AI store. Defaults to `public` when omitted |
 
 ## Response: AiStoreInfo
 

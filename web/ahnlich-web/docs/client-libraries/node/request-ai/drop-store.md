@@ -24,6 +24,7 @@ async function dropStore() {
   await client.dropStore(
     new DropStore({
       store: "ai_store",
+      schema: "analytics",
       errorIfNotExists: true,
     })
   );

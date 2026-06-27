@@ -40,6 +40,9 @@ const AIAddr = "127.0.0.1:1370"
 
 
 // ExampleAIClient wraps the connection + AIService client
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
   conn   *grpc.ClientConn
   client aisvc.AIServiceClient
@@ -70,6 +73,7 @@ func (c *ExampleAIClient) Close() error {
 func (c *ExampleAIClient) exampleDropPredicateIndexAI() error {
   _, err := c.client.DropPredIndex(c.ctx, &aiquery.DropPredIndex{
       Store:            "ai_store",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       Predicates:       []string{"f"},
       ErrorIfNotExists: true,
   })

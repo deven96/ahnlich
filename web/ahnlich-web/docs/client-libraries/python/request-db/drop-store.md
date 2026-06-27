@@ -34,6 +34,7 @@ Use this carefully, as the operation is destructive and cannot be undone.
         response = await client.drop_store(
             db_query.DropStore(
                 store="test store",
+                schema="analytics",
                 error_if_not_exists=True
             )
         )

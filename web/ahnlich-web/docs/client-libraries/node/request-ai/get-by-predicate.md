@@ -32,6 +32,7 @@ async function getByPredicate() {
   const response = await client.getPred(
     new GetPred({
       store: "ai_store",
+      schema: "analytics",
       condition: new PredicateCondition({
         kind: {
           case: "value",

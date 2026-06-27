@@ -35,6 +35,7 @@ The `GetSimN` request retrieves the **top-N most similar vectors** to a given qu
       // prepare parameters
       let params = GetSimN {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           search_input: Some(StoreKey { key: vec![1.0, 2.0, 3.0] }),
           closest_n: 2,
           algorithm: Algorithm::EuclideanDistance as i32,

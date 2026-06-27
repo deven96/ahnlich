@@ -42,6 +42,7 @@ This request removes one or more **keys** (and their associated values) from a s
         response = await client.del_key(
             db_query.DelKey(
                 store="test store 002",
+                schema="analytics",
                 keys=[store_key]
             )
         )

@@ -32,6 +32,7 @@ async function setEntries() {
   await client.set(
     new Set({
       store: "my_store",
+      schema: "analytics",
       inputs: [
         new DbStoreEntry({
           key: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
@@ -85,6 +86,7 @@ async function setMultipleEntries() {
   await client.set(
     new Set({
       store: "my_store",
+      schema: "analytics",
       inputs: [
         new DbStoreEntry({
           key: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
@@ -132,6 +134,7 @@ async function setWithBinaryMetadata() {
   await client.set(
     new Set({
       store: "my_store",
+      schema: "analytics",
       inputs: [
         new DbStoreEntry({
           key: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),

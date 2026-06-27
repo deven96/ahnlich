@@ -40,6 +40,7 @@ async function getKey() {
   const response = await client.getKey(
     new GetKey({
       store: "my_store",
+      schema: "analytics",
       keys: [storeInput]
     })
   );

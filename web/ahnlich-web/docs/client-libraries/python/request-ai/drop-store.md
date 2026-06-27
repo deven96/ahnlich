@@ -34,6 +34,7 @@ Use this when you no longer need the vector store or want to clean up your envir
         response = await client.drop_store(
             ai_query.DropStore(
                 store="test store",
+                schema="analytics",
                 error_if_not_exists=True
             )
         )

@@ -43,6 +43,9 @@ const ServerAddr = "127.0.0.1:1369"
 
 
 // ExampleDBClient holds the gRPC connection, client, and context.
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -76,6 +79,7 @@ func (c *ExampleDBClient) Close() error {
 func (c *ExampleDBClient) exampleGetSimN() error {
     resp, err := c.client.GetSimN(c.ctx, &dbquery.GetSimN{
         Store:       "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         SearchInput: &keyval.StoreKey{Key: []float32{1, 2, 3, 4}},
         ClosestN:    3,
         Algorithm:   algorithms.Algorithm_CosineSimilarity,

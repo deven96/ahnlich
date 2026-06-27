@@ -32,6 +32,7 @@ async function getSimN() {
   const response = await client.getSimN(
     new GetSimN({
       store: "ai_store",
+      schema: "analytics",
       searchInput: new StoreInput({ value: { case: "rawString", value: "Jordan" } }),
       closestN: 3,
       algorithm: Algorithm.COSINE_SIMILARITY,
@@ -79,6 +80,7 @@ async function semanticSearch() {
   const response = await client.getSimN(
     new GetSimN({
       store: "products",
+      schema: "analytics",
       searchInput: new StoreInput({
         value: { case: "rawString", value: "comfortable running shoes" },
       }),
@@ -117,6 +119,7 @@ async function searchWithFilter() {
   const response = await client.getSimN(
     new GetSimN({
       store: "products",
+      schema: "analytics",
       searchInput: new StoreInput({
         value: { case: "rawString", value: "basketball shoes" },
       }),

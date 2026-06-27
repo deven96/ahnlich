@@ -51,6 +51,7 @@ This request removes all entries in a store that match a specified predicate con
         response = await client.del_pred(
             db_query.DelPred(
                 store="test store 003",
+                schema="analytics",
                 condition=condition
             )
         )

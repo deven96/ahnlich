@@ -41,6 +41,7 @@ The result contains a list of entries matching the predicate.
         response = await client.get_pred(
             ai_query.GetPred(
                 store="test store 1",
+                schema="analytics",
                 condition=condition
             )
         )

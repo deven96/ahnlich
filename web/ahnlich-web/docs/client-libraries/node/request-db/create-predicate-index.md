@@ -30,6 +30,7 @@ async function createPredicateIndex() {
   await client.createPredIndex(
     new CreatePredIndex({
       store: "my_store",
+      schema: "analytics",
       predicates: ["label", "category"],
     })
   );

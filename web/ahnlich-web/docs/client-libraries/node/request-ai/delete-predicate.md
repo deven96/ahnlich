@@ -56,6 +56,7 @@ async function deletePredicate() {
   const response = await client.delPred(
     new DelPred({
       store: "my_store",
+      schema: "analytics",
       condition: condition
     })
   );

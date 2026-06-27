@@ -31,6 +31,7 @@ async function createStore() {
   await client.createStore(
     new CreateStore({
       store: "ai_store",
+      schema: "analytics",
       queryModel: AIModel.ALL_MINI_LM_L6_V2,
       indexModel: AIModel.ALL_MINI_LM_L6_V2,
       predicates: ["brand", "category"],
@@ -83,6 +84,7 @@ async function createImageStore() {
   await client.createStore(
     new CreateStore({
       store: "image_store",
+      schema: "analytics",
       queryModel: AIModel.RESNET50,
       indexModel: AIModel.RESNET50,
       predicates: ["filename", "category"],

@@ -48,6 +48,9 @@ const AIAddr = "127.0.0.1:1370"
 
 
 // ExampleAIClient wraps the connection + AIService client
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
   conn   *grpc.ClientConn
   client aisvc.AIServiceClient
@@ -79,6 +82,7 @@ func (c *ExampleAIClient) exampleCreateNonLinearIndexAI() error {
   // Create a KDTree index
   _, err := c.client.CreateNonLinearAlgorithmIndex(c.ctx, &aiquery.CreateNonLinearAlgorithmIndex{
       Store: "ai_store",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       NonLinearIndices: []*nonlinear.NonLinearIndex{
           {Index: &nonlinear.NonLinearIndex_Kdtree{Kdtree: &nonlinear.KDTreeConfig{}}},
       },
@@ -91,6 +95,7 @@ func (c *ExampleAIClient) exampleCreateNonLinearIndexAI() error {
   // Or create an HNSW index (with optional config)
   _, err = c.client.CreateNonLinearAlgorithmIndex(c.ctx, &aiquery.CreateNonLinearAlgorithmIndex{
       Store: "ai_store",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       NonLinearIndices: []*nonlinear.NonLinearIndex{
           {Index: &nonlinear.NonLinearIndex_Hnsw{Hnsw: &nonlinear.HNSWConfig{}}},
       },

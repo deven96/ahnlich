@@ -42,6 +42,9 @@ const AIAddr = "127.0.0.1:1370"
 
 
 // ExampleAIClient wraps the connection + AIService client
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
   conn   *grpc.ClientConn
   client aisvc.AIServiceClient
@@ -72,6 +75,7 @@ func (c *ExampleAIClient) Close() error {
 func (c *ExampleAIClient) exampleDeleteKeyAI() error {
   _, err := c.client.DelKey(c.ctx, &aiquery.DelKey{
       Store: "ai_store01",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       Keys: []*keyval.StoreInput{
           {Value: &keyval.StoreInput_RawString{RawString: "X"}},
       },

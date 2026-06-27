@@ -27,6 +27,7 @@ Deletes an entire vector store from the **AI service**, including all embeddings
 
       let drop_params = DropStore {
           store: "Deven Kicks".to_string(),
+          schema: Some("analytics".to_string()),
           error_if_not_exists: true,
       };
 

@@ -31,6 +31,7 @@ Removes a single key and its associated vector and metadata from a store. This o
       // Delete a specific key from store "Main" (dimension must match)
       let del_key_params = DelKey {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           keys: vec![StoreKey {
               key: vec![1.0, 1.1, 1.2], // ✅ matches dimension=3
           }],

@@ -42,6 +42,7 @@ Performs a **similarity search** in a vector store, retrieving the top-N most si
       // Construct GetSimN parameters
       let params = GetSimN {
           store: "Main0".to_string(),
+          schema: Some("analytics".to_string()),
           search_input: Some(search_input),
           closest_n: 3, // number of similar entries to retrieve
           algorithm: Algorithm::CosineSimilarity as i32,

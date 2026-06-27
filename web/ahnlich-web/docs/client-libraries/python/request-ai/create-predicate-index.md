@@ -33,6 +33,7 @@ The response confirms the creation of indices.
         response = await client.create_pred_index(
             ai_query.CreatePredIndex(
                 store="test store",
+                schema="analytics",
                 predicates=["job", "rank"]
             )
         )

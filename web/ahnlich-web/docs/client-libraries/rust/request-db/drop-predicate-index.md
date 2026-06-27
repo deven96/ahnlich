@@ -30,6 +30,7 @@ Removes an existing predicate index from a store. This operation cleans up index
       // Drop the "role" predicate index from store "Main"
       let drop_index_params = DropPredIndex {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           predicates: vec!["role".to_string()],
           error_if_not_exists: true, // fail if it doesn't exist
       };

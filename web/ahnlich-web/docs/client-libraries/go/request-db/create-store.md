@@ -10,11 +10,13 @@ This request accepts an optional `schema` field. When it is omitted, the server 
 
 ## Description
 
-`CreateStore` creates a new vector store on the Ahnlich DB server. A store is the fundamental unit of organization for embeddings and their associated metadata. Each store is defined by its **name** and its **dimension**, which specifies the length of vectors that can be inserted.
+`CreateStore` creates a new vector store on the Ahnlich DB server. A store is the fundamental unit of organization for embeddings and their associated metadata. Each store is defined by its **schema**, **name**, and **dimension**, which specifies the length of vectors that can be inserted.
 
 ## Behavior
 
-- A store must have a **unique name** within the server instance. If you try to create a store with an existing name and `ErrorIfExists` is true, the server will reject it.
+- A store must have a **unique name within its schema**. If you try to create a store with an existing name in the same schema and `ErrorIfExists` is true, the server will reject it.
+
+- **Schema** - Optional namespace for the store. When omitted, the server creates the store in `public`. Set `Schema` to create the store in another schema such as `analytics`.
 
 - The **dimension parameter** is mandatory and must match the size of vectors you plan to insert.
 
@@ -55,6 +57,9 @@ import (
 const ServerAddr = "127.0.0.1:1369"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -79,6 +84,7 @@ func (c *ExampleDBClient) Close() error { return c.conn.Close() }
 func (c *ExampleDBClient) exampleCreateStore(store string, dimension int32) error {
     _, err := c.client.CreateStore(c.ctx, &dbquery.CreateStore{
         Store:             store,
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Dimension:         uint32(dimension),
         CreatePredicates:  []string{}, // Optional: list of metadata fields to index for filtering
         NonLinearIndices:  []*nonlinear.NonLinearIndex{},  // Optional: non-linear algorithms (e.g., KDTree, HNSW) for faster search
@@ -113,4 +119,4 @@ func main() {
 
 </details>
 
-This method requests the creation of a store named `"my_store"` with a vector dimensionality of 4. The response is ignored in this example, but the absence of an error indicates success.
+This method requests the creation of a store named `"my_stores"` in the `analytics` schema with a vector dimensionality of 4. The response is ignored in this example, but the absence of an error indicates success.

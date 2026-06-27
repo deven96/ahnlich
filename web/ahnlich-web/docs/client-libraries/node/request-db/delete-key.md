@@ -31,6 +31,7 @@ async function deleteKey() {
   await client.delKey(
     new DelKey({
       store: "my_store",
+      schema: "analytics",
       keys: [new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] })],
     })
   );
@@ -65,6 +66,7 @@ async function deleteMultipleKeys() {
   await client.delKey(
     new DelKey({
       store: "my_store",
+      schema: "analytics",
       keys: [
         new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
         new StoreKey({ key: [5.0, 6.0, 7.0, 8.0] }),

@@ -33,6 +33,7 @@ Removes a **predicate index** used by the AI service to optimize filtered embedd
       // Define which store and which predicate index to drop
       let params = DropPredIndex {
           store: "Deven Kicks".to_string(),
+          schema: Some("analytics".to_string()),
           predicates: vec!["Brand".to_string()],
           error_if_not_exists: true, // 👈 required field, prevents silent no-op
       };

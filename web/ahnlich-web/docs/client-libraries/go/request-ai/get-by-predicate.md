@@ -41,6 +41,9 @@ import (
 const AIAddr = "127.0.0.1:1370"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
     conn   *grpc.ClientConn
     client aisvc.AIServiceClient
@@ -83,6 +86,7 @@ func (c *ExampleAIClient) exampleGetByPredicateAI() error {
 
     resp, err := c.client.GetPred(c.ctx, &aiquery.GetPred{
         Store:     "ai_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Condition: cond,
     })
     if err != nil {

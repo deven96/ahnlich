@@ -38,6 +38,7 @@ The GetKey request retrieves entries from a store based on an exact vector key m
         response = await client.get_key(
           db_query.GetKey(
               store="customer_profiles",
+              schema="analytics",
               keys=[lookup_key]
           )
         )

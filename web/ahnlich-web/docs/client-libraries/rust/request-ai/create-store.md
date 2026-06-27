@@ -29,6 +29,7 @@ Creates a new vector store within the AI service. A store acts as a container fo
       // Create a new AI store
       let create_params = CreateStore {
           store: "Deven Kicks".to_string(),
+          schema: Some("analytics".to_string()),
           index_model: AiModel::AllMiniLmL6V2 as i32,
           query_model: AiModel::AllMiniLmL6V2 as i32,
           predicates: vec![],

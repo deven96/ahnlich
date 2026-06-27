@@ -32,6 +32,7 @@ async function getSimN() {
   const response = await client.getSimN(
     new GetSimN({
       store: "my_store",
+      schema: "analytics",
       searchInput: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
       closestN: 3,
       algorithm: Algorithm.COSINE_SIMILARITY,
@@ -89,6 +90,7 @@ async function getSimNWithFilter() {
   const response = await client.getSimN(
     new GetSimN({
       store: "my_store",
+      schema: "analytics",
       searchInput: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
       closestN: 5,
       algorithm: Algorithm.COSINE_SIMILARITY,

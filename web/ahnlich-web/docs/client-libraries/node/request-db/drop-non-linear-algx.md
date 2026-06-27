@@ -31,6 +31,7 @@ async function dropNonLinearIndex() {
   await client.dropNonLinearAlgorithmIndex(
     new DropNonLinearAlgorithmIndex({
       store: "my_store",
+      schema: "analytics",
       nonLinearIndices: [NonLinearAlgorithm.KDTree],
       errorIfNotExists: true,
     })

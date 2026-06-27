@@ -54,6 +54,7 @@ Source code in the context of the rest of the application code.
         response = await client.get_sim_n(
             ai_query.GetSimN(
                 store="test store 1",
+                schema="analytics",
                 search_input=keyval.StoreInput(raw_string="Jordan"),
                 condition=None,  # Optional predicate condition
                 closest_n=3,

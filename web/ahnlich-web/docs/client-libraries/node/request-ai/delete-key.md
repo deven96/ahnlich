@@ -25,6 +25,7 @@ async function deleteKey() {
   await client.delKey(
     new DelKey({
       store: "ai_store",
+      schema: "analytics",
       keys: [
         new StoreInput({ value: { case: "rawString", value: "Jordan One" } }),
       ],

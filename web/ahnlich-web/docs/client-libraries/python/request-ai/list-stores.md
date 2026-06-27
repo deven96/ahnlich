@@ -28,7 +28,7 @@ In the context of the rest of the application code:
   async def list_stores():
     async with Channel(host="127.0.0.1", port=1370) as channel:
         client = AiServiceStub(channel)
-        response = await client.list_stores(ai_query.ListStores())
+        response = await client.list_stores(ai_query.ListStores(schema="analytics"))
         print(response) #StoreList(stores=[AiStoreInfo(name='test store', embedding_size=384)])
 
 

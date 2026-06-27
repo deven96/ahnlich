@@ -32,6 +32,7 @@ async function getByPredicate() {
   const response = await client.getPred(
     new GetPred({
       store: "my_store",
+      schema: "analytics",
       condition: new PredicateCondition({
         kind: {
           case: "value",
@@ -91,6 +92,7 @@ async function getNotEqualsPredicate() {
   const response = await client.getPred(
     new GetPred({
       store: "my_store",
+      schema: "analytics",
       condition: new PredicateCondition({
         kind: {
           case: "value",
@@ -137,6 +139,7 @@ async function getWithAndCondition() {
   const response = await client.getPred(
     new GetPred({
       store: "my_store",
+      schema: "analytics",
       condition: new PredicateCondition({
         kind: {
           case: "and",

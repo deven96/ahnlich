@@ -31,6 +31,7 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
       // Create a KDTree index
       let params = CreateNonLinearAlgorithmIndex {
           store: "MyStore".to_string(),
+          schema: Some("analytics".to_string()),
           non_linear_indices: vec![
               NonLinearIndex {
                   index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
@@ -44,6 +45,7 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
       // Or create an HNSW index (with default config)
       let params = CreateNonLinearAlgorithmIndex {
           store: "MyStore".to_string(),
+          schema: Some("analytics".to_string()),
           non_linear_indices: vec![
               NonLinearIndex {
                   index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),

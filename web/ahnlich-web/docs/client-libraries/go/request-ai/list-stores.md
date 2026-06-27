@@ -51,6 +51,9 @@ const AIAddr = "127.0.0.1:1370"
 
 
 // ExampleAIClient holds the gRPC connection and AI client.
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
     conn   *grpc.ClientConn
     client aisvc.AIServiceClient
@@ -78,7 +81,7 @@ func (c *ExampleAIClient) Close() error {
 // ---- ListStores Example ----
 // List all stores available on the AI server.
 func (c *ExampleAIClient) exampleListStoresAI() error {
-    resp, err := c.client.ListStores(c.ctx, &aiquery.ListStores{})
+    resp, err := c.client.ListStores(c.ctx, &aiquery.ListStores{Schema: stringPtr("analytics")})
     if err != nil {
         return err
     }

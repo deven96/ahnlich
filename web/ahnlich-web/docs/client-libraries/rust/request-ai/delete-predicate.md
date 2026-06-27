@@ -46,6 +46,7 @@ Removes one or more records from an AI store based on a predicate condition. Thi
       // Parameters for deleting predicate
       let params = DelPred {
           store: "my_ai_store".to_string(),
+          schema: Some("analytics".to_string()),
           condition: Some(condition),
       };
 

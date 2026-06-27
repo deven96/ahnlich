@@ -34,6 +34,7 @@ Predicate index allow for efficient querying based on metadata fields. You can d
         response = await client.drop_pred_index(
             ai_query.DropPredIndex(
                 store="test store",
+                schema="analytics",
                 predicates=["job"],
                 error_if_not_exists=True
             )

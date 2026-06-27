@@ -28,7 +28,7 @@ async function getStore() {
   const client = createAiClient("127.0.0.1:1370");
 
   const response = await client.getStore(
-    new GetStore({ store: "ai_store" })
+    new GetStore({ store: "ai_store", schema: "analytics" })
   );
 
   console.log(response.name);            // Store name

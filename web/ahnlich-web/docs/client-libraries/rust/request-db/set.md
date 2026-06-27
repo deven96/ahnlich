@@ -52,6 +52,7 @@ The `Set` request inserts or updates a vector in a given store. Each vector is s
 
       let params = Set {
           store: "Main".to_string(), // store must already exist
+          schema: Some("analytics".to_string()),
           inputs,
       };
 

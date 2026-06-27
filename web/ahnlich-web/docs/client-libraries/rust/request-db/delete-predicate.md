@@ -47,6 +47,7 @@ Removes one or more records from a store based on a predicate condition. Instead
       // Parameters for deleting predicate
       let params = DelPred {
           store: "Main".to_string(), // your store name
+          schema: Some("analytics".to_string()),
           condition: Some(condition),
       };
 

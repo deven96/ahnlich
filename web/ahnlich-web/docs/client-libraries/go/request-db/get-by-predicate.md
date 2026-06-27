@@ -43,6 +43,9 @@ const ServerAddr = "127.0.0.1:1369"
 
 
 // ExampleDBClient holds the gRPC connection, client, and context.
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -89,6 +92,7 @@ func (c *ExampleDBClient) exampleGetByPredicate() error {
     // Call GetPred with the condition
     resp, err := c.client.GetPred(c.ctx, &dbquery.GetPred{
         Store:     "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Condition: cond,
     })
     if err != nil {

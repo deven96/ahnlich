@@ -34,6 +34,7 @@ Retrieve a single stored vector (and its associated metadata) by key from a spec
       // example: look up a key from store "Main"
       let get_key_params = GetKey {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           keys: vec![
               StoreKey {
                   key: vec![1.2, 1.3, 1.4], // must match a previously Set key

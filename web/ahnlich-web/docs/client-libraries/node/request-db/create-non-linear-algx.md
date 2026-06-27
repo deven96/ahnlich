@@ -33,6 +33,7 @@ async function createKDTreeIndex() {
   await client.createNonLinearAlgorithmIndex(
     new CreateNonLinearAlgorithmIndex({
       store: "my_store",
+      schema: "analytics",
       nonLinearIndices: [
         new NonLinearIndex({
           index: { case: "kdtree", value: new KDTreeConfig() },
@@ -64,6 +65,7 @@ async function createHNSWIndex() {
   await client.createNonLinearAlgorithmIndex(
     new CreateNonLinearAlgorithmIndex({
       store: "my_store",
+      schema: "analytics",
       nonLinearIndices: [
         new NonLinearIndex({
           index: { case: "hnsw", value: new HNSWConfig() },

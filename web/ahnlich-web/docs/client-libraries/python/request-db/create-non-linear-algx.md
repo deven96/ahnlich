@@ -41,6 +41,7 @@ The following example shows how to initialize a client, request index creation, 
         response = await client.create_non_linear_algorithm_index(
             db_query.CreateNonLinearAlgorithmIndex(
                 store="test store 003",
+                schema="analytics",
                 non_linear_indices=[NonLinearIndex(kdtree=KdTreeConfig())]
             )
         )
@@ -49,6 +50,7 @@ The following example shows how to initialize a client, request index creation, 
         response = await client.create_non_linear_algorithm_index(
             db_query.CreateNonLinearAlgorithmIndex(
                 store="test store 003",
+                schema="analytics",
                 non_linear_indices=[NonLinearIndex(hnsw=HnswConfig())]
             )
         )

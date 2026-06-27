@@ -39,6 +39,7 @@ If the specified key does not exist, the behavior depends on the server configur
         response = await client.del_key(
             ai_query.DelKey(
                 store="test store 1",
+                schema="analytics",
                 keys=[keyval.StoreInput(raw_string="Custom Made Jordan 4")]
             )
         )

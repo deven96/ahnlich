@@ -42,6 +42,9 @@ import (
 const ServerAddr = "127.0.0.1:1370"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
     conn   *grpc.ClientConn
     client aisvc.AIServiceClient
@@ -85,6 +88,7 @@ func (c *ExampleAIClient) exampleDeletePredicate() error {
 
     _, err := c.client.DelPred(c.ctx, &aiquery.DelPred{
         Store:     "my_ai_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Condition: condition,
     })
     if err != nil {

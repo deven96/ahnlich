@@ -50,6 +50,7 @@ Retrieve one or more stored vectors and their associated metadata from a store b
 
       let get_pred_params = GetPred {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           condition: Some(condition),
       };
 

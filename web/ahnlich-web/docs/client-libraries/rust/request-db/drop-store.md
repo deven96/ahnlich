@@ -29,6 +29,7 @@ Deletes an entire store from the database, including all vectors, keys, and asso
       // Prepare drop store parameters
       let drop_params = DropStore {
           store: "MyStore".to_string(),
+          schema: Some("analytics".to_string()),
           error_if_not_exists: true, // Required field
       };
 

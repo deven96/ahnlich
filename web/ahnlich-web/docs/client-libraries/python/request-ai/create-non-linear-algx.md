@@ -37,6 +37,7 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
         response = await client.create_non_linear_algorithm_index(
             ai_query.CreateNonLinearAlgorithmIndex(
                 store="test store",
+                schema="analytics",
                 non_linear_indices=[NonLinearIndex(kdtree=KdTreeConfig())],
             )
         )
@@ -46,6 +47,7 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
         response = await client.create_non_linear_algorithm_index(
             ai_query.CreateNonLinearAlgorithmIndex(
                 store="test store",
+                schema="analytics",
                 non_linear_indices=[NonLinearIndex(hnsw=HnswConfig())],
             )
         )

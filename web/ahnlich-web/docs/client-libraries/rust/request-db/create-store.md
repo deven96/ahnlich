@@ -32,6 +32,7 @@ Creates a new vector store within the Ahnlich DB service. A store is the primary
       // Define parameters for store creation
       let params = CreateStore {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           dimension: 3,
           create_predicates: vec!["role".to_string()],
           non_linear_indices: vec![],

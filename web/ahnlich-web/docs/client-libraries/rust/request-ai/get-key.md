@@ -37,6 +37,7 @@ Fetches a record from a vector store by its unique key. This provides a determin
 
       let params = GetKey {
           store: "Main0".to_string(),
+          schema: Some("analytics".to_string()),
           keys, // directly pass the Vec
       };
 

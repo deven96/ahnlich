@@ -36,6 +36,7 @@ If the specified index does not exist, the request will fail if `error_if_not_ex
         response = await client.drop_non_linear_algorithm_index(
             ai_query.DropNonLinearAlgorithmIndex(
                 store="test store",
+                schema="analytics",
                 non_linear_indices=[NonLinearAlgorithm.KDTree],
                 error_if_not_exists=True
             )

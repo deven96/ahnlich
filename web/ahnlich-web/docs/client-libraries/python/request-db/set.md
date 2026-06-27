@@ -46,6 +46,7 @@ async def set():
     response = await client.set(
       db_query.Set(
         store="test store",
+        schema="analytics",
         inputs=[keyval.DbStoreEntry(key=store_key, value=store_value)]
       )
     )

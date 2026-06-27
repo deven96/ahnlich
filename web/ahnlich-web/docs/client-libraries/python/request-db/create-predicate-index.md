@@ -38,6 +38,7 @@ Indexes make predicate queries (e.g. GetPred) faster and more efficient.
       response = await client.create_pred_index(
         db_query.CreatePredIndex(
           store="test store",
+          schema="analytics",
           predicates=["job", "rank"]
         )
       )

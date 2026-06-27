@@ -47,6 +47,7 @@ Instead of matching vectors, it filters results using key/value metadata.
       response = await client.get_pred(
         db_query.GetPred(
           store="test store",
+          schema="analytics",
           condition=condition
         )
       )

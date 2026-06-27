@@ -24,6 +24,7 @@ async function dropPredicateIndex() {
   await client.dropPredIndex(
     new DropPredIndex({
       store: "ai_store",
+      schema: "analytics",
       predicates: ["brand"],
       errorIfNotExists: true,
     })

@@ -33,6 +33,7 @@ async function setEntries() {
   await client.set(
     new Set({
       store: "ai_store",
+      schema: "analytics",
       inputs: [
         new AiStoreEntry({
           key: new StoreInput({ value: { case: "rawString", value: "Jordan One" } }),
@@ -100,6 +101,7 @@ async function setMultipleEntries() {
   await client.set(
     new Set({
       store: "products",
+      schema: "analytics",
       inputs: products.map(
         (p) =>
           new AiStoreEntry({
@@ -142,6 +144,7 @@ async function setImageEntry() {
   await client.set(
     new Set({
       store: "image_store",
+      schema: "analytics",
       inputs: [
         new AiStoreEntry({
           key: new StoreInput({ value: { case: "image", value: imageData } }),

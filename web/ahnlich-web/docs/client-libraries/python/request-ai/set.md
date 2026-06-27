@@ -31,6 +31,7 @@ The AI service will automatically **embed these inputs** using the store’s con
         response = await client.set(
             ai_query.Set(
                 store="test store",
+                schema="analytics",
                 inputs=[
                     keyval.AiStoreEntry(
                         key=keyval.StoreInput(raw_string="Jordan One"),

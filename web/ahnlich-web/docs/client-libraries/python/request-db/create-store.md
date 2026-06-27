@@ -37,6 +37,7 @@ async def create_store():
     response = await client.create_store(
       db_query.CreateStore(
         store="test store 006",
+        schema="analytics",
         dimension=5,  # Fixed vector dimension
         create_predicates=["job"],  # Index these metadata fields
         non_linear_indices=[],  # Optional: non-linear algorithms for faster search

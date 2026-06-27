@@ -35,6 +35,7 @@ Deletes a specific embedding and its associated metadata from a vector store in 
       // Define key to delete
       let params = DelKey {
           store: "Deven Kicks".to_string(),
+          schema: Some("analytics".to_string()),
           keys: vec![StoreInput {
               value: Some(Value::RawString("Nike Air Jordans".to_string())),
           }],

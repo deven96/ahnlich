@@ -54,6 +54,7 @@ Retrieves records from a vector store that satisfy a given predicate filter. Sup
 
       let get_pred_params = GetPred {
           store: store_name.value.clone(),
+          schema: Some("analytics".to_string()),
           condition: Some(condition),
       };
 

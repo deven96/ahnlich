@@ -48,6 +48,9 @@ import (
 const ServerAddr = "127.0.0.1:1369"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -68,13 +71,15 @@ func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
 func (c *ExampleDBClient) Close() error { return c.conn.Close() }
 
 
-// InfoServer example
-func (c *ExampleDBClient) exampleInfoServer() error {
-    resp, err := c.client.InfoServer(c.ctx, &dbquery.InfoServer{})
+// ListStores example
+func (c *ExampleDBClient) exampleListStores() error {
+    resp, err := c.client.ListStores(c.ctx, &dbquery.ListStores{
+        Schema: stringPtr("analytics"),
+    })
     if err != nil {
         return err
     }
-    fmt.Println("InfoServer:", resp)
+    fmt.Println("Stores:", resp.Stores)
     return nil
 }
 
@@ -91,8 +96,8 @@ func main() {
     defer client.Close()
 
 
-    if err := client.exampleInfoServer(); err != nil {
-        log.Fatalf("InfoServer failed: %v", err)
+    if err := client.exampleListStores(); err != nil {
+        log.Fatalf("ListStores failed: %v", err)
     }
 }
 

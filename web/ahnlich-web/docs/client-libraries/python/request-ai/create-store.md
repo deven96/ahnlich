@@ -31,6 +31,7 @@ This means you don’t have to manage vectors manually — the AI service will a
         response = await client.create_store(
             ai_query.CreateStore(
                 store="test store",
+                schema="analytics",
                 query_model=AiModel.ALL_MINI_LM_L6_V2,
                 index_model=AiModel.ALL_MINI_LM_L6_V2,
                 predicates=["job"],

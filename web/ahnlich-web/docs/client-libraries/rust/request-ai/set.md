@@ -35,6 +35,7 @@ Inserts or updates embeddings and their associated metadata into a vector store 
       // Prepare data for Set
       let set_params = Set {
           store: "Main0".to_string(),
+          schema: Some("analytics".to_string()),
           execution_provider: None,
           preprocess_action: PreprocessAction::NoPreprocessing as i32,
           inputs: vec![

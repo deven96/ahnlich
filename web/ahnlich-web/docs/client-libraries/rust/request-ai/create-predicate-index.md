@@ -33,6 +33,7 @@ Creates a predicate index in the AI service to optimize filtered embedding queri
       // Define which store and which predicates to index
       let params = CreatePredIndex {
           store: "Deven Kicks".to_string(),
+          schema: Some("analytics".to_string()),
           predicates: vec!["Brand".to_string(), "Vintage".to_string()],
       };
 

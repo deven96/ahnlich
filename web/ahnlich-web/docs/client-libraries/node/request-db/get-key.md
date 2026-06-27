@@ -31,6 +31,7 @@ async function getKey() {
   const response = await client.getKey(
     new GetKey({
       store: "my_store",
+      schema: "analytics",
       keys: [new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] })],
     })
   );
@@ -71,6 +72,7 @@ async function getMultipleKeys() {
   const response = await client.getKey(
     new GetKey({
       store: "my_store",
+      schema: "analytics",
       keys: [
         new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
         new StoreKey({ key: [5.0, 6.0, 7.0, 8.0] }),

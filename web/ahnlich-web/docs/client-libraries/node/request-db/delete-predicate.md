@@ -32,6 +32,7 @@ async function deletePredicate() {
   const response = await client.delPred(
     new DelPred({
       store: "my_store",
+      schema: "analytics",
       condition: new PredicateCondition({
         kind: {
           case: "value",
@@ -86,6 +87,7 @@ async function deleteWithComplexCondition() {
   const response = await client.delPred(
     new DelPred({
       store: "my_store",
+      schema: "analytics",
       condition: new PredicateCondition({
         kind: {
           case: "and",

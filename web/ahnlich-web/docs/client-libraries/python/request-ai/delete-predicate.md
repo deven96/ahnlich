@@ -51,6 +51,7 @@ This request removes all entries in an AI store that match a specified predicate
         response = await client.del_pred(
             ai_query.DelPred(
                 store="my_ai_store",
+                schema="analytics",
                 condition=condition
             )
         )

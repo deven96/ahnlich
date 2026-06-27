@@ -28,7 +28,9 @@ Returns the list of vector stores registered in the connected Ahnlich DB service
 
 
       // Call list_stores and print the result
-      let stores = db_client.list_stores(tracing_id).await?;
+      let stores = db_client
+          .list_stores_with_schema(Some("analytics".to_string()), tracing_id)
+          .await?;
       println!("Stores: {:?}", stores);
 
 

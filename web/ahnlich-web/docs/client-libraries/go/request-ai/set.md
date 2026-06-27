@@ -42,6 +42,9 @@ import (
 const AIAddr = "127.0.0.1:1370"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 // ---- Standalone Set Example ----
 func main() {
   ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -80,6 +83,7 @@ func main() {
   // perform Set operation
   _, err = client.Set(ctx, &aiquery.Set{
       Store:             "ai_store", // must already exist
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       Inputs:            inputs,
       PreprocessAction:  preprocess.PreprocessAction_NoPreprocessing,
       ExecutionProvider: nil, // Optional: e.g., ExecutionProvider_CUDA for GPU acceleration
@@ -104,5 +108,4 @@ func main() {
 - The target store (`"ai_store"`) must already exist and be configured with models in the AI proxy.
 
 - If the request fails (e.g., store not found or server error), a non-nil error is returned.
-
 

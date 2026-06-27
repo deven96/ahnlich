@@ -40,6 +40,7 @@ The `GetKey` request retrieves specific entries from an AI store by their exact 
         response = await client.get_key(
             ai_query.GetKey(
                 store="test store 1",
+                schema="analytics",
                 keys=[
                     keyval.StoreInput(raw_string="Adidas Yeezy"),
                     keyval.StoreInput(raw_string="Nike Air Jordans"),

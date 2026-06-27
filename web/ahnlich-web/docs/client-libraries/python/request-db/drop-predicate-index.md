@@ -41,6 +41,7 @@ This should be used when an index is no longer needed or to reduce storage overh
         response = await client.drop_pred_index(
             db_query.DropPredIndex(
                 store="test store",
+                schema="analytics",
                 predicates=["job"],
                 error_if_not_exists=True
             )

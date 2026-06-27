@@ -28,7 +28,7 @@ async function getStore() {
   const client = createDbClient("127.0.0.1:1369");
 
   const response = await client.getStore(
-    new GetStore({ store: "my_store" })
+    new GetStore({ store: "my_store", schema: "analytics" })
   );
 
   console.log(response.name);             // Store name

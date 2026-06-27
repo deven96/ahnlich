@@ -31,7 +31,7 @@ async def get_store_info():
         client = DbServiceStub(channel)
 
         response = await client.get_store(
-            db_query.GetStore(store="my_store")
+            db_query.GetStore(store="my_store", schema="analytics")
         )
 
         print(f"Store name: {response.name}")
@@ -52,6 +52,7 @@ if __name__ == "__main__":
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `store` | `str` | Yes | The name of the store to retrieve |
+| `schema` | `str` | No | Schema containing the store. Defaults to `public` when omitted |
 
 ## Response: StoreInfo
 

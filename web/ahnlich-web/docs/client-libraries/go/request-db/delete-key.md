@@ -41,6 +41,9 @@ import (
 const ServerAddr = "127.0.0.1:1369"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -67,6 +70,7 @@ func (c *ExampleDBClient) Close() error {
 func (c *ExampleDBClient) exampleDeleteKey() error {
     _, err := c.client.DelKey(c.ctx, &dbquery.DelKey{
         Store: "my_stores",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Keys:  []*keyval.StoreKey{{Key: []float32{1, 2, 3, 4}}},
     })
     if err != nil {

@@ -27,7 +27,7 @@ import { ListStores } from "ahnlich-client-node/grpc/ai/query_pb";
 async function listStores() {
   const client = createAiClient("127.0.0.1:1370");
 
-  const response = await client.listStores(new ListStores());
+  const response = await client.listStores(new ListStores({ schema: "analytics" }));
 
   console.log(response.stores.map((s) => s.name));
 

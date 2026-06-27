@@ -30,6 +30,7 @@ async function createStore() {
   await client.createStore(
     new CreateStore({
       store: "my_store",
+      schema: "analytics",
       dimension: 4,
       predicates: ["label", "category"],
       errorIfExists: true,
@@ -69,6 +70,7 @@ async function createStoreWithOptions() {
   await client.createStore(
     new CreateStore({
       store: "book_embeddings",
+      schema: "analytics",
       dimension: 128,
       predicates: ["title", "author", "genre"],
       errorIfExists: false, // Don't error if already exists
