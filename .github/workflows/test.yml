@@ -45,11 +45,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y protobuf-compiler
-    
-    - name: Cache Docker images.
-      uses: ScribeMD/docker-cache@0.5.0
-      with:
-        key: ${{ runner.os }}-cargo-${{ hashFiles('ahnlich/Cargo.lock') }}
 
     - name: Cache Ahnlich Home directory images.
       uses: actions/cache@v4
