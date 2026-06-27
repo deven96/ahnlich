@@ -9,11 +9,11 @@ sidebar_position: 4
 
 `ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
 
-The ListStores request retrieves a list of all vector stores available on the Ahnlich DB server.
+The ListStores request retrieves vector stores from one schema on the Ahnlich DB server. When `schema` is omitted, that schema is `public`.
 
-* **Input**: No arguments required.
+* **Input**: Optional `schema` field.
 
-* **Behavior**: The server returns information about all existing stores including their names, dimensions, and indices.
+* **Behavior**: The server returns stores in the requested schema, including their names, dimensions, and indices.
 
 * **Response**: A list of `StoreInfo` objects containing store metadata.
 

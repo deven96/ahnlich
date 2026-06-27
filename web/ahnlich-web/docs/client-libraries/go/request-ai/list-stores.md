@@ -79,7 +79,7 @@ func (c *ExampleAIClient) Close() error {
 
 
 // ---- ListStores Example ----
-// List all stores available on the AI server.
+// List stores in the analytics schema on the AI server.
 func (c *ExampleAIClient) exampleListStoresAI() error {
     resp, err := c.client.ListStores(c.ctx, &aiquery.ListStores{Schema: stringPtr("analytics")})
     if err != nil {

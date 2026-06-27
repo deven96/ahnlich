@@ -68,5 +68,5 @@ if __name__ == "__main__":
 ## Notes
 
 - Returns an error if the store does not exist
-- Use `ListStores` to get information about all stores
+- Use `ListStores` to get information about stores in a schema
 - The `size_in_bytes` field is useful for monitoring memory usage

@@ -73,4 +73,4 @@ if __name__ == "__main__":
 
 - Returns an error if the store does not exist
 - The `db_info` field is present when the AI proxy is connected to a DB instance
-- Use `ListStores` to get information about all AI stores
+- Use `ListStores` to get information about AI stores in a schema

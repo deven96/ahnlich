@@ -79,5 +79,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Notes
 
-- Use `list_stores` to get information about all stores
+- Use `list_stores` to get information about stores in a schema
 - The `size_in_bytes` field is useful for monitoring memory usage

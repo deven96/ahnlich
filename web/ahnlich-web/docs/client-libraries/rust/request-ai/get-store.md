@@ -84,5 +84,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Notes
 
-- Use `list_stores` to get information about all AI stores
+- Use `list_stores` to get information about AI stores in a schema
 - The model fields indicate which embedding models are used for indexing and querying

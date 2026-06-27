@@ -90,7 +90,7 @@ CREATEPREDINDEX (name, category) IN test_store
 `LISTCLIENTS` – list active connections
 
 
-`LISTSTORES` – list all stores
+`LISTSTORES [SCHEMA <schema>]` – list stores in a schema; defaults to `public`
 
 
 `INFOSERVER` – get server metadata/version
