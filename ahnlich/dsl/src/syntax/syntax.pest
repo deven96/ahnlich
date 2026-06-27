@@ -96,10 +96,12 @@ algorithm = {
     ^"cosinesimilarity" |
     "dotproductsimilarity"
 }
-execution_provider = { 
+execution_provider = {
     ^"coreml" |
     ^"tensorrt" |
     ^"directml" |
+    ^"migraphx" |
+    ^"rocm" |
     "cuda"
 }
 non_linear_algorithms = { non_linear_algorithm ~ (whitespace* ~ "," ~ whitespace* ~ non_linear_algorithm)* }
