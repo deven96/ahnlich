@@ -53,6 +53,7 @@ type StoreValidateResponse = (
     Option<StdHashSet<MetadataValue>>,
 );
 
+/// Groups model execution inputs shared by indexing and query paths.
 pub(crate) struct ModelExecutionParams<'a> {
     pub(crate) model_manager: &'a ModelManager,
     pub(crate) preprocess_action: PreprocessAction,
