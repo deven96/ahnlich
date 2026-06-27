@@ -5,6 +5,10 @@ sidebar_position: 3
 
 # List Stores
 
+## Schema
+
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
+
 The ListStores request retrieves a list of all AI stores available on the Ahnlich AI server.
 
 * **Input**: No arguments required.

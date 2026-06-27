@@ -4,6 +4,10 @@ title: Delete Key
 
 # Delete Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `DeleteKey` request removes specific entries from an AI-managed store using their **input keys**. Unlike dropping the store entirely, this operation targets only selected records.

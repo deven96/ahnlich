@@ -4,6 +4,10 @@ title: Get by Predicate
 
 # Get by Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The **GetPred** request retrieves entries based on **metadata conditions (predicates)**.
 Instead of matching vectors, it filters results using key/value metadata.
 

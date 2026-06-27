@@ -4,6 +4,10 @@ title: Get Key
 
 # Get Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Retrieve a single stored vector (and its associated metadata) by key from a specified store. Use this request to fetch the exact item you previously inserted with `Set` or to validate the contents of a given key.
 
 ## Source Code Example

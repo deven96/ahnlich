@@ -4,6 +4,10 @@ title: GetSimN
 
 # GetSimN
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `GetSimN` request performs a **similarity search** against a specific store. It retrieves the top-N closest vectors to a given input vector. This operation is essential for applications that depend on **nearest neighbor lookups** such as recommendation systems, semantic search, and clustering.

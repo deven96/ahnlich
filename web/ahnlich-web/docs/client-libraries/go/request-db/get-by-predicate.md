@@ -4,6 +4,10 @@ title: Get by Predicate
 
 # Get by Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 `GetByPredicate` returns entries whose **metadata** matches a specified condition. Unlike similarity search, this is a **metadata-only** lookup (e.g., “all items where `label == "A"`”). Use it to filter or audit data based on tags, categories, or other metadata fields you maintain alongside vectors.

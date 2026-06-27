@@ -4,6 +4,10 @@ title: Delete Key
 
 # Delete Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 This request removes one or more **keys** (and their associated values) from a store.
 
 * **Input:**

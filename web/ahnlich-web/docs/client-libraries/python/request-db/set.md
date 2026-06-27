@@ -3,6 +3,10 @@ title: Set
 ---
 
 # Set
+
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
 The Set request inserts or updates vector entries inside a store. Each entry is defined by:
 
 * **StoreKey**: the vector itself (list of floats).

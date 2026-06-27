@@ -4,6 +4,10 @@ title: Get Sim N
 
 # Get Sim N
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The `GetSimN` request retrieves the **top-N most similar vectors** to a given query vector from a specified store. This is the core similarity search operation in Ahnlich DB, allowing you to find nearest neighbors by vector distance.
 
 ## Source Code Example

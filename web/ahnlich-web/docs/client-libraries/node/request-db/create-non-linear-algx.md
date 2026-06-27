@@ -5,6 +5,10 @@ sidebar_position: 13
 
 # Create Non Linear Algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The CreateNonLinearAlgorithmIndex request creates a non-linear index (KDTree or HNSW) to speed up similarity searches.
 
 * **Input**: Store name and list of non-linear indices to create.

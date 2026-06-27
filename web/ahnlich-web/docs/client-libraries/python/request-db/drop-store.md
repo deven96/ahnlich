@@ -4,6 +4,10 @@ title: Drop Store
 
 # Drop Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The Drop Store request permanently deletes a store and all its contents.  
 Use this carefully, as the operation is destructive and cannot be undone.
 

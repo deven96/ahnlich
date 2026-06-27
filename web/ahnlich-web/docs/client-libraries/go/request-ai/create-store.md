@@ -4,6 +4,10 @@ title: Create Store
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 `CreateStore` is a **provisioning request** used to define a new AI-backed store within the Ahnlich AI proxy. Unlike the raw DB `CreateStore`, this AI-specific request requires model selection for **both indexing** and **querying**. These models determine how raw inputs (e.g., text, images) are embedded and how queries against the store are interpreted.

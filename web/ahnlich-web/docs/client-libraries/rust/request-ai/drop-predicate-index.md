@@ -4,6 +4,10 @@ title: Drop Predicate Index
 
 # Drop Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Removes a **predicate index** used by the AI service to optimize filtered embedding queries. This operation is useful when certain metadata-based filters are no longer needed for semantic search, or when the index must be rebuilt due to changes in input fields.
 
 ## Source Code Example

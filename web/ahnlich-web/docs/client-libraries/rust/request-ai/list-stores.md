@@ -4,6 +4,10 @@ title: List Store
 
 # List Stores
 
+## Schema
+
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
+
 Retrieves a list of all vector stores currently managed by the **AI service**. Each store represents a logical container for embeddings and their associated metadata. This operation is useful for exploring available stores before performing read or write operations.
 
 ## Source Code Example

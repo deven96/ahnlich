@@ -4,6 +4,10 @@ title: Get Key
 
 # Get Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The `GetKey` request retrieves specific entries from an AI store by their exact keys. This is a **direct lookup** operation that returns the stored data and metadata for the provided keys.
 
 ## Parameters

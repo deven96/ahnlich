@@ -4,6 +4,10 @@ title: Drop Store
 
 # Drop Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The **Drop Store** request removes an entire AI store and all its contents.
 Use this when you no longer need the vector store or want to clean up your environment.
 

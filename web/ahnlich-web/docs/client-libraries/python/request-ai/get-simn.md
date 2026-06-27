@@ -4,6 +4,10 @@ title: GetSimN
 
 # GetSimN
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 How to retrieve the top N most similar entries from an AI store using the Ahnlich Python SDK.
 
 **GetSimN** returns an array of tuples (`store_key`, `store_value`, `similarity_score`) of the maximum specified `N`. This allows you to perform similarity searches against the stored AI embeddings.

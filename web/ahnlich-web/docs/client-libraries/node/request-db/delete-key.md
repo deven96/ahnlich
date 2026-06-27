@@ -5,6 +5,10 @@ sidebar_position: 15
 
 # Delete Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The DelKey request deletes entries from a store by their exact vector keys.
 
 * **Input**: Store name and array of keys to delete.

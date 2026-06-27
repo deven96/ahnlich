@@ -4,6 +4,10 @@ title: Get by Predicate
 
 # Get by Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 **GetPred** works similarly to `Get_key`, but instead of querying by a single key, it returns results that match the defined conditions. This allows filtering AI store entries by metadata values.
 
 * `store` – Name of the AI store to query.

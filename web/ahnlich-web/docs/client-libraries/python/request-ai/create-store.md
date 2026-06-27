@@ -4,6 +4,10 @@ title: Create Store
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The `CreateStore` request is used to **initialize a new AI-powered store**.
 Unlike the DB client (which deals with raw vector dimensions), the AI client lets you specify **pretrained AI models** to handle embedding generation and indexing.
 

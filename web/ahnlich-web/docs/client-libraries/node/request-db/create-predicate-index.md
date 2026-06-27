@@ -5,6 +5,10 @@ sidebar_position: 11
 
 # Create Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The CreatePredIndex request creates an index on metadata fields to optimize predicate-based queries.
 
 * **Input**: Store name and list of predicate keys to index.

@@ -4,6 +4,10 @@ title: Create Non-Linear algorithm Index
 
 # Create Non-Linear algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `Create Non Linear Algorithm Index` request allows the AI service to build specialized non-linear search indices (e.g., KD-Tree, HNSW) on top of vector embeddings that have already been stored in an AI-managed store.

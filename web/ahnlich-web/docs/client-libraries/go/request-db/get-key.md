@@ -4,6 +4,10 @@ title: GetKey
 
 # GetKey
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `GetKey` request is used to retrieve **specific entries** from a store by providing the exact vector keys. Unlike GetSimN, which searches for approximate or closest matches, GetKey performs a **direct lookup** based on the stored vectors.

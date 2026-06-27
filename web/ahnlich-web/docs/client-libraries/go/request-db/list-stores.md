@@ -4,6 +4,10 @@ title: List Stores
 
 # List Stores
 
+## Schema
+
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
+
 ## Description
 
 `ListStores` returns the set of vector stores currently available on the Ahnlich DB server. Use it to **discover** what stores exist and to **validate** that a target store is present before you attempt writes or similarity queries.

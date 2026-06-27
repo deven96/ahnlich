@@ -5,6 +5,10 @@ sidebar_position: 7
 
 # GetSimN
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The GetSimN request performs semantic similarity search, finding entries most similar to a query input.
 
 * **Input**: Store name, query input, number of results, and similarity algorithm.

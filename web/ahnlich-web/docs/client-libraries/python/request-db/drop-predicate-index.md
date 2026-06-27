@@ -4,6 +4,10 @@ title: Drop Predicate Index
 
 # Drop Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The DropPredIndex request removes an index from one or more metadata fields.  
 This should be used when an index is no longer needed or to reduce storage overhead.
 

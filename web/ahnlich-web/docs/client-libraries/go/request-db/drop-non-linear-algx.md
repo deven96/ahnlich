@@ -4,6 +4,10 @@ title: Drop Non-Linear Algorithm Index
 
 # Drop Non-Linear Algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `DropNonLinearAlgorithmIndex` request removes previously created non-linear indices (e.g., KD-Tree, HNSW) from a store. This is useful when you no longer need a specific algorithm index or want to reclaim resources used for maintaining it.

@@ -5,6 +5,10 @@ sidebar_position: 5
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The CreateStore request creates a new AI store with specified AI models.
 
 * **Input**: Store name, query model, index model, optional predicates, and configuration flags.

@@ -4,6 +4,10 @@ title: Drop Non-Linear Algorithm Index
 
 # Drop Non-Linear Algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Removes a **non-linear algorithm index** from a vector store in the **AI service**. This operation is useful when the index is no longer needed, when changing algorithm parameters, or when rebuilding the index for updated embedding datasets. Removing unused indexes helps maintain storage efficiency and avoids unnecessary overhead during similarity searches.
 
 ## Source Code Example

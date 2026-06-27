@@ -5,6 +5,10 @@ sidebar_position: 13
 
 # Delete Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Deletes entries from an AI store by their original input.
 
 <details>

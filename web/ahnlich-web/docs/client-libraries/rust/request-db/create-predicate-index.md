@@ -4,6 +4,10 @@ title: Create Predicate Index
 
 # Create Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Creates an index on a predicate field in a store. Predicate indexes allow efficient filtering and retrieval of vectors based on metadata conditions, improving query performance for repeated predicate lookups.
 
 ## Source Code Example

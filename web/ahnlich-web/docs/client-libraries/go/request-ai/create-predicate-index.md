@@ -4,6 +4,10 @@ title: Create Predicate Index
 
 # Create Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The  `CreatePredicateIndex` request enhances retrieval efficiency by building indexes on specified metadata fields within an AI-managed store. By indexing metadata keys, subsequent GetByPredicate requests can be executed more efficiently, especially on large datasets.

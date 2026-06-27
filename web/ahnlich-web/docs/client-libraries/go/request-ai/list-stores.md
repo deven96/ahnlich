@@ -4,6 +4,10 @@ title: List Stores
 
 # List Stores
 
+## Schema
+
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
+
 ## Description
 
 `ListStores` provides a **catalog of AI-managed stores** currently registered in the Ahnlich AI proxy. Each store represents a logical grouping where raw inputs (text, images, etc.) are converted into embeddings using the configured models and then indexed for retrieval.

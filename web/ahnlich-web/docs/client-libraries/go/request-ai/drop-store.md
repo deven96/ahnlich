@@ -4,6 +4,10 @@ title: Drop Store
 
 # Drop Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `DropStore` request deletes an entire AI-managed store, including its embeddings, metadata, and indexes. This is a destructive operation and should be used when a store is no longer required.

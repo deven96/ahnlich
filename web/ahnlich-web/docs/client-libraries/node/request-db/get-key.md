@@ -5,6 +5,10 @@ sidebar_position: 9
 
 # Get Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The GetKey request retrieves entries from a store by their exact vector keys.
 
 * **Input**: Store name and array of keys to retrieve.

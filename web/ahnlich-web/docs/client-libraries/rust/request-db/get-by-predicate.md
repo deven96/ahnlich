@@ -4,6 +4,10 @@ title: Get By Predicate
 
 # Get By Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Retrieve one or more stored vectors and their associated metadata from a store by applying a predicate filter. Unlike `Get Key`, which retrieves a single item by its unique key, `Get by Predicate` allows querying based on conditions defined on metadata fields (for example, "all items where `category = book`"). This is useful for flexible filtering, targeted queries, or conditional retrieval.
 
 ## Source Code Example

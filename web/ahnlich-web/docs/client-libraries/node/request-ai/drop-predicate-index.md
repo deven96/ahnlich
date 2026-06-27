@@ -5,6 +5,10 @@ sidebar_position: 10
 
 # Drop Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Removes an existing predicate index from an AI store.
 
 <details>

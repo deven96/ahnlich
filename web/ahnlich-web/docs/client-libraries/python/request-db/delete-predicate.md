@@ -4,6 +4,10 @@ title: Delete Predicate
 
 # Delete Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 This request removes all entries in a store that match a specified predicate condition.
 
 * **Input:**

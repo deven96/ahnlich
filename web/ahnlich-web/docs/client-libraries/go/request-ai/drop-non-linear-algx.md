@@ -4,6 +4,10 @@ title: Drop Non-Linear Algorithm Index
 
 # Drop Non-Linear Algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `Drop Non Linear Algorithm Index` request removes a previously created non-linear index from a store. This operation is important when you want to reclaim resources, update to a different algorithm, or revert to default brute-force scanning for search.

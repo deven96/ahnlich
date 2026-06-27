@@ -5,6 +5,10 @@ sidebar_position: 8
 
 # GetSimN
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The GetSimN request finds the N closest (most similar) entries to a query vector using the specified similarity algorithm.
 
 * **Input**: Store name, query vector, number of results, and similarity algorithm.

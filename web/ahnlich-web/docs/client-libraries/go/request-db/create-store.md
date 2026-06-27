@@ -4,6 +4,10 @@ title: Create Store
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 `CreateStore` creates a new vector store on the Ahnlich DB server. A store is the fundamental unit of organization for embeddings and their associated metadata. Each store is defined by its **name** and its **dimension**, which specifies the length of vectors that can be inserted.

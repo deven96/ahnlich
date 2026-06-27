@@ -4,6 +4,10 @@ title: List Stores
 
 # List Stores
 
+## Schema
+
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
+
 The **List Stores** request retrieves the set of Stores currently registered on the DB server. Each Store corresponds to a logical container of vectors. This operation is commonly used for **introspection**, **administrative tooling**, and **debugging**.
 
 ## Behavior

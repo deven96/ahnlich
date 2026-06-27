@@ -5,6 +5,10 @@ sidebar_position: 6
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The CreateStore request creates a new vector store on the Ahnlich DB server.
 
 * **Input**: Store name, dimension, optional predicates, and error handling flag.

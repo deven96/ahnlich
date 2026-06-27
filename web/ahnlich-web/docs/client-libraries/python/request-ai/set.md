@@ -4,6 +4,10 @@ title: Set
 
 # Set
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The `Set` request is used to **insert or update entries** inside an AI-powered store.
 
 Unlike the DB client (which expects raw vectors), the AI client allows you to store **raw strings or other inputs** directly.

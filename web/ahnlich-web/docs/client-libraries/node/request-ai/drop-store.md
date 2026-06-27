@@ -5,6 +5,10 @@ sidebar_position: 14
 
 # Drop Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Deletes an entire AI store and all its data.
 
 <details>

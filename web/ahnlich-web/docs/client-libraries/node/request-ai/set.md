@@ -5,6 +5,10 @@ sidebar_position: 6
 
 # Set
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The Set request inserts entries into an AI store. The AI server automatically generates embeddings for the provided inputs.
 
 * **Input**: Store name, array of entries (input-value pairs), and preprocessing options.

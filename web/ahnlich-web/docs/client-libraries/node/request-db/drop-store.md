@@ -5,6 +5,10 @@ sidebar_position: 17
 
 # Drop Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The DropStore request deletes an entire store and all its data.
 
 * **Input**: Store name and error handling flag.

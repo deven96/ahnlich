@@ -4,6 +4,10 @@ title: Set
 
 # Set
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Inserts or updates embeddings and their associated metadata into a vector store managed by the **AI service**. This operation is central to populating a store with new data or refreshing existing entries to keep the dataset consistent and relevant for similarity search.
 
 ## Source Code Example

@@ -4,6 +4,10 @@ title: Delete Predicate
 
 # Delete Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `DeletePredicate` request removes entries from a store that match a given predicate condition. Instead of deleting by vector key, this operation lets you **filter deletions based on metadata values** (e.g., labels, tags, or custom attributes).

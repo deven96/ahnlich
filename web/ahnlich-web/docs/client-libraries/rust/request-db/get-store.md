@@ -4,6 +4,10 @@ title: Get Store
 
 # Get Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Retrieves detailed information about a specific store by name. Returns metadata including dimensions, size, and configured indices.
 
 ## Source Code Example

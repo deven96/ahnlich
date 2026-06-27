@@ -4,6 +4,10 @@ title: Drop Store
 
 # Drop Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Deletes an entire store from the database, including all vectors, keys, and associated metadata. This is a destructive operation and cannot be reversed—once a store is dropped, all of its contents are permanently removed.
 
 ## Source Code Example

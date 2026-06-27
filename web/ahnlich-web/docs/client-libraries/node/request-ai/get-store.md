@@ -5,6 +5,10 @@ sidebar_position: 4
 
 # Get Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The GetStore request retrieves detailed information about a single AI store by its name.
 
 * **Input**: Store name.

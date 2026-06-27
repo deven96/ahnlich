@@ -4,6 +4,10 @@ title: Get By Predicate
 
 # Get By Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Retrieves records from a vector store that satisfy a given predicate filter. Supports filtered semantic queries where embeddings must meet metadata-based conditions in addition to similarity searches.
 
 ## Source Code Example

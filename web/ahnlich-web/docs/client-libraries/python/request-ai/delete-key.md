@@ -4,6 +4,10 @@ title: Delete Key
 
 # Delete Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 How to delete keys and their associated values from a store using the Ahnlich AI Client.
 
 The `Delete Key` operation removes one or more entries from a store. Each key uniquely identifies a vector-value pair in the store, and deleting it permanently removes both the key and the stored value.

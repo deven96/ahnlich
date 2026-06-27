@@ -5,6 +5,10 @@ sidebar_position: 12
 
 # Drop Non Linear Algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Removes a non-linear index (KDTree or HNSW) from an AI store.
 
 <details>

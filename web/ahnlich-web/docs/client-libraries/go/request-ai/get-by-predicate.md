@@ -4,6 +4,10 @@ title: Get by Predicate
 
 # Get by Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `GetByPredicate` request-ai retrieves entries from an AI-managed store by applying **metadata-based filtering**. Unlike similarity search (`GetSimN`), which operates on vector embeddings, predicate queries operate on **stored metadata attributes**. This enables developers to fetch records that satisfy specific metadata conditions, regardless of their embedding similarity.

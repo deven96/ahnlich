@@ -4,6 +4,10 @@ title: Set
 
 # Set
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `Set` request is used to **insert or update entries** (vectors with associated metadata) into a given store. This is one of the core operations of Ahnlich DB, as it establishes the embeddings that can later be queried for similarity search.

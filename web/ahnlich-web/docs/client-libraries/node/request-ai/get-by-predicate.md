@@ -5,6 +5,10 @@ sidebar_position: 8
 
 # Get By Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The GetPred request retrieves entries from an AI store that match a specified predicate condition.
 
 * **Input**: Store name and predicate condition.

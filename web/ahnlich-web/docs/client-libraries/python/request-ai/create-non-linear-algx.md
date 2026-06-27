@@ -4,6 +4,10 @@ title: Create Non-Linear algorithm Index
 
 # Create Non-Linear algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The `Create Non Linear Algorithm Index` operation builds an index structure for non-linear search algorithms, such as KD-Tree or HNSW. These indexes enable faster query performance in high-dimensional vector spaces by avoiding brute-force scans.
 
 This operation is typically used when:

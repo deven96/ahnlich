@@ -4,6 +4,10 @@ title: Drop Predicate Index
 
 # Drop Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Removes an existing predicate index from a store. This operation cleans up indexes that are no longer needed for query acceleration.
 
 ## Source Code Example

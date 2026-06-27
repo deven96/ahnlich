@@ -4,6 +4,10 @@ title: Get Sim N
 
 # Get Sim N
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Performs a **similarity search** in a vector store, retrieving the top-N most similar embeddings to a given query vector. This operation is the core of the AI client’s retrieval capability, enabling semantic search, recommendation, and nearest-neighbor lookups.
 
 ## Source Code Example

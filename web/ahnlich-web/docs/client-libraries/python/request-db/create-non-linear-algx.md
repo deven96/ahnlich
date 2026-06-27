@@ -4,6 +4,10 @@ title: Create Non-Linear Algorithm Index
 
 # Create Non-Linear Algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Creating non-linear algorithm indexes allows you to optimize query execution based on spatial or high-dimensional data structures.
 
 Ahnlich supports the following non-linear algorithm indexes:

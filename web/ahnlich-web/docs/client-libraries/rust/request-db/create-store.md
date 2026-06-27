@@ -4,6 +4,10 @@ title: Create Store
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Creates a new vector store within the Ahnlich DB service. A store is the primary container for vectors and metadata, and all vector operations must be scoped to a specific store. This request is essential for initializing logical partitions of data before inserting or querying vectors.
 
 ## Source Code Example

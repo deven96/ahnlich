@@ -4,6 +4,10 @@ title: Drop Predicate Index
 
 # Drop Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `DropPredicateIndex` request removes an existing predicate index from a given AI-managed store. Predicate indexes are used to accelerate metadata-based queries (`GetByPredicate`), and dropping them reverts queries to a slower scan-based evaluation.
