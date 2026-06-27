@@ -4986,6 +4986,258 @@ async fn test_schema_drop_public_schema_fails() {
     );
 }
 
+#[tokio::test]
+async fn test_schema_store_commands_use_custom_schema() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let schema = Some("db_store_commands".to_string());
+    let store_name = "DbSchemaCommandStore".to_string();
+    let matching_metadatakey = "Brand".to_string();
+    let nike_value = MetadataValue {
+        value: Some(MetadataValueEnum::RawString("Nike".into())),
+    };
+    let adidas_value = MetadataValue {
+        value: Some(MetadataValueEnum::RawString("Adidas".into())),
+    };
+    let nike_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), nike_value.clone())]),
+    };
+    let adidas_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), adidas_value.clone())]),
+    };
+    let jordan_key = StoreKey {
+        key: vec![1.0, 1.1, 1.2],
+    };
+    let yeezy_key = StoreKey {
+        key: vec![2.0, 2.1, 2.2],
+    };
+    let condition_nike = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(nike_value),
+            })),
+        })),
+    };
+    let condition_adidas = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(adidas_value),
+            })),
+        })),
+    };
+
+    let queries = vec![
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateStore(db_query_types::CreateStore {
+                store: store_name.clone(),
+                dimension: 3,
+                create_predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::GetStore(db_query_types::GetStore {
+                store: store_name.clone(),
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::CreatePredIndex(db_query_types::CreatePredIndex {
+                store: store_name.clone(),
+                predicates: vec![matching_metadatakey.clone()],
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateNonLinearAlgorithmIndex(
+                db_query_types::CreateNonLinearAlgorithmIndex {
+                    store: store_name.clone(),
+                    non_linear_indices: vec![nonlinear::NonLinearIndex {
+                        index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                    }],
+                    schema: schema.clone(),
+                },
+            )),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::Set(db_query_types::Set {
+                store: store_name.clone(),
+                inputs: vec![
+                    DbStoreEntry {
+                        key: Some(jordan_key.clone()),
+                        value: Some(nike_store_value.clone()),
+                    },
+                    DbStoreEntry {
+                        key: Some(yeezy_key.clone()),
+                        value: Some(adidas_store_value.clone()),
+                    },
+                ],
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::GetKey(db_query_types::GetKey {
+                store: store_name.clone(),
+                keys: vec![jordan_key.clone()],
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::GetPred(db_query_types::GetPred {
+                store: store_name.clone(),
+                condition: Some(condition_nike.clone()),
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::GetSimN(db_query_types::GetSimN {
+                store: store_name.clone(),
+                search_input: Some(jordan_key.clone()),
+                closest_n: 1,
+                algorithm: Algorithm::DotProductSimilarity.into(),
+                condition: Some(condition_nike.clone()),
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::DelPred(db_query_types::DelPred {
+                store: store_name.clone(),
+                condition: Some(condition_adidas),
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::DelKey(db_query_types::DelKey {
+                store: store_name.clone(),
+                keys: vec![jordan_key.clone()],
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::DropPredIndex(db_query_types::DropPredIndex {
+                store: store_name.clone(),
+                predicates: vec![matching_metadatakey.clone()],
+                error_if_not_exists: true,
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::DropNonLinearAlgorithmIndex(
+                db_query_types::DropNonLinearAlgorithmIndex {
+                    store: store_name.clone(),
+                    non_linear_indices: vec![NonLinearAlgorithm::KdTree.into()],
+                    error_if_not_exists: true,
+                    schema: schema.clone(),
+                },
+            )),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::DropStore(db_query_types::DropStore {
+                store: store_name.clone(),
+                error_if_not_exists: true,
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::ListStores(db_query_types::ListStores { schema })),
+        },
+    ];
+
+    let result = client
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries,
+        }))
+        .await
+        .expect("Failed to send pipeline request")
+        .into_inner();
+
+    assert_eq!(result.responses.len(), 15);
+    assert!(matches!(
+        &result.responses[0].response,
+        Some(db_pipeline::db_server_response::Response::Unit(_))
+    ));
+    assert!(matches!(
+        &result.responses[1].response,
+        Some(db_pipeline::db_server_response::Response::StoreInfo(info))
+            if info.name == store_name
+    ));
+    assert!(matches!(
+        &result.responses[2].response,
+        Some(db_pipeline::db_server_response::Response::StoreList(list)) if list.stores.is_empty()
+    ));
+    assert!(matches!(
+        &result.responses[3].response,
+        Some(db_pipeline::db_server_response::Response::CreateIndex(index)) if index.created_indexes == 1
+    ));
+    assert!(matches!(
+        &result.responses[4].response,
+        Some(db_pipeline::db_server_response::Response::CreateIndex(index)) if index.created_indexes == 1
+    ));
+    assert!(matches!(
+        &result.responses[5].response,
+        Some(db_pipeline::db_server_response::Response::Set(set))
+            if set.upsert == Some(StoreUpsert { inserted: 2, updated: 0 })
+    ));
+    assert!(matches!(
+        &result.responses[6].response,
+        Some(db_pipeline::db_server_response::Response::Get(get))
+            if get.entries.len() == 1 && get.entries[0].key == Some(jordan_key.clone())
+    ));
+    assert!(matches!(
+        &result.responses[7].response,
+        Some(db_pipeline::db_server_response::Response::Get(get))
+            if get.entries.len() == 1 && get.entries[0].value == Some(nike_store_value.clone())
+    ));
+    assert!(matches!(
+        &result.responses[8].response,
+        Some(db_pipeline::db_server_response::Response::GetSimN(get_sim_n))
+            if get_sim_n.entries.len() == 1
+    ));
+    assert!(matches!(
+        &result.responses[9].response,
+        Some(db_pipeline::db_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[10].response,
+        Some(db_pipeline::db_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[11].response,
+        Some(db_pipeline::db_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[12].response,
+        Some(db_pipeline::db_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[13].response,
+        Some(db_pipeline::db_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[14].response,
+        Some(db_pipeline::db_server_response::Response::StoreList(list)) if list.stores.is_empty()
+    ));
+}
+
 #[test]
 fn test_migrate_old_flat_snapshot() {
     // Create a store handler and populate a store under "public"
