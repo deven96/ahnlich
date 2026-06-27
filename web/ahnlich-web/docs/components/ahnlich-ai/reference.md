@@ -82,6 +82,7 @@ Insert raw input into a store. Metadata can be added as key–value pairs.
 #### Command
 ```
 SET doc1 "The future of AI in healthcare" WITH {"category":"news"} IN article_store
+SET doc1 "The future of AI in healthcare" WITH {"category":"news"} IN article_store SCHEMA media
 ```
 
 
@@ -111,6 +112,7 @@ Retrieve the top N most similar vectors to a given raw input.
 #### Command
 ```
 GETSIMN 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store WHERE (category != "sports")
+GETSIMN 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store SCHEMA media WHERE (category != "sports")
 ```
 
 ## 10. Get By Predicate
@@ -120,54 +122,71 @@ Retrieve all items in a store that satisfy a metadata condition.
 #### Command
 ```
 GETPRED (category = "news") IN article_store
+GETPRED (category = "news") IN article_store SCHEMA media
 ```
 
-## 11. Create Predicate Index
+## 11. Get Key
+#### Description
+Retrieve items from a store by their original input key when the store preserves originals.
+
+#### Command
+```
+GETKEY doc1 IN article_store
+GETKEY doc1 IN article_store SCHEMA media
+```
+
+## 12. Create Predicate Index
 #### Description
 Create an index on metadata to optimize predicate queries.
 
 #### Command
 ```
 CREATEPREDICATEINDEX category IN article_store
+CREATEPREDICATEINDEX category IN article_store SCHEMA media
 ```
 
-## 12. Drop Predicate Index
+## 13. Drop Predicate Index
 #### Description
 Remove a previously created metadata index.
 
 #### Command
 ```
 DROPPREDICATEINDEX category IN article_store
+DROPPREDICATEINDEX category IN article_store SCHEMA media
 ```
 
-## 13. Create Non Linear Algorithm Index
+## 14. Create Non Linear Algorithm Index
 #### Description
 Create an advanced index (e.g., KDTree, HNSW) for faster similarity searches.
 
 #### Command
 ```
 CREATENONLINEARALGORITHMINDEX kdtree IN geo_store
+CREATENONLINEARALGORITHMINDEX kdtree IN geo_store SCHEMA media
 ```
 ```
 CREATENONLINEARALGORITHMINDEX hnsw IN geo_store
+CREATENONLINEARALGORITHMINDEX hnsw IN geo_store SCHEMA media
 ```
 
-## 14. Drop Non Linear Algorithm Index
+## 15. Drop Non Linear Algorithm Index
 #### Description
 Drop a previously created non-linear index.
 
 #### Command
 ```
 DROPNONLINEARALGORITHMINDEX kdtree IN geo_store
+DROPNONLINEARALGORITHMINDEX kdtree IN geo_store SCHEMA media
 ```
 
-## 15. Delete Key
+## 16. Delete Key
 #### Description
 Remove a specific key from a store.
 
 #### Command
 ```
 DELETEKEY doc1 IN article_store
+DELETEKEY doc1 IN article_store SCHEMA media
 ```
 
 ## Ahnlich AI Commands
@@ -184,6 +203,7 @@ DELETEKEY doc1 IN article_store
 | DROPSCHEMA media | construct generated `DropSchema` request | construct generated `DropSchema` request | construct generated `DropSchema` request |
 | GET SIM N 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store WHERE (category != "sports") | ```client.get_sim_n("article_store", "renewable energy storage", 3, "cosine", Some("category!='sports'"))?;``` | ```client.get_sim_n("article_store", "renewable energy storage", 3, "cosine", predicate="category!='sports'")``` | ```client.GetSimN(ctx, "article_store", "renewable energy storage", 3, "cosine", "category!='sports'")``` |
 | GET BY PREDICATE (category = "news") IN article_store | ```client.get_by_predicate("article_store", "category='news'")?;``` | ```client.get_by_predicate("article_store", "category='news'")``` | ```client.GetByPredicate(ctx, "article_store", "category='news'")``` |
+| GET KEY doc1 IN article_store | construct generated `GetKey` request | construct generated `GetKey` request | construct generated `GetKey` request |
 | CREATE PREDICATE INDEX category IN article_store | ```client.create_predicate_index("article_store", "category")?;``` | ```client.create_predicate_index("article_store", "category")``` | ```client.CreatePredicateIndex(ctx, "article_store", "category")``` |
 | DROP PREDICATE INDEX category IN article_store | ```client.drop_predicate_index("article_store", "category")?;``` | ```client.drop_predicate_index("article_store", "category")``` | ```client.DropPredicateIndex(ctx, "article_store", "category")``` |
 | CREATE NON LINEAR ALGORITHM INDEX kdtree IN geo_store | ```client.create_non_linear_algorithm_index("geo_store", NonLinearIndex { kdtree })?;``` | ```client.create_non_linear_algorithm_index("geo_store", NonLinearIndex(kdtree=KDTreeConfig()))``` | ```client.CreateNonLinearAlgorithmIndex(ctx, "geo_store", NonLinearIndex_Kdtree)``` |

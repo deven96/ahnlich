@@ -28,12 +28,14 @@ message CreateStore {
 message GetKey {
   string store = 1; // The name of the store.
   repeated keyval.StoreKey keys = 2; // The keys to retrieve from the store.
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 // Retrieves values from the store based on predicates. Validation checks if the predicate is enabled.
 message GetPred {
   string store = 1; // The name of the store.
   predicates.PredicateCondition condition = 2; // The condition for the predicate query.
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 // Retrieves the `n` most similar items to the input vector from the store, using the specified algorithm.
@@ -45,6 +47,7 @@ message GetSimN {
   uint64 closest_n = 3; // The number of closest matches to return.
   algorithm.algorithms.Algorithm algorithm = 4; // The algorithm to use for similarity computation.
   predicates.PredicateCondition condition = 5; // The predicate condition to apply.
+  optional string schema = 6; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 // Creates an index in the store based on the provided predicates.
@@ -52,6 +55,7 @@ message GetSimN {
 message CreatePredIndex {
   string store = 1; // The name of the store.
   repeated string predicates = 2; // The predicates to create indexes for.
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 // Creates an index for non-linear algorithms in the store, if it does not already exist.
@@ -59,6 +63,7 @@ message CreatePredIndex {
 message CreateNonLinearAlgorithmIndex {
   string store = 1; // The name of the store.
   repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 2; // Non-linear algorithms to create indices for.
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 // Drops the specified predicates from the store.
@@ -67,6 +72,7 @@ message DropPredIndex {
   string store = 1; // The name of the store.
   repeated string predicates = 2; // The predicates to drop.
   bool error_if_not_exists = 3; // Flag indicating whether to error if predicate does not exist.
+  optional string schema = 4; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 // Drops the specified non-linear indices from the store.
@@ -75,6 +81,7 @@ message DropNonLinearAlgorithmIndex {
   string store = 1; // The name of the store.
   repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2; // Non-linear indices to drop.
   bool error_if_not_exists = 3; // Flag indicating whether to error if index does not exist.
+  optional string schema = 4; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 // Deletes the specified keys from the store and returns the number of deleted keys.
@@ -82,6 +89,7 @@ message DropNonLinearAlgorithmIndex {
 message DelKey {
   string store = 1; // The name of the store.
   repeated keyval.StoreKey keys = 2; // The keys to delete from the store.
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 // Deletes values from the store based on the provided predicate condition.
@@ -89,6 +97,7 @@ message DelKey {
 message DelPred {
   string store = 1; // The name of the store.
   predicates.PredicateCondition condition = 2; // The condition for the predicate deletion.
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 // Drops a store and deletes all its data and associated indices.
@@ -130,4 +139,5 @@ message DropSchema {
 message Set {
   string store = 1; // The name of the store.
   repeated keyval.DbStoreEntry inputs = 2; // The key-value entries to set in the store.
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }

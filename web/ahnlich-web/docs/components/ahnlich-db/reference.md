@@ -88,6 +88,7 @@ DROPSCHEMA analytics
 Insert or update a vector with metadata.
 ```
 SET <key> [<float>, <float>, ...] WITH { "<meta_key>": "<meta_value>", ... } IN <store_name>
+SET <key> [<float>, <float>, ...] WITH { "<meta_key>": "<meta_value>", ... } IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -99,6 +100,7 @@ SET doc1 [0.25, 0.88] WITH { "category": "news", "lang": "en" } IN my_store
 Delete a vector by key.
 ```
 DELETE KEY <key> IN <store_name>
+DELETE KEY <key> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -110,6 +112,7 @@ DELETE KEY doc1 IN my_store
 Delete all vectors that match a predicate.
 ```
 DELETE PREDICATE <predicate> IN <store_name>
+DELETE PREDICATE <predicate> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -123,6 +126,7 @@ DELETE PREDICATE (category = "archive") IN my_store
 Find the N most similar vectors to an input vector.
 ```
 GETSIMN <n> WITH [<float>, <float>, ...] USING <cosinesimilarity|euclideandistance|kdtree|hnsw> IN <store_name> WHERE (<predicate>)
+GETSIMN <n> WITH [<float>, <float>, ...] USING <cosinesimilarity|euclideandistance|kdtree|hnsw> IN <store_name> SCHEMA analytics WHERE (<predicate>)
 ```
 
 #### Example:
@@ -134,6 +138,7 @@ GETSIMN 3 WITH [0.25, 0.88] USING cosinesimilarity IN my_store WHERE (category !
 Retrieve a vector and its metadata by key.
 ```
 GET KEY <key> IN <store_name>
+GET KEY <key> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -145,6 +150,7 @@ GET KEY doc1 IN my_store
 Retrieve all vectors that satisfy a metadata predicate.
 ```
 GET BY PREDICATE (<predicate>) IN <store_name>
+GET BY PREDICATE (<predicate>) IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -158,6 +164,7 @@ GET BY PREDICATE (lang = "en") IN my_store
 Create an index for faster metadata filtering.
 ```
 CREATE PREDICATE INDEX <field> IN <store_name>
+CREATE PREDICATE INDEX <field> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -169,6 +176,7 @@ CREATE PREDICATE INDEX category IN my_store
 Remove a predicate index.
 ```
 DROP PREDICATE INDEX <field> IN <store_name>
+DROP PREDICATE INDEX <field> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -180,6 +188,7 @@ DROP PREDICATE INDEX category IN my_store
 Build a non-linear index (e.g., KD-Tree, HNSW) for improved search efficiency.
 ```
 CREATE NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name>
+CREATE NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name> SCHEMA analytics
 ```
 
 #### Examples:
@@ -194,6 +203,7 @@ CREATE NON LINEAR ALGORITHM INDEX hnsw IN my_store
 Remove a non-linear algorithm index.
 ```
 DROP NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name>
+DROP NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:

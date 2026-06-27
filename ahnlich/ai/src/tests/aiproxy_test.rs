@@ -232,6 +232,7 @@ async fn test_ai_store_get_key_works() {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
     ];
@@ -246,6 +247,7 @@ async fn test_ai_store_get_key_works() {
     let message = ahnlich_types::ai::query::GetKey {
         store: store_name.value.clone(),
         keys: vec![store_entry_input.clone()],
+        schema: None,
     };
 
     let response = client
@@ -359,6 +361,7 @@ async fn test_ai_store_no_original() {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
     ];
@@ -384,6 +387,7 @@ async fn test_ai_store_no_original() {
     let get_pred_message = ahnlich_types::ai::query::GetPred {
         store: store_name,
         condition: Some(condition),
+        schema: None,
     };
 
     let response = client
@@ -482,6 +486,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
     ];
@@ -505,6 +510,7 @@ async fn test_ai_proxy_get_pred_succeeds() {
     let get_pred_message = ahnlich_types::ai::query::GetPred {
         store: store_name.clone(),
         condition: Some(condition),
+        schema: None,
     };
 
     let response = client
@@ -612,6 +618,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
     ];
@@ -634,6 +641,7 @@ async fn test_ai_proxy_get_sim_n_succeeds() {
         preprocess_action: PreprocessAction::ModelPreprocessing.into(),
         execution_provider: None,
         model_params: HashMap::new(),
+        schema: None,
     };
 
     let response = client
@@ -774,6 +782,7 @@ async fn test_convert_store_input_to_embeddings(index: usize, model: i32) {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
     ];
@@ -925,6 +934,7 @@ async fn test_convert_store_input_to_embeddings_without_db(index: usize, model: 
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
     ];
@@ -1019,12 +1029,14 @@ async fn test_ai_proxy_create_drop_pred_index() {
             query: Some(Query::GetPred(ai_query_types::GetPred {
                 store: store_name.clone(),
                 condition: Some(condition.clone()),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::CreatePredIndex(ai_query_types::CreatePredIndex {
                 store: store_name.clone(),
                 predicates: vec![matching_metadatakey.clone()],
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1034,12 +1046,14 @@ async fn test_ai_proxy_create_drop_pred_index() {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::GetPred(ai_query_types::GetPred {
                 store: store_name.clone(),
                 condition: Some(condition),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1047,6 +1061,7 @@ async fn test_ai_proxy_create_drop_pred_index() {
                 store: store_name.clone(),
                 predicates: vec![matching_metadatakey.clone()],
                 error_if_not_exists: true,
+                schema: None,
             })),
         },
     ];
@@ -1177,6 +1192,7 @@ async fn test_ai_proxy_del_key_drop_store() {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1185,12 +1201,14 @@ async fn test_ai_proxy_del_key_drop_store() {
                 keys: vec![StoreInput {
                     value: Some(Value::RawString("Jordan 3".into())),
                 }],
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::GetPred(ai_query_types::GetPred {
                 store: store_name.clone(),
                 condition: Some(condition),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1421,18 +1439,21 @@ async fn test_ai_proxy_del_pred() {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::DelPred(ai_query_types::DelPred {
                 store: store_name.clone(),
                 condition: Some(archived_condition.clone()),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::GetPred(ai_query_types::GetPred {
                 store: store_name.clone(),
                 condition: Some(archived_condition),
+                schema: None,
             })),
         },
     ];
@@ -1923,6 +1944,7 @@ async fn test_ai_proxy_binary_store_actions() {
             query: Some(Query::CreatePredIndex(ai_query_types::CreatePredIndex {
                 store: store_name.clone(),
                 predicates: vec!["Name".to_string(), "Age".to_string()],
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1932,6 +1954,7 @@ async fn test_ai_proxy_binary_store_actions() {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1941,6 +1964,7 @@ async fn test_ai_proxy_binary_store_actions() {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -1948,12 +1972,14 @@ async fn test_ai_proxy_binary_store_actions() {
                 store: store_name.clone(),
                 predicates: vec!["Age".to_string()],
                 error_if_not_exists: true,
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
             query: Some(Query::GetPred(ai_query_types::GetPred {
                 store: store_name.clone(),
                 condition: Some(condition),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {
@@ -2109,6 +2135,7 @@ async fn test_ai_proxy_binary_store_set_text_and_binary_fails() {
                 preprocess_action: PreprocessAction::NoPreprocessing.into(),
                 execution_provider: None,
                 model_params: HashMap::new(),
+                schema: None,
             })),
         },
         ai_pipeline::AiQuery {

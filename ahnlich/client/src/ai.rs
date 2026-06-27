@@ -690,6 +690,7 @@ mod test {
                 },
             ],
             model_params: HashMap::new(),
+            schema: None,
         };
 
         assert!(ai_client.set(set_params, None).await.is_ok());
@@ -699,6 +700,7 @@ mod test {
             keys: vec![StoreInput {
                 value: Some(Value::RawString("Adidas Yeezy".into())),
             }],
+            schema: None,
         };
 
         assert_eq!(
@@ -922,6 +924,7 @@ mod test {
             preprocess_action: PreprocessAction::NoPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         };
         pipeline.set(set_store_params);
 
@@ -1035,6 +1038,7 @@ mod test {
         let create_pred_index_params = CreatePredIndex {
             store: store_name.value.clone(),
             predicates: vec!["Brand".into(), "Vintage".into()],
+            schema: None,
         };
 
         pipeline.create_pred_index(create_pred_index_params);
@@ -1045,6 +1049,7 @@ mod test {
             execution_provider: None,
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
             model_params: HashMap::new(),
+            schema: None,
         };
         pipeline.set(set_params);
 
@@ -1052,6 +1057,7 @@ mod test {
             store: store_name.value.clone(),
             predicates: vec!["Vintage".to_string()],
             error_if_not_exists: true,
+            schema: None,
         };
 
         pipeline.drop_pred_index(drop_pred_params);
@@ -1103,6 +1109,7 @@ mod test {
         let get_pred_params = GetPred {
             store: store_name.value,
             condition: Some(condition),
+            schema: None,
         };
 
         let response = ai_client.get_pred(get_pred_params, None).await.unwrap();
@@ -1214,6 +1221,7 @@ mod test {
         let create_pred_index_params = CreatePredIndex {
             store: store_name.value.clone(),
             predicates: vec!["Name".into(), "Age".into()],
+            schema: None,
         };
 
         pipeline.create_pred_index(create_pred_index_params);
@@ -1224,6 +1232,7 @@ mod test {
             execution_provider: None,
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
             model_params: HashMap::new(),
+            schema: None,
         };
 
         pipeline.set(set_params);
@@ -1232,6 +1241,7 @@ mod test {
             store: store_name.value.clone(),
             predicates: vec!["Age".to_string()],
             error_if_not_exists: true,
+            schema: None,
         };
 
         pipeline.drop_pred_index(drop_pred_index_params);
@@ -1248,6 +1258,7 @@ mod test {
         let get_pred_params = GetPred {
             store: store_name.value.clone(),
             condition: Some(condition),
+            schema: None,
         };
 
         pipeline.get_pred(get_pred_params);

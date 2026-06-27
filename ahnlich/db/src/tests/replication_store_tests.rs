@@ -8,6 +8,7 @@ use ahnlich_replication::types::DbCommand;
 use ahnlich_types::db::query;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName, StoreValue};
 use ahnlich_types::metadata::MetadataValue;
+use ahnlich_types::schema::Schema;
 use futures::executor::block_on;
 use openraft::RaftSnapshotBuilder;
 use openraft::storage::RaftStateMachine;
@@ -77,6 +78,7 @@ fn set_query(store: &str) -> query::Set {
             }),
             value: Some(store_value("alpha")),
         }],
+        schema: None,
     }
 }
 
@@ -143,6 +145,7 @@ fn snapshot_round_trip_restores_store_state() {
                 &StoreName {
                     value: "products".to_owned(),
                 },
+                &Schema::default(),
                 vec![StoreKey {
                     key: vec![1.0, 2.0],
                 }],

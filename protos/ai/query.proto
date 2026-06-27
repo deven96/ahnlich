@@ -38,6 +38,7 @@ message GetPred {
   // Validation checks if the predicates are enabled
   string store = 1; // Name of the store
   predicates.PredicateCondition condition = 2; // Condition to match for predicates
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message GetSimN {
@@ -50,18 +51,21 @@ message GetSimN {
   ai.preprocess.PreprocessAction preprocess_action = 6; // Preprocessing actions to apply to input before querying
   optional ai.execution_provider.ExecutionProvider execution_provider = 7; // Optional execution provider for specific optimizations
   map<string, string> model_params = 8; // Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+  optional string schema = 9; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message CreatePredIndex {
   // Creates predicate indexes for a store. Adds new predicates if they don’t already exist
   string store = 1; // Store name
   repeated string predicates = 2; // Predicates to use for indexing
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message CreateNonLinearAlgorithmIndex {
   // Creates non-linear algorithm indices for the store if they don't already exist
   string store = 1; // Store name
   repeated algorithm.nonlinear.NonLinearIndex non_linear_indices = 2; // Non-linear indices to create
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message DropPredIndex {
@@ -70,6 +74,7 @@ message DropPredIndex {
   string store = 1; // Store name
   repeated string predicates = 2; // Predicates to remove
   bool error_if_not_exists = 3; // Flag to enforce error if the predicate doesn’t exist
+  optional string schema = 4; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message DropNonLinearAlgorithmIndex {
@@ -78,6 +83,7 @@ message DropNonLinearAlgorithmIndex {
   string store = 1; // Store name
   repeated algorithm.nonlinear.NonLinearAlgorithm non_linear_indices = 2; // Non-linear indices to remove
   bool error_if_not_exists = 3; // Flag to enforce error if the index doesn’t exist
+  optional string schema = 4; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message DelKey {
@@ -85,6 +91,7 @@ message DelKey {
   // Updates indices non-blocking after deletion
   string store = 1; // Store name
   repeated keyval.StoreInput keys = 2; // Key to delete (type depends on the store model)
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message DelPred {
@@ -93,6 +100,7 @@ message DelPred {
   // Updates indices non-blocking after deletion
   string store = 1; // Store name
   predicates.PredicateCondition condition = 2; // The condition for the predicate deletion
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message DropStore {
@@ -107,6 +115,7 @@ message GetKey {
   // Fetches specific input(image or string) from a store. This only works if, store_original is set to true
   string store = 1; // Store name
   repeated keyval.StoreInput keys = 2; // Keys to retrieve from the store
+  optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message InfoServer {
@@ -149,6 +158,7 @@ message Set {
   ai.preprocess.PreprocessAction preprocess_action = 3; // Preprocessing action to apply to inputs before setting
   optional ai.execution_provider.ExecutionProvider execution_provider = 4; // Optional execution provider for optimizations
   map<string, string> model_params = 5; // Optional runtime parameters for the model (e.g., confidence_threshold for face detection)
+  optional string schema = 6; // Optional schema/namespace for the store. Defaults to "public".
 }
 
 message ConvertStoreInputToEmbeddings {

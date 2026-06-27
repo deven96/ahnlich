@@ -231,6 +231,7 @@ mod tests {
                 }),
                 value: Some(store_value("alpha")),
             }],
+            schema: None,
         }
     }
 

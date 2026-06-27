@@ -109,6 +109,7 @@ async fn test_buffalo_l_face_detection() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: optimized_face_params(),
+            schema: None,
         })),
     };
 
@@ -202,6 +203,7 @@ async fn test_buffalo_l_batch_multiple_images() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: optimized_face_params(),
+            schema: None,
         })),
     };
 
@@ -279,6 +281,7 @@ async fn test_buffalo_l_no_faces() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         })),
     };
 
@@ -355,6 +358,7 @@ async fn test_buffalo_l_single_face() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         })),
     };
 
@@ -457,6 +461,7 @@ async fn test_buffalo_l_get_sim_n() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: optimized_face_params(),
+            schema: None,
         })),
     };
 
@@ -473,6 +478,7 @@ async fn test_buffalo_l_get_sim_n() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: optimized_face_params(),
+            schema: None,
         })),
     };
 
@@ -625,6 +631,7 @@ async fn test_buffalo_l_get_sim_n_multi_face_query_errors() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -647,6 +654,7 @@ async fn test_buffalo_l_get_sim_n_multi_face_query_errors() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         }))
         .await
         .expect_err("Expected error when querying with multi-face image");
@@ -722,6 +730,7 @@ async fn test_buffalo_l_face_index_metadata() {
         preprocess_action: PreprocessAction::ModelPreprocessing.into(),
         execution_provider: None,
         model_params: HashMap::new(),
+        schema: None,
     };
 
     // Execute pipeline: create store + set data
@@ -769,6 +778,7 @@ async fn test_buffalo_l_face_index_metadata() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         };
 
         let get_response = client
@@ -898,6 +908,7 @@ async fn test_buffalo_l_mixed_batch_no_face_does_not_fail_batch() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -969,6 +980,7 @@ async fn test_buffalo_l_high_confidence_threshold() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(), // Empty = use default threshold (0.5)
+            schema: None,
         })),
     };
 
@@ -1032,6 +1044,7 @@ async fn test_buffalo_l_high_confidence_threshold() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: high_threshold_params, // Custom high threshold
+            schema: None,
         })),
     };
 
@@ -1129,6 +1142,7 @@ async fn test_buffalo_l_bounding_box_metadata() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -1155,6 +1169,7 @@ async fn test_buffalo_l_bounding_box_metadata() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         }))
         .await
         .expect("GetSimN failed")
@@ -1299,6 +1314,7 @@ async fn test_buffalo_l_gender_age_metadata() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: genderage_params(),
+                    schema: None,
                 })),
             },
         ],
@@ -1325,6 +1341,7 @@ async fn test_buffalo_l_gender_age_metadata() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: genderage_params(),
+            schema: None,
         }))
         .await
         .expect("GetSimN failed")
@@ -1455,6 +1472,7 @@ async fn test_buffalo_l_gender_age_multi_face() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: genderage_params(),
+                    schema: None,
                 })),
             },
         ],
@@ -1478,6 +1496,7 @@ async fn test_buffalo_l_gender_age_multi_face() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: genderage_params(),
+            schema: None,
         }))
         .await
         .expect("GetSimN failed")
@@ -1650,6 +1669,7 @@ async fn test_buffalo_l_visualize_attributes() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -1673,6 +1693,7 @@ async fn test_buffalo_l_visualize_attributes() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         }))
         .await
         .expect("GetSimN failed")
@@ -1872,6 +1893,7 @@ async fn test_buffalo_l_without_genderage() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: optimized_face_params(), // No attributes=genderage
+                    schema: None,
                 })),
             },
         ],
@@ -1898,6 +1920,7 @@ async fn test_buffalo_l_without_genderage() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: optimized_face_params(), // No attributes=genderage
+            schema: None,
         }))
         .await
         .expect("GetSimN failed")
@@ -2002,6 +2025,7 @@ async fn test_buffalo_l_genderage_opt_in() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: genderage_params(), // WITH attributes=genderage
+                    schema: None,
                 })),
             },
         ],
@@ -2028,6 +2052,7 @@ async fn test_buffalo_l_genderage_opt_in() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: genderage_params(), // WITH attributes=genderage
+            schema: None,
         }))
         .await
         .expect("GetSimN failed")
