@@ -14,7 +14,10 @@ use crate::{
     server::handler::AIProxyServer,
 };
 
-use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_types::algorithm::{
+    algorithms::Algorithm,
+    nonlinear::{KdTreeConfig, NonLinearAlgorithm, NonLinearIndex, non_linear_index},
+};
 use ahnlich_types::{
     ai::server::GetSimNEntry,
     metadata::{MetadataValue, metadata_value::Value as MValue},
@@ -2308,6 +2311,262 @@ async fn provision_test_servers_limited() -> SocketAddr {
     tokio::time::sleep(Duration::from_millis(200)).await;
 
     ai_address
+}
+
+/// Test: Store-name commands operate inside the requested AI schema.
+#[tokio::test]
+async fn test_ai_schema_store_commands_use_custom_schema() {
+    let address = provision_test_servers_limited().await;
+    let address = format!("http://{}", address);
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = AiServiceClient::connect(channel).await.expect("Failure");
+
+    let schema = Some("ai_store_commands".to_string());
+    let store_name = "AiSchemaCommandStore".to_string();
+    let matching_metadatakey = "Brand".to_string();
+    let nike_value = MetadataValue {
+        value: Some(MValue::RawString("Nike".into())),
+    };
+    let adidas_value = MetadataValue {
+        value: Some(MValue::RawString("Adidas".into())),
+    };
+    let nike_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), nike_value.clone())]),
+    };
+    let adidas_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), adidas_value.clone())]),
+    };
+    let jordan_input = StoreInput {
+        value: Some(Value::RawString("Jordan 3".into())),
+    };
+    let yeezy_input = StoreInput {
+        value: Some(Value::RawString("Yeezy".into())),
+    };
+    let condition_nike = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(nike_value),
+            })),
+        })),
+    };
+    let condition_adidas = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(adidas_value),
+            })),
+        })),
+    };
+
+    let queries = vec![
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                store: store_name.clone(),
+                query_model: AiModel::AllMiniLmL6V2.into(),
+                index_model: AiModel::AllMiniLmL6V2.into(),
+                predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                store_original: true,
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::GetStore(ai_query_types::GetStore {
+                store: store_name.clone(),
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::ListStores(ai_query_types::ListStores {
+                schema: None,
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreatePredIndex(ai_query_types::CreatePredIndex {
+                store: store_name.clone(),
+                predicates: vec![matching_metadatakey.clone()],
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::CreateNonLinearAlgorithmIndex(
+                ai_query_types::CreateNonLinearAlgorithmIndex {
+                    store: store_name.clone(),
+                    non_linear_indices: vec![NonLinearIndex {
+                        index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                    }],
+                    schema: schema.clone(),
+                },
+            )),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::Set(ai_query_types::Set {
+                store: store_name.clone(),
+                inputs: vec![
+                    AiStoreEntry {
+                        key: Some(jordan_input.clone()),
+                        value: Some(nike_store_value.clone()),
+                    },
+                    AiStoreEntry {
+                        key: Some(yeezy_input.clone()),
+                        value: Some(adidas_store_value.clone()),
+                    },
+                ],
+                preprocess_action: PreprocessAction::NoPreprocessing.into(),
+                execution_provider: None,
+                model_params: HashMap::new(),
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::GetKey(ai_query_types::GetKey {
+                store: store_name.clone(),
+                keys: vec![jordan_input.clone()],
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::GetPred(ai_query_types::GetPred {
+                store: store_name.clone(),
+                condition: Some(condition_nike.clone()),
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::GetSimN(ai_query_types::GetSimN {
+                store: store_name.clone(),
+                search_input: Some(jordan_input.clone()),
+                condition: Some(condition_nike.clone()),
+                closest_n: 1,
+                algorithm: Algorithm::DotProductSimilarity.into(),
+                preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+                execution_provider: None,
+                model_params: HashMap::new(),
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DelPred(ai_query_types::DelPred {
+                store: store_name.clone(),
+                condition: Some(condition_adidas),
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DelKey(ai_query_types::DelKey {
+                store: store_name.clone(),
+                keys: vec![jordan_input.clone()],
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DropPredIndex(ai_query_types::DropPredIndex {
+                store: store_name.clone(),
+                predicates: vec![matching_metadatakey.clone()],
+                error_if_not_exists: true,
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DropNonLinearAlgorithmIndex(
+                ai_query_types::DropNonLinearAlgorithmIndex {
+                    store: store_name.clone(),
+                    non_linear_indices: vec![NonLinearAlgorithm::KdTree.into()],
+                    error_if_not_exists: true,
+                    schema: schema.clone(),
+                },
+            )),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::DropStore(ai_query_types::DropStore {
+                store: store_name.clone(),
+                error_if_not_exists: true,
+                schema: schema.clone(),
+            })),
+        },
+        ai_pipeline::AiQuery {
+            query: Some(Query::ListStores(ai_query_types::ListStores { schema })),
+        },
+    ];
+
+    let result = client
+        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
+            queries,
+        }))
+        .await
+        .expect("Failed to send pipeline request")
+        .into_inner();
+
+    assert_eq!(result.responses.len(), 15);
+    assert!(matches!(
+        &result.responses[0].response,
+        Some(ai_pipeline::ai_server_response::Response::Unit(_))
+    ));
+    assert!(matches!(
+        &result.responses[1].response,
+        Some(ai_pipeline::ai_server_response::Response::StoreInfo(info))
+            if info.name == store_name && info.schema.as_deref() == Some("ai_store_commands")
+    ));
+    assert!(matches!(
+        &result.responses[2].response,
+        Some(ai_pipeline::ai_server_response::Response::StoreList(list)) if list.stores.is_empty()
+    ));
+    assert!(matches!(
+        &result.responses[3].response,
+        Some(ai_pipeline::ai_server_response::Response::CreateIndex(index)) if index.created_indexes == 1
+    ));
+    assert!(matches!(
+        &result.responses[4].response,
+        Some(ai_pipeline::ai_server_response::Response::CreateIndex(index)) if index.created_indexes == 1
+    ));
+    assert!(matches!(
+        &result.responses[5].response,
+        Some(ai_pipeline::ai_server_response::Response::Set(set))
+            if set.upsert == Some(StoreUpsert { inserted: 2, updated: 0 })
+    ));
+    assert!(matches!(
+        &result.responses[6].response,
+        Some(ai_pipeline::ai_server_response::Response::Get(get))
+            if get.entries.len() == 1 && get.entries[0].key == Some(jordan_input.clone())
+    ));
+    assert!(matches!(
+        &result.responses[7].response,
+        Some(ai_pipeline::ai_server_response::Response::Get(get))
+            if get.entries.len() == 1 && get.entries[0].value == Some(nike_store_value.clone())
+    ));
+    assert!(matches!(
+        &result.responses[8].response,
+        Some(ai_pipeline::ai_server_response::Response::GetSimN(get_sim_n))
+            if get_sim_n.entries.len() == 1 && get_sim_n.entries[0].key == Some(jordan_input.clone())
+    ));
+    assert!(matches!(
+        &result.responses[9].response,
+        Some(ai_pipeline::ai_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[10].response,
+        Some(ai_pipeline::ai_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[11].response,
+        Some(ai_pipeline::ai_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[12].response,
+        Some(ai_pipeline::ai_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[13].response,
+        Some(ai_pipeline::ai_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[14].response,
+        Some(ai_pipeline::ai_server_response::Response::StoreList(list)) if list.stores.is_empty()
+    ));
 }
 
 /// Test: Create stores in different schemas and list them via AI proxy
