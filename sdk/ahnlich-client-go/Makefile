@@ -48,9 +48,6 @@ install-go-test-sum:
 	@export PATH=$$PATH:/usr/local/go/bin:$(shell go env GOPATH)/bin; \
 	go install gotest.tools/gotestsum@latest
 
-install-gofmt:
-	docker pull cytopia/gofmt:$(GOFMT_VERSION)
-
 install-goimports:
 ifeq ($(CI),1)
 	@export PATH=$$PATH:/usr/local/go/bin; \
@@ -62,9 +59,6 @@ endif
 install-pre-commit:
 	python3 -m pip install pre-commit==$(PRE_COMMIT_VERSION)
 	pre-commit install --hook-type commit-msg --allow-missing-config 
-
-install-prettier:
-	docker pull tmknom/prettier:$(PRETTIER_VERSION)
 
 install-revive:
 	@mkdir -p /tmp/temp && rm -rf /tmp/temp/*
@@ -123,10 +117,8 @@ else
 endif
 
 install-dependencies: install-go-junit \
-                      install-gofmt \
                       install-goimports \
                       install-pre-commit \
-                      install-prettier \
                       install-revive \
                       install-shfmt \
                       install-staticcheck \
