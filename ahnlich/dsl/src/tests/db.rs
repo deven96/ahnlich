@@ -364,6 +364,7 @@ fn test_create_non_linear_algorithm_parse() {
                 non_linear_indices: vec![NonLinearIndex {
                     index: Some(non_linear_index::Index::Hnsw(Default::default())),
                 }],
+                schema: None,
             }
         )]
     );
@@ -460,6 +461,7 @@ fn test_drop_non_linear_algorithm_parse() {
                 store: "1234".to_string(),
                 non_linear_indices: vec![NonLinearAlgorithm::Hnsw as i32],
                 error_if_not_exists: true,
+                schema: None,
             }
         )]
     );
