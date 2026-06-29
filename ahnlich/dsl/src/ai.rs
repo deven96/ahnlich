@@ -52,6 +52,10 @@ fn parse_to_ai_model(input: &str) -> Result<AiModel, DslError> {
         "bge-large-en-v1.5" => Ok(AiModel::BgeLargeEnV15),
         "resnet-50" => Ok(AiModel::Resnet50),
         "clip-vit-b32-image" => Ok(AiModel::ClipVitB32Image),
+        "clip-vit-b32-text" => Ok(AiModel::ClipVitB32Text),
+        "clap-audio" => Ok(AiModel::ClapAudio),
+        "clap-text" => Ok(AiModel::ClapText),
+        "jina-embeddings-v2-base-code" => Ok(AiModel::JinaEmbeddingsV2BaseCode),
         e => Err(DslError::UnsupportedAIModel(e.to_string())),
     }
 }

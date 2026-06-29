@@ -60,71 +60,70 @@ Returns server metadata, including version, address, type, and resource limits.
 Lists all stores currently available on the AI server.
 
 ### 4. Create a Store for AI
-```
+```bash
 CREATESTORE my_store QUERYMODEL resnet-50 INDEXMODEL resnet-50 PREDICATES (author, category) NONLINEARALGORITHMINDEX (kdtree) STOREORIGINAL
 ```
 
 Creates a new store `my_store` with `resnet-50` as both query and index models, supporting predicates `author` and `category`, and enables a KD-Tree index.
 
 ### 5. Insert AI Data
-```
-SET (([This is the life of Alice], {author: Alice, category: ml}),
-     ([This is the life of Bob], {author: Bob, category: dev})) IN my_store
+```bash
+SET (([This is the life of Alice], {author: Alice, category: ml}),([This is the life of Bob], {author: Bob, category: dev})) IN my_store PREPROCESSACTION nopreprocessing
 ```
 
 Inserts two text entries into `my_store` with metadata tags.
 
 ### 6. Drop a Store
-```
+```bash
 DROPSTORE my_store IF EXISTS
 ```
 
 Deletes the store `my_store` if it exists.
 
 ### 7. Query AI Data by Similarity
-```
+```bash
 GETSIMN 4 WITH [This is the life of Alice] USING cosinesimilarity IN my_store WHERE (category = ml)
 ```
 
 Finds the top 4 entries most similar to `"This is the life of Alice"` within category `ml`.
 
 ### 8. Query AI Data by Predicate
-```
+```bash
 GETPRED (author = Alice) IN my_store
 ```
 
 Retrieves all entries in `my_store` where `author = Alice`.
 
 ### 9. Create Predicate Index
-```
+```bash
 CREATEPREDINDEX (author, category) IN my_store
 ```
 
 Creates an index on the `author` and `category` predicates to speed up lookups.
 
 ### 10. Drop Predicate Index
-```
+```bash
 DROPPREDINDEX (category) IN my_store
 ```
 
 Removes the index on the `category` predicate.
 
 ### 11. Create Non-Linear Algorithm Index
-```
+```bash
 CREATENONLINEARALGORITHMINDEX (kdtree) IN my_store
 ```
 
 Creates a KD-Tree index for non-linear similarity search.
 
 ### 12. Drop Non-Linear Algorithm Index
-```
+```bash
 DROPNONLINEARALGORITHMINDEX (kdtree) IN my_store
 ```
 
 Drops the KD-Tree index from the store.
 
 ### 13. Delete a Key
-```
+```bash
 DELETEKEY ([This is the life of Alice]) IN my_store
 ```
 

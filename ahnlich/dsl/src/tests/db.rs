@@ -270,6 +270,18 @@ fn test_create_non_linear_algorithm_parse() {
             }
         )]
     );
+    let input = r#"createnonlinearalgorithmindex (hnsw) in store2"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::CreateNonLinearAlgorithmIndex(
+            CreateNonLinearAlgorithmIndex {
+                store: "store2".to_string(),
+                non_linear_indices: vec![NonLinearIndex {
+                    index: Some(non_linear_index::Index::Hnsw(Default::default())),
+                }],
+            }
+        )]
+    );
 }
 
 #[test]
@@ -348,6 +360,17 @@ fn test_drop_non_linear_algorithm_parse() {
             DropNonLinearAlgorithmIndex {
                 store: "1234".to_string(),
                 non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+                error_if_not_exists: true,
+            }
+        )]
+    );
+    let input = r#"DROPNONLINEARALGORITHMINDEX (hnsw) in 1234"#;
+    assert_eq!(
+        parse_db_query(input).expect("Could not parse query input"),
+        vec![DBQuery::DropNonLinearAlgorithmIndex(
+            DropNonLinearAlgorithmIndex {
+                store: "1234".to_string(),
+                non_linear_indices: vec![NonLinearAlgorithm::Hnsw as i32],
                 error_if_not_exists: true,
             }
         )]

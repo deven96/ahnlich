@@ -89,7 +89,7 @@ store_key_to_store_value = { "(" ~ whitespace* ~ f32_array ~ whitespace* ~ "," ~
 store_input_to_store_value = { "(" ~ whitespace* ~ "[" ~ whitespace* ~ metadata_value ~ whitespace* ~ "]" ~ whitespace* ~ "," ~ whitespace* ~ store_value ~ whitespace* ~ ")" }
 store_keys_to_store_value = { "(" ~ whitespace* ~ store_key_to_store_value ~ (whitespace* ~ "," ~ whitespace* ~ store_key_to_store_value)* ~ whitespace* ~ ")" }
 store_inputs_to_store_value = { "(" ~ whitespace* ~ store_input_to_store_value ~ (whitespace* ~ "," ~ whitespace* ~ store_input_to_store_value)* ~ whitespace* ~ ")" }
-non_linear_algorithm = { ^"kdtree" }
+non_linear_algorithm = { ^"kdtree" | ^"hnsw" }
 algorithm = { 
     ^"kdtree" |
     ^"euclideandistance" |
@@ -113,7 +113,8 @@ ai_model = {
     ^"clip-vit-b32-image"|
     ^"clip-vit-b32-text"|
     ^"clap-audio"|
-    ^"clap-text"
+    ^"clap-text"|
+    ^"jina-embeddings-v2-base-code"
 }
 preprocess_action = {
     ^"nopreprocessing" |

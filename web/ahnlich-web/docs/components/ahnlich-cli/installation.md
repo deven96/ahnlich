@@ -13,30 +13,34 @@ Prebuilt binaries are available on GitHub Releases: https://github.com/deven96/a
 
 ### Extract the Archive
 
-#### extract the downloaded archive
-```
+#### Extract the downloaded archive
+```bash
 tar -xvzf <archive-name>.tar.gz
 ```
 
-#### move the binary to a directory in your PATH (optional)
-```
-sudo mv ahnlich-db /usr/local/bin/
-```
-
-#### verify installation
-```
-ahnlich-db --version
+#### Move the binary to a directory in your PATH (optional)
+```bash
+sudo mv ahnlich-cli /usr/local/bin/
 ```
 
-#### Run the Database Server
-```
-ahblich-db run    # Starts the DB server
+#### Verify installation
+```bash
+ahnlich-cli --version
 ```
 
 
-#### Example: Run CLI against DB agent
+#### Example: Run CLI against DB server
+
+First run the DB server:
+
+```bash
+ahnlich-db run
 ```
-./ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369
+
+Then run the CLI against the DB server:
+
+```bash
+ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369
 ```
 
 ### Run from Source (Development Mode)
@@ -44,31 +48,31 @@ ahblich-db run    # Starts the DB server
 Clone the repo and run from the **workspace root**:
 
 #### Clone the repo
-```
+```bash
 git clone https://github.com/deven96/ahnlich.git
 
 cd ahnlich
 ```
 
-#### Run the Database Server
-```
-cargo run -p db --bin ahnlich-db run   # Starts the DB server
+#### Run the DB Server
+```bash
+cargo run -p db --bin ahnlich-db run
 ```
 
 #### Run the AI Server
-```
-cargo run -p ai --bin ahnlich-ai run  # Starts the AI server
+```bash
+cargo run -p ai --bin ahnlich-ai run
 ```
 
 #### Run the CLI
-```
+```bash
 cargo run -p cli --bin ahnlich-cli -- ahnlich --agent db --host 127.0.0.1 --port 1369
 ```
 Replace `db` with `ai` to connect to the AI server
 
 ### Running the CLI
 General command format:
-```
+```bash
 ahnlich-cli ahnlich --agent <agent> --host <host> --port <port>
 ```
 
@@ -83,12 +87,11 @@ ahnlich-cli ahnlich --agent <agent> --host <host> --port <port>
 #### Example Usage
 
 ##### Connect to DB Agent
-```
+```bash
 ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369
 ```
 
 ##### Connect to AI Agent
-```
+```bash
 ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370
 ```
-

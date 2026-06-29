@@ -19,7 +19,7 @@ Returns `PONG` if the server is running.
 #### INFO SERVER
 Retrieve server information (version, uptime, memory usage).
 ```
-INFO SERVER
+INFOSERVER
 ```
 
 #### LIST CONNECTED CLIENTS
@@ -34,7 +34,7 @@ LIST CONNECTED CLIENTS
 #### LIST STORES
 Show all existing vector stores. Returns store name, entry count, size in bytes, predicate indices, dimension, and the configuration of any non-linear indices (HNSW config parameters or k-d tree) on each store.
 ```
-LIST STORES
+LISTSTORES
 ```
 
 #### GET STORE
@@ -51,12 +51,12 @@ GETSTORE my_store
 #### CREATE STORE
 Create a new store with a given dimension and algorithm.
 ```
-CREATE STORE <store_name> DIMENSION <n> ALGORITHM <cosine|euclidean|kdtree>
+CREATESTORE <store_name> DIMENSION <n>
 ```
 
 #### Example:
 ```
-CREATE STORE my_store DIMENSION 128 ALGORITHM cosine
+CREATESTORE my_store DIMENSION 128
 ```
 
 #### DROP STORE
@@ -121,12 +121,12 @@ GETSIMN 3 WITH [0.25, 0.88] USING cosinesimilarity IN my_store WHERE (category !
 #### GET KEY
 Retrieve a vector and its metadata by key.
 ```
-GET KEY <key> IN <store_name>
+GETKEY ([1.0, 2.0]) IN my_store
 ```
 
 #### Example:
 ```
-GET KEY doc1 IN my_store
+GETKEY ([1.0, 2.0]) IN my_store
 ```
 
 #### GET BY PREDICATE

@@ -78,7 +78,7 @@ find top-8 similar videos
 GETSIMN 8 WITH [0.89, -0.33, 0.55, ...] USING euclideandistance IN video_store;
 
 filter results by upload_date
-GETPRED (upload_date > "2024-09-01") IN video_store;
+GETPRED (upload_date = 2024-09-01) IN video_store
 ```
 
 In this workflow, GETSIMN identifies the most similar vectors, while `GETPRED` applies metadata conditions. By chaining them together, applications ensure that retrieved results are not only “similar” but also satisfy real-world constraints such as **time windows, categories, or user-specific rules**.

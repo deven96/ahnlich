@@ -240,6 +240,20 @@ fn test_create_store_parse() {
             schema: None,
         })]
     );
+    let input = r#"CREATESTORE code_repo QUERYMODEL jina-embeddings-v2-base-code INDEXMODEL jina-embeddings-v2-base-code"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::CreateStore(CreateStore {
+            store: "code_repo".to_string(),
+            query_model: AiModel::JinaEmbeddingsV2BaseCode as i32,
+            index_model: AiModel::JinaEmbeddingsV2BaseCode as i32,
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: false,
+            schema: None,
+        })]
+    );
     let input = r#"createstore school QUERYMODEL all-minilm-l6-v2 INDEXMODEL resnet-50 NONLINEARALGORITHMINDEX (kdtree) STOREORIGINAL"#;
     assert_eq!(
         parse_ai_query(input).expect("Could not parse query input"),
@@ -273,6 +287,18 @@ fn test_create_non_linear_algorithm_parse() {
                 store: "store2".to_string(),
                 non_linear_indices: vec![NonLinearIndex {
                     index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                }],
+            }
+        )]
+    );
+    let input = r#"createnonlinearalgorithmindex (hnsw) in store2"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::CreateNonLinearAlgorithmIndex(
+            CreateNonLinearAlgorithmIndex {
+                store: "store2".to_string(),
+                non_linear_indices: vec![NonLinearIndex {
+                    index: Some(non_linear_index::Index::Hnsw(Default::default())),
                 }],
             }
         )]
@@ -363,6 +389,17 @@ fn test_drop_non_linear_algorithm_parse() {
             DropNonLinearAlgorithmIndex {
                 store: "1234".to_string(),
                 non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
+                error_if_not_exists: true,
+            }
+        )]
+    );
+    let input = r#"DROPNONLINEARALGORITHMINDEX (hnsw) in 1234"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::DropNonLinearAlgorithmIndex(
+            DropNonLinearAlgorithmIndex {
+                store: "1234".to_string(),
+                non_linear_indices: vec![NonLinearAlgorithm::Hnsw as i32],
                 error_if_not_exists: true,
             }
         )]
