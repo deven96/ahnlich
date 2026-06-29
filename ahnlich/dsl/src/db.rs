@@ -88,6 +88,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                 DBQuery::Set(Set {
                     store,
                     inputs: parse_store_keys_to_store_value(store_keys_to_store_values)?,
+                    schema: inner_pairs.next().map(parse_schema_clause).transpose()?,
                 })
             }
             Rule::create_store => {
@@ -178,17 +179,21 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
-                let condition = if let Some(predicate_conditions) = inner_pairs.next() {
-                    Some(parse_predicate_expression(predicate_conditions)?)
-                } else {
-                    None
-                };
+                let mut schema = None;
+                let mut condition = None;
+                for pair in inner_pairs {
+                    match pair.as_rule() {
+                        Rule::schema_clause => schema = Some(parse_schema_clause(pair)?),
+                        _ => condition = Some(parse_predicate_expression(pair)?),
+                    }
+                }
                 DBQuery::GetSimN(GetSimN {
                     store,
                     search_input: Some(search_input),
                     closest_n,
                     algorithm,
                     condition,
+                    schema,
                 })
             }
             Rule::get_pred => {
@@ -204,6 +209,7 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                 DBQuery::GetPred(GetPred {
                     store,
                     condition: Some(parse_predicate_expression(predicate_conditions)?),
+                    schema: inner_pairs.next().map(parse_schema_clause).transpose()?,
                 })
             }
             Rule::get_key => {
@@ -218,7 +224,11 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
-                DBQuery::GetKey(GetKey { store, keys })
+                DBQuery::GetKey(GetKey {
+                    store,
+                    keys,
+                    schema: inner_pairs.next().map(parse_schema_clause).transpose()?,
+                })
             }
             Rule::del_key => {
                 let mut inner_pairs = statement.into_inner();
@@ -232,10 +242,14 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
-                DBQuery::DelKey(DelKey { store, keys })
+                DBQuery::DelKey(DelKey {
+                    store,
+                    keys,
+                    schema: inner_pairs.next().map(parse_schema_clause).transpose()?,
+                })
             }
             Rule::create_non_linear_algorithm_index => {
-                let (store, non_linear_indices) =
+                let (store, non_linear_indices, schema) =
                     parse_create_non_linear_algorithm_index(statement)?;
                 DBQuery::CreateNonLinearAlgorithmIndex(CreateNonLinearAlgorithmIndex {
                     store,
@@ -243,27 +257,35 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                         .into_iter()
                         .map(non_linear_to_index)
                         .collect(),
+                    schema,
                 })
             }
             Rule::create_pred_index => {
-                let (store, predicates) = parse_create_pred_index(statement)?;
-                DBQuery::CreatePredIndex(CreatePredIndex { store, predicates })
+                let (store, predicates, schema) = parse_create_pred_index(statement)?;
+                DBQuery::CreatePredIndex(CreatePredIndex {
+                    store,
+                    predicates,
+                    schema,
+                })
             }
             Rule::drop_non_linear_algorithm_index => {
-                let (store, error_if_not_exists, non_linear_indices) =
+                let (store, error_if_not_exists, non_linear_indices, schema) =
                     parse_drop_non_linear_algorithm_index(statement)?;
                 DBQuery::DropNonLinearAlgorithmIndex(DropNonLinearAlgorithmIndex {
                     store,
                     non_linear_indices: non_linear_indices.into_iter().map(|a| a as i32).collect(),
                     error_if_not_exists,
+                    schema,
                 })
             }
             Rule::drop_pred_index => {
-                let (store, predicates, error_if_not_exists) = parse_drop_pred_index(statement)?;
+                let (store, predicates, error_if_not_exists, schema) =
+                    parse_drop_pred_index(statement)?;
                 DBQuery::DropPredIndex(DropPredIndex {
                     store,
                     predicates,
                     error_if_not_exists,
+                    schema,
                 })
             }
             Rule::drop_store => {

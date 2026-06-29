@@ -4,6 +4,10 @@ title: Create Non-Linear Algorithm Index
 
 # Create Non-Linear Algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Creates a non-linear algorithm index on a store to optimize vector similarity searches beyond basic linear methods. Non-linear indexes (KDTree, HNSW) improve query performance and scalability when working with large vector datasets.
 
 Each index type is specified using a `NonLinearIndex` message with either a `KdTreeConfig` or `HnswConfig`.
@@ -26,6 +30,7 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
       // Create a KDTree index on the "Main" store
       let params = CreateNonLinearAlgorithmIndex {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           non_linear_indices: vec![
               NonLinearIndex {
                   index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
@@ -39,6 +44,7 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
       // Or create an HNSW index (with default config)
       let params = CreateNonLinearAlgorithmIndex {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           non_linear_indices: vec![
               NonLinearIndex {
                   index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),

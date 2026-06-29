@@ -88,7 +88,7 @@ GETKEY ([1.0, 2.0], [3.0, 4.0]) IN test_store; CREATEPREDINDEX (name, category) 
 `LISTCLIENTS` – list active connections
 
 
-`LISTSTORES` – list all stores
+`LISTSTORES [SCHEMA <schema>]` – list stores in a schema; defaults to `public`
 
 
 `INFOSERVER` – get server metadata/version

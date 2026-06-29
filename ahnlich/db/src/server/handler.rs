@@ -82,6 +82,13 @@ impl DbService for Server {
         request: tonic::Request<query::GetKey>,
     ) -> std::result::Result<tonic::Response<server::Get>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .as_ref()
+            .map(|schema| Schema::try_new(schema.clone()))
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
         let keys = params
             .keys
             .into_iter()
@@ -94,6 +101,7 @@ impl DbService for Server {
                     &StoreName {
                         value: params.store,
                     },
+                    &schema,
                     keys,
                 )?
                 .into_iter()
@@ -115,6 +123,13 @@ impl DbService for Server {
         request: tonic::Request<query::GetPred>,
     ) -> std::result::Result<tonic::Response<server::Get>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .as_ref()
+            .map(|schema| Schema::try_new(schema.clone()))
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
 
         let condition =
             ahnlich_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
@@ -125,6 +140,7 @@ impl DbService for Server {
                     &StoreName {
                         value: params.store,
                     },
+                    &schema,
                     &condition,
                 )?
                 .into_iter()
@@ -146,6 +162,13 @@ impl DbService for Server {
         request: tonic::Request<query::GetSimN>,
     ) -> std::result::Result<tonic::Response<server::GetSimN>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .as_ref()
+            .map(|schema| Schema::try_new(schema.clone()))
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
         let search_input =
             ahnlich_types::unwrap_or_invalid!(params.search_input, "search input is required");
 
@@ -164,6 +187,7 @@ impl DbService for Server {
                     &StoreName {
                         value: params.store,
                     },
+                    &schema,
                     search_input,
                     closest_n,
                     algorithm,

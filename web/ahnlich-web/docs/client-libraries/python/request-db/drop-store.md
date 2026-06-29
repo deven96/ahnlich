@@ -4,6 +4,10 @@ title: Drop Store
 
 # Drop Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The Drop Store request permanently deletes a store and all its contents.  
 Use this carefully, as the operation is destructive and cannot be undone.
 
@@ -30,6 +34,7 @@ Use this carefully, as the operation is destructive and cannot be undone.
         response = await client.drop_store(
             db_query.DropStore(
                 store="test store",
+                schema="analytics",
                 error_if_not_exists=True
             )
         )

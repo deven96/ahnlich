@@ -48,6 +48,53 @@ async def test_aiproxy_client_sends_create_stores_succeeds(spin_up_ahnlich_ai):
 
 
 @pytest.mark.asyncio
+async def test_ai_client_schema_scoped_store_lifecycle(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
+    try:
+        schema = "media"
+        store_name = "ai_schema_scoped_store"
+
+        await client.create_store(
+            ai_query.CreateStore(
+                store=store_name,
+                query_model=AiModel.ALL_MINI_LM_L6_V2,
+                index_model=AiModel.ALL_MINI_LM_L6_V2,
+                error_if_exists=True,
+                store_original=True,
+                schema=schema,
+            )
+        )
+
+        default_list = await client.list_stores(ai_query.ListStores())
+        assert store_name not in [store.name for store in default_list.stores]
+
+        schema_list = await client.list_stores(ai_query.ListStores(schema=schema))
+        assert [store.name for store in schema_list.stores] == [store_name]
+        assert schema_list.stores[0].schema == schema
+        assert schema_list.stores[0].db_info is not None
+
+        with pytest.raises(GRPCError) as exc_info:
+            await client.get_store(ai_query.GetStore(store=store_name))
+        assert exc_info.value.status == grpclib.Status.NOT_FOUND
+
+        store_info = await client.get_store(
+            ai_query.GetStore(store=store_name, schema=schema)
+        )
+        assert store_info.name == store_name
+        assert store_info.schema == schema
+        assert store_info.db_info is not None
+
+        drop_response = await client.drop_schema(ai_query.DropSchema(schema=schema))
+        assert drop_response.deleted_count == 1
+
+        schema_list = await client.list_stores(ai_query.ListStores(schema=schema))
+        assert len(schema_list.stores) == 0
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
 async def test_create_store_fails_when_exists(spin_up_ahnlich_ai):
     channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
     client = ai_service.AiServiceStub(channel)

@@ -22,11 +22,11 @@ customer-eu
 
 ## Operations
 
-### CreateStore
+All commands that operate on a store by name accept an optional `schema` field. If `schema` is omitted, the operation targets `public`.
 
-`CreateStore` accepts an optional `schema` field.
+### Store Lifecycle
 
-If `schema` is omitted, the store is created in `public`.
+`CreateStore`, `GetStore`, and `DropStore` accept an optional `schema` field.
 
 DB DSL:
 
@@ -89,13 +89,48 @@ Rules:
 - Dropping a schema that does not exist returns an error.
 - Dropping a schema cascades through the service that receives the request. For AI, the proxy now drops the schema in the backing DB first, then removes the local AI stores for that schema.
 
+### Store Data And Index Commands
+
+The same optional schema field is available on store data, retrieval, and index commands:
+
+- DB: `Set`, `GetKey`, `GetPred`, `GetSimN`, `DelKey`, `DelPred`, `CreatePredIndex`, `DropPredIndex`, `CreateNonLinearAlgorithmIndex`, and `DropNonLinearAlgorithmIndex`.
+- AI: `Set`, `GetKey`, `GetPred`, `GetSimN`, `DelKey`, `DelPred`, `CreatePredIndex`, `DropPredIndex`, `CreateNonLinearAlgorithmIndex`, and `DropNonLinearAlgorithmIndex`.
+
+DB DSL examples:
+
+```text
+SET (([0.1, 0.2], {category: news})) IN articles SCHEMA analytics
+GETKEY ([0.1, 0.2]) IN articles SCHEMA analytics
+GETPRED (category = news) IN articles SCHEMA analytics
+GETSIMN 3 WITH [0.1, 0.2] USING cosinesimilarity IN articles SCHEMA analytics WHERE (category = news)
+DELKEY ([0.1, 0.2]) IN articles SCHEMA analytics
+CREATEPREDINDEX (category) IN articles SCHEMA analytics
+DROPPREDINDEX (category) IN articles SCHEMA analytics
+CREATENONLINEARALGORITHMINDEX (hnsw) IN articles SCHEMA analytics
+DROPNONLINEARALGORITHMINDEX (hnsw) IN articles SCHEMA analytics
+```
+
+AI DSL examples:
+
+```text
+SET (([document text], {category: news})) IN articles SCHEMA analytics PREPROCESSACTION nopreprocessing
+GETPRED (category = news) IN articles SCHEMA analytics
+GETSIMN 3 WITH [document text] USING cosinesimilarity IN articles SCHEMA analytics WHERE (category = news)
+DELKEY ([document text]) IN articles SCHEMA analytics
+CREATEPREDINDEX (category) IN articles SCHEMA analytics
+DROPPREDINDEX (category) IN articles SCHEMA analytics
+CREATENONLINEARALGORITHMINDEX (hnsw) IN articles SCHEMA analytics
+DROPNONLINEARALGORITHMINDEX (hnsw) IN articles SCHEMA analytics
+```
+
 ## Protobuf
 
 The schema feature is exposed in the protobuf definitions under `protos/`.
 
 `protos/db/query.proto` and `protos/ai/query.proto`:
 
-- `CreateStore`, `GetStore`, `DropStore`, and `ListStores` include an optional `string schema` field.
+- All store-name commands include an optional `string schema` field.
+- `ListStores` includes an optional `string schema` field and defaults to `public` when unset.
 - `DropSchema` includes a required `string schema` field.
 
 `protos/db/pipeline.proto` and `protos/ai/pipeline.proto`:
@@ -115,10 +150,13 @@ CREATESTORE ... SCHEMA <schema_name>
 GETSTORE <store_name> SCHEMA <schema_name>
 DROPSTORE <store_name> IF EXISTS SCHEMA <schema_name>
 LISTSTORES SCHEMA <schema_name>
+GETSIMN ... IN <store_name> SCHEMA <schema_name> WHERE ...
+GETPRED ... IN <store_name> SCHEMA <schema_name>
+SET ... IN <store_name> SCHEMA <schema_name>
 DROPSCHEMA <schema_name>
 ```
 
-The `SCHEMA` keyword is optional for create/get/drop/list store commands. If it is omitted, the command targets `public`.
+The `SCHEMA` keyword is optional for store-name commands. If it is omitted, the command targets `public`.
 
 `DROPSCHEMA` always requires a schema name.
 
@@ -144,4 +182,4 @@ Schema-aware operations resolve the schema before looking up or mutating the sto
 
 The generated Go, Python, Node.js, and Rust protobuf stubs include the schema fields and `DropSchema` RPC.
 
-The Rust DB client has schema-aware helpers for list/get store operations that are used by the AI proxy when enriching AI store metadata. Other hand-written SDK convenience wrappers may still require constructing the generated protobuf request directly when using schema-specific calls.
+Generated client calls should set `schema` on the request when targeting a non-public schema. Leaving it unset preserves the public default.

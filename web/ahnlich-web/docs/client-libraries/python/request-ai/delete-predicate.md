@@ -4,6 +4,10 @@ title: Delete Predicate
 
 # Delete Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 This request removes all entries in an AI store that match a specified predicate condition.
 
 * **Input:**
@@ -47,6 +51,7 @@ This request removes all entries in an AI store that match a specified predicate
         response = await client.del_pred(
             ai_query.DelPred(
                 store="my_ai_store",
+                schema="analytics",
                 condition=condition
             )
         )

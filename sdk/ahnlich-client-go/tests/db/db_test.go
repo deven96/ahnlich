@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
 	pipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/pipeline"
@@ -50,6 +52,10 @@ var (
 		CreatePredicates: []string{"is_tyrannical", "rank"},
 	}
 )
+
+func stringPtr(value string) *string {
+	return &value
+}
 
 func TestCreateStore_Succeeds(t *testing.T) {
 	t.Parallel()
@@ -101,6 +107,59 @@ func TestListStores_FindsCreatedStore(t *testing.T) {
 		}
 	}
 	require.True(t, found)
+}
+
+func TestSchemaScopedStoreLifecycle(t *testing.T) {
+	t.Parallel()
+	proc := startDB(t)
+	defer proc.Kill()
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := dbsvc.NewDBServiceClient(conn)
+
+	schema := "tenant_alpha"
+	storeName := "schema_scoped_store"
+
+	_, err := client.CreateStore(context.Background(), &dbquery.CreateStore{
+		Store:         storeName,
+		Dimension:     3,
+		ErrorIfExists: true,
+		Schema:        stringPtr(schema),
+	})
+	require.NoError(t, err)
+
+	defaultList, err := client.ListStores(context.Background(), &dbquery.ListStores{})
+	require.NoError(t, err)
+	for _, store := range defaultList.Stores {
+		require.NotEqual(t, storeName, store.Name)
+	}
+
+	schemaList, err := client.ListStores(context.Background(), &dbquery.ListStores{Schema: stringPtr(schema)})
+	require.NoError(t, err)
+	require.Len(t, schemaList.Stores, 1)
+	require.Equal(t, storeName, schemaList.Stores[0].Name)
+
+	_, err = client.GetStore(context.Background(), &dbquery.GetStore{Store: storeName})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	require.Equal(t, codes.NotFound, st.Code())
+
+	storeInfo, err := client.GetStore(context.Background(), &dbquery.GetStore{
+		Store:  storeName,
+		Schema: stringPtr(schema),
+	})
+	require.NoError(t, err)
+	require.Equal(t, storeName, storeInfo.Name)
+
+	dropResp, err := client.DropSchema(context.Background(), &dbquery.DropSchema{Schema: schema})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, dropResp.DeletedCount)
+
+	schemaList, err = client.ListStores(context.Background(), &dbquery.ListStores{Schema: stringPtr(schema)})
+	require.NoError(t, err)
+	require.Empty(t, schemaList.Stores)
 }
 
 func TestGetStore_Succeeds(t *testing.T) {

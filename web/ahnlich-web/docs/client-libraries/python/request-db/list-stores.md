@@ -4,6 +4,10 @@ title: List Stores
 
 # List Stores
 
+## Schema
+
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
+
 The **List Stores** request retrieves the set of Stores currently registered on the DB server. Each Store corresponds to a logical container of vectors. This operation is commonly used for **introspection**, **administrative tooling**, and **debugging**.
 
 ## Behavior
@@ -25,7 +29,7 @@ async def list_stores():
     client = DbServiceStub(channel)
     tracing_id = "00-80e1afed08e019fc1110464cfa66635c-7a085853722dc6d2-01"
     response = await client.list_stores(
-      db_query.ListStores(),
+      db_query.ListStores(schema="analytics"),
       metadata={"ahnlich-trace-id": tracing_id}
     )
     print(f"Stores: {[store.name for store in response.stores]}")

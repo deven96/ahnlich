@@ -4,6 +4,10 @@ title: Drop Predicate Index
 
 # Drop Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 `DropPredicateIndex` removes an existing index from one or more metadata fields. This operation is useful if a field is no longer used for filtering, or if you want to reduce memory overhead.
@@ -36,6 +40,9 @@ import (
 const ServerAddr = "127.0.0.1:1369"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -62,6 +69,7 @@ func (c *ExampleDBClient) Close() error {
 func (c *ExampleDBClient) exampleDropPredicateIndex() error {
     _, err := c.client.DropPredIndex(c.ctx, &dbquery.DropPredIndex{
         Store:           "my_stores",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Predicates:      []string{"label"},
         ErrorIfNotExists: true,
     })

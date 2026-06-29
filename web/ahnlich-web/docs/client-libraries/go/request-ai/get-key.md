@@ -4,6 +4,10 @@ title: Get Key
 
 # Get Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `GetKey` request retrieves specific entries from an AI store by their keys. Unlike similarity search, this is a **direct lookup** operation that returns exact matches for the provided keys along with their metadata and stored values.
@@ -37,6 +41,9 @@ import (
 const AIAddr = "127.0.0.1:1370"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
   conn   *grpc.ClientConn
   client aisvc.AIServiceClient
@@ -63,6 +70,7 @@ func (c *ExampleAIClient) Close() error {
 func (c *ExampleAIClient) exampleGetKey() error {
   resp, err := c.client.GetKey(c.ctx, &aiquery.GetKey{
       Store: "ai_store01",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       Keys: []*keyval.StoreInput{
           {Value: &keyval.StoreInput_RawString{RawString: "Adidas Yeezy"}},
           {Value: &keyval.StoreInput_RawString{RawString: "Nike Air Jordans"}},

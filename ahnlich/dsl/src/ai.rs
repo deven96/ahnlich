@@ -18,8 +18,8 @@ use ahnlich_types::ai::{
     preprocess::PreprocessAction,
     query::{
         CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
-        DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetPred, GetSimN,
-        GetStore, InfoServer, ListStores, Ping, PurgeStores, Set,
+        DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred,
+        GetSimN, GetStore, InfoServer, ListStores, Ping, PurgeStores, Set,
     },
 };
 use pest::Parser;
@@ -75,6 +75,7 @@ pub const COMMANDS: &[&str] = &[
     "createnonlinearalgorithmindex", // (kdtree) in store_name
     "dropnonlinearalgorithmindex",   // if exists (kdtree) in store_name
     "getstore",                      // store_name
+    "getkey",                        // ([input 1 text], [input 2 text]) in my_store
     "delkey",                        // ([input 1 text], [input 2 text]) in my_store
     "getpred",                       // ((author = dickens) or (country != Nigeria)) in my_store
     "getsimn", // 4 with [random text inserted here] using cosinesimilarity preprocessaction nopreprocessing in my_store where (author = dickens)
@@ -102,7 +103,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
             Rule::info_server => AiQuery::InfoServer(InfoServer {}),
             Rule::purge_stores => AiQuery::PurgeStores(PurgeStores {}),
             Rule::ai_set_in_store => {
-                let mut inner_pairs = statement.into_inner();
+                let mut inner_pairs = statement.into_inner().peekable();
                 let store_keys_to_store_values = inner_pairs
                     .next()
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
@@ -111,6 +112,18 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
+
+                let schema = if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::schema_clause
+                {
+                    Some(parse_schema_clause(
+                        inner_pairs
+                            .next()
+                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?,
+                    )?)
+                } else {
+                    None
+                };
 
                 let preprocess_action = parse_to_preprocess_action(
                     inner_pairs
@@ -138,6 +151,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     preprocess_action,
                     execution_provider,
                     model_params: HashMap::new(),
+                    schema,
                 })
             }
             Rule::ai_create_store => {
@@ -267,11 +281,14 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
-                let condition = if let Some(predicate_conditions) = inner_pairs.next() {
-                    Some(parse_predicate_expression(predicate_conditions)?)
-                } else {
-                    None
-                };
+                let mut schema = None;
+                let mut condition = None;
+                for pair in inner_pairs {
+                    match pair.as_rule() {
+                        Rule::schema_clause => schema = Some(parse_schema_clause(pair)?),
+                        _ => condition = Some(parse_predicate_expression(pair)?),
+                    }
+                }
                 AiQuery::GetSimN(GetSimN {
                     store,
                     search_input: Some(search_input),
@@ -281,6 +298,7 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     preprocess_action: preprocess_action as i32,
                     execution_provider,
                     model_params: HashMap::new(),
+                    schema,
                 })
             }
             Rule::get_pred => {
@@ -296,6 +314,25 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                 AiQuery::GetPred(GetPred {
                     store,
                     condition: Some(parse_predicate_expression(predicate_conditions)?),
+                    schema: inner_pairs.next().map(parse_schema_clause).transpose()?,
+                })
+            }
+            Rule::ai_get_key => {
+                let mut inner_pairs = statement.into_inner();
+                let key = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let keys = parse_store_inputs(key)?;
+
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+                AiQuery::GetKey(GetKey {
+                    store,
+                    keys,
+                    schema: inner_pairs.next().map(parse_schema_clause).transpose()?,
                 })
             }
             Rule::ai_del_key => {
@@ -310,10 +347,14 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
                     .as_str()
                     .to_string();
-                AiQuery::DelKey(DelKey { store, keys })
+                AiQuery::DelKey(DelKey {
+                    store,
+                    keys,
+                    schema: inner_pairs.next().map(parse_schema_clause).transpose()?,
+                })
             }
             Rule::create_non_linear_algorithm_index => {
-                let (store, non_linear_indices) =
+                let (store, non_linear_indices, schema) =
                     parse_create_non_linear_algorithm_index(statement)?;
                 AiQuery::CreateNonLinearAlgorithmIndex(CreateNonLinearAlgorithmIndex {
                     store,
@@ -321,27 +362,35 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                         .into_iter()
                         .map(non_linear_to_index)
                         .collect(),
+                    schema,
                 })
             }
             Rule::create_pred_index => {
-                let (store, predicates) = parse_create_pred_index(statement)?;
-                AiQuery::CreatePredIndex(CreatePredIndex { store, predicates })
+                let (store, predicates, schema) = parse_create_pred_index(statement)?;
+                AiQuery::CreatePredIndex(CreatePredIndex {
+                    store,
+                    predicates,
+                    schema,
+                })
             }
             Rule::drop_non_linear_algorithm_index => {
-                let (store, error_if_not_exists, non_linear_indices) =
+                let (store, error_if_not_exists, non_linear_indices, schema) =
                     parse_drop_non_linear_algorithm_index(statement)?;
                 AiQuery::DropNonLinearAlgorithmIndex(DropNonLinearAlgorithmIndex {
                     store,
                     non_linear_indices: non_linear_indices.into_iter().map(|a| a as i32).collect(),
                     error_if_not_exists,
+                    schema,
                 })
             }
             Rule::drop_pred_index => {
-                let (store, predicates, error_if_not_exists) = parse_drop_pred_index(statement)?;
+                let (store, predicates, error_if_not_exists, schema) =
+                    parse_drop_pred_index(statement)?;
                 AiQuery::DropPredIndex(DropPredIndex {
                     store,
                     predicates,
                     error_if_not_exists,
+                    schema,
                 })
             }
             Rule::drop_store => {

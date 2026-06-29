@@ -64,6 +64,47 @@ async def test_client_sends_list_stores_on_existing_database_succeeds(
 
 
 @pytest.mark.asyncio
+async def test_client_schema_scoped_store_lifecycle(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        schema = "tenant_alpha"
+        store_name = "schema_scoped_store"
+
+        await client.create_store(
+            db_query.CreateStore(
+                store=store_name,
+                dimension=3,
+                error_if_exists=True,
+                schema=schema,
+            )
+        )
+
+        default_list = await client.list_stores(db_query.ListStores())
+        assert store_name not in [store.name for store in default_list.stores]
+
+        schema_list = await client.list_stores(db_query.ListStores(schema=schema))
+        assert [store.name for store in schema_list.stores] == [store_name]
+
+        with pytest.raises(GRPCError) as exc_info:
+            await client.get_store(db_query.GetStore(store=store_name))
+        assert exc_info.value.status == grpclib.Status.NOT_FOUND
+
+        store_info = await client.get_store(
+            db_query.GetStore(store=store_name, schema=schema)
+        )
+        assert store_info.name == store_name
+
+        drop_response = await client.drop_schema(db_query.DropSchema(schema=schema))
+        assert drop_response.deleted_count == 1
+
+        schema_list = await client.list_stores(db_query.ListStores(schema=schema))
+        assert len(schema_list.stores) == 0
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
 async def test_client_sends_create_stores_with_predicates_succeeds(spin_up_ahnlich_db):
     channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
     client = db_service.DbServiceStub(channel)

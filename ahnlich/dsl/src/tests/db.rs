@@ -107,6 +107,87 @@ fn test_schema_query_parse() {
 }
 
 #[test]
+fn test_schema_clause_on_db_store_commands_parse() {
+    fn assert_schema(input: &str, check: impl FnOnce(&DBQuery)) {
+        let parsed = parse_db_query(input).expect("Could not parse query input");
+        assert_eq!(parsed.len(), 1);
+        check(&parsed[0]);
+    }
+
+    assert_schema(
+        r#"SET (([1, 2], {department: math})) in school SCHEMA academics"#,
+        |query| match query {
+            DBQuery::Set(params) => assert_eq!(params.schema.as_deref(), Some("academics")),
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"GETSIMN 1 with [1, 2] using cosinesimilarity in school SCHEMA academics where (department = math)"#,
+        |query| match query {
+            DBQuery::GetSimN(params) => assert_eq!(params.schema.as_deref(), Some("academics")),
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"GETKEY ([1, 2]) in school SCHEMA academics"#,
+        |query| match query {
+            DBQuery::GetKey(params) => assert_eq!(params.schema.as_deref(), Some("academics")),
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"GETPRED (department = math) in school SCHEMA academics"#,
+        |query| match query {
+            DBQuery::GetPred(params) => assert_eq!(params.schema.as_deref(), Some("academics")),
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"DELKEY ([1, 2]) in school SCHEMA academics"#,
+        |query| match query {
+            DBQuery::DelKey(params) => assert_eq!(params.schema.as_deref(), Some("academics")),
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"CREATEPREDINDEX (department) in school SCHEMA academics"#,
+        |query| match query {
+            DBQuery::CreatePredIndex(params) => {
+                assert_eq!(params.schema.as_deref(), Some("academics"));
+            }
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"DROPPREDINDEX (department) in school SCHEMA academics"#,
+        |query| match query {
+            DBQuery::DropPredIndex(params) => {
+                assert_eq!(params.schema.as_deref(), Some("academics"));
+            }
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"CREATENONLINEARALGORITHMINDEX (kdtree) in school SCHEMA academics"#,
+        |query| match query {
+            DBQuery::CreateNonLinearAlgorithmIndex(params) => {
+                assert_eq!(params.schema.as_deref(), Some("academics"));
+            }
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"DROPNONLINEARALGORITHMINDEX (kdtree) in school SCHEMA academics"#,
+        |query| match query {
+            DBQuery::DropNonLinearAlgorithmIndex(params) => {
+                assert_eq!(params.schema.as_deref(), Some("academics"));
+            }
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+}
+
+#[test]
 fn test_no_valid_input_in_query() {
     let input = r#" random ; listSTORES;"#;
     let DslError::UnexpectedSpan((start, end)) = parse_db_query(input).unwrap_err() else {
@@ -224,7 +305,8 @@ fn test_create_predicate_index_parse() {
         parse_db_query(input).expect("Could not parse query input"),
         vec![DBQuery::CreatePredIndex(CreatePredIndex {
             store: "tapHstore1".to_string(),
-            predicates: vec!["one".to_string(), "two".to_string(), "3".to_string(),]
+            predicates: vec!["one".to_string(), "two".to_string(), "3".to_string(),],
+            schema: None,
         })]
     );
 }
@@ -238,6 +320,7 @@ fn test_drop_pred_index_parse() {
             store: "store2".to_string(),
             predicates: vec!["here".to_string(), "th2".to_string()],
             error_if_not_exists: true,
+            schema: None,
         })]
     );
     let input = r#"DROPPREDINDEX IF EXISTS (off) in storememe"#;
@@ -247,6 +330,7 @@ fn test_drop_pred_index_parse() {
             store: "storememe".to_string(),
             predicates: vec!["off".to_string()],
             error_if_not_exists: false,
+            schema: None,
         })]
     );
 }
@@ -267,6 +351,7 @@ fn test_create_non_linear_algorithm_parse() {
                 non_linear_indices: vec![NonLinearIndex {
                     index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                 }],
+                schema: None,
             }
         )]
     );
@@ -302,7 +387,8 @@ fn test_get_sim_n_parse() {
             }),
             closest_n: 5,
             algorithm: Algorithm::CosineSimilarity as i32,
-            condition: None
+            condition: None,
+            schema: None,
         })]
     );
     let input = r#"GETSIMN 8 with [3.7, 9.6] using euclideandistance in other where ((year != 2012) AND (month not in (december, october)))"#;
@@ -342,6 +428,7 @@ fn test_get_sim_n_parse() {
                     })),
                 })
             ),
+            schema: None,
         })]
     );
 }
@@ -361,6 +448,7 @@ fn test_drop_non_linear_algorithm_parse() {
                 store: "1234".to_string(),
                 non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
                 error_if_not_exists: true,
+                schema: None,
             }
         )]
     );
@@ -383,6 +471,7 @@ fn test_drop_non_linear_algorithm_parse() {
                 store: "12345".to_string(),
                 non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
                 error_if_not_exists: false,
+                schema: None,
             }
         )]
     );
@@ -408,6 +497,7 @@ fn test_get_key_parse() {
                     key: vec![3.0, 4.0]
                 },
             ],
+            schema: None,
         })]
     );
 }
@@ -460,6 +550,7 @@ fn test_set_in_store_parse() {
                     })
                 },
             ],
+            schema: None,
         })]
     );
 }
@@ -484,6 +575,7 @@ fn test_del_key_parse() {
                     key: vec![3.0, 4.0]
                 },
             ],
+            schema: None,
         })]
     );
 }
@@ -522,6 +614,7 @@ fn test_get_pred_parse() {
                     })),
                 })
             ),
+            schema: None,
         })]
     );
     let input = r#"getstore my_store"#;
@@ -591,7 +684,8 @@ fn test_get_pred_parse() {
                         })),
                     })
                 )
-            )
+            ),
+            schema: None,
         })]
     );
 }

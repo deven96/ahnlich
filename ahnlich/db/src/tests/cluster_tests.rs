@@ -128,6 +128,7 @@ async fn wait_for_get_key_count(
                 keys: vec![StoreKey {
                     key: vec![0.1, 0.2, 0.3],
                 }],
+                schema: None,
             }))
             .await;
 
@@ -169,6 +170,7 @@ async fn test_single_node_clustered_pipeline_and_cluster_info() {
                 query: Some(Query::Set(db_query_types::Set {
                     store: "clustered-main".to_owned(),
                     inputs: vec![store_entry("first")],
+                    schema: None,
                 })),
             },
             DbQuery {
@@ -287,6 +289,7 @@ async fn test_three_node_cluster_replication_and_follower_list_stores_error() {
         .set(tonic::Request::new(db_query_types::Set {
             store: "replicated-store".to_owned(),
             inputs: vec![store_entry("replicated")],
+            schema: None,
         }))
         .await
         .expect("leader set should succeed");

@@ -22,7 +22,7 @@ Ahnlich DB is the core vector storage engine that provides:
 - [List Connected Clients](/docs/client-libraries/node/request-db/list-connected-clients) - List all connected clients
 
 ### Store Operations
-- [List Stores](/docs/client-libraries/node/request-db/list-stores) - List all stores
+- [List Stores](/docs/client-libraries/node/request-db/list-stores) - List stores in a schema
 - [Get Store](/docs/client-libraries/node/request-db/get-store) - Get details of a specific store
 - [Create Store](/docs/client-libraries/node/request-db/create-store) - Create a new store
 - [Drop Store](/docs/client-libraries/node/request-db/drop-store) - Delete a store

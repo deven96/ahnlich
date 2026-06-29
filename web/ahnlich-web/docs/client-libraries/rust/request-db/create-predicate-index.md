@@ -4,6 +4,10 @@ title: Create Predicate Index
 
 # Create Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Creates an index on a predicate field in a store. Predicate indexes allow efficient filtering and retrieval of vectors based on metadata conditions, improving query performance for repeated predicate lookups.
 
 ## Source Code Example
@@ -26,6 +30,7 @@ Creates an index on a predicate field in a store. Predicate indexes allow effici
       // Create predicate index request
       let params = CreatePredIndex {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           predicates: vec!["role".to_string()], // metadata field names to index
       };
 

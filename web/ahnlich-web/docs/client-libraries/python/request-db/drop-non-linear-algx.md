@@ -3,6 +3,10 @@ title: Drop Non-Linear Algorithm Index
 ---
 
 # Drop Non-Linear Algorithm Index
+
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
 This request removes one or more **non-linear algorithm indexes** from a store.  
 Non-linear indexes (like **KD-Tree** and **HNSW**) are used to accelerate similarity searches.
 
@@ -41,6 +45,7 @@ Non-linear indexes (like **KD-Tree** and **HNSW**) are used to accelerate simila
         response = await client.drop_non_linear_algorithm_index(
             db_query.DropNonLinearAlgorithmIndex(
                 store="test store 003",
+                schema="analytics",
                 non_linear_indices=[NonLinearAlgorithm.KDTree],
                 error_if_not_exists=True
             )

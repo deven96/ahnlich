@@ -4,6 +4,10 @@ title: Delete Key
 
 # Delete Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Deletes a specific embedding and its associated metadata from a vector store in the **AI service**. This operation is useful for removing obsolete or incorrect embeddings, ensuring that similarity searches and AI queries return only relevant results.
 
 ## Source Code Example
@@ -31,6 +35,7 @@ Deletes a specific embedding and its associated metadata from a vector store in 
       // Define key to delete
       let params = DelKey {
           store: "Deven Kicks".to_string(),
+          schema: Some("analytics".to_string()),
           keys: vec![StoreInput {
               value: Some(Value::RawString("Nike Air Jordans".to_string())),
           }],

@@ -7,8 +7,8 @@ use ahnlich_types::{
         preprocess::PreprocessAction,
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
-            DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetPred, GetSimN,
-            GetStore, InfoServer, ListStores, Ping, PurgeStores, Set,
+            DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred,
+            GetSimN, GetStore, InfoServer, ListStores, Ping, PurgeStores, Set,
         },
     },
     algorithm::{
@@ -114,6 +114,87 @@ fn test_schema_query_parse() {
 }
 
 #[test]
+fn test_schema_clause_on_ai_store_commands_parse() {
+    fn assert_schema(input: &str, check: impl FnOnce(&AiQuery)) {
+        let parsed = parse_ai_query(input).expect("Could not parse query input");
+        assert_eq!(parsed.len(), 1);
+        check(&parsed[0]);
+    }
+
+    assert_schema(
+        r#"SET (([hello], {department: math})) in school SCHEMA academics preprocessaction nopreprocessing"#,
+        |query| match query {
+            AiQuery::Set(params) => assert_eq!(params.schema.as_deref(), Some("academics")),
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"GETSIMN 1 with [hello] using cosinesimilarity in school SCHEMA academics where (department = math)"#,
+        |query| match query {
+            AiQuery::GetSimN(params) => assert_eq!(params.schema.as_deref(), Some("academics")),
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"GETPRED (department = math) in school SCHEMA academics"#,
+        |query| match query {
+            AiQuery::GetPred(params) => assert_eq!(params.schema.as_deref(), Some("academics")),
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"GETKEY ([hello]) in school SCHEMA academics"#,
+        |query| match query {
+            AiQuery::GetKey(params) => assert_eq!(params.schema.as_deref(), Some("academics")),
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"DELKEY ([hello]) in school SCHEMA academics"#,
+        |query| match query {
+            AiQuery::DelKey(params) => assert_eq!(params.schema.as_deref(), Some("academics")),
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"CREATEPREDINDEX (department) in school SCHEMA academics"#,
+        |query| match query {
+            AiQuery::CreatePredIndex(params) => {
+                assert_eq!(params.schema.as_deref(), Some("academics"));
+            }
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"DROPPREDINDEX (department) in school SCHEMA academics"#,
+        |query| match query {
+            AiQuery::DropPredIndex(params) => {
+                assert_eq!(params.schema.as_deref(), Some("academics"));
+            }
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"CREATENONLINEARALGORITHMINDEX (kdtree) in school SCHEMA academics"#,
+        |query| match query {
+            AiQuery::CreateNonLinearAlgorithmIndex(params) => {
+                assert_eq!(params.schema.as_deref(), Some("academics"));
+            }
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+    assert_schema(
+        r#"DROPNONLINEARALGORITHMINDEX (kdtree) in school SCHEMA academics"#,
+        |query| match query {
+            AiQuery::DropNonLinearAlgorithmIndex(params) => {
+                assert_eq!(params.schema.as_deref(), Some("academics"));
+            }
+            other => panic!("Unexpected query: {other:?}"),
+        },
+    );
+}
+
+#[test]
 fn test_no_valid_input_in_query() {
     let input = r#" random ; listSTORES;"#;
     let DslError::UnexpectedSpan((start, end)) = parse_ai_query(input).unwrap_err() else {
@@ -182,7 +263,8 @@ fn test_create_predicate_index_parse() {
         parse_ai_query(input).expect("Could not parse query input"),
         vec![AiQuery::CreatePredIndex(CreatePredIndex {
             store: "tapHstore1".to_string(),
-            predicates: vec!["one".to_string(), "two".to_string(), "3".to_string(),]
+            predicates: vec!["one".to_string(), "two".to_string(), "3".to_string(),],
+            schema: None,
         })]
     );
 }
@@ -196,6 +278,7 @@ fn test_drop_pred_index_parse() {
             store: "store2".to_string(),
             predicates: vec!["here".to_string(), "th2".to_string()],
             error_if_not_exists: true,
+            schema: None,
         })]
     );
     let input = r#"DROPPREDINDEX IF EXISTS (off) in storememe"#;
@@ -205,6 +288,7 @@ fn test_drop_pred_index_parse() {
             store: "storememe".to_string(),
             predicates: vec!["off".to_string()],
             error_if_not_exists: false,
+            schema: None,
         })]
     );
 }
@@ -288,6 +372,7 @@ fn test_create_non_linear_algorithm_parse() {
                 non_linear_indices: vec![NonLinearIndex {
                     index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                 }],
+                schema: None,
             }
         )]
     );
@@ -327,6 +412,7 @@ fn test_get_sim_n_parse() {
             preprocess_action: PreprocessAction::ModelPreprocessing as i32,
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         })]
     );
     let input = r#"GETSIMN 8 with [testing the limits of life] using euclideandistance executionprovider tensorrt in other where ((year != 2012) AND (month not in (december, october)))"#;
@@ -371,6 +457,7 @@ fn test_get_sim_n_parse() {
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
             execution_provider: Some(ExecutionProvider::TensorRt as i32),
             model_params: HashMap::new(),
+            schema: None,
         })]
     );
 }
@@ -390,6 +477,7 @@ fn test_drop_non_linear_algorithm_parse() {
                 store: "1234".to_string(),
                 non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
                 error_if_not_exists: true,
+                schema: None,
             }
         )]
     );
@@ -412,6 +500,7 @@ fn test_drop_non_linear_algorithm_parse() {
                 store: "1234".to_string(),
                 non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
                 error_if_not_exists: false,
+                schema: None,
             }
         )]
     );
@@ -451,6 +540,7 @@ fn test_get_pred_parse() {
                     })),
                 })
             ),
+            schema: None,
         })]
     );
     let input = r#"GETPRED ((pages in (0, 1, 2)) AND (author != dickens) OR (author NOT in (jk-rowlins, rick-riodan)) ) in bookshelf"#;
@@ -504,7 +594,30 @@ fn test_get_pred_parse() {
                         })),
                     })
                 )
-            )
+            ),
+            schema: None,
+        })]
+    );
+}
+
+#[test]
+fn test_get_key_parse() {
+    let input = r#"GETKEY ([hi this is store input], [this should now get parsed too]) in 1234"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::GetKey(GetKey {
+            store: "1234".to_string(),
+            keys: vec![
+                StoreInput {
+                    value: Some(StoreValue::RawString("hi this is store input".to_string()))
+                },
+                StoreInput {
+                    value: Some(StoreValue::RawString(
+                        "this should now get parsed too".to_string()
+                    ))
+                },
+            ],
+            schema: None,
         })]
     );
 }
@@ -531,6 +644,7 @@ fn test_del_key_parse() {
                     ))
                 },
             ],
+            schema: None,
         })]
     );
 }
@@ -603,6 +717,7 @@ fn test_set_in_store_parse() {
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         })]
     );
     let input = r#"SET (([This is the life of Haks paragraphed], {name: Haks, category: dev}), ([This is the life of Deven paragraphed], {name: Deven, category: dev})) in geo preprocessaction nopreprocessing executionprovider cuda"#;
@@ -661,6 +776,7 @@ fn test_set_in_store_parse() {
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
             execution_provider: Some(ExecutionProvider::Cuda as i32),
             model_params: HashMap::new(),
+            schema: None,
         })]
     );
 }

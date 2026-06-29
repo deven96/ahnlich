@@ -8,6 +8,7 @@ use crate::engine::ai::models::ModelDetails;
 use crate::engine::ai::models::ModelResponse;
 use crate::engine::operations;
 use crate::engine::store::AIStoreHandler;
+use crate::engine::store::ModelExecutionParams;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use ahnlich_types::ai::models::AiModel;
@@ -61,6 +62,7 @@ use ahnlich_types::predicates::Predicate;
 use ahnlich_types::predicates::PredicateCondition;
 use ahnlich_types::predicates::predicate::Kind as PredicateKind;
 use ahnlich_types::predicates::predicate_condition::Kind;
+use ahnlich_types::schema::Schema;
 use ahnlich_types::services::ai_service::ai_service_server::AiService;
 use ahnlich_types::services::ai_service::ai_service_server::AiServiceServer;
 use ahnlich_types::shared::info::ErrorResponse;
@@ -254,6 +256,13 @@ impl AiService for AIProxyServer {
         request: tonic::Request<GetKey>,
     ) -> Result<tonic::Response<Get>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .as_ref()
+            .map(|schema| Schema::try_new(schema.clone()))
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let values = params
             .keys
@@ -277,6 +286,7 @@ impl AiService for AIProxyServer {
             .get_pred(
                 DbGetPred {
                     store: params.store,
+                    schema: Some(schema.to_string()),
                     condition,
                 },
                 parent_id,
@@ -294,6 +304,13 @@ impl AiService for AIProxyServer {
         request: tonic::Request<GetPred>,
     ) -> Result<tonic::Response<Get>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .as_ref()
+            .map(|schema| Schema::try_new(schema.clone()))
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let db_client = self
             .db_client
@@ -304,6 +321,7 @@ impl AiService for AIProxyServer {
             .get_pred(
                 DbGetPred {
                     store: params.store,
+                    schema: Some(schema.to_string()),
                     condition: params.condition,
                 },
                 parent_id,
@@ -321,6 +339,13 @@ impl AiService for AIProxyServer {
         request: tonic::Request<GetSimN>,
     ) -> Result<tonic::Response<server::GetSimN>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .as_ref()
+            .map(|schema| Schema::try_new(schema.clone()))
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
         let search_input = params
             .search_input
             .ok_or_else(|| AIProxyError::InputNotSpecified("Search".to_string()))?;
@@ -337,12 +362,17 @@ impl AiService for AIProxyServer {
                 &StoreName {
                     value: params.store.clone(),
                 },
+                &schema,
                 search_input,
-                &self.model_manager,
-                TryInto::<PreprocessAction>::try_into(params.preprocess_action)
+                ModelExecutionParams {
+                    model_manager: &self.model_manager,
+                    preprocess_action: TryInto::<PreprocessAction>::try_into(
+                        params.preprocess_action,
+                    )
                     .map_err(AIProxyError::from)?,
-                params.execution_provider.and_then(|a| a.try_into().ok()),
-                model_params,
+                    execution_provider: params.execution_provider.and_then(|a| a.try_into().ok()),
+                    model_params,
+                },
             )
             .await?;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
@@ -352,6 +382,7 @@ impl AiService for AIProxyServer {
             closest_n: params.closest_n,
             algorithm: params.algorithm,
             condition: params.condition,
+            schema: Some(schema.to_string()),
         };
         let db_client = self
             .db_client

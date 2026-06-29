@@ -20,7 +20,7 @@ Ahnlich AI is the semantic layer that provides:
 - [Info Server](/docs/client-libraries/node/request-ai/info-server) - Get server information
 
 ### Store Operations
-- [List Stores](/docs/client-libraries/node/request-ai/list-stores) - List all AI stores
+- [List Stores](/docs/client-libraries/node/request-ai/list-stores) - List AI stores in a schema
 - [Get Store](/docs/client-libraries/node/request-ai/get-store) - Get details of a specific AI store
 - [Create Store](/docs/client-libraries/node/request-ai/create-store) - Create a new AI store
 - [Drop Store](/docs/client-libraries/node/request-ai/drop-store) - Delete an AI store

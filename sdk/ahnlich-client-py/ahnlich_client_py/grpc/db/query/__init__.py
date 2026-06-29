@@ -37,6 +37,7 @@ class GetKey(betterproto.Message):
 
     store: str = betterproto.string_field(1)
     keys: List["__keyval__.StoreKey"] = betterproto.message_field(2)
+    schema: Optional[str] = betterproto.string_field(3, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -47,6 +48,7 @@ class GetPred(betterproto.Message):
 
     store: str = betterproto.string_field(1)
     condition: "__predicates__.PredicateCondition" = betterproto.message_field(2)
+    schema: Optional[str] = betterproto.string_field(3, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -62,6 +64,7 @@ class GetSimN(betterproto.Message):
     closest_n: int = betterproto.uint64_field(3)
     algorithm: "__algorithm_algorithms__.Algorithm" = betterproto.enum_field(4)
     condition: "__predicates__.PredicateCondition" = betterproto.message_field(5)
+    schema: Optional[str] = betterproto.string_field(6, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -73,6 +76,7 @@ class CreatePredIndex(betterproto.Message):
 
     store: str = betterproto.string_field(1)
     predicates: List[str] = betterproto.string_field(2)
+    schema: Optional[str] = betterproto.string_field(3, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -86,6 +90,7 @@ class CreateNonLinearAlgorithmIndex(betterproto.Message):
     non_linear_indices: List["__algorithm_nonlinear__.NonLinearIndex"] = (
         betterproto.message_field(2)
     )
+    schema: Optional[str] = betterproto.string_field(3, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -98,6 +103,7 @@ class DropPredIndex(betterproto.Message):
     store: str = betterproto.string_field(1)
     predicates: List[str] = betterproto.string_field(2)
     error_if_not_exists: bool = betterproto.bool_field(3)
+    schema: Optional[str] = betterproto.string_field(4, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -112,6 +118,7 @@ class DropNonLinearAlgorithmIndex(betterproto.Message):
         betterproto.enum_field(2)
     )
     error_if_not_exists: bool = betterproto.bool_field(3)
+    schema: Optional[str] = betterproto.string_field(4, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -123,6 +130,7 @@ class DelKey(betterproto.Message):
 
     store: str = betterproto.string_field(1)
     keys: List["__keyval__.StoreKey"] = betterproto.message_field(2)
+    schema: Optional[str] = betterproto.string_field(3, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -134,6 +142,7 @@ class DelPred(betterproto.Message):
 
     store: str = betterproto.string_field(1)
     condition: "__predicates__.PredicateCondition" = betterproto.message_field(2)
+    schema: Optional[str] = betterproto.string_field(3, optional=True)
 
 
 @dataclass(eq=False, repr=False)
@@ -207,3 +216,4 @@ class Set(betterproto.Message):
 
     store: str = betterproto.string_field(1)
     inputs: List["__keyval__.DbStoreEntry"] = betterproto.message_field(2)
+    schema: Optional[str] = betterproto.string_field(3, optional=True)

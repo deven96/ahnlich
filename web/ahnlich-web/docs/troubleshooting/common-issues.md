@@ -298,9 +298,9 @@ Store "my_store" not found
 
 **Diagnostic Steps:**
 
-1. **List all stores:**
+1. **List stores in the relevant schema:**
 ```
-LISTSTORES
+LISTSTORES SCHEMA public
 ```
 
 2. **Check store name spelling:**
@@ -801,7 +801,7 @@ ahnlich --agent DB --host 127.0.0.1 --port 1369
 # Test commands
 PING
 INFOSERVER
-LISTSTORES
+LISTSTORES SCHEMA public
 ```
 
 ### Check Server Health
