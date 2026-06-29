@@ -4,6 +4,10 @@ title: Delete Key
 
 # Delete Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `DeleteKey` request removes one or more vector entries from a store by explicitly specifying their keys. Unlike `DropStore`, which deletes the entire store, `DeleteKey` provides **granular control**, allowing you to delete only specific embeddings while keeping the rest of the store intact.
@@ -37,6 +41,9 @@ import (
 const ServerAddr = "127.0.0.1:1369"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -63,6 +70,7 @@ func (c *ExampleDBClient) Close() error {
 func (c *ExampleDBClient) exampleDeleteKey() error {
     _, err := c.client.DelKey(c.ctx, &dbquery.DelKey{
         Store: "my_stores",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Keys:  []*keyval.StoreKey{{Key: []float32{1, 2, 3, 4}}},
     })
     if err != nil {

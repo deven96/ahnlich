@@ -45,6 +45,9 @@ pub struct GetPred {
     /// Condition to match for predicates
     #[prost(message, optional, tag = "2")]
     pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetSimN {
@@ -82,6 +85,9 @@ pub struct GetSimN {
     #[prost(map = "string, string", tag = "8")]
     pub model_params:
         ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "9")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreatePredIndex {
@@ -93,6 +99,9 @@ pub struct CreatePredIndex {
     /// Predicates to use for indexing
     #[prost(string, repeated, tag = "2")]
     pub predicates: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateNonLinearAlgorithmIndex {
@@ -105,6 +114,9 @@ pub struct CreateNonLinearAlgorithmIndex {
     #[prost(message, repeated, tag = "2")]
     pub non_linear_indices:
         ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DropPredIndex {
@@ -120,6 +132,9 @@ pub struct DropPredIndex {
     /// Flag to enforce error if the predicate doesn’t exist
     #[prost(bool, tag = "3")]
     pub error_if_not_exists: bool,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "4")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DropNonLinearAlgorithmIndex {
@@ -139,6 +154,9 @@ pub struct DropNonLinearAlgorithmIndex {
     /// Flag to enforce error if the index doesn’t exist
     #[prost(bool, tag = "3")]
     pub error_if_not_exists: bool,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "4")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DelKey {
@@ -151,6 +169,9 @@ pub struct DelKey {
     /// Key to delete (type depends on the store model)
     #[prost(message, repeated, tag = "2")]
     pub keys: ::prost::alloc::vec::Vec<super::super::keyval::StoreInput>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DelPred {
@@ -164,6 +185,9 @@ pub struct DelPred {
     /// The condition for the predicate deletion
     #[prost(message, optional, tag = "2")]
     pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DropStore {
@@ -190,6 +214,9 @@ pub struct GetKey {
     /// Keys to retrieve from the store
     #[prost(message, repeated, tag = "2")]
     pub keys: ::prost::alloc::vec::Vec<super::super::keyval::StoreInput>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Returns the information about the server, including version, host, and port
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -201,7 +228,7 @@ pub struct ListClients {}
 pub struct ListStores {
     /// Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
     ///
-    /// Optional schema/namespace to filter stores. If unset, lists all schemas.
+    /// Optional schema/namespace to filter stores. Defaults to "public" when unset.
     #[prost(string, optional, tag = "1")]
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
@@ -255,6 +282,9 @@ pub struct Set {
     #[prost(map = "string, string", tag = "5")]
     pub model_params:
         ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "6")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConvertStoreInputToEmbeddings {

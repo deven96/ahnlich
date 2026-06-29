@@ -5,6 +5,10 @@ sidebar_position: 12
 
 # Drop Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The DropPredIndex request removes an existing predicate index from a store.
 
 * **Input**: Store name, list of predicate keys to remove, and error handling flag.
@@ -26,6 +30,7 @@ async function dropPredicateIndex() {
   await client.dropPredIndex(
     new DropPredIndex({
       store: "my_store",
+      schema: "analytics",
       predicates: ["label"],
       errorIfNotExists: true,
     })

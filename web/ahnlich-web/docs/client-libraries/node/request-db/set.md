@@ -5,6 +5,10 @@ sidebar_position: 7
 
 # Set
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The Set request inserts or updates entries in a store. Each entry consists of a vector key and associated metadata value.
 
 * **Input**: Store name and array of entries (key-value pairs).
@@ -28,6 +32,7 @@ async function setEntries() {
   await client.set(
     new Set({
       store: "my_store",
+      schema: "analytics",
       inputs: [
         new DbStoreEntry({
           key: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
@@ -81,6 +86,7 @@ async function setMultipleEntries() {
   await client.set(
     new Set({
       store: "my_store",
+      schema: "analytics",
       inputs: [
         new DbStoreEntry({
           key: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
@@ -128,6 +134,7 @@ async function setWithBinaryMetadata() {
   await client.set(
     new Set({
       store: "my_store",
+      schema: "analytics",
       inputs: [
         new DbStoreEntry({
           key: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),

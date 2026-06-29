@@ -54,14 +54,21 @@ Checks if the AI server is alive and responding.
 
 Returns server metadata, including version, address, type, and resource limits.
 
-### 3. List all AI stores
+### 3. List AI stores
 `LISTSTORES`
 
-Lists all stores currently available on the AI server.
+Lists stores in the `public` schema.
+
+```
+LISTSTORES SCHEMA media
+```
+
+Lists stores in the `media` schema.
 
 ### 4. Create a Store for AI
 ```
 CREATESTORE my_store QUERYMODEL resnet-50 INDEXMODEL resnet-50 PREDICATES (author, category) NONLINEARALGORITHMINDEX (kdtree) STOREORIGINAL
+CREATESTORE my_store QUERYMODEL resnet-50 INDEXMODEL resnet-50 PREDICATES (author, category) NONLINEARALGORITHMINDEX (kdtree) STOREORIGINAL SCHEMA media
 ```
 
 Creates a new store `my_store` with `resnet-50` as both query and index models, supporting predicates `author` and `category`, and enables a KD-Tree index.
@@ -77,6 +84,7 @@ Inserts two text entries into `my_store` with metadata tags.
 ### 6. Drop a Store
 ```
 DROPSTORE my_store IF EXISTS
+DROPSTORE my_store IF EXISTS SCHEMA media
 ```
 
 Deletes the store `my_store` if it exists.
@@ -129,3 +137,10 @@ DELETEKEY ([This is the life of Alice]) IN my_store
 ```
 
 Deletes the entry `"This is the life of Alice"` from `my_store`.
+
+### 14. Drop a Schema
+```
+DROPSCHEMA media
+```
+
+Drops the non-public schema `media` and all AI stores inside it. Ahnlich AI also drops the backing DB schema. The `public` schema cannot be dropped.

@@ -78,6 +78,7 @@ fn populated_db_fixture_handler() -> StoreHandler {
                 &StoreName {
                     value: "fixture_store".to_string(),
                 },
+                &Schema::default(),
                 vec![(StoreKey { key }, StoreValue { value: meta })],
             )
             .unwrap();

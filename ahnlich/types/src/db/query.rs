@@ -32,6 +32,9 @@ pub struct GetKey {
     /// The keys to retrieve from the store.
     #[prost(message, repeated, tag = "2")]
     pub keys: ::prost::alloc::vec::Vec<super::super::keyval::StoreKey>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Retrieves values from the store based on predicates. Validation checks if the predicate is enabled.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -42,6 +45,9 @@ pub struct GetPred {
     /// The condition for the predicate query.
     #[prost(message, optional, tag = "2")]
     pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Retrieves the `n` most similar items to the input vector from the store, using the specified algorithm.
 /// Validation checks that the dimensions of the input vector match the store's dimensions.
@@ -66,6 +72,9 @@ pub struct GetSimN {
     /// The predicate condition to apply.
     #[prost(message, optional, tag = "5")]
     pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "6")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Creates an index in the store based on the provided predicates.
 /// This operation is idempotent: it will only add new predicates, not remove existing ones.
@@ -77,6 +86,9 @@ pub struct CreatePredIndex {
     /// The predicates to create indexes for.
     #[prost(string, repeated, tag = "2")]
     pub predicates: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Creates an index for non-linear algorithms in the store, if it does not already exist.
 /// This operation is idempotent: it will only add new non-linear indices, not remove existing ones.
@@ -89,6 +101,9 @@ pub struct CreateNonLinearAlgorithmIndex {
     #[prost(message, repeated, tag = "2")]
     pub non_linear_indices:
         ::prost::alloc::vec::Vec<super::super::algorithm::nonlinear::NonLinearIndex>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Drops the specified predicates from the store.
 /// If `error_if_not_exists` is true, an error is returned if the predicate does not exist.
@@ -103,6 +118,9 @@ pub struct DropPredIndex {
     /// Flag indicating whether to error if predicate does not exist.
     #[prost(bool, tag = "3")]
     pub error_if_not_exists: bool,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "4")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Drops the specified non-linear indices from the store.
 /// If `error_if_not_exists` is true, an error is returned if the non-linear index does not exist.
@@ -121,6 +139,9 @@ pub struct DropNonLinearAlgorithmIndex {
     /// Flag indicating whether to error if index does not exist.
     #[prost(bool, tag = "3")]
     pub error_if_not_exists: bool,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "4")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Deletes the specified keys from the store and returns the number of deleted keys.
 /// It will also update the indices in a non-blocking manner.
@@ -132,6 +153,9 @@ pub struct DelKey {
     /// The keys to delete from the store.
     #[prost(message, repeated, tag = "2")]
     pub keys: ::prost::alloc::vec::Vec<super::super::keyval::StoreKey>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Deletes values from the store based on the provided predicate condition.
 /// It will also update the indices in a non-blocking manner.
@@ -143,6 +167,9 @@ pub struct DelPred {
     /// The condition for the predicate deletion.
     #[prost(message, optional, tag = "2")]
     pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// Drops a store and deletes all its data and associated indices.
 /// If `error_if_not_exists` is true, it will return an error if the store does not exist.
@@ -164,7 +191,7 @@ pub struct InfoServer {}
 /// A request to list all the stores on the server, along with their size or length.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListStores {
-    /// Optional schema/namespace to filter stores. If unset, lists all schemas.
+    /// Optional schema/namespace to filter stores. Defaults to "public" when unset.
     #[prost(string, optional, tag = "1")]
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
@@ -202,4 +229,7 @@ pub struct Set {
     /// The key-value entries to set in the store.
     #[prost(message, repeated, tag = "2")]
     pub inputs: ::prost::alloc::vec::Vec<super::super::keyval::DbStoreEntry>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "3")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }

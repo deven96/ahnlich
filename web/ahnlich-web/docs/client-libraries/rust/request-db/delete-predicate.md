@@ -4,6 +4,10 @@ title: Delete Predicate
 
 # Delete Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Removes one or more records from a store based on a predicate condition. Instead of targeting records by key, this operation evaluates a logical filter against stored metadata or values and deletes all matching entries. It provides a flexible way to bulk-remove records without knowing their exact keys.
 
 ## Source Code Example
@@ -43,6 +47,7 @@ Removes one or more records from a store based on a predicate condition. Instead
       // Parameters for deleting predicate
       let params = DelPred {
           store: "Main".to_string(), // your store name
+          schema: Some("analytics".to_string()),
           condition: Some(condition),
       };
 

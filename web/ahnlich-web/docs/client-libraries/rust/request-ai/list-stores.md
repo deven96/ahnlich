@@ -4,7 +4,11 @@ title: List Store
 
 # List Stores
 
-Retrieves a list of all vector stores currently managed by the **AI service**. Each store represents a logical container for embeddings and their associated metadata. This operation is useful for exploring available stores before performing read or write operations.
+## Schema
+
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
+
+Retrieves vector stores from one schema currently managed by the **AI service**. Each store represents a logical container for embeddings and their associated metadata. This operation is useful for exploring available stores before performing read or write operations.
 
 ## Source Code Example
 
@@ -22,7 +26,9 @@ Retrieves a list of all vector stores currently managed by the **AI service**. E
       let client = AiClient::new(addr.to_string()).await?;
 
 
-      let stores = client.list_stores(None).await?;
+      let stores = client
+          .list_stores_with_schema(Some("analytics".to_string()), None)
+          .await?;
       println!("Stores: {:?}", stores);
 
 
@@ -38,7 +44,7 @@ Retrieves a list of all vector stores currently managed by the **AI service**. E
 
 
 ## Behavior (explains the code, brief)
-* Creates a `tonic::Request` wrapping an empty `ListStores {}` message.
+* Creates a `tonic::Request` wrapping an empty `ListStores { schema: Some("analytics".to_string()) }` message.
 
 * Adds a tracing ID if provided for observability.
 
@@ -47,5 +53,4 @@ Retrieves a list of all vector stores currently managed by the **AI service**. E
 * Awaits the result and unwraps the server’s response.
 
 * Returns the `StoreList` object containing store metadata. Each `AiStoreInfo` includes an optional `db_info` field with the underlying DB store information when the AI service is connected to a DB instance.
-
 

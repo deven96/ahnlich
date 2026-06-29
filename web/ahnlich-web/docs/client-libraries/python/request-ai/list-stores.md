@@ -4,6 +4,10 @@ title: List Stores
 
 # List Stores
 
+## Schema
+
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
+
 How to request a **list of available vector stores** from the Ahnlich AI Service using the Python client.
 
 In Ahnlich, vector stores are the fundamental units that organize data for semantic search, embeddings, and AI-driven retrieval. The **List Stores** request allows developers to discover which stores are currently registered and available to query.
@@ -24,7 +28,7 @@ In the context of the rest of the application code:
   async def list_stores():
     async with Channel(host="127.0.0.1", port=1370) as channel:
         client = AiServiceStub(channel)
-        response = await client.list_stores(ai_query.ListStores())
+        response = await client.list_stores(ai_query.ListStores(schema="analytics"))
         print(response) #StoreList(stores=[AiStoreInfo(name='test store', embedding_size=384)])
 
 

@@ -4,6 +4,10 @@ title: Create Predicate Index
 
 # Create Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The  `CreatePredicateIndex` request enhances retrieval efficiency by building indexes on specified metadata fields within an AI-managed store. By indexing metadata keys, subsequent GetByPredicate requests can be executed more efficiently, especially on large datasets.
@@ -35,6 +39,9 @@ import (
 const AIAddr = "127.0.0.1:1370"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
   conn   *grpc.ClientConn
   client aisvc.AIServiceClient
@@ -61,6 +68,7 @@ func (c *ExampleAIClient) Close() error {
 func (c *ExampleAIClient) exampleCreatePredIndexAI() error {
   _, err := c.client.CreatePredIndex(c.ctx, &aiquery.CreatePredIndex{
       Store:      "ai_store",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       Predicates: []string{"f"},
   })
   if err != nil {

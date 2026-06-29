@@ -50,14 +50,21 @@ Checks if the DB server is alive and responding.
 
 Returns server metadata, including version, address, type, and resource limits.
 
-### 3. List all DB stores
+### 3. List DB stores
 `LISTSTORES`
 
-Lists all stores currently available on the DB server.
+Lists stores in the `public` schema.
+
+```
+LISTSTORES SCHEMA analytics
+```
+
+Lists stores in the `analytics` schema.
 
 ### 4. Create a Store for DB
 ```
 CREATESTORE my_store PREDICATES (author, category)
+CREATESTORE my_store PREDICATES (author, category) SCHEMA analytics
 ```
 
 Creates a new database store `my_store` with `author` and `category` as metadata fields.
@@ -73,6 +80,7 @@ Inserts two records into `my_store` with associated predicates.
 ### 6. Drop a Store
 ```
 DROPSTORE my_store IF EXISTS
+DROPSTORE my_store IF EXISTS SCHEMA analytics
 ```
 
 Deletes the store `my_store` if it exists.
@@ -125,3 +133,10 @@ DELETEKEY (key1) IN my_store
 ```
 
 Deletes the entry `key1` from `my_store`.
+
+### 14. Drop a Schema
+```
+DROPSCHEMA analytics
+```
+
+Drops the non-public schema `analytics` and all stores inside it. The `public` schema cannot be dropped.

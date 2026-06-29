@@ -4,6 +4,10 @@ title: Drop Predicate Index
 
 # Drop Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Predicate index allow for efficient querying based on metadata fields. You can drop either a **single predicate index** or **multiple predicate indices** depending on your needs.
 
 * **Single Predicate Index**: Specify a single predicate in the `predicates` list, e.g., `["job"]`. This will remove the index associated with that one metadata field.
@@ -30,6 +34,7 @@ Predicate index allow for efficient querying based on metadata fields. You can d
         response = await client.drop_pred_index(
             ai_query.DropPredIndex(
                 store="test store",
+                schema="analytics",
                 predicates=["job"],
                 error_if_not_exists=True
             )

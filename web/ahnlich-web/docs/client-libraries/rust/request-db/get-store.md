@@ -4,6 +4,10 @@ title: Get Store
 
 # Get Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Retrieves detailed information about a specific store by name. Returns metadata including dimensions, size, and configured indices.
 
 ## Source Code Example
@@ -21,7 +25,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tracing_id: Option<String> = None;
 
     let store_info = db_client
-        .get_store("my_store".to_string(), tracing_id)
+        .get_store_with_schema(
+            "my_store".to_string(),
+            Some("analytics".to_string()),
+            tracing_id,
+        )
         .await?;
 
     println!("Store name: {}", store_info.name);
@@ -39,6 +47,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Parameters
 
 * `store: String` — The name of the store to retrieve.
+
+* `schema: Option<String>` — Schema containing the store. Omit it to use `public`.
 
 * `tracing_id: Option<String>` — Optional trace context for observability.
 
@@ -69,5 +79,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Notes
 
-- Use `list_stores` to get information about all stores
+- Use `list_stores` to get information about stores in a schema
 - The `size_in_bytes` field is useful for monitoring memory usage

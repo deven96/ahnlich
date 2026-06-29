@@ -4,6 +4,10 @@ title: GetSimN
 
 # GetSimN
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `GetSimN` request-ai performs a **nearest-neighbor search** using a **raw query input**. The AI proxy embeds the raw query with the store’s configured **QueryModel**, sends the similarity search to the DB, and returns the top-N matches.
@@ -38,6 +42,9 @@ import (
 
 
 const AIAddr = "127.0.0.1:1370"
+
+
+func stringPtr(value string) *string { return &value }
 
 
 type ExampleAIClient struct {
@@ -98,6 +105,7 @@ func unwrapValue(v *keyval.StoreValue) map[string]string {
 func (c *ExampleAIClient) exampleGetSimNAI() error {
   resp, err := c.client.GetSimN(c.ctx, &aiquery.GetSimN{
       Store:            "ai_store01", // must already exist and have data
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       SearchInput:      &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "X"}},
       Condition:        nil, // Optional: filter results using predicates
       ClosestN:         3,

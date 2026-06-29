@@ -5,6 +5,10 @@ sidebar_position: 13
 
 # Create Non Linear Algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The CreateNonLinearAlgorithmIndex request creates a non-linear index (KDTree or HNSW) to speed up similarity searches.
 
 * **Input**: Store name and list of non-linear indices to create.
@@ -29,6 +33,7 @@ async function createKDTreeIndex() {
   await client.createNonLinearAlgorithmIndex(
     new CreateNonLinearAlgorithmIndex({
       store: "my_store",
+      schema: "analytics",
       nonLinearIndices: [
         new NonLinearIndex({
           index: { case: "kdtree", value: new KDTreeConfig() },
@@ -60,6 +65,7 @@ async function createHNSWIndex() {
   await client.createNonLinearAlgorithmIndex(
     new CreateNonLinearAlgorithmIndex({
       store: "my_store",
+      schema: "analytics",
       nonLinearIndices: [
         new NonLinearIndex({
           index: { case: "hnsw", value: new HNSWConfig() },

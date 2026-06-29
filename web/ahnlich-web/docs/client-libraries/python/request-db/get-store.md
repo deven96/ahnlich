@@ -4,6 +4,10 @@ title: Get Store
 
 # Get Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Returns detailed information about a specific store by name.
 
 * **Input**: Store name.
@@ -27,7 +31,7 @@ async def get_store_info():
         client = DbServiceStub(channel)
 
         response = await client.get_store(
-            db_query.GetStore(store="my_store")
+            db_query.GetStore(store="my_store", schema="analytics")
         )
 
         print(f"Store name: {response.name}")
@@ -48,6 +52,7 @@ if __name__ == "__main__":
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `store` | `str` | Yes | The name of the store to retrieve |
+| `schema` | `str` | No | Schema containing the store. Defaults to `public` when omitted |
 
 ## Response: StoreInfo
 
@@ -63,5 +68,5 @@ if __name__ == "__main__":
 ## Notes
 
 - Returns an error if the store does not exist
-- Use `ListStores` to get information about all stores
+- Use `ListStores` to get information about stores in a schema
 - The `size_in_bytes` field is useful for monitoring memory usage

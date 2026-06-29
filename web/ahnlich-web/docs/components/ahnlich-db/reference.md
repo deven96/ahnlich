@@ -32,15 +32,19 @@ LIST CONNECTED CLIENTS
 ### 2. Store Management
 
 #### LIST STORES
-Show all existing vector stores. Returns store name, entry count, size in bytes, predicate indices, dimension, and the configuration of any non-linear indices (HNSW config parameters or k-d tree) on each store.
+Show vector stores in the selected schema. Returns store name, entry count, size in bytes, predicate indices, dimension, and the configuration of any non-linear indices (HNSW config parameters or k-d tree) on each store.
 ```
-LIST STORES
+LISTSTORES
+LISTSTORES SCHEMA analytics
 ```
+
+If `SCHEMA` is omitted, only stores in `public` are returned.
 
 #### GET STORE
 Get detailed information about a specific store by name. Returns the same info as LIST STORES but for a single store. Returns an error if the store does not exist.
 ```
 GETSTORE <store_name>
+GETSTORE <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -52,6 +56,7 @@ GETSTORE my_store
 Create a new store with a given dimension and algorithm.
 ```
 CREATE STORE <store_name> DIMENSION <n> ALGORITHM <cosine|euclidean|kdtree>
+CREATESTORE <store_name> DIMENSION <n> SCHEMA analytics
 ```
 
 #### Example:
@@ -63,11 +68,18 @@ CREATE STORE my_store DIMENSION 128 ALGORITHM cosine
 Remove a store and its contents.
 ```
 DROP STORE <store_name>
+DROPSTORE <store_name> IF EXISTS SCHEMA analytics
 ```
 
 #### Example:
 ```
 DROP STORE my_store
+```
+
+#### DROP SCHEMA
+Remove a non-public schema and all stores inside it. The `public` schema cannot be dropped.
+```
+DROPSCHEMA analytics
 ```
 
 
@@ -76,6 +88,7 @@ DROP STORE my_store
 Insert or update a vector with metadata.
 ```
 SET <key> [<float>, <float>, ...] WITH { "<meta_key>": "<meta_value>", ... } IN <store_name>
+SET <key> [<float>, <float>, ...] WITH { "<meta_key>": "<meta_value>", ... } IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -87,6 +100,7 @@ SET doc1 [0.25, 0.88] WITH { "category": "news", "lang": "en" } IN my_store
 Delete a vector by key.
 ```
 DELETE KEY <key> IN <store_name>
+DELETE KEY <key> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -98,6 +112,7 @@ DELETE KEY doc1 IN my_store
 Delete all vectors that match a predicate.
 ```
 DELETE PREDICATE <predicate> IN <store_name>
+DELETE PREDICATE <predicate> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -111,6 +126,7 @@ DELETE PREDICATE (category = "archive") IN my_store
 Find the N most similar vectors to an input vector.
 ```
 GETSIMN <n> WITH [<float>, <float>, ...] USING <cosinesimilarity|euclideandistance|kdtree|hnsw> IN <store_name> WHERE (<predicate>)
+GETSIMN <n> WITH [<float>, <float>, ...] USING <cosinesimilarity|euclideandistance|kdtree|hnsw> IN <store_name> SCHEMA analytics WHERE (<predicate>)
 ```
 
 #### Example:
@@ -122,6 +138,7 @@ GETSIMN 3 WITH [0.25, 0.88] USING cosinesimilarity IN my_store WHERE (category !
 Retrieve a vector and its metadata by key.
 ```
 GET KEY <key> IN <store_name>
+GET KEY <key> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -133,6 +150,7 @@ GET KEY doc1 IN my_store
 Retrieve all vectors that satisfy a metadata predicate.
 ```
 GET BY PREDICATE (<predicate>) IN <store_name>
+GET BY PREDICATE (<predicate>) IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -146,6 +164,7 @@ GET BY PREDICATE (lang = "en") IN my_store
 Create an index for faster metadata filtering.
 ```
 CREATE PREDICATE INDEX <field> IN <store_name>
+CREATE PREDICATE INDEX <field> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -157,6 +176,7 @@ CREATE PREDICATE INDEX category IN my_store
 Remove a predicate index.
 ```
 DROP PREDICATE INDEX <field> IN <store_name>
+DROP PREDICATE INDEX <field> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
@@ -168,6 +188,7 @@ DROP PREDICATE INDEX category IN my_store
 Build a non-linear index (e.g., KD-Tree, HNSW) for improved search efficiency.
 ```
 CREATE NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name>
+CREATE NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name> SCHEMA analytics
 ```
 
 #### Examples:
@@ -182,6 +203,7 @@ CREATE NON LINEAR ALGORITHM INDEX hnsw IN my_store
 Remove a non-linear algorithm index.
 ```
 DROP NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name>
+DROP NON LINEAR ALGORITHM INDEX <algorithm> IN <store_name> SCHEMA analytics
 ```
 
 #### Example:

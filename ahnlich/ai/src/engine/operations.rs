@@ -38,7 +38,10 @@ use tonic::Status;
 use crate::{
     AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY, AHNLICH_AI_RESERVED_META_KEY,
     cli::server::SupportedModels,
-    engine::{ai::models::ModelDetails, store::AIStoreHandler},
+    engine::{
+        ai::models::ModelDetails,
+        store::{AIStoreHandler, ModelExecutionParams},
+    },
     error::AIProxyError,
     manager::ModelManager,
 };
@@ -46,6 +49,15 @@ use crate::{
 #[allow(clippy::result_large_err)]
 fn require_db_client(db_client: Option<Arc<DbClient>>) -> Result<Arc<DbClient>, Status> {
     db_client.ok_or_else(|| Status::failed_precondition("No DB client available"))
+}
+
+fn resolve_schema(schema: &Option<String>) -> Result<Schema, AIProxyError> {
+    match schema {
+        Some(s) => {
+            Schema::try_new(s.clone()).map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))
+        }
+        None => Ok(Schema::default()),
+    }
 }
 
 /// Extract original image dimensions from store inputs and inject into model_params.
@@ -92,12 +104,7 @@ pub async fn create_store(
         predicates.push(AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY.to_string());
     }
 
-    let schema = match &params.schema {
-        Some(s) => {
-            Schema::try_new(s.clone()).map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))?
-        }
-        None => Schema::default(),
-    };
+    let schema = resolve_schema(&params.schema)?;
 
     require_db_client(db_client)?
         .create_store(
@@ -132,11 +139,13 @@ pub async fn create_pred_index(
     params: CreatePredIndex,
     parent_id: Option<String>,
 ) -> Result<CreateIndex, Status> {
+    let schema = resolve_schema(&params.schema)?;
     let res = require_db_client(db_client)?
         .create_pred_index(
             DbCreatePredIndex {
                 store: params.store,
                 predicates: params.predicates,
+                schema: Some(schema.to_string()),
             },
             parent_id,
         )
@@ -152,11 +161,13 @@ pub async fn create_non_linear_algorithm_index(
     params: CreateNonLinearAlgorithmIndex,
     parent_id: Option<String>,
 ) -> Result<CreateIndex, Status> {
+    let schema = resolve_schema(&params.schema)?;
     let res = require_db_client(db_client)?
         .create_non_linear_algorithm_index(
             DbCreateNonLinearAlgorithmIndex {
                 store: params.store,
                 non_linear_indices: params.non_linear_indices,
+                schema: Some(schema.to_string()),
             },
             parent_id,
         )
@@ -174,6 +185,7 @@ pub async fn set(
     params: Set,
     parent_id: Option<String>,
 ) -> Result<SetResponse, Status> {
+    let schema = resolve_schema(&params.schema)?;
     let mut model_params = params.model_params;
     let store_inputs: Vec<_> = params
         .inputs
@@ -187,6 +199,7 @@ pub async fn set(
             &StoreName {
                 value: params.store.clone(),
             },
+            &schema,
             params
                 .inputs
                 .into_par_iter()
@@ -201,11 +214,13 @@ pub async fn set(
                     })
                 })
                 .collect(),
-            model_manager,
-            TryInto::<PreprocessAction>::try_into(params.preprocess_action)
-                .map_err(AIProxyError::from)?,
-            params.execution_provider.and_then(|a| a.try_into().ok()),
-            model_params,
+            ModelExecutionParams {
+                model_manager,
+                preprocess_action: TryInto::<PreprocessAction>::try_into(params.preprocess_action)
+                    .map_err(AIProxyError::from)?,
+                execution_provider: params.execution_provider.and_then(|a| a.try_into().ok()),
+                model_params,
+            },
         )
         .await?;
 
@@ -213,6 +228,7 @@ pub async fn set(
     if let Some(del_hashset) = delete_hashset {
         pipeline.del_pred(DelPred {
             store: params.store.clone(),
+            schema: Some(schema.to_string()),
             condition: Some(PredicateCondition {
                 kind: Some(Kind::Value(Predicate {
                     kind: Some(PredicateKind::In(In {
@@ -227,6 +243,7 @@ pub async fn set(
     pipeline.set(DbSetParams {
         store: params.store,
         inputs: db_inputs,
+        schema: Some(schema.to_string()),
     });
 
     match pipeline.exec().await?.responses.as_slice() {
@@ -252,6 +269,7 @@ pub async fn drop_pred_index(
     mut params: DropPredIndex,
     parent_id: Option<String>,
 ) -> Result<Del, Status> {
+    let schema = resolve_schema(&params.schema)?;
     params
         .predicates
         .retain(|val| val != AHNLICH_AI_RESERVED_META_KEY);
@@ -262,6 +280,7 @@ pub async fn drop_pred_index(
                 store: params.store,
                 predicates: params.predicates,
                 error_if_not_exists: params.error_if_not_exists,
+                schema: Some(schema.to_string()),
             },
             parent_id,
         )
@@ -277,12 +296,14 @@ pub async fn drop_non_linear_algorithm_index(
     params: DropNonLinearAlgorithmIndex,
     parent_id: Option<String>,
 ) -> Result<Del, Status> {
+    let schema = resolve_schema(&params.schema)?;
     let res = require_db_client(db_client)?
         .drop_non_linear_algorithm_index(
             DbDropNonLinearAlgorithmIndex {
                 store: params.store,
                 non_linear_indices: params.non_linear_indices,
                 error_if_not_exists: params.error_if_not_exists,
+                schema: Some(schema.to_string()),
             },
             parent_id,
         )
@@ -299,9 +320,13 @@ pub async fn del_key(
     params: DelKey,
     parent_id: Option<String>,
 ) -> Result<Del, Status> {
-    let store_original = store_handler.store_original(StoreName {
-        value: params.store.clone(),
-    })?;
+    let schema = resolve_schema(&params.schema)?;
+    let store_original = store_handler.store_original(
+        StoreName {
+            value: params.store.clone(),
+        },
+        &schema,
+    )?;
     if !store_original {
         return Err(AIProxyError::DelKeyError.into());
     }
@@ -317,6 +342,7 @@ pub async fn del_key(
         .del_pred(
             DelPred {
                 store: params.store,
+                schema: Some(schema.to_string()),
                 condition: Some(PredicateCondition {
                     kind: Some(Kind::Value(Predicate {
                         kind: Some(PredicateKind::In(In {
@@ -340,10 +366,12 @@ pub async fn del_pred(
     params: AiDelPred,
     parent_id: Option<String>,
 ) -> Result<Del, Status> {
+    let schema = resolve_schema(&params.schema)?;
     let res = require_db_client(db_client)?
         .del_pred(
             DelPred {
                 store: params.store,
+                schema: Some(schema.to_string()),
                 condition: params.condition,
             },
             parent_id,
@@ -364,14 +392,9 @@ pub async fn drop_store(
     let store_name = StoreName {
         value: params.store,
     };
-    let schema = match &params.schema {
-        Some(s) => {
-            Schema::try_new(s.clone()).map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))?
-        }
-        None => Schema::default(),
-    };
+    let schema = resolve_schema(&params.schema)?;
 
-    if store_handler.get(&store_name).is_ok()
+    if store_handler.get(&store_name, &schema).is_ok()
         && let Some(db_client) = db_client
     {
         db_client

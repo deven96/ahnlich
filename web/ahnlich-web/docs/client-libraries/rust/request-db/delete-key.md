@@ -4,6 +4,10 @@ title: Delete Key
 
 # Delete Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Removes a single key and its associated vector and metadata from a store. This operation permanently deletes the entry, ensuring it is no longer retrievable in similarity searches or direct lookups. Use this to manage lifecycle of individual records without affecting the rest of the store.
 
 ## Source Code Example
@@ -27,6 +31,7 @@ Removes a single key and its associated vector and metadata from a store. This o
       // Delete a specific key from store "Main" (dimension must match)
       let del_key_params = DelKey {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           keys: vec![StoreKey {
               key: vec![1.0, 1.1, 1.2], // ✅ matches dimension=3
           }],

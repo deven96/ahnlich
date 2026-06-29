@@ -4,6 +4,10 @@ title: Drop Non-Linear Algorithm Index
 
 # Drop Non-Linear Algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Removes a **non-linear algorithm index** from a vector store in the **AI service**. This operation is useful when the index is no longer needed, when changing algorithm parameters, or when rebuilding the index for updated embedding datasets. Removing unused indexes helps maintain storage efficiency and avoids unnecessary overhead during similarity searches.
 
 ## Source Code Example
@@ -27,6 +31,7 @@ Removes a **non-linear algorithm index** from a vector store in the **AI service
       // Set parameters for dropping the non-linear index
       let params = DropNonLinearAlgorithmIndex {
           store: "MyStore".to_string(),
+          schema: Some("analytics".to_string()),
           non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
           error_if_not_exists: true, // error if the index doesn't exist
       };

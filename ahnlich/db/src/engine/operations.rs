@@ -56,10 +56,12 @@ pub fn create_pred_index(
     store_handler: &StoreHandler,
     params: query::CreatePredIndex,
 ) -> Result<usize, ServerError> {
+    let schema = resolve_schema(&params.schema)?;
     store_handler.create_pred_index(
         &StoreName {
             value: params.store,
         },
+        &schema,
         params.predicates,
     )
 }
@@ -68,6 +70,7 @@ pub fn create_non_linear_algorithm_index(
     store_handler: &StoreHandler,
     params: query::CreateNonLinearAlgorithmIndex,
 ) -> Result<usize, ServerError> {
+    let schema = resolve_schema(&params.schema)?;
     let non_linear_indices: StdHashSet<non_linear_index::Index> = params
         .non_linear_indices
         .into_iter()
@@ -78,6 +81,7 @@ pub fn create_non_linear_algorithm_index(
         &StoreName {
             value: params.store,
         },
+        &schema,
         non_linear_indices,
     )
 }
@@ -86,10 +90,12 @@ pub fn drop_pred_index(
     store_handler: &StoreHandler,
     params: query::DropPredIndex,
 ) -> Result<usize, ServerError> {
+    let schema = resolve_schema(&params.schema)?;
     store_handler.drop_pred_index_in_store(
         &StoreName {
             value: params.store,
         },
+        &schema,
         params.predicates,
         params.error_if_not_exists,
     )
@@ -99,6 +105,7 @@ pub fn drop_non_linear_algorithm_index(
     store_handler: &StoreHandler,
     params: query::DropNonLinearAlgorithmIndex,
 ) -> Result<usize, ServerError> {
+    let schema = resolve_schema(&params.schema)?;
     let non_linear_indices: StdHashSet<NonLinearAlgorithm> = params
         .non_linear_indices
         .into_iter()
@@ -109,12 +116,14 @@ pub fn drop_non_linear_algorithm_index(
         &StoreName {
             value: params.store,
         },
+        &schema,
         non_linear_indices,
         params.error_if_not_exists,
     )
 }
 
 pub fn del_key(store_handler: &StoreHandler, params: query::DelKey) -> Result<usize, ServerError> {
+    let schema = resolve_schema(&params.schema)?;
     let keys = params
         .keys
         .into_iter()
@@ -125,6 +134,7 @@ pub fn del_key(store_handler: &StoreHandler, params: query::DelKey) -> Result<us
         &StoreName {
             value: params.store,
         },
+        &schema,
         keys,
     )
 }
@@ -136,11 +146,13 @@ pub fn del_pred(
     let condition = params.condition.ok_or_else(|| {
         ServerError::InvalidArgument("Predicate Condition is required".to_owned())
     })?;
+    let schema = resolve_schema(&params.schema)?;
 
     store_handler.del_pred_in_store(
         &StoreName {
             value: params.store,
         },
+        &schema,
         &condition,
     )
 }
@@ -160,6 +172,7 @@ pub fn drop_store(
 }
 
 pub fn set(store_handler: &StoreHandler, params: query::Set) -> Result<StoreUpsert, ServerError> {
+    let schema = resolve_schema(&params.schema)?;
     let inputs = params
         .inputs
         .into_par_iter()
@@ -179,6 +192,7 @@ pub fn set(store_handler: &StoreHandler, params: query::Set) -> Result<StoreUpse
         &StoreName {
             value: params.store,
         },
+        &schema,
         inputs,
     )
 }

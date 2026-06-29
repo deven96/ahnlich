@@ -4,6 +4,10 @@ title: Delete Predicate
 
 # Delete Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `DeletePredicate` request removes entries from an AI store that match a given predicate condition. This is a passthrough operation to the underlying DB service. Instead of deleting by vector key, this operation lets you **filter deletions based on metadata values** (e.g., labels, tags, or custom attributes).
@@ -36,6 +40,9 @@ import (
 
 
 const ServerAddr = "127.0.0.1:1370"
+
+
+func stringPtr(value string) *string { return &value }
 
 
 type ExampleAIClient struct {
@@ -81,6 +88,7 @@ func (c *ExampleAIClient) exampleDeletePredicate() error {
 
     _, err := c.client.DelPred(c.ctx, &aiquery.DelPred{
         Store:     "my_ai_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Condition: condition,
     })
     if err != nil {

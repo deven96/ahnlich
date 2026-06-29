@@ -23,9 +23,9 @@ Verifies that the Ahnlich AI service is running.
 Retrieves information about the AI proxy (status, active models, connected DB).
 
 #### List Stores
-- `LIST STORES`
+- `LISTSTORES [SCHEMA <schema>]`
 
-Returns all stores managed through the AI proxy.
+Returns stores managed through the AI proxy in the selected schema. If no schema is supplied, only `public` stores are returned.
 
 #### Create a Store with Models
 - `CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2`

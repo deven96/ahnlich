@@ -349,17 +349,31 @@ impl AiClient {
         store: String,
         tracing_id: Option<String>,
     ) -> Result<AiStoreInfo, AhnlichError> {
-        let mut req = tonic::Request::new(GetStore {
-            store,
-            schema: None,
-        });
+        self.get_store_with_schema(store, None, tracing_id).await
+    }
+
+    pub async fn get_store_with_schema(
+        &self,
+        store: String,
+        schema: Option<String>,
+        tracing_id: Option<String>,
+    ) -> Result<AiStoreInfo, AhnlichError> {
+        let mut req = tonic::Request::new(GetStore { store, schema });
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().get_store(req).await?.into_inner())
     }
 
     pub async fn list_stores(&self, tracing_id: Option<String>) -> Result<StoreList, AhnlichError> {
-        let mut req = tonic::Request::new(ListStores { schema: None });
+        self.list_stores_with_schema(None, tracing_id).await
+    }
+
+    pub async fn list_stores_with_schema(
+        &self,
+        schema: Option<String>,
+        tracing_id: Option<String>,
+    ) -> Result<StoreList, AhnlichError> {
+        let mut req = tonic::Request::new(ListStores { schema });
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().list_stores(req).await?.into_inner())
@@ -460,19 +474,27 @@ mod test {
     };
 
     static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::default().os_select_port());
-    static AI_CONFIG: Lazy<AIProxyConfig> = Lazy::new(|| {
-        let mut ai_proxy = AIProxyConfig::default().os_select_port();
+    fn test_ai_config(supported_models: Vec<SupportedModels>) -> AIProxyConfig {
+        let mut ai_proxy = AIProxyConfig::default()
+            .os_select_port()
+            .set_supported_models(supported_models);
         ai_proxy.db_port = CONFIG.port.clone();
         ai_proxy.db_host = CONFIG.common.host.clone();
         ai_proxy
-    });
+    }
 
     async fn provision_test_servers() -> SocketAddr {
+        provision_test_servers_with_models(vec![SupportedModels::AllMiniLML6V2]).await
+    }
+
+    async fn provision_test_servers_with_models(
+        supported_models: Vec<SupportedModels>,
+    ) -> SocketAddr {
         let server = Server::new(&CONFIG)
             .await
             .expect("Could not initialize server");
         let db_port = server.local_addr().unwrap().port();
-        let mut config = AI_CONFIG.clone();
+        let mut config = test_ai_config(supported_models);
         config.db_port = db_port;
 
         let ai_server = AIProxyServer::new(config)
@@ -690,6 +712,7 @@ mod test {
                 },
             ],
             model_params: HashMap::new(),
+            schema: None,
         };
 
         assert!(ai_client.set(set_params, None).await.is_ok());
@@ -699,6 +722,7 @@ mod test {
             keys: vec![StoreInput {
                 value: Some(Value::RawString("Adidas Yeezy".into())),
             }],
+            schema: None,
         };
 
         assert_eq!(
@@ -816,7 +840,10 @@ mod test {
     #[test_case(7, AiModel::ClipVitB32Text.into(); "ClipVitB32Text")]
     #[tokio::test]
     async fn test_convert_store_input_to_embeddings_with_pipeline(index: usize, model: i32) {
-        let address = provision_test_servers().await;
+        let ai_model =
+            AiModel::try_from(model).expect("test model should map to a supported AI model");
+        let address =
+            provision_test_servers_with_models(vec![SupportedModels::from(&ai_model)]).await;
         let ai_client = AiClient::new(address.to_string())
             .await
             .expect("Could not initialize client");
@@ -837,11 +864,7 @@ mod test {
         };
         pipeline.create_store(create_store_params);
 
-        let ai_model = AiModel::try_from(model)
-            .map_err(|_| AIProxyError::InputNotSpecified("AI Model Value".to_string()));
-
-        let index_model_repr: ModelDetails =
-            SupportedModels::from(&ai_model.unwrap()).to_model_details();
+        let index_model_repr: ModelDetails = SupportedModels::from(&ai_model).to_model_details();
 
         let matching_metadatakey = if index_model_repr.input_type().as_str_name() == "RAW_STRING" {
             "Brand".to_string() + index.to_string().as_str()
@@ -922,6 +945,7 @@ mod test {
             preprocess_action: PreprocessAction::NoPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         };
         pipeline.set(set_store_params);
 
@@ -1035,6 +1059,7 @@ mod test {
         let create_pred_index_params = CreatePredIndex {
             store: store_name.value.clone(),
             predicates: vec!["Brand".into(), "Vintage".into()],
+            schema: None,
         };
 
         pipeline.create_pred_index(create_pred_index_params);
@@ -1045,6 +1070,7 @@ mod test {
             execution_provider: None,
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
             model_params: HashMap::new(),
+            schema: None,
         };
         pipeline.set(set_params);
 
@@ -1052,6 +1078,7 @@ mod test {
             store: store_name.value.clone(),
             predicates: vec!["Vintage".to_string()],
             error_if_not_exists: true,
+            schema: None,
         };
 
         pipeline.drop_pred_index(drop_pred_params);
@@ -1103,6 +1130,7 @@ mod test {
         let get_pred_params = GetPred {
             store: store_name.value,
             condition: Some(condition),
+            schema: None,
         };
 
         let response = ai_client.get_pred(get_pred_params, None).await.unwrap();
@@ -1131,7 +1159,7 @@ mod test {
 
     #[tokio::test]
     async fn test_ai_client_actions_on_binary_store() {
-        let address = provision_test_servers().await;
+        let address = provision_test_servers_with_models(vec![SupportedModels::Resnet50]).await;
 
         let ai_client = AiClient::new(address.to_string())
             .await
@@ -1214,6 +1242,7 @@ mod test {
         let create_pred_index_params = CreatePredIndex {
             store: store_name.value.clone(),
             predicates: vec!["Name".into(), "Age".into()],
+            schema: None,
         };
 
         pipeline.create_pred_index(create_pred_index_params);
@@ -1224,6 +1253,7 @@ mod test {
             execution_provider: None,
             preprocess_action: PreprocessAction::NoPreprocessing as i32,
             model_params: HashMap::new(),
+            schema: None,
         };
 
         pipeline.set(set_params);
@@ -1232,6 +1262,7 @@ mod test {
             store: store_name.value.clone(),
             predicates: vec!["Age".to_string()],
             error_if_not_exists: true,
+            schema: None,
         };
 
         pipeline.drop_pred_index(drop_pred_index_params);
@@ -1248,6 +1279,7 @@ mod test {
         let get_pred_params = GetPred {
             store: store_name.value.clone(),
             condition: Some(condition),
+            schema: None,
         };
 
         pipeline.get_pred(get_pred_params);
@@ -1437,10 +1469,10 @@ mod test {
         let db_port = db_server.local_addr().unwrap().port();
         tokio::spawn(async move { db_server.start().await });
 
-        let ai_config =
-            AIProxyConfig::default()
-                .os_select_port()
-                .with_auth(ai_auth_config, ai_cert, ai_key);
+        let ai_config = AIProxyConfig::default()
+            .os_select_port()
+            .set_supported_models(vec![SupportedModels::AllMiniLML6V2])
+            .with_auth(ai_auth_config, ai_cert, ai_key);
         let mut ai_config = ai_config;
         ai_config.db_port = db_port;
 
@@ -1475,10 +1507,10 @@ mod test {
         let db_port = db_server.local_addr().unwrap().port();
         tokio::spawn(async move { db_server.start().await });
 
-        let ai_config =
-            AIProxyConfig::default()
-                .os_select_port()
-                .with_auth(ai_auth_config, ai_cert, ai_key);
+        let ai_config = AIProxyConfig::default()
+            .os_select_port()
+            .set_supported_models(vec![SupportedModels::AllMiniLML6V2])
+            .with_auth(ai_auth_config, ai_cert, ai_key);
         let mut ai_config = ai_config;
         ai_config.db_port = db_port;
 
@@ -1511,10 +1543,10 @@ mod test {
         let db_port = db_server.local_addr().unwrap().port();
         tokio::spawn(async move { db_server.start().await });
 
-        let ai_config =
-            AIProxyConfig::default()
-                .os_select_port()
-                .with_auth(ai_auth_config, ai_cert, ai_key);
+        let ai_config = AIProxyConfig::default()
+            .os_select_port()
+            .set_supported_models(vec![SupportedModels::AllMiniLML6V2])
+            .with_auth(ai_auth_config, ai_cert, ai_key);
         let mut ai_config = ai_config;
         ai_config.db_port = db_port;
 

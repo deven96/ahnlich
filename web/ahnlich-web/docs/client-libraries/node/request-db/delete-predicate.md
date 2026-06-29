@@ -5,6 +5,10 @@ sidebar_position: 16
 
 # Delete Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The DelPred request deletes all entries from a store that match a specified predicate condition.
 
 * **Input**: Store name and predicate condition.
@@ -28,6 +32,7 @@ async function deletePredicate() {
   const response = await client.delPred(
     new DelPred({
       store: "my_store",
+      schema: "analytics",
       condition: new PredicateCondition({
         kind: {
           case: "value",
@@ -82,6 +87,7 @@ async function deleteWithComplexCondition() {
   const response = await client.delPred(
     new DelPred({
       store: "my_store",
+      schema: "analytics",
       condition: new PredicateCondition({
         kind: {
           case: "and",

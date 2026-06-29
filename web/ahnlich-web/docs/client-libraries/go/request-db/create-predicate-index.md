@@ -4,6 +4,10 @@ title: Create Predicate Index
 
 # Create Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 `CreatePredicateIndex` allows you to create indexes on metadata fields inside a store. Predicate indexes speed up queries like `GetByPredicate`, especially when you frequently filter by the same metadata key.
@@ -35,6 +39,9 @@ import (
 const ServerAddr = "127.0.0.1:1369"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -61,6 +68,7 @@ func (c *ExampleDBClient) Close() error {
 func (c *ExampleDBClient) exampleCreatePredicateIndex() error {
     _, err := c.client.CreatePredIndex(c.ctx, &dbquery.CreatePredIndex{
         Store:      "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Predicates: []string{"label"},
     })
     if err != nil {

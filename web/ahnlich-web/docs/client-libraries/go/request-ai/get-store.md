@@ -4,6 +4,10 @@ title: Get Store
 
 # Get Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `GetStore` request retrieves detailed information about a specific AI store by name, including the configured models and optional underlying DB store information.
@@ -31,6 +35,9 @@ import (
 
 const AIAddr = "127.0.0.1:1370"
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
     conn   *grpc.ClientConn
     client aisvc.AIServiceClient
@@ -53,6 +60,7 @@ func (c *ExampleAIClient) Close() error {
 func (c *ExampleAIClient) exampleGetStore() error {
     resp, err := c.client.GetStore(c.ctx, &aiquery.GetStore{
         Store: "ai_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
     })
     if err != nil {
         return err
@@ -112,4 +120,4 @@ func main() {
 
 - Returns an error if the store does not exist
 - The `DbInfo` field is present when the AI proxy is connected to a DB instance
-- Use `ListStores` to get information about all AI stores
+- Use `ListStores` to get information about AI stores in a schema

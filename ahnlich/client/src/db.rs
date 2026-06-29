@@ -610,6 +610,7 @@ mod test {
                     }),
                 },
             ],
+            schema: None,
         };
 
         assert!(db_client.set(set_key_params, None).await.is_ok());
@@ -622,6 +623,7 @@ mod test {
             closest_n: 2,
             algorithm: Algorithm::EuclideanDistance as i32,
             condition: None,
+            schema: None,
         };
         assert!(db_client.get_sim_n(get_sim_n_params, None).await.is_err());
 
@@ -646,6 +648,7 @@ mod test {
             closest_n: 2,
             algorithm: Algorithm::CosineSimilarity as i32,
             condition: Some(condition),
+            schema: None,
         };
 
         assert_eq!(
@@ -836,6 +839,7 @@ mod test {
         let del_key_params = DelKey {
             store: "Main".to_string(),
             keys: vec![],
+            schema: None,
         };
         assert!(db_client.del_key(del_key_params, None).await.is_err());
 
@@ -862,6 +866,7 @@ mod test {
             keys: vec![StoreKey {
                 key: vec![1.0, 1.1, 1.2, 1.3],
             }],
+            schema: None,
         };
 
         assert_eq!(
@@ -889,6 +894,7 @@ mod test {
                     }),
                 },
             ],
+            schema: None,
         };
 
         assert!(db_client.set(set_key_params, None).await.is_ok());
@@ -916,6 +922,7 @@ mod test {
             keys: vec![StoreKey {
                 key: vec![1.0, 1.1],
             }],
+            schema: None,
         };
 
         assert!(db_client.del_key(del_key_params, None).await.is_err());
@@ -925,6 +932,7 @@ mod test {
             keys: vec![StoreKey {
                 key: vec![1.0, 1.1, 1.2, 1.3],
             }],
+            schema: None,
         };
 
         assert_eq!(
@@ -1023,6 +1031,7 @@ mod test {
                     }),
                 },
             ],
+            schema: None,
         };
 
         assert!(db_client.set(set_key_params, None).await.is_ok());
@@ -1037,6 +1046,7 @@ mod test {
             closest_n: 2,
             algorithm: Algorithm::EuclideanDistance as i32,
             condition: None,
+            schema: None,
         };
         assert!(db_client.get_sim_n(get_sim_n_params, None).await.is_err());
 
@@ -1061,6 +1071,7 @@ mod test {
             closest_n: 2,
             algorithm: Algorithm::CosineSimilarity as i32,
             condition: Some(condition),
+            schema: None,
         };
 
         assert_eq!(

@@ -4,6 +4,10 @@ title: List Stores
 
 # List Stores
 
+## Schema
+
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
+
 Returns the list of vector stores registered in the connected Ahnlich DB service. This request is typically used to discover available stores before performing store-scoped operations such as creating, dropping, or inserting vectors.
 
 ## Source Code Example
@@ -24,7 +28,9 @@ Returns the list of vector stores registered in the connected Ahnlich DB service
 
 
       // Call list_stores and print the result
-      let stores = db_client.list_stores(tracing_id).await?;
+      let stores = db_client
+          .list_stores_with_schema(Some("analytics".to_string()), tracing_id)
+          .await?;
       println!("Stores: {:?}", stores);
 
 

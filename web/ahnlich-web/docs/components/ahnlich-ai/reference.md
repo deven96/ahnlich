@@ -32,11 +32,12 @@ INFOSERVER
 
 ## 3. List Stores
 #### Description
-Displays all stores currently created in Ahnlich AI.
+Displays AI stores in the selected schema. If no schema is supplied, only `public` stores are returned.
 
 #### Command
 ```
-LIST STORES
+LISTSTORES
+LISTSTORES SCHEMA media
 ```
 
 ## 4. Get Store
@@ -46,6 +47,7 @@ Get detailed information about a specific store by name. Returns store name, que
 #### Command
 ```
 GETSTORE my_store
+GETSTORE my_store SCHEMA media
 ```
 
 ## 5. Create Store
@@ -55,6 +57,7 @@ Creates a new store with specified index and query models.
 #### Command
 ```
 CREATESTORE my_store INDEXMODEL all-minilm-l6-v2 QUERYMODEL all-minilm-l6-v2
+CREATESTORE my_store INDEXMODEL all-minilm-l6-v2 QUERYMODEL all-minilm-l6-v2 SCHEMA media
 ```
 
 - **Rust**
@@ -79,6 +82,7 @@ Insert raw input into a store. Metadata can be added as key–value pairs.
 #### Command
 ```
 SET doc1 "The future of AI in healthcare" WITH {"category":"news"} IN article_store
+SET doc1 "The future of AI in healthcare" WITH {"category":"news"} IN article_store SCHEMA media
 ```
 
 
@@ -89,72 +93,100 @@ Removes a store and its contents permanently.
 #### Command
 ```
 DROPSTORE article_store
+DROPSTORE article_store IF EXISTS SCHEMA media
 ```
 
-## 8. Get Sim N
+## 8. Drop Schema
+#### Description
+Drops a non-public schema and all AI stores inside it. Ahnlich AI also drops the backing DB schema before removing its local AI stores. The `public` schema cannot be dropped.
+
+#### Command
+```
+DROPSCHEMA media
+```
+
+## 9. Get Sim N
 #### Description
 Retrieve the top N most similar vectors to a given raw input.
 
 #### Command
 ```
 GETSIMN 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store WHERE (category != "sports")
+GETSIMN 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store SCHEMA media WHERE (category != "sports")
 ```
 
-## 9. Get By Predicate
+## 10. Get By Predicate
 #### Description
 Retrieve all items in a store that satisfy a metadata condition.
 
 #### Command
 ```
 GETPRED (category = "news") IN article_store
+GETPRED (category = "news") IN article_store SCHEMA media
 ```
 
-## 10. Create Predicate Index
+## 11. Get Key
+#### Description
+Retrieve items from a store by their original input key when the store preserves originals.
+
+#### Command
+```
+GETKEY doc1 IN article_store
+GETKEY doc1 IN article_store SCHEMA media
+```
+
+## 12. Create Predicate Index
 #### Description
 Create an index on metadata to optimize predicate queries.
 
 #### Command
 ```
 CREATEPREDICATEINDEX category IN article_store
+CREATEPREDICATEINDEX category IN article_store SCHEMA media
 ```
 
-## 11. Drop Predicate Index
+## 13. Drop Predicate Index
 #### Description
 Remove a previously created metadata index.
 
 #### Command
 ```
 DROPPREDICATEINDEX category IN article_store
+DROPPREDICATEINDEX category IN article_store SCHEMA media
 ```
 
-## 12. Create Non Linear Algorithm Index
+## 14. Create Non Linear Algorithm Index
 #### Description
 Create an advanced index (e.g., KDTree, HNSW) for faster similarity searches.
 
 #### Command
 ```
 CREATENONLINEARALGORITHMINDEX kdtree IN geo_store
+CREATENONLINEARALGORITHMINDEX kdtree IN geo_store SCHEMA media
 ```
 ```
 CREATENONLINEARALGORITHMINDEX hnsw IN geo_store
+CREATENONLINEARALGORITHMINDEX hnsw IN geo_store SCHEMA media
 ```
 
-## 13. Drop Non Linear Algorithm Index
+## 15. Drop Non Linear Algorithm Index
 #### Description
 Drop a previously created non-linear index.
 
 #### Command
 ```
 DROPNONLINEARALGORITHMINDEX kdtree IN geo_store
+DROPNONLINEARALGORITHMINDEX kdtree IN geo_store SCHEMA media
 ```
 
-## 14. Delete Key
+## 16. Delete Key
 #### Description
 Remove a specific key from a store.
 
 #### Command
 ```
 DELETEKEY doc1 IN article_store
+DELETEKEY doc1 IN article_store SCHEMA media
 ```
 
 ## Ahnlich AI Commands
@@ -168,8 +200,10 @@ DELETEKEY doc1 IN article_store
 | CREATE STORE my_store INDEXMODEL all-minilm-l6-v2 QUERYMODEL all-minilm-l6-v2 | ```client.create_store("my_store", "all-minilm-l6-v2", "all-minilm-l6-v2")?;``` | ```client.create_store("my_store", index_model="all-minilm-l6-v2", query_model="all-minilm-l6-v2")``` | ```client.CreateStore(ctx, "my_store", "all-minilm-l6-v2", "all-minilm-l6-v2")``` |
 | SET doc1 "The future of AI in healthcare" WITH &#123;"category":"news"&#125; IN article_store | ```client.set("article_store", "doc1", "The future of AI in healthcare", hashmap!{"category"=>"news"})?;``` | ```client.set("article_store", "doc1", "The future of AI in healthcare", {"category":"news"})``` | ```client.Set(ctx, "article_store", "doc1", "The future of AI in healthcare", map[string]string{"category":"news"})``` |
 | DROP STORE article_store | ```client.drop_store("article_store")?;``` | ```client.drop_store("article_store")``` | ```client.DropStore(ctx, "article_store")``` |
+| DROPSCHEMA media | ```grpc_client.drop_schema(DropSchema { schema: "media".into() }).await?;``` | ```await client.drop_schema(DropSchema(schema="media"))``` | ```client.DropSchema(ctx, &query.DropSchema{Schema: "media"})``` |
 | GET SIM N 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store WHERE (category != "sports") | ```client.get_sim_n("article_store", "renewable energy storage", 3, "cosine", Some("category!='sports'"))?;``` | ```client.get_sim_n("article_store", "renewable energy storage", 3, "cosine", predicate="category!='sports'")``` | ```client.GetSimN(ctx, "article_store", "renewable energy storage", 3, "cosine", "category!='sports'")``` |
 | GET BY PREDICATE (category = "news") IN article_store | ```client.get_by_predicate("article_store", "category='news'")?;``` | ```client.get_by_predicate("article_store", "category='news'")``` | ```client.GetByPredicate(ctx, "article_store", "category='news'")``` |
+| GET KEY doc1 IN article_store | ```client.get_key(GetKey { store: "article_store".into(), keys: vec![StoreInput { value: Some(store_input::Value::RawString("doc1".into())) }], schema: None }, None).await?;``` | ```await client.get_key(GetKey(store="article_store", keys=[StoreInput(raw_string="doc1")], schema=None))``` | ```client.GetKey(ctx, &query.GetKey{Store: "article_store", Keys: []*keyval.StoreInput{&keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "doc1"}}}})``` |
 | CREATE PREDICATE INDEX category IN article_store | ```client.create_predicate_index("article_store", "category")?;``` | ```client.create_predicate_index("article_store", "category")``` | ```client.CreatePredicateIndex(ctx, "article_store", "category")``` |
 | DROP PREDICATE INDEX category IN article_store | ```client.drop_predicate_index("article_store", "category")?;``` | ```client.drop_predicate_index("article_store", "category")``` | ```client.DropPredicateIndex(ctx, "article_store", "category")``` |
 | CREATE NON LINEAR ALGORITHM INDEX kdtree IN geo_store | ```client.create_non_linear_algorithm_index("geo_store", NonLinearIndex { kdtree })?;``` | ```client.create_non_linear_algorithm_index("geo_store", NonLinearIndex(kdtree=KDTreeConfig()))``` | ```client.CreateNonLinearAlgorithmIndex(ctx, "geo_store", NonLinearIndex_Kdtree)``` |

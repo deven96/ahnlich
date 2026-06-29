@@ -110,6 +110,7 @@ async fn index_mode() {
             .into(),
         execution_provider: None,
         model_params: std::collections::HashMap::new(),
+        schema: None,
     };
 
     let res = client.set(set, None).await.expect("Could not set in store");
@@ -144,6 +145,7 @@ async fn query_mode() {
                 .into(),
             execution_provider: None,
             model_params: std::collections::HashMap::new(),
+            schema: None,
         };
 
         let res = client

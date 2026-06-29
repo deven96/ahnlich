@@ -273,7 +273,7 @@ if __name__ == "__main__":
 
     - `Set` → Inserts a numeric vector with metadata.
 
-    - `ListStores` → Retrieves all DB stores.
+    - `ListStores` → Retrieves DB stores in the requested schema, or `public` when schema is omitted.
 
 4. **AI Operations**
 
@@ -283,7 +283,7 @@ if __name__ == "__main__":
 
     - `GetSimN` → Queries the AI store for closest matches using cosine similarity.
 
-    - `ListStores` → Retrieves all AI stores.
+    - `ListStores` → Retrieves AI stores in the requested schema, or `public` when schema is omitted.
 
 
 5. **Tracing Spans**

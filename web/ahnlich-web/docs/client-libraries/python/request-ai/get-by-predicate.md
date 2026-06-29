@@ -4,6 +4,10 @@ title: Get by Predicate
 
 # Get by Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 **GetPred** works similarly to `Get_key`, but instead of querying by a single key, it returns results that match the defined conditions. This allows filtering AI store entries by metadata values.
 
 * `store` – Name of the AI store to query.
@@ -37,6 +41,7 @@ The result contains a list of entries matching the predicate.
         response = await client.get_pred(
             ai_query.GetPred(
                 store="test store 1",
+                schema="analytics",
                 condition=condition
             )
         )

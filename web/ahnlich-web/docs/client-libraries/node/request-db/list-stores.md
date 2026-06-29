@@ -5,11 +5,15 @@ sidebar_position: 4
 
 # List Stores
 
-The ListStores request retrieves a list of all vector stores available on the Ahnlich DB server.
+## Schema
 
-* **Input**: No arguments required.
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
 
-* **Behavior**: The server returns information about all existing stores including their names, dimensions, and indices.
+The ListStores request retrieves vector stores from one schema on the Ahnlich DB server. When `schema` is omitted, that schema is `public`.
+
+* **Input**: Optional `schema` field.
+
+* **Behavior**: The server returns stores in the requested schema, including their names, dimensions, and indices.
 
 * **Response**: A list of `StoreInfo` objects containing store metadata.
 
@@ -23,7 +27,7 @@ import { ListStores } from "ahnlich-client-node/grpc/db/query_pb";
 async function listStores() {
   const client = createDbClient("127.0.0.1:1369");
 
-  const response = await client.listStores(new ListStores());
+  const response = await client.listStores(new ListStores({ schema: "analytics" }));
 
   // Get store names
   console.log(response.stores.map((s) => s.name));

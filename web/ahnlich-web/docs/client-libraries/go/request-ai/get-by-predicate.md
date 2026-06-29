@@ -4,6 +4,10 @@ title: Get by Predicate
 
 # Get by Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `GetByPredicate` request-ai retrieves entries from an AI-managed store by applying **metadata-based filtering**. Unlike similarity search (`GetSimN`), which operates on vector embeddings, predicate queries operate on **stored metadata attributes**. This enables developers to fetch records that satisfy specific metadata conditions, regardless of their embedding similarity.
@@ -35,6 +39,9 @@ import (
 
 
 const AIAddr = "127.0.0.1:1370"
+
+
+func stringPtr(value string) *string { return &value }
 
 
 type ExampleAIClient struct {
@@ -79,6 +86,7 @@ func (c *ExampleAIClient) exampleGetByPredicateAI() error {
 
     resp, err := c.client.GetPred(c.ctx, &aiquery.GetPred{
         Store:     "ai_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Condition: cond,
     })
     if err != nil {

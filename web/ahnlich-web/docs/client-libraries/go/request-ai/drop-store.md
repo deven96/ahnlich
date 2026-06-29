@@ -4,6 +4,10 @@ title: Drop Store
 
 # Drop Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `DropStore` request deletes an entire AI-managed store, including its embeddings, metadata, and indexes. This is a destructive operation and should be used when a store is no longer required.
@@ -37,6 +41,9 @@ const AIAddr = "127.0.0.1:1370"
 
 
 // ExampleAIClient wraps the connection + AIService client
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
   conn   *grpc.ClientConn
   client aisvc.AIServiceClient
@@ -67,6 +74,7 @@ func (c *ExampleAIClient) Close() error {
 func (c *ExampleAIClient) exampleDropStoreAI() error {
   _, err := c.client.DropStore(c.ctx, &aiquery.DropStore{
       Store:            "ai_store01",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       ErrorIfNotExists: true,
   })
   if err != nil {

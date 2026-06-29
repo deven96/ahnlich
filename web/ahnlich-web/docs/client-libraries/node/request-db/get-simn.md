@@ -5,6 +5,10 @@ sidebar_position: 8
 
 # GetSimN
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The GetSimN request finds the N closest (most similar) entries to a query vector using the specified similarity algorithm.
 
 * **Input**: Store name, query vector, number of results, and similarity algorithm.
@@ -28,6 +32,7 @@ async function getSimN() {
   const response = await client.getSimN(
     new GetSimN({
       store: "my_store",
+      schema: "analytics",
       searchInput: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
       closestN: 3,
       algorithm: Algorithm.COSINE_SIMILARITY,
@@ -85,6 +90,7 @@ async function getSimNWithFilter() {
   const response = await client.getSimN(
     new GetSimN({
       store: "my_store",
+      schema: "analytics",
       searchInput: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
       closestN: 5,
       algorithm: Algorithm.COSINE_SIMILARITY,

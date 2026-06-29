@@ -328,6 +328,7 @@ async fn test_del_pred() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -359,6 +360,7 @@ async fn test_del_pred() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -392,6 +394,7 @@ async fn test_del_pred() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -416,6 +419,7 @@ async fn test_del_pred() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -429,6 +433,7 @@ async fn test_del_pred() {
                         key: vec![1.6, 1.7],
                     },
                 ],
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -448,6 +453,7 @@ async fn test_del_pred() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -585,6 +591,7 @@ async fn test_del_key() {
             query: Some(Query::DelKey(db_query_types::DelKey {
                 store: "Main".to_string(),
                 keys: vec![],
+                schema: None,
             })),
         },
         // Create the store
@@ -605,6 +612,7 @@ async fn test_del_key() {
                 keys: vec![StoreKey {
                     key: vec![1.0, 1.1, 1.2, 1.3],
                 }],
+                schema: None,
             })),
         },
         // Insert test data
@@ -629,6 +637,7 @@ async fn test_del_key() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -643,6 +652,7 @@ async fn test_del_key() {
                 keys: vec![StoreKey {
                     key: vec![1.0, 1.1, 1.2], // 3 dimensions vs store's 4
                 }],
+                schema: None,
             })),
         },
         // Should work - delete existing key
@@ -652,6 +662,7 @@ async fn test_del_key() {
                 keys: vec![StoreKey {
                     key: vec![1.0, 1.1, 1.2, 1.3],
                 }],
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -786,6 +797,7 @@ async fn test_server_with_persistence() {
             query: Some(Query::DelKey(db_query_types::DelKey {
                 store: "Main".to_string(),
                 keys: vec![],
+                schema: None,
             })),
         },
         // Create store
@@ -806,6 +818,7 @@ async fn test_server_with_persistence() {
                 keys: vec![StoreKey {
                     key: vec![1.0, 1.1, 1.2, 1.3],
                 }],
+                schema: None,
             })),
         },
         // Insert test data
@@ -835,6 +848,7 @@ async fn test_server_with_persistence() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -849,6 +863,7 @@ async fn test_server_with_persistence() {
                 keys: vec![StoreKey {
                     key: vec![1.0, 1.1, 1.2],
                 }],
+                schema: None,
             })),
         },
         // Should delete existing key
@@ -858,6 +873,7 @@ async fn test_server_with_persistence() {
                 keys: vec![StoreKey {
                     key: vec![1.0, 1.1, 1.2, 1.3],
                 }],
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -1009,6 +1025,7 @@ async fn test_server_with_persistence() {
             query: Some(Query::DelKey(db_query_types::DelKey {
                 store: "Main".to_string(),
                 keys: vec![],
+                schema: None,
             })),
         },
         // Should get persisted data
@@ -1018,6 +1035,7 @@ async fn test_server_with_persistence() {
                 keys: vec![StoreKey {
                     key: vec![1.1, 1.2, 1.3, 1.4],
                 }],
+                schema: None,
             })),
         },
     ];
@@ -1101,6 +1119,7 @@ async fn test_set_in_store() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "Main".into(),
                 inputs: vec![],
+                schema: None,
             })),
         },
         // Create the store
@@ -1126,6 +1145,7 @@ async fn test_set_in_store() {
                         value: HashMap::new(),
                     }),
                 }],
+                schema: None,
             })),
         },
         // Should error due to dimension mismatch
@@ -1140,6 +1160,7 @@ async fn test_set_in_store() {
                         value: HashMap::new(),
                     }),
                 }],
+                schema: None,
             })),
         },
         // Upsert operation
@@ -1169,6 +1190,7 @@ async fn test_set_in_store() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         db_pipeline::DbQuery {
@@ -1337,6 +1359,7 @@ async fn test_remove_non_linear_indices() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         // Get similar items using KDTree
@@ -1349,6 +1372,7 @@ async fn test_remove_non_linear_indices() {
                     key: vec![1.1, 2.0, 3.0],
                 }),
                 condition: None,
+                schema: None,
             })),
         },
         // Remove KDTree index
@@ -1358,6 +1382,7 @@ async fn test_remove_non_linear_indices() {
                     store: "Main".to_string(),
                     non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
                     error_if_not_exists: false,
+                    schema: None,
                 },
             )),
         },
@@ -1368,6 +1393,7 @@ async fn test_remove_non_linear_indices() {
                     store: "Main".to_string(),
                     non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
                     error_if_not_exists: true,
+                    schema: None,
                 },
             )),
         },
@@ -1381,6 +1407,7 @@ async fn test_remove_non_linear_indices() {
                     key: vec![1.1, 2.0, 3.0],
                 }),
                 condition: None,
+                schema: None,
             })),
         },
         // Recreate KDTree index
@@ -1392,6 +1419,7 @@ async fn test_remove_non_linear_indices() {
                     non_linear_indices: vec![nonlinear::NonLinearIndex {
                         index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                     }],
+                    schema: None,
                 },
             )),
         },
@@ -1402,6 +1430,7 @@ async fn test_remove_non_linear_indices() {
                     store: "Main".to_string(),
                     non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32],
                     error_if_not_exists: true,
+                    schema: None,
                 },
             )),
         },
@@ -1585,6 +1614,7 @@ async fn test_get_sim_n_non_linear() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         // Get 2 closest matches without condition
@@ -1597,6 +1627,7 @@ async fn test_get_sim_n_non_linear() {
                     key: vec![1.1, 2.0, 3.0],
                 }),
                 condition: None,
+                schema: None,
             })),
         },
         // return just 1 entry regardless of closest_n
@@ -1619,6 +1650,7 @@ async fn test_get_sim_n_non_linear() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
     ];
@@ -1738,6 +1770,7 @@ async fn test_get_sim_n() {
                 algorithm: Algorithm::CosineSimilarity as i32,
                 search_input: Some(StoreKey { key: vec![] }),
                 condition: None,
+                schema: None,
             })),
         },
         // Create store
@@ -1796,6 +1829,7 @@ async fn test_get_sim_n() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         // Error due to non-linear algorithm not existing
@@ -1808,6 +1842,7 @@ async fn test_get_sim_n() {
                     key: vec![1.1, 2.0, 3.0],
                 }),
                 condition: None,
+                schema: None,
             })),
         },
         // Error due to dimension mismatch
@@ -1820,6 +1855,7 @@ async fn test_get_sim_n() {
                     key: vec![1.1, 2.0],
                 }),
                 condition: None,
+                schema: None,
             })),
         },
         // Get with condition (should return 1 match)
@@ -1841,6 +1877,7 @@ async fn test_get_sim_n() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         // Get closest 2 with DotProduct
@@ -1853,6 +1890,7 @@ async fn test_get_sim_n() {
                     key: vec![1.0, 2.1, 2.2],
                 }),
                 condition: None,
+                schema: None,
             })),
         },
         // Get closest 2 with EuclideanDistance
@@ -1865,6 +1903,7 @@ async fn test_get_sim_n() {
                     key: vec![1.0, 2.1, 2.2],
                 }),
                 condition: None,
+                schema: None,
             })),
         },
         // Get closest 1 where medal is not gold
@@ -1887,6 +1926,7 @@ async fn test_get_sim_n() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
     ];
@@ -2107,6 +2147,7 @@ async fn test_get_pred() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         // Create store
@@ -2152,6 +2193,7 @@ async fn test_get_pred() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         // Should return empty (no matches)
@@ -2168,6 +2210,7 @@ async fn test_get_pred() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         // Get where medal != silver
@@ -2184,6 +2227,7 @@ async fn test_get_pred() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         // Get where medal != bronze
@@ -2200,6 +2244,7 @@ async fn test_get_pred() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
     ];
@@ -2315,6 +2360,7 @@ async fn test_get_key() {
             query: Some(Query::GetKey(db_query_types::GetKey {
                 store: "Main".to_string(),
                 keys: vec![],
+                schema: None,
             })),
         },
         // Create store
@@ -2360,6 +2406,7 @@ async fn test_get_key() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         // Should error due to dimension mismatch
@@ -2377,6 +2424,7 @@ async fn test_get_key() {
                         key: vec![0.4, 0.6],
                     },
                 ],
+                schema: None,
             })),
         },
         // Should return empty (keys don't exist)
@@ -2391,6 +2439,7 @@ async fn test_get_key() {
                         key: vec![0.2, 0.5],
                     },
                 ],
+                schema: None,
             })),
         },
         // Get existing keys
@@ -2408,6 +2457,7 @@ async fn test_get_key() {
                         key: vec![1.0, 0.2],
                     },
                 ],
+                schema: None,
             })),
         },
     ];
@@ -2545,6 +2595,7 @@ async fn test_create_pred_index() {
             query: Some(Query::CreatePredIndex(db_query_types::CreatePredIndex {
                 store: "Main".to_string(),
                 predicates: vec!["planet".into()],
+                schema: None,
             })),
         },
         // Create store
@@ -2612,6 +2663,7 @@ async fn test_create_pred_index() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         // Should return 0 (no new indexes created)
@@ -2619,6 +2671,7 @@ async fn test_create_pred_index() {
             query: Some(Query::CreatePredIndex(db_query_types::CreatePredIndex {
                 store: "Main".to_string(),
                 predicates: vec!["galaxy".into()],
+                schema: None,
             })),
         },
         // Get with galaxy="milkyway"
@@ -2635,6 +2688,7 @@ async fn test_create_pred_index() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         // Get with life-form="humanoid"
@@ -2651,6 +2705,7 @@ async fn test_create_pred_index() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         // Get with life-form IN ["insects"]
@@ -2667,6 +2722,7 @@ async fn test_create_pred_index() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         // Get with life-form NOT IN ["humanoid"]
@@ -2683,6 +2739,7 @@ async fn test_create_pred_index() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
         // Create indexes for technology and life-form (should return 2)
@@ -2690,6 +2747,7 @@ async fn test_create_pred_index() {
             query: Some(Query::CreatePredIndex(db_query_types::CreatePredIndex {
                 store: "Main".to_string(),
                 predicates: vec!["technology".into(), "life-form".into(), "galaxy".into()],
+                schema: None,
             })),
         },
         // Verify humanoid still works after indexing
@@ -2706,6 +2764,7 @@ async fn test_create_pred_index() {
                         })),
                     })),
                 }),
+                schema: None,
             })),
         },
     ];
@@ -2938,6 +2997,7 @@ async fn test_drop_pred_index() {
                 store: "Main".to_string(),
                 error_if_not_exists: true,
                 predicates: vec!["planet".into()],
+                schema: None,
             })),
         },
         // Create store
@@ -2957,6 +3017,7 @@ async fn test_drop_pred_index() {
                 store: "Main".to_string(),
                 error_if_not_exists: false,
                 predicates: vec!["planet".into()],
+                schema: None,
             })),
         },
         // Should error (predicate doesn't exist)
@@ -2965,6 +3026,7 @@ async fn test_drop_pred_index() {
                 store: "Main".to_string(),
                 error_if_not_exists: true,
                 predicates: vec!["planet".into()],
+                schema: None,
             })),
         },
         // Should succeed (galaxy predicate exists)
@@ -2973,6 +3035,7 @@ async fn test_drop_pred_index() {
                 store: "Main".to_string(),
                 error_if_not_exists: true,
                 predicates: vec!["galaxy".into()],
+                schema: None,
             })),
         },
     ];
@@ -3219,6 +3282,7 @@ async fn test_server_persistence_with_hnsw_index() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         // Get similar items using HNSW
@@ -3231,6 +3295,7 @@ async fn test_server_persistence_with_hnsw_index() {
                     key: vec![1.0, 2.0, 3.0],
                 }),
                 condition: None,
+                schema: None,
             })),
         },
     ];
@@ -3324,6 +3389,7 @@ async fn test_server_persistence_with_hnsw_index() {
                 keys: vec![StoreKey {
                     key: vec![1.0, 2.0, 3.0],
                 }],
+                schema: None,
             })),
         },
         // GetSimN should still work after deserialization
@@ -3336,6 +3402,7 @@ async fn test_server_persistence_with_hnsw_index() {
                     key: vec![4.0, 5.0, 6.0],
                 }),
                 condition: None,
+                schema: None,
             })),
         },
     ];
@@ -3485,6 +3552,7 @@ async fn test_create_store_with_hnsw_configuration() {
                         }),
                     },
                 ],
+                schema: None,
             })),
         },
         // Search using HNSW - nearest to [1.0, 0.0, 0.0, 0.0]
@@ -3497,6 +3565,7 @@ async fn test_create_store_with_hnsw_configuration() {
                     key: vec![1.0, 0.0, 0.0, 0.0],
                 }),
                 condition: None,
+                schema: None,
             })),
         },
         // List stores to verify config is reflected
@@ -3638,6 +3707,7 @@ async fn test_duplicate_nonlinear_index_prevention() {
                             ..HnswConfig::default()
                         })),
                     }],
+                    schema: None,
                 },
             )),
         },
@@ -3649,6 +3719,7 @@ async fn test_duplicate_nonlinear_index_prevention() {
                     non_linear_indices: vec![nonlinear::NonLinearIndex {
                         index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                     }],
+                    schema: None,
                 },
             )),
         },
@@ -3665,6 +3736,7 @@ async fn test_duplicate_nonlinear_index_prevention() {
                             index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
                         },
                     ],
+                    schema: None,
                 },
             )),
         },
@@ -3831,6 +3903,7 @@ async fn test_hnsw_recall_with_config_reconstruction() {
                 query: Some(Query::Set(db_query_types::Set {
                     store: "RecallTest".into(),
                     inputs,
+                    schema: None,
                 })),
             }],
         }))
@@ -3856,6 +3929,7 @@ async fn test_hnsw_recall_with_config_reconstruction() {
                         key: query_vec.clone(),
                     }),
                     condition: None,
+                    schema: None,
                 })),
             }],
         }))
@@ -3891,6 +3965,7 @@ async fn test_hnsw_recall_with_config_reconstruction() {
                         store: "RecallTest".to_string(),
                         non_linear_indices: vec![NonLinearAlgorithm::Hnsw as i32],
                         error_if_not_exists: true,
+                        schema: None,
                     },
                 )),
             }],
@@ -3924,6 +3999,7 @@ async fn test_hnsw_recall_with_config_reconstruction() {
                         non_linear_indices: vec![nonlinear::NonLinearIndex {
                             index: Some(non_linear_index::Index::Hnsw(good_config)),
                         }],
+                        schema: None,
                     },
                 )),
             }],
@@ -3950,6 +4026,7 @@ async fn test_hnsw_recall_with_config_reconstruction() {
                         key: query_vec.clone(),
                     }),
                     condition: None,
+                    schema: None,
                 })),
             }],
         }))
@@ -4252,6 +4329,7 @@ async fn test_get_store_success() {
                 )]),
             }),
         }],
+        schema: None,
     };
 
     client
@@ -4440,6 +4518,7 @@ async fn test_mmap_persistence_performance() {
             query: Some(Query::Set(db_query_types::Set {
                 store: "LargeStore".into(),
                 inputs,
+                schema: None,
             })),
         };
 
@@ -4905,6 +4984,258 @@ async fn test_schema_drop_public_schema_fails() {
         "Error message should reference 'public': {}",
         status.message()
     );
+}
+
+#[tokio::test]
+async fn test_schema_store_commands_use_custom_schema() {
+    let server = Server::new(&CONFIG).await.expect("Failed to create server");
+    let address = server.local_addr().expect("Could not get local addr");
+
+    tokio::spawn(async move { server.start().await });
+
+    let address = format!("http://{}", address);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    let channel = Channel::from_shared(address).expect("Failed to get channel");
+    let mut client = DbServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect");
+
+    let schema = Some("db_store_commands".to_string());
+    let store_name = "DbSchemaCommandStore".to_string();
+    let matching_metadatakey = "Brand".to_string();
+    let nike_value = MetadataValue {
+        value: Some(MetadataValueEnum::RawString("Nike".into())),
+    };
+    let adidas_value = MetadataValue {
+        value: Some(MetadataValueEnum::RawString("Adidas".into())),
+    };
+    let nike_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), nike_value.clone())]),
+    };
+    let adidas_store_value = StoreValue {
+        value: HashMap::from_iter([(matching_metadatakey.clone(), adidas_value.clone())]),
+    };
+    let jordan_key = StoreKey {
+        key: vec![1.0, 1.1, 1.2],
+    };
+    let yeezy_key = StoreKey {
+        key: vec![2.0, 2.1, 2.2],
+    };
+    let condition_nike = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(nike_value),
+            })),
+        })),
+    };
+    let condition_adidas = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(adidas_value),
+            })),
+        })),
+    };
+
+    let queries = vec![
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateStore(db_query_types::CreateStore {
+                store: store_name.clone(),
+                dimension: 3,
+                create_predicates: vec![],
+                non_linear_indices: vec![],
+                error_if_exists: true,
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::GetStore(db_query_types::GetStore {
+                store: store_name.clone(),
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::ListStores(db_query_types::ListStores {
+                schema: None,
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::CreatePredIndex(db_query_types::CreatePredIndex {
+                store: store_name.clone(),
+                predicates: vec![matching_metadatakey.clone()],
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::CreateNonLinearAlgorithmIndex(
+                db_query_types::CreateNonLinearAlgorithmIndex {
+                    store: store_name.clone(),
+                    non_linear_indices: vec![nonlinear::NonLinearIndex {
+                        index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+                    }],
+                    schema: schema.clone(),
+                },
+            )),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::Set(db_query_types::Set {
+                store: store_name.clone(),
+                inputs: vec![
+                    DbStoreEntry {
+                        key: Some(jordan_key.clone()),
+                        value: Some(nike_store_value.clone()),
+                    },
+                    DbStoreEntry {
+                        key: Some(yeezy_key.clone()),
+                        value: Some(adidas_store_value.clone()),
+                    },
+                ],
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::GetKey(db_query_types::GetKey {
+                store: store_name.clone(),
+                keys: vec![jordan_key.clone()],
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::GetPred(db_query_types::GetPred {
+                store: store_name.clone(),
+                condition: Some(condition_nike.clone()),
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::GetSimN(db_query_types::GetSimN {
+                store: store_name.clone(),
+                search_input: Some(jordan_key.clone()),
+                closest_n: 1,
+                algorithm: Algorithm::DotProductSimilarity.into(),
+                condition: Some(condition_nike.clone()),
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::DelPred(db_query_types::DelPred {
+                store: store_name.clone(),
+                condition: Some(condition_adidas),
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::DelKey(db_query_types::DelKey {
+                store: store_name.clone(),
+                keys: vec![jordan_key.clone()],
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::DropPredIndex(db_query_types::DropPredIndex {
+                store: store_name.clone(),
+                predicates: vec![matching_metadatakey.clone()],
+                error_if_not_exists: true,
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::DropNonLinearAlgorithmIndex(
+                db_query_types::DropNonLinearAlgorithmIndex {
+                    store: store_name.clone(),
+                    non_linear_indices: vec![NonLinearAlgorithm::KdTree.into()],
+                    error_if_not_exists: true,
+                    schema: schema.clone(),
+                },
+            )),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::DropStore(db_query_types::DropStore {
+                store: store_name.clone(),
+                error_if_not_exists: true,
+                schema: schema.clone(),
+            })),
+        },
+        db_pipeline::DbQuery {
+            query: Some(Query::ListStores(db_query_types::ListStores { schema })),
+        },
+    ];
+
+    let result = client
+        .pipeline(tonic::Request::new(db_pipeline::DbRequestPipeline {
+            queries,
+        }))
+        .await
+        .expect("Failed to send pipeline request")
+        .into_inner();
+
+    assert_eq!(result.responses.len(), 15);
+    assert!(matches!(
+        &result.responses[0].response,
+        Some(db_pipeline::db_server_response::Response::Unit(_))
+    ));
+    assert!(matches!(
+        &result.responses[1].response,
+        Some(db_pipeline::db_server_response::Response::StoreInfo(info))
+            if info.name == store_name
+    ));
+    assert!(matches!(
+        &result.responses[2].response,
+        Some(db_pipeline::db_server_response::Response::StoreList(list)) if list.stores.is_empty()
+    ));
+    assert!(matches!(
+        &result.responses[3].response,
+        Some(db_pipeline::db_server_response::Response::CreateIndex(index)) if index.created_indexes == 1
+    ));
+    assert!(matches!(
+        &result.responses[4].response,
+        Some(db_pipeline::db_server_response::Response::CreateIndex(index)) if index.created_indexes == 1
+    ));
+    assert!(matches!(
+        &result.responses[5].response,
+        Some(db_pipeline::db_server_response::Response::Set(set))
+            if set.upsert == Some(StoreUpsert { inserted: 2, updated: 0 })
+    ));
+    assert!(matches!(
+        &result.responses[6].response,
+        Some(db_pipeline::db_server_response::Response::Get(get))
+            if get.entries.len() == 1 && get.entries[0].key == Some(jordan_key.clone())
+    ));
+    assert!(matches!(
+        &result.responses[7].response,
+        Some(db_pipeline::db_server_response::Response::Get(get))
+            if get.entries.len() == 1 && get.entries[0].value == Some(nike_store_value.clone())
+    ));
+    assert!(matches!(
+        &result.responses[8].response,
+        Some(db_pipeline::db_server_response::Response::GetSimN(get_sim_n))
+            if get_sim_n.entries.len() == 1
+    ));
+    assert!(matches!(
+        &result.responses[9].response,
+        Some(db_pipeline::db_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[10].response,
+        Some(db_pipeline::db_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[11].response,
+        Some(db_pipeline::db_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[12].response,
+        Some(db_pipeline::db_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[13].response,
+        Some(db_pipeline::db_server_response::Response::Del(del)) if del.deleted_count == 1
+    ));
+    assert!(matches!(
+        &result.responses[14].response,
+        Some(db_pipeline::db_server_response::Response::StoreList(list)) if list.stores.is_empty()
+    ));
 }
 
 #[test]

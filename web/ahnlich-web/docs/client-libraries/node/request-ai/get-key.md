@@ -4,6 +4,10 @@ title: GetKey
 
 # GetKey
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The GetKey request retrieves entries from a store based on exact input matches.
 
 * **Input**:
@@ -36,6 +40,7 @@ async function getKey() {
   const response = await client.getKey(
     new GetKey({
       store: "my_store",
+      schema: "analytics",
       keys: [storeInput]
     })
   );
