@@ -10,8 +10,8 @@
 <link rel="preconnect" href="https://www.googletagmanager.com">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-3BGX6E99T1"></script>
 <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-3BGX6E99T1",{anonymize_ip:!0})</script><link rel="stylesheet" href="/assets/css/styles.ac6bb2ba.css">
-<script src="/assets/js/runtime~main.168fcc67.js" defer="defer"></script>
-<script src="/assets/js/main.5dec598c.js" defer="defer"></script>
+<script src="/assets/js/runtime~main.b49b5106.js" defer="defer"></script>
+<script src="/assets/js/main.2336903b.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
 <svg style="display: none;"><defs>
@@ -55,7 +55,7 @@ Commands generally follow this format:</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="supported-db-commands">Supported DB Commands<a href="#supported-db-commands" class="hash-link" aria-label="Direct link to Supported DB Commands" title="Direct link to Supported DB Commands" translate="no">​</a></h3>
 <p><code>PING</code> – check if the server is responsive</p>
 <p><code>LISTCLIENTS</code> – list active connections</p>
-<p><code>LISTSTORES</code> – list all stores</p>
+<p><code>LISTSTORES [SCHEMA &lt;schema&gt;]</code> – list stores in a schema; defaults to <code>public</code></p>
 <p><code>INFOSERVER</code> – get server metadata/version</p>
 <p><code>DROPSTORE store_name IF EXISTS</code> – delete a store</p>
 <p><code>CREATEPREDINDEX (key_1, key_2) IN store_name</code> – create predicate index</p>
