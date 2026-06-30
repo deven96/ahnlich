@@ -111,7 +111,7 @@ When querying, developers don’t need to provide vectors—they provide natural
 ### Example – Querying with Text:
 
 ```
-GETSIMN "climate change effects on agriculture" IN news_store
+GETSIMN 3 WITH [climate change effects on agriculture] USING cosinesimilarity IN news_store
 ```
 
 Ahnlich AI generates embeddings for the query and performs a similarity search against all stored article embeddings.

@@ -62,23 +62,22 @@ LISTSTORES SCHEMA analytics
 Lists stores in the `analytics` schema.
 
 ### 4. Create a Store for DB
-```
-CREATESTORE my_store PREDICATES (author, category)
-CREATESTORE my_store PREDICATES (author, category) SCHEMA analytics
+```bash
+CREATESTORE my_store DIMENSION 128 PREDICATES (author, category)
+CREATESTORE my_store DIMENSION 128 PREDICATES (author, category) SCHEMA analytics
 ```
 
 Creates a new database store `my_store` with `author` and `category` as metadata fields.
 
 ### 5. Insert DB Data
-```
-SET ((key1, {author: Alice, category: ml}),
-     (key2, {author: Bob, category: dev})) IN my_store
+```bash
+SET ((key1, {author: Alice, category: ml}),(key2, {author: Bob, category: dev})) IN my_store
 ```
 
 Inserts two records into `my_store` with associated predicates.
 
 ### 6. Drop a Store
-```
+```bash
 DROPSTORE my_store IF EXISTS
 DROPSTORE my_store IF EXISTS SCHEMA analytics
 ```
@@ -86,49 +85,49 @@ DROPSTORE my_store IF EXISTS SCHEMA analytics
 Deletes the store `my_store` if it exists.
 
 ### 7. Get Data by Key
-```
-GET key1 IN my_store
+```bash
+GETKEY ([1.0, 2.0]) IN my_store
 ```
 
 Retrieves the entry with `key1` from `my_store`.
 
 ### 8. Query DB Data by Predicate
-```
+```bash
 GETPRED (author = Alice) IN my_store
 ```
 
 Retrieves all entries in `my_store` where `author = Alice`.
 
 ### 9. Create Predicate Index
-```
+```bash
 CREATEPREDINDEX (author, category) IN my_store
 ```
 
 Creates an index on `author` and `category` predicates to speed up lookups.
 
 ### 10. Drop Predicate Index
-```
+```bash
 DROPPREDINDEX (category) IN my_store
 ```
 
 Removes the index on the `category` predicate.
 
 ### 11. Create Non-Linear Algorithm Index
-```
+```bash
 CREATENONLINEARALGORITHMINDEX (kdtree) IN my_store
 ```
 
 Creates a KD-Tree index for efficient nearest-neighbor searches.
 
 ### 12. Drop Non-Linear Algorithm Index
-```
+```bash
 DROPNONLINEARALGORITHMINDEX (kdtree) IN my_store
 ```
 
 Drops the KD-Tree index from `my_store`.
 
 ### 13. Delete a Key
-```
+```bash
 DELETEKEY (key1) IN my_store
 ```
 

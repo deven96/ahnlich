@@ -93,7 +93,7 @@ Here, similarity search on `ct_image_store` finds related scans, and `report_id`
   <summary>Click to expand</summary>
   ```
   -- create a cross-modal store (text ↔ image)
-  CREATESTORE clip_image_store QUERYMODEL CLIP_VIT_B32_TEXT INDEXMODEL CLIP_VIT_B32_IMAGE STOREORIGINAL;
+  CREATESTORE clip_image_store QUERYMODEL clip-vit-b32-text INDEXMODEL clip-vit-b32-image STOREORIGINAL
   CREATEPREDINDEX (patient_id, report_id) IN clip_image_store;
 
   insert CT scan

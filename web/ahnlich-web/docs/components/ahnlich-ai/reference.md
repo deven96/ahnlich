@@ -56,8 +56,8 @@ Creates a new store with specified index and query models.
 
 #### Command
 ```
-CREATESTORE my_store INDEXMODEL all-minilm-l6-v2 QUERYMODEL all-minilm-l6-v2
-CREATESTORE my_store INDEXMODEL all-minilm-l6-v2 QUERYMODEL all-minilm-l6-v2 SCHEMA media
+CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
+CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2 SCHEMA media
 ```
 
 - **Rust**
@@ -111,8 +111,9 @@ Retrieve the top N most similar vectors to a given raw input.
 
 #### Command
 ```
-GETSIMN 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store WHERE (category != "sports")
-GETSIMN 3 WITH "renewable energy storage" USING cosinesimilarity IN article_store SCHEMA media WHERE (category != "sports")
+GETSIMN 3 WITH [renewable energy storage] USING cosinesimilarity IN article_store WHERE (category != sports)
+GETSIMN 3 WITH [renewable energy storage] USING cosinesimilarity IN article_store WHERE (category != sports)
+GETSIMN 3 WITH [renewable energy storage] USING cosinesimilarity IN article_store SCHEMA media WHERE (category != sports)
 ```
 
 ## 10. Get By Predicate
@@ -161,12 +162,11 @@ Create an advanced index (e.g., KDTree, HNSW) for faster similarity searches.
 
 #### Command
 ```
-CREATENONLINEARALGORITHMINDEX kdtree IN geo_store
-CREATENONLINEARALGORITHMINDEX kdtree IN geo_store SCHEMA media
-```
-```
-CREATENONLINEARALGORITHMINDEX hnsw IN geo_store
-CREATENONLINEARALGORITHMINDEX hnsw IN geo_store SCHEMA media
+CREATENONLINEARALGORITHMINDEX (kdtree) IN geo_store
+CREATENONLINEARALGORITHMINDEX (hnsw) IN geo_store
+CREATENONLINEARALGORITHMINDEX (kdtree) IN geo_store SCHEMA media
+CREATENONLINEARALGORITHMINDEX (hnsw) IN geo_store
+CREATENONLINEARALGORITHMINDEX (hnsw) IN geo_store SCHEMA media
 ```
 
 ## 15. Drop Non Linear Algorithm Index
@@ -175,8 +175,9 @@ Drop a previously created non-linear index.
 
 #### Command
 ```
-DROPNONLINEARALGORITHMINDEX kdtree IN geo_store
-DROPNONLINEARALGORITHMINDEX kdtree IN geo_store SCHEMA media
+DROPNONLINEARALGORITHMINDEX (kdtree) IN geo_store
+DROPNONLINEARALGORITHMINDEX (kdtree) IN geo_store
+DROPNONLINEARALGORITHMINDEX (kdtree) IN geo_store SCHEMA media
 ```
 
 ## 16. Delete Key

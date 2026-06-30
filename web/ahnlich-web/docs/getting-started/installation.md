@@ -10,19 +10,15 @@ sidebar_position: 10
 Pull the latest official container images:
 
 ```bash  
-docker pull ghcr.io/deven96/ahnlich-db:latest  
-docker pull ghcr.io/deven96/ahnlich-ai:latest  
+docker pull ghcr.io/deven96/ahnlich-db:latest
+docker pull ghcr.io/deven96/ahnlich-ai:latest
 ```
 
 Run both services locally with default ports (DB → 1369, AI → 1370):
 
 ```bash  
 docker run -d --name ahnlich-db -p 1369:1369 ghcr.io/deven96/ahnlich-db:latest
-
-docker run -d \
-  --name ahnlich-ai \
-  -p 1370:1370 \
-  ghcr.io/deven96/ahnlich-ai:latest 
+docker run -d --name ahnlich-ai -p 1370:1370 ghcr.io/deven96/ahnlich-ai:latest   
 ```
 
 For more advanced setups—including tracing, persistence, and model caching—refer to the example [`docker-compose.yml`](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml) in the main repository.
@@ -31,7 +27,7 @@ For more advanced setups—including tracing, persistence, and model caching—r
 
 ## **Download Pre-built Binaries** *(Great for local servers & headless deployment)*
 
-You can download OS‑specific binaries (for `db` and `ai`) from the [Ahnlich GitHub Releases page](https://github.com/deven96/ahnlich/releases). [GitHub](https://github.com/deven96/ahnlich/releases)
+You can download OS‑specific binaries (for `db`, `ai` and `cli`) from the [Ahnlich GitHub Releases page](https://github.com/deven96/ahnlich/releases). [GitHub](https://github.com/deven96/ahnlich/releases)
 
 Example steps for a Linux (`x86_64-unknown-linux-gnu`) environment:
 
@@ -47,12 +43,12 @@ Make the binary executable
 chmod +x ahnlich-db
 
 Run the database service
-./ahnlich-db
+./ahnlich-db run
 
 ./ahnlich-db --help
 ```
 
-Repeat the same for the `ahnlich-ai` binary, substituting `db` → `ai` and the correct filename.
+Repeat the same for the `ahnlich-ai` and `ahnlich-cli` binaries, substituting `db` → `ai`/`cli` and the correct filename.
 
 You can find complete download instructions (including Windows / macOS options) in the [official repository README](https://github.com/deven96/ahnlich/blob/main/README.md). [GitHub](https://github.com/deven96/ahnlich)
 
@@ -67,6 +63,7 @@ git clone https://github.com/deven96/ahnlich.git
 cd ahnlich
 cargo build --release --bin ahnlich-db
 cargo build --release --bin ahnlich-ai
+cargo build --release --bin ahnlich-cli
 ```
 
 Once built, find the executables in `target/release/`. Move them into your `$PATH` or launch directly:
@@ -74,6 +71,7 @@ Once built, find the executables in `target/release/`. Move them into your `$PAT
 ```bash  
 ./target/release/ahnlich-db --help
 ./target/release/ahnlich-ai --help
+./target/release/ahnlich-cli --help
 ```
 
 This method is ideal for reviewing code, customizing defaults, or staying on the cutting edge. Ensure you have the Rust toolchain installed via [rustup.rs](https://rustup.rs/). [GitHub](https://github.com/deven96/ahnlich/blob/main/README.md)
@@ -114,4 +112,4 @@ This method is ideal for reviewing code, customizing defaults, or staying on the
 
 * 🧾 [Example Docker Compose and usage docs](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml) [GitHub](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml)
 
-* 📖 [Full README (includes installation & usage guidance)](https://github.com/deven96/ahnlich/blob/main/README.md) [GitHub](https://github.com/deven96/ahnlich/blob/main/README.md)  
+* 📖 [Full README (includes installation & usage guidance)](https://github.com/deven96/ahnlich/blob/main/README.md) [GitHub](https://github.com/deven96/ahnlich/blob/main/README.md)

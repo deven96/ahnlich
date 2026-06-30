@@ -90,10 +90,10 @@ CREATESTORE my_store DIMENSION 128 NONLINEARALGORITHMINDEX (KDTree)
 1. **Use predicate indices for filtering:**
 ```
 # Index frequently filtered fields
-CREATEPREDINDEX my_store PREDICATES (category, author)
+CREATEPREDINDEX (category, author) IN my_store
 
 # Then filter efficiently
-GETPRED 10 IN my_store WHERE (category = science)
+GETPRED (category = science) IN my_store
 ```
 
 2. **Optimize batch operations:**
@@ -399,7 +399,7 @@ Predicate "author" not found in store
 
 1. **Create predicate index:**
 ```
-CREATEPREDINDEX my_store PREDICATES (author, category)
+CREATEPREDINDEX (author, category) IN my_store
 ```
 
 2. **Or include when creating store:**

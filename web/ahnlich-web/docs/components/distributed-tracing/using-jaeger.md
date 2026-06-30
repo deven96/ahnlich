@@ -41,7 +41,7 @@ LISTSTORES
 ```
 CREATESTORE ai_store_20250915143036 QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2 PREDICATES (author, category)
 SET ((["Jordan One"], {brand: Nike}), (["Yeezey"], {brand: Adidas})) IN ai_store_20250915143036
-GETSIMN 4 WITH ["Jordan One"] USING cosinesimilarity IN ai_store_20250915143036
+GETSIMN 4 WITH [Jordan One] USING cosinesimilarity IN ai_store_20250915143036
 LISTSTORES
 ```
 

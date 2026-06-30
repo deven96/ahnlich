@@ -118,7 +118,7 @@ Ahnlich DB can be customized using runtime flags:
 
 #### Create a store:
 ```
-CREATE STORE my_store DIMENSION 2 ALGORITHM cosine
+CREATESTORE my_store DIMENSION 2
 ```
 
 #### Insert a vector with metadata:

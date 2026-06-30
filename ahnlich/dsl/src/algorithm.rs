@@ -8,6 +8,7 @@ use crate::error::DslError;
 pub(crate) fn to_non_linear(input: &str) -> Option<NonLinearAlgorithm> {
     match input.to_lowercase().trim() {
         "kdtree" => Some(NonLinearAlgorithm::KdTree),
+        "hnsw" => Some(NonLinearAlgorithm::Hnsw),
         _ => None,
     }
 }

@@ -113,7 +113,7 @@ CreateStore {
 
 **Solution:**
 ```
-CREATEPREDINDEX my_store PREDICATES (field_name)
+CREATEPREDINDEX (field_name) IN my_store
 ```
 
 Or include predicates when creating store:

@@ -19,7 +19,7 @@ Returns `PONG` if the server is running.
 #### INFO SERVER
 Retrieve server information (version, uptime, memory usage).
 ```
-INFO SERVER
+INFOSERVER
 ```
 
 #### LIST CONNECTED CLIENTS
@@ -55,13 +55,13 @@ GETSTORE my_store
 #### CREATE STORE
 Create a new store with a given dimension and algorithm.
 ```
-CREATE STORE <store_name> DIMENSION <n> ALGORITHM <cosine|euclidean|kdtree>
+CREATESTORE <store_name> DIMENSION <n>
 CREATESTORE <store_name> DIMENSION <n> SCHEMA analytics
 ```
 
 #### Example:
 ```
-CREATE STORE my_store DIMENSION 128 ALGORITHM cosine
+CREATESTORE my_store DIMENSION 128
 ```
 
 #### DROP STORE
@@ -137,13 +137,14 @@ GETSIMN 3 WITH [0.25, 0.88] USING cosinesimilarity IN my_store WHERE (category !
 #### GET KEY
 Retrieve a vector and its metadata by key.
 ```
-GET KEY <key> IN <store_name>
-GET KEY <key> IN <store_name> SCHEMA analytics
+GETKEY ([1.0, 2.0]) IN my_store
+GETKEY ([<float>, <float>]) IN <store_name>
+GETKEY ([<float>, <float>]) IN <store_name> SCHEMA analytics
 ```
 
 #### Example:
 ```
-GET KEY doc1 IN my_store
+GETKEY ([1.0, 2.0]) IN my_store
 ```
 
 #### GET BY PREDICATE
