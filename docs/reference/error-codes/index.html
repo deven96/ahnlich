@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://www.googletagmanager.com">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-3BGX6E99T1"></script>
 <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-3BGX6E99T1",{anonymize_ip:!0})</script><link rel="stylesheet" href="/assets/css/styles.ac6bb2ba.css">
-<script src="/assets/js/runtime~main.b49b5106.js" defer="defer"></script>
+<script src="/assets/js/runtime~main.a84aa2bc.js" defer="defer"></script>
 <script src="/assets/js/main.2336903b.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -81,7 +81,7 @@
 <p><strong>gRPC Code:</strong> <code>NotFound</code></p>
 <p><strong>Cause:</strong> Querying using a predicate that hasn&#x27;t been indexed.</p>
 <p><strong>Solution:</strong></p>
-<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">CREATEPREDINDEX my_store PREDICATES (field_name)</span><br></span></code></pre></div></div>
+<div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">CREATEPREDINDEX (field_name) IN my_store</span><br></span></code></pre></div></div>
 <p>Or include predicates when creating store:</p>
 <div class="language-text codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#F8F8F2;--prism-background-color:#282A36"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-text codeBlock_bY9V thin-scrollbar" style="color:#F8F8F2;background-color:#282A36"><code class="codeBlockLines_e6Vv"><span class="token-line" style="color:#F8F8F2"><span class="token plain">CREATESTORE my_store DIMENSION 128 PREDICATES (author, category)</span><br></span></code></pre></div></div>
 <hr>

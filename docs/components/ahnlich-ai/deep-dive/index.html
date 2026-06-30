@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://www.googletagmanager.com">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-3BGX6E99T1"></script>
 <script>function gtag(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],gtag("js",new Date),gtag("config","G-3BGX6E99T1",{anonymize_ip:!0})</script><link rel="stylesheet" href="/assets/css/styles.ac6bb2ba.css">
-<script src="/assets/js/runtime~main.b49b5106.js" defer="defer"></script>
+<script src="/assets/js/runtime~main.a84aa2bc.js" defer="defer"></script>
 <script src="/assets/js/main.2336903b.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -36,12 +36,13 @@
 <p>Verifies that the Ahnlich AI service is running.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="server-info">Server Info<a href="#server-info" class="hash-link" aria-label="Direct link to Server Info" title="Direct link to Server Info" translate="no">​</a></h4>
 <ul>
-<li class=""><code>INFO SERVER</code></li>
+<li class=""><code>INFOSERVER</code></li>
 </ul>
 <p>Retrieves information about the AI proxy (status, active models, connected DB).</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="list-stores">List Stores<a href="#list-stores" class="hash-link" aria-label="Direct link to List Stores" title="Direct link to List Stores" translate="no">​</a></h4>
 <ul>
-<li class=""><code>LISTSTORES [SCHEMA &lt;schema&gt;]</code></li>
+<li class=""><code>LISTSTORES</code></li>
+<li class=""><code>LISTSTORES SCHEMA media</code></li>
 </ul>
 <p>Returns stores managed through the AI proxy in the selected schema. If no schema is supplied, only <code>public</code> stores are returned.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="create-a-store-with-models">Create a Store with Models<a href="#create-a-store-with-models" class="hash-link" aria-label="Direct link to Create a Store with Models" title="Direct link to Create a Store with Models" translate="no">​</a></h4>
@@ -64,7 +65,7 @@
 <p>Raw text is automatically converted into embeddings before being sent to Ahnlich DB.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="similarity-search-with-natural-query">Similarity Search with Natural Query<a href="#similarity-search-with-natural-query" class="hash-link" aria-label="Direct link to Similarity Search with Natural Query" title="Direct link to Similarity Search with Natural Query" translate="no">​</a></h4>
 <ul>
-<li class=""><code>GETSIMN 3 WITH &quot;solar battery systems&quot; IN my_store</code></li>
+<li class=""><code>GETSIMN 3 WITH [solar battery systems] USING cosinesimilarity IN my_store</code></li>
 </ul>
 <p>The AI proxy embeds the query &quot;<code>solar battery systems</code>&quot;, forwards it to Ahnlich DB, and retrieves the top 3 most similar entries.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="query-by-predicate">Query by Predicate<a href="#query-by-predicate" class="hash-link" aria-label="Direct link to Query by Predicate" title="Direct link to Query by Predicate" translate="no">​</a></h4>
@@ -89,7 +90,7 @@
 <p>Enables advanced search indexing strategies (e.g., KD-Tree).</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="drop-non-linear-algorithm-index">Drop Non-Linear Algorithm Index<a href="#drop-non-linear-algorithm-index" class="hash-link" aria-label="Direct link to Drop Non-Linear Algorithm Index" title="Direct link to Drop Non-Linear Algorithm Index" translate="no">​</a></h4>
 <ul>
-<li class=""><code>DROPNONLINEARALGORITHMINDEX kdtree IN my_store</code></li>
+<li class=""><code>DROPNONLINEARALGORITHMINDEX (kdtree) IN my_store</code></li>
 </ul>
 <p>Removes a non-linear algorithm index.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="delete-by-key">Delete by Key<a href="#delete-by-key" class="hash-link" aria-label="Direct link to Delete by Key" title="Direct link to Delete by Key" translate="no">​</a></h4>
@@ -131,7 +132,7 @@
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="example">Example:<a href="#example" class="hash-link" aria-label="Direct link to Example:" title="Direct link to Example:" translate="no">​</a></h3>
 <ul>
-<li class=""><code>GETSIMN 3 WITH &quot;renewable energy storage&quot; IN article_store</code></li>
+<li class=""><code>GETSIMN 3 WITH [renewable energy storage] USING cosinesimilarity IN article_store</code></li>
 </ul>
 <p>→ The AI proxy embeds the query and calls DB:</p>
 <ul>
