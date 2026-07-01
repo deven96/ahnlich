@@ -1,0 +1,450 @@
+---
+title: ⚡ Quickstart
+sidebar_position: 15
+description: Go from zero to semantic search in a few minutes with the Ahnlich client SDK in your language of choice.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Quickstart
+
+Go from a running server to your first semantic search in a few minutes.
+Pick your language once below — every code sample on this page follows your
+choice.
+
+:::note Prerequisites
+You need the **Ahnlich AI proxy** running (it embeds text for you automatically).
+The fastest way is Docker:
+
+```bash
+docker run -d --name ahnlich-ai -p 1370:1370 ghcr.io/deven96/ahnlich-ai:latest
+```
+
+See [Installation](./installation) for binaries and other options.
+:::
+
+## Install the client
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```bash
+pip install ahnlich-client-py
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```bash
+cargo add ahnlich_client_rs
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```bash
+npm install ahnlich-client-node
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```bash
+go get github.com/deven96/ahnlich/sdk/ahnlich-client-go
+```
+
+</TabItem>
+</Tabs>
+
+## 1. Connect
+
+Open a client against the AI proxy. No boilerplate, no config.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="connect.py"
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+
+
+async def main():
+    # Open a gRPC channel to the AI proxy (default port 1370).
+    # `async with` closes the connection automatically when you're done.
+    async with Channel(host="127.0.0.1", port=1370) as channel:
+        # The stub is your typed client — every Ahnlich call goes through it.
+        client = AiServiceStub(channel)
+        # ready to talk to Ahnlich
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="connect.rs"
+use ahnlich_client_rs::ai::AiClient;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Connect to the AI proxy (host:port). The client is cheap to clone
+    // and safe to share across tasks.
+    let client = AiClient::new("127.0.0.1:1370".to_string()).await?;
+    // ready to talk to Ahnlich
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="connect.ts"
+import { createAiClient } from "ahnlich-client-node";
+
+// Connect to the AI proxy (host:port). Reuse this client for every call.
+const client = createAiClient("127.0.0.1:1370");
+// ready to talk to Ahnlich
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="connect.go"
+import (
+    "context"
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+    aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+)
+
+// Dial the AI proxy (host:port). Use insecure credentials for local dev.
+conn, err := grpc.DialContext(ctx, "127.0.0.1:1370",
+    grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+if err != nil {
+    log.Fatalf("failed to connect: %v", err)
+}
+defer conn.Close() // close the connection when main returns
+
+// The typed client — every Ahnlich call goes through it.
+client := aisvc.NewAIServiceClient(conn)
+```
+
+</TabItem>
+</Tabs>
+
+## 2. Create a store
+
+Pick an embedding model and let Ahnlich handle the vectors for you.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="create_store.py"
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc.ai.models import AiModel
+
+await client.create_store(ai_query.CreateStore(
+    store="books",                            # name of the store
+    index_model=AiModel.ALL_MINI_LM_L6_V2,    # model used to embed stored data
+    query_model=AiModel.ALL_MINI_LM_L6_V2,    # model used to embed search queries
+    predicates=["author", "genre"],           # metadata fields you can filter on
+    store_original=True,                      # keep the raw text alongside vectors
+    error_if_exists=True,                     # fail if a store with this name exists
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="create_store.rs"
+use ahnlich_types::ai::query::CreateStore;
+use ahnlich_types::ai::models::AiModel;
+
+client.create_store(CreateStore {
+    store: "books".to_string(),
+    schema: None,
+    index_model: AiModel::AllMiniLmL6V2 as i32, // embeds stored data
+    query_model: AiModel::AllMiniLmL6V2 as i32, // embeds search queries
+    predicates: vec!["author".into(), "genre".into()], // filterable metadata fields
+    non_linear_indices: vec![],                 // optional ANN indexes (e.g. kdtree)
+    error_if_exists: true,                      // fail if the store already exists
+    store_original: true,                       // keep the raw text alongside vectors
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="create_store.ts"
+import { CreateStore } from "ahnlich-client-node/grpc/ai/query_pb";
+import { AIModel } from "ahnlich-client-node/grpc/ai/models_pb";
+
+await client.createStore(
+  new CreateStore({
+    store: "books",
+    queryModel: AIModel.ALL_MINI_LM_L6_V2, // embeds search queries
+    indexModel: AIModel.ALL_MINI_LM_L6_V2, // embeds stored data
+    predicates: ["author", "genre"],       // filterable metadata fields
+    errorIfExists: true,                   // fail if the store already exists
+    storeOriginal: true,                   // keep the raw text alongside vectors
+  })
+);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="create_store.go"
+import (
+    aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+    aimodel "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/models"
+)
+
+_, err = client.CreateStore(ctx, &aiquery.CreateStore{
+    Store:         "books",
+    QueryModel:    aimodel.AIModel_ALL_MINI_LM_L6_V2, // embeds search queries
+    IndexModel:    aimodel.AIModel_ALL_MINI_LM_L6_V2, // embeds stored data
+    Predicates:    []string{"author", "genre"},       // filterable metadata fields
+    ErrorIfExists: true,                               // fail if the store exists
+    StoreOriginal: true,                               // keep the raw text too
+})
+```
+
+</TabItem>
+</Tabs>
+
+:::tip
+`predicates` are metadata fields you can later filter on (e.g. `author`, `genre`).
+Field names must match exactly between insert and query.
+:::
+
+## 3. Insert data
+
+Send raw text with metadata. Embeddings are generated automatically.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="insert.py"
+from ahnlich_client_py.grpc import keyval, metadata
+from ahnlich_client_py.grpc.ai import preprocess
+
+await client.set(ai_query.Set(
+    store="books",
+    inputs=[
+        # Each entry = the text to embed (key) + its metadata (value).
+        keyval.AiStoreEntry(
+            key=keyval.StoreInput(raw_string="A galactic empire in decline..."),
+            value=keyval.StoreValue(value={
+                # These keys must match the store's `predicates` to be filterable.
+                "genre": metadata.MetadataValue(raw_string="SciFi"),
+                "author": metadata.MetadataValue(raw_string="Asimov"),
+            }),
+        )
+    ],
+    # ModelPreprocessing lets the proxy tokenize/normalize the text before embedding.
+    preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="insert.rs"
+use ahnlich_types::ai::query::Set;
+use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::keyval::{AiStoreEntry, StoreInput, StoreValue};
+use ahnlich_types::keyval::store_input::Value;
+use ahnlich_types::metadata::{MetadataValue, metadata_value::Value as MValue};
+use std::collections::HashMap;
+
+// Metadata keys must match the store's `predicates` to be filterable later.
+let mut metadata = HashMap::new();
+metadata.insert("genre".to_string(),
+    MetadataValue { value: Some(MValue::RawString("SciFi".into())) });
+
+client.set(Set {
+    store: "books".to_string(),
+    schema: None,
+    execution_provider: None,
+    // Let the proxy preprocess the text before embedding.
+    preprocess_action: PreprocessAction::ModelPreprocessing as i32,
+    inputs: vec![AiStoreEntry {
+        // key = the text to embed, value = its metadata.
+        key: Some(StoreInput { value: Some(Value::RawString("A galactic empire in decline...".into())) }),
+        value: Some(StoreValue { value: metadata }),
+    }],
+    model_params: HashMap::new(),
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="insert.ts"
+import { Set } from "ahnlich-client-node/grpc/ai/query_pb";
+import { AiStoreEntry, StoreInput, StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+import { PreprocessAction } from "ahnlich-client-node/grpc/ai/preprocess_pb";
+
+await client.set(
+  new Set({
+    store: "books",
+    inputs: [
+      new AiStoreEntry({
+        // key = the text to embed, value = its metadata.
+        key: new StoreInput({ value: { case: "rawString", value: "A galactic empire in decline..." } }),
+        value: new StoreValue({
+          value: {
+            // These keys must match the store's predicates to be filterable.
+            genre: new MetadataValue({ value: { case: "rawString", value: "SciFi" } }),
+            author: new MetadataValue({ value: { case: "rawString", value: "Asimov" } }),
+          },
+        }),
+      }),
+    ],
+    // Let the proxy preprocess the text before embedding.
+    preprocessAction: PreprocessAction.MODEL_PREPROCESSING,
+  })
+);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="insert.go"
+import (
+    keyval "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+    metadata "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+    preprocess "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess"
+)
+
+_, err = client.Set(ctx, &aiquery.Set{
+    Store: "books",
+    Inputs: []*keyval.AiStoreEntry{{
+        // Key = the text to embed.
+        Key: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{
+            RawString: "A galactic empire in decline..."}},
+        // Value = metadata; keys must match the store's predicates to filter on.
+        Value: &keyval.StoreValue{Value: map[string]*metadata.MetadataValue{
+            "genre":  {Value: &metadata.MetadataValue_RawString{RawString: "SciFi"}},
+            "author": {Value: &metadata.MetadataValue_RawString{RawString: "Asimov"}},
+        }},
+    }},
+    // Let the proxy preprocess the text before embedding.
+    PreprocessAction: preprocess.PreprocessAction_ModelPreprocessing,
+})
+```
+
+</TabItem>
+</Tabs>
+
+## 4. Search
+
+Query by meaning, with results ranked by similarity.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="search.py"
+from ahnlich_client_py.grpc.algorithm import algorithms
+from ahnlich_client_py.grpc.ai.preprocess import PreprocessAction
+
+# Search by meaning — the query text is embedded with the store's query_model.
+response = await client.get_sim_n(ai_query.GetSimN(
+    store="books",
+    search_input=keyval.StoreInput(raw_string="space opera classics"),
+    closest_n=3,                                    # return the 3 nearest matches
+    algorithm=algorithms.Algorithm.CosineSimilarity,  # distance metric
+    preprocess_action=PreprocessAction.ModelPreprocessing,
+))
+
+# Results are ranked most-similar first.
+for entry in response.entries:
+    print(entry.key.raw_string, entry.similarity.value)
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="search.rs"
+use ahnlich_types::ai::query::GetSimN;
+use ahnlich_types::algorithm::algorithms::Algorithm;
+
+let res = client.get_sim_n(GetSimN {
+    store: "books".to_string(),
+    schema: None,
+    // The query text is embedded with the store's query_model.
+    search_input: Some(StoreInput {
+        value: Some(Value::RawString("space opera classics".into())),
+    }),
+    closest_n: 3,                                  // return the 3 nearest matches
+    algorithm: Algorithm::CosineSimilarity as i32, // distance metric
+    execution_provider: None,
+    preprocess_action: PreprocessAction::ModelPreprocessing as i32,
+    condition: None,                               // optional metadata filter (WHERE)
+    model_params: HashMap::new(),
+}, None).await?;
+
+// Results are ranked most-similar first.
+println!("{:?}", res.entries);
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="search.ts"
+import { GetSimN } from "ahnlich-client-node/grpc/ai/query_pb";
+import { Algorithm } from "ahnlich-client-node/grpc/algorithm/algorithm_pb";
+
+// Search by meaning — the query text is embedded with the store's query model.
+const response = await client.getSimN(
+  new GetSimN({
+    store: "books",
+    searchInput: new StoreInput({ value: { case: "rawString", value: "space opera classics" } }),
+    closestN: 3,                          // return the 3 nearest matches
+    algorithm: Algorithm.COSINE_SIMILARITY, // distance metric
+  })
+);
+
+// Results are ranked most-similar first.
+for (const entry of response.entries) {
+  console.log(entry.input?.value, entry.similarity);
+}
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="search.go"
+import (
+    algorithms "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms"
+)
+
+// Search by meaning — the query text is embedded with the store's query model.
+resp, err := client.GetSimN(ctx, &aiquery.GetSimN{
+    Store:            "books",
+    SearchInput:      &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "space opera classics"}},
+    ClosestN:         3,                                     // return the 3 nearest matches
+    Algorithm:        algorithms.Algorithm_CosineSimilarity, // distance metric
+    PreprocessAction: preprocess.PreprocessAction_ModelPreprocessing,
+})
+
+// Results are ranked most-similar first.
+for _, entry := range resp.Entries {
+    fmt.Println(entry.Key, entry.Similarity)
+}
+```
+
+</TabItem>
+</Tabs>
+
+That's it — you now have semantic search working end to end. 🎉
+
+## Where to next?
+
+- **[Usage](./usage)** — drive Ahnlich from the CLI, plus the full command reference.
+- **[Client Libraries](/docs/client-libraries)** — deeper SDK docs for each language.
+- **[Components](/docs/components)** — how the DB, AI proxy, and CLI fit together.
+
+Found a bug or something unclear? [Open an issue](https://github.com/deven96/ahnlich/issues).

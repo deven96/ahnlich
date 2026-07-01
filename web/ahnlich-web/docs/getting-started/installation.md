@@ -1,115 +1,172 @@
 ---
 title: 📦 Installation
 sidebar_position: 10
+description: Install Ahnlich with Docker, pre-built binaries, or from source.
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
+# Installation
 
-## 🐳 Install via **Docker** *(Recommended for isolated environments & CI)*
+Ahnlich ships two services — the **DB engine** (`ahnlich-db`) and the **AI proxy**
+(`ahnlich-ai`) — plus an interactive **CLI** (`ahnlich-cli`). Pick the install
+method that fits your environment; the tabs below stay in sync across the page.
 
-Pull the latest official container images:
+<Tabs groupId="install-method" queryString>
+<TabItem value="docker" label="🐳 Docker" default>
 
-```bash  
+Best for isolated sandboxes, CI, and quick testing — the only dependency is Docker.
+
+Pull the latest official images:
+
+```bash
 docker pull ghcr.io/deven96/ahnlich-db:latest
 docker pull ghcr.io/deven96/ahnlich-ai:latest
 ```
 
-Run both services locally with default ports (DB → 1369, AI → 1370):
+Run both services with their default ports (DB → `1369`, AI → `1370`):
 
-```bash  
+```bash
 docker run -d --name ahnlich-db -p 1369:1369 ghcr.io/deven96/ahnlich-db:latest
-docker run -d --name ahnlich-ai -p 1370:1370 ghcr.io/deven96/ahnlich-ai:latest   
+docker run -d --name ahnlich-ai -p 1370:1370 ghcr.io/deven96/ahnlich-ai:latest
 ```
 
-For more advanced setups—including tracing, persistence, and model caching—refer to the example [`docker-compose.yml`](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml) in the main repository.
+:::tip
+For advanced setups — tracing, persistence, and model caching — use the example
+[`docker-compose.yml`](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml)
+in the main repository.
+:::
 
+</TabItem>
+<TabItem value="binaries" label="📦 Pre-built binaries">
 
+Great for servers without Rust or Docker. Download OS-specific binaries for
+`db`, `ai`, and `cli` from the
+[GitHub Releases page](https://github.com/deven96/ahnlich/releases).
 
-## **Download Pre-built Binaries** *(Great for local servers & headless deployment)*
+Example for a Linux (`x86_64-unknown-linux-gnu`) environment — download and
+extract all three binaries:
 
-You can download OS‑specific binaries (for `db`, `ai` and `cli`) from the [Ahnlich GitHub Releases page](https://github.com/deven96/ahnlich/releases). [GitHub](https://github.com/deven96/ahnlich/releases)
+```bash
+# Download the db, ai, and cli binaries for your version/platform
+wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.2.2/x86_64-unknown-linux-gnu-ahnlich-db.tar.gz
+wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fai%2F0.3.0/x86_64-unknown-linux-gnu-ahnlich-ai.tar.gz
+wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fcli%2F0.2.1/x86_64-unknown-linux-gnu-ahnlich-cli.tar.gz
 
-Example steps for a Linux (`x86_64-unknown-linux-gnu`) environment:
+# Extract each archive
+tar -xvzf x86_64-unknown-linux-gnu-ahnlich-db.tar.gz
+tar -xvzf x86_64-unknown-linux-gnu-ahnlich-ai.tar.gz
+tar -xvzf x86_64-unknown-linux-gnu-ahnlich-cli.tar.gz
 
-```bash  
-# Download the "db" binary for your version/platform
-wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.1.0/x86_64-unknown-linux-gnu-ahnlich-db.tar.gz
-Verify it’s a gzip file
-
-Extract the contents
-tar -xvzf ahnlich-db.tar.gz
-
-Make the binary executable
-chmod +x ahnlich-db
-
-Run the database service
-./ahnlich-db run
-
-./ahnlich-db --help
+# Make the binaries executable
+chmod +x ahnlich-db ahnlich-ai ahnlich-cli
 ```
 
-Repeat the same for the `ahnlich-ai` and `ahnlich-cli` binaries, substituting `db` → `ai`/`cli` and the correct filename.
+Then start the services (DB → `1369`, AI → `1370`):
 
-You can find complete download instructions (including Windows / macOS options) in the [official repository README](https://github.com/deven96/ahnlich/blob/main/README.md). [GitHub](https://github.com/deven96/ahnlich)
+```bash
+# Start the database engine
+./ahnlich-db run --port 1369
 
----
+# Start the AI proxy, pointing it at the DB
+./ahnlich-ai run --db-host 127.0.0.1 --port 1370 --supported-models all-minilm-l6-v2
 
-## **Build from Source with Cargo** *(For developers and Rust contributors)*
+# Add --help to any binary to see all flags
+./ahnlich-ai --help
+```
 
-Get up-to-date source and compile the binaries natively:
+:::note
+**macOS** builds are available too (both Apple Silicon and Intel) — see the
+[Releases page](https://github.com/deven96/ahnlich/releases) for the matching
+`apple-darwin` archives. **Windows support is coming soon.**
+:::
 
-```bash  
+</TabItem>
+<TabItem value="source" label="🦀 From source">
+
+For developers and Rust contributors who want to review code, customize
+defaults, or stay on the cutting edge. Requires the Rust toolchain via
+[rustup.rs](https://rustup.rs/).
+
+```bash
 git clone https://github.com/deven96/ahnlich.git
 cd ahnlich
+
 cargo build --release --bin ahnlich-db
 cargo build --release --bin ahnlich-ai
 cargo build --release --bin ahnlich-cli
 ```
 
-Once built, find the executables in `target/release/`. Move them into your `$PATH` or launch directly:
+The executables land in `target/release/`. Move them into your `$PATH` or run
+them directly:
 
-```bash  
+```bash
 ./target/release/ahnlich-db --help
 ./target/release/ahnlich-ai --help
 ./target/release/ahnlich-cli --help
 ```
 
-This method is ideal for reviewing code, customizing defaults, or staying on the cutting edge. Ensure you have the Rust toolchain installed via [rustup.rs](https://rustup.rs/). [GitHub](https://github.com/deven96/ahnlich/blob/main/README.md)
+</TabItem>
+</Tabs>
 
+## Which method should I use?
 
-
-## **✅ Quick Comparison Table**
-
-| Method | External Dependencies | Best For | Upgrade Workflow |
-| ----- | ----- | ----- | ----- |
+| Method | External dependencies | Best for | Upgrade workflow |
+| --- | --- | --- | --- |
 | **Docker** | Docker only | Isolated sandbox, CI, testing | `docker pull ghcr.io/deven96/ahnlich-*` |
-| **Official binaries** | None (just download tool) | Servers without Rust or Docker | Download updated files from Releases |
+| **Official binaries** | None (just a download tool) | Servers without Rust or Docker | Download updated files from Releases |
 | **Source (Cargo)** | Rust toolchain | Custom builds, contributions | `git pull && cargo build` |
 
+## Post-installation checklist
 
+<div className="ahn-checklist">
 
-## **🛠️ Post‑Installation Checklist**
+- **Permissions** — for binaries, add execution rights with `chmod +x <binary>`.
+- **Ports** — `ahnlich-db` defaults to `1369`, `ahnlich-ai` to `1370`. Override with the `--host` and `--port` flags.
+- **Upgrades** — keep each install method up to date:
+  - **Docker** — pull the `:latest` tag.
+  - **Binaries** — download again from the Releases page.
+  - **Source** — run `git pull && cargo build`.
 
-* Add execution permissions: **`chmod +x <binary>`**.
+</div>
 
-* Ports: **ahnlich-db** defaults to `1369`, **ahnlich-ai** defaults to `1370`. Use `--host` and `--port` flags to customize.
+:::info Next step
+With the services running, head to the [**Quickstart**](./quickstart) to create
+your first store and run a semantic search.
+:::
 
-* For upgrades:
+## Uninstalling
 
-  * **Docker**: pull the `:latest` tag;
+<Tabs groupId="install-method" queryString>
+<TabItem value="docker" label="🐳 Docker" default>
 
-  * **Binaries**: download again from the releases page;
+```bash
+docker compose down -v
+docker rmi ghcr.io/deven96/ahnlich-ai:latest ghcr.io/deven96/ahnlich-db:latest
+```
 
-  * **Source**: run `git pull && cargo build`.
+</TabItem>
+<TabItem value="binaries" label="📦 Pre-built binaries">
 
+```bash
+rm -f ahnlich-db ahnlich-ai ahnlich-cli
+```
 
+</TabItem>
+<TabItem value="source" label="🦀 From source">
 
-## **🔗 Helpful Links**
+```bash
+cargo clean          # remove build artifacts
+rm -rf target/release/ahnlich-*
+```
 
-* 🏠 [Main repository & documentation](https://github.com/deven96/ahnlich)
+</TabItem>
+</Tabs>
 
-* 📦 [Releases page for downloading binaries](https://github.com/deven96/ahnlich/releases) [GitHub](https://github.com/deven96/ahnlich/releases)
+## Helpful links
 
-* 🧾 [Example Docker Compose and usage docs](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml) [GitHub](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml)
-
-* 📖 [Full README (includes installation & usage guidance)](https://github.com/deven96/ahnlich/blob/main/README.md) [GitHub](https://github.com/deven96/ahnlich/blob/main/README.md)
+- 🏠 [Main repository & documentation](https://github.com/deven96/ahnlich)
+- 📦 [Releases page for downloading binaries](https://github.com/deven96/ahnlich/releases)
+- 🧾 [Example Docker Compose file](https://github.com/deven96/ahnlich/blob/main/docker-compose.yml)
+- 📖 [Full README (installation & usage guidance)](https://github.com/deven96/ahnlich/blob/main/README.md)

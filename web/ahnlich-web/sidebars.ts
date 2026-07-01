@@ -24,6 +24,7 @@ const sidebars: SidebarsConfig = {
       },
       items: [
         'getting-started/installation',
+        'getting-started/quickstart',
         'getting-started/usage',
         'getting-started/comparison-with-other-tools',
         'getting-started/next-steps',
