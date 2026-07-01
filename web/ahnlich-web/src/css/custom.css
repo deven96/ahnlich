@@ -119,3 +119,35 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
   height: 100%;
   object-fit: contain;
 }
+
+/* ---- Landing page modern flourishes ---- */
+@keyframes ahn-blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -40px) scale(1.1); }
+  66% { transform: translate(-25px, 25px) scale(0.95); }
+}
+.ahn-blob { animation: ahn-blob 18s ease-in-out infinite; }
+
+@keyframes ahn-fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ahn-fade-up { animation: ahn-fade-up 0.7s ease both; }
+
+@keyframes ahn-grid-pan {
+  from { background-position: 0 0; }
+  to { background-position: 40px 40px; }
+}
+.ahn-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: ahn-grid-pan 6s linear infinite;
+}
+
+@keyframes ahn-code-swap {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ahn-code-swap { animation: ahn-code-swap 0.35s ease both; }
