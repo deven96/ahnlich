@@ -13,7 +13,7 @@ Prebuilt binaries are available from GitHub Releases.
 
 #### Download with wget:
 ```
-wget https://github.com/deven96/ahnlich/releases/download/bin%2Fai%2F0.0.0/aarch64-darwin-ahnlich-ai.tar.gz
+wget https://github.com/deven96/ahnlich/releases/download/bin%2Fai%2F0.3.0/aarch64-apple-darwin-ahnlich-ai.tar.gz
 ```
 
 #### Extract the archive:

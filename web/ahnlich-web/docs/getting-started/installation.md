@@ -50,9 +50,9 @@ extract all three binaries:
 
 ```bash
 # Download the db, ai, and cli binaries for your version/platform
-wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.1.0/x86_64-unknown-linux-gnu-ahnlich-db.tar.gz
-wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fai%2F0.1.0/x86_64-unknown-linux-gnu-ahnlich-ai.tar.gz
-wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fcli%2F0.1.0/x86_64-unknown-linux-gnu-ahnlich-cli.tar.gz
+wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.2.2/x86_64-unknown-linux-gnu-ahnlich-db.tar.gz
+wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fai%2F0.3.0/x86_64-unknown-linux-gnu-ahnlich-ai.tar.gz
+wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fcli%2F0.2.1/x86_64-unknown-linux-gnu-ahnlich-cli.tar.gz
 
 # Extract each archive
 tar -xvzf x86_64-unknown-linux-gnu-ahnlich-db.tar.gz
@@ -77,9 +77,9 @@ Then start the services (DB → `1369`, AI → `1370`):
 ```
 
 :::note
-Windows and macOS builds are available too — see the
-[repository README](https://github.com/deven96/ahnlich/blob/main/README.md) for
-platform-specific download instructions.
+**macOS** builds are available too (both Apple Silicon and Intel) — see the
+[Releases page](https://github.com/deven96/ahnlich/releases) for the matching
+`apple-darwin` archives. **Windows support is coming soon.**
 :::
 
 </TabItem>
