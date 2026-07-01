@@ -8,38 +8,85 @@
  * work well for content-centric websites.
  */
 
-/* You can override the default Infima variables here. */
+/* ==========================================================================
+ * Docs theme — neutral grayscale surfaces + a single gold accent.
+ * Inspired by the Fumadocs (zvec.org) look, mapped onto Infima variables.
+ * ======================================================================== */
 :root {
-  --ifm-color-primary: #2A8CFF;
-  --ifm-color-primary-dark: #0D7AFF;
-  --ifm-color-primary-darker: #0070F0;
-  --ifm-color-primary-darkest: #005CC7;
-  --ifm-color-primary-light: #479EFF;
-  --ifm-color-primary-lighter: #5CA8FF;
-  --ifm-color-primary-lightest: #85BEFF;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  /* gold accent */
+  --ifm-color-primary: #cc9200;
+  --ifm-color-primary-dark: #b88400;
+  --ifm-color-primary-darker: #ad7d00;
+  --ifm-color-primary-darkest: #8f6700;
+  --ifm-color-primary-light: #d9a01a;
+  --ifm-color-primary-lighter: #e0aa33;
+  --ifm-color-primary-lightest: #ecc266;
+  --ifm-code-font-size: 92%;
+  --docusaurus-highlighted-code-line-bg: rgba(204, 146, 0, 0.12);
+
+  /* neutral surfaces (zvec light tokens) */
+  --ifm-background-color: #f5f5f5;
+  --ifm-background-surface-color: #f1f1f1;
+  --ifm-color-content: #0a0a0a;
+  --ifm-color-content-secondary: #737373;
+  --ifm-navbar-background-color: #f5f5f5cc;
+  --ifm-footer-background-color: #f1f1f1;
+  --ifm-footer-color: #737373;
+  --ifm-footer-link-color: #0a0a0a;
+  --ifm-hr-border-color: #cccccc80;
+  --ifm-toc-border-color: #cccccc80;
+  --ifm-code-background: #ededed;
+  --ifm-code-color: #0a0a0a;
+
+  /* Fumadocs-ish sidebar behaviour */
+  --ifm-menu-color: #525252;
+  --ifm-menu-color-active: #0a0a0a;
+  --ifm-menu-color-background-active: #e6e6e6;
+  --ifm-menu-color-background-hover: #ededed;
+
+  /* softer geometry */
+  --ifm-global-radius: 0.6rem;
+  --ifm-card-border-radius: 0.75rem;
+  --ifm-navbar-shadow: 0 1px 0 #cccccc66;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
-  --ifm-color-primary: #00F0FF;
-  --ifm-color-primary-dark: #00D9E6;
-  --ifm-color-primary-darker: #00CCDB;
-  --ifm-color-primary-darkest: #00A8B8;
-  --ifm-color-primary-light: #1AF3FF;
-  --ifm-color-primary-lighter: #2EF5FF;
-  --ifm-color-primary-lightest: #5CF8FF;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  /* pale gold accent */
+  --ifm-color-primary: #f9ed7b;
+  --ifm-color-primary-dark: #f7e85c;
+  --ifm-color-primary-darker: #f6e54d;
+  --ifm-color-primary-darkest: #f2db1f;
+  --ifm-color-primary-light: #faf08a;
+  --ifm-color-primary-lighter: #fbf29b;
+  --ifm-color-primary-lightest: #fdf7bd;
+  --docusaurus-highlighted-code-line-bg: rgba(249, 237, 123, 0.1);
+
+  /* neutral surfaces (zvec dark tokens) */
+  --ifm-background-color: #121212;
+  --ifm-background-surface-color: #191919;
+  --ifm-color-content: #ebebeb;
+  --ifm-color-content-secondary: #b3b3b3;
+  --ifm-navbar-background-color: #121212cc;
+  --ifm-footer-background-color: #191919;
+  --ifm-footer-color: #b3b3b3;
+  --ifm-footer-link-color: #ebebeb;
+  --ifm-hr-border-color: #66666644;
+  --ifm-toc-border-color: #66666644;
+  --ifm-code-background: #212121;
+  --ifm-code-color: #ebebeb;
+
+  --ifm-menu-color: #a3a3a3;
+  --ifm-menu-color-active: #ffffff;
+  --ifm-menu-color-background-active: #292929;
+  --ifm-menu-color-background-hover: #212121;
+
+  --ifm-navbar-shadow: 0 1px 0 #66666633;
 }
 
 .footer__link-item, .navbar__link {
   display: flex;
   align-items: center;
-}
-
-.menu__list-item {
-  padding: 0.6rem 0;
 }
 
 .theme-edit-this-page {
@@ -60,19 +107,50 @@
 }
 
 
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 500;
+/* --------------------------------------------------------------------------
+ * Content typography & vertical rhythm
+ * ------------------------------------------------------------------------ */
+.markdown {
+  --ifm-h2-vertical-rhythm-top: 3;
+  --ifm-h3-vertical-rhythm-top: 2;
+  --ifm-heading-vertical-rhythm-bottom: 1;
+  --ifm-leading: 1.6rem;
+  line-height: 1.7;
 }
 
-h1 { font-size: 2.5rem; }
-h2 { font-size: 2rem; }
-h3 { font-size: 1.5rem; }
-h4 { font-size: 1.25rem; }
-h5 { font-size: 1.125rem; }
-h6 { font-size: 1rem; }
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.markdown h1 { font-size: 2.4rem; margin-bottom: 1.25rem; }
+.markdown h2 {
+  font-size: 1.75rem;
+  margin-top: 2.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+}
+.markdown h3 { font-size: 1.35rem; margin-top: 2rem; margin-bottom: 0.75rem; }
+.markdown h4 { font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.6rem; }
+.markdown h5 { font-size: 1rem; }
+.markdown h6 { font-size: 0.9rem; }
+
+/* first heading in a doc / tab panel shouldn't push a big top gap */
+.markdown > h1:first-child,
+.markdown > h2:first-child,
+.tabs-container [role='tabpanel'] > :first-child {
+  margin-top: 0;
+}
+
+/* paragraphs & spacing between block elements */
+.markdown p {
+  margin-bottom: 1.1rem;
+}
 
 .markdown a {
   text-decoration: underline;
+  text-underline-offset: 0.15em;
 }
 
 .remove-link-line a {
@@ -83,14 +161,29 @@ h6 { font-size: 1rem; }
   display: none !important;
 }
 
+/* lists: comfortable indent + item spacing */
 .markdown ul {
   list-style: disc;
-  padding-left: 1.5rem;
+  padding-left: 1.4rem;
 }
 
 .markdown ol {
   list-style: decimal;
-  padding-left: 1.5rem;
+  padding-left: 1.4rem;
+}
+
+.markdown li {
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+.markdown li > p {
+  margin-bottom: 0.5rem;
+}
+
+/* keep code chips from disrupting line rhythm inside lists/prose */
+.markdown li > code,
+.markdown p > code {
+  white-space: nowrap;
 }
 
 html.docs-doc-id-guides\/index .docItemCol_VOVn,
@@ -118,6 +211,692 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+/* ==========================================================================
+ * Fumadocs-style docs refinements
+ * ======================================================================== */
+
+/* translucent, blurred sticky navbar */
+.navbar {
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+}
+.navbar__brand:hover { opacity: 0.85; }
+
+/* Sidebar: rounded pill items, muted labels, gold active bar */
+.menu {
+  padding: 0.75rem 0.5rem;
+  font-size: 0.9rem;
+}
+.menu__list-item {
+  padding: 0.1rem 0;
+}
+.menu__link {
+  border-radius: var(--ifm-global-radius);
+  padding: 0.4rem 0.65rem;
+  line-height: 1.3;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.menu__link--active:not(.menu__link--sublist) {
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--ifm-color-primary);
+}
+.menu__list-item-collapsible {
+  border-radius: var(--ifm-global-radius);
+}
+/* section caption headers feel lighter */
+.theme-doc-sidebar-item-category > .menu__list-item-collapsible > .menu__link {
+  font-weight: 600;
+  color: var(--ifm-color-content);
+}
+
+/* Right-hand "On this page" TOC */
+.table-of-contents {
+  font-size: 0.82rem;
+  border-left: 1px solid var(--ifm-toc-border-color);
+}
+.table-of-contents__link {
+  color: var(--ifm-color-content-secondary);
+  transition: color 0.15s ease;
+}
+.table-of-contents__link:hover,
+.table-of-contents__link--active {
+  color: var(--ifm-color-content);
+}
+.table-of-contents__link--active {
+  font-weight: 600;
+}
+
+/* Content: tighter, more readable measure */
+.theme-doc-markdown {
+  font-size: 1rem;
+  line-height: 1.7;
+}
+article header h1 {
+  letter-spacing: -0.02em;
+}
+
+/* Cards (doc card lists, next-steps grids) */
+.card {
+  border: 1px solid var(--ifm-toc-border-color);
+  background: var(--ifm-background-surface-color);
+  border-radius: var(--ifm-card-border-radius);
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card:hover {
+  border-color: var(--ifm-color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+ * Code blocks — Fumadocs / Shiki inspired: clean chrome, gutter line numbers,
+ * hover copy button, gold left-border on highlighted lines.
+ * ------------------------------------------------------------------------ */
+:root {
+  --code-header-bg: #ededed;
+  --code-line-number: #a3a3a3;
+}
+[data-theme='dark'] {
+  --code-header-bg: #1c1c1c;
+  --code-line-number: #5c5c5c;
+}
+
+/* The wrapper owns the outer frame so header + code read as one window */
+.ahn-codeblock {
+  position: relative;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: var(--ifm-card-border-radius);
+  background: var(--ifm-background-surface-color);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 24px -18px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+/* Inner Docusaurus container loses its own frame — the wrapper provides it */
+.ahn-codeblock div[class^='codeBlockContainer'] {
+  border: 0;
+  border-radius: 0 !important;
+  box-shadow: none;
+  margin: 0;
+  background: transparent;
+}
+
+/* Window header: our own bar (untitled) + Docusaurus title bar (titled) */
+.ahn-codeblock__header,
+.ahn-codeblock div[class^='codeBlockTitle'] {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.9rem;
+  background: var(--code-header-bg);
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ifm-color-content-secondary);
+  min-height: 2.5rem;
+}
+
+/* traffic-light dots — before the title text too */
+.ahn-codeblock__dots {
+  display: inline-flex;
+  gap: 0.4rem;
+  flex: none;
+}
+.ahn-codeblock__dots > span {
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  background: #ff5f56;
+}
+.ahn-codeblock__dots > span:nth-child(2) { background: #ffbd2e; }
+.ahn-codeblock__dots > span:nth-child(3) { background: #27c93f; }
+
+.ahn-codeblock div[class^='codeBlockTitle']::before {
+  content: '';
+  flex: none;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  background: #ff5f56;
+  box-shadow: 1.12rem 0 #ffbd2e, 2.24rem 0 #27c93f;
+  margin-right: 2.24rem;
+}
+
+/* language label pushed to the right edge of the header */
+.ahn-codeblock__lang {
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--ifm-color-content-secondary);
+  opacity: 0.75;
+}
+
+/* Code content */
+.ahn-codeblock pre[class^='codeBlock'],
+.ahn-codeblock div[class^='codeBlockContent'] pre {
+  font-size: 0.86rem;
+  line-height: 1.65;
+}
+
+/* Highlighted lines: full-bleed tint + gold left bar */
+.theme-code-block-highlighted-line {
+  background-color: var(--docusaurus-highlighted-code-line-bg);
+  box-shadow: inset 3px 0 0 var(--ifm-color-primary);
+}
+
+/* Line-number gutter: distinct column with a hairline separator */
+.ahn-codeblock span[class*='codeLineNumber'] {
+  color: var(--code-line-number);
+  background: var(--code-header-bg) !important;
+  border-right: 1px solid var(--ifm-toc-border-color);
+  min-width: 2.6rem;
+  user-select: none;
+}
+.ahn-codeblock span[class*='codeLineNumber']::before {
+  opacity: 1;
+  color: var(--code-line-number);
+}
+.ahn-codeblock div[class^='codeBlockContent'] > pre {
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+/* Copy button: subtle chip, reveals on hover */
+.ahn-codeblock button[class*='copyButton'] {
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.ahn-codeblock:hover button[class*='copyButton'] {
+  opacity: 1;
+}
+.ahn-codeblock button[class*='copyButton']:hover {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+}
+
+/* --------------------------------------------------------------------------
+ * Source code viewer — shares the terminal's dark-teal surface, spacing and
+ * token palette (keeps its window header + line-number gutter).
+ * ------------------------------------------------------------------------ */
+.ahn-codeblock:not(.ahn-codeblock--terminal) {
+  --code-bg: #0b1f28;
+  --code-header: #0a1a22;
+  --code-text: #e4eef2;
+  --code-muted: #6d8b99;
+  --prism-background-color: var(--code-bg);
+  --prism-color: var(--code-text);
+  background: var(--code-bg);
+  border-color: #ffffff14;
+}
+
+/* window header + title bar */
+.ahn-codeblock:not(.ahn-codeblock--terminal) .ahn-codeblock__header,
+.ahn-codeblock:not(.ahn-codeblock--terminal) div[class^='codeBlockTitle'] {
+  background: var(--code-header);
+  border-bottom: 1px solid #ffffff12;
+  color: var(--code-muted);
+}
+.ahn-codeblock:not(.ahn-codeblock--terminal) .ahn-codeblock__lang {
+  color: var(--code-muted);
+}
+
+/* code surface — same spacing as the terminal */
+.ahn-codeblock:not(.ahn-codeblock--terminal) pre[class^='codeBlock'],
+.ahn-codeblock:not(.ahn-codeblock--terminal) div[class^='codeBlockContent'] pre {
+  background: var(--code-bg) !important;
+  color: var(--code-text);
+  padding: 0.9rem 1.1rem;
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+
+/* line-number gutter tuned to the dark surface */
+.ahn-codeblock:not(.ahn-codeblock--terminal) span[class*='codeLineNumber'] {
+  background: var(--code-header) !important;
+  border-right: 1px solid #ffffff12;
+  color: #4f6b78;
+}
+.ahn-codeblock:not(.ahn-codeblock--terminal) span[class*='codeLineNumber']::before {
+  color: #4f6b78;
+  opacity: 1;
+}
+
+/* token palette matched to the bash terminal (override prism inline colours) */
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.comment,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.prolog,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.cdata,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.doctype {
+  color: var(--code-muted) !important;
+  font-style: italic;
+}
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.keyword,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.boolean,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.constant,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.symbol,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.atrule,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.builtin,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.selector {
+  color: #6fe0cd !important;
+}
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.string,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.char,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.attr-value,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.regex,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.url {
+  color: #9fd18b !important;
+}
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.function,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.class-name,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.function-name {
+  color: #82aaff !important;
+}
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.number,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.property,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.tag,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.attr-name {
+  color: #e6c07b !important;
+}
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.operator,
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.punctuation {
+  color: #9fb4bf !important;
+  background: transparent;
+}
+.ahn-codeblock:not(.ahn-codeblock--terminal) .token.namespace {
+  opacity: 0.7;
+}
+
+/* copy button on the dark code surface */
+.ahn-codeblock:not(.ahn-codeblock--terminal) button[class*='copyButton'] {
+  background: #ffffff0d;
+  border-color: #ffffff1f;
+  color: var(--code-text);
+}
+.ahn-codeblock:not(.ahn-codeblock--terminal) button[class*='copyButton']:hover {
+  border-color: #35c9b8;
+  color: #35c9b8;
+}
+
+/* --------------------------------------------------------------------------
+ * Terminal variant — shell/command blocks render as a clean, chromeless
+ * prompt "pill": dark surface, a teal $ prompt per command, light mono text.
+ * Custom markup lives in the CodeBlock swizzle (src/theme/CodeBlock).
+ * ------------------------------------------------------------------------ */
+.ahn-codeblock--terminal {
+  --terminal-bg: #0b1f28;
+  --terminal-text: #e4eef2;
+  --terminal-muted: #6d8b99;
+  --terminal-prompt: #35c9b8;
+  position: relative;
+  border: 1px solid #ffffff14;
+  border-radius: var(--ifm-card-border-radius);
+  background: var(--terminal-bg);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.ahn-codeblock--terminal .ahn-terminal {
+  margin: 0;
+  padding: 0.9rem 3rem 0.9rem 1.1rem;
+  background: var(--terminal-bg);
+  color: var(--terminal-text);
+  font-size: 0.86rem;
+  line-height: 1.7;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff26 transparent;
+}
+.ahn-codeblock--terminal .ahn-terminal::-webkit-scrollbar {
+  height: 8px;
+}
+.ahn-codeblock--terminal .ahn-terminal::-webkit-scrollbar-thumb {
+  background: #ffffff26;
+  border-radius: 8px;
+}
+.ahn-codeblock--terminal .ahn-terminal::-webkit-scrollbar-thumb:hover {
+  background: #ffffff40;
+}
+
+/* each source line; prompt + text laid out in a row */
+.ahn-terminal__line {
+  display: block;
+  white-space: pre;
+}
+.ahn-terminal__prompt {
+  color: var(--terminal-prompt);
+  font-weight: 600;
+  user-select: none;
+  margin-right: 0.6rem;
+}
+/* keep wrapped/continuation text aligned under the command (past the prompt) */
+.ahn-terminal__text {
+  color: var(--terminal-text);
+}
+.ahn-terminal__line--comment .ahn-terminal__text {
+  color: var(--terminal-muted);
+  font-style: italic;
+}
+
+/* bash token colours */
+.ahn-terminal__cmd { color: #6fe0cd; font-weight: 600; }
+.ahn-terminal__flag { color: #e6c07b; }
+.ahn-terminal__str { color: #9fd18b; }
+.ahn-terminal__url { color: #82aaff; }
+.ahn-terminal__op { color: var(--terminal-muted); }
+.ahn-terminal__txt { color: var(--terminal-text); }
+/* comment/continuation lines have no prompt — indent to align with commands */
+.ahn-terminal__line:not(:has(.ahn-terminal__prompt)) .ahn-terminal__text {
+  padding-left: 1.1rem;
+}
+
+/* copy button — subtle chip, reveals on hover, teal on interaction */
+.ahn-terminal__copy {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
+  cursor: pointer;
+  color: var(--terminal-text);
+  background: #ffffff0d;
+  border: 1px solid #ffffff1f;
+  border-radius: 0.5rem;
+  opacity: 0.4;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.ahn-codeblock--terminal:hover .ahn-terminal__copy,
+.ahn-terminal__copy:focus-visible {
+  opacity: 1;
+}
+.ahn-terminal__copy:hover {
+  color: var(--terminal-prompt);
+  border-color: var(--terminal-prompt);
+}
+
+/* Inline code: rounded chip */
+code {
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 0.4rem;
+  padding: 0.15rem 0.35rem;
+}
+.theme-code-block code,
+a code {
+  border: 0;
+  padding: revert;
+}
+
+/* Admonitions: flatter, Fumadocs-like callouts */
+.theme-admonition {
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: var(--ifm-card-border-radius);
+  box-shadow: none;
+}
+
+/* Breadcrumbs & pagination polish */
+.breadcrumbs__link {
+  border-radius: var(--ifm-global-radius);
+}
+.pagination-nav__link {
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: var(--ifm-card-border-radius);
+  transition: border-color 0.15s ease;
+}
+.pagination-nav__link:hover {
+  border-color: var(--ifm-color-primary);
+}
+
+/* Buttons using the accent stay readable on pale-gold dark mode */
+[data-theme='dark'] .button--primary,
+[data-theme='dark'] .navbar__link--active {
+  color: #171717;
+}
+
+/* --------------------------------------------------------------------------
+ * Tables — modern, rounded, zebra-striped with a distinct header & row hover.
+ * Corners are rounded on the edge *cells* (not via overflow:hidden) so the
+ * frame stays crisp while wide tables can still scroll horizontally.
+ * ------------------------------------------------------------------------ */
+.markdown table {
+  --table-radius: var(--ifm-card-border-radius);
+  display: table;
+  width: 100%;
+  table-layout: auto;
+  margin: 0 0 1.5rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: var(--table-radius);
+  font-size: 0.9rem;
+}
+
+/* header */
+.markdown table thead tr {
+  background: var(--code-header-bg);
+  border: 0;
+}
+.markdown table th {
+  border: 0;
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ifm-color-content-secondary);
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* body cells */
+.markdown table td {
+  border: 0;
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+  padding: 0.7rem 1rem;
+  vertical-align: top;
+}
+
+/* zebra striping + row hover */
+.markdown table tbody tr {
+  background: transparent;
+  transition: background-color 0.12s ease;
+}
+.markdown table tbody tr:nth-child(2n) {
+  background: color-mix(in srgb, var(--ifm-color-content) 3%, transparent);
+}
+.markdown table tbody tr:hover {
+  background: color-mix(in srgb, var(--ifm-color-primary) 8%, transparent);
+}
+
+/* last row sits flush with the frame — no dangling border */
+.markdown table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* round the four corner cells so the header/body match the frame radius */
+.markdown table thead tr:first-child th:first-child {
+  border-top-left-radius: var(--table-radius);
+}
+.markdown table thead tr:first-child th:last-child {
+  border-top-right-radius: var(--table-radius);
+}
+.markdown table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: var(--table-radius);
+}
+.markdown table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: var(--table-radius);
+}
+
+/* first column reads as a row label */
+.markdown table tbody td:first-child {
+  font-weight: 500;
+  color: var(--ifm-color-content);
+}
+
+/* inline code inside cells stays compact */
+.markdown table td code,
+.markdown table th code {
+  white-space: nowrap;
+  font-size: 0.82em;
+}
+
+/* --------------------------------------------------------------------------
+ * Checklist — card items with a green check badge (wrap a list in
+ * <div className="ahn-checklist"> … </div>)
+ * ------------------------------------------------------------------------ */
+.ahn-checklist > ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.ahn-checklist > ul > li {
+  position: relative;
+  margin: 0;
+  padding: 0.9rem 1.1rem 0.9rem 3rem;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: var(--ifm-card-border-radius);
+  background: var(--ifm-background-surface-color);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.ahn-checklist > ul > li:hover {
+  border-color: color-mix(in srgb, #27c93f 55%, var(--ifm-toc-border-color));
+  transform: translateY(-1px);
+}
+/* green check badge */
+.ahn-checklist > ul > li::before {
+  content: '✓';
+  position: absolute;
+  left: 0.9rem;
+  top: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, #27c93f 18%, transparent);
+  color: #27c93f;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+}
+/* nested sub-steps (e.g. per-method upgrades) */
+.ahn-checklist > ul > li > ul {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.ahn-checklist > ul > li > ul > li {
+  position: relative;
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.92rem;
+  color: var(--ifm-color-content-secondary);
+}
+.ahn-checklist > ul > li > ul > li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.65em;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: var(--ifm-color-primary);
+}
+
+/* --------------------------------------------------------------------------
+ * Tabs (language / agent switchers) — Fumadocs-style underlined tabs
+ * ------------------------------------------------------------------------ */
+.tabs-container {
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: var(--ifm-card-border-radius);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+.tabs {
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem 0;
+  margin: 0;
+  background: var(--code-header-bg);
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+}
+.tabs__item {
+  border: 0;
+  border-radius: var(--ifm-global-radius) var(--ifm-global-radius) 0 0;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ifm-color-content-secondary);
+  background: transparent;
+  position: relative;
+  transition: color 0.15s ease;
+}
+.tabs__item:hover {
+  color: var(--ifm-color-content);
+  background: transparent;
+}
+.tabs__item--active {
+  color: var(--ifm-color-content);
+}
+.tabs__item--active::after {
+  content: '';
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ifm-color-primary);
+}
+/* content area padding, and let inner blocks breathe evenly */
+.tabs-container > div[class*='margin-top'] {
+  margin-top: 0 !important;
+  padding: 1.25rem 1.25rem 1rem;
+}
+/* even rhythm between stacked items inside a tab panel */
+.tabs-container [role='tabpanel'] > * {
+  margin-bottom: 1rem;
+}
+.tabs-container [role='tabpanel'] > *:last-child {
+  margin-bottom: 0;
+}
+/* sub-step headings (#### Create a Store …) inside tabs */
+.tabs-container [role='tabpanel'] h4 {
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.tabs-container [role='tabpanel'] > h4:first-child {
+  margin-top: 0;
+}
+
+/* --------------------------------------------------------------------------
+ * Admonitions / callouts — consistent margins & padding
+ * ------------------------------------------------------------------------ */
+.theme-admonition {
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.15rem;
+}
+.theme-admonition p:last-child {
+  margin-bottom: 0;
+}
+
+/* code blocks: consistent breathing room outside tabs */
+.ahn-codeblock {
+  margin-bottom: 1.25rem;
 }
 
 /* ---- Landing page modern flourishes ---- */
