@@ -2745,3 +2745,450 @@ async fn test_ai_schema_drop_public_schema_fails() {
         status.message()
     );
 }
+
+#[tokio::test]
+async fn test_ai_upsert_value_only() {
+    let ai_address = provision_test_servers().await;
+    let ai_client = AiServiceClient::connect(format!("http://{}", ai_address))
+        .await
+        .expect("Could not connect to AI service");
+
+    let store_name = StoreName {
+        value: "ai_upsert_value_store".to_string(),
+    };
+
+    // Create store
+    ai_client
+        .clone()
+        .create_store(ai_query_types::CreateStore {
+            store: store_name.value.clone(),
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec!["filename".to_string(), "tags".to_string()],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: false,
+            schema: None,
+        })
+        .await
+        .expect("Could not create store");
+
+    // Insert initial entry
+    let set_response = ai_client
+        .clone()
+        .set(ai_query_types::Set {
+            store: store_name.value.clone(),
+            inputs: vec![AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("A cute cat photo".to_string())),
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::from_iter([
+                        (
+                            "filename".to_string(),
+                            MetadataValue {
+                                value: Some(MValue::RawString("photo.jpg".to_string())),
+                            },
+                        ),
+                        (
+                            "tags".to_string(),
+                            MetadataValue {
+                                value: Some(MValue::RawString("cat".to_string())),
+                            },
+                        ),
+                    ]),
+                }),
+            }],
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            execution_provider: None,
+            model_params: HashMap::new(),
+            schema: None,
+        })
+        .await
+        .expect("Could not set entry")
+        .into_inner();
+
+    assert_eq!(
+        set_response.upsert,
+        Some(StoreUpsert {
+            inserted: 1,
+            updated: 0
+        })
+    );
+
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "filename".to_string(),
+                value: Some(MetadataValue {
+                    value: Some(MValue::RawString("photo.jpg".to_string())),
+                }),
+            })),
+        })),
+    };
+
+    // Upsert to update metadata only
+    let upsert_response = ai_client
+        .clone()
+        .upsert(ai_query_types::Upsert {
+            store: store_name.value.clone(),
+            condition: Some(condition.clone()),
+            new_input: None,
+            new_value: Some(StoreValue {
+                value: HashMap::from_iter([(
+                    "tags".to_string(),
+                    MetadataValue {
+                        value: Some(MValue::RawString("cat,outdoors".to_string())),
+                    },
+                )]),
+            }),
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            execution_provider: None,
+            model_params: HashMap::new(),
+            schema: None,
+        })
+        .await
+        .expect("Could not upsert entry")
+        .into_inner();
+
+    assert_eq!(
+        upsert_response.upsert,
+        Some(StoreUpsert {
+            inserted: 0,
+            updated: 1
+        }),
+        "UPSERT should report 1 update, 0 insertions"
+    );
+
+    // Verify metadata was merged (AI always merges)
+    let get_response = ai_client
+        .clone()
+        .get_pred(ai_query_types::GetPred {
+            store: store_name.value.clone(),
+            condition: Some(condition),
+            schema: None,
+        })
+        .await
+        .expect("Could not get entries")
+        .into_inner();
+
+    assert_eq!(get_response.entries.len(), 1);
+    let entry = &get_response.entries[0];
+    assert_eq!(
+        entry.value.as_ref().unwrap().value["filename"].value,
+        Some(MValue::RawString("photo.jpg".to_string())),
+        "Original filename should be preserved"
+    );
+    assert_eq!(
+        entry.value.as_ref().unwrap().value["tags"].value,
+        Some(MValue::RawString("cat,outdoors".to_string())),
+        "Tags should be updated via merge"
+    );
+}
+
+#[tokio::test]
+async fn test_ai_upsert_input_only() {
+    let ai_address = provision_test_servers().await;
+    let ai_client = AiServiceClient::connect(format!("http://{}", ai_address))
+        .await
+        .expect("Could not connect to AI service");
+
+    let store_name = StoreName {
+        value: "ai_upsert_input_store".to_string(),
+    };
+
+    ai_client
+        .clone()
+        .create_store(ai_query_types::CreateStore {
+            store: store_name.value.clone(),
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec!["id".to_string()],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: false,
+            schema: None,
+        })
+        .await
+        .expect("Could not create store");
+
+    ai_client
+        .clone()
+        .set(ai_query_types::Set {
+            store: store_name.value.clone(),
+            inputs: vec![AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("Original text".to_string())),
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::from_iter([(
+                        "id".to_string(),
+                        MetadataValue {
+                            value: Some(MValue::RawString("123".to_string())),
+                        },
+                    )]),
+                }),
+            }],
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            execution_provider: None,
+            model_params: HashMap::new(),
+            schema: None,
+        })
+        .await
+        .expect("Could not set entry");
+
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "id".to_string(),
+                value: Some(MetadataValue {
+                    value: Some(MValue::RawString("123".to_string())),
+                }),
+            })),
+        })),
+    };
+
+    // Upsert to update input only (re-embed)
+    let upsert_response = ai_client
+        .clone()
+        .upsert(ai_query_types::Upsert {
+            store: store_name.value.clone(),
+            condition: Some(condition.clone()),
+            new_input: Some(StoreInput {
+                value: Some(Value::RawString("Updated text".to_string())),
+            }),
+            new_value: None,
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            execution_provider: None,
+            model_params: HashMap::new(),
+            schema: None,
+        })
+        .await
+        .expect("Could not upsert entry")
+        .into_inner();
+
+    assert_eq!(
+        upsert_response.upsert,
+        Some(StoreUpsert {
+            inserted: 0,
+            updated: 1
+        }),
+        "UPSERT should report 1 update, 0 insertions"
+    );
+
+    let get_response = ai_client
+        .clone()
+        .get_pred(ai_query_types::GetPred {
+            store: store_name.value.clone(),
+            condition: Some(condition),
+            schema: None,
+        })
+        .await
+        .expect("Could not get entries")
+        .into_inner();
+
+    assert_eq!(get_response.entries.len(), 1);
+    let entry = &get_response.entries[0];
+    assert_eq!(
+        entry.value.as_ref().unwrap().value["id"].value,
+        Some(MValue::RawString("123".to_string())),
+        "Metadata should be preserved when only updating input"
+    );
+}
+
+#[tokio::test]
+async fn test_ai_upsert_both_input_and_value() {
+    let ai_address = provision_test_servers().await;
+    let ai_client = AiServiceClient::connect(format!("http://{}", ai_address))
+        .await
+        .expect("Could not connect to AI service");
+
+    let store_name = StoreName {
+        value: "ai_upsert_both_store".to_string(),
+    };
+
+    ai_client
+        .clone()
+        .create_store(ai_query_types::CreateStore {
+            store: store_name.value.clone(),
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec!["id".to_string(), "status".to_string()],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: false,
+            schema: None,
+        })
+        .await
+        .expect("Could not create store");
+
+    ai_client
+        .clone()
+        .set(ai_query_types::Set {
+            store: store_name.value.clone(),
+            inputs: vec![AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("Original text".to_string())),
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::from_iter([
+                        (
+                            "id".to_string(),
+                            MetadataValue {
+                                value: Some(MValue::RawString("123".to_string())),
+                            },
+                        ),
+                        (
+                            "status".to_string(),
+                            MetadataValue {
+                                value: Some(MValue::RawString("draft".to_string())),
+                            },
+                        ),
+                    ]),
+                }),
+            }],
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            execution_provider: None,
+            model_params: HashMap::new(),
+            schema: None,
+        })
+        .await
+        .expect("Could not set entry");
+
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "id".to_string(),
+                value: Some(MetadataValue {
+                    value: Some(MValue::RawString("123".to_string())),
+                }),
+            })),
+        })),
+    };
+
+    // Upsert both input and value
+    let upsert_response = ai_client
+        .clone()
+        .upsert(ai_query_types::Upsert {
+            store: store_name.value.clone(),
+            condition: Some(condition.clone()),
+            new_input: Some(StoreInput {
+                value: Some(Value::RawString("Updated text".to_string())),
+            }),
+            new_value: Some(StoreValue {
+                value: HashMap::from_iter([(
+                    "status".to_string(),
+                    MetadataValue {
+                        value: Some(MValue::RawString("published".to_string())),
+                    },
+                )]),
+            }),
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            execution_provider: None,
+            model_params: HashMap::new(),
+            schema: None,
+        })
+        .await
+        .expect("Could not upsert entry")
+        .into_inner();
+
+    assert_eq!(
+        upsert_response.upsert,
+        Some(StoreUpsert {
+            inserted: 0,
+            updated: 1
+        }),
+        "UPSERT should report 1 update, 0 insertions"
+    );
+
+    let get_response = ai_client
+        .clone()
+        .get_pred(ai_query_types::GetPred {
+            store: store_name.value.clone(),
+            condition: Some(condition),
+            schema: None,
+        })
+        .await
+        .expect("Could not get entries")
+        .into_inner();
+
+    assert_eq!(get_response.entries.len(), 1);
+    let entry = &get_response.entries[0];
+    assert_eq!(
+        entry.value.as_ref().unwrap().value["id"].value,
+        Some(MValue::RawString("123".to_string())),
+        "ID should be preserved (merged)"
+    );
+    assert_eq!(
+        entry.value.as_ref().unwrap().value["status"].value,
+        Some(MValue::RawString("published".to_string())),
+        "Status should be updated"
+    );
+}
+
+#[tokio::test]
+async fn test_ai_upsert_error_neither_input_nor_value() {
+    let ai_address = provision_test_servers().await;
+    let ai_client = AiServiceClient::connect(format!("http://{}", ai_address))
+        .await
+        .expect("Could not connect to AI service");
+
+    let store_name = StoreName {
+        value: "ai_upsert_error_store".to_string(),
+    };
+
+    ai_client
+        .clone()
+        .create_store(ai_query_types::CreateStore {
+            store: store_name.value.clone(),
+            query_model: AiModel::AllMiniLmL6V2 as i32,
+            index_model: AiModel::AllMiniLmL6V2 as i32,
+            predicates: vec!["id".to_string()],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: false,
+            schema: None,
+        })
+        .await
+        .expect("Could not create store");
+
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "id".to_string(),
+                value: Some(MetadataValue {
+                    value: Some(MValue::RawString("123".to_string())),
+                }),
+            })),
+        })),
+    };
+
+    // Upsert with neither new_input nor new_value should fail
+    let result = ai_client
+        .clone()
+        .upsert(ai_query_types::Upsert {
+            store: store_name.value.clone(),
+            condition: Some(condition),
+            new_input: None,
+            new_value: None,
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            execution_provider: None,
+            model_params: HashMap::new(),
+            schema: None,
+        })
+        .await;
+
+    assert!(
+        result.is_err(),
+        "UPSERT should fail when both new_input and new_value are None"
+    );
+    let status = result.unwrap_err();
+    assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    assert!(
+        status
+            .message()
+            .contains("UPSERT requires at least one of new_input or new_value"),
+        "Error message should mention requirement: {}",
+        status.message()
+    );
+}

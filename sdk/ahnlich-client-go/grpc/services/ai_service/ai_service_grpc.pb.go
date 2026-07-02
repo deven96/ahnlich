@@ -32,6 +32,7 @@ const (
 	AIService_GetSimN_FullMethodName                       = "/services.ai_service.AIService/GetSimN"
 	AIService_GetStore_FullMethodName                      = "/services.ai_service.AIService/GetStore"
 	AIService_Set_FullMethodName                           = "/services.ai_service.AIService/Set"
+	AIService_Upsert_FullMethodName                        = "/services.ai_service.AIService/Upsert"
 	AIService_DropPredIndex_FullMethodName                 = "/services.ai_service.AIService/DropPredIndex"
 	AIService_DropNonLinearAlgorithmIndex_FullMethodName   = "/services.ai_service.AIService/DropNonLinearAlgorithmIndex"
 	AIService_DelKey_FullMethodName                        = "/services.ai_service.AIService/DelKey"
@@ -62,6 +63,7 @@ type AIServiceClient interface {
 	GetStore(ctx context.Context, in *query.GetStore, opts ...grpc.CallOption) (*server.AIStoreInfo, error)
 	// * Update methods *
 	Set(ctx context.Context, in *query.Set, opts ...grpc.CallOption) (*server.Set, error)
+	Upsert(ctx context.Context, in *query.Upsert, opts ...grpc.CallOption) (*server.Set, error)
 	// * Delete methods *
 	DropPredIndex(ctx context.Context, in *query.DropPredIndex, opts ...grpc.CallOption) (*server.Del, error)
 	DropNonLinearAlgorithmIndex(ctx context.Context, in *query.DropNonLinearAlgorithmIndex, opts ...grpc.CallOption) (*server.Del, error)
@@ -162,6 +164,16 @@ func (c *aIServiceClient) Set(ctx context.Context, in *query.Set, opts ...grpc.C
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(server.Set)
 	err := c.cc.Invoke(ctx, AIService_Set_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) Upsert(ctx context.Context, in *query.Upsert, opts ...grpc.CallOption) (*server.Set, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(server.Set)
+	err := c.cc.Invoke(ctx, AIService_Upsert_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -313,6 +325,7 @@ type AIServiceServer interface {
 	GetStore(context.Context, *query.GetStore) (*server.AIStoreInfo, error)
 	// * Update methods *
 	Set(context.Context, *query.Set) (*server.Set, error)
+	Upsert(context.Context, *query.Upsert) (*server.Set, error)
 	// * Delete methods *
 	DropPredIndex(context.Context, *query.DropPredIndex) (*server.Del, error)
 	DropNonLinearAlgorithmIndex(context.Context, *query.DropNonLinearAlgorithmIndex) (*server.Del, error)
@@ -362,6 +375,9 @@ func (UnimplementedAIServiceServer) GetStore(context.Context, *query.GetStore) (
 }
 func (UnimplementedAIServiceServer) Set(context.Context, *query.Set) (*server.Set, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
+}
+func (UnimplementedAIServiceServer) Upsert(context.Context, *query.Upsert) (*server.Set, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Upsert not implemented")
 }
 func (UnimplementedAIServiceServer) DropPredIndex(context.Context, *query.DropPredIndex) (*server.Del, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DropPredIndex not implemented")
@@ -563,6 +579,24 @@ func _AIService_Set_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AIServiceServer).Set(ctx, req.(*query.Set))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_Upsert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(query.Upsert)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).Upsert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_Upsert_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).Upsert(ctx, req.(*query.Upsert))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -839,6 +873,10 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Set",
 			Handler:    _AIService_Set_Handler,
+		},
+		{
+			MethodName: "Upsert",
+			Handler:    _AIService_Upsert_Handler,
 		},
 		{
 			MethodName: "DropPredIndex",

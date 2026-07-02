@@ -413,6 +413,95 @@ impl StoreHandler {
         Ok(upsert)
     }
 
+    // Matches UPSERT - modifies a single entry in a store when it matches certain predicate
+    #[tracing::instrument(skip(self, new_key, new_value))]
+    pub fn upsert(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+        new_key: Option<StoreKey>,
+        new_value: Option<StoreValue>,
+        condition: &PredicateCondition,
+        merge_metadata: bool,
+    ) -> Result<StoreUpsert, ServerError> {
+        if new_key.is_none() && new_value.is_none() {
+            return Err(ServerError::InvalidArgument(
+                "UPSERT requires at least one of new_key or new_value".to_string(),
+            ));
+        }
+
+        let store = self.get(store_name, schema)?;
+
+        let initial_matches = store.predicate_indices.matches(condition, &store)?;
+        if initial_matches.len() != 1 {
+            return Err(ServerError::UpsertPredicateConditionMismatch(
+                initial_matches.len(),
+            ));
+        }
+
+        let mut possible_matches = store.get(initial_matches.into_iter());
+        if possible_matches.len() != 1 {
+            return Err(ServerError::UpsertPredicateConditionMismatch(
+                possible_matches.len(),
+            ));
+        }
+        let (mut key, value) = possible_matches
+            .pop()
+            .ok_or(ServerError::UpsertPredicateConditionMismatch(0))?;
+
+        let revalidate_matches = store.predicate_indices.matches(condition, &store)?;
+        if revalidate_matches.len() != 1 {
+            return Err(ServerError::UpsertPredicateConditionMismatch(
+                revalidate_matches.len(),
+            ));
+        }
+
+        store.delete(vec![StoreKeyId::from(&key)].into_iter());
+        self.set_write_flag();
+
+        if let Some(new_key) = new_key {
+            key = new_key.key.into();
+        }
+
+        let final_value = if let Some(new_value_data) = new_value {
+            if merge_metadata {
+                // Only clone if we actually need to merge
+                let mut merged = Arc::try_unwrap(value).unwrap_or_else(|arc| (*arc).clone());
+                for (k, v) in new_value_data.value.into_iter() {
+                    merged.value.insert(k, v);
+                }
+                merged
+            } else {
+                new_value_data
+            }
+        } else {
+            // No new value provided, unwrap existing or clone if still referenced
+            Arc::try_unwrap(value).unwrap_or_else(|arc| (*arc).clone())
+        };
+
+        let add_result = store.add(vec![(
+            StoreKey {
+                // Try to unwrap the Arc if possible, otherwise clone the vector
+                key: Arc::try_unwrap(Arc::clone(&key.0)).unwrap_or_else(|arc| (*arc).clone()),
+            },
+            final_value,
+        )])?;
+        self.set_write_flag();
+
+        // After delete, add() must insert exactly 1 entry
+        if add_result.inserted != 1 || add_result.updated != 0 {
+            return Err(ServerError::InternalError(format!(
+                "UPSERT invariant violated: inserted={} updated={}",
+                add_result.inserted, add_result.updated
+            )));
+        }
+
+        Ok(StoreUpsert {
+            inserted: 0,
+            updated: 1,
+        })
+    }
+
     /// matches LISTSTORES - to return statistics of stores in a schema.
     /// When schema is None, defaults to the public schema.
     #[tracing::instrument(skip(self))]

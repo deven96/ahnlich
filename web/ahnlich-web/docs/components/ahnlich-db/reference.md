@@ -96,6 +96,26 @@ SET <key> [<float>, <float>, ...] WITH { "<meta_key>": "<meta_value>", ... } IN 
 SET doc1 [0.25, 0.88] WITH { "category": "news", "lang": "en" } IN my_store
 ```
 
+#### UPSERT
+Update a single entry matching a predicate condition. Errors if 0 or multiple entries match.
+```
+UPSERT [MERGE] [KEY <vector>] [VALUE <metadata>] IN <store> [SCHEMA <schema>] WHERE (<predicate>)
+```
+
+**Parameters:**
+- `MERGE` (optional): Merge new metadata into existing (default: replace)
+- `KEY <vector>` (optional): New vector to replace existing key
+- `VALUE <metadata>` (optional): Metadata to update
+- `WHERE <predicate>`: Condition that must match exactly one entry
+
+#### Examples:
+```
+UPSERT VALUE {status: published} IN articles WHERE (id = 123)
+UPSERT MERGE VALUE {updated_at: 2026-07-02} IN articles WHERE (id = 123)
+UPSERT KEY [0.1, 0.2, 0.3] IN embeddings WHERE (doc_id = abc)
+UPSERT MERGE KEY [0.5, 0.6] VALUE {version: 2} IN vectors SCHEMA analytics WHERE (version = 1)
+```
+
 #### DELETE KEY
 Delete a vector by key.
 ```

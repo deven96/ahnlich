@@ -23,6 +23,7 @@ service DBService {
 
   /** Update methods **/
   rpc Set(db.query.Set) returns (db.server.Set);
+  rpc Upsert(db.query.Upsert) returns (db.server.Set);
 
   /** Delete methods **/
   rpc DropPredIndex(db.query.DropPredIndex) returns (db.server.Del);

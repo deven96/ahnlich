@@ -1139,6 +1139,96 @@ func (x *Set) GetSchema() string {
 	return ""
 }
 
+// Updates a single entry matching the predicate condition with new key and/or value.
+// Validates that exactly one entry matches the condition before and after update.
+// Supports partial updates with metadata merging when merge_metadata is true.
+type Upsert struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Store         string                         `protobuf:"bytes,1,opt,name=store,proto3" json:"store,omitempty"`                                       // The name of the store.
+	Condition     *predicates.PredicateCondition `protobuf:"bytes,2,opt,name=condition,proto3" json:"condition,omitempty"`                               // The condition to match exactly one entry.
+	NewKey        *keyval.StoreKey               `protobuf:"bytes,3,opt,name=new_key,json=newKey,proto3,oneof" json:"new_key,omitempty"`                 // Optional new key to update. If None, keeps original key.
+	NewValue      *keyval.StoreValue             `protobuf:"bytes,4,opt,name=new_value,json=newValue,proto3,oneof" json:"new_value,omitempty"`           // Optional new value to update. If None, keeps original value.
+	MergeMetadata bool                           `protobuf:"varint,5,opt,name=merge_metadata,json=mergeMetadata,proto3" json:"merge_metadata,omitempty"` // If true, merges new_value into existing metadata. If false, replaces entirely.
+	Schema        *string                        `protobuf:"bytes,6,opt,name=schema,proto3,oneof" json:"schema,omitempty"`                               // Optional schema/namespace for the store. Defaults to "public".
+}
+
+func (x *Upsert) Reset() {
+	*x = Upsert{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_db_query_proto_msgTypes[18]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Upsert) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Upsert) ProtoMessage() {}
+
+func (x *Upsert) ProtoReflect() protoreflect.Message {
+	mi := &file_db_query_proto_msgTypes[18]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Upsert.ProtoReflect.Descriptor instead.
+func (*Upsert) Descriptor() ([]byte, []int) {
+	return file_db_query_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *Upsert) GetStore() string {
+	if x != nil {
+		return x.Store
+	}
+	return ""
+}
+
+func (x *Upsert) GetCondition() *predicates.PredicateCondition {
+	if x != nil {
+		return x.Condition
+	}
+	return nil
+}
+
+func (x *Upsert) GetNewKey() *keyval.StoreKey {
+	if x != nil {
+		return x.NewKey
+	}
+	return nil
+}
+
+func (x *Upsert) GetNewValue() *keyval.StoreValue {
+	if x != nil {
+		return x.NewValue
+	}
+	return nil
+}
+
+func (x *Upsert) GetMergeMetadata() bool {
+	if x != nil {
+		return x.MergeMetadata
+	}
+	return false
+}
+
+func (x *Upsert) GetSchema() string {
+	if x != nil && x.Schema != nil {
+		return *x.Schema
+	}
+	return ""
+}
+
 var File_db_query_proto protoreflect.FileDescriptor
 
 var file_db_query_proto_rawDesc = []byte{
@@ -1284,12 +1374,31 @@ var file_db_query_proto_rawDesc = []byte{
 	0x72, 0x65, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x06, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x73, 0x12,
 	0x1b, 0x0a, 0x06, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x48,
 	0x00, 0x52, 0x06, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x88, 0x01, 0x01, 0x42, 0x09, 0x0a, 0x07,
-	0x5f, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x42, 0x46, 0x5a, 0x44, 0x67, 0x69, 0x74, 0x68, 0x75,
-	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x76, 0x65, 0x6e, 0x39, 0x36, 0x2f, 0x61, 0x68,
-	0x6e, 0x6c, 0x69, 0x63, 0x68, 0x2f, 0x73, 0x64, 0x6b, 0x2f, 0x61, 0x68, 0x6e, 0x6c, 0x69, 0x63,
-	0x68, 0x2d, 0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2d, 0x67, 0x6f, 0x2f, 0x67, 0x72, 0x70, 0x63,
-	0x2f, 0x64, 0x62, 0x2f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x3b, 0x71, 0x75, 0x65, 0x72, 0x79, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x5f, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x22, 0xab, 0x02, 0x0a, 0x06, 0x55, 0x70, 0x73, 0x65,
+	0x72, 0x74, 0x12, 0x14, 0x0a, 0x05, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x05, 0x73, 0x74, 0x6f, 0x72, 0x65, 0x12, 0x3c, 0x0a, 0x09, 0x63, 0x6f, 0x6e, 0x64,
+	0x69, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x70, 0x72,
+	0x65, 0x64, 0x69, 0x63, 0x61, 0x74, 0x65, 0x73, 0x2e, 0x50, 0x72, 0x65, 0x64, 0x69, 0x63, 0x61,
+	0x74, 0x65, 0x43, 0x6f, 0x6e, 0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x09, 0x63, 0x6f, 0x6e,
+	0x64, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x2e, 0x0a, 0x07, 0x6e, 0x65, 0x77, 0x5f, 0x6b, 0x65,
+	0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x10, 0x2e, 0x6b, 0x65, 0x79, 0x76, 0x61, 0x6c,
+	0x2e, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x4b, 0x65, 0x79, 0x48, 0x00, 0x52, 0x06, 0x6e, 0x65, 0x77,
+	0x4b, 0x65, 0x79, 0x88, 0x01, 0x01, 0x12, 0x34, 0x0a, 0x09, 0x6e, 0x65, 0x77, 0x5f, 0x76, 0x61,
+	0x6c, 0x75, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x6b, 0x65, 0x79, 0x76,
+	0x61, 0x6c, 0x2e, 0x53, 0x74, 0x6f, 0x72, 0x65, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x48, 0x01, 0x52,
+	0x08, 0x6e, 0x65, 0x77, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x88, 0x01, 0x01, 0x12, 0x25, 0x0a, 0x0e,
+	0x6d, 0x65, 0x72, 0x67, 0x65, 0x5f, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x18, 0x05,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x0d, 0x6d, 0x65, 0x72, 0x67, 0x65, 0x4d, 0x65, 0x74, 0x61, 0x64,
+	0x61, 0x74, 0x61, 0x12, 0x1b, 0x0a, 0x06, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x18, 0x06, 0x20,
+	0x01, 0x28, 0x09, 0x48, 0x02, 0x52, 0x06, 0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x88, 0x01, 0x01,
+	0x42, 0x0a, 0x0a, 0x08, 0x5f, 0x6e, 0x65, 0x77, 0x5f, 0x6b, 0x65, 0x79, 0x42, 0x0c, 0x0a, 0x0a,
+	0x5f, 0x6e, 0x65, 0x77, 0x5f, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x42, 0x09, 0x0a, 0x07, 0x5f, 0x73,
+	0x63, 0x68, 0x65, 0x6d, 0x61, 0x42, 0x46, 0x5a, 0x44, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e,
+	0x63, 0x6f, 0x6d, 0x2f, 0x64, 0x65, 0x76, 0x65, 0x6e, 0x39, 0x36, 0x2f, 0x61, 0x68, 0x6e, 0x6c,
+	0x69, 0x63, 0x68, 0x2f, 0x73, 0x64, 0x6b, 0x2f, 0x61, 0x68, 0x6e, 0x6c, 0x69, 0x63, 0x68, 0x2d,
+	0x63, 0x6c, 0x69, 0x65, 0x6e, 0x74, 0x2d, 0x67, 0x6f, 0x2f, 0x67, 0x72, 0x70, 0x63, 0x2f, 0x64,
+	0x62, 0x2f, 0x71, 0x75, 0x65, 0x72, 0x79, 0x3b, 0x71, 0x75, 0x65, 0x72, 0x79, 0x62, 0x06, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1304,7 +1413,7 @@ func file_db_query_proto_rawDescGZIP() []byte {
 	return file_db_query_proto_rawDescData
 }
 
-var file_db_query_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_db_query_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_db_query_proto_goTypes = []any{
 	(*CreateStore)(nil),                   // 0: db.query.CreateStore
 	(*GetKey)(nil),                        // 1: db.query.GetKey
@@ -1324,30 +1433,35 @@ var file_db_query_proto_goTypes = []any{
 	(*GetStore)(nil),                      // 15: db.query.GetStore
 	(*DropSchema)(nil),                    // 16: db.query.DropSchema
 	(*Set)(nil),                           // 17: db.query.Set
-	(*nonlinear.NonLinearIndex)(nil),      // 18: algorithm.nonlinear.NonLinearIndex
-	(*keyval.StoreKey)(nil),               // 19: keyval.StoreKey
-	(*predicates.PredicateCondition)(nil), // 20: predicates.PredicateCondition
-	(algorithms.Algorithm)(0),             // 21: algorithm.algorithms.Algorithm
-	(nonlinear.NonLinearAlgorithm)(0),     // 22: algorithm.nonlinear.NonLinearAlgorithm
-	(*keyval.DbStoreEntry)(nil),           // 23: keyval.DbStoreEntry
+	(*Upsert)(nil),                        // 18: db.query.Upsert
+	(*nonlinear.NonLinearIndex)(nil),      // 19: algorithm.nonlinear.NonLinearIndex
+	(*keyval.StoreKey)(nil),               // 20: keyval.StoreKey
+	(*predicates.PredicateCondition)(nil), // 21: predicates.PredicateCondition
+	(algorithms.Algorithm)(0),             // 22: algorithm.algorithms.Algorithm
+	(nonlinear.NonLinearAlgorithm)(0),     // 23: algorithm.nonlinear.NonLinearAlgorithm
+	(*keyval.DbStoreEntry)(nil),           // 24: keyval.DbStoreEntry
+	(*keyval.StoreValue)(nil),             // 25: keyval.StoreValue
 }
 var file_db_query_proto_depIdxs = []int32{
-	18, // 0: db.query.CreateStore.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearIndex
-	19, // 1: db.query.GetKey.keys:type_name -> keyval.StoreKey
-	20, // 2: db.query.GetPred.condition:type_name -> predicates.PredicateCondition
-	19, // 3: db.query.GetSimN.search_input:type_name -> keyval.StoreKey
-	21, // 4: db.query.GetSimN.algorithm:type_name -> algorithm.algorithms.Algorithm
-	20, // 5: db.query.GetSimN.condition:type_name -> predicates.PredicateCondition
-	18, // 6: db.query.CreateNonLinearAlgorithmIndex.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearIndex
-	22, // 7: db.query.DropNonLinearAlgorithmIndex.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearAlgorithm
-	19, // 8: db.query.DelKey.keys:type_name -> keyval.StoreKey
-	20, // 9: db.query.DelPred.condition:type_name -> predicates.PredicateCondition
-	23, // 10: db.query.Set.inputs:type_name -> keyval.DbStoreEntry
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	19, // 0: db.query.CreateStore.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearIndex
+	20, // 1: db.query.GetKey.keys:type_name -> keyval.StoreKey
+	21, // 2: db.query.GetPred.condition:type_name -> predicates.PredicateCondition
+	20, // 3: db.query.GetSimN.search_input:type_name -> keyval.StoreKey
+	22, // 4: db.query.GetSimN.algorithm:type_name -> algorithm.algorithms.Algorithm
+	21, // 5: db.query.GetSimN.condition:type_name -> predicates.PredicateCondition
+	19, // 6: db.query.CreateNonLinearAlgorithmIndex.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearIndex
+	23, // 7: db.query.DropNonLinearAlgorithmIndex.non_linear_indices:type_name -> algorithm.nonlinear.NonLinearAlgorithm
+	20, // 8: db.query.DelKey.keys:type_name -> keyval.StoreKey
+	21, // 9: db.query.DelPred.condition:type_name -> predicates.PredicateCondition
+	24, // 10: db.query.Set.inputs:type_name -> keyval.DbStoreEntry
+	21, // 11: db.query.Upsert.condition:type_name -> predicates.PredicateCondition
+	20, // 12: db.query.Upsert.new_key:type_name -> keyval.StoreKey
+	25, // 13: db.query.Upsert.new_value:type_name -> keyval.StoreValue
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_db_query_proto_init() }
@@ -1572,6 +1686,18 @@ func file_db_query_proto_init() {
 				return nil
 			}
 		}
+		file_db_query_proto_msgTypes[18].Exporter = func(v any, i int) any {
+			switch v := v.(*Upsert); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	file_db_query_proto_msgTypes[0].OneofWrappers = []any{}
 	file_db_query_proto_msgTypes[1].OneofWrappers = []any{}
@@ -1587,13 +1713,14 @@ func file_db_query_proto_init() {
 	file_db_query_proto_msgTypes[12].OneofWrappers = []any{}
 	file_db_query_proto_msgTypes[15].OneofWrappers = []any{}
 	file_db_query_proto_msgTypes[17].OneofWrappers = []any{}
+	file_db_query_proto_msgTypes[18].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_db_query_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   18,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

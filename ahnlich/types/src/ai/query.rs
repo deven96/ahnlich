@@ -287,6 +287,42 @@ pub struct Set {
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Upsert {
+    /// Updates a single entry matching the predicate condition with new input and/or value
+    /// AI proxy always uses merge mode internally and constructs partial updates
+    /// Generates embeddings for new input using the store's index model
+    ///
+    /// Store name
+    #[prost(string, tag = "1")]
+    pub store: ::prost::alloc::string::String,
+    /// Condition to match exactly one entry
+    #[prost(message, optional, tag = "2")]
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+    /// Optional new input (image/text). If None, keeps original key.
+    #[prost(message, optional, tag = "3")]
+    pub new_input: ::core::option::Option<super::super::keyval::StoreInput>,
+    /// Optional new metadata. If None, keeps original value.
+    #[prost(message, optional, tag = "4")]
+    pub new_value: ::core::option::Option<super::super::keyval::StoreValue>,
+    /// Preprocessing action to apply to new input
+    #[prost(enumeration = "super::preprocess::PreprocessAction", tag = "5")]
+    pub preprocess_action: i32,
+    /// Optional execution provider for optimizations
+    #[prost(
+        enumeration = "super::execution_provider::ExecutionProvider",
+        optional,
+        tag = "6"
+    )]
+    pub execution_provider: ::core::option::Option<i32>,
+    /// Optional runtime parameters for the model
+    #[prost(map = "string, string", tag = "7")]
+    pub model_params:
+        ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "8")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ConvertStoreInputToEmbeddings {
     /// Convert store inputs to embeddings
     ///

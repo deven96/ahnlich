@@ -33,6 +33,7 @@ const (
 	DBService_GetSimN_FullMethodName                       = "/services.db_service.DBService/GetSimN"
 	DBService_GetStore_FullMethodName                      = "/services.db_service.DBService/GetStore"
 	DBService_Set_FullMethodName                           = "/services.db_service.DBService/Set"
+	DBService_Upsert_FullMethodName                        = "/services.db_service.DBService/Upsert"
 	DBService_DropPredIndex_FullMethodName                 = "/services.db_service.DBService/DropPredIndex"
 	DBService_DropNonLinearAlgorithmIndex_FullMethodName   = "/services.db_service.DBService/DropNonLinearAlgorithmIndex"
 	DBService_DelKey_FullMethodName                        = "/services.db_service.DBService/DelKey"
@@ -62,6 +63,7 @@ type DBServiceClient interface {
 	GetStore(ctx context.Context, in *query.GetStore, opts ...grpc.CallOption) (*server.StoreInfo, error)
 	// * Update methods *
 	Set(ctx context.Context, in *query.Set, opts ...grpc.CallOption) (*server.Set, error)
+	Upsert(ctx context.Context, in *query.Upsert, opts ...grpc.CallOption) (*server.Set, error)
 	// * Delete methods *
 	DropPredIndex(ctx context.Context, in *query.DropPredIndex, opts ...grpc.CallOption) (*server.Del, error)
 	DropNonLinearAlgorithmIndex(ctx context.Context, in *query.DropNonLinearAlgorithmIndex, opts ...grpc.CallOption) (*server.Del, error)
@@ -161,6 +163,16 @@ func (c *dBServiceClient) Set(ctx context.Context, in *query.Set, opts ...grpc.C
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(server.Set)
 	err := c.cc.Invoke(ctx, DBService_Set_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *dBServiceClient) Upsert(ctx context.Context, in *query.Upsert, opts ...grpc.CallOption) (*server.Set, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(server.Set)
+	err := c.cc.Invoke(ctx, DBService_Upsert_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -302,6 +314,7 @@ type DBServiceServer interface {
 	GetStore(context.Context, *query.GetStore) (*server.StoreInfo, error)
 	// * Update methods *
 	Set(context.Context, *query.Set) (*server.Set, error)
+	Upsert(context.Context, *query.Upsert) (*server.Set, error)
 	// * Delete methods *
 	DropPredIndex(context.Context, *query.DropPredIndex) (*server.Del, error)
 	DropNonLinearAlgorithmIndex(context.Context, *query.DropNonLinearAlgorithmIndex) (*server.Del, error)
@@ -350,6 +363,9 @@ func (UnimplementedDBServiceServer) GetStore(context.Context, *query.GetStore) (
 }
 func (UnimplementedDBServiceServer) Set(context.Context, *query.Set) (*server.Set, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
+}
+func (UnimplementedDBServiceServer) Upsert(context.Context, *query.Upsert) (*server.Set, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Upsert not implemented")
 }
 func (UnimplementedDBServiceServer) DropPredIndex(context.Context, *query.DropPredIndex) (*server.Del, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DropPredIndex not implemented")
@@ -548,6 +564,24 @@ func _DBService_Set_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DBServiceServer).Set(ctx, req.(*query.Set))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DBService_Upsert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(query.Upsert)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DBServiceServer).Upsert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DBService_Upsert_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DBServiceServer).Upsert(ctx, req.(*query.Upsert))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -806,6 +840,10 @@ var DBService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Set",
 			Handler:    _DBService_Set_Handler,
+		},
+		{
+			MethodName: "Upsert",
+			Handler:    _DBService_Upsert_Handler,
 		},
 		{
 			MethodName: "DropPredIndex",

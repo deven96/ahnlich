@@ -749,3 +749,70 @@ async def test_db_pipeline_mixed_success_and_error(spin_up_ahnlich_db):
         assert response.responses[1].error is not None
     finally:
         channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_upsert_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        store_name = "upsert_test"
+        await client.create_store(
+            db_query.CreateStore(
+                store=store_name,
+                dimension=3,
+                create_predicates=["id", "status"],
+                error_if_exists=True,
+            )
+        )
+
+        store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0])
+        initial_value = keyval.StoreValue(
+            value={
+                "id": metadata.MetadataValue(raw_string="123"),
+                "status": metadata.MetadataValue(raw_string="draft"),
+            }
+        )
+
+        await client.set(
+            db_query.Set(
+                store=store_name,
+                inputs=[keyval.DbStoreEntry(key=store_key, value=initial_value)],
+            )
+        )
+
+        condition = predicates.PredicateCondition(
+            value=predicates.Predicate(
+                equals=predicates.Equals(
+                    key="id",
+                    value=metadata.MetadataValue(raw_string="123"),
+                )
+            )
+        )
+
+        new_value = keyval.StoreValue(
+            value={"status": metadata.MetadataValue(raw_string="published")}
+        )
+
+        response = await client.upsert(
+            db_query.Upsert(
+                store=store_name,
+                condition=condition,
+                new_value=new_value,
+                merge_metadata=True,
+            )
+        )
+
+        assert response.upsert.updated == 1
+        assert response.upsert.inserted == 0
+
+        get_response = await client.get_pred(
+            db_query.GetPred(store=store_name, condition=condition)
+        )
+
+        assert len(get_response.entries) == 1
+        entry = get_response.entries[0]
+        assert entry.value.value["status"].raw_string == "published"
+        assert entry.value.value["id"].raw_string == "123"
+    finally:
+        channel.close()

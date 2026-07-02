@@ -125,6 +125,13 @@ impl StateMachineHandler<DbTypeConfig> for DbStateMachine {
 
                 encode_raw_result!(query::Set, &upsert)
             }
+            DbCommand::Upsert(payload) => {
+                let params = decode_payload!(query::Upsert, payload)?;
+                let upsert = operations::upsert(&self.store_handler, params)
+                    .map_err(|err| operation_error!(query::Upsert, err))?;
+
+                encode_raw_result!(query::Upsert, &upsert)
+            }
             DbCommand::DelKey(payload) => {
                 let params = decode_payload!(query::DelKey, payload)?;
                 let deleted = operations::del_key(&self.store_handler, params)

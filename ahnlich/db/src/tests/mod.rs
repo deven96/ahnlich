@@ -3,6 +3,7 @@ mod cluster_tests;
 mod migration_test;
 mod replication_store_tests;
 mod server_tests;
+mod upsert;
 
 use ahnlich_types::keyval::StoreKey;
 use std::collections::HashMap;

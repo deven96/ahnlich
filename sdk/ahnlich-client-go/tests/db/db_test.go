@@ -578,3 +578,74 @@ func TestPipeline_BulkSetAndGet(t *testing.T) {
 	require.Len(t, getResp.Entries, 1)
 	require.Equal(t, []float32{1, 2, 3, 4, 5}, getResp.Entries[0].Key.Key)
 }
+
+func TestUpsert_Succeeds(t *testing.T) {
+	t.Parallel()
+	proc := startDB(t)
+	defer proc.Kill()
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := dbsvc.NewDBServiceClient(conn)
+
+	storeName := "upsert_test"
+	_, err := client.CreateStore(context.Background(), &dbquery.CreateStore{
+		Store:            storeName,
+		Dimension:        3,
+		CreatePredicates: []string{"id", "status"},
+		ErrorIfExists:    true,
+	})
+	require.NoError(t, err)
+
+	storeKey := &keyval.StoreKey{Key: []float32{1, 2, 3}}
+	initialValue := &keyval.StoreValue{
+		Value: map[string]*metadata.MetadataValue{
+			"id":     {Value: &metadata.MetadataValue_RawString{RawString: "123"}},
+			"status": {Value: &metadata.MetadataValue_RawString{RawString: "draft"}},
+		},
+	}
+
+	_, err = client.Set(context.Background(), &dbquery.Set{
+		Store:  storeName,
+		Inputs: []*keyval.DbStoreEntry{{Key: storeKey, Value: initialValue}},
+	})
+	require.NoError(t, err)
+
+	condition := &predicates.PredicateCondition{
+		Kind: &predicates.PredicateCondition_Value{
+			Value: &predicates.Predicate{
+				Kind: &predicates.Predicate_Equals{
+					Equals: &predicates.Equals{
+						Key:   "id",
+						Value: &metadata.MetadataValue{Value: &metadata.MetadataValue_RawString{RawString: "123"}},
+					},
+				},
+			},
+		},
+	}
+
+	newValue := &keyval.StoreValue{
+		Value: map[string]*metadata.MetadataValue{
+			"status": {Value: &metadata.MetadataValue_RawString{RawString: "published"}},
+		},
+	}
+
+	resp, err := client.Upsert(context.Background(), &dbquery.Upsert{
+		Store:         storeName,
+		Condition:     condition,
+		NewValue:      newValue,
+		MergeMetadata: true,
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, resp.Upsert.Updated)
+	require.EqualValues(t, 0, resp.Upsert.Inserted)
+
+	getResp, err := client.GetPred(context.Background(), &dbquery.GetPred{
+		Store:     storeName,
+		Condition: condition,
+	})
+	require.NoError(t, err)
+	require.Len(t, getResp.Entries, 1)
+	require.Equal(t, "published", getResp.Entries[0].Value.Value["status"].GetRawString())
+	require.Equal(t, "123", getResp.Entries[0].Value.Value["id"].GetRawString())
+}

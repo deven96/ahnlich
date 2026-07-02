@@ -39,6 +39,7 @@ use ahnlich_types::ai::query::ListStores;
 use ahnlich_types::ai::query::Ping;
 use ahnlich_types::ai::query::PurgeStores;
 use ahnlich_types::ai::query::Set;
+use ahnlich_types::ai::query::Upsert;
 use ahnlich_types::ai::server;
 use ahnlich_types::ai::server::AiStoreInfo;
 use ahnlich_types::ai::server::ClientList;
@@ -423,6 +424,22 @@ impl AiService for AIProxyServer {
         request: tonic::Request<Set>,
     ) -> Result<tonic::Response<server::Set>, tonic::Status> {
         let res = operations::set(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            self.model_manager.as_ref(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn upsert(
+        &self,
+        request: tonic::Request<Upsert>,
+    ) -> Result<tonic::Response<server::Set>, tonic::Status> {
+        let res = operations::upsert(
             self.store_handler.as_ref(),
             self.db_client.clone(),
             self.model_manager.as_ref(),
@@ -911,6 +928,19 @@ impl AiService for AIProxyServer {
                 Query::Set(params) => match self.set(tonic::Request::new(params)).await {
                     Ok(res) => {
                         response_vec.push(ai_server_response::Response::Set(res.into_inner()))
+                    }
+                    Err(err) => {
+                        response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                            message: err.message().to_string(),
+                            code: err.code().into(),
+                        }));
+                    }
+                },
+
+                Query::Upsert(params) => match self.upsert(tonic::Request::new(params)).await {
+                    Ok(set_response) => {
+                        response_vec
+                            .push(ai_server_response::Response::Set(set_response.into_inner()));
                     }
                     Err(err) => {
                         response_vec.push(ai_server_response::Response::Error(ErrorResponse {

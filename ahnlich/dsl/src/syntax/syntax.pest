@@ -21,6 +21,7 @@ ai_statement = _{
     ai_del_key |
     ai_set_in_store |
     ai_get_sim_n |
+    ai_upsert |
     invalid_statement
 }
 
@@ -42,6 +43,7 @@ db_statement = _{
     get_sim_n |
     create_store |
     set_in_store |
+    upsert |
     invalid_statement
 }
 
@@ -71,6 +73,10 @@ create_store = { whitespace* ~ ^"createstore" ~ whitespace* ~ (if_not_exists)? ~
 ai_create_store = { whitespace* ~ ^"createstore" ~ whitespace* ~ (if_not_exists)? ~ whitespace* ~ store_name ~ whitespace* ~ ^"querymodel" ~ whitespace* ~ ai_model ~ whitespace* ~ ^"indexmodel" ~ whitespace* ~ ai_model ~ whitespace* ~ (^"predicates" ~ whitespace* ~ "(" ~ whitespace* ~ metadata_keys ~ whitespace* ~ ")" )? ~ (whitespace* ~ ^"nonlinearalgorithmindex" ~ whitespace* ~ "(" ~ whitespace* ~ non_linear_algorithms ~ whitespace* ~ ")")? ~ (store_original)? ~ (whitespace* ~ schema_clause)? ~ whitespace*}
 set_in_store = { whitespace* ~ ^"set" ~ whitespace* ~ store_keys_to_store_value ~ whitespace* ~ ^"in" ~ whitespace* ~ store_name ~ (whitespace* ~ schema_clause)? }
 ai_set_in_store = { whitespace* ~ ^"set" ~ whitespace* ~ store_inputs_to_store_value ~ whitespace* ~ ^"in" ~ whitespace* ~ store_name ~ (whitespace* ~ schema_clause)? ~ whitespace* ~ ^"preprocessaction" ~ whitespace* ~ preprocess_action ~ whitespace* ~ (execution_provider_optional)?}
+// UPSERT (new_key, new_value) WHERE (condition) IN store [MERGE] [SCHEMA schema_name]
+upsert = { whitespace* ~ ^"upsert" ~ whitespace* ~ "(" ~ whitespace* ~ upsert_key_value ~ whitespace* ~ ")" ~ whitespace* ~ ^"where" ~ whitespace* ~ predicate_condition ~ whitespace* ~ in_ignored ~ store_name ~ (whitespace* ~ merge_clause)? ~ (whitespace* ~ schema_clause)? }
+// UPSERT (new_input, new_value) WHERE (condition) IN store PREPROCESSACTION action [EXECUTIONPROVIDER provider] [SCHEMA schema_name]
+ai_upsert = { whitespace* ~ ^"upsert" ~ whitespace* ~ "(" ~ whitespace* ~ ai_upsert_input_value ~ whitespace* ~ ")" ~ whitespace* ~ ^"where" ~ whitespace* ~ predicate_condition ~ whitespace* ~ in_ignored ~ store_name ~ whitespace* ~ ^"preprocessaction" ~ whitespace* ~ preprocess_action ~ (whitespace* ~ execution_provider_optional)? ~ (whitespace* ~ schema_clause)? }
 
 if_exists = { whitespace* ~ ^"if" ~ whitespace* ~ ^"exists" ~ whitespace* }
 if_not_exists = { whitespace* ~ ^"if" ~ whitespace* ~ ^"not" ~ whitespace* ~ ^"exists" ~ whitespace* }
@@ -78,6 +84,7 @@ preprocess_optional = { whitespace* ~ ^"preprocessaction" ~ whitespace* ~ prepro
 execution_provider_optional = { whitespace* ~ ^"executionprovider" ~ whitespace ~ execution_provider}
 store_original = { whitespace* ~ ^"storeoriginal" ~ whitespace* }
 schema_clause = { ^"schema" ~ whitespace+ ~ schema_name }
+merge_clause = { ^"merge" }
 
 // stores and predicates can be alphanumeric
 store_name = { (ASCII_ALPHANUMERIC | "_" | "-")+ }
@@ -91,6 +98,9 @@ store_key_to_store_value = { "(" ~ whitespace* ~ f32_array ~ whitespace* ~ "," ~
 store_input_to_store_value = { "(" ~ whitespace* ~ "[" ~ whitespace* ~ metadata_value ~ whitespace* ~ "]" ~ whitespace* ~ "," ~ whitespace* ~ store_value ~ whitespace* ~ ")" }
 store_keys_to_store_value = { "(" ~ whitespace* ~ store_key_to_store_value ~ (whitespace* ~ "," ~ whitespace* ~ store_key_to_store_value)* ~ whitespace* ~ ")" }
 store_inputs_to_store_value = { "(" ~ whitespace* ~ store_input_to_store_value ~ (whitespace* ~ "," ~ whitespace* ~ store_input_to_store_value)* ~ whitespace* ~ ")" }
+// UPSERT uses either key or value, or both (but at least one)
+upsert_key_value = { (f32_array ~ whitespace* ~ "," ~ whitespace* ~ store_value) | (^"none" ~ whitespace* ~ "," ~ whitespace* ~ store_value) | (f32_array ~ whitespace* ~ "," ~ whitespace* ~ ^"none") }
+ai_upsert_input_value = { ("[" ~ whitespace* ~ metadata_value ~ whitespace* ~ "]" ~ whitespace* ~ "," ~ whitespace* ~ store_value) | (^"none" ~ whitespace* ~ "," ~ whitespace* ~ store_value) | ("[" ~ whitespace* ~ metadata_value ~ whitespace* ~ "]" ~ whitespace* ~ "," ~ whitespace* ~ ^"none") }
 non_linear_algorithm = { ^"kdtree" | ^"hnsw" }
 algorithm = { 
     ^"kdtree" |
