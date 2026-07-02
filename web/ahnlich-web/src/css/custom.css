@@ -247,6 +247,18 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
   opacity: 0.85;
 }
 
+/* Mobile slide-in menu: force a solid, opaque surface so page content
+   doesn't show through the translucent navbar background, and keep it on top. */
+.navbar-sidebar {
+  background: var(--ifm-background-color);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  z-index: calc(var(--ifm-z-index-fixed) + 1);
+}
+.navbar-sidebar__backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
 /* Sidebar: rounded pill items, muted labels, gold active bar */
 .menu {
   padding: 0.75rem 0.5rem;
@@ -805,6 +817,29 @@ a code {
 .markdown table th code {
   white-space: nowrap;
   font-size: 0.82em;
+}
+
+/* Mobile: let wide tables scroll horizontally instead of overflowing the
+   viewport, and allow headers/cells to wrap so columns stay compact. */
+@media (max-width: 768px) {
+  .markdown table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 0.85rem;
+  }
+  .markdown table th,
+  .markdown table td {
+    padding: 0.55rem 0.75rem;
+    white-space: normal;
+  }
+  /* keep multi-word cells readable but stop long tokens breaking the layout */
+  .markdown table td code,
+  .markdown table th code {
+    white-space: normal;
+    word-break: break-word;
+  }
 }
 
 /* --------------------------------------------------------------------------
