@@ -10,8 +10,8 @@ import TabItem from '@theme/TabItem';
 # Quickstart
 
 Go from a running server to your first semantic search in a few minutes.
-Pick your language once below — every code sample on this page follows your
-choice.
+Pick your language — or the **CLI** for a no-code path — once below, and every
+sample on this page follows your choice.
 
 :::note Prerequisites
 You need the **Ahnlich AI proxy** running (it embeds text for you automatically).
@@ -52,6 +52,15 @@ npm install ahnlich-client-node
 
 ```bash
 go get github.com/deven96/ahnlich/sdk/ahnlich-client-go
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+# Download the ahnlich-cli binary (see Installation for all platforms/options)
+wget -L https://github.com/deven96/ahnlich/releases/download/bin%2Fcli%2F0.2.1/x86_64-unknown-linux-gnu-ahnlich-cli.tar.gz
+tar -xvzf x86_64-unknown-linux-gnu-ahnlich-cli.tar.gz && chmod +x ahnlich-cli
 ```
 
 </TabItem>
@@ -127,6 +136,16 @@ defer conn.Close() // close the connection when main returns
 
 // The typed client — every Ahnlich call goes through it.
 client := aisvc.NewAIServiceClient(conn)
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+Open the interactive shell against the AI proxy — every command in the
+following steps runs inside it.
+
+```bash
+ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370
 ```
 
 </TabItem>
@@ -208,6 +227,13 @@ _, err = client.CreateStore(ctx, &aiquery.CreateStore{
     ErrorIfExists: true,                               // fail if the store exists
     StoreOriginal: true,                               // keep the raw text too
 })
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+CREATESTORE books QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2 PREDICATES (author, genre)
 ```
 
 </TabItem>
@@ -337,6 +363,13 @@ _, err = client.Set(ctx, &aiquery.Set{
 ```
 
 </TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+SET (([A galactic empire in decline...], {genre: SciFi, author: Asimov})) IN books PREPROCESSACTION modelpreprocessing
+```
+
+</TabItem>
 </Tabs>
 
 ## 4. Search
@@ -437,9 +470,415 @@ for _, entry := range resp.Entries {
 ```
 
 </TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETSIMN 3 WITH [space opera classics] USING cosinesimilarity IN books WHERE (genre = SciFi)
+```
+
+</TabItem>
 </Tabs>
 
-That's it — you now have semantic search working end to end. 🎉
+You now have semantic search working end to end. The sections below cover the
+rest of the everyday operations.
+
+## 5. Filter your search
+
+Combine similarity with a metadata condition — only return matches where a
+predicate holds (e.g. `genre = SciFi`).
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="filter.py"
+from ahnlich_client_py.grpc import predicates
+
+# genre = "SciFi"
+condition = predicates.PredicateCondition(
+    value=predicates.Predicate(
+        equals=predicates.Equals(
+            key="genre",
+            value=metadata.MetadataValue(raw_string="SciFi"),
+        )
+    )
+)
+
+response = await client.get_sim_n(ai_query.GetSimN(
+    store="books",
+    search_input=keyval.StoreInput(raw_string="space opera classics"),
+    closest_n=3,
+    algorithm=algorithms.Algorithm.CosineSimilarity,
+    condition=condition,   # only entries where genre = SciFi
+    preprocess_action=PreprocessAction.ModelPreprocessing,
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="filter.rs"
+use ahnlich_types::predicates::{
+    Predicate, PredicateCondition, Equals, predicate, predicate_condition,
+};
+
+// genre = "SciFi"
+let condition = PredicateCondition {
+    kind: Some(predicate_condition::Kind::Value(Predicate {
+        kind: Some(predicate::Kind::Equals(Equals {
+            key: "genre".to_string(),
+            value: Some(MetadataValue { value: Some(MValue::RawString("SciFi".into())) }),
+        })),
+    })),
+};
+
+let res = client.get_sim_n(GetSimN {
+    store: "books".to_string(),
+    search_input: Some(StoreInput {
+        value: Some(Value::RawString("space opera classics".into())),
+    }),
+    closest_n: 3,
+    algorithm: Algorithm::CosineSimilarity as i32,
+    condition: Some(condition),   // only entries where genre = SciFi
+    preprocess_action: PreprocessAction::ModelPreprocessing as i32,
+    schema: None,
+    execution_provider: None,
+    model_params: HashMap::new(),
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="filter.ts"
+import { PredicateCondition, Predicate, Equals } from "ahnlich-client-node/grpc/predicates_pb";
+
+// genre = "SciFi"
+const condition = new PredicateCondition({
+  kind: {
+    case: "value",
+    value: new Predicate({
+      kind: {
+        case: "equals",
+        value: new Equals({
+          key: "genre",
+          value: new MetadataValue({ value: { case: "rawString", value: "SciFi" } }),
+        }),
+      },
+    }),
+  },
+});
+
+const response = await client.getSimN(
+  new GetSimN({
+    store: "books",
+    searchInput: new StoreInput({ value: { case: "rawString", value: "space opera classics" } }),
+    closestN: 3,
+    algorithm: Algorithm.COSINE_SIMILARITY,
+    condition, // only entries where genre = SciFi
+  })
+);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="filter.go"
+import (
+    predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
+)
+
+// genre = "SciFi"
+condition := &predicates.PredicateCondition{Kind: &predicates.PredicateCondition_Value{
+    Value: &predicates.Predicate{Kind: &predicates.Predicate_Equals{
+        Equals: &predicates.Equals{
+            Key:   "genre",
+            Value: &metadata.MetadataValue{Value: &metadata.MetadataValue_RawString{RawString: "SciFi"}},
+        }}}}}
+
+resp, err := client.GetSimN(ctx, &aiquery.GetSimN{
+    Store:            "books",
+    SearchInput:      &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "space opera classics"}},
+    ClosestN:         3,
+    Algorithm:        algorithms.Algorithm_CosineSimilarity,
+    Condition:        condition, // only entries where genre = SciFi
+    PreprocessAction: preprocess.PreprocessAction_ModelPreprocessing,
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETSIMN 3 WITH [space opera classics] USING cosinesimilarity IN books WHERE (genre = SciFi)
+```
+
+</TabItem>
+</Tabs>
+
+:::tip
+A metadata field must be declared as a **predicate** on the store (or indexed
+with `CREATEPREDINDEX`) before you can filter on it. See step 7.
+:::
+
+## 6. Retrieve by key
+
+Fetch entries by their original input — handy when you already know the exact
+text. Requires the store to have been created with `store_original = true`.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="get_key.py"
+response = await client.get_key(ai_query.GetKey(
+    store="books",
+    keys=[keyval.StoreInput(raw_string="A galactic empire in decline...")],
+))
+
+for entry in response.entries:
+    print(entry.key.raw_string, entry.value.value)
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="get_key.rs"
+use ahnlich_types::ai::query::GetKey;
+
+let res = client.get_key(GetKey {
+    store: "books".to_string(),
+    keys: vec![StoreInput {
+        value: Some(Value::RawString("A galactic empire in decline...".into())),
+    }],
+    schema: None,
+}, None).await?;
+
+println!("{:?}", res.entries);
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="get_key.ts"
+import { GetKey } from "ahnlich-client-node/grpc/ai/query_pb";
+
+const response = await client.getKey(
+  new GetKey({
+    store: "books",
+    keys: [new StoreInput({ value: { case: "rawString", value: "A galactic empire in decline..." } })],
+  })
+);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="get_key.go"
+resp, err := client.GetKey(ctx, &aiquery.GetKey{
+    Store: "books",
+    Keys: []*keyval.StoreInput{
+        {Value: &keyval.StoreInput_RawString{RawString: "A galactic empire in decline..."}},
+    },
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETKEY ([A galactic empire in decline...]) IN books
+```
+
+</TabItem>
+</Tabs>
+
+## 7. Speed up filters with an index
+
+Create a predicate index so metadata filters (step 5) stay fast as your store
+grows. You can add predicates that weren't declared at creation time.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="index.py"
+await client.create_pred_index(ai_query.CreatePredIndex(
+    store="books",
+    predicates=["author", "genre"],
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="index.rs"
+use ahnlich_types::ai::query::CreatePredIndex;
+
+client.create_pred_index(CreatePredIndex {
+    store: "books".to_string(),
+    predicates: vec!["author".into(), "genre".into()],
+    schema: None,
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="index.ts"
+import { CreatePredIndex } from "ahnlich-client-node/grpc/ai/query_pb";
+
+await client.createPredIndex(
+  new CreatePredIndex({ store: "books", predicates: ["author", "genre"] })
+);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="index.go"
+_, err = client.CreatePredIndex(ctx, &aiquery.CreatePredIndex{
+    Store:      "books",
+    Predicates: []string{"author", "genre"},
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+CREATEPREDINDEX (author, genre) IN books
+```
+
+</TabItem>
+</Tabs>
+
+## 8. Inspect your stores
+
+List every store on the server, along with its size, dimensions, and models.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="list_stores.py"
+stores = await client.list_stores(ai_query.ListStores())
+for store in stores.stores:
+    print(store.name, store.size_in_bytes)
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="list_stores.rs"
+use ahnlich_types::ai::query::ListStores;
+
+let stores = client.list_stores(ListStores { schema: None }, None).await?;
+println!("{:?}", stores.stores);
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="list_stores.ts"
+import { ListStores } from "ahnlich-client-node/grpc/ai/query_pb";
+
+const stores = await client.listStores(new ListStores({}));
+console.log(stores.stores);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="list_stores.go"
+stores, err := client.ListStores(ctx, &aiquery.ListStores{})
+fmt.Println(stores.Stores)
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+LISTSTORES
+```
+
+</TabItem>
+</Tabs>
+
+## 9. Clean up
+
+Delete individual entries with **del key**, or remove the whole store with
+**drop store**.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="cleanup.py"
+# delete a single entry by its key
+await client.del_key(ai_query.DelKey(
+    store="books",
+    keys=[keyval.StoreInput(raw_string="A galactic empire in decline...")],
+))
+
+# or drop the entire store
+await client.drop_store(ai_query.DropStore(store="books", error_if_not_exists=True))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="cleanup.rs"
+use ahnlich_types::ai::query::{DelKey, DropStore};
+
+client.del_key(DelKey {
+    store: "books".to_string(),
+    keys: vec![StoreInput { value: Some(Value::RawString("A galactic empire in decline...".into())) }],
+    schema: None,
+}, None).await?;
+
+client.drop_store(DropStore {
+    store: "books".to_string(),
+    error_if_not_exists: true,
+    schema: None,
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="cleanup.ts"
+import { DelKey, DropStore } from "ahnlich-client-node/grpc/ai/query_pb";
+
+await client.delKey(
+  new DelKey({
+    store: "books",
+    keys: [new StoreInput({ value: { case: "rawString", value: "A galactic empire in decline..." } })],
+  })
+);
+
+await client.dropStore(new DropStore({ store: "books", errorIfNotExists: true }));
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="cleanup.go"
+_, err = client.DelKey(ctx, &aiquery.DelKey{
+    Store: "books",
+    Keys:  []*keyval.StoreInput{{Value: &keyval.StoreInput_RawString{RawString: "A galactic empire in decline..."}}},
+})
+
+_, err = client.DropStore(ctx, &aiquery.DropStore{Store: "books", ErrorIfNotExists: true})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+DELKEY ([A galactic empire in decline...]) IN books
+DROPSTORE books IF EXISTS
+```
+
+</TabItem>
+</Tabs>
+
+That's the full lifecycle — create, populate, search, filter, and clean up.
 
 ## Where to next?
 

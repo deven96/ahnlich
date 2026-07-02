@@ -237,23 +237,27 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
  * Fumadocs-style docs refinements
  * ======================================================================== */
 
-/* translucent, blurred sticky navbar */
+/* sticky navbar with a hairline divider */
 .navbar {
-  backdrop-filter: saturate(180%) blur(12px);
-  -webkit-backdrop-filter: saturate(180%) blur(12px);
   border-bottom: 1px solid var(--ifm-toc-border-color);
 }
 .navbar__brand:hover {
   opacity: 0.85;
 }
 
-/* Mobile slide-in menu: force a solid, opaque surface so page content
-   doesn't show through the translucent navbar background, and keep it on top. */
+/* Blur only on desktop. On mobile, backdrop-filter on .navbar would make it a
+   containing block for the position:fixed .navbar-sidebar, trapping the
+   slide-in menu inside the navbar box so it never appears. */
+@media (min-width: 997px) {
+  .navbar {
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+  }
+}
+
+/* Mobile slide-in menu: solid opaque surface + a dimmed backdrop. */
 .navbar-sidebar {
   background: var(--ifm-background-color);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  z-index: calc(var(--ifm-z-index-fixed) + 1);
 }
 .navbar-sidebar__backdrop {
   background: rgba(0, 0, 0, 0.5);
