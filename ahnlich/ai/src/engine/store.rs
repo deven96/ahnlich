@@ -426,6 +426,76 @@ impl AIStoreHandler {
         Ok((output, delete_hashset))
     }
 
+    /// Updates a single entry matching the predicate condition with new input and/or value.
+    /// AI proxy always uses merge mode for metadata and constructs partial updates.
+    /// Returns (new_key, new_value_partial) to be sent to DB's upsert.
+    #[tracing::instrument(skip(self, new_input, new_value, model_execution_params), fields(store_name=%store_name.value))]
+    pub(crate) async fn prepare_upsert(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+        new_input: Option<StoreInput>,
+        new_value: Option<StoreValue>,
+        model_execution_params: ModelExecutionParams<'_>,
+    ) -> Result<(Option<StoreKey>, Option<StoreValue>), AIProxyError> {
+        let store = self.get(store_name, schema)?;
+
+        // Generate new key if new_input is provided
+        let (new_key, model_metadata, input_for_metadata) = if let Some(input) = new_input {
+            let store_keys = model_execution_params
+                .model_manager
+                .handle_request(
+                    &store.index_model,
+                    vec![input.clone()],
+                    model_execution_params.preprocess_action,
+                    InputAction::Index,
+                    model_execution_params.execution_provider,
+                    model_execution_params.model_params.clone(),
+                )
+                .await?;
+
+            match store_keys.into_iter().next() {
+                Some(ModelResponse::OneToOne(key, metadata)) => (Some(key), metadata, Some(input)),
+                Some(ModelResponse::OneToMany(_)) => {
+                    return Err(AIProxyError::InvalidArgument(
+                        "UPSERT does not support OneToMany models".to_string(),
+                    ));
+                }
+                None => {
+                    return Err(AIProxyError::InvalidArgument(
+                        "Model returned no results".to_string(),
+                    ));
+                }
+            }
+        } else {
+            (None, None, None)
+        };
+
+        // Construct partial new_value for merge mode
+        let mut partial_value = new_value.unwrap_or_else(|| StoreValue {
+            value: std::collections::HashMap::new(),
+        });
+
+        // Add model metadata if provided
+        if let Some(meta) = model_metadata {
+            partial_value.value.extend(meta);
+        }
+
+        // Add the original input to metadata if store_original is true and new_input was provided
+        if let Some(input) = input_for_metadata
+            && store.store_original
+        {
+            let metadata_value: MetadataValue = input
+                .try_into()
+                .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
+            partial_value
+                .value
+                .insert(AHNLICH_AI_RESERVED_META_KEY.to_string(), metadata_value);
+        }
+
+        Ok((new_key, Some(partial_value)))
+    }
+
     #[tracing::instrument(skip(self, input), fields(input_len=input.len()))]
     pub(crate) fn db_store_entry_to_store_get_key(
         &self,

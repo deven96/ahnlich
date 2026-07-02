@@ -22,6 +22,7 @@ service AIService {
 
   /** Update methods **/
   rpc Set(ai.query.Set) returns (ai.server.Set);
+  rpc Upsert(ai.query.Upsert) returns (ai.server.Set);
 
   /** Delete methods **/
   rpc DropPredIndex(ai.query.DropPredIndex) returns (ai.server.Del);

@@ -19,7 +19,7 @@ use ahnlich_types::ai::{
     query::{
         CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
         DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred,
-        GetSimN, GetStore, InfoServer, ListStores, Ping, PurgeStores, Set,
+        GetSimN, GetStore, InfoServer, ListStores, Ping, PurgeStores, Set, Upsert,
     },
 };
 use pest::Parser;
@@ -420,9 +420,124 @@ pub fn parse_ai_query(input: &str) -> Result<Vec<AiQuery>, DslError> {
                     .to_string();
                 AiQuery::DropSchema(DropSchema { schema })
             }
+            Rule::ai_upsert => {
+                let mut inner_pairs = statement.into_inner().peekable();
+                let input_value_pair = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+
+                // Parse new_input and new_value from ai_upsert_input_value rule
+                let mut input_value_inner = input_value_pair.into_inner();
+                let (new_input, new_value) = parse_ai_upsert_input_value(&mut input_value_inner)?;
+
+                // Parse predicate condition
+                let condition_pair = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let condition = Some(parse_predicate_expression(condition_pair)?);
+
+                // Parse store name
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+
+                // Parse preprocess_action
+                let preprocess_action = parse_to_preprocess_action(
+                    inner_pairs
+                        .next()
+                        .map(|a| a.as_str())
+                        .unwrap_or("nopreprocessing"),
+                )? as i32;
+
+                // Parse optional execution_provider
+                let mut execution_provider = None;
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::execution_provider
+                {
+                    execution_provider = Some(parse_to_execution_provider(
+                        inner_pairs
+                            .next()
+                            .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                            .as_str(),
+                    )? as i32);
+                }
+
+                // Parse optional schema
+                let schema = inner_pairs.next().map(parse_schema_clause).transpose()?;
+
+                AiQuery::Upsert(Upsert {
+                    store,
+                    condition,
+                    new_input,
+                    new_value,
+                    preprocess_action,
+                    execution_provider,
+                    model_params: HashMap::new(), // Model params not supported in DSL yet
+                    schema,
+                })
+            }
             _ => return Err(DslError::UnexpectedSpan((start_pos, end_pos))),
         };
         queries.push(query);
     }
     Ok(queries)
+}
+
+use crate::metadata::parse_metadata_value;
+use ahnlich_types::keyval::{StoreInput, StoreValue};
+use ahnlich_types::metadata::MetadataValue;
+
+fn parse_ai_upsert_input_value(
+    pairs: &mut pest::iterators::Pairs<Rule>,
+) -> Result<(Option<StoreInput>, Option<StoreValue>), DslError> {
+    // First element is either metadata_value (wrapped in []) or "none"
+    let first = pairs.next().ok_or(DslError::UnexpectedSpan((0, 0)))?;
+    let first_start = first.as_span().start_pos().pos();
+    let first_end = first.as_span().end_pos().pos();
+
+    let new_input = match first.as_rule() {
+        Rule::metadata_value => Some(parse_store_input(first)?),
+        _ if first.as_str().to_lowercase() == "none" => None,
+        _ => return Err(DslError::UnexpectedSpan((first_start, first_end))),
+    };
+
+    // Second element is either store_value or "none"
+    let second = pairs.next().ok_or(DslError::UnexpectedSpan((0, 0)))?;
+    let second_start = second.as_span().start_pos().pos();
+    let second_end = second.as_span().end_pos().pos();
+
+    let new_value = match second.as_rule() {
+        Rule::store_value => {
+            let mut store_value_map = HashMap::new();
+            for store_value_single in second.into_inner() {
+                let start_pos = store_value_single.as_span().start_pos().pos();
+                let end_pos = store_value_single.as_span().end_pos().pos();
+                let mut v = store_value_single.into_inner();
+                let key = v
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+                let value = parse_metadata_value(
+                    v.next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?,
+                )?;
+                store_value_map.insert(key, MetadataValue { value: Some(value) });
+            }
+            Some(StoreValue {
+                value: store_value_map,
+            })
+        }
+        _ if second.as_str().to_lowercase() == "none" => None,
+        _ => return Err(DslError::UnexpectedSpan((second_start, second_end))),
+    };
+
+    // Validate at least one is provided
+    if new_input.is_none() && new_value.is_none() {
+        return Err(DslError::UnexpectedSpan((first_start, second_end)));
+    }
+
+    Ok((new_input, new_value))
 }

@@ -1,7 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use ahnlich_client_rs::db::DbClient;
-use ahnlich_types::ai::query::DropSchema as AiDropSchema;
+use ahnlich_types::ai::query::{DropSchema as AiDropSchema, Upsert};
+use ahnlich_types::db::query::Upsert as DbUpsert;
 use ahnlich_types::{
     ai::{
         models::AiModel,
@@ -51,7 +52,7 @@ fn require_db_client(db_client: Option<Arc<DbClient>>) -> Result<Arc<DbClient>, 
     db_client.ok_or_else(|| Status::failed_precondition("No DB client available"))
 }
 
-fn resolve_schema(schema: &Option<String>) -> Result<Schema, AIProxyError> {
+pub(crate) fn resolve_schema(schema: &Option<String>) -> Result<Schema, AIProxyError> {
     match schema {
         Some(s) => {
             Schema::try_new(s.clone()).map_err(|e| AIProxyError::InvalidArgument(e.to_owned()))
@@ -186,6 +187,7 @@ pub async fn set(
     parent_id: Option<String>,
 ) -> Result<SetResponse, Status> {
     let schema = resolve_schema(&params.schema)?;
+    let db_client = require_db_client(db_client)?;
     let mut model_params = params.model_params;
     let store_inputs: Vec<_> = params
         .inputs
@@ -224,7 +226,7 @@ pub async fn set(
         )
         .await?;
 
-    let mut pipeline = require_db_client(db_client)?.pipeline(parent_id);
+    let mut pipeline = db_client.pipeline(parent_id);
     if let Some(del_hashset) = delete_hashset {
         pipeline.del_pred(DelPred {
             store: params.store.clone(),
@@ -270,11 +272,12 @@ pub async fn drop_pred_index(
     parent_id: Option<String>,
 ) -> Result<Del, Status> {
     let schema = resolve_schema(&params.schema)?;
+    let db_client = require_db_client(db_client)?;
     params
         .predicates
         .retain(|val| val != AHNLICH_AI_RESERVED_META_KEY);
 
-    let res = require_db_client(db_client)?
+    let res = db_client
         .drop_pred_index(
             DbDropPredIndex {
                 store: params.store,
@@ -288,6 +291,75 @@ pub async fn drop_pred_index(
 
     Ok(Del {
         deleted_count: res.deleted_count,
+    })
+}
+
+pub async fn upsert(
+    store_handler: &AIStoreHandler,
+    db_client: Option<Arc<DbClient>>,
+    model_manager: &ModelManager,
+    params: Upsert,
+    parent_id: Option<String>,
+) -> Result<SetResponse, Status> {
+    // Validate that at least one of new_input or new_value is provided
+    if params.new_input.is_none() && params.new_value.is_none() {
+        return Err(Status::invalid_argument(
+            "UPSERT requires at least one of new_input or new_value",
+        ));
+    }
+
+    let schema = resolve_schema(&params.schema)?;
+    let db_client = require_db_client(db_client)?;
+    let store_name = StoreName {
+        value: params.store.clone(),
+    };
+
+    // Prepare model execution params
+    let execution_provider = params
+        .execution_provider
+        .and_then(|p| ahnlich_types::ai::execution_provider::ExecutionProvider::try_from(p).ok());
+    let preprocess_action =
+        ahnlich_types::ai::preprocess::PreprocessAction::try_from(params.preprocess_action)
+            .unwrap_or(ahnlich_types::ai::preprocess::PreprocessAction::NoPreprocessing);
+
+    let model_execution_params = ModelExecutionParams {
+        model_manager,
+        preprocess_action,
+        execution_provider,
+        model_params: params.model_params.clone(),
+    };
+
+    // Prepare new_key and new_value using AI proxy's prepare_upsert
+    let (new_key, partial_new_value) = store_handler
+        .prepare_upsert(
+            &store_name,
+            &schema,
+            params.new_input,
+            params.new_value,
+            model_execution_params,
+        )
+        .await
+        .map_err(Status::from)?;
+
+    // Call DB's upsert with the prepared data
+    // AI proxy always uses merge mode (merge_metadata = true)
+    let db_upsert = DbUpsert {
+        store: params.store.clone(),
+        condition: params.condition,
+        new_key,
+        new_value: partial_new_value,
+        merge_metadata: true, // AI always uses merge mode
+        schema: params.schema,
+    };
+
+    let db_response = db_client
+        .upsert(db_upsert, parent_id)
+        .await
+        .map_err(|e| Status::internal(format!("Database client error: {}", e)))?;
+
+    // Convert DB Set response to AI Set response
+    Ok(SetResponse {
+        upsert: db_response.upsert,
     })
 }
 
@@ -321,6 +393,7 @@ pub async fn del_key(
     parent_id: Option<String>,
 ) -> Result<Del, Status> {
     let schema = resolve_schema(&params.schema)?;
+    let db_client = require_db_client(db_client)?;
     let store_original = store_handler.store_original(
         StoreName {
             value: params.store.clone(),
@@ -338,7 +411,7 @@ pub async fn del_key(
         .collect::<Result<Vec<MetadataValue>, _>>()
         .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
 
-    let res = require_db_client(db_client)?
+    let res = db_client
         .del_pred(
             DelPred {
                 store: params.store,

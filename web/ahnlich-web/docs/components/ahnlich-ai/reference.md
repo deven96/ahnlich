@@ -180,7 +180,21 @@ DROPNONLINEARALGORITHMINDEX (kdtree) IN geo_store
 DROPNONLINEARALGORITHMINDEX (kdtree) IN geo_store SCHEMA media
 ```
 
-## 16. Delete Key
+## 16. Upsert
+#### Description
+Update a single entry matching a predicate condition. Always merges metadata (preserves AI-generated fields). Errors if 0 or multiple entries match.
+
+#### Command
+```
+UPSERT VALUE {tags: cat,outdoors} IN images WHERE (filename = photo.jpg)
+UPSERT KEY [updated image bytes] IN images WHERE (id = 42) PREPROCESSACTION modelpreprocessing
+UPSERT KEY [new text] VALUE {author: Jane} IN docs WHERE (id = 100)
+UPSERT VALUE {tags: cat,outdoors} IN images SCHEMA media WHERE (filename = photo.jpg)
+```
+
+Note: AI proxy automatically preserves AI-generated metadata when merging.
+
+## 17. Delete Key
 #### Description
 Remove a specific key from a store.
 
@@ -190,7 +204,7 @@ DELETEKEY doc1 IN article_store
 DELETEKEY doc1 IN article_store SCHEMA media
 ```
 
-## Ahnlich AI Commands
+## Ahnlich AI Commands
 
 | AI Command | Rust API Equivalent | Python API Equivalent | Go API Equivalent |
 | --- | --- | --- | --- |

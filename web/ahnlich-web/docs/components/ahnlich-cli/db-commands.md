@@ -126,14 +126,36 @@ DROPNONLINEARALGORITHMINDEX (kdtree) IN my_store
 
 Drops the KD-Tree index from `my_store`.
 
-### 13. Delete a Key
+### 13. Upsert (Update or Insert)
+```bash
+UPSERT VALUE {status: published} IN my_store WHERE (id = 123)
+```
+
+Updates a single entry matching the predicate. Errors if 0 or multiple entries match.
+
+**Merge metadata (preserves unchanged fields):**
+```bash
+UPSERT MERGE VALUE {updated_at: 2026-07-02} IN my_store WHERE (id = 123)
+```
+
+**Update vector only:**
+```bash
+UPSERT KEY [0.1, 0.2, 0.3] IN my_store WHERE (doc_id = abc)
+```
+
+**Update both with schema:**
+```bash
+UPSERT MERGE KEY [0.5, 0.6] VALUE {version: 2} IN my_store SCHEMA analytics WHERE (version = 1)
+```
+
+### 14. Delete a Key
 ```bash
 DELETEKEY (key1) IN my_store
 ```
 
 Deletes the entry `key1` from `my_store`.
 
-### 14. Drop a Schema
+### 15. Drop a Schema
 ```
 DROPSCHEMA analytics
 ```

@@ -83,6 +83,10 @@ jobs:
       run: |
         cargo b && cargo fmt
 
+    - name: Test Rust Example
+      working-directory: ./examples/rust/image-search
+      run: cargo test
+
 
     - name: Run Full Workspace Tests
       if: steps.changes.outputs.ai == 'true' || steps.changes.outputs.types == 'true'

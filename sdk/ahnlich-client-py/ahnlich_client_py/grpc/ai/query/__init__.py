@@ -241,6 +241,32 @@ class Set(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class Upsert(betterproto.Message):
+    store: str = betterproto.string_field(1)
+    """
+    Updates a single entry matching the predicate condition with new input and/or value
+     AI proxy always uses merge mode internally and constructs partial updates
+     Generates embeddings for new input using the store's index model
+    """
+
+    condition: "__predicates__.PredicateCondition" = betterproto.message_field(2)
+    new_input: Optional["__keyval__.StoreInput"] = betterproto.message_field(
+        3, optional=True
+    )
+    new_value: Optional["__keyval__.StoreValue"] = betterproto.message_field(
+        4, optional=True
+    )
+    preprocess_action: "_preprocess__.PreprocessAction" = betterproto.enum_field(5)
+    execution_provider: Optional["_execution_provider__.ExecutionProvider"] = (
+        betterproto.enum_field(6, optional=True)
+    )
+    model_params: Dict[str, str] = betterproto.map_field(
+        7, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    schema: Optional[str] = betterproto.string_field(8, optional=True)
+
+
+@dataclass(eq=False, repr=False)
 class ConvertStoreInputToEmbeddings(betterproto.Message):
     store_inputs: List["__keyval__.StoreInput"] = betterproto.message_field(1)
     """Convert store inputs to embeddings"""

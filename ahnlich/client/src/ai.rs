@@ -5,7 +5,7 @@ use ahnlich_types::{
             ConvertStoreInputToEmbeddings, CreateNonLinearAlgorithmIndex, CreatePredIndex,
             CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropStore,
             GetKey, GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping,
-            PurgeStores, Set,
+            PurgeStores, Set, Upsert,
         },
         server::{
             AiStoreInfo, ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong,
@@ -272,6 +272,17 @@ impl AiClient {
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().set(req).await?.into_inner())
+    }
+
+    pub async fn upsert(
+        &self,
+        params: Upsert,
+        tracing_id: Option<String>,
+    ) -> Result<SetResult, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
+        Ok(self.client.clone().upsert(req).await?.into_inner())
     }
 
     pub async fn drop_pred_index(
