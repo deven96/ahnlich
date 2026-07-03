@@ -133,7 +133,7 @@ dependencies = [
 
 [[package]]
 name = "ai"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "ahnlich_client_rs",
  "ahnlich_types",
@@ -961,7 +961,7 @@ checksum = "3a822ea5bc7590f9d40f1ba12c0dc3c2760f3482c6984db1573ad11031420831"
 
 [[package]]
 name = "cli"
-version = "0.0.0"
+version = "0.2.1"
 dependencies = [
  "ahnlich_client_rs",
  "ahnlich_types",
@@ -1240,7 +1240,7 @@ dependencies = [
 
 [[package]]
 name = "db"
-version = "0.1.0"
+version = "0.2.2"
 dependencies = [
  "ahash 0.8.12",
  "ahnlich-replication",
