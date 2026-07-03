@@ -1,5 +1,5 @@
 ---
-title: 📦 Installation
+title: Installation
 sidebar_position: 10
 description: Install Ahnlich with Docker, pre-built binaries, or from source.
 ---

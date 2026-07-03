@@ -112,6 +112,14 @@ const config: Config = {
       defaultMode: 'dark',
       respectPrefersColorScheme: true,
     },
+    docs: {
+      sidebar: {
+        // adds the collapse/expand (hide) toggle at the bottom of the sidebar
+        hideable: true,
+        // keep the tree tidy: opening one category collapses the others
+        autoCollapseCategories: true,
+      },
+    },
     mermaid: {
       theme: {light: 'neutral', dark: 'dark'},
     },
@@ -146,39 +154,6 @@ const config: Config = {
     footer: {
       style: 'dark',
       links: [
-        {
-          title: 'Docs',
-          items: [
-            {
-              label: 'Guides',
-              to: '/docs/guides',
-            },
-            {
-              label: 'Overview',
-              to: '/docs/overview',
-            },
-            {
-              label: 'Getting Started',
-              to: '/docs/getting-started',
-            },
-            {
-              label: 'Components',
-              to: '/docs/components',
-            },
-            {
-              label: 'Client Libraries',
-              to: '/docs/client-libraries',
-            },
-            {
-              label: 'Ahnlich In Production',
-              to: '/docs/ahnlich-in-production',
-            },
-            {
-              label: 'Architecture',
-              to: '/docs/architecture',
-            }
-          ],
-        },
         {
           title: 'Community',
           items: [
