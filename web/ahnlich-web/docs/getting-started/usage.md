@@ -1,5 +1,5 @@
 ---
-title: 🖥️ Using the CLI
+title: Using the CLI
 sidebar_position: 20
 ---
 

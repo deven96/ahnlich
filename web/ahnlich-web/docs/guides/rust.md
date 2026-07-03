@@ -1,5 +1,5 @@
 ---
-title: ⚡ Rust Image Search
+title: Rust Image Search
 ---
 
 **Source**: [examples/rust/image‑search](https://github.com/deven96/ahnlich/tree/main/examples/rust/image-search)
