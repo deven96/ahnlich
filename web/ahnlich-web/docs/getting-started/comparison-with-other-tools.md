@@ -22,7 +22,8 @@ a roadmap toward clustering and stronger persistence.
 | | Ahnlich | Pinecone | Weaviate | Milvus |
 | --- | --- | --- | --- | --- |
 | **Runs locally** | ✅ single binary / Docker | ❌ cloud SaaS | ✅ self-host / K8s | ✅ self-host / K8s |
-| **Setup** | Seconds | Managed signup | Cluster config | Cluster config |
+| **Kubernetes** | ✅ official Helm charts | ❌ managed only | ✅ Helm chart / operator | ✅ Helm chart / operator |
+| **Setup** | Seconds (local) · one `helm install` (K8s) | Managed signup | Cluster config | Cluster config |
 | **Built-in embeddings** | ✅ AI proxy (text + image) | ❌ external provider | ⚠️ via modules | ❌ external provider |
 | **Search** | Cosine · L2 · Dot; ANN (KDTree, HNSW) | ANN (HNSW) | ANN (HNSW, IVF, PQ) | ANN (HNSW, IVF, PQ, DiskANN) |
 | **Persistence** | In-memory or file-based | Always persistent | Persistent | Persistent |
@@ -36,8 +37,10 @@ a roadmap toward clustering and stronger persistence.
 
 - **Developer-first.** A fast CLI, documented SDKs, and clear APIs — visibility
   and control across the whole vector + AI workflow.
-- **Local-first, with a path to scale.** One command to run locally; clustering,
-  replication, and stronger persistence are on the roadmap.
+- **Local-first, with a path to scale.** One command to run locally, and official
+  [**Helm charts**](../ahnlich-in-production/kubernetes) when you're ready for
+  Kubernetes — self-healing pods, rolling upgrades, and cluster-managed volumes.
+  Clustering, replication, and stronger persistence are on the roadmap.
 - **Batteries-included AI.** A native proxy embeds text and images for you, so
   there's no separate model service to wire up (external providers still work).
 - **Multi-language.** Official clients for Python, Rust, Node, and Go, plus the CLI.
