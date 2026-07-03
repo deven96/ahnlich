@@ -48,6 +48,9 @@
   --ifm-global-radius: 0.6rem;
   --ifm-card-border-radius: 0.75rem;
   --ifm-navbar-shadow: 0 1px 0 #cccccc66;
+
+  /* a slimmer docs sidebar (default is 300px) */
+  --doc-sidebar-width: 15rem;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -263,33 +266,241 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
   background: rgba(0, 0, 0, 0.5);
 }
 
+/* Sidebar section headers (non-clickable group labels) */
+.sidebar-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 2.5rem 0 0.85rem;
+  padding: 0 0.7rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ifm-color-content-secondary);
+  cursor: default;
+  user-select: none;
+}
+/* small gold dot marker before the label */
+.sidebar-section-title::before {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ifm-color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ifm-color-primary) 18%, transparent);
+}
+/* hairline that fills the rest of the row, fading out */
+.sidebar-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--ifm-toc-border-color) 0%,
+    var(--ifm-toc-border-color) 55%,
+    transparent 100%
+  );
+}
+/* first header still gets a clear top margin below the navbar */
+.menu__list > .sidebar-section-title:first-child {
+  margin-top: 1.5rem;
+}
+/* more air before each subsequent section header (Guides, Operations, Project) */
+.sidebar-section-title:not(:first-child) {
+  margin-top: 6.5rem;
+}
+
 /* Sidebar: rounded pill items, muted labels, gold active bar */
 .menu {
-  padding: 0.75rem 0.5rem;
+  padding: 1rem 0.75rem 2rem;
   font-size: 0.9rem;
 }
+/* consistent vertical rhythm between rows */
+.menu__list {
+  margin: 0;
+}
 .menu__list-item {
-  padding: 0.1rem 0;
+  padding: 0;
+  margin: 0.15rem 0;
+}
+.menu__list-item:not(:first-child) {
+  margin-top: 0.15rem;
+}
+.menu__link,
+.menu__list-item-collapsible {
+  border-radius: var(--ifm-global-radius);
 }
 .menu__link {
-  border-radius: var(--ifm-global-radius);
-  padding: 0.4rem 0.65rem;
-  line-height: 1.3;
+  padding: 0.5rem 0.7rem;
+  line-height: 1.35;
   transition:
     background-color 0.15s ease,
     color 0.15s ease;
 }
 .menu__link--active:not(.menu__link--sublist) {
   font-weight: 600;
+  color: var(--ifm-menu-color-active);
+  background: color-mix(in srgb, var(--ifm-color-primary) 12%, transparent);
   box-shadow: inset 2px 0 0 var(--ifm-color-primary);
 }
-.menu__list-item-collapsible {
-  border-radius: var(--ifm-global-radius);
+.menu__link--active:not(.menu__link--sublist):hover {
+  background: color-mix(in srgb, var(--ifm-color-primary) 16%, transparent);
 }
-/* section caption headers feel lighter */
+
+/* Category (collapsible) rows read as group leads */
+.theme-doc-sidebar-item-category {
+  margin-top: 0.35rem;
+}
+.menu__list-item-collapsible {
+  transition: background-color 0.15s ease;
+}
+.menu__list-item-collapsible:hover {
+  background: color-mix(in srgb, var(--ifm-color-content) 5%, transparent);
+}
 .theme-doc-sidebar-item-category > .menu__list-item-collapsible > .menu__link {
   font-weight: 600;
   color: var(--ifm-color-content);
+}
+/* highlight the collapsible row for the section you're currently in */
+.menu__list-item-collapsible--active {
+  background: color-mix(in srgb, var(--ifm-color-primary) 10%, transparent);
+}
+
+/* Chevron caret: its own rounded hit-area with a smooth flip */
+.menu__caret {
+  padding: 0;
+  margin-right: 0.15rem;
+  border-radius: 0.4rem;
+  transition: background-color 0.15s ease;
+}
+.menu__caret:hover {
+  background: color-mix(in srgb, var(--ifm-color-content) 10%, transparent);
+}
+.menu__caret::before {
+  transition: transform 0.25s ease;
+}
+/* rotate the caret when the category is expanded (not collapsed) */
+.menu__list-item:not(.menu__list-item--collapsed) > .menu__list-item-collapsible .menu__caret::before {
+  transform: rotate(90deg);
+}
+
+/* subtle fade-in for the nested items as a section opens
+   (Docusaurus handles the height animation itself) */
+.menu__list-item:not(.menu__list-item--collapsed) > .menu__list {
+  animation: sidebar-reveal 0.28s ease both;
+}
+@keyframes sidebar-reveal {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Creative minimalist refinements ---- */
+
+/* micro-interaction: rows ease to the right on hover/active */
+.menu__link,
+.menu__list-item-collapsible {
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+.menu__link:hover {
+  transform: translateX(2px);
+}
+
+/* minimalist active leaf: soft tint + a short rounded gold marker that grows in */
+.menu__link--active:not(.menu__link--sublist) {
+  box-shadow: none;
+  position: relative;
+}
+.menu__link--active:not(.menu__link--sublist)::before {
+  content: '';
+  position: absolute;
+  left: 0.15rem;
+  top: 50%;
+  height: 1.05rem;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--ifm-color-primary);
+  transform: translateY(-50%);
+  animation: sidebar-marker 0.2s ease both;
+}
+@keyframes sidebar-marker {
+  from { opacity: 0; height: 0; }
+  to { opacity: 1; height: 1.05rem; }
+}
+
+/* active-branch wayfinding: the guide line of the open branch lights up gold */
+.menu__list .menu__list:has(.menu__link--active) {
+  border-left-color: color-mix(in srgb, var(--ifm-color-primary) 55%, transparent);
+}
+
+/* caret: understated by default, gold on hover — quiet until you need it */
+.menu__caret::before {
+  opacity: 0.55;
+  transition: transform 0.25s ease, opacity 0.15s ease;
+}
+.menu__list-item-collapsible:hover .menu__caret::before {
+  opacity: 1;
+}
+
+/* Nested lists: clear indent with a guide line, tighter child spacing */
+.menu__list .menu__list {
+  margin-top: 0.15rem;
+  padding-left: 0.5rem;
+  margin-left: 0.7rem;
+  border-left: 1px solid var(--ifm-toc-border-color);
+}
+.menu__list .menu__list .menu__link {
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+  font-size: 0.86rem;
+}
+
+/* Collapse / expand sidebar toggle — a clean pill pinned at the bottom */
+button[class*='collapseSidebarButton'] {
+  height: auto;
+  margin: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: var(--ifm-global-radius);
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.8rem;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+button[class*='collapseSidebarButton']:hover {
+  color: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+  background: color-mix(in srgb, var(--ifm-color-primary) 10%, transparent);
+}
+button[class*='collapseSidebarButton'] svg {
+  transition: transform 0.2s ease;
+}
+button[class*='collapseSidebarButton']:hover svg {
+  transform: translateX(-2px);
+}
+
+/* Floating "expand" control shown when the sidebar is hidden */
+div[class*='expandButton'] {
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-content-secondary);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+div[class*='expandButton']:hover {
+  color: var(--ifm-color-primary);
+  background: color-mix(in srgb, var(--ifm-color-primary) 12%, transparent);
+}
+div[class*='expandButton'] svg {
+  transition: transform 0.2s ease;
+}
+div[class*='expandButton']:hover svg {
+  transform: translateX(2px);
 }
 
 /* Right-hand "On this page" TOC */

@@ -1,9 +1,10 @@
 ---
-title: 📋 Overview
+title: What is Ahnlich?
+sidebar_label: What is Ahnlich?
 sidebar_position: 10
 ---
 
-# Overview
+# What is Ahnlich?
 
 **Ahnlich is an in-memory vector database with a built-in AI proxy** that embeds
 your text and images for you. Point it at raw content, search by meaning, and
