@@ -19,6 +19,7 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write   # keyless cosign signing via GitHub OIDC
 
 jobs:
   publish:
@@ -31,10 +32,14 @@ jobs:
 
       - uses: azure/setup-helm@v4
 
-      - name: Log in to ghcr
+      - uses: sigstore/cosign-installer@v3
+
+      - name: Log in to ghcr (helm + cosign)
         run: |
           echo "${{ secrets.GH_GCR_TOKEN }}" \
             | helm registry login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+          echo "${{ secrets.GH_GCR_TOKEN }}" \
+            | cosign login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
       - name: Package and push changed charts
         env:
@@ -63,7 +68,14 @@ jobs:
             echo ":: publishing $name $ver"
             helm dependency build "charts/$dir"
             helm package "charts/$dir" -d /tmp/charts
-            helm push "/tmp/charts/${name}-${ver}.tgz" "oci://ghcr.io/${OWNER}/charts"
+
+            local out digest
+            out=$(helm push "/tmp/charts/${name}-${ver}.tgz" "oci://ghcr.io/${OWNER}/charts" 2>&1)
+            echo "$out"
+            digest=$(echo "$out" | awk '/[Dd]igest:/ {print $2; exit}')
+
+            echo ":: signing $name@$digest (keyless cosign)"
+            cosign sign --yes "ghcr.io/${OWNER}/charts/${name}@${digest}"
           }
 
           # sub-charts first so the umbrella's file:// deps resolve
