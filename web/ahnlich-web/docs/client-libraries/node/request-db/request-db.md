@@ -29,6 +29,7 @@ Ahnlich DB is the core vector storage engine that provides:
 
 ### Data Operations
 - [Set](/docs/client-libraries/node/request-db/set) - Insert or update entries
+- [Upsert](/docs/client-libraries/node/request-db/upsert) - Update a single entry matching a predicate
 - [Get Key](/docs/client-libraries/node/request-db/get-key) - Retrieve entries by key
 - [GetSimN](/docs/client-libraries/node/request-db/get-simn) - Find N most similar entries
 - [Get By Predicate](/docs/client-libraries/node/request-db/get-by-predicate) - Filter entries by metadata

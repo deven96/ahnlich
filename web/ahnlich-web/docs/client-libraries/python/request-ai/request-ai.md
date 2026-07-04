@@ -103,6 +103,7 @@ Below is a breakdown of common AI request examples:
 * [List Stores](/docs/client-libraries/python/request-ai/list-stores)
 * [Create Store](/docs/client-libraries/python/request-ai/create-store)
 * [Set](/docs/client-libraries/python/request-ai/set)
+* [Upsert](/docs/client-libraries/python/request-ai/upsert)
 * [GetSimN](/docs/client-libraries/python/request-ai/get-simn)
 * [Get By Predicate](/docs/client-libraries/python/request-ai/get-by-predicate)
 * [Create Predicate Index](/docs/client-libraries/python/request-ai/create-predicate-index)

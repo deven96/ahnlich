@@ -82,6 +82,7 @@ Below is a break down common DB request examples:
 * [List Stores](/docs/client-libraries/python/request-db/list-stores)
 * [Create Store](/docs/client-libraries/python/request-db/create-store)
 * [Set](/docs/client-libraries/python/request-db/set)
+* [Upsert](/docs/client-libraries/python/request-db/upsert)
 * [GetSimN](/docs/client-libraries/python/request-db/get-simn)
 * [Get Key](/docs/client-libraries/python/request-db/get-key)
 * [Get By Predicate](/docs/client-libraries/python/request-db/get-by-predicate)

@@ -46,6 +46,7 @@ Below are the operations for generating embeddings, interpreting inputs, and int
 * [List Stores](/docs/client-libraries/rust/request-ai/list-stores)
 * [Create Store](/docs/client-libraries/rust/request-ai/create-store)
 * [Set](/docs/client-libraries/rust/request-ai/set)
+* [Upsert](/docs/client-libraries/rust/request-ai/upsert)
 * [Get Sim N](/docs/client-libraries/rust/request-ai/get-simn)
 * [Get Key](/docs/client-libraries/rust/request-ai/get-key)
 * [Get by Predicate](/docs/client-libraries/rust/request-ai/get-by-predicate)
