@@ -2,7 +2,7 @@ apiVersion: v2
 name: ahnlich-db
 description: Helm chart for ahnlich-db, the in-memory vector database
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "latest"
 home: https://github.com/deven96/ahnlich
 sources:

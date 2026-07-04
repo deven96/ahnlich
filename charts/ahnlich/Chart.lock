@@ -1,9 +1,9 @@
 dependencies:
 - name: ahnlich-db
   repository: file://../ahnlich-db
-  version: 0.1.0
+  version: 0.1.1
 - name: ahnlich-ai
   repository: file://../ahnlich-ai
-  version: 0.1.0
-digest: sha256:9fef0cb0e428b3be662c5d26a80804f8a49ff33f9ff87387ba6eff52a8bb643e
-generated: "2026-05-20T20:37:38.592968+02:00"
+  version: 0.1.1
+digest: sha256:0d286927fcb9aead50f579125f55fcc4e58f2713cea54a3ab6862c3ffa22cbf9
+generated: "2026-07-04T10:51:51.47744+02:00"
