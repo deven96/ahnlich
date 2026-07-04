@@ -2,7 +2,7 @@ apiVersion: v2
 name: ahnlich-ai
 description: Helm chart for ahnlich-ai, the embedding / AI proxy in front of ahnlich-db.
 type: application
-version: 0.1.0
+version: 0.1.1
 appVersion: "latest"
 home: https://github.com/deven96/ahnlich
 sources:
