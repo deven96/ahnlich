@@ -124,7 +124,7 @@ fn create_test_store_with_data(
         .collect();
 
     handler
-        .set_in_store(&store_name, entries)
+        .set_in_store(&store_name, &Schema::default(), entries)
         .expect("Failed to insert entries");
 
     (handler, store_name)
@@ -210,7 +210,10 @@ fn bench_persistence(c: &mut Criterion) {
                 b.iter(|| {
                     let temp_dir = TempDir::new().unwrap();
                     let file_path = temp_dir.path().join("stores.json");
-                    let stores = handler.get_snapshot();
+                    let stores = handler
+                        .get_snapshot()
+                        .into_latest()
+                        .expect("migrate snapshot");
                     serialize_with_json(&stores, &file_path)
                         .expect("Failed to serialize with JSON");
 
@@ -230,7 +233,10 @@ fn bench_persistence(c: &mut Criterion) {
                 b.iter(|| {
                     let temp_dir = TempDir::new().unwrap();
                     let file_path = temp_dir.path().join("stores.bitcode");
-                    let stores = handler.get_snapshot();
+                    let stores = handler
+                        .get_snapshot()
+                        .into_latest()
+                        .expect("migrate snapshot");
                     serialize_with_bitcode(&stores, &file_path)
                         .expect("Failed to serialize with bitcode");
 
@@ -250,7 +256,10 @@ fn bench_persistence(c: &mut Criterion) {
                 b.iter(|| {
                     let temp_dir = TempDir::new().unwrap();
                     let file_path = temp_dir.path().join("stores.json");
-                    let stores = handler.get_snapshot();
+                    let stores = handler
+                        .get_snapshot()
+                        .into_latest()
+                        .expect("migrate snapshot");
                     serialize_with_json(&stores, &file_path)
                         .expect("Failed to serialize with JSON");
 
@@ -269,7 +278,10 @@ fn bench_persistence(c: &mut Criterion) {
                 b.iter(|| {
                     let temp_dir = TempDir::new().unwrap();
                     let file_path = temp_dir.path().join("stores.bitcode");
-                    let stores = handler.get_snapshot();
+                    let stores = handler
+                        .get_snapshot()
+                        .into_latest()
+                        .expect("migrate snapshot");
                     serialize_with_bitcode(&stores, &file_path)
                         .expect("Failed to serialize with bitcode");
 
@@ -291,7 +303,10 @@ fn bench_persistence(c: &mut Criterion) {
             let (handler, _store_name) = create_test_store_with_data(size, dimension, false, true);
             let temp_dir = TempDir::new().unwrap();
             let file_path = temp_dir.path().join("stores.json");
-            let stores = handler.get_snapshot();
+            let stores = handler
+                .get_snapshot()
+                .into_latest()
+                .expect("migrate snapshot");
             serialize_with_json(&stores, &file_path).expect("Setup failed");
 
             let bench_name = format!("{}_entries_no_index_json", size);
@@ -311,7 +326,10 @@ fn bench_persistence(c: &mut Criterion) {
             let (handler, _store_name) = create_test_store_with_data(size, dimension, false, true);
             let temp_dir = TempDir::new().unwrap();
             let file_path = temp_dir.path().join("stores.bitcode");
-            let stores = handler.get_snapshot();
+            let stores = handler
+                .get_snapshot()
+                .into_latest()
+                .expect("migrate snapshot");
             serialize_with_bitcode(&stores, &file_path).expect("Setup failed");
 
             let bench_name = format!("{}_entries_no_index_bitcode", size);
@@ -330,7 +348,10 @@ fn bench_persistence(c: &mut Criterion) {
             let (handler, _store_name) = create_test_store_with_data(size, dimension, true, true);
             let temp_dir = TempDir::new().unwrap();
             let file_path = temp_dir.path().join("stores.json");
-            let stores = handler.get_snapshot();
+            let stores = handler
+                .get_snapshot()
+                .into_latest()
+                .expect("migrate snapshot");
             serialize_with_json(&stores, &file_path).expect("Setup failed");
 
             let bench_name = format!("{}_entries_hnsw_json", size);
@@ -349,7 +370,10 @@ fn bench_persistence(c: &mut Criterion) {
             let (handler, _store_name) = create_test_store_with_data(size, dimension, true, true);
             let temp_dir = TempDir::new().unwrap();
             let file_path = temp_dir.path().join("stores.bitcode");
-            let stores = handler.get_snapshot();
+            let stores = handler
+                .get_snapshot()
+                .into_latest()
+                .expect("migrate snapshot");
             serialize_with_bitcode(&stores, &file_path).expect("Setup failed");
 
             let bench_name = format!("{}_entries_hnsw_bitcode", size);
