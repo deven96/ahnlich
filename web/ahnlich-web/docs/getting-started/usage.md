@@ -134,6 +134,7 @@ against the stored vectors.
 | `CREATESTORE <name> DIMENSION <n> ...` | Create a vector store |
 | `CREATEPREDINDEX (k1, k2) IN <store>` | Create a predicate (metadata) index |
 | `SET (...) IN <store>` | Insert one or more vectors |
+| `UPSERT NEWKEY [<vector>] NEWVALUE {k:v} WHERE (<predicate>) IN <store>` | Update a single entry matching predicate |
 | `GETKEY (<vector>) IN <store>` | Retrieve entries by exact key |
 | `GETSIMN <n> WITH [<vector>] USING <metric> IN <store> WHERE (<predicate>)` | Query nearest neighbors |
 | `DROPSTORE <name> IF EXISTS` | Delete a store |
@@ -149,6 +150,7 @@ against the stored vectors.
 | `CREATESTORE <name> QUERYMODEL <m> INDEXMODEL <m> ...` | Create an AI store bound to embedding models |
 | `CREATEPREDINDEX (k1, k2) IN <store>` | Create a predicate (metadata) index |
 | `SET (...) IN <store> PREPROCESSACTION <action>` | Insert raw text/images (embedded automatically) |
+| `UPSERT NEWINPUT [<text>] NEWVALUE {k:v} WHERE (<predicate>) IN <store>` | Update a single entry matching predicate |
 | `GETSIMN <n> WITH [<raw input>] USING <metric> IN <store> WHERE (<predicate>)` | Query nearest neighbors by meaning |
 | `DROPSTORE <name> IF EXISTS` | Delete a store |
 
