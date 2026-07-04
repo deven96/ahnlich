@@ -1,0 +1,78 @@
+name: Publish Helm charts
+
+# Packages the Helm charts and pushes them to the ghcr.io OCI registry
+# (oci://ghcr.io/deven96/charts), which ArtifactHub then indexes.
+#
+# - workflow_dispatch: publishes all charts (use for the first-ever publish,
+#   or to force a re-publish). Charts must have a version not already pushed.
+# - push to main touching charts/**: publishes only the charts whose
+#   Chart.yaml `version` changed (an OCI registry rejects re-pushing an
+#   existing version, so a bump is required to release).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'charts/**'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Package and push charts to ghcr
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # need HEAD^ to detect a version change on push
+
+      - uses: azure/setup-helm@v4
+
+      - name: Log in to ghcr
+        run: |
+          echo "${{ secrets.GH_GCR_TOKEN }}" \
+            | helm registry login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
+      - name: Package and push changed charts
+        env:
+          OWNER: ${{ github.repository_owner }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/charts
+
+          # On push, only publish a chart whose version line actually changed.
+          # On workflow_dispatch, always publish (first publish / forced).
+          version_changed() {
+            git diff HEAD^ HEAD -- "charts/$1/Chart.yaml" 2>/dev/null | grep -qE '^\+version:'
+          }
+
+          publish() {
+            local dir="$1" name ver
+            name=$(grep '^name:'    "charts/$dir/Chart.yaml" | head -1 | awk '{print $2}' | tr -d '"')
+            ver=$(grep  '^version:' "charts/$dir/Chart.yaml" | head -1 | awk '{print $2}' | tr -d '"')
+
+            if [ "$EVENT" = "push" ] && ! version_changed "$dir"; then
+              echo ":: $name — no version change, skipping"
+              return 0
+            fi
+
+            echo ":: publishing $name $ver"
+            helm dependency build "charts/$dir"
+            helm package "charts/$dir" -d /tmp/charts
+            helm push "/tmp/charts/${name}-${ver}.tgz" "oci://ghcr.io/${OWNER}/charts"
+          }
+
+          # sub-charts first so the umbrella's file:// deps resolve
+          publish ahnlich-db
+          publish ahnlich-ai
+          publish ahnlich
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Charts pushed to oci://ghcr.io/${{ github.repository_owner }}/charts" >> "$GITHUB_STEP_SUMMARY"
+          echo "Note: ghcr packages are private by default — set them Public for ArtifactHub to index them." >> "$GITHUB_STEP_SUMMARY"
