@@ -115,6 +115,18 @@ Build Ahnlich Applications with the Rust SDK – Vector Storage, Search, and AI 
 
 * Behavior
 
+### [Upsert](/docs/client-libraries/rust/request-db/upsert)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
 ### [Get Sim N](/docs/client-libraries/rust/request-db/get-simn)
 
 * Description
@@ -297,6 +309,18 @@ Build Ahnlich Applications with the Rust SDK – Vector Storage, Search, and AI 
 * Behavior
 
 ### [Set](/docs/client-libraries/rust/request-ai/set)
+
+* Description
+
+* Source Code Example
+
+* Parameters
+
+* Returns
+
+* Behavior
+
+### [Upsert](/docs/client-libraries/rust/request-ai/upsert)
 
 * Description
 

@@ -372,7 +372,145 @@ SET (([A galactic empire in decline...], {genre: SciFi, author: Asimov})) IN boo
 </TabItem>
 </Tabs>
 
-## 4. Search
+## 4. Update data
+
+UPSERT finds a single matching entry using a predicate condition and updates its raw input or metadata.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="upsert.py"
+from ahnlich_client_py.grpc import ai_query, keyval, metadata, predicates
+from ahnlich_client_py.grpc.ai import preprocess
+
+# Update the book with genre "SciFi" - change its author metadata
+await client.upsert(ai_query.Upsert(
+    store="books",
+    # New text to embed (replaces the old key)
+    new_input=keyval.StoreInput(raw_string="The Foundation trilogy explores psychohistory"),
+    # New metadata (merges with existing by default in AI)
+    new_value=keyval.StoreValue(value={
+        "author": metadata.MetadataValue(raw_string="Isaac Asimov"),
+    }),
+    # Find the entry to update using a predicate
+    condition=predicates.PredicateCondition(predicates=[
+        predicates.Predicate(key="genre", value=metadata.MetadataValue(raw_string="SciFi"))
+    ]),
+    preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="upsert.rs"
+use ahnlich_types::ai::query::Upsert;
+use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::keyval::{StoreInput, StoreValue};
+use ahnlich_types::keyval::store_input::Value;
+use ahnlich_types::metadata::{MetadataValue, metadata_value::Value as MValue};
+use ahnlich_types::predicate::{Predicate, PredicateCondition};
+use std::collections::HashMap;
+
+let mut new_metadata = HashMap::new();
+new_metadata.insert("author".to_string(),
+    MetadataValue { value: Some(MValue::RawString("Isaac Asimov".into())) });
+
+client.upsert(Upsert {
+    store: "books".to_string(),
+    schema: None,
+    execution_provider: None,
+    // New text to embed
+    new_input: Some(StoreInput { value: Some(Value::RawString("The Foundation trilogy explores psychohistory".into())) }),
+    // New metadata (merges automatically in AI)
+    new_value: Some(StoreValue { value: new_metadata }),
+    // Predicate to find entry
+    condition: Some(PredicateCondition {
+        predicates: vec![Predicate {
+            key: "genre".to_string(),
+            value: Some(MetadataValue { value: Some(MValue::RawString("SciFi".into())) }),
+        }],
+    }),
+    preprocess_action: PreprocessAction::ModelPreprocessing as i32,
+    model_params: HashMap::new(),
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="upsert.ts"
+import { Upsert } from "ahnlich-client-node/grpc/ai/query_pb";
+import { StoreInput, StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+import { PreprocessAction } from "ahnlich-client-node/grpc/ai/preprocess_pb";
+import { Predicate, PredicateCondition } from "ahnlich-client-node/grpc/predicate_pb";
+
+await client.upsert(
+  new Upsert({
+    store: "books",
+    // New text to embed
+    newInput: new StoreInput({ value: { case: "rawString", value: "The Foundation trilogy explores psychohistory" } }),
+    // New metadata (merges automatically in AI)
+    newValue: new StoreValue({
+      value: {
+        author: new MetadataValue({ value: { case: "rawString", value: "Isaac Asimov" } }),
+      },
+    }),
+    // Find entry by predicate
+    condition: new PredicateCondition({
+      predicates: [
+        new Predicate({
+          key: "genre",
+          value: new MetadataValue({ value: { case: "rawString", value: "SciFi" } }),
+        }),
+      ],
+    }),
+    preprocessAction: PreprocessAction.MODEL_PREPROCESSING,
+  })
+);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="upsert.go"
+import (
+    keyval "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+    metadata "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+    predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicate"
+    preprocess "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess"
+)
+
+_, err = client.Upsert(ctx, &aiquery.Upsert{
+    Store: "books",
+    // New text to embed
+    NewInput: &keyval.StoreInput{Value: &keyval.StoreInput_RawString{
+        RawString: "The Foundation trilogy explores psychohistory"}},
+    // New metadata (merges automatically in AI)
+    NewValue: &keyval.StoreValue{Value: map[string]*metadata.MetadataValue{
+        "author": {Value: &metadata.MetadataValue_RawString{RawString: "Isaac Asimov"}},
+    }},
+    // Find entry by predicate
+    Condition: &predicates.PredicateCondition{Predicates: []*predicates.Predicate{{
+        Key:   "genre",
+        Value: &metadata.MetadataValue{Value: &metadata.MetadataValue_RawString{RawString: "SciFi"}},
+    }}},
+    PreprocessAction: preprocess.PreprocessAction_ModelPreprocessing,
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+UPSERT NEWINPUT [The Foundation trilogy explores psychohistory] NEWVALUE {author: Isaac Asimov} WHERE (genre = SciFi) IN books
+```
+
+</TabItem>
+</Tabs>
+
+## 5. Search
 
 Query by meaning, with results ranked by similarity.
 
@@ -482,7 +620,7 @@ GETSIMN 3 WITH [space opera classics] USING cosinesimilarity IN books WHERE (gen
 You now have semantic search working end to end. The sections below cover the
 rest of the everyday operations.
 
-## 5. Filter your search
+## 6. Filter your search
 
 Combine similarity with a metadata condition — only return matches where a
 predicate holds (e.g. `genre = SciFi`).
@@ -617,10 +755,10 @@ GETSIMN 3 WITH [space opera classics] USING cosinesimilarity IN books WHERE (gen
 
 :::tip
 A metadata field must be declared as a **predicate** on the store (or indexed
-with `CREATEPREDINDEX`) before you can filter on it. See step 7.
+with `CREATEPREDINDEX`) before you can filter on it. See step 8.
 :::
 
-## 6. Retrieve by key
+## 7. Retrieve by key
 
 Fetch entries by their original input — handy when you already know the exact
 text. Requires the store to have been created with `store_original = true`.
@@ -691,9 +829,9 @@ GETKEY ([A galactic empire in decline...]) IN books
 </TabItem>
 </Tabs>
 
-## 7. Speed up filters with an index
+## 8. Speed up filters with an index
 
-Create a predicate index so metadata filters (step 5) stay fast as your store
+Create a predicate index so metadata filters (step 6) stay fast as your store
 grows. You can add predicates that weren't declared at creation time.
 
 <Tabs groupId="ahnlich-lang" queryString>
@@ -750,7 +888,7 @@ CREATEPREDINDEX (author, genre) IN books
 </TabItem>
 </Tabs>
 
-## 8. Inspect your stores
+## 9. Inspect your stores
 
 List every store on the server, along with its size, dimensions, and models.
 
@@ -801,7 +939,7 @@ LISTSTORES
 </TabItem>
 </Tabs>
 
-## 9. Clean up
+## 10. Clean up
 
 Delete individual entries with **del key**, or remove the whole store with
 **drop store**.
