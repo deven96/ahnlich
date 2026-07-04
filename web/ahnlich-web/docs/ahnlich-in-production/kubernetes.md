@@ -15,9 +15,10 @@ Reach for Kubernetes when you want self-healing pods, rolling upgrades, persiste
 volumes managed by the cluster, and horizontal scaling. For a single box or local
 experimentation, the [Docker Compose setup](./deployment) is simpler.
 
-:::note No Helm repository yet
-The charts are not published to a Helm/OCI registry at this time. You install them
-straight from the source tree, as shown below. (`helm repo add` is not available yet.)
+:::note Published to an OCI registry
+The charts are published to `oci://ghcr.io/deven96/charts` and listed on
+[ArtifactHub](https://artifacthub.io/packages/search?ts_query_web=ahnlich). Helm pulls
+them on demand — no `git clone` or `helm repo add` needed.
 :::
 
 ## Prerequisites
@@ -35,34 +36,18 @@ straight from the source tree, as shown below. (`helm repo add` is not available
   kubectl get nodes
   ```
 
-## Get the Charts
+## The charts
 
-There is no chart repository yet, so fetch the charts from GitHub. You only need the
-`charts/` directory — not the rest of the codebase.
+Helm pulls the charts straight from the OCI registry — nothing to clone or vendor.
+Reference them by their OCI URL:
 
-Clone the whole repo:
+| Chart | OCI URL |
+|---|---|
+| Umbrella (both services) | `oci://ghcr.io/deven96/charts/ahnlich` |
+| DB only | `oci://ghcr.io/deven96/charts/ahnlich-db` |
+| AI only | `oci://ghcr.io/deven96/charts/ahnlich-ai` |
 
-```bash
-git clone https://github.com/deven96/ahnlich.git
-cd ahnlich
-```
-
-Or grab only `charts/` with a sparse checkout (smaller, no source code):
-
-```bash
-git clone --depth 1 --filter=blob:none --sparse https://github.com/deven96/ahnlich.git
-cd ahnlich
-git sparse-checkout set charts
-```
-
-Then vendor the umbrella's sub-chart dependencies once:
-
-```bash
-helm dependency build charts/ahnlich
-```
-
-This resolves the `ahnlich-db` and `ahnlich-ai` sub-charts that the umbrella depends on.
-Re-run it whenever a sub-chart version changes.
+Add `--version <x.y.z>` to pin a specific chart version; without it, Helm uses the latest.
 
 ## Install (Umbrella Chart)
 
@@ -72,7 +57,7 @@ and wires the AI proxy to the DB automatically.
 ```bash
 kubectl create namespace ahnlich
 
-helm install ahnlich charts/ahnlich \
+helm install ahnlich oci://ghcr.io/deven96/charts/ahnlich \
   --namespace ahnlich \
   --set 'ahnlich-ai.models.supported={all-minilm-l6-v2}'
 ```
@@ -159,7 +144,7 @@ For permanent external access, see [External access](#external-access) below.
 Override any value with `--set key=value` or, better for real deployments, a values file:
 
 ```bash
-helm install ahnlich charts/ahnlich -n ahnlich -f my-values.yaml
+helm install ahnlich oci://ghcr.io/deven96/charts/ahnlich -n ahnlich -f my-values.yaml
 ```
 
 Umbrella values are namespaced per sub-chart — set DB values under `ahnlich-db.*` and AI
@@ -210,7 +195,7 @@ same knobs expose the DB on `1369` if you need raw vector access from outside.
 ### LoadBalancer Service (Simplest)
 
 ```bash
-helm upgrade ahnlich charts/ahnlich -n ahnlich --reuse-values \
+helm upgrade ahnlich oci://ghcr.io/deven96/charts/ahnlich -n ahnlich --reuse-values \
   --set ahnlich-ai.service.type=LoadBalancer
 ```
 
@@ -287,7 +272,7 @@ conformant controller follows the same shape (install controller → `GatewayCla
 3. Point the chart's `GRPCRoute` at that listener:
 
    ```bash
-   helm upgrade ahnlich charts/ahnlich -n ahnlich --reuse-values \
+   helm upgrade ahnlich oci://ghcr.io/deven96/charts/ahnlich -n ahnlich --reuse-values \
      --set ahnlich-ai.service.type=ClusterIP \
      --set ahnlich-ai.gateway.enabled=true \
      --set 'ahnlich-ai.gateway.parentRefs[0].name=ahnlich-eg' \
@@ -317,7 +302,7 @@ conformant controller follows the same shape (install controller → `GatewayCla
 ### Ingress
 
 ```bash
-helm upgrade ahnlich charts/ahnlich -n ahnlich --reuse-values \
+helm upgrade ahnlich oci://ghcr.io/deven96/charts/ahnlich -n ahnlich --reuse-values \
   --set ahnlich-ai.ingress.enabled=true \
   --set ahnlich-ai.ingress.className=<your-ingress-class> \
   --set ahnlich-ai.ingress.host=ai.example.com
@@ -338,7 +323,7 @@ are mutually exclusive.
 Enable the bundled in-cluster Jaeger backend and send both services' traces to it:
 
 ```bash
-helm upgrade ahnlich charts/ahnlich -n ahnlich --reuse-values \
+helm upgrade ahnlich oci://ghcr.io/deven96/charts/ahnlich -n ahnlich --reuse-values \
   --set tracing.enabled=true \
   --set tracing.backend.enabled=true \
   --set ahnlich-db.tracing.enabled=true \
@@ -362,10 +347,10 @@ You don't have to use the umbrella. Install either service on its own — useful
 
 ```bash
 # DB only
-helm install my-db charts/ahnlich-db -n ahnlich
+helm install my-db oci://ghcr.io/deven96/charts/ahnlich-db -n ahnlich
 
 # AI only — db.host is required and must resolve to a reachable DB Service
-helm install my-ai charts/ahnlich-ai -n ahnlich \
+helm install my-ai oci://ghcr.io/deven96/charts/ahnlich-ai -n ahnlich \
   --set db.host=my-db \
   --set 'models.supported={all-minilm-l6-v2}'
 ```
@@ -378,7 +363,7 @@ whatever you point it at.
 **Upgrade** — change values and re-apply:
 
 ```bash
-helm upgrade ahnlich charts/ahnlich -n ahnlich --reuse-values --set ahnlich-db.persistence.size=50Gi
+helm upgrade ahnlich oci://ghcr.io/deven96/charts/ahnlich -n ahnlich --reuse-values --set ahnlich-db.persistence.size=50Gi
 ```
 
 **Uninstall** — and clean up the PVCs (they are retained by default, holding the cached
@@ -407,7 +392,7 @@ enabled like this:
 
 ```bash
 # NOT yet functional — shown for reference only
-helm install ahnlich charts/ahnlich -n ahnlich \
+helm install ahnlich oci://ghcr.io/deven96/charts/ahnlich -n ahnlich \
   --set ahnlich-db.cluster.enabled=true \
   --set ahnlich-ai.cluster.enabled=true \
   --set 'ahnlich-ai.models.supported={all-minilm-l6-v2}'
@@ -450,6 +435,7 @@ mode for now and track the repository for cluster-mode availability.
 ## References
 
 - [Ahnlich GitHub](https://github.com/deven96/ahnlich)
+- [Charts on ArtifactHub](https://artifacthub.io/packages/search?ts_query_web=ahnlich)
 - [Chart source (`charts/`)](https://github.com/deven96/ahnlich/tree/main/charts)
 - [Docker deployment](./deployment)
 - [Distributed tracing](./tracing)
