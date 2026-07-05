@@ -58,6 +58,12 @@ jobs:
         make format
         make clippy
 
+    - name: Compile benchmarks (guard against bench rot)
+      # `make clippy` does not build bench targets, so bench-only breakage
+      # (e.g. an engine API change) can merge undetected. Compile-check them.
+      working-directory: ./ahnlich
+      run: cargo build --benches --workspace
+
     - name: Check Rust Client is up to date
       working-directory: ./ahnlich
       run: |

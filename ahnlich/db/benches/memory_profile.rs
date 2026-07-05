@@ -62,6 +62,7 @@ fn profile_batch_insertion(size: usize) {
             &StoreName {
                 value: store_name.to_string(),
             },
+            &Schema::default(),
             bulk_insert,
         )
         .unwrap();
@@ -103,6 +104,7 @@ fn profile_similarity_queries(size: usize, num_queries: usize) {
             &StoreName {
                 value: store_name.to_string(),
             },
+            &Schema::default(),
             bulk_insert,
         )
         .unwrap();
@@ -118,6 +120,7 @@ fn profile_similarity_queries(size: usize, num_queries: usize) {
                 &StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 random_input,
                 NonZeroUsize::new(50).unwrap(),
                 Algorithm::CosineSimilarity,
@@ -184,6 +187,7 @@ fn profile_predicate_queries(size: usize, num_queries: usize, with_index: bool) 
             &StoreName {
                 value: store_name.to_string(),
             },
+            &Schema::default(),
             bulk_insert,
         )
         .unwrap();
@@ -211,6 +215,7 @@ fn profile_predicate_queries(size: usize, num_queries: usize, with_index: bool) 
                 &StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 &condition,
             )
             .unwrap();

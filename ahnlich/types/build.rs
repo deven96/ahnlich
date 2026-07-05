@@ -25,7 +25,13 @@ fn main() -> Result<()> {
             .to_str()
             .expect("Cannot get proto dir str path")
     );
-    println!("cargo:warning=Run `cargo fmt` after build to format generated files.");
+
+    // Only regenerate when the proto sources are present, i.e. in-repo dev
+    // builds. Downstream consumers building from crates.io have no `protos/`
+    // and must use the committed, pre-generated code unchanged.
+    if !proto_dir.exists() {
+        return Ok(());
+    }
 
     let protofiles: Vec<PathBuf> = WalkDir::new(proto_dir.clone())
         .into_iter()
@@ -119,8 +125,32 @@ fn main() -> Result<()> {
         .expect("failed");
 
     restructure_generated_code(&out_dir, &mut file);
+    format_generated_code(&out_dir);
 
     Ok(())
+}
+
+/// Run rustfmt over the freshly generated files so the output matches
+/// `cargo fmt`, avoiding the "regenerate produces an unformatted diff" churn.
+/// rustfmt not being available is non-fatal (formatting does not affect
+/// compilation).
+fn format_generated_code(out_dir: &PathBuf) {
+    let files: Vec<PathBuf> = WalkDir::new(out_dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
+        .map(|e| e.path().to_path_buf())
+        .collect();
+    match std::process::Command::new("rustfmt")
+        .arg("--edition")
+        .arg("2024")
+        .args(&files)
+        .status()
+    {
+        Ok(status) if status.success() => {}
+        Ok(status) => println!("cargo:warning=rustfmt exited with {status} on generated code"),
+        Err(err) => println!("cargo:warning=could not run rustfmt on generated code: {err}"),
+    }
 }
 
 fn restructure_generated_code(out_dir: &PathBuf, file: &mut std::fs::File) {
