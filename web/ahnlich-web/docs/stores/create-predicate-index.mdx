@@ -1,0 +1,223 @@
+---
+title: Create predicate index
+sidebar_label: Create predicate index
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Create predicate index
+
+Index one or more metadata fields so [predicate queries](/docs/stores/get-by-predicate) run faster.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Store to index. |
+| `predicates` | list | Metadata fields to index. |
+| `schema` | string · optional | Schema to target. Defaults to `public`. |
+
+> All requests accept an optional `schema` field. When omitted, the server uses the `public` schema.
+
+## Behavior
+
+- Speeds up [Get by predicate](/docs/stores/get-by-predicate) and predicate filters used in [similarity search](/docs/stores/get-simn).
+- Indexing existing fields is safe — it builds over data already stored.
+
+## Sample query
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+
+
+async def create_predicate_index():
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+    client = DbServiceStub(channel)
+    
+    response = await client.create_pred_index(
+      db_query.CreatePredIndex(
+        store="my_store",
+        schema="analytics",
+        predicates=["label", "category"]
+      )
+    )
+    # response.created_indexes shows how many indexes were created
+  print(response)
+
+
+if __name__ =="__main__":
+  asyncio.run(create_predicate_index())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { CreatePredIndex } from "ahnlich-client-node/grpc/db/query_pb";
+
+async function createPredicateIndex() {
+  const client = createDbClient("127.0.0.1:1369");
+
+  await client.createPredIndex(
+    new CreatePredIndex({
+      store: "my_store",
+      schema: "analytics",
+      predicates: ["label", "category"],
+    })
+  );
+
+  console.log("Predicate indices created successfully");
+}
+
+createPredicateIndex();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    dbsvc   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleDBClient struct {
+    conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleDBClient) Close() error {
+    return c.conn.Close()
+}
+
+
+// -------------------- Create Predicate Index --------------------
+func (c *ExampleDBClient) exampleCreatePredicateIndex() error {
+    _, err := c.client.CreatePredIndex(c.ctx, &dbquery.CreatePredIndex{
+        Store:      "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+        Predicates: []string{"label"},
+    })
+    if err != nil {
+        return err
+    }
+    fmt.Println("Predicate index created for store: my_store")
+    return nil
+}
+
+
+// -------------------- Main --------------------
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleCreatePredicateIndex(); err != nil {
+        log.Fatalf("CreatePredicateIndex failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+use ahnlich_types::db::query::CreatePredIndex;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // connect to DB server
+    let db_client = DbClient::new("127.0.0.1:1369".to_string()).await?;
+    let tracing_id: Option<String> = None;
+
+
+    // Create predicate index request
+    let params = CreatePredIndex {
+        store: "my_store".to_string(),
+        schema: Some("analytics".to_string()),
+        predicates: vec!["label".to_string()], // metadata field names to index
+    };
+
+
+    // Call the client
+    match db_client.create_pred_index(params, tracing_id).await {
+        Ok(result) => {
+            println!("Created predicate index: {:?}", result);
+        }
+        Err(err) => {
+            eprintln!("Error creating predicate index: {:?}", err);
+        }
+    }
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+CREATEPREDINDEX (author, category) IN my_store
+```
+
+</TabItem>
+</Tabs>
+
+## Response
+
+The number of indexes successfully created.
+
+## Related
+
+- [Get by predicate](/docs/stores/get-by-predicate)
+- [Drop predicate index](/docs/stores/drop-predicate-index)
+- [Predicates](/docs/components/predicates)

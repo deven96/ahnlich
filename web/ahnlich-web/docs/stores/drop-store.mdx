@@ -1,0 +1,217 @@
+---
+title: Drop a store
+sidebar_label: Drop a store
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Drop a store
+
+Permanently delete a [store](/docs/stores) and **all** its contents. This is destructive and cannot be undone.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Name of the store to delete. |
+| `error_if_not_exists` | bool · optional | If `true`, errors when the store doesn't exist. |
+| `schema` | string · optional | Schema to target. Defaults to `public`. |
+
+> All requests accept an optional `schema` field. When omitted, the server uses the `public` schema.
+
+## Behavior
+
+- Removes the store and its data from the engine.
+- Pair with `error_if_not_exists` to make missing-store deletes a hard error.
+
+## Sample query
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from grpclib.exceptions import GRPCError
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc.db.server import Del
+
+
+async def drop_store():
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+      client = DbServiceStub(channel)
+      
+      response = await client.drop_store(
+          db_query.DropStore(
+              store="my_store",
+              schema="analytics",
+              error_if_not_exists=True
+          )
+      )
+      # response contains deleted_count
+if __name__ == "__main__":
+  asyncio.run(drop_store())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { DropStore } from "ahnlich-client-node/grpc/db/query_pb";
+
+async function dropStore() {
+  const client = createDbClient("127.0.0.1:1369");
+
+  await client.dropStore(
+    new DropStore({
+      store: "my_store",
+      schema: "analytics",
+      errorIfNotExists: true,
+    })
+  );
+
+  console.log("Store dropped successfully");
+}
+
+dropStore();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    dbsvc   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleDBClient struct {
+    conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleDBClient) Close() error {
+    return c.conn.Close()
+}
+
+
+// -------------------- Drop Store --------------------
+func (c *ExampleDBClient) exampleDropStore() error {
+    _, err := c.client.DropStore(c.ctx, &dbquery.DropStore{
+        Store:             "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+        ErrorIfNotExists:  true,  // Return error if store doesn't exist
+    })
+    if err != nil {
+        return err
+    }
+    fmt.Println("Dropped store: my_store")
+    return nil
+}
+
+
+// -------------------- Main --------------------
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleDropStore(); err != nil {
+        log.Fatalf("DropStore failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_types::db::query::DropStore;
+use ahnlich_client_rs::db::DbClient;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Connect to the DB server
+    let client = DbClient::new("http://127.0.0.1:1369".to_string()).await?;
+
+
+    // Prepare drop store parameters
+    let drop_params = DropStore {
+        store: "MyStore".to_string(),
+        schema: Some("analytics".to_string()),
+        error_if_not_exists: true, // Required field
+    };
+
+
+    // Execute the drop store request
+    let result = client.drop_store(drop_params, None).await?;
+
+
+    println!("Deleted count: {}", result.deleted_count);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+DROPSTORE my_store IF EXISTS
+```
+
+</TabItem>
+</Tabs>
+
+## Response
+
+A confirmation response with the deleted count.
+
+## Related
+
+- [Create a store](/docs/stores/create-store)
+- [Delete by key](/docs/stores/delete-key)

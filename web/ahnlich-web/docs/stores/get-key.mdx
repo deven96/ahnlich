@@ -1,0 +1,247 @@
+---
+title: Get by key
+sidebar_label: Get by key
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Get by key
+
+Retrieve entries by an exact vector-key match.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Name of the store to read from. |
+| `keys` | list of vectors | The exact vector keys to look up. |
+| `schema` | string · optional | Schema to target. Defaults to `public`. |
+
+> All requests accept an optional `schema` field. When omitted, the server uses the `public` schema.
+
+## Behavior
+
+- Matches the stored entry whose key vector is **exactly** equal to the one supplied.
+- Returns nothing for keys that aren't present — it does not do nearest-neighbour matching (use [Similarity search](/docs/stores/get-simn) for that).
+
+## Sample query
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc import keyval
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc.db.server import Get
+
+async def get_key():
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+    client = DbServiceStub(channel)
+    
+    lookup_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0])  # Your lookup vector
+    
+    response = await client.get_key(
+      db_query.GetKey(
+          store="my_store",
+          schema="analytics",
+          keys=[lookup_key]
+      )
+    )
+    # response.entries contains matching (key, value) pairs
+if __name__ == "__main__":
+  asyncio.run(get_key())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { GetKey } from "ahnlich-client-node/grpc/db/query_pb";
+import { StoreKey } from "ahnlich-client-node/grpc/keyval_pb";
+
+async function getKey() {
+  const client = createDbClient("127.0.0.1:1369");
+
+  const response = await client.getKey(
+    new GetKey({
+      store: "my_store",
+      schema: "analytics",
+      keys: [new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] })],
+    })
+  );
+
+  console.log(response.entries);
+
+  // Iterate over results
+  for (const entry of response.entries) {
+    console.log(`Key: ${entry.key?.key}`);
+    console.log(`Value: ${JSON.stringify(entry.value?.value)}`);
+  }
+}
+
+getKey();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    dbsvc   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    keyval  "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+// ExampleDBClient holds the gRPC connection, client, and context.
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleDBClient struct {
+    conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+// NewDBClient connects to the Ahnlich DB server.
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(
+        ServerAddr,
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+// Close closes the gRPC connection.
+func (c *ExampleDBClient) Close() error {
+    return c.conn.Close()
+}
+
+
+// -------------------- GetKey --------------------
+func (c *ExampleDBClient) exampleGetKey() error {
+    resp, err := c.client.GetKey(c.ctx, &dbquery.GetKey{
+        Store: "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+        Keys:  []*keyval.StoreKey{{Key: []float32{1, 2, 3, 4}}},
+    })
+    if err != nil {
+        return err
+    }
+    fmt.Println("GetKey Results:")
+    for _, entry := range resp.Entries {
+        fmt.Println(" - Key:", entry.Key.Key, "Value:", entry.Value.Value)
+    }
+    return nil
+}
+
+
+// -------------------- Main --------------------
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleGetKey(); err != nil {
+        log.Fatalf("GetKey failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+use ahnlich_types::{
+    db::query::GetKey,
+    keyval::StoreKey,
+};
+use tokio;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // point to your DB server (default is 1369, adjust if needed)
+    let addr = "http://127.0.0.1:1369";
+    let client = DbClient::new(addr.to_string()).await?;
+
+
+    // example: look up a key from store "my_store"
+    let get_key_params = GetKey {
+        store: "my_store".to_string(),
+        schema: Some("analytics".to_string()),
+        keys: vec![
+            StoreKey {
+                key: vec![1.2, 1.3, 1.4], // must match a previously Set key
+            },
+        ],
+    };
+
+
+    match client.get_key(get_key_params, None).await {
+        Ok(result) => {
+            println!("Fetched: {:#?}", result);
+        }
+        Err(e) => {
+            eprintln!("Error fetching key: {:?}", e);
+        }
+    }
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETKEY ([1.0, 2.0, 3.0, 4.0]) IN my_store
+```
+
+</TabItem>
+</Tabs>
+
+## Response
+
+The matching entries (vector + metadata). Empty if no key matches.
+
+## Related
+
+- [Similarity search](/docs/stores/get-simn)
+- [Get by predicate](/docs/stores/get-by-predicate)

@@ -138,7 +138,7 @@ const config: Config = {
       items: [
         {
           type: 'docSidebar',
-          sidebarId: 'docsSidebar',
+          sidebarId: 'gettingStartedSidebar',
           position: 'right',
           label: 'Docs',
         },

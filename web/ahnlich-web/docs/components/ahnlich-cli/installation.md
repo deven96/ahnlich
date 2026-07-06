@@ -9,7 +9,31 @@ You can use the Ahnlich CLI either by downloading **prebuilt binaries** or by bu
 
 ## Download Binaries
 
-Prebuilt binaries are available on GitHub Releases: https://github.com/deven96/ahnlich/releases
+Prebuilt binaries are available on [GitHub Releases](https://github.com/deven96/ahnlich/releases).
+
+> `wget` is not installed on macOS by default, so the examples below use `curl` (built in). Check your Mac's chip with `uname -m` — `arm64` means Apple Silicon, `x86_64` means Intel.
+
+### Download the binary
+
+**macOS — Apple Silicon (M1/M2/M3/M4):**
+```bash
+curl -L -O "https://github.com/deven96/ahnlich/releases/download/bin%2Fcli%2F0.2.1/aarch64-apple-darwin-ahnlich-cli.tar.gz"
+```
+
+**macOS — Intel:**
+```bash
+curl -L -O "https://github.com/deven96/ahnlich/releases/download/bin%2Fcli%2F0.2.1/x86_64-apple-darwin-ahnlich-cli.tar.gz"
+```
+
+**Linux — x86_64:**
+```bash
+curl -L -O "https://github.com/deven96/ahnlich/releases/download/bin%2Fcli%2F0.2.1/x86_64-unknown-linux-gnu-ahnlich-cli.tar.gz"
+```
+
+**Linux — ARM64:**
+```bash
+curl -L -O "https://github.com/deven96/ahnlich/releases/download/bin%2Fcli%2F0.2.1/aarch64-unknown-linux-gnu-ahnlich-cli.tar.gz"
+```
 
 ### Extract the Archive
 

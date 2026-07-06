@@ -1,0 +1,86 @@
+---
+id: stores
+title: 🗂️ Stores
+---
+
+import CustomDocCard from '@site/src/components/CustomDocCard';
+
+export const serverOps = [
+  {title: 'Ping the server', icon: '📡', link: '/docs/stores/ping'},
+  {title: 'Server info', icon: 'ℹ️', link: '/docs/stores/info-server'},
+  {title: 'List connected clients', icon: '👥', link: '/docs/stores/list-connected-clients'},
+];
+
+export const storeOps = [
+  {title: 'Create a store', icon: '➕', link: '/docs/stores/create-store'},
+  {title: 'List stores', icon: '📋', link: '/docs/stores/list-stores'},
+  {title: 'Get a store', icon: '🔎', link: '/docs/stores/get-store'},
+  {title: 'Drop a store', icon: '🗑️', link: '/docs/stores/drop-store'},
+];
+
+export const indexOps = [
+  {title: 'Create predicate index', icon: '🏷️', link: '/docs/stores/create-predicate-index'},
+  {title: 'Drop predicate index', icon: '🧹', link: '/docs/stores/drop-predicate-index'},
+  {title: 'Create non-linear index', icon: '🌲', link: '/docs/stores/create-non-linear-algx'},
+  {title: 'Drop non-linear index', icon: '✂️', link: '/docs/stores/drop-non-linear-algx'},
+];
+
+export const dataOps = [
+  {title: 'Insert data', icon: '📥', link: '/docs/stores/set'},
+  {title: 'Upsert data', icon: '🔁', link: '/docs/stores/upsert'},
+  {title: 'Get by key', icon: '🔑', link: '/docs/stores/get-key'},
+  {title: 'Similarity search', icon: '🎯', link: '/docs/stores/get-simn'},
+  {title: 'Get by predicate', icon: '🔍', link: '/docs/stores/get-by-predicate'},
+  {title: 'Delete by key', icon: '❌', link: '/docs/stores/delete-key'},
+  {title: 'Delete by predicate', icon: '🧽', link: '/docs/stores/delete-predicate'},
+];
+
+# Stores
+
+A **store** is Ahnlich's main unit of organization — a named container for your
+vectors and their metadata, much like a *collection* in a document database or a
+*table* in a relational one. You create a store, insert data into it, then query
+it by similarity or by metadata predicates.
+
+Every operation below is shown in **Python, Node.js, Go, Rust, and the CLI** —
+pick your language once and it stays selected across pages.
+
+## Server operations
+
+Talk to the running server itself — health checks and metadata.
+
+<div className="remove-link-line grid md:grid-cols-2 gap-4">
+  {serverOps.map((op) => (
+    <CustomDocCard key={op.title} title={op.title} icon={op.icon} link={op.link} />
+  ))}
+</div>
+
+## Store operations
+
+Manage the store containers themselves — their whole lifecycle.
+
+<div className="remove-link-line grid md:grid-cols-2 gap-4">
+  {storeOps.map((op) => (
+    <CustomDocCard key={op.title} title={op.title} icon={op.icon} link={op.link} />
+  ))}
+</div>
+
+## Indexes
+
+Add or remove indexes to speed up predicate filters and nearest-neighbour search.
+
+<div className="remove-link-line grid md:grid-cols-2 gap-4">
+  {indexOps.map((op) => (
+    <CustomDocCard key={op.title} title={op.title} icon={op.icon} link={op.link} />
+  ))}
+</div>
+
+## Data operations
+
+Read and write the entries inside a store.
+
+<div className="remove-link-line grid md:grid-cols-2 gap-4">
+  {dataOps.map((op) => (
+    <CustomDocCard key={op.title} title={op.title} icon={op.icon} link={op.link} />
+  ))}
+</div>

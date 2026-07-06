@@ -3,31 +3,23 @@ import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 /**
- * Creating a sidebar enables you to:
- - create an ordered group of docs
- - render a sidebar for each doc of that group
- - provide next/previous navigation
-
- The sidebars can be generated from the filesystem, or explicitly defined here.
-
- Create as many sidebars as you want.
+ * Prisma-style docs IA: each top tab (see src/components/DocsSubnav) maps to
+ * its own dedicated sidebar so the left menu only shows that section's pages.
  */
 const sidebars: SidebarsConfig = {
-  docsSidebar: [
+  // ---- Getting Started tab ------------------------------------------------
+  gettingStartedSidebar: [
     {
       type: 'html',
-      value: 'Getting Started',
+      value: 'Introduction',
       className: 'sidebar-section-title',
       defaultStyle: true,
     },
-    "overview",
+    { type: 'doc', id: 'overview', label: 'What is Ahnlich?' },
     {
       type: 'category',
-      label: "🚀 Getting Started",
-      link: {
-        type: 'doc',
-        id: 'getting-started/getting-started',
-      },
+      label: '🚀 Getting Started',
+      link: { type: 'doc', id: 'getting-started/getting-started' },
       items: [
         'getting-started/installation',
         'getting-started/quickstart',
@@ -38,409 +30,444 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'html',
-      value: 'Guides',
+      value: 'Stores',
       className: 'sidebar-section-title',
       defaultStyle: true,
     },
     {
       type: 'category',
-      label: "🧩 Components",
-      link: {
-        type: 'doc',
-        id: 'components/components',
-      },
+      label: '🗂️ Stores',
+      link: { type: 'doc', id: 'stores/stores' },
+      collapsed: false,
       items: [
         {
           type: 'category',
-          label: "📟 Ahnlich CLI",
-          link: {
-            type: 'doc',
-            id: 'components/ahnlich-cli/ahnlich-cli'
-          },
+          label: 'Server operations',
           items: [
-            'components/ahnlich-cli/installation',
-            'components/ahnlich-cli/db-commands',
-            'components/ahnlich-cli/ai-commands',
-          ],
-        },
-        'components/schemas/schemas',
-        {
-          type: 'category',
-          label: "🗄️ Ahnlich DB",
-          link: {
-            type: 'doc',
-            id: 'components/ahnlich-db/ahnlich-db'
-          },
-          items: [
-            'components/ahnlich-db/use-cases',
-            'components/ahnlich-db/installation',
-            'components/ahnlich-db/reference',
-            'components/ahnlich-db/advanced',
+            'stores/ping',
+            'stores/info-server',
+            'stores/list-connected-clients',
           ],
         },
         {
           type: 'category',
-          label: "🤖 Ahnlich AI",
-          link: {
-            type: 'doc',
-            id: 'components/ahnlich-ai/ahnlich-ai'
-          },
+          label: 'Store operations',
           items: [
-            'components/ahnlich-ai/use-cases',
-            'components/ahnlich-ai/setup-config',
-            'components/ahnlich-ai/reference',
-            'components/ahnlich-ai/advanced',
-            'components/ahnlich-ai/deep-dive'
+            'stores/create-store',
+            'stores/list-stores',
+            'stores/get-store',
+            'stores/drop-store',
           ],
         },
         {
           type: 'category',
-          label: "♾️ Persistence In Ahnlich",
-          link: {
-            type: 'doc',
-            id: 'components/persistence-in-ahnlich/persistence-in-ahnlich'
-          },
+          label: 'Indexes',
           items: [
-            'components/persistence-in-ahnlich/persistence-for-ahnlich-db',
-            'components/persistence-in-ahnlich/persistence-for-ahnlich-ai',
+            'stores/create-predicate-index',
+            'stores/drop-predicate-index',
+            'stores/create-non-linear-algx',
+            'stores/drop-non-linear-algx',
           ],
         },
         {
           type: 'category',
-          label: "🔍 Predicates",
-          link: {
-            type: 'doc',
-            id: 'components/predicates/predicates'
-          },
+          label: 'Data operations',
           items: [
-            'components/predicates/quick-reference',
-          ],
-        },
-        {
-          type: 'category',
-          label: "🕸️ Distributed Tracing",
-          link: {
-            type: 'doc',
-            id: 'components/distributed-tracing/distributed-tracing'
-          },
-          items: [
-            'components/distributed-tracing/ahnlich-db',
-            'components/distributed-tracing/ahnlich-ai',
-            'components/distributed-tracing/using-jaeger',
+            'stores/set',
+            'stores/upsert',
+            'stores/get-key',
+            'stores/get-simn',
+            'stores/get-by-predicate',
+            'stores/delete-key',
+            'stores/delete-predicate',
           ],
         },
       ],
     },
+  ],
+
+  // ---- Vector DB tab ------------------------------------------------------
+  vectorDbSidebar: [
+    {
+      type: 'html',
+      value: 'Introduction',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    { type: 'doc', id: 'components/ahnlich-db/ahnlich-db', label: 'Overview' },
+    'components/ahnlich-db/installation',
+    'components/ahnlich-db/use-cases',
+    {
+      type: 'html',
+      value: 'Reference',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    'components/ahnlich-db/reference',
+    'components/ahnlich-db/advanced',
+  ],
+
+  // ---- AI tab -------------------------------------------------------------
+  aiSidebar: [
+    {
+      type: 'html',
+      value: 'Introduction',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    { type: 'doc', id: 'components/ahnlich-ai/ahnlich-ai', label: 'Overview' },
+    'components/ahnlich-ai/setup-config',
+    'components/ahnlich-ai/use-cases',
+    {
+      type: 'html',
+      value: 'Reference',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    'components/ahnlich-ai/reference',
+    'components/ahnlich-ai/advanced',
+    'components/ahnlich-ai/deep-dive',
+  ],
+
+  // ---- CLI tab ------------------------------------------------------------
+  cliSidebar: [
+    {
+      type: 'html',
+      value: 'Introduction',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    { type: 'doc', id: 'components/ahnlich-cli/ahnlich-cli', label: 'Overview' },
+    'components/ahnlich-cli/installation',
+    {
+      type: 'html',
+      value: 'Commands',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    'components/ahnlich-cli/db-commands',
+    'components/ahnlich-cli/ai-commands',
+  ],
+
+  // ---- Clients tab --------------------------------------------------------
+  clientsSidebar: [
+    {
+      type: 'html',
+      value: 'Client Libraries',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    {
+      type: 'doc',
+      id: 'client-libraries/client-libraries',
+      label: 'Overview',
+    },
+    'client-libraries/schema-support',
     {
       type: 'category',
-      label: "📚 Client Libraries",
-      link: {
-        type: 'doc',
-        id: 'client-libraries/client-libraries'
+      label: 'Python',
+      link: { type: 'doc', id: 'client-libraries/python/python' },
+      customProps: {
+        iconLight: '/img/python_logo.png',
+        iconDark: '/img/python-logo.png',
+        iconType: 'img',
       },
       items: [
-        'client-libraries/schema-support',
+        'client-libraries/python/python-specific-resources',
         {
           type: 'category',
-          label: 'Python',
-          link: {
-            type: 'doc',
-            id: 'client-libraries/python/python'
-          },
-          customProps: {
-            iconLight: '/img/python_logo.png',
-            iconDark: '/img/python-logo.png',
-            iconType: 'img'
-          },
+          label: 'Request DB',
+          link: { type: 'doc', id: 'client-libraries/python/request-db/request-db' },
           items: [
-            'client-libraries/python/python-specific-resources',
-            {
-              type: 'category',
-              label: 'Request DB',
-              link: {
-                type: 'doc',
-                id: 'client-libraries/python/request-db/request-db'
-              },
-              items: [
-                'client-libraries/python/request-db/ping',
-                'client-libraries/python/request-db/info-server',
-                'client-libraries/python/request-db/list-connected-clients',
-                'client-libraries/python/request-db/list-stores',
-                'client-libraries/python/request-db/get-store',
-                'client-libraries/python/request-db/create-store',
-                'client-libraries/python/request-db/set',
-                'client-libraries/python/request-db/upsert',
-                'client-libraries/python/request-db/get-simn',
-                'client-libraries/python/request-db/get-key',
-                'client-libraries/python/request-db/get-by-predicate',
-                'client-libraries/python/request-db/create-predicate-index',
-                'client-libraries/python/request-db/drop-predicate-index',
-                'client-libraries/python/request-db/delete-key',
-                'client-libraries/python/request-db/delete-predicate',
-                'client-libraries/python/request-db/drop-store',
-                'client-libraries/python/request-db/create-non-linear-algx',
-                'client-libraries/python/request-db/drop-non-linear-algx',
-              ]
-            },
-            {
-              type: 'category',
-              label: 'Request AI',
-              link: {
-                type: 'doc',
-                id: 'client-libraries/python/request-ai/request-ai'
-              },
-              items: [
-                'client-libraries/python/request-ai/ping',
-                'client-libraries/python/request-ai/info-server',
-                'client-libraries/python/request-ai/list-connected-clients',
-                'client-libraries/python/request-ai/list-stores',
-                'client-libraries/python/request-ai/get-store',
-                'client-libraries/python/request-ai/create-store',
-                'client-libraries/python/request-ai/set',
-                'client-libraries/python/request-ai/upsert',
-                'client-libraries/python/request-ai/get-simn',
-                'client-libraries/python/request-ai/get-key',
-                'client-libraries/python/request-ai/get-by-predicate',
-                'client-libraries/python/request-ai/create-predicate-index',
-                'client-libraries/python/request-ai/drop-predicate-index',
-                'client-libraries/python/request-ai/delete-key',
-                'client-libraries/python/request-ai/delete-predicate',
-                'client-libraries/python/request-ai/drop-store',
-                'client-libraries/python/request-ai/create-non-linear-algx',
-                'client-libraries/python/request-ai/drop-non-linear-algx',
-                'client-libraries/python/request-ai/purge-stores',
-              ]
-            },
-            'client-libraries/python/bulk-requests',
-            'client-libraries/python/type-meanings'
+            'client-libraries/python/request-db/ping',
+            'client-libraries/python/request-db/info-server',
+            'client-libraries/python/request-db/list-connected-clients',
+            'client-libraries/python/request-db/list-stores',
+            'client-libraries/python/request-db/get-store',
+            'client-libraries/python/request-db/create-store',
+            'client-libraries/python/request-db/set',
+            'client-libraries/python/request-db/upsert',
+            'client-libraries/python/request-db/get-simn',
+            'client-libraries/python/request-db/get-key',
+            'client-libraries/python/request-db/get-by-predicate',
+            'client-libraries/python/request-db/create-predicate-index',
+            'client-libraries/python/request-db/drop-predicate-index',
+            'client-libraries/python/request-db/delete-key',
+            'client-libraries/python/request-db/delete-predicate',
+            'client-libraries/python/request-db/drop-store',
+            'client-libraries/python/request-db/create-non-linear-algx',
+            'client-libraries/python/request-db/drop-non-linear-algx',
           ],
         },
         {
           type: 'category',
-          label: 'Node.js',
-          link: {
-            type: 'doc',
-            id: 'client-libraries/node/node'
-          },
-          customProps: {
-            icon: '/img/nodejs-logo.png',
-            iconType: 'img'
-          },
+          label: 'Request AI',
+          link: { type: 'doc', id: 'client-libraries/python/request-ai/request-ai' },
           items: [
-            'client-libraries/node/node-specific-resources',
-            {
-              type: 'category',
-              label: 'Request DB',
-              link: {
-                type: 'doc',
-                id: 'client-libraries/node/request-db/request-db'
-              },
-              items: [
-                'client-libraries/node/request-db/ping',
-                'client-libraries/node/request-db/info-server',
-                'client-libraries/node/request-db/list-connected-clients',
-                'client-libraries/node/request-db/list-stores',
-                'client-libraries/node/request-db/get-store',
-                'client-libraries/node/request-db/create-store',
-                'client-libraries/node/request-db/set',
-                'client-libraries/node/request-db/upsert',
-                'client-libraries/node/request-db/get-simn',
-                'client-libraries/node/request-db/get-key',
-                'client-libraries/node/request-db/get-by-predicate',
-                'client-libraries/node/request-db/create-predicate-index',
-                'client-libraries/node/request-db/drop-predicate-index',
-                'client-libraries/node/request-db/create-non-linear-algx',
-                'client-libraries/node/request-db/drop-non-linear-algx',
-                'client-libraries/node/request-db/delete-key',
-                'client-libraries/node/request-db/delete-predicate',
-                'client-libraries/node/request-db/drop-store',
-              ]
-            },
-            {
-              type: 'category',
-              label: 'Request AI',
-              link: {
-                type: 'doc',
-                id: 'client-libraries/node/request-ai/request-ai'
-              },
-              items: [
-                'client-libraries/node/request-ai/ping',
-                'client-libraries/node/request-ai/info-server',
-                'client-libraries/node/request-ai/list-connected-clients',
-                'client-libraries/node/request-ai/list-stores',
-                'client-libraries/node/request-ai/get-store',
-                'client-libraries/node/request-ai/create-store',
-                'client-libraries/node/request-ai/set',
-                'client-libraries/node/request-ai/upsert',
-                'client-libraries/node/request-ai/get-simn',
-                'client-libraries/node/request-ai/get-key',
-                'client-libraries/node/request-ai/get-by-predicate',
-                'client-libraries/node/request-ai/create-predicate-index',
-                'client-libraries/node/request-ai/drop-predicate-index',
-                'client-libraries/node/request-ai/create-non-linear-algx',
-                'client-libraries/node/request-ai/drop-non-linear-algx',
-                'client-libraries/node/request-ai/delete-key',
-                'client-libraries/node/request-ai/delete-predicate',
-                'client-libraries/node/request-ai/drop-store',
-                'client-libraries/node/request-ai/purge-stores',
-              ]
-            },
-            'client-libraries/node/tracing',
-            'client-libraries/node/type-meanings'
-          ]
+            'client-libraries/python/request-ai/ping',
+            'client-libraries/python/request-ai/info-server',
+            'client-libraries/python/request-ai/list-connected-clients',
+            'client-libraries/python/request-ai/list-stores',
+            'client-libraries/python/request-ai/get-store',
+            'client-libraries/python/request-ai/create-store',
+            'client-libraries/python/request-ai/set',
+            'client-libraries/python/request-ai/upsert',
+            'client-libraries/python/request-ai/get-simn',
+            'client-libraries/python/request-ai/get-key',
+            'client-libraries/python/request-ai/get-by-predicate',
+            'client-libraries/python/request-ai/create-predicate-index',
+            'client-libraries/python/request-ai/drop-predicate-index',
+            'client-libraries/python/request-ai/delete-key',
+            'client-libraries/python/request-ai/delete-predicate',
+            'client-libraries/python/request-ai/drop-store',
+            'client-libraries/python/request-ai/create-non-linear-algx',
+            'client-libraries/python/request-ai/drop-non-linear-algx',
+            'client-libraries/python/request-ai/purge-stores',
+          ],
+        },
+        'client-libraries/python/bulk-requests',
+        'client-libraries/python/type-meanings',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Node.js',
+      link: { type: 'doc', id: 'client-libraries/node/node' },
+      customProps: { icon: '/img/nodejs-logo.png', iconType: 'img' },
+      items: [
+        'client-libraries/node/node-specific-resources',
+        {
+          type: 'category',
+          label: 'Request DB',
+          link: { type: 'doc', id: 'client-libraries/node/request-db/request-db' },
+          items: [
+            'client-libraries/node/request-db/ping',
+            'client-libraries/node/request-db/info-server',
+            'client-libraries/node/request-db/list-connected-clients',
+            'client-libraries/node/request-db/list-stores',
+            'client-libraries/node/request-db/get-store',
+            'client-libraries/node/request-db/create-store',
+            'client-libraries/node/request-db/set',
+            'client-libraries/node/request-db/upsert',
+            'client-libraries/node/request-db/get-simn',
+            'client-libraries/node/request-db/get-key',
+            'client-libraries/node/request-db/get-by-predicate',
+            'client-libraries/node/request-db/create-predicate-index',
+            'client-libraries/node/request-db/drop-predicate-index',
+            'client-libraries/node/request-db/create-non-linear-algx',
+            'client-libraries/node/request-db/drop-non-linear-algx',
+            'client-libraries/node/request-db/delete-key',
+            'client-libraries/node/request-db/delete-predicate',
+            'client-libraries/node/request-db/drop-store',
+          ],
         },
         {
           type: 'category',
-          label: 'Go',
-          link: {
-            type: 'doc',
-            id: 'client-libraries/go/go',
-          },
-          customProps: {
-            icon: '/img/go.png',
-            iconType: 'img'
-          },
+          label: 'Request AI',
+          link: { type: 'doc', id: 'client-libraries/node/request-ai/request-ai' },
           items: [
-            'client-libraries/go/go-specific-resources',
-            {
-              type: 'category',
-              label: 'Request DB',
-              link: {
-                type: 'doc',
-                id: 'client-libraries/go/request-db/request-db'
-              },
-              items: [
-                'client-libraries/go/request-db/ping',
-                'client-libraries/go/request-db/info-server',
-                'client-libraries/go/request-db/list-stores',
-                'client-libraries/go/request-db/get-store',
-                'client-libraries/go/request-db/create-store',
-                'client-libraries/go/request-db/set',
-                'client-libraries/go/request-db/upsert',
-                'client-libraries/go/request-db/get-simn',
-                'client-libraries/go/request-db/get-key',
-                'client-libraries/go/request-db/get-by-predicate',
-                'client-libraries/go/request-db/create-predicate-index',
-                'client-libraries/go/request-db/drop-predicate-index',
-                'client-libraries/go/request-db/delete-key',
-                'client-libraries/go/request-db/drop-store',
-                'client-libraries/go/request-db/list-connected-clients',
-                'client-libraries/go/request-db/create-non-linear-algx',
-                'client-libraries/go/request-db/drop-non-linear-algx',
-                'client-libraries/go/request-db/delete-predicate',
-              ]
-            },
-            {
-              type: 'category',
-              label: 'Request AI',
-              link: {
-                type: 'doc',
-                id: 'client-libraries/go/request-ai/request-ai'
-              },
-              items: [
-                'client-libraries/go/request-ai/ping',
-                'client-libraries/go/request-ai/info-server',
-                'client-libraries/go/request-ai/list-connected-clients',
-                'client-libraries/go/request-ai/list-stores',
-                'client-libraries/go/request-ai/get-store',
-                'client-libraries/go/request-ai/create-store',
-                'client-libraries/go/request-ai/set',
-                'client-libraries/go/request-ai/upsert',
-                'client-libraries/go/request-ai/get-simn',
-                'client-libraries/go/request-ai/get-key',
-                'client-libraries/go/request-ai/get-by-predicate',
-                'client-libraries/go/request-ai/create-predicate-index',
-                'client-libraries/go/request-ai/drop-predicate-index',
-                'client-libraries/go/request-ai/delete-key',
-                'client-libraries/go/request-ai/delete-predicate',
-                'client-libraries/go/request-ai/drop-store',
-                'client-libraries/go/request-ai/create-non-linear-algx',
-                'client-libraries/go/request-ai/drop-non-linear-algx',
-                'client-libraries/go/request-ai/purge-stores',
-              ]
-            },
-            'client-libraries/go/bulk-requests',
-            'client-libraries/go/type-meanings'
-          ]
+            'client-libraries/node/request-ai/ping',
+            'client-libraries/node/request-ai/info-server',
+            'client-libraries/node/request-ai/list-connected-clients',
+            'client-libraries/node/request-ai/list-stores',
+            'client-libraries/node/request-ai/get-store',
+            'client-libraries/node/request-ai/create-store',
+            'client-libraries/node/request-ai/set',
+            'client-libraries/node/request-ai/upsert',
+            'client-libraries/node/request-ai/get-simn',
+            'client-libraries/node/request-ai/get-key',
+            'client-libraries/node/request-ai/get-by-predicate',
+            'client-libraries/node/request-ai/create-predicate-index',
+            'client-libraries/node/request-ai/drop-predicate-index',
+            'client-libraries/node/request-ai/create-non-linear-algx',
+            'client-libraries/node/request-ai/drop-non-linear-algx',
+            'client-libraries/node/request-ai/delete-key',
+            'client-libraries/node/request-ai/delete-predicate',
+            'client-libraries/node/request-ai/drop-store',
+            'client-libraries/node/request-ai/purge-stores',
+          ],
+        },
+        'client-libraries/node/tracing',
+        'client-libraries/node/type-meanings',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Go',
+      link: { type: 'doc', id: 'client-libraries/go/go' },
+      customProps: { icon: '/img/go.png', iconType: 'img' },
+      items: [
+        'client-libraries/go/go-specific-resources',
+        {
+          type: 'category',
+          label: 'Request DB',
+          link: { type: 'doc', id: 'client-libraries/go/request-db/request-db' },
+          items: [
+            'client-libraries/go/request-db/ping',
+            'client-libraries/go/request-db/info-server',
+            'client-libraries/go/request-db/list-stores',
+            'client-libraries/go/request-db/get-store',
+            'client-libraries/go/request-db/create-store',
+            'client-libraries/go/request-db/set',
+            'client-libraries/go/request-db/upsert',
+            'client-libraries/go/request-db/get-simn',
+            'client-libraries/go/request-db/get-key',
+            'client-libraries/go/request-db/get-by-predicate',
+            'client-libraries/go/request-db/create-predicate-index',
+            'client-libraries/go/request-db/drop-predicate-index',
+            'client-libraries/go/request-db/delete-key',
+            'client-libraries/go/request-db/drop-store',
+            'client-libraries/go/request-db/list-connected-clients',
+            'client-libraries/go/request-db/create-non-linear-algx',
+            'client-libraries/go/request-db/drop-non-linear-algx',
+            'client-libraries/go/request-db/delete-predicate',
+          ],
         },
         {
           type: 'category',
-          label: 'Rust',
-          link: {
-            type: 'doc',
-            id: 'client-libraries/rust/rust',
-          },
-          customProps: {
-            iconLight: '/img/rust.png',
-            iconDark: '/img/rust-logo.png',
-            iconType: 'img'
-          },
+          label: 'Request AI',
+          link: { type: 'doc', id: 'client-libraries/go/request-ai/request-ai' },
           items: [
-            'client-libraries/rust/rust-specific-resources',
-            {
-              type: 'category',
-              label: 'Request DB',
-              link: {
-                type: 'doc',
-                id: 'client-libraries/rust/request-db/request-db'
-              },
-              items: [
-                'client-libraries/rust/request-db/ping',
-                'client-libraries/rust/request-db/info-server',
-                'client-libraries/rust/request-db/list-connected-clients',
-                'client-libraries/rust/request-db/list-stores',
-                'client-libraries/rust/request-db/get-store',
-                'client-libraries/rust/request-db/create-store',
-                'client-libraries/rust/request-db/set',
-                'client-libraries/rust/request-db/upsert',
-                'client-libraries/rust/request-db/get-simn',
-                'client-libraries/rust/request-db/get-key',
-                'client-libraries/rust/request-db/get-by-predicate',
-                'client-libraries/rust/request-db/create-predicate-index',
-                'client-libraries/rust/request-db/drop-predicate-index',
-                'client-libraries/rust/request-db/delete-key',
-                'client-libraries/rust/request-db/delete-predicate',
-                'client-libraries/rust/request-db/drop-store',
-                'client-libraries/rust/request-db/create-non-linear-algx',
-                'client-libraries/rust/request-db/drop-non-linear-algx',
-              ]
-            },
-            {
-              type: 'category',
-              label: 'Request AI',
-              link: {
-                type: 'doc',
-                id: 'client-libraries/rust/request-ai/request-ai'
-              },
-              items: [
-                'client-libraries/rust/request-ai/ping',
-                'client-libraries/rust/request-ai/info-server',
-                'client-libraries/rust/request-ai/list-connected-clients',
-                'client-libraries/rust/request-ai/list-stores',
-                'client-libraries/rust/request-ai/get-store',
-                'client-libraries/rust/request-ai/create-store',
-                'client-libraries/rust/request-ai/set',
-                'client-libraries/rust/request-ai/upsert',
-                'client-libraries/rust/request-ai/get-simn',
-                'client-libraries/rust/request-ai/get-key',
-                'client-libraries/rust/request-ai/get-by-predicate',
-                'client-libraries/rust/request-ai/create-predicate-index',
-                'client-libraries/rust/request-ai/drop-predicate-index',
-                'client-libraries/rust/request-ai/delete-key',
-                'client-libraries/rust/request-ai/delete-predicate',
-                'client-libraries/rust/request-ai/drop-store',
-                'client-libraries/rust/request-ai/create-non-linear-algx',
-                'client-libraries/rust/request-ai/drop-non-linear-algx',
-                'client-libraries/rust/request-ai/new',
-                'client-libraries/rust/request-ai/purge-stores'
-              ]
-            },
-            'client-libraries/rust/pipeline',
-            'client-libraries/rust/types-and-utilities',
-            'client-libraries/rust/testing',
-            'client-libraries/rust/distributed-tracing'
-          ]
+            'client-libraries/go/request-ai/ping',
+            'client-libraries/go/request-ai/info-server',
+            'client-libraries/go/request-ai/list-connected-clients',
+            'client-libraries/go/request-ai/list-stores',
+            'client-libraries/go/request-ai/get-store',
+            'client-libraries/go/request-ai/create-store',
+            'client-libraries/go/request-ai/set',
+            'client-libraries/go/request-ai/upsert',
+            'client-libraries/go/request-ai/get-simn',
+            'client-libraries/go/request-ai/get-key',
+            'client-libraries/go/request-ai/get-by-predicate',
+            'client-libraries/go/request-ai/create-predicate-index',
+            'client-libraries/go/request-ai/drop-predicate-index',
+            'client-libraries/go/request-ai/delete-key',
+            'client-libraries/go/request-ai/delete-predicate',
+            'client-libraries/go/request-ai/drop-store',
+            'client-libraries/go/request-ai/create-non-linear-algx',
+            'client-libraries/go/request-ai/drop-non-linear-algx',
+            'client-libraries/go/request-ai/purge-stores',
+          ],
         },
+        'client-libraries/go/bulk-requests',
+        'client-libraries/go/type-meanings',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Rust',
+      link: { type: 'doc', id: 'client-libraries/rust/rust' },
+      customProps: {
+        iconLight: '/img/rust.png',
+        iconDark: '/img/rust-logo.png',
+        iconType: 'img',
+      },
+      items: [
+        'client-libraries/rust/rust-specific-resources',
+        {
+          type: 'category',
+          label: 'Request DB',
+          link: { type: 'doc', id: 'client-libraries/rust/request-db/request-db' },
+          items: [
+            'client-libraries/rust/request-db/ping',
+            'client-libraries/rust/request-db/info-server',
+            'client-libraries/rust/request-db/list-connected-clients',
+            'client-libraries/rust/request-db/list-stores',
+            'client-libraries/rust/request-db/get-store',
+            'client-libraries/rust/request-db/create-store',
+            'client-libraries/rust/request-db/set',
+            'client-libraries/rust/request-db/upsert',
+            'client-libraries/rust/request-db/get-simn',
+            'client-libraries/rust/request-db/get-key',
+            'client-libraries/rust/request-db/get-by-predicate',
+            'client-libraries/rust/request-db/create-predicate-index',
+            'client-libraries/rust/request-db/drop-predicate-index',
+            'client-libraries/rust/request-db/delete-key',
+            'client-libraries/rust/request-db/delete-predicate',
+            'client-libraries/rust/request-db/drop-store',
+            'client-libraries/rust/request-db/create-non-linear-algx',
+            'client-libraries/rust/request-db/drop-non-linear-algx',
+          ],
+        },
+        {
+          type: 'category',
+          label: 'Request AI',
+          link: { type: 'doc', id: 'client-libraries/rust/request-ai/request-ai' },
+          items: [
+            'client-libraries/rust/request-ai/ping',
+            'client-libraries/rust/request-ai/info-server',
+            'client-libraries/rust/request-ai/list-connected-clients',
+            'client-libraries/rust/request-ai/list-stores',
+            'client-libraries/rust/request-ai/get-store',
+            'client-libraries/rust/request-ai/create-store',
+            'client-libraries/rust/request-ai/set',
+            'client-libraries/rust/request-ai/upsert',
+            'client-libraries/rust/request-ai/get-simn',
+            'client-libraries/rust/request-ai/get-key',
+            'client-libraries/rust/request-ai/get-by-predicate',
+            'client-libraries/rust/request-ai/create-predicate-index',
+            'client-libraries/rust/request-ai/drop-predicate-index',
+            'client-libraries/rust/request-ai/delete-key',
+            'client-libraries/rust/request-ai/delete-predicate',
+            'client-libraries/rust/request-ai/drop-store',
+            'client-libraries/rust/request-ai/create-non-linear-algx',
+            'client-libraries/rust/request-ai/drop-non-linear-algx',
+            'client-libraries/rust/request-ai/new',
+            'client-libraries/rust/request-ai/purge-stores',
+          ],
+        },
+        'client-libraries/rust/pipeline',
+        'client-libraries/rust/types-and-utilities',
+        'client-libraries/rust/testing',
+        'client-libraries/rust/distributed-tracing',
+      ],
+    },
+  ],
+
+  // ---- Guides tab ---------------------------------------------------------
+  guidesSidebar: [
+    {
+      type: 'html',
+      value: 'Guides',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    { type: 'autogenerated', dirName: 'guides' },
+  ],
+
+  // ---- Reference tab (everything else) ------------------------------------
+  referenceSidebar: [
+    {
+      type: 'html',
+      value: 'Concepts',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    { type: 'doc', id: 'components/components', label: 'Components' },
+    'components/schemas/schemas',
+    {
+      type: 'category',
+      label: '🔍 Predicates',
+      link: { type: 'doc', id: 'components/predicates/predicates' },
+      items: ['components/predicates/quick-reference'],
+    },
+    {
+      type: 'category',
+      label: '♾️ Persistence In Ahnlich',
+      link: { type: 'doc', id: 'components/persistence-in-ahnlich/persistence-in-ahnlich' },
+      items: [
+        'components/persistence-in-ahnlich/persistence-for-ahnlich-db',
+        'components/persistence-in-ahnlich/persistence-for-ahnlich-ai',
+      ],
+    },
+    {
+      type: 'category',
+      label: '🕸️ Distributed Tracing',
+      link: { type: 'doc', id: 'components/distributed-tracing/distributed-tracing' },
+      items: [
+        'components/distributed-tracing/ahnlich-db',
+        'components/distributed-tracing/ahnlich-ai',
+        'components/distributed-tracing/using-jaeger',
       ],
     },
     {
@@ -451,28 +478,18 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: "⚡Ahnlich in production",
-      items: [
-        {
-          type: 'autogenerated',
-          dirName: 'ahnlich-in-production',
-        },
-      ],
+      label: '⚡ Ahnlich in production',
+      items: [{ type: 'autogenerated', dirName: 'ahnlich-in-production' }],
     },
     {
       type: 'category',
-      label: "📖 Reference",
-      items: [
-        'reference/error-codes',
-        'reference/configuration',
-      ],
+      label: '📖 Reference',
+      items: ['reference/error-codes', 'reference/configuration'],
     },
     {
       type: 'category',
-      label: "🔧 Troubleshooting",
-      items: [
-        'troubleshooting/common-issues',
-      ],
+      label: '🔧 Troubleshooting',
+      items: ['troubleshooting/common-issues'],
     },
     {
       type: 'html',
@@ -480,8 +497,8 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-section-title',
       defaultStyle: true,
     },
-    "architecture",
-    "community",
+    'architecture',
+    'community',
   ],
 };
 

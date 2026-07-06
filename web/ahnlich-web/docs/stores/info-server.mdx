@@ -1,0 +1,183 @@
+---
+title: Server info
+sidebar_label: Server info
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Server info
+
+Retrieve metadata about the running server, including its binary **version** and **type** (DB, AI, or Hybrid).
+
+## Parameters
+
+This request takes no arguments.
+
+## Behavior
+
+- The server responds with version and type metadata.
+- Use it to validate you're connected to the correct server role — useful for environment checks, feature gating, and diagnostics.
+
+## Sample query
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc.server_types import ServerType
+
+async def info_server():
+  """Test server version"""
+
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+    client = DbServiceStub(channel)
+    response = await client.info_server(db_query.InfoServer())
+    # response contains server version and type
+    print(f"Server version: {response.info.version}")
+
+if __name__ == "__main__":
+  asyncio.run(info_server())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { InfoServer } from "ahnlich-client-node/grpc/db/query_pb";
+
+async function infoServer() {
+  const client = createDbClient("127.0.0.1:1369");
+
+  const response = await client.infoServer(new InfoServer());
+
+  console.log(response.info?.version);    // Server version
+  console.log(response.info?.address);    // Server address
+  console.log(response.info?.numStores);  // Number of stores
+}
+
+infoServer();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    dbsvc   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+type ExampleDBClient struct {
+    conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleDBClient) Close() error { return c.conn.Close() }
+
+
+// InfoServer example
+func (c *ExampleDBClient) exampleInfoServer() error {
+    resp, err := c.client.InfoServer(c.ctx, &dbquery.InfoServer{})
+    if err != nil {
+        return err
+    }
+    fmt.Println("InfoServer:", resp)
+    return nil
+}
+
+
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleInfoServer(); err != nil {
+        log.Fatalf("InfoServer failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Connect to your ahnlich-db server
+    let db_client = DbClient::new("127.0.0.1:1369".to_string()).await?;
+
+
+    let tracing_id: Option<String> = None;
+
+
+    // Call info_server and print the result
+    let info = db_client.info_server(tracing_id).await?;
+    println!("Server info: {:?}", info);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+INFOSERVER
+```
+
+</TabItem>
+</Tabs>
+
+## Response
+
+Server metadata including version and type.
+
+## Related
+
+- [Ping the server](/docs/stores/ping)
+- [List connected clients](/docs/stores/list-connected-clients)

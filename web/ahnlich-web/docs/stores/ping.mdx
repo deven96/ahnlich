@@ -1,0 +1,204 @@
+---
+title: Ping the server
+sidebar_label: Ping the server
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Ping the server
+
+Test connectivity to the server — a lightweight health check that confirms the service is up.
+
+## Parameters
+
+This request takes no arguments. An optional tracing ID may be passed for [distributed tracing](/docs/components/distributed-tracing/distributed-tracing).
+
+## Behavior
+
+- The client sends a ping message and the server replies with a **Pong**.
+- Handy for readiness/liveness probes, monitoring, and debugging connections.
+
+## Sample query
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc.db.server import Pong
+
+async def Ping():
+
+  """
+  Test ping
+  """
+
+  # Initialize client
+
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+
+    db_client = DbServiceStub(channel)
+
+    # Prepare tracing metadata
+
+    tracing_id = "00-80e1afed08e019fc1110464cfa66635c-7a085853722dc6d2-01"
+
+    metadata = {"ahnlich-trace-id": tracing_id}
+
+    # Make request with metadata
+
+    response = await db_client.ping(
+
+      db_query.Ping(),
+
+      metadata=metadata
+
+    )
+
+if __name__ == "__main__":
+  asyncio.run(Ping())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { Ping } from "ahnlich-client-node/grpc/db/query_pb";
+
+async function ping() {
+  // Initialize client
+  const client = createDbClient("127.0.0.1:1369");
+
+  // Make request
+  const response = await client.ping(new Ping());
+
+  console.log(response); // Pong
+}
+
+ping();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+      dbsvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+type ExampleDBClient struct {
+  conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleDBClient) Close() error {
+    return c.conn.Close()
+}
+
+
+func (c *ExampleDBClient) examplePingDB() error {
+    resp, err := c.client.Ping(c.ctx, &dbquery.Ping{})
+    if err != nil {
+        return err
+    }
+    fmt.Println("Ping:", resp)
+    return nil
+}
+
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.examplePingDB(); err != nil {
+        log.Fatalf("Ping failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Connect to your running ahnlich-db instance
+    let db_client = DbClient::new("127.0.0.1:1369".to_string()).await?;
+
+
+    // Optional tracing ID (can be None if you don’t use tracing)
+    let tracing_id: Option<String> = None;
+
+
+    // Call ping and print the response
+    let res = db_client.ping(tracing_id).await?;
+    println!("Ping response: {:?}", res);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+PING
+```
+
+</TabItem>
+</Tabs>
+
+## Response
+
+A `Pong` message confirming connectivity.
+
+## Related
+
+- [Server info](/docs/stores/info-server)
+- [List connected clients](/docs/stores/list-connected-clients)

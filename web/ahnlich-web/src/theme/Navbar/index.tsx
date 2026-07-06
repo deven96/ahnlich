@@ -5,12 +5,14 @@ import type NavbarType from '@theme/Navbar';
 import type {WrapperProps} from '@docusaurus/types';
 
 import HomeNavbar from '@site/src/components/HomeNavbar';
+import DocsSubnav from '@site/src/components/DocsSubnav';
 
 type Props = WrapperProps<typeof NavbarType>;
 
 /**
- * Render a bespoke marketing navbar on the landing page and the default
- * Docusaurus navbar everywhere else (docs, blog, etc).
+ * Render a bespoke marketing navbar on the landing page, and the default
+ * Docusaurus navbar elsewhere. On docs pages, add a Prisma-style secondary
+ * tab bar (Getting Started · Vector DB · CLI · Guides) under the main navbar.
  */
 export default function NavbarWrapper(props: Props): ReactNode {
   const {pathname} = useLocation();
@@ -19,5 +21,10 @@ export default function NavbarWrapper(props: Props): ReactNode {
     return <HomeNavbar />;
   }
 
-  return <Navbar {...props} />;
+  return (
+    <>
+      <Navbar {...props} />
+      {pathname.startsWith('/docs') && <DocsSubnav />}
+    </>
+  );
 }

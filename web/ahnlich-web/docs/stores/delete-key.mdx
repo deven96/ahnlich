@@ -1,0 +1,227 @@
+---
+title: Delete by key
+sidebar_label: Delete by key
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Delete by key
+
+Delete entries by an exact vector-key match.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Name of the store to delete from. |
+| `keys` | list of vectors | The exact vector keys to remove. |
+| `schema` | string · optional | Schema to target. Defaults to `public`. |
+
+> All requests accept an optional `schema` field. When omitted, the server uses the `public` schema.
+
+## Behavior
+
+- Removes only the entries whose key matches **exactly**.
+- Keys that aren't present are silently ignored.
+
+## Sample query
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc import keyval
+
+
+async def delete_key():
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+      client = DbServiceStub(channel)
+      
+      store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0])
+      
+      response = await client.del_key(
+          db_query.DelKey(
+              store="my_store 002",
+              schema="analytics",
+              keys=[store_key]
+          )
+      )
+      # response.deleted_count shows how many items were deleted
+  print(response)
+        
+
+
+if __name__ == "__main__":
+  asyncio.run(delete_key())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { DelKey } from "ahnlich-client-node/grpc/db/query_pb";
+import { StoreKey } from "ahnlich-client-node/grpc/keyval_pb";
+
+async function deleteKey() {
+  const client = createDbClient("127.0.0.1:1369");
+
+  await client.delKey(
+    new DelKey({
+      store: "my_store",
+      schema: "analytics",
+      keys: [new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] })],
+    })
+  );
+
+  console.log("Entry deleted successfully");
+}
+
+deleteKey();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    dbsvc   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    keyval  "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleDBClient struct {
+    conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleDBClient) Close() error {
+    return c.conn.Close()
+}
+
+
+// -------------------- Delete Key --------------------
+func (c *ExampleDBClient) exampleDeleteKey() error {
+    _, err := c.client.DelKey(c.ctx, &dbquery.DelKey{
+        Store: "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+        Keys:  []*keyval.StoreKey{{Key: []float32{1, 2, 3, 4}}},
+    })
+    if err != nil {
+        return err
+    }
+    fmt.Println("Deleted key from store: my_store")
+    return nil
+}
+
+
+// -------------------- Main --------------------
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleDeleteKey(); err != nil {
+        log.Fatalf("DeleteKey failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+use ahnlich_types::db::query::DelKey;
+use ahnlich_types::keyval::StoreKey;
+use tokio;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let addr = "http://127.0.0.1:1369"; // adjust if your server runs elsewhere
+    let client = DbClient::new(addr.to_string()).await?;
+
+
+    // Delete a specific key from store "my_store" (dimension must match)
+    let del_key_params = DelKey {
+        store: "my_store".to_string(),
+        schema: Some("analytics".to_string()),
+        keys: vec![StoreKey {
+            key: vec![1.0, 1.1, 1.2], // ✅ matches dimension=4
+        }],
+    };
+
+
+    match client.del_key(del_key_params, None).await {
+        Ok(result) => println!("Deleted count: {:?}", result.deleted_count),
+        Err(e) => eprintln!("Error: {:?}", e),
+    }
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+DELETEKEY (key1) IN my_store
+```
+
+</TabItem>
+</Tabs>
+
+## Response
+
+The number of entries deleted.
+
+## Related
+
+- [Delete by predicate](/docs/stores/delete-predicate)
+- [Get by key](/docs/stores/get-key)

@@ -1,0 +1,224 @@
+---
+title: Drop predicate index
+sidebar_label: Drop predicate index
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Drop predicate index
+
+Remove a [predicate index](/docs/stores/create-predicate-index) when it's no longer needed or to reduce storage overhead.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Store to modify. |
+| `predicates` | list | Metadata fields whose indexes should be dropped. |
+| `error_if_not_exists` | bool · optional | If `true`, errors when the index doesn't exist. |
+| `schema` | string · optional | Schema to target. Defaults to `public`. |
+
+> All requests accept an optional `schema` field. When omitted, the server uses the `public` schema.
+
+## Behavior
+
+- Deletes the index only — the underlying entries and metadata remain.
+- Queries on the field still work, just without the index speed-up.
+
+## Sample query
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc.db.server import Del
+
+
+async def drop_predicate_index():
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+      client = DbServiceStub(channel)
+      
+      response = await client.drop_pred_index(
+          db_query.DropPredIndex(
+              store="my_store",
+              schema="analytics",
+              predicates=["label"],
+              error_if_not_exists=True
+          )
+      )
+      # response.deleted_count shows how many indexes were removed
+      print(response)
+
+
+if __name__ == "__main__":
+  asyncio.run(drop_predicate_index())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { DropPredIndex } from "ahnlich-client-node/grpc/db/query_pb";
+
+async function dropPredicateIndex() {
+  const client = createDbClient("127.0.0.1:1369");
+
+  await client.dropPredIndex(
+    new DropPredIndex({
+      store: "my_store",
+      schema: "analytics",
+      predicates: ["label"],
+      errorIfNotExists: true,
+    })
+  );
+
+  console.log("Predicate index dropped successfully");
+}
+
+dropPredicateIndex();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    dbsvc   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleDBClient struct {
+    conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleDBClient) Close() error {
+    return c.conn.Close()
+}
+
+
+// -------------------- Drop Predicate Index --------------------
+func (c *ExampleDBClient) exampleDropPredicateIndex() error {
+    _, err := c.client.DropPredIndex(c.ctx, &dbquery.DropPredIndex{
+        Store:           "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+        Predicates:      []string{"label"},
+        ErrorIfNotExists: true,
+    })
+    if err != nil {
+        return err
+    }
+    fmt.Println("Dropped predicate index for store: my_store")
+    return nil
+}
+
+
+// -------------------- Main --------------------
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleDropPredicateIndex(); err != nil {
+        log.Fatalf("DropPredicateIndex failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+use ahnlich_types::db::query::DropPredIndex;
+use tokio;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let addr = "http://127.0.0.1:1369";
+    let client = DbClient::new(addr.to_string()).await?;
+
+
+    // Drop the "label" predicate index from store "my_store"
+    let drop_index_params = DropPredIndex {
+        store: "my_store".to_string(),
+        schema: Some("analytics".to_string()),
+        predicates: vec!["label".to_string()],
+        error_if_not_exists: true, // fail if it doesn't exist
+    };
+
+
+    match client.drop_pred_index(drop_index_params, None).await {
+        Ok(result) => println!("Dropped predicate index: {:?}", result),
+        Err(e) => eprintln!("Error: {:?}", e),
+    }
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+DROPPREDINDEX (category) IN my_store
+```
+
+</TabItem>
+</Tabs>
+
+## Response
+
+The number of indexes deleted.
+
+## Related
+
+- [Create predicate index](/docs/stores/create-predicate-index)
+- [Get by predicate](/docs/stores/get-by-predicate)

@@ -1,0 +1,256 @@
+---
+title: Create non-linear index
+sidebar_label: Create non-linear index
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Create non-linear index
+
+Add a non-linear index (KD-Tree or HNSW) to accelerate [similarity search](/docs/stores/get-simn) on a [store](/docs/stores).
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Store to index. |
+| `non_linear_indices` | list | Index specs — a `KdTreeConfig` or `HnswConfig` per index. |
+| `schema` | string · optional | Schema to target. Defaults to `public`. |
+
+> All requests accept an optional `schema` field. When omitted, the server uses the `public` schema.
+
+## Behavior
+
+- **KDTree** — exact nearest-neighbour and multidimensional range queries.
+- **HNSW** — approximate nearest-neighbour with a configurable accuracy/speed tradeoff.
+- Pre-structuring the data speeds up queries but uses extra memory.
+
+## Sample query
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearIndex, KdTreeConfig, HnswConfig
+
+
+async def create_non_linear_algo_index():
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+      client = DbServiceStub(channel)
+
+      # Create a KDTree index
+      response = await client.create_non_linear_algorithm_index(
+          db_query.CreateNonLinearAlgorithmIndex(
+              store="my_store 003",
+              schema="analytics",
+              non_linear_indices=[NonLinearIndex(kdtree=KdTreeConfig())]
+          )
+      )
+
+      # Or create an HNSW index (with optional config)
+      response = await client.create_non_linear_algorithm_index(
+          db_query.CreateNonLinearAlgorithmIndex(
+              store="my_store 003",
+              schema="analytics",
+              non_linear_indices=[NonLinearIndex(hnsw=HnswConfig())]
+          )
+      )
+      # response.created_indexes shows how many indexes were created
+  print(response)
+
+
+if __name__ == "__main__":
+  asyncio.run(create_non_linear_algo_index())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { CreateNonLinearAlgorithmIndex } from "ahnlich-client-node/grpc/db/query_pb";
+import { NonLinearIndex, KDTreeConfig } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
+
+async function createKDTreeIndex() {
+  const client = createDbClient("127.0.0.1:1369");
+
+  await client.createNonLinearAlgorithmIndex(
+    new CreateNonLinearAlgorithmIndex({
+      store: "my_store",
+      schema: "analytics",
+      nonLinearIndices: [
+        new NonLinearIndex({
+          index: { case: "kdtree", value: new KDTreeConfig() },
+        }),
+      ],
+    })
+  );
+
+  console.log("KDTree index created successfully");
+}
+
+createKDTreeIndex();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    dbsvc      "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery    "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    nonlinear  "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleDBClient struct {
+    conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleDBClient) Close() error {
+    return c.conn.Close()
+}
+
+
+func (c *ExampleDBClient) exampleCreateNonLinearAlgoIndex() error {
+    // Create a KDTree index
+    _, err := c.client.CreateNonLinearAlgorithmIndex(c.ctx, &dbquery.CreateNonLinearAlgorithmIndex{
+        Store: "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+        NonLinearIndices: []*nonlinear.NonLinearIndex{
+            {Index: &nonlinear.NonLinearIndex_Kdtree{Kdtree: &nonlinear.KDTreeConfig{}}},
+        },
+    })
+    if err != nil { return err }
+
+    // Or create an HNSW index (with optional config)
+    _, err = c.client.CreateNonLinearAlgorithmIndex(c.ctx, &dbquery.CreateNonLinearAlgorithmIndex{
+        Store: "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+        NonLinearIndices: []*nonlinear.NonLinearIndex{
+            {Index: &nonlinear.NonLinearIndex_Hnsw{Hnsw: &nonlinear.HNSWConfig{}}},
+        },
+    })
+    return err
+}
+
+
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleCreateNonLinearAlgoIndex(); err != nil {
+        log.Fatalf("CreateNonLinearAlgoIndex failed: %v", err)
+    }
+    fmt.Println("Created Non-Linear Algorithm Index for 'my_store'")
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+use ahnlich_types::db::query::CreateNonLinearAlgorithmIndex;
+use ahnlich_types::algorithm::nonlinear::{NonLinearIndex, non_linear_index, KdTreeConfig, HnswConfig};
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let db_client = DbClient::new("127.0.0.1:1369".to_string()).await?;
+
+    // Create a KDTree index on the "my_store" store
+    let params = CreateNonLinearAlgorithmIndex {
+        store: "my_store".to_string(),
+        schema: Some("analytics".to_string()),
+        non_linear_indices: vec![
+            NonLinearIndex {
+                index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
+            },
+        ],
+    };
+
+    let result = db_client.create_non_linear_algorithm_index(params, None).await?;
+    println!("Created non-linear indices: {:?}", result);
+
+    // Or create an HNSW index (with default config)
+    let params = CreateNonLinearAlgorithmIndex {
+        store: "my_store".to_string(),
+        schema: Some("analytics".to_string()),
+        non_linear_indices: vec![
+            NonLinearIndex {
+                index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),
+            },
+        ],
+    };
+
+    let result = db_client.create_non_linear_algorithm_index(params, None).await?;
+    println!("Created non-linear indices: {:?}", result);
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+CREATENONLINEARALGORITHMINDEX (kdtree) IN my_store
+```
+
+</TabItem>
+</Tabs>
+
+## Response
+
+The number of indexes created.
+
+## Related
+
+- [Similarity search](/docs/stores/get-simn)
+- [Drop non-linear index](/docs/stores/drop-non-linear-algx)

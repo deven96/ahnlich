@@ -12,22 +12,41 @@ This section explains how to install, configure, and run **Ahnlich DB**. The dat
 ### 1. Download Binaries
 Prebuilt binaries are available from [GitHub Releases](https://github.com/deven96/ahnlich/releases).
 
-#### Download with `wget`:
-```
-wget https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.2.2/aarch64-apple-darwin-ahnlich-db.tar.gz
+> `wget` is not installed on macOS by default, so the examples below use `curl` (built in). Check your Mac's chip with `uname -m` — `arm64` means Apple Silicon, `x86_64` means Intel.
+
+#### Download the binary
+
+**macOS — Apple Silicon (M1/M2/M3/M4):**
+```bash
+curl -L -O "https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.2.2/aarch64-apple-darwin-ahnlich-db.tar.gz"
 ```
 
-#### Extract the archive:
+**macOS — Intel:**
+```bash
+curl -L -O "https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.2.2/x86_64-apple-darwin-ahnlich-db.tar.gz"
 ```
-tar -xvzf aarch64-darwin-ahnlich-db.tar.gz
+
+**Linux — x86_64:**
+```bash
+curl -L -O "https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.2.2/x86_64-unknown-linux-gnu-ahnlich-db.tar.gz"
+```
+
+**Linux — ARM64:**
+```bash
+curl -L -O "https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.2.2/aarch64-unknown-linux-gnu-ahnlich-db.tar.gz"
+```
+
+#### Extract the archive (use the file you downloaded):
+```bash
+tar -xvzf *-ahnlich-db.tar.gz
 ```
 
 #### Run the binary:
-```
+```bash
 ./ahnlich-db
 ```
 
-Replace `aarch64-darwin-ahnlich-db.tar.gz` with the correct file for your platform.
+> On macOS, if Gatekeeper blocks the unsigned binary, clear the quarantine flag first: `xattr -d com.apple.quarantine ./ahnlich-db`
 
 ### 2. Using Docker
 Ahnlich DB also ships as a Docker image:

@@ -1,0 +1,227 @@
+---
+title: Drop non-linear index
+sidebar_label: Drop non-linear index
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Drop non-linear index
+
+Remove a [non-linear index](/docs/stores/create-non-linear-algx) (KD-Tree/HNSW) from a store.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Store to modify. |
+| `non_linear_indices` | list | The index types to drop. |
+| `schema` | string · optional | Schema to target. Defaults to `public`. |
+
+> All requests accept an optional `schema` field. When omitted, the server uses the `public` schema.
+
+## Behavior
+
+- Deletes the index only — stored vectors and metadata are untouched.
+- [Similarity search](/docs/stores/get-simn) still works, falling back to a linear scan.
+
+## Sample query
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm
+
+
+async def drop_non_linear_algo():
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+      client = DbServiceStub(channel)
+      
+      response = await client.drop_non_linear_algorithm_index(
+          db_query.DropNonLinearAlgorithmIndex(
+              store="my_store 003",
+              schema="analytics",
+              non_linear_indices=[NonLinearAlgorithm.KDTree],
+              error_if_not_exists=True
+          )
+      )
+  # response.deleted_count shows how many indexes were removed
+  print(response)
+
+
+if __name__ == "__main__":
+  asyncio.run(drop_non_linear_algo())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { DropNonLinearAlgorithmIndex } from "ahnlich-client-node/grpc/db/query_pb";
+import { NonLinearAlgorithm } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
+
+async function dropNonLinearIndex() {
+  const client = createDbClient("127.0.0.1:1369");
+
+  await client.dropNonLinearAlgorithmIndex(
+    new DropNonLinearAlgorithmIndex({
+      store: "my_store",
+      schema: "analytics",
+      nonLinearIndices: [NonLinearAlgorithm.KDTree],
+      errorIfNotExists: true,
+    })
+  );
+
+  console.log("KDTree index dropped successfully");
+}
+
+dropNonLinearIndex();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    dbsvc      "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery    "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    nonlinear  "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleDBClient struct {
+    conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleDBClient) Close() error {
+    return c.conn.Close()
+}
+
+
+func (c *ExampleDBClient) exampleDropNonLinearAlgoIndex() error {
+    _, err := c.client.DropNonLinearAlgorithmIndex(c.ctx, &dbquery.DropNonLinearAlgorithmIndex{
+        Store:            "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+        NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_KDTree},
+        ErrorIfNotExists: true,
+    })
+    return err
+}
+
+
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleDropNonLinearAlgoIndex(); err != nil {
+        log.Fatalf("DropNonLinearAlgoIndex failed: %v", err)
+    }
+    fmt.Println("Dropped Non-Linear Algorithm Index for 'my_store'")
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_types::db::query::DropNonLinearAlgorithmIndex;
+use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
+use ahnlich_types::db::server::Del;
+use ahnlich_client_rs::db::DbClient;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let addr = "http://127.0.0.1:1369".to_string();
+    let db_client = DbClient::new(addr).await?;
+
+
+    let params = DropNonLinearAlgorithmIndex {
+        store: "my_store".to_string(),
+        schema: Some("analytics".to_string()),
+        non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32, NonLinearAlgorithm::Hnsw as i32],
+        error_if_not_exists: false,
+    };
+
+
+    match db_client
+        .drop_non_linear_algorithm_index(params, None)
+        .await
+    {
+        Ok(Del { deleted_count }) => {
+            println!("Successfully dropped {} non-linear index(es).", deleted_count);
+        }
+        Err(e) => {
+            eprintln!("Error dropping non-linear index: {:?}", e);
+        }
+    }
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+DROPNONLINEARALGORITHMINDEX (kdtree) IN my_store
+```
+
+</TabItem>
+</Tabs>
+
+## Response
+
+The number of indexes deleted.
+
+## Related
+
+- [Create non-linear index](/docs/stores/create-non-linear-algx)
+- [Similarity search](/docs/stores/get-simn)
