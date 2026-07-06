@@ -1231,6 +1231,47 @@ a code {
   margin-bottom: 1.25rem;
 }
 
+/* --------------------------------------------------------------------------
+ * Landing "A simple, intuitive API" editor — strip the nested CodeBlock window
+ * chrome so the swizzled block sits flush inside our single editor frame
+ * (no container-in-a-container, no double traffic lights).
+ * ------------------------------------------------------------------------ */
+.ahn-api-editor .ahn-codeblock,
+.ahn-api-editor .ahn-codeblock div[class^='codeBlockContainer'],
+.ahn-api-editor .ahn-codeblock div[class^='codeBlockContent'],
+.ahn-api-editor .ahn-codeblock pre {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.ahn-api-editor .ahn-codeblock__header {
+  display: none;
+}
+/* hide the scrollbars inside the editor (still scrollable) */
+.ahn-api-editor,
+.ahn-api-editor pre {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ahn-api-editor::-webkit-scrollbar,
+.ahn-api-editor pre::-webkit-scrollbar {
+  display: none;
+}
+.ahn-api-editor .ahn-codeblock pre {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+/* line-number gutter blends into the editor surface */
+.ahn-api-editor .ahn-codeblock span[class*='codeLineNumber'] {
+  background: transparent !important;
+  border-right: 0;
+  min-width: 2.2rem;
+  color: #40606e;
+}
+
 /* ---- Landing page modern flourishes ---- */
 @keyframes ahn-blob {
   0%,
@@ -1271,11 +1312,16 @@ a code {
   }
 }
 .ahn-grid {
+  /* blue-tinted lines in light mode; faint white in dark mode (set below) */
+  --ahn-grid-line: rgba(37, 99, 235, 0.08);
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    linear-gradient(var(--ahn-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ahn-grid-line) 1px, transparent 1px);
   background-size: 40px 40px;
   animation: ahn-grid-pan 6s linear infinite;
+}
+[data-theme="dark"] .ahn-grid {
+  --ahn-grid-line: rgba(255, 255, 255, 0.06);
 }
 
 @keyframes ahn-code-swap {
