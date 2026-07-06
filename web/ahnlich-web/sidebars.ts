@@ -14,24 +14,37 @@ import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
  */
 const sidebars: SidebarsConfig = {
   docsSidebar: [
+    {
+      type: 'html',
+      value: 'Getting Started',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
     "overview",
     {
       type: 'category',
-      label: '🚀 Getting Started',
+      label: "🚀 Getting Started",
       link: {
         type: 'doc',
         id: 'getting-started/getting-started',
       },
       items: [
         'getting-started/installation',
+        'getting-started/quickstart',
         'getting-started/usage',
         'getting-started/comparison-with-other-tools',
         'getting-started/next-steps',
       ],
     },
     {
+      type: 'html',
+      value: 'Guides',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    {
       type: 'category',
-      label: '🧩 Components',
+      label: "🧩 Components",
       link: {
         type: 'doc',
         id: 'components/components',
@@ -39,7 +52,7 @@ const sidebars: SidebarsConfig = {
       items: [
         {
           type: 'category',
-          label: '📟 Ahnlich CLI',
+          label: "📟 Ahnlich CLI",
           link: {
             type: 'doc',
             id: 'components/ahnlich-cli/ahnlich-cli'
@@ -53,7 +66,7 @@ const sidebars: SidebarsConfig = {
         'components/schemas/schemas',
         {
           type: 'category',
-          label: '🗄️ Ahnlich DB',
+          label: "🗄️ Ahnlich DB",
           link: {
             type: 'doc',
             id: 'components/ahnlich-db/ahnlich-db'
@@ -67,7 +80,7 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: '🤖 Ahnlich AI',
+          label: "🤖 Ahnlich AI",
           link: {
             type: 'doc',
             id: 'components/ahnlich-ai/ahnlich-ai'
@@ -82,7 +95,7 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: '♾️ Persistence In Ahnlich',
+          label: "♾️ Persistence In Ahnlich",
           link: {
             type: 'doc',
             id: 'components/persistence-in-ahnlich/persistence-in-ahnlich'
@@ -94,7 +107,7 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: '🔍 Predicates',
+          label: "🔍 Predicates",
           link: {
             type: 'doc',
             id: 'components/predicates/predicates'
@@ -105,7 +118,7 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: '🕸️ Distributed Tracing',
+          label: "🕸️ Distributed Tracing",
           link: {
             type: 'doc',
             id: 'components/distributed-tracing/distributed-tracing'
@@ -120,7 +133,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: '📚 Client Libraries',
+      label: "📚 Client Libraries",
       link: {
         type: 'doc',
         id: 'client-libraries/client-libraries'
@@ -156,6 +169,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/python/request-db/get-store',
                 'client-libraries/python/request-db/create-store',
                 'client-libraries/python/request-db/set',
+                'client-libraries/python/request-db/upsert',
                 'client-libraries/python/request-db/get-simn',
                 'client-libraries/python/request-db/get-key',
                 'client-libraries/python/request-db/get-by-predicate',
@@ -183,6 +197,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/python/request-ai/get-store',
                 'client-libraries/python/request-ai/create-store',
                 'client-libraries/python/request-ai/set',
+                'client-libraries/python/request-ai/upsert',
                 'client-libraries/python/request-ai/get-simn',
                 'client-libraries/python/request-ai/get-key',
                 'client-libraries/python/request-ai/get-by-predicate',
@@ -228,6 +243,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/node/request-db/get-store',
                 'client-libraries/node/request-db/create-store',
                 'client-libraries/node/request-db/set',
+                'client-libraries/node/request-db/upsert',
                 'client-libraries/node/request-db/get-simn',
                 'client-libraries/node/request-db/get-key',
                 'client-libraries/node/request-db/get-by-predicate',
@@ -255,6 +271,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/node/request-ai/get-store',
                 'client-libraries/node/request-ai/create-store',
                 'client-libraries/node/request-ai/set',
+                'client-libraries/node/request-ai/upsert',
                 'client-libraries/node/request-ai/get-simn',
                 'client-libraries/node/request-ai/get-key',
                 'client-libraries/node/request-ai/get-by-predicate',
@@ -299,6 +316,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/go/request-db/get-store',
                 'client-libraries/go/request-db/create-store',
                 'client-libraries/go/request-db/set',
+                'client-libraries/go/request-db/upsert',
                 'client-libraries/go/request-db/get-simn',
                 'client-libraries/go/request-db/get-key',
                 'client-libraries/go/request-db/get-by-predicate',
@@ -327,6 +345,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/go/request-ai/get-store',
                 'client-libraries/go/request-ai/create-store',
                 'client-libraries/go/request-ai/set',
+                'client-libraries/go/request-ai/upsert',
                 'client-libraries/go/request-ai/get-simn',
                 'client-libraries/go/request-ai/get-key',
                 'client-libraries/go/request-ai/get-by-predicate',
@@ -373,6 +392,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/rust/request-db/get-store',
                 'client-libraries/rust/request-db/create-store',
                 'client-libraries/rust/request-db/set',
+                'client-libraries/rust/request-db/upsert',
                 'client-libraries/rust/request-db/get-simn',
                 'client-libraries/rust/request-db/get-key',
                 'client-libraries/rust/request-db/get-by-predicate',
@@ -400,6 +420,7 @@ const sidebars: SidebarsConfig = {
                 'client-libraries/rust/request-ai/get-store',
                 'client-libraries/rust/request-ai/create-store',
                 'client-libraries/rust/request-ai/set',
+                'client-libraries/rust/request-ai/upsert',
                 'client-libraries/rust/request-ai/get-simn',
                 'client-libraries/rust/request-ai/get-key',
                 'client-libraries/rust/request-ai/get-by-predicate',
@@ -423,8 +444,14 @@ const sidebars: SidebarsConfig = {
       ],
     },
     {
+      type: 'html',
+      value: 'Operations',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    {
       type: 'category',
-      label: '⚡Ahnlich in production',
+      label: "⚡Ahnlich in production",
       items: [
         {
           type: 'autogenerated',
@@ -434,7 +461,7 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: '📖 Reference',
+      label: "📖 Reference",
       items: [
         'reference/error-codes',
         'reference/configuration',
@@ -442,10 +469,16 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: '🔧 Troubleshooting',
+      label: "🔧 Troubleshooting",
       items: [
         'troubleshooting/common-issues',
       ],
+    },
+    {
+      type: 'html',
+      value: 'Project',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
     },
     "architecture",
     "community",

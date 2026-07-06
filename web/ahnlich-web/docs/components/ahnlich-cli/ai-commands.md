@@ -130,14 +130,33 @@ DROPNONLINEARALGORITHMINDEX (kdtree) IN my_store
 
 Drops the KD-Tree index from the store.
 
-### 13. Delete a Key
+### 13. Upsert (Update or Insert)
+```bash
+UPSERT VALUE {tags: cat,outdoors} IN my_store WHERE (filename = photo.jpg)
+```
+
+Updates a single entry matching the predicate. Always merges metadata (preserves AI-generated fields).
+
+**Re-embed with new input:**
+```bash
+UPSERT KEY [updated image bytes] IN my_store WHERE (id = 42) PREPROCESSACTION modelpreprocessing
+```
+
+**Update both:**
+```bash
+UPSERT KEY [new text] VALUE {author: Jane} IN my_store WHERE (id = 100)
+```
+
+Note: AI proxy automatically preserves AI-generated metadata when merging.
+
+### 14. Delete a Key
 ```bash
 DELETEKEY ([This is the life of Alice]) IN my_store
 ```
 
 Deletes the entry `"This is the life of Alice"` from `my_store`.
 
-### 14. Drop a Schema
+### 15. Drop a Schema
 ```
 DROPSCHEMA media
 ```

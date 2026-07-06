@@ -141,3 +141,15 @@ message Set {
   repeated keyval.DbStoreEntry inputs = 2; // The key-value entries to set in the store.
   optional string schema = 3; // Optional schema/namespace for the store. Defaults to "public".
 }
+
+// Updates a single entry matching the predicate condition with new key and/or value.
+// Validates that exactly one entry matches the condition before and after update.
+// Supports partial updates with metadata merging when merge_metadata is true.
+message Upsert {
+  string store = 1; // The name of the store.
+  predicates.PredicateCondition condition = 2; // The condition to match exactly one entry.
+  optional keyval.StoreKey new_key = 3; // Optional new key to update. If None, keeps original key.
+  optional keyval.StoreValue new_value = 4; // Optional new value to update. If None, keeps original value.
+  bool merge_metadata = 5; // If true, merges new_value into existing metadata. If false, replaces entirely.
+  optional string schema = 6; // Optional schema/namespace for the store. Defaults to "public".
+}

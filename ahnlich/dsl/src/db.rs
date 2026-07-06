@@ -16,7 +16,7 @@ use ahnlich_types::db::{
     query::{
         CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey,
         DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred,
-        GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set,
+        GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set, Upsert,
     },
 };
 use pest::Parser;
@@ -43,6 +43,7 @@ pub const COMMANDS: &[&str] = &[
     "getsimn", // 4 with [0.65, 2.78] using cosinesimilarity in my_store where (author = dickens)
     "createstore", // if not exists my_store dimension 21 predicates (author, country) nonlinearalgorithmindex (kdtree)
     "set", // (([1.0, 2.1, 3.2], {name: Haks, category: dev}), ([3.1, 4.8, 5.0], {name: Deven, category: dev})) in store
+    "upsert", // ([4.0, 5.0, 6.0], {id: 456}) where (id = 123) in store merge
 ];
 
 pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
@@ -305,9 +306,112 @@ pub fn parse_db_query(input: &str) -> Result<Vec<DBQuery>, DslError> {
                     .to_string();
                 DBQuery::DropSchema(DropSchema { schema })
             }
+            Rule::upsert => {
+                let mut inner_pairs = statement.into_inner().peekable();
+                let key_value_pair = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+
+                // Parse new_key and new_value from upsert_key_value rule
+                let mut key_value_inner = key_value_pair.into_inner();
+                let (new_key, new_value) = parse_upsert_key_value(&mut key_value_inner)?;
+
+                // Parse predicate condition
+                let condition_pair = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?;
+                let condition = Some(parse_predicate_expression(condition_pair)?);
+
+                // Parse store name
+                let store = inner_pairs
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+
+                // Check for optional MERGE clause
+                let mut merge_metadata = false;
+
+                if let Some(next_pair) = inner_pairs.peek()
+                    && next_pair.as_rule() == Rule::merge_clause
+                {
+                    inner_pairs.next(); // Consume merge_clause
+                    merge_metadata = true;
+                }
+
+                // Parse optional schema
+                let schema = inner_pairs.next().map(parse_schema_clause).transpose()?;
+
+                DBQuery::Upsert(Upsert {
+                    store,
+                    condition,
+                    new_key,
+                    new_value,
+                    merge_metadata,
+                    schema,
+                })
+            }
             _ => return Err(DslError::UnexpectedSpan((start_pos, end_pos))),
         };
         queries.push(query);
     }
     Ok(queries)
+}
+
+use crate::metadata::parse_metadata_value;
+use ahnlich_types::keyval::{StoreKey, StoreValue};
+use ahnlich_types::metadata::MetadataValue;
+use std::collections::HashMap;
+
+fn parse_upsert_key_value(
+    pairs: &mut pest::iterators::Pairs<Rule>,
+) -> Result<(Option<StoreKey>, Option<StoreValue>), DslError> {
+    // First element is either f32_array or "none"
+    let first = pairs.next().ok_or(DslError::UnexpectedSpan((0, 0)))?;
+    let first_start = first.as_span().start_pos().pos();
+    let first_end = first.as_span().end_pos().pos();
+
+    let new_key = match first.as_rule() {
+        Rule::f32_array => Some(parse_f32_array(first)),
+        _ if first.as_str().to_lowercase() == "none" => None,
+        _ => return Err(DslError::UnexpectedSpan((first_start, first_end))),
+    };
+
+    // Second element is either store_value or "none"
+    let second = pairs.next().ok_or(DslError::UnexpectedSpan((0, 0)))?;
+    let second_start = second.as_span().start_pos().pos();
+    let second_end = second.as_span().end_pos().pos();
+
+    let new_value = match second.as_rule() {
+        Rule::store_value => {
+            let mut store_value_map = HashMap::new();
+            for store_value_single in second.into_inner() {
+                let start_pos = store_value_single.as_span().start_pos().pos();
+                let end_pos = store_value_single.as_span().end_pos().pos();
+                let mut v = store_value_single.into_inner();
+                let key = v
+                    .next()
+                    .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?
+                    .as_str()
+                    .to_string();
+                let value = parse_metadata_value(
+                    v.next()
+                        .ok_or(DslError::UnexpectedSpan((start_pos, end_pos)))?,
+                )?;
+                store_value_map.insert(key, MetadataValue { value: Some(value) });
+            }
+            Some(StoreValue {
+                value: store_value_map,
+            })
+        }
+        _ if second.as_str().to_lowercase() == "none" => None,
+        _ => return Err(DslError::UnexpectedSpan((second_start, second_end))),
+    };
+
+    // Validate at least one is provided
+    if new_key.is_none() && new_value.is_none() {
+        return Err(DslError::UnexpectedSpan((first_start, second_end)));
+    }
+
+    Ok((new_key, new_value))
 }

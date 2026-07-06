@@ -157,6 +157,23 @@ class AiServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def upsert(
+        self,
+        ai_query_upsert: "__ai_query__.Upsert",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__ai_server__.Set":
+        return await self._unary_unary(
+            "/services.ai_service.AIService/Upsert",
+            ai_query_upsert,
+            __ai_server__.Set,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def drop_pred_index(
         self,
         ai_query_drop_pred_index: "__ai_query__.DropPredIndex",
@@ -420,6 +437,11 @@ class AiServiceBase(ServiceBase):
     async def set(self, ai_query_set: "__ai_query__.Set") -> "__ai_server__.Set":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def upsert(
+        self, ai_query_upsert: "__ai_query__.Upsert"
+    ) -> "__ai_server__.Set":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def drop_pred_index(
         self, ai_query_drop_pred_index: "__ai_query__.DropPredIndex"
     ) -> "__ai_server__.Del":
@@ -544,6 +566,13 @@ class AiServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.set(request)
+        await stream.send_message(response)
+
+    async def __rpc_upsert(
+        self, stream: "grpclib.server.Stream[__ai_query__.Upsert, __ai_server__.Set]"
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.upsert(request)
         await stream.send_message(response)
 
     async def __rpc_drop_pred_index(
@@ -694,6 +723,12 @@ class AiServiceBase(ServiceBase):
                 self.__rpc_set,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __ai_query__.Set,
+                __ai_server__.Set,
+            ),
+            "/services.ai_service.AIService/Upsert": grpclib.const.Handler(
+                self.__rpc_upsert,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __ai_query__.Upsert,
                 __ai_server__.Set,
             ),
             "/services.ai_service.AIService/DropPredIndex": grpclib.const.Handler(

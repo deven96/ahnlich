@@ -13,7 +13,7 @@ import type {
 } from "@bufbuild/protobuf";
 import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
 import { NonLinearAlgorithm, NonLinearIndex } from "../algorithm/nonlinear_pb.js";
-import { DbStoreEntry, StoreKey } from "../keyval_pb.js";
+import { DbStoreEntry, StoreKey, StoreValue } from "../keyval_pb.js";
 import { PredicateCondition } from "../predicate_pb.js";
 import { Algorithm } from "../algorithm/algorithm_pb.js";
 
@@ -1085,5 +1085,91 @@ export class Set extends Message<Set> {
     b: Set | PlainMessage<Set> | undefined,
   ): boolean {
     return proto3.util.equals(Set, a, b);
+  }
+}
+
+/**
+ * Updates a single entry matching the predicate condition with new key and/or value.
+ * Validates that exactly one entry matches the condition before and after update.
+ * Supports partial updates with metadata merging when merge_metadata is true.
+ *
+ * @generated from message db.query.Upsert
+ */
+export class Upsert extends Message<Upsert> {
+  /**
+   * The name of the store.
+   *
+   * @generated from field: string store = 1;
+   */
+  store = "";
+
+  /**
+   * The condition to match exactly one entry.
+   *
+   * @generated from field: predicates.PredicateCondition condition = 2;
+   */
+  condition?: PredicateCondition;
+
+  /**
+   * Optional new key to update. If None, keeps original key.
+   *
+   * @generated from field: optional keyval.StoreKey new_key = 3;
+   */
+  newKey?: StoreKey;
+
+  /**
+   * Optional new value to update. If None, keeps original value.
+   *
+   * @generated from field: optional keyval.StoreValue new_value = 4;
+   */
+  newValue?: StoreValue;
+
+  /**
+   * If true, merges new_value into existing metadata. If false, replaces entirely.
+   *
+   * @generated from field: bool merge_metadata = 5;
+   */
+  mergeMetadata = false;
+
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 6;
+   */
+  schema?: string;
+
+  constructor(data?: PartialMessage<Upsert>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "db.query.Upsert";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "condition", kind: "message", T: PredicateCondition },
+    { no: 3, name: "new_key", kind: "message", T: StoreKey, opt: true },
+    { no: 4, name: "new_value", kind: "message", T: StoreValue, opt: true },
+    { no: 5, name: "merge_metadata", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 6, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Upsert {
+    return new Upsert().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Upsert {
+    return new Upsert().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Upsert {
+    return new Upsert().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: Upsert | PlainMessage<Upsert> | undefined,
+    b: Upsert | PlainMessage<Upsert> | undefined,
+  ): boolean {
+    return proto3.util.equals(Upsert, a, b);
   }
 }

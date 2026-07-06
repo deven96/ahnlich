@@ -14,8 +14,7 @@ Prebuilt binaries are available from [GitHub Releases](https://github.com/deven9
 
 #### Download with `wget`:
 ```
-wget 
-https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.0.0/aarch64-darwin-ahnlich-db.tar.gz
+wget https://github.com/deven96/ahnlich/releases/download/bin%2Fdb%2F0.2.2/aarch64-apple-darwin-ahnlich-db.tar.gz
 ```
 
 #### Extract the archive:

@@ -506,6 +506,25 @@ impl DbService for Server {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn upsert(
+        &self,
+        request: tonic::Request<query::Upsert>,
+    ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
+        let params = request.into_inner();
+
+        let upsert = match &self.runtime {
+            StoreRuntime::Cluster(cluster) => {
+                submit_db_command!(Some(cluster), query::Upsert, params, DbCommand::Upsert).await?
+            }
+            StoreRuntime::Standalone(store_handler) => operations::upsert(store_handler, params)?,
+        };
+
+        Ok(tonic::Response::new(server::Set {
+            upsert: Some(upsert),
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn cluster_info(
         &self,
         _request: tonic::Request<ClusterInfoQuery>,
@@ -747,6 +766,41 @@ impl DbService for Server {
                         ));
                     }
                 },
+
+                Query::Upsert(params) => {
+                    let upsert_result: Result<_, tonic::Status> = match &self.runtime {
+                        StoreRuntime::Cluster(cluster) => {
+                            submit_db_command!(
+                                Some(cluster),
+                                query::Upsert,
+                                params,
+                                DbCommand::Upsert
+                            )
+                            .await
+                        }
+                        StoreRuntime::Standalone(store_handler) => {
+                            operations::upsert(store_handler, params).map_err(Into::into)
+                        }
+                    };
+
+                    match upsert_result {
+                        Ok(upsert) => {
+                            response_vec.push(pipeline::db_server_response::Response::Set(
+                                server::Set {
+                                    upsert: Some(upsert),
+                                },
+                            ));
+                        }
+                        Err(err) => {
+                            response_vec.push(pipeline::db_server_response::Response::Error(
+                                ErrorResponse {
+                                    message: err.message().to_string(),
+                                    code: err.code().into(),
+                                },
+                            ));
+                        }
+                    }
+                }
 
                 Query::DropPredIndex(params) => {
                     match self.drop_pred_index(tonic::Request::new(params)).await {

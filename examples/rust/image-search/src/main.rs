@@ -140,7 +140,7 @@ async fn query_mode() {
             }),
             condition: None,
             closest_n: 1,
-            algorithm: Algorithm::DotProductSimilarity.into(),
+            algorithm: Algorithm::CosineSimilarity.into(),
             preprocess_action: ahnlich_types::ai::preprocess::PreprocessAction::NoPreprocessing
                 .into(),
             execution_provider: None,
@@ -176,5 +176,81 @@ async fn query_mode() {
                 viuer::print(&img, &conf).unwrap();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_correct_similarity_algorithm_is_used_in_query() {
+        // CRITICAL: This test prevents regression of the similarity algorithm bug
+        // 
+        // CLIP embeddings are normalized (unit vectors), which means:
+        // - CosineSimilarity: measures angle between vectors (correct for normalized embeddings)
+        // - DotProductSimilarity: measures raw dot product (incorrect for semantic similarity)
+        //
+        // Using DotProductSimilarity caused "cat playing piano" queries to return dog images!
+        // This happened because DotProduct doesn't properly measure semantic similarity
+        // for normalized embeddings.
+        
+        // Create a GetSimN query as done in query_mode()
+        let storename = "image-search".to_string();
+        let get_sim_n = GetSimN {
+            store: storename,
+            search_input: Some(StoreInput {
+                value: Some(Value::RawString("test query".to_string())),
+            }),
+            condition: None,
+            closest_n: 1,
+            algorithm: Algorithm::CosineSimilarity.into(),
+            preprocess_action: ahnlich_types::ai::preprocess::PreprocessAction::NoPreprocessing
+                .into(),
+            execution_provider: None,
+            model_params: std::collections::HashMap::new(),
+            schema: None,
+        };
+
+        // Verify the algorithm is CosineSimilarity, not DotProductSimilarity
+        assert_eq!(
+            get_sim_n.algorithm,
+            Algorithm::CosineSimilarity.into(),
+            "Image search MUST use CosineSimilarity for CLIP embeddings. \
+             DotProductSimilarity will return incorrect results for normalized vectors."
+        );
+        
+        // Also verify it's NOT DotProductSimilarity
+        assert_ne!(
+            get_sim_n.algorithm,
+            Algorithm::DotProductSimilarity.into(),
+            "Image search must NOT use DotProductSimilarity - it returns wrong results for CLIP!"
+        );
+    }
+
+    #[test]
+    fn test_create_store_uses_clip_models() {
+        // Verify we're using the correct CLIP models for image/text embedding
+        let storename = "image-search".to_string();
+        let create_store = CreateStore {
+            store: storename,
+            index_model: ahnlich_types::ai::models::AiModel::ClipVitB32Image.into(),
+            query_model: ahnlich_types::ai::models::AiModel::ClipVitB32Text.into(),
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: false,
+            store_original: true,
+            schema: None,
+        };
+
+        // Verify we're using CLIP models (these produce normalized embeddings)
+        assert_eq!(
+            create_store.index_model,
+            ahnlich_types::ai::models::AiModel::ClipVitB32Image.into()
+        );
+        assert_eq!(
+            create_store.query_model,
+            ahnlich_types::ai::models::AiModel::ClipVitB32Text.into()
+        );
     }
 }

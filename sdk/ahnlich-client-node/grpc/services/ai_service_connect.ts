@@ -24,6 +24,7 @@ import {
   Ping,
   PurgeStores,
   Set,
+  Upsert,
 } from "../ai/query_pb.js";
 import {
   AIStoreInfo,
@@ -123,6 +124,15 @@ export const AIService = {
     set: {
       name: "Set",
       I: Set,
+      O: Set$1,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc services.ai_service.AIService.Upsert
+     */
+    upsert: {
+      name: "Upsert",
+      I: Upsert,
       O: Set$1,
       kind: MethodKind.Unary,
     },

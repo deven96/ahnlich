@@ -84,6 +84,7 @@ Below is a breakdown of common AI request examples:
 * [List Stores](/docs/client-libraries/go/request-db/list-stores)
 * [Create Store](/docs/client-libraries/go/request-db/create-store)
 * [Set](/docs/client-libraries/go/request-db/set)
+* [Upsert](/docs/client-libraries/go/request-ai/upsert)
 * [GetSimN](/docs/client-libraries/go/request-db/get-simn)
 * [Get By Predicate](/docs/client-libraries/go/request-db/get-by-predicate)
 * [Create Predicate Index](/docs/client-libraries/go/request-db/create-predicate-index)

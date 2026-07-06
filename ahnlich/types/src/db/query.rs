@@ -233,3 +233,27 @@ pub struct Set {
     #[prost(string, optional, tag = "3")]
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
+/// Updates a single entry matching the predicate condition with new key and/or value.
+/// Validates that exactly one entry matches the condition before and after update.
+/// Supports partial updates with metadata merging when merge_metadata is true.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Upsert {
+    /// The name of the store.
+    #[prost(string, tag = "1")]
+    pub store: ::prost::alloc::string::String,
+    /// The condition to match exactly one entry.
+    #[prost(message, optional, tag = "2")]
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+    /// Optional new key to update. If None, keeps original key.
+    #[prost(message, optional, tag = "3")]
+    pub new_key: ::core::option::Option<super::super::keyval::StoreKey>,
+    /// Optional new value to update. If None, keeps original value.
+    #[prost(message, optional, tag = "4")]
+    pub new_value: ::core::option::Option<super::super::keyval::StoreValue>,
+    /// If true, merges new_value into existing metadata. If false, replaces entirely.
+    #[prost(bool, tag = "5")]
+    pub merge_metadata: bool,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "6")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
+}

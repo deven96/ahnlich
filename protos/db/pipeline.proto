@@ -34,6 +34,7 @@ message DBQuery {
     db.query.GetStore get_store = 17;
     shared.cluster.ClusterInfoQuery cluster_info = 18;
     db.query.DropSchema drop_schema = 19;
+    db.query.Upsert upsert = 20;
   }
 }
 

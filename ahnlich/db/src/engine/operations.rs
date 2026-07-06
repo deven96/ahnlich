@@ -197,6 +197,27 @@ pub fn set(store_handler: &StoreHandler, params: query::Set) -> Result<StoreUpse
     )
 }
 
+pub fn upsert(
+    store_handler: &StoreHandler,
+    params: query::Upsert,
+) -> Result<StoreUpsert, ServerError> {
+    let schema = resolve_schema(&params.schema)?;
+    let condition = params.condition.ok_or_else(|| {
+        ServerError::InvalidArgument("Condition is required for UPSERT".to_owned())
+    })?;
+
+    store_handler.upsert(
+        &StoreName {
+            value: params.store,
+        },
+        &schema,
+        params.new_key,
+        params.new_value,
+        &condition,
+        params.merge_metadata,
+    )
+}
+
 pub fn list_stores(store_handler: &StoreHandler, params: query::ListStores) -> server::StoreList {
     let schema = params
         .schema

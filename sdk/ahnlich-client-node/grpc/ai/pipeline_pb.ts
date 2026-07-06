@@ -33,6 +33,7 @@ import {
   Ping,
   PurgeStores,
   Set,
+  Upsert,
 } from "./query_pb.js";
 import {
   AIStoreInfo,
@@ -198,6 +199,13 @@ export class AIQuery extends Message<AIQuery> {
         value: DropSchema;
         case: "dropSchema";
       }
+    | {
+        /**
+         * @generated from field: ai.query.Upsert upsert = 21;
+         */
+        value: Upsert;
+        case: "upsert";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<AIQuery>) {
@@ -246,6 +254,7 @@ export class AIQuery extends Message<AIQuery> {
     { no: 18, name: "del_pred", kind: "message", T: DelPred, oneof: "query" },
     { no: 19, name: "get_store", kind: "message", T: GetStore, oneof: "query" },
     { no: 20, name: "drop_schema", kind: "message", T: DropSchema, oneof: "query" },
+    { no: 21, name: "upsert", kind: "message", T: Upsert, oneof: "query" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): AIQuery {

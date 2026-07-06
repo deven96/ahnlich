@@ -217,3 +217,23 @@ class Set(betterproto.Message):
     store: str = betterproto.string_field(1)
     inputs: List["__keyval__.DbStoreEntry"] = betterproto.message_field(2)
     schema: Optional[str] = betterproto.string_field(3, optional=True)
+
+
+@dataclass(eq=False, repr=False)
+class Upsert(betterproto.Message):
+    """
+    Updates a single entry matching the predicate condition with new key and/or value.
+     Validates that exactly one entry matches the condition before and after update.
+     Supports partial updates with metadata merging when merge_metadata is true.
+    """
+
+    store: str = betterproto.string_field(1)
+    condition: "__predicates__.PredicateCondition" = betterproto.message_field(2)
+    new_key: Optional["__keyval__.StoreKey"] = betterproto.message_field(
+        3, optional=True
+    )
+    new_value: Optional["__keyval__.StoreValue"] = betterproto.message_field(
+        4, optional=True
+    )
+    merge_metadata: bool = betterproto.bool_field(5)
+    schema: Optional[str] = betterproto.string_field(6, optional=True)

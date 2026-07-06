@@ -6,8 +6,6 @@ on:
       - 'charts/**'
       - '.github/workflows/helm-charts.yml'
   workflow_dispatch:
-  release:
-    types: [published]
 
 permissions:
   contents: read

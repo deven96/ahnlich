@@ -9,9 +9,9 @@ Ahnlich is production-ready and designed for deployment at scale. This section c
 
 ## What You'll Learn
 
-- **[Deployment](./deployment)** - Docker-based deployment strategies for cloud and on-premise
-- **[Kubernetes (Helm)](./kubernetes)** - Deploy DB and AI on Kubernetes with the official Helm charts
-- **[Tracing](./tracing)** - Distributed tracing setup for observability
+- **[Deployment](/docs/ahnlich-in-production/deployment)** - Docker-based deployment strategies for cloud and on-premise
+- **[Kubernetes (Helm)](/docs/ahnlich-in-production/kubernetes)** - Deploy DB and AI on Kubernetes with the official Helm charts
+- **[Tracing](/docs/ahnlich-in-production/tracing)** - Distributed tracing setup for observability
 
 ## Architecture Overview
 
@@ -70,6 +70,6 @@ This starts both services with persistence enabled.
 
 ## Next Steps
 
-1. **[Deploy to Production](./deployment)** - Choose your deployment platform
-2. **[Enable Tracing](./tracing)** - Set up observability
+1. **[Deploy to Production](/docs/ahnlich-in-production/deployment)** - Choose your deployment platform
+2. **[Enable Tracing](/docs/ahnlich-in-production/tracing)** - Set up observability
 3. Review the [CLI reference](/docs/components/ahnlich-cli) for configuration options

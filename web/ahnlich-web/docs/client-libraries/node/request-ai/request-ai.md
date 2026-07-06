@@ -27,6 +27,7 @@ Ahnlich AI is the semantic layer that provides:
 
 ### Data Operations
 - [Set](/docs/client-libraries/node/request-ai/set) - Insert entries (auto-generates embeddings)
+- [Upsert](/docs/client-libraries/node/request-ai/upsert) - Update a single entry matching a predicate
 - [GetSimN](/docs/client-libraries/node/request-ai/get-simn) - Semantic similarity search
 - [Get By Predicate](/docs/client-libraries/node/request-ai/get-by-predicate) - Filter entries by metadata
 - [Delete Key](/docs/client-libraries/node/request-ai/delete-key) - Delete entries by input

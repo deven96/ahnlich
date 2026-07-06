@@ -161,6 +161,20 @@ message Set {
   optional string schema = 6; // Optional schema/namespace for the store. Defaults to "public".
 }
 
+message Upsert {
+  // Updates a single entry matching the predicate condition with new input and/or value
+  // AI proxy always uses merge mode internally and constructs partial updates
+  // Generates embeddings for new input using the store's index model
+  string store = 1; // Store name
+  predicates.PredicateCondition condition = 2; // Condition to match exactly one entry
+  optional keyval.StoreInput new_input = 3; // Optional new input (image/text). If None, keeps original key.
+  optional keyval.StoreValue new_value = 4; // Optional new metadata. If None, keeps original value.
+  ai.preprocess.PreprocessAction preprocess_action = 5; // Preprocessing action to apply to new input
+  optional ai.execution_provider.ExecutionProvider execution_provider = 6; // Optional execution provider for optimizations
+  map<string, string> model_params = 7; // Optional runtime parameters for the model
+  optional string schema = 8; // Optional schema/namespace for the store. Defaults to "public".
+}
+
 message ConvertStoreInputToEmbeddings {
   // Convert store inputs to embeddings
   repeated keyval.StoreInput store_inputs = 1; // Input keys to retrieve from the store

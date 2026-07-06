@@ -15,7 +15,7 @@ import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
 import { AIModel } from "./models_pb.js";
 import { NonLinearAlgorithm, NonLinearIndex } from "../algorithm/nonlinear_pb.js";
 import { PredicateCondition } from "../predicate_pb.js";
-import { AiStoreEntry, StoreInput } from "../keyval_pb.js";
+import { AiStoreEntry, StoreInput, StoreValue } from "../keyval_pb.js";
 import { Algorithm } from "../algorithm/algorithm_pb.js";
 import { PreprocessAction } from "./preprocess_pb.js";
 import { ExecutionProvider } from "./execution_provider_pb.js";
@@ -1206,6 +1206,120 @@ export class Set extends Message<Set> {
     b: Set | PlainMessage<Set> | undefined,
   ): boolean {
     return proto3.util.equals(Set, a, b);
+  }
+}
+
+/**
+ * @generated from message ai.query.Upsert
+ */
+export class Upsert extends Message<Upsert> {
+  /**
+   * Updates a single entry matching the predicate condition with new input and/or value
+   * AI proxy always uses merge mode internally and constructs partial updates
+   * Generates embeddings for new input using the store's index model
+   *
+   * Store name
+   *
+   * @generated from field: string store = 1;
+   */
+  store = "";
+
+  /**
+   * Condition to match exactly one entry
+   *
+   * @generated from field: predicates.PredicateCondition condition = 2;
+   */
+  condition?: PredicateCondition;
+
+  /**
+   * Optional new input (image/text). If None, keeps original key.
+   *
+   * @generated from field: optional keyval.StoreInput new_input = 3;
+   */
+  newInput?: StoreInput;
+
+  /**
+   * Optional new metadata. If None, keeps original value.
+   *
+   * @generated from field: optional keyval.StoreValue new_value = 4;
+   */
+  newValue?: StoreValue;
+
+  /**
+   * Preprocessing action to apply to new input
+   *
+   * @generated from field: ai.preprocess.PreprocessAction preprocess_action = 5;
+   */
+  preprocessAction = PreprocessAction.NoPreprocessing;
+
+  /**
+   * Optional execution provider for optimizations
+   *
+   * @generated from field: optional ai.execution_provider.ExecutionProvider execution_provider = 6;
+   */
+  executionProvider?: ExecutionProvider;
+
+  /**
+   * Optional runtime parameters for the model
+   *
+   * @generated from field: map<string, string> model_params = 7;
+   */
+  modelParams: { [key: string]: string } = {};
+
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 8;
+   */
+  schema?: string;
+
+  constructor(data?: PartialMessage<Upsert>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "ai.query.Upsert";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "condition", kind: "message", T: PredicateCondition },
+    { no: 3, name: "new_input", kind: "message", T: StoreInput, opt: true },
+    { no: 4, name: "new_value", kind: "message", T: StoreValue, opt: true },
+    { no: 5, name: "preprocess_action", kind: "enum", T: proto3.getEnumType(PreprocessAction) },
+    {
+      no: 6,
+      name: "execution_provider",
+      kind: "enum",
+      T: proto3.getEnumType(ExecutionProvider),
+      opt: true,
+    },
+    {
+      no: 7,
+      name: "model_params",
+      kind: "map",
+      K: 9 /* ScalarType.STRING */,
+      V: { kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    },
+    { no: 8, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Upsert {
+    return new Upsert().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Upsert {
+    return new Upsert().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Upsert {
+    return new Upsert().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: Upsert | PlainMessage<Upsert> | undefined,
+    b: Upsert | PlainMessage<Upsert> | undefined,
+  ): boolean {
+    return proto3.util.equals(Upsert, a, b);
   }
 }
 
