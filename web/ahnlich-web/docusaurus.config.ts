@@ -82,6 +82,7 @@ const config: Config = {
           const base = siteConfig.url.replace(/\/$/, "");
 
           const SECTIONS: [string, string][] = [
+            ["overview", "Overview"],
             ["getting-started", "Getting started"],
             ["concepts", "Concepts"],
             ["stores", "Stores"],
@@ -90,7 +91,9 @@ const config: Config = {
             ["guides", "Guides"],
             ["reference", "Reference"],
             ["troubleshooting", "Troubleshooting"],
+            ["architecture", "Architecture"],
             ["ahnlich-in-production", "Operations"],
+            ["community", "Community"],
           ];
 
           const docRoutes = routesPaths
@@ -202,6 +205,13 @@ const config: Config = {
         },
         theme: {
           customCss: './src/css/custom.css',
+        },
+        sitemap: {
+          lastmod: 'date',
+          changefreq: 'weekly',
+          priority: 0.5,
+          filename: 'sitemap.xml',
+          ignorePatterns: ['**/tags/**'],
         },
         ...(process.env.G_TRACKING_ID
           ? {
