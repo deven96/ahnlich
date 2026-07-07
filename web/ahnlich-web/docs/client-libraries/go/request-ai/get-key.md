@@ -113,7 +113,7 @@ func main() {
 
 - **Store** – The target AI store that must already exist.
 
-- **Keys** – List of `StoreInput` keys to retrieve. Each key is the original input (text/image) that was used when storing the data.
+- **Keys** – List of `StoreInput` keys to retrieve. Each key is the original input (text, image, or audio) that was used when storing the data.
 
 - The response contains entries with the stored data and metadata for each found key.
 

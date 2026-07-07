@@ -150,7 +150,7 @@ func main() {
 
 - **Store** – The target AI store that must already exist.
 
-- **SearchInput** – Raw input (text or image) that gets embedded using the store's QueryModel.
+- **SearchInput** – Raw input (text, image, or audio) that gets embedded using the store's QueryModel.
 
 - **Condition** – Optional predicate filter to restrict which vectors are considered. Set to `nil` to search all vectors. See [Predicates documentation](/docs/components/predicates).
 

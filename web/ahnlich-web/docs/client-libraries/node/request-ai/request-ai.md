@@ -40,6 +40,6 @@ Ahnlich AI is the semantic layer that provides:
 
 ## Key Differences from DB
 
-- **Automatic embeddings**: You provide text/images, AI generates vectors
+- **Automatic embeddings**: You provide text, images, or audio, AI generates vectors
 - **Semantic search**: Search by meaning, not exact vectors
 - **Model selection**: Choose from supported AI models (MiniLM, ResNet, CLIP, etc.)

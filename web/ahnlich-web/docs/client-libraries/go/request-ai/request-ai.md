@@ -10,7 +10,7 @@ Ahnlich Request-ai: AI proxy to communicate with ahnlich-db, receiving raw input
 Ahnlich Request-AI acts as a bridge between raw developer inputs (text, images, etc.) and the vector store. Instead of requiring clients to precompute embeddings, the AI proxy accepts raw inputs, runs a model to create embeddings, and persists those embeddings into the target Ahnlich DB store. Once stored, the same store can be queried using raw input — the proxy will convert the query into an embedding and run the search on the DB.
 
 ## When to use Ahnlich Request AI
-- Simplify client logic: let the proxy handle embedding generation so clients send raw content (text/images) rather than precomputed vectors.
+- Simplify client logic: let the proxy handle embedding generation so clients send raw content (text, images, or audio) rather than precomputed vectors.
 
 - Faster prototyping: quickly add semantic search by selecting an off-the-shelf model without changing client code.
 
@@ -18,7 +18,7 @@ Ahnlich Request-AI acts as a bridge between raw developer inputs (text, images, 
 
 
 ## How it works 
-1. Receive raw input — the AI proxy accepts raw payloads (for example, text or image data).
+1. Receive raw input — the AI proxy accepts raw payloads (for example, text, image, or audio data).
 
 2. Transform to embeddings — the proxy runs the selected model to generate vector embeddings for the input.
 

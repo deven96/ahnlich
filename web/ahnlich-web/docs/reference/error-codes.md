@@ -200,7 +200,7 @@ Same as DB errors above, but for AI stores.
 
 **Cause:** Required input field is missing or empty.
 
-**Solution:** Provide the required input (text or image).
+**Solution:** Provide the required input (text, image, or audio).
 
 ---
 

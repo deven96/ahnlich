@@ -1,0 +1,106 @@
+---
+title: Models & input types
+sidebar_label: Models & input types
+---
+
+import {HFLogo, GitHubLogo} from '@site/src/components/ModelLogo';
+
+# Models & input types
+
+Ahnlich AI ships with a set of pre-trained models. Think of them in **five
+families** — pick the family that matches your data, then pick a size. Every model
+lists an **embedding dim**: two models are compatible (usable as index + query in
+one store) only when their dims match.
+
+> Each model name links to its source. The <HFLogo/> mark is a [Hugging Face](https://huggingface.co) model card; the <GitHubLogo/> mark is a project repository.
+
+## 📝 Text models
+
+For sentences, paragraphs, FAQs, product descriptions — anything written.
+
+| Model | `string name` | Max input | Embedding dim | Best for |
+| --- | --- | --- | --- | --- |
+| <HFLogo/> [ALL-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) | `all-minilm-l6-v2` | 256 tokens | **384** | Fast, lightweight semantic similarity (FAQ search, chatbots). |
+| <HFLogo/> [ALL-MiniLM-L12-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2) | `all-minilm-l12-v2` | 256 tokens | **384** | Higher accuracy for nuanced text, a bit more compute. |
+| <HFLogo/> [BGE-Base-EN-v1.5](https://huggingface.co/BAAI/bge-base-en-v1.5) | `bge-base-en-v1.5` | 512 tokens | **768** | Balanced speed/quality for production. |
+| <HFLogo/> [BGE-Large-EN-v1.5](https://huggingface.co/BAAI/bge-large-en-v1.5) | `bge-large-en-v1.5` | 512 tokens | **1024** | Highest precision when latency matters less. |
+
+## 🖼️ Image models
+
+For photos, product pictures, and other images.
+
+| Model | `string name` | Max input | Embedding dim | Best for |
+| --- | --- | --- | --- | --- |
+| <HFLogo/> [ResNet-50](https://huggingface.co/microsoft/resnet-50) | `resnet-50` | 224×224 px | **2048** | Image-to-image similarity and clustering. |
+| <HFLogo/> [CLIP ViT-B/32 (image)](https://huggingface.co/openai/clip-vit-base-patch32) | `clip-vit-b32-image` | 224×224 px | **512** | The image half of text↔image search (pairs with the CLIP text model). |
+
+## 🧑 Face models
+
+Detect **and** recognize faces in an image. These return **one embedding per
+detected face**, plus [metadata](/docs/components/ahnlich-ai/advanced/embedding-metadata)
+(bounding box, confidence, optional age/gender).
+
+| Model | `string name` | Max input | Embedding dim | Best for |
+| --- | --- | --- | --- | --- |
+| <GitHubLogo/> [Buffalo-L](https://github.com/deepinsight/insightface) | `buffalo-l` | 640×640 px | **512** | Detection + recognition, with optional age/gender. **Non-commercial use only.** |
+| <GitHubLogo/> [SFace + YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface) | `sface-yunet` | 640×640 px | **128** | Lightweight detection + recognition. Apache 2.0 / MIT — **commercially usable.** |
+
+See [model constraints](/docs/components/ahnlich-ai/advanced/model-constraints#face-models-buffalo_l-sfaceyunet)
+for their input rules.
+
+## 🔊 Audio models
+
+For sound clips — music, speech, effects.
+
+| Model | `string name` | Max input | Embedding dim | Best for |
+| --- | --- | --- | --- | --- |
+| <HFLogo/> [CLAP (audio)](https://huggingface.co/laion/clap-htsat-unfused) | `clap-audio` | 10 sec | **512** | Audio similarity; the audio half of text↔audio search. |
+
+See [audio constraints](/docs/components/ahnlich-ai/advanced/model-constraints#audio-models-clap).
+
+## 💻 Code models
+
+For source code across many languages.
+
+| Model | `string name` | Max input | Embedding dim | Best for |
+| --- | --- | --- | --- | --- |
+| <HFLogo/> [Jina Code v2](https://huggingface.co/jinaai/jina-embeddings-v2-base-code) | `jina-embeddings-v2-base-code` | 8192 tokens | **768** | Code search over 30+ languages — see [Code search](/docs/components/ahnlich-ai/advanced/code-search). |
+
+## Cross-modal pairs
+
+Some models come as a **matched pair** that share a dimension, so you can index one
+modality and query with another. Use one as the `INDEXMODEL` and its partner as the
+`QUERYMODEL`.
+
+| Text encoder | Media encoder | Shared dim | Enables |
+| --- | --- | --- | --- |
+| <HFLogo/> [`clip-vit-b32-text`](https://huggingface.co/openai/clip-vit-base-patch32) (77 tokens) | <HFLogo/> [`clip-vit-b32-image`](https://huggingface.co/openai/clip-vit-base-patch32) | 512 | Text-to-image / image-to-text search |
+| <HFLogo/> [`clap-text`](https://huggingface.co/laion/clap-htsat-unfused) (512 tokens) | <HFLogo/> [`clap-audio`](https://huggingface.co/laion/clap-htsat-unfused) | 512 | Text-to-audio / audio-to-text search |
+
+```bash
+# search product photos with words: index images, query with text
+CREATESTORE lookbook INDEXMODEL clip-vit-b32-image QUERYMODEL clip-vit-b32-text
+```
+
+## Supported input types
+
+Whatever the model, you hand the proxy one of three **raw input** kinds and it does
+the embedding:
+
+| Input type | What it is | Embedded by |
+| --- | --- | --- |
+| `RAW_STRING` | Natural text — sentences, paragraphs, code | a text/code model |
+| `IMAGE` | An image file | an image or face model |
+| `AUDIO` | An audio clip | an audio model |
+
+## Quick pick
+
+| If you're working with… | Start with |
+| --- | --- |
+| Text, and want speed | `all-minilm-l6-v2` |
+| Text, and want accuracy | `bge-large-en-v1.5` |
+| Images only | `resnet-50` |
+| Searching images by text | CLIP pair (`clip-vit-b32-*`) |
+| Faces (commercial) | `sface-yunet` |
+| Audio | CLAP pair (`clap-*`) |
+| Source code | `jina-embeddings-v2-base-code` |

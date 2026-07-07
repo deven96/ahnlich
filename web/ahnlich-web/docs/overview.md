@@ -7,7 +7,7 @@ sidebar_position: 10
 # What is Ahnlich?
 
 **Ahnlich is an in-memory vector database with a built-in AI proxy** that embeds
-your text and images for you. Point it at raw content, search by meaning, and
+your text, images, and audio for you. Point it at raw content, search by meaning, and
 get ranked results — all from a single binary with no external services.
 
 ```bash
@@ -18,7 +18,7 @@ Ready to try it? Jump straight to the [**Quickstart**](./getting-started/quickst
 
 ## Why Ahnlich?
 
-- **No embedding pipeline to build.** Send raw text or images; the AI proxy
+- **No embedding pipeline to build.** Send raw text, images, or audio; the AI proxy
   embeds and stores them automatically. No separate model server to run.
 - **Runs anywhere, instantly.** A self-contained binary — no cluster, no managed
   service, no cloud dependency. Great for local dev, prototypes, and the edge.
@@ -48,7 +48,7 @@ Ahnlich ships two services and a CLI:
 | Component | What it does |
 | --- | --- |
 | **`ahnlich-db`** | The in-memory vector store — holds vectors and metadata, runs similarity search. |
-| **`ahnlich-ai`** | The AI proxy — turns raw text/images into embeddings, then talks to the DB for you. |
+| **`ahnlich-ai`** | The AI proxy — turns raw text, images, or audio into embeddings, then talks to the DB for you. |
 | **`ahnlich-cli`** | An interactive shell for creating stores, inserting data, and querying. |
 
 Use `ahnlich-ai` when you want automatic embeddings, or talk to `ahnlich-db`

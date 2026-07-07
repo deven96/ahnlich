@@ -74,7 +74,7 @@ upsertEntry();
 |-----------|------|----------|-------------|
 | `store` | `string` | Yes | The name of the AI store |
 | `condition` | `PredicateCondition` | Yes | Must match exactly one entry |
-| `newInput` | `StoreInput` | No | New input (text/image) to re-embed |
+| `newInput` | `StoreInput` | No | New input (text, image, or audio) to re-embed |
 | `newValue` | `StoreValue` | No | Metadata to update (always merged) |
 | `preprocessAction` | `PreprocessAction` | No | Preprocessing for new input |
 | `executionProvider` | `ExecutionProvider` | No | Hardware acceleration (e.g., CUDA) |

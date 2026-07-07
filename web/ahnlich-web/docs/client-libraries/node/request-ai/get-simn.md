@@ -57,7 +57,7 @@ getSimN();
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `store` | `string` | Yes | The name of the AI store |
-| `searchInput` | `StoreInput` | Yes | The query input (text or image) |
+| `searchInput` | `StoreInput` | Yes | The query input (text, image, or audio) |
 | `closestN` | `number` | Yes | Number of similar entries to return |
 | `algorithm` | `Algorithm` | Yes | Similarity algorithm to use |
 | `condition` | `PredicateCondition` | No | Optional filter condition |

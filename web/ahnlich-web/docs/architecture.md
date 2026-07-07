@@ -112,7 +112,7 @@ flowchart TD
 4. **DB Store** – Writes vector into index, stores metadata.
 
 ### 3.2  Similarity Query Path
-1. **Client ➜ AI Layer** – Provides search text/image.
+1. **Client ➜ AI Layer** – Provides search text, image, or audio.
 2. **Embedding** – AI layer runs Query Model to create search vector.
 3. **AI ➜ DB (GETSIMN)** – Vector + algorithm + optional predicate.
 4. **DB** – Computes distance, applies metadata filter, returns Top‑N IDs & scores.
