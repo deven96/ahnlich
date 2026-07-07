@@ -12,6 +12,9 @@ const config: Config = {
   favicon: 'img/logo.png',
   markdown: {
       mermaid: true,
+      hooks: {
+        onBrokenMarkdownLinks: 'warn',
+      },
     },
     themes: [
       '@docusaurus/theme-mermaid',
@@ -40,7 +43,6 @@ const config: Config = {
 
   // FIXME: Turn these back to 'throw' once docs site is complete
   onBrokenLinks: 'warn',
-  onBrokenMarkdownLinks: 'warn',
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
