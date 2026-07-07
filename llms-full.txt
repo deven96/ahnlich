@@ -40,7 +40,7 @@ A typical production setup consists of:
 ```
 
 - **Ahnlich DB** handles vector storage and similarity search
-- **Ahnlich AI** transforms inputs (text/images) into embeddings
+- **Ahnlich AI** transforms inputs (text, images, or audio) into embeddings
 - Both services communicate over gRPC
 
 ## Key Features for Production
@@ -390,7 +390,7 @@ sidebar_position: 10
 Ahnlich consists of two services that work together:
 
 - **ahnlich-db**: In-memory vector store with exact similarity search
-- **ahnlich-ai**: AI proxy that transforms raw inputs (text/image) into embeddings
+- **ahnlich-ai**: AI proxy that transforms raw inputs (text, image, or audio) into embeddings
 
 The recommended production setup runs both services using Docker.
 
@@ -1205,7 +1205,7 @@ flowchart TD
 4. **DB Store** – Writes vector into index, stores metadata.
 
 ### 3.2  Similarity Query Path
-1. **Client ➜ AI Layer** – Provides search text/image.
+1. **Client ➜ AI Layer** – Provides search text, image, or audio.
 2. **Embedding** – AI layer runs Query Model to create search vector.
 3. **AI ➜ DB (GETSIMN)** – Vector + algorithm + optional predicate.
 4. **DB** – Computes distance, applies metadata filter, returns Top‑N IDs & scores.
@@ -3923,7 +3923,7 @@ func main() {
 
 - **Store** – The target AI store that must already exist.
 
-- **Keys** – List of `StoreInput` keys to retrieve. Each key is the original input (text/image) that was used when storing the data.
+- **Keys** – List of `StoreInput` keys to retrieve. Each key is the original input (text, image, or audio) that was used when storing the data.
 
 - The response contains entries with the stored data and metadata for each found key.
 
@@ -4089,7 +4089,7 @@ func main() {
 
 - **Store** – The target AI store that must already exist.
 
-- **SearchInput** – Raw input (text or image) that gets embedded using the store's QueryModel.
+- **SearchInput** – Raw input (text, image, or audio) that gets embedded using the store's QueryModel.
 
 - **Condition** – Optional predicate filter to restrict which vectors are considered. Set to `nil` to search all vectors. See [Predicates documentation](/docs/components/predicates).
 
@@ -4794,7 +4794,7 @@ Ahnlich Request-ai: AI proxy to communicate with ahnlich-db, receiving raw input
 Ahnlich Request-AI acts as a bridge between raw developer inputs (text, images, etc.) and the vector store. Instead of requiring clients to precompute embeddings, the AI proxy accepts raw inputs, runs a model to create embeddings, and persists those embeddings into the target Ahnlich DB store. Once stored, the same store can be queried using raw input — the proxy will convert the query into an embedding and run the search on the DB.
 
 ## When to use Ahnlich Request AI
-- Simplify client logic: let the proxy handle embedding generation so clients send raw content (text/images) rather than precomputed vectors.
+- Simplify client logic: let the proxy handle embedding generation so clients send raw content (text, images, or audio) rather than precomputed vectors.
 
 - Faster prototyping: quickly add semantic search by selecting an off-the-shelf model without changing client code.
 
@@ -4802,7 +4802,7 @@ Ahnlich Request-AI acts as a bridge between raw developer inputs (text, images, 
 
 
 ## How it works 
-1. Receive raw input — the AI proxy accepts raw payloads (for example, text or image data).
+1. Receive raw input — the AI proxy accepts raw payloads (for example, text, image, or audio data).
 
 2. Transform to embeddings — the proxy runs the selected model to generate vector embeddings for the input.
 
@@ -5022,7 +5022,7 @@ The `Upsert` request updates a single entry matching a predicate condition in an
 Fields:
 - `Store` - store name
 - `Condition` - predicate that must match exactly one entry
-- `NewInput` (optional) - new raw input (text/image) to re-embed
+- `NewInput` (optional) - new raw input (text, image, or audio) to re-embed
 - `NewValue` (optional) - metadata to update (always merged by AI proxy)
 - `PreprocessAction` - how to preprocess new input
 - `ExecutionProvider` (optional) - hardware acceleration (e.g., CUDA)
@@ -8481,7 +8481,7 @@ createImageStore();
 ## Notes
 
 - The query and index models typically should be the same for consistent similarity
-- `storeOriginal: true` is useful for retrieving the original text/image in results
+- `storeOriginal: true` is useful for retrieving the original text, image, or audio in results
 - See [Type Meanings](/docs/client-libraries/node/type-meanings) for more details on AI models
 
 
@@ -8880,7 +8880,7 @@ The GetKey request retrieves entries from a store based on exact input matches.
 
 * **Input**:
   * `store`: the store name.
-  * `keys`: the exact inputs (text/image) you want to retrieve.
+  * `keys`: the exact inputs (text, image, or audio) you want to retrieve.
 
 * **Behavior**: Finds the stored entries that match the inputs exactly.
 
@@ -8988,7 +8988,7 @@ getSimN();
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `store` | `string` | Yes | The name of the AI store |
-| `searchInput` | `StoreInput` | Yes | The query input (text or image) |
+| `searchInput` | `StoreInput` | Yes | The query input (text, image, or audio) |
 | `closestN` | `number` | Yes | Number of similar entries to return |
 | `algorithm` | `Algorithm` | Yes | Similarity algorithm to use |
 | `condition` | `PredicateCondition` | No | Optional filter condition |
@@ -9425,7 +9425,7 @@ Ahnlich AI is the semantic layer that provides:
 
 ## Key Differences from DB
 
-- **Automatic embeddings**: You provide text/images, AI generates vectors
+- **Automatic embeddings**: You provide text, images, or audio, AI generates vectors
 - **Semantic search**: Search by meaning, not exact vectors
 - **Model selection**: Choose from supported AI models (MiniLM, ResNet, CLIP, etc.)
 
@@ -9683,7 +9683,7 @@ upsertEntry();
 |-----------|------|----------|-------------|
 | `store` | `string` | Yes | The name of the AI store |
 | `condition` | `PredicateCondition` | Yes | Must match exactly one entry |
-| `newInput` | `StoreInput` | No | New input (text/image) to re-embed |
+| `newInput` | `StoreInput` | No | New input (text, image, or audio) to re-embed |
 | `newValue` | `StoreValue` | No | Metadata to update (always merged) |
 | `preprocessAction` | `PreprocessAction` | No | Preprocessing for new input |
 | `executionProvider` | `ExecutionProvider` | No | Hardware acceleration (e.g., CUDA) |
@@ -12837,7 +12837,7 @@ This request is critical in AI workflows because it allows you to:
 
 * Configure **semantic stores** with specialized embedding models.
 
-* Decide whether to preserve raw input text/images for retrieval.
+* Decide whether to preserve raw input text, images, or audio for retrieval.
 
 * Build **intelligent**, **AI-driven search** and **recommendation systems** without managing embeddings manually.
 
@@ -13362,7 +13362,7 @@ How to retrieve the top N most similar entries from an AI store using the Ahnlic
 
 * `execution_provider` – Optional hardware acceleration (e.g., CUDA, TensorRT, CoreML). Set to `None` to use default CPU execution.
 
-* `model_params` – Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
+* `model_params` – Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced/model-parameters) for details.
 
 The result contains a list of entries with similarity scores.
 
@@ -13801,13 +13801,13 @@ The **Ahnlich AI Client** provides intelligent services that extend the capabili
 While the DB client is optimized for storing vectors, managing stores, and retrieving them efficiently, the AI client is responsible for **embedding generation**, **preprocessing**, and **querying using raw inputs**.
 
 ## Key Features
-* **Raw input support**: Accepts text or images as input.
+* **Raw input support**: Accepts text, images, or audio as input.
 
 * **Embedding generation**: Automatically transforms raw input into embeddings using AI models.
 
 * **AI proxy**: Communicates with Ahnlich-DB to persist embeddings and metadata.
 
-* **Query with raw input**: No need to manually generate vectors just pass text or images.
+* **Query with raw input**: No need to manually generate vectors just pass text, images, or audio.
 
 * **Flexible models**: Choose different models for indexing vs querying.
 
@@ -13990,7 +13990,7 @@ The AI service will automatically **embed these inputs** using the store’s con
 
 * **`execution_provider`** - Optional hardware acceleration for model inference (e.g., `CUDA`, `TensorRT`, `CoreML`). Set to `None` for default CPU execution.
 
-* **`model_params`** - Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
+* **`model_params`** - Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced/model-parameters) for details.
 
 * **Response** → returns counts of inserted vs. updated items (`upsert counts`).  
 
@@ -14067,7 +14067,7 @@ The AI service automatically merges metadata, preserving AI-generated fields.
 
 * **`condition`** - predicate that must match exactly one entry.
 
-* **`new_input`** (optional) - new raw input to re-embed (e.g., updated text or image).
+* **`new_input`** (optional) - new raw input to re-embed (e.g., updated text, image, or audio).
 
 * **`new_value`** (optional) - metadata to update. Always merged with existing metadata.
 
@@ -15473,7 +15473,7 @@ model_params = {}  # uses model defaults
 model_params = {"confidence_threshold": "0.9"}  # stricter face detection
 ```
 
-See [Model Parameters](/docs/components/ahnlich-ai/advanced#model-parameters-model_params) for the full reference.
+See [Model Parameters](/docs/components/ahnlich-ai/advanced/model-parameters) for the full reference.
 
 ## AIStoreType
 
@@ -16698,7 +16698,7 @@ Performs a **similarity search** in a vector store, retrieving the top-N most si
 
 ## Parameters
 * `params: GetSimN` — The query input, including the target vector and configuration such as the number of neighbors (`N`) to return and optional filters.
-  * `model_params: HashMap<String, String>` — Optional runtime parameters for the AI model. For face detection models (Buffalo\_L, SFace+YuNet), supports `"confidence_threshold"` to control minimum detection confidence. Pass an empty `HashMap` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
+  * `model_params: HashMap<String, String>` — Optional runtime parameters for the AI model. For face detection models (Buffalo\_L, SFace+YuNet), supports `"confidence_threshold"` to control minimum detection confidence. Pass an empty `HashMap` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced/model-parameters) for details.
 
 
 * `tracing_id: Option<String>` — Optional trace parent ID for distributed observability across services.
@@ -17370,7 +17370,7 @@ Inserts or updates embeddings and their associated metadata into a vector store 
 
 ## Parameters
 * `params: Set` — The embeddings and metadata to be stored, including the store key and value. If a key already exists, this call updates the associated record.
-  * `model_params: HashMap<String, String>` — Optional runtime parameters for the AI model. For face detection models (Buffalo\_L, SFace+YuNet), supports `"confidence_threshold"` to control minimum detection confidence. Pass an empty `HashMap` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
+  * `model_params: HashMap<String, String>` — Optional runtime parameters for the AI model. For face detection models (Buffalo\_L, SFace+YuNet), supports `"confidence_threshold"` to control minimum detection confidence. Pass an empty `HashMap` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced/model-parameters) for details.
 
 
 ## Returns
@@ -17480,7 +17480,7 @@ Updates a single entry matching a predicate condition in an AI-powered store. Th
 
   * `condition` — Predicate that must match exactly one entry.
 
-  * `new_input` (optional) — New raw input (text/image) to re-embed.
+  * `new_input` (optional) — New raw input (text, image, or audio) to re-embed.
 
   * `new_value` (optional) — Metadata to update (always merged by AI proxy).
 
@@ -20132,311 +20132,268 @@ We welcome contributions of all kinds - code, documentation, examples, and more!
 
 ---
 
-# FILE: components/ahnlich-ai/advanced.md
+# FILE: components/ahnlich-ai/advanced/code-search.mdx
 
 ---
-title: Advanced
-sidebar_position: 30
+title: Code search (Jina Code v2)
+sidebar_label: Code search
 ---
 
-# Advanced
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
-Unlike Ahnlich DB, which is concerned with similarity algorithms and indexing, **Ahnlich AI focuses on embedding generation**. The service introduces **model-aware stores**, where you define the embedding models used for both data insertion (indexing) and querying. This abstraction lets developers work directly with raw inputs (text or images) while the AI proxy handles embedding generation.
+# Code search with Jina Code v2
 
-## Supported Models
+The [Jina Code v2](https://huggingface.co/jinaai/jina-embeddings-v2-base-code)
+model is built for semantic **code** search across 30+ programming languages. It
+excels at:
 
-Ahnlich AI includes several pre-trained models that can be configured depending on your workload. These cover both **text embeddings** and **image embeddings**:
-
-| Model Name | String Name | Type | Max Input | Embedding Dim | Description |
-| ----- | ----- | ----- | ----- | ----- | ----- |
-| ALL\_MINI\_LM\_L6\_V2 | all-minilm-l6-v2 | Text | 256 tokens | 384 | Lightweight sentence transformer. Fast and memory-efficient, ideal for semantic similarity in applications like FAQ search or chatbots. |
-| ALL\_MINI\_LM\_L12\_V2 | all-minilm-l12-v2 | Text | 256 tokens | 384 | Larger variant of MiniLM. Higher accuracy for nuanced text similarity tasks, but with increased compute requirements. |
-| BGE\_BASE\_EN\_V15 |  bge-base-en-v1.5 | Text | 512 tokens | 768 | Base version of the BGE (English v1.5) model. Balanced performance and speed, suitable for production-scale applications. |
-| BGE\_LARGE\_EN\_V15 | bge-large-en-v1.5 | Text | 512 tokens | 1024 | High-accuracy embedding model for semantic search and retrieval. Best choice when precision is more important than latency. |
-| JINA\_CODE\_V2 | jina-embeddings-v2-base-code | Text (Code) | 8192 tokens | 768 | Specialized code embedding model supporting 30+ programming languages. Optimized for code search, documentation lookup, and code-to-text retrieval. |
-| RESNET50 | resnet-50 | Image | 224x224 px | 2048 | Convolutional Neural Network (CNN) for extracting embeddings from images. Useful for content-based image retrieval and clustering. |
-| CLIP\_VIT\_B32\_IMAGE | clip-vit-b32-image | Image | 224x224 px | 512 | Vision Transformer encoder from the CLIP model. Produces embeddings aligned with its paired text encoder for multimodal tasks. |
-| CLIP\_VIT\_B32\_TEXT | clip-vit-b32-text | Text | 77 tokens | 512 | Text encoder from CLIP. Designed to map textual inputs into the same space as CLIP image embeddings for text-to-image or image-to-text search. |
-| BUFFALO\_L | buffalo-l | Image (Face) | 640x640 px | 512 | Face detection and recognition model. Detects faces in images and generates embeddings for each detected face. **Non-commercial use only.** |
-| SFACE\_YUNET | sface-yunet | Image (Face) | 640x640 px | 128 | Lightweight face detection (YuNet) + recognition (SFace) pipeline. Apache 2.0 / MIT licensed - commercially usable. |
-| CLAP\_AUDIO | clap-audio | Audio | 10 sec max | 512 | Audio encoder from the CLAP model. Produces embeddings from audio inputs for audio similarity search and audio-to-text retrieval. |
-| CLAP\_TEXT | clap-text | Text | 512 tokens | 512 | Text encoder from the CLAP model. Maps textual descriptions into the same embedding space as CLAP audio embeddings for text-to-audio search. |
-
-## Model Constraints
-
-### Audio Models (CLAP)
-
-| Constraint | Value | Notes |
-| ----- | ----- | ----- |
-| Max duration | 10 seconds | Longer clips will error with `AudioTooLongError` |
-| Sample rate | 48 kHz | Audio is automatically resampled |
-| Max samples | 480,000 | 48,000 Hz × 10 seconds |
-| Preprocessing | Required | `NoPreprocessing` not supported - always use `ModelPreprocessing` |
-
-### Face Models (Buffalo\_L, SFace+YuNet)
-
-| Constraint | Value | Notes |
-| ----- | ----- | ----- |
-| Input size | 640x640 px | Images are resized internally |
-| Face alignment | 112x112 px | Standard ArcFace alignment |
-| Embedding mode | OneToMany | Returns one embedding per detected face |
-| Preprocessing | Required | `NoPreprocessing` not supported |
-| Query constraint | Single face | Query images must contain exactly 1 face |
-
-### Cross-Modal Compatibility
-
-| Model Pair | Shared Dim | Use Case |
-| ----- | ----- | ----- |
-| `clip-vit-b32-text` + `clip-vit-b32-image` | 512 | Text-to-image / image-to-text search |
-| `clap-text` + `clap-audio` | 512 | Text-to-audio / audio-to-text search |
-
-## Supported Input Types
-
-| Input Type | Description |
-| ----- | ----- |
-| RAW\_STRING | Accepts natural text (sentences, paragraphs). Transformed into embeddings via a selected text-based model. |
-| IMAGE | Accepts image files as input. Converted into embeddings via a selected image-based model (e.g., ResNet or CLIP). |
-| AUDIO | Accepts audio data as input. Converted into embeddings via an audio-based model (e.g., CLAP Audio). |
-
-## Example – Creating a Model-Aware Store
-
-```
-CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
-```
-
-- **index_model** - defines how inserted data is embedded before being stored in Ahnlich DB.
-
-- **query_model** - defines how queries are embedded at search time.
-
-- Both models must output embeddings of the **same dimensionality** to ensure compatibility.
-
-## Choosing the Right Model
-
-| Model | Best Use Case |
-| ----- | ----- |
-| MiniLM (L6/L12) | Fast, efficient semantic similarity (FAQs, chatbots). |
-| BGE (Base/Large) | High semantic accuracy for production-scale applications. |
-| Jina Code V2 | Code search, documentation retrieval, and semantic code similarity across 30+ languages. |
-| ResNet50 | Image-to-image similarity and clustering. |
-| CLIP (Text+Image) | Multimodal retrieval (text-to-image / image-to-text search). |
-| Buffalo\_L | Face detection and recognition in images (e.g., group photos, ID verification). |
-| SFace+YuNet | Lightweight face detection and recognition (e.g., real-time face matching). |
-| CLAP (Audio+Text) | Audio similarity search and text-to-audio retrieval. |
-
-## Code Search with Jina Code V2
-
-The Jina Code V2 model is specifically designed for semantic code search across 30+ programming languages. It excels at:
-- Finding code snippets by natural language description
-- Searching for similar code patterns
+- Finding code snippets from a natural-language description
+- Searching for similar code patterns (even across languages)
 - Linking documentation to code
 - Code-to-code similarity search
 
-### Creating a Code Search Store
+:::note
+The snippets below assume you've already created an AI **`client`** (and, in Go, a
+`ctx`). See [Client libraries](/docs/client-libraries) for connection setup.
+:::
 
-```
+## 1. Create the code store
+
+Use the Jina Code model for both the index and query side, so stored code and your
+searches land in the same space:
+
+```bash
 CREATESTORE code_repo QUERYMODEL jina-embeddings-v2-base-code INDEXMODEL jina-embeddings-v2-base-code
 ```
 
-### Indexing Code Snippets
+## 2. Index your code snippets
 
-**Rust**:
-```rust
-use ahnlich_client_rs::prelude::*;
+Store each snippet as raw text with a little metadata (language, file). The proxy
+embeds it with the index model.
 
-let code_snippets = vec![
-    StoreInput::RawString("fn fibonacci(n: u32) -> u32 { if n <= 1 { n } else { fibonacci(n-1) + fibonacci(n-2) } }".to_string()),
-    StoreInput::RawString("def binary_search(arr, target): left, right = 0, len(arr) - 1; while left <= right: ...".to_string()),
-    StoreInput::RawString("function quickSort(arr) { if (arr.length <= 1) return arr; const pivot = arr[0]; ...".to_string()),
-];
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
 
-let metadata = vec![
-    StoreValue::from([("language", "rust"), ("file", "algorithms.rs")]),
-    StoreValue::from([("language", "python"), ("file", "search.py")]),
-    StoreValue::from([("language", "javascript"), ("file", "sort.js")]),
-];
-
-client.set(
-    "code_repo".to_string(),
-    code_snippets,
-    PreprocessAction::ModelPreprocessing,
-    None,
-    HashMap::new(),
-).await?;
-```
-
-**Python**:
 ```python
-from ahnlich_client_py import AhnlichAIClient
-from ahnlich_client_py.ai_query import Set, StoreInput
-
-code_snippets = [
-    StoreInput(raw_string="fn fibonacci(n: u32) -> u32 { if n <= 1 { n } else { fibonacci(n-1) + fibonacci(n-2) } }"),
-    StoreInput(raw_string="def binary_search(arr, target): left, right = 0, len(arr) - 1; while left <= right: ..."),
-    StoreInput(raw_string="function quickSort(arr) { if (arr.length <= 1) return arr; const pivot = arr[0]; ..."),
-]
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc import keyval, metadata
+from ahnlich_client_py.grpc.ai import preprocess
 
 await client.set(
-    Set(
+    ai_query.Set(
         store="code_repo",
-        inputs=code_snippets,
-        preprocess_action=PreprocessAction.ModelPreprocessing,
+        inputs=[
+            keyval.AiStoreEntry(
+                key=keyval.StoreInput(
+                    raw_string="fn fibonacci(n: u32) -> u32 { if n <= 1 { n } else { fibonacci(n-1) + fibonacci(n-2) } }"
+                ),
+                value=keyval.StoreValue(
+                    value={"language": metadata.MetadataValue(raw_string="rust")}
+                ),
+            ),
+        ],
+        preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
     )
 )
 ```
 
-### Searching with Natural Language
+</TabItem>
+<TabItem value="node" label="Node.js">
 
-**Rust**:
+```ts
+import { Set } from "ahnlich-client-node/grpc/ai/query_pb";
+import { AiStoreEntry, StoreInput, StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+import { PreprocessAction } from "ahnlich-client-node/grpc/ai/preprocess_pb";
+
+await client.set(
+  new Set({
+    store: "code_repo",
+    inputs: [
+      new AiStoreEntry({
+        key: new StoreInput({
+          value: { case: "rawString", value: "fn fibonacci(n: u32) -> u32 { if n <= 1 { n } else { fibonacci(n-1) + fibonacci(n-2) } }" },
+        }),
+        value: new StoreValue({
+          value: { language: new MetadataValue({ value: { case: "rawString", value: "rust" } }) },
+        }),
+      }),
+    ],
+    preprocessAction: PreprocessAction.MODEL_PREPROCESSING,
+  })
+);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+inputs := []*keyval.AiStoreEntry{
+    {
+        Key: &keyval.StoreInput{
+            Value: &keyval.StoreInput_RawString{RawString: "fn fibonacci(n: u32) -> u32 { if n <= 1 { n } else { fibonacci(n-1) + fibonacci(n-2) } }"},
+        },
+        Value: &keyval.StoreValue{Value: map[string]*metadata.MetadataValue{
+            "language": {Value: &metadata.MetadataValue_RawString{RawString: "rust"}},
+        }},
+    },
+}
+
+_, err := client.Set(ctx, &aiquery.Set{
+    Store:            "code_repo",
+    Inputs:           inputs,
+    PreprocessAction: preprocess.PreprocessAction_ModelPreprocessing,
+})
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
 ```rust
-// Search using natural language query
-let query = vec![StoreInput::RawString("implement recursive fibonacci sequence".to_string())];
+use std::collections::HashMap;
+use ahnlich_client_rs::prelude::*;
 
+client.set(
+    "code_repo".to_string(),
+    vec![StoreInput::RawString(
+        "fn fibonacci(n: u32) -> u32 { if n <= 1 { n } else { fibonacci(n-1) + fibonacci(n-2) } }".to_string(),
+    )],
+    PreprocessAction::ModelPreprocessing,
+    None,
+    HashMap::from([("language".to_string(), "rust".to_string())]),
+).await?;
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+SET fib "fn fibonacci(n: u32) -> u32 { if n <= 1 { n } else { fibonacci(n-1) + fibonacci(n-2) } }" WITH {"language": "rust"} IN code_repo
+```
+
+</TabItem>
+</Tabs>
+
+## 3. Search the code store
+
+The query is **just raw text** — it can be a natural-language description *or* a
+code snippet. Same call either way; only the query string changes.
+
+- Natural language: `"implement recursive fibonacci sequence"`
+- Code: `"def fib(n): return n if n <= 1 else fib(n-1) + fib(n-2)"`
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc import keyval
+from ahnlich_client_py.grpc.algorithm import algorithms
+
+response = await client.get_sim_n(
+    ai_query.GetSimN(
+        store="code_repo",
+        search_input=keyval.StoreInput(raw_string="implement recursive fibonacci sequence"),
+        closest_n=5,
+        algorithm=algorithms.Algorithm.CosineSimilarity,
+    )
+)
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```ts
+import { GetSimN } from "ahnlich-client-node/grpc/ai/query_pb";
+import { StoreInput } from "ahnlich-client-node/grpc/keyval_pb";
+import { Algorithm } from "ahnlich-client-node/grpc/algorithm/algorithm_pb";
+
+const response = await client.getSimN(
+  new GetSimN({
+    store: "code_repo",
+    searchInput: new StoreInput({
+      value: { case: "rawString", value: "implement recursive fibonacci sequence" },
+    }),
+    closestN: 5,
+    algorithm: Algorithm.COSINE_SIMILARITY,
+  })
+);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+resp, err := client.GetSimN(ctx, &aiquery.GetSimN{
+    Store: "code_repo",
+    SearchInput: &keyval.StoreInput{
+        Value: &keyval.StoreInput_RawString{RawString: "implement recursive fibonacci sequence"},
+    },
+    ClosestN:  5,
+    Algorithm: algorithms.Algorithm_CosineSimilarity,
+})
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
 let results = client.get_sim_n(
     "code_repo".to_string(),
-    query,
+    vec![StoreInput::RawString("implement recursive fibonacci sequence".to_string())],
     Condition::new(NonLinearAlgorithm::CosineSimilarity),
     5, // top 5 results
     PreprocessAction::ModelPreprocessing,
     None,
     HashMap::new(),
 ).await?;
-
-// Results will contain the Rust fibonacci function with highest similarity
 ```
 
-**Python**:
-```python
-# Search using natural language query
-from ahnlich_client_py.ai_query import GetSimN
+</TabItem>
+<TabItem value="cli" label="CLI">
 
-query = [StoreInput(raw_string="implement recursive fibonacci sequence")]
-
-results = await client.get_sim_n(
-    GetSimN(
-        store="code_repo",
-        search_input=query,
-        condition=Condition.with_algorithm(NonLinearAlgorithm.CosineSimilarity),
-        closest_n=5,
-        preprocess_action=PreprocessAction.ModelPreprocessing,
-    )
-)
+```bash
+GETSIMN 5 WITH ["implement recursive fibonacci sequence"] USING cosinesimilarity IN code_repo
 ```
 
-### Searching with Code
+</TabItem>
+</Tabs>
 
-**Rust**:
-```rust
-// Find similar code patterns
-let code_query = vec![StoreInput::RawString(
-    "def fib(n): return n if n <= 1 else fib(n-1) + fib(n-2)".to_string()
-)];
+> The natural-language query above still surfaces the **Rust** fibonacci function —
+> semantic code search matches meaning, not exact tokens, so it works across
+> languages.
 
-let results = client.get_sim_n(
-    "code_repo".to_string(),
-    code_query,
-    Condition::new(NonLinearAlgorithm::CosineSimilarity),
-    3,
-    PreprocessAction::ModelPreprocessing,
-    None,
-    HashMap::new(),
-).await?;
+## Use cases
 
-// Will find the Rust fibonacci implementation despite being in a different language
-```
+- **Documentation search** — index code examples, search them with plain questions.
+- **Code discovery** — find similar implementations across different languages.
+- **Refactoring detection** — spot duplicate or near-duplicate patterns.
+- **Code review assistance** — pull up related snippets for context.
+- **IDE integration** — power semantic code search in developer tools.
 
-**Python**:
-```python
-# Find similar code patterns
-code_query = [StoreInput(raw_string="def fib(n): return n if n <= 1 else fib(n-1) + fib(n-2)")]
 
-results = await client.get_sim_n(
-    GetSimN(
-        store="code_repo",
-        search_input=code_query,
-        condition=Condition.with_algorithm(NonLinearAlgorithm.CosineSimilarity),
-        closest_n=3,
-        preprocess_action=PreprocessAction.ModelPreprocessing,
-    )
-)
-```
 
-### Use Cases
+---
 
-- **Documentation Search**: Index code examples and search with natural language questions
-- **Code Discovery**: Find similar implementations across different programming languages
-- **Refactoring Detection**: Identify duplicate or similar code patterns
-- **Code Review Assistance**: Find related code snippets for context
-- **IDE Integration**: Power semantic code search in development tools
+# FILE: components/ahnlich-ai/advanced/embedding-metadata.mdx
 
-## Model Parameters (`model_params`)
+---
+title: Embedding metadata
+sidebar_label: Embedding metadata
+---
 
-Some AI models accept optional runtime parameters via `model_params` — a `map<string, string>` field available on `Set`, `GetSimN`, and `ConvertStoreInputToEmbeddings` requests. These parameters let you tune model behavior at inference time without changing store configuration.
+# Embedding Metadata
 
-When `model_params` is empty (or omitted), models use their built-in defaults. Models that don't support any parameters simply ignore the field.
-
-### Supported Parameters by Model
-
-| Model | Parameter | Type | Default | Description |
-| ----- | ----- | ----- | ----- | ----- |
-| **Buffalo\_L** | `confidence_threshold` | float (0.0–1.0) | `0.5` | Minimum detection confidence for a face to be included. Higher values = fewer but more confident detections. |
-| **Buffalo\_L** | `attributes` | string (comma-separated) | (empty) | Optional attributes to compute. Use `genderage` to enable age and gender predictions. When omitted, only face embeddings and bounding boxes are computed. |
-| **SFace+YuNet** | `confidence_threshold` | float (0.0–1.0) | `0.6` | Minimum detection confidence for a face to be included. Higher values = fewer but more confident detections. |
-
-Text embedding models (MiniLM, BGE), image models (ResNet, CLIP), and audio models (CLAP) do not currently use `model_params`.
-
-### Usage Examples
-
-**Rust** — setting a high confidence threshold for face detection:
-```rust
-use std::collections::HashMap;
-
-let mut model_params = HashMap::new();
-model_params.insert("confidence_threshold".to_string(), "0.9".to_string());
-
-let set_params = Set {
-    store: "faces_store".to_string(),
-    inputs: vec![/* ... */],
-    preprocess_action: PreprocessAction::NoPreprocessing as i32,
-    execution_provider: None,
-    model_params,
-};
-```
-
-**Python** — using default parameters (empty dict):
-```python
-await client.set(
-    ai_query.Set(
-        store="faces_store",
-        inputs=[...],
-        preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
-        model_params={}  # uses model defaults
-    )
-)
-```
-
-**Python** — custom confidence threshold:
-```python
-await client.set(
-    ai_query.Set(
-        store="faces_store",
-        inputs=[...],
-        preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
-        model_params={"confidence_threshold": "0.9"}
-    )
-)
-```
-
-### When to Tune `model_params`
-
-- **Inclusive detection** (e.g., group photos where you want all faces): Use a lower threshold like `0.3`
-- **Standard detection** (balanced): Use the model default (`0.5` for Buffalo\_L, `0.6` for SFace+YuNet)
-- **Strict detection** (e.g., ID verification where only clear faces matter): Use a higher threshold like `0.9`
-
-## Embedding Metadata
+**In plain terms:** most models give you back just a vector. The **face models**
+give you a little extra for *each face they find* — where it is in the photo (a
+bounding box), how confident they are, and optionally an age/gender guess. You get
+this automatically, no second call needed. Again, skip this unless you're working
+with faces.
 
 Starting from version 0.2.2, face detection models (Buffalo\_L and SFace+YuNet) return **bounding box metadata** alongside embeddings. This allows you to access face location and confidence information without re-running detection.
 
-### Metadata Fields (Face Detection Models)
+## Metadata Fields (Face Detection Models)
 
 For each detected face, the following metadata is automatically included:
 
@@ -20463,14 +20420,14 @@ pixel_x1 = bbox_x1 * image_width
 pixel_y1 = bbox_y1 * image_height
 ```
 
-### Metadata Storage
+## Metadata Storage
 
 When you insert images using face detection models:
 - Embeddings are stored in Ahnlich DB as usual
 - Metadata (bounding boxes, confidence) is merged into the `StoreValue` for each face
 - Metadata is returned in `GetSimN`, `GetPred`, and `ConvertStoreInputToEmbeddings` responses
 
-### API Response Structure
+## API Response Structure
 
 The `ConvertStoreInputToEmbeddings` API returns `EmbeddingWithMetadata` for face models:
 
@@ -20483,7 +20440,7 @@ message EmbeddingWithMetadata {
 
 For OneToMany models (face detection), multiple `EmbeddingWithMetadata` objects are returned—one per detected face.
 
-### Usage Examples
+## Usage Examples
 
 **Rust** — accessing bounding box metadata:
 ```rust
@@ -20561,7 +20518,7 @@ for (const faceData of response.values[0].multiple.embeddings) {
 }
 ```
 
-### Gender and Age Predictions (Buffalo_L)
+## Gender and Age Predictions (Buffalo_L)
 
 Buffalo_L can compute **age and gender predictions** for each detected face by setting `attributes=genderage` in `model_params`. This adds three additional metadata fields per face: `gender_female_prob`, `gender_male_prob`, and `age`.
 
@@ -20640,7 +20597,7 @@ for (const faceData of response.values[0].multiple.embeddings) {
 }
 ```
 
-### Use Cases for Metadata
+## Use Cases for Metadata
 
 - **Face cropping**: Use bounding boxes to extract face regions from original images
 - **Visualization**: Draw bounding boxes on images to show detected faces
@@ -20653,9 +20610,300 @@ for (const faceData of response.values[0].multiple.embeddings) {
   - Age group clustering (children, adults, elderly)
   - Demographic insights for audience analysis
 
-### Models Without Metadata
+## Models Without Metadata
 
-Text and image embedding models (MiniLM, BGE, ResNet, CLIP) do **not** return metadata. The `metadata` field will be `None` or empty for these models.
+
+
+
+---
+
+# FILE: components/ahnlich-ai/advanced/model-constraints.mdx
+
+---
+title: Model constraints
+sidebar_label: Model constraints
+---
+
+# Model Constraints
+
+Some models have **rules about their input** — a max audio length, a fixed image
+size, or "exactly one face per query". If you break one, you get a clear error.
+Here's what to watch for per family.
+
+## Audio Models (CLAP)
+
+| Constraint | Value | Notes |
+| ----- | ----- | ----- |
+| Max duration | 10 seconds | Longer clips will error with `AudioTooLongError` |
+| Sample rate | 48 kHz | Audio is automatically resampled |
+| Max samples | 480,000 | 48,000 Hz × 10 seconds |
+| Preprocessing | Required | `NoPreprocessing` not supported - always use `ModelPreprocessing` |
+
+## Face Models (Buffalo\_L, SFace+YuNet)
+
+| Constraint | Value | Notes |
+| ----- | ----- | ----- |
+| Input size | 640x640 px | Images are resized internally |
+| Face alignment | 112x112 px | Standard ArcFace alignment |
+| Embedding mode | OneToMany | Returns one embedding per detected face |
+| Preprocessing | Required | `NoPreprocessing` not supported |
+| Query constraint | Single face | Query images must contain exactly 1 face |
+
+## Cross-modal pairs
+
+Certain text and media encoders share a dimension so you can search across
+modalities — see [Cross-modal pairs](/docs/components/ahnlich-ai/advanced/models#cross-modal-pairs)
+on the Models page.
+
+
+
+
+---
+
+# FILE: components/ahnlich-ai/advanced/model-parameters.mdx
+
+---
+title: Model parameters
+sidebar_label: Model parameters
+---
+
+# Model Parameters (`model_params`)
+
+**In plain terms:** a few models have optional settings you can pass *per request*
+— without recreating the store. Right now this is only for the **face models**
+(e.g. "how confident must a detection be?"). Everything else ignores it, so you can
+skip this section unless you're doing face detection.
+
+Some AI models accept optional runtime parameters via `model_params` — a `map<string, string>` field available on `Set`, `GetSimN`, and `ConvertStoreInputToEmbeddings` requests. These parameters let you tune model behavior at inference time without changing store configuration.
+
+When `model_params` is empty (or omitted), models use their built-in defaults. Models that don't support any parameters simply ignore the field.
+
+## Supported Parameters by Model
+
+| Model | Parameter | Type | Default | Description |
+| ----- | ----- | ----- | ----- | ----- |
+| **Buffalo\_L** | `confidence_threshold` | float (0.0–1.0) | `0.5` | Minimum detection confidence for a face to be included. Higher values = fewer but more confident detections. |
+| **Buffalo\_L** | `attributes` | string (comma-separated) | (empty) | Optional attributes to compute. Use `genderage` to enable age and gender predictions. When omitted, only face embeddings and bounding boxes are computed. |
+| **SFace+YuNet** | `confidence_threshold` | float (0.0–1.0) | `0.6` | Minimum detection confidence for a face to be included. Higher values = fewer but more confident detections. |
+
+Text embedding models (MiniLM, BGE), image models (ResNet, CLIP), and audio models (CLAP) do not currently use `model_params`.
+
+## Usage Examples
+
+**Rust** — setting a high confidence threshold for face detection:
+```rust
+use std::collections::HashMap;
+
+let mut model_params = HashMap::new();
+model_params.insert("confidence_threshold".to_string(), "0.9".to_string());
+
+let set_params = Set {
+    store: "faces_store".to_string(),
+    inputs: vec![/* ... */],
+    preprocess_action: PreprocessAction::NoPreprocessing as i32,
+    execution_provider: None,
+    model_params,
+};
+```
+
+**Python** — using default parameters (empty dict):
+```python
+await client.set(
+    ai_query.Set(
+        store="faces_store",
+        inputs=[...],
+        preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+        model_params={}  # uses model defaults
+    )
+)
+```
+
+**Python** — custom confidence threshold:
+```python
+await client.set(
+    ai_query.Set(
+        store="faces_store",
+        inputs=[...],
+        preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+        model_params={"confidence_threshold": "0.9"}
+    )
+)
+```
+
+## When to Tune `model_params`
+
+- **Inclusive detection** (e.g., group photos where you want all faces): Use a lower threshold like `0.3`
+- **Standard detection** (balanced): Use the model default (`0.5` for Buffalo\_L, `0.6` for SFace+YuNet)
+- **Strict detection** (e.g., ID verification where only clear faces matter): Use a higher threshold like `0.9`
+
+
+
+
+---
+
+# FILE: components/ahnlich-ai/advanced/models.mdx
+
+---
+title: Models & input types
+sidebar_label: Models & input types
+---
+
+import {HFLogo, GitHubLogo} from '@site/src/components/ModelLogo';
+
+# Models & input types
+
+Ahnlich AI ships with a set of pre-trained models. Think of them in **five
+families** — pick the family that matches your data, then pick a size. Every model
+lists an **embedding dim**: two models are compatible (usable as index + query in
+one store) only when their dims match.
+
+> Each model name links to its source. The <HFLogo/> mark is a [Hugging Face](https://huggingface.co) model card; the <GitHubLogo/> mark is a project repository.
+
+## 📝 Text models
+
+For sentences, paragraphs, FAQs, product descriptions — anything written.
+
+| Model | `string name` | Max input | Embedding dim | Best for |
+| --- | --- | --- | --- | --- |
+| <HFLogo/> [ALL-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) | `all-minilm-l6-v2` | 256 tokens | **384** | Fast, lightweight semantic similarity (FAQ search, chatbots). |
+| <HFLogo/> [ALL-MiniLM-L12-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L12-v2) | `all-minilm-l12-v2` | 256 tokens | **384** | Higher accuracy for nuanced text, a bit more compute. |
+| <HFLogo/> [BGE-Base-EN-v1.5](https://huggingface.co/BAAI/bge-base-en-v1.5) | `bge-base-en-v1.5` | 512 tokens | **768** | Balanced speed/quality for production. |
+| <HFLogo/> [BGE-Large-EN-v1.5](https://huggingface.co/BAAI/bge-large-en-v1.5) | `bge-large-en-v1.5` | 512 tokens | **1024** | Highest precision when latency matters less. |
+
+## 🖼️ Image models
+
+For photos, product pictures, and other images.
+
+| Model | `string name` | Max input | Embedding dim | Best for |
+| --- | --- | --- | --- | --- |
+| <HFLogo/> [ResNet-50](https://huggingface.co/microsoft/resnet-50) | `resnet-50` | 224×224 px | **2048** | Image-to-image similarity and clustering. |
+| <HFLogo/> [CLIP ViT-B/32 (image)](https://huggingface.co/openai/clip-vit-base-patch32) | `clip-vit-b32-image` | 224×224 px | **512** | The image half of text↔image search (pairs with the CLIP text model). |
+
+## 🧑 Face models
+
+Detect **and** recognize faces in an image. These return **one embedding per
+detected face**, plus [metadata](/docs/components/ahnlich-ai/advanced/embedding-metadata)
+(bounding box, confidence, optional age/gender).
+
+| Model | `string name` | Max input | Embedding dim | Best for |
+| --- | --- | --- | --- | --- |
+| <GitHubLogo/> [Buffalo-L](https://github.com/deepinsight/insightface) | `buffalo-l` | 640×640 px | **512** | Detection + recognition, with optional age/gender. **Non-commercial use only.** |
+| <GitHubLogo/> [SFace + YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface) | `sface-yunet` | 640×640 px | **128** | Lightweight detection + recognition. Apache 2.0 / MIT — **commercially usable.** |
+
+See [model constraints](/docs/components/ahnlich-ai/advanced/model-constraints#face-models-buffalo_l-sfaceyunet)
+for their input rules.
+
+## 🔊 Audio models
+
+For sound clips — music, speech, effects.
+
+| Model | `string name` | Max input | Embedding dim | Best for |
+| --- | --- | --- | --- | --- |
+| <HFLogo/> [CLAP (audio)](https://huggingface.co/laion/clap-htsat-unfused) | `clap-audio` | 10 sec | **512** | Audio similarity; the audio half of text↔audio search. |
+
+See [audio constraints](/docs/components/ahnlich-ai/advanced/model-constraints#audio-models-clap).
+
+## 💻 Code models
+
+For source code across many languages.
+
+| Model | `string name` | Max input | Embedding dim | Best for |
+| --- | --- | --- | --- | --- |
+| <HFLogo/> [Jina Code v2](https://huggingface.co/jinaai/jina-embeddings-v2-base-code) | `jina-embeddings-v2-base-code` | 8192 tokens | **768** | Code search over 30+ languages — see [Code search](/docs/components/ahnlich-ai/advanced/code-search). |
+
+## Cross-modal pairs
+
+Some models come as a **matched pair** that share a dimension, so you can index one
+modality and query with another. Use one as the `INDEXMODEL` and its partner as the
+`QUERYMODEL`.
+
+| Text encoder | Media encoder | Shared dim | Enables |
+| --- | --- | --- | --- |
+| <HFLogo/> [`clip-vit-b32-text`](https://huggingface.co/openai/clip-vit-base-patch32) (77 tokens) | <HFLogo/> [`clip-vit-b32-image`](https://huggingface.co/openai/clip-vit-base-patch32) | 512 | Text-to-image / image-to-text search |
+| <HFLogo/> [`clap-text`](https://huggingface.co/laion/clap-htsat-unfused) (512 tokens) | <HFLogo/> [`clap-audio`](https://huggingface.co/laion/clap-htsat-unfused) | 512 | Text-to-audio / audio-to-text search |
+
+```bash
+# search product photos with words: index images, query with text
+CREATESTORE lookbook INDEXMODEL clip-vit-b32-image QUERYMODEL clip-vit-b32-text
+```
+
+## Supported input types
+
+Whatever the model, you hand the proxy one of three **raw input** kinds and it does
+the embedding:
+
+| Input type | What it is | Embedded by |
+| --- | --- | --- |
+| `RAW_STRING` | Natural text — sentences, paragraphs, code | a text/code model |
+| `IMAGE` | An image file | an image or face model |
+| `AUDIO` | An audio clip | an audio model |
+
+## Quick pick
+
+| If you're working with… | Start with |
+| --- | --- |
+| Text, and want speed | `all-minilm-l6-v2` |
+| Text, and want accuracy | `bge-large-en-v1.5` |
+| Images only | `resnet-50` |
+| Searching images by text | CLIP pair (`clip-vit-b32-*`) |
+| Faces (commercial) | `sface-yunet` |
+| Audio | CLAP pair (`clap-*`) |
+| Source code | `jina-embeddings-v2-base-code` |
+
+
+
+---
+
+# FILE: components/ahnlich-ai/advanced.mdx
+
+---
+title: Advanced
+sidebar_position: 30
+---
+
+import {AiPipelineFigure} from '@site/src/components/OverviewFigures';
+
+# Advanced
+
+This section is the **knobs and dials** of the AI proxy: which models it can use,
+the rules each one has, and the extra data some of them return. You don't need any
+of it to get started — but when you want faces, audio, code, or fine control, it's
+all here.
+
+## The one idea to hold onto: model-aware stores
+
+Ahnlich DB stores and compares **vectors**. The AI proxy's whole job is turning
+your **raw input** (text, images, or audio) into those vectors using a
+machine-learning **model**. So every AI store remembers **two** models:
+
+- an **index model** — used to embed the items you **store**, and
+- a **query model** — used to embed the things you **search with**.
+
+<AiPipelineFigure />
+
+There's exactly **one rule**: both models must produce vectors of the **same size**
+(the "embedding dimension"). If they do, your query and your stored items live in
+the same space and can be compared. That's why the model tables always list an
+**Embedding dim** — matching it is how you know two models are compatible.
+
+```bash
+# same model both sides — always compatible
+CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
+```
+
+## In this section
+
+- **[Models & input types](/docs/components/ahnlich-ai/advanced/models)** — every
+  built-in model, grouped by family, plus the raw input types and how to pick one.
+- **[Model constraints](/docs/components/ahnlich-ai/advanced/model-constraints)** —
+  the input rules for audio and face models, and which pairs are cross-modal.
+- **[Code search](/docs/components/ahnlich-ai/advanced/code-search)** — build a
+  natural-language + code-to-code search engine with Jina Code v2.
+- **[Model parameters](/docs/components/ahnlich-ai/advanced/model-parameters)** —
+  per-request tuning (`model_params`), used today by the face models.
+- **[Embedding metadata](/docs/components/ahnlich-ai/advanced/embedding-metadata)**
+  — bounding boxes, confidence, and age/gender returned by face models.
+
 
 
 ---
@@ -20738,7 +20986,7 @@ text, images, or audio — as long as the two models output the same dimension:
 The proxy ships with several **off-the-shelf models** for text and images (MiniLM,
 BGE variants, ResNet-50, CLIP, and more). You don't install or fine-tune anything —
 you just name the model when creating a store. See
-[Supported models](/docs/components/ahnlich-ai/advanced#supported-models) for the full list.
+[Supported models](/docs/components/ahnlich-ai/advanced/models) for the full list.
 
 ## Searching in plain language
 
@@ -20756,7 +21004,7 @@ returns the matching items.
 - [Quickstart: Ahnlich AI](/docs/getting-started/quickstart-ai) — the recommended
   starting point.
 - [Command reference](/docs/components/ahnlich-ai/reference) — every command.
-- [Supported models](/docs/components/ahnlich-ai/advanced#supported-models) — text and
+- [Supported models](/docs/components/ahnlich-ai/advanced/models) — text and
   image models you can use.
 - [Advanced](/docs/components/ahnlich-ai/advanced) — model parameters, input types,
   and more.
@@ -21681,7 +21929,7 @@ sidebar_label: SET
 
 # SET
 
-Insert **raw input** (text or an image) into a store — Ahnlich AI embeds it for you. Add metadata as key–value pairs.
+Insert **raw input** (text, an image, or audio) into a store — Ahnlich AI embeds it for you. Add metadata as key–value pairs.
 
 ## Syntax
 
@@ -21723,7 +21971,7 @@ UPSERT [KEY <raw input>] [VALUE <metadata>] IN <store> WHERE (<predicate>) [PREP
 
 ## Parameters
 
-- `KEY <raw input>` — new text/image to re-embed.
+- `KEY <raw input>` — new text, image, or audio to re-embed.
 - `VALUE <metadata>` — metadata to merge.
 - `PREPROCESSACTION` — how to prepare input before embedding.
 - `WHERE (<predicate>)` — must match exactly one entry.
@@ -21753,7 +22001,7 @@ sidebar_position: 20
 
 # AI command reference
 
-Ahnlich AI is the proxy that turns **raw input** — text or images — into
+Ahnlich AI is the proxy that turns **raw input** — text, images, or audio — into
 embeddings and manages them in vector stores backed by
 [Ahnlich DB](/docs/components/ahnlich-db). Every command it understands is listed
 below, one page each. The bundled model is `all-minilm-l6-v2` (text).
@@ -21787,7 +22035,7 @@ For full, runnable **SDK** examples, each page links to its matching
 
 ---
 
-**How Ahnlich AI differs from Ahnlich DB:** you send **text/images**, not vectors —
+**How Ahnlich AI differs from Ahnlich DB:** you send **text, images, or audio**, not vectors —
 the proxy embeds them with the store's models. The commands otherwise mirror
 [Ahnlich DB](/docs/components/ahnlich-db/reference).
 
@@ -22002,7 +22250,7 @@ Here:
 This enables **real-time, personalized product recommendations** tailored to availability.
 
 ## 4. Multimodal Applications in Healthcare
-Ahnlich AI does not support mixing image and text embeddings in a single store. Each store is model-aware and tied to one input type (text or image).
+Ahnlich AI does not support mixing image and text embeddings in a single store. Each store is model-aware and tied to one input type (text, image, or audio).
 
 For workflows such as CT scans and radiology reports, the recommended approach is to create **two separate stores** and link them using metadata fields like `patient_id` or `report_id`.
 
@@ -22492,7 +22740,7 @@ sidebar_label: Insert data
 
 # Insert data
 
-Insert raw text/images with metadata — the proxy embeds them. `PREPROCESSACTION` controls preprocessing.
+Insert text, images, or audio with metadata — the proxy embeds them. `PREPROCESSACTION` controls preprocessing.
 
 Run it after connecting the CLI with `--agent ai`.
 
@@ -22538,7 +22786,7 @@ sidebar_label: AI commands
 # Ahnlich CLI — AI commands
 
 Run queries against **AI stores** from the CLI. Unlike DB stores, you send raw
-**text or images** and the proxy embeds them for you. Connect first with
+**text, images, or audio** and the proxy embeds them for you. Connect first with
 `--agent ai`:
 
 ```bash
@@ -22548,7 +22796,7 @@ ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370
 ## Example workflow
 
 1. **Create a store** with query/index models and predicates.
-2. **Insert** raw text or images — embeddings are generated automatically.
+2. **Insert** raw text, images, or audio — embeddings are generated automatically.
 3. **Query** by similarity or predicate.
 4. **Manage indexes** for faster searches.
 5. **Drop** stores or keys when they're no longer needed.
@@ -24631,7 +24879,7 @@ title: Use Cases
 sidebar_position: 30
 ---
 
-import {UseCasesFigure} from '@site/src/components/OverviewFigures';
+import {UseCasesFigure, SemanticSearchFigure, ClusterFigure, FilterVennFigure} from '@site/src/components/OverviewFigures';
 
 # Use Cases
 
@@ -24642,103 +24890,139 @@ that single idea.
 
 <UseCasesFigure />
 
-### 1. Semantic Search
-Semantic search goes beyond keyword matching it finds items that are **conceptually similar** to a query. With **Ahnlich DB**, embeddings generated by NLP models (e.g., sentence-transformers, OpenAI, BERT) can be stored and queried.
+## Three families of use cases
 
-**Example:**
- A news website wants to allow readers to search for articles by meaning, not just keywords.
-- **Query:** “climate change effects on agriculture”
+Most projects fall into one of three buckets. Find the question you're asking and
+jump to that section.
 
-- **Stored vectors:** embeddings of articles from the archive.
+| Family | The question you're asking | Examples |
+| --- | --- | --- |
+| 🔍 **[Search & retrieval](#-search--retrieval)** | "What's most like *this*?" | Semantic search, image-to-product |
+| 🎯 **[Personalization](#-personalization)** | "What should I show *this user*?" | Recommendations |
+| 🧭 **[Analysis & discovery](#-analysis--discovery)** | "How does my data *group*?" | Clustering, exploration |
 
-- **Ahnlich DB** retrieves the most similar vectors using **cosine similarity**, filtering out irrelevant categories (e.g., `topic != sports`).
+And one technique — **[filtering with context](#combining-any-of-these-with-filters)** —
+that layers on top of all three.
 
+---
+
+## 🔍 Search & retrieval
+
+*"Find the items that mean the closest thing to my query."*
+
+<SemanticSearchFigure />
+
+### Semantic search
+
+Semantic search goes beyond keyword matching — it finds items that are
+**conceptually similar** to a query, even when the words differ. Embeddings from an
+NLP model (sentence-transformers, BERT, etc.) are stored, then queried.
+
+**Example — a news site lets readers search by meaning, not keywords:**
+
+```bash
+GETSIMN 5 WITH [0.42, -0.13, 0.76, ...] USING cosinesimilarity IN news_store WHERE (topic != "sports")
 ```
-GETSIMN 5 WITH [0.42, -0.13, 0.76, ...] USING cosinesimilarity 
-IN news_store WHERE (topic != sports)
+
+> Returns the top 5 articles closest in meaning to the query vector — a search for
+> *"climate change effects on agriculture"* also surfaces an article titled *"how
+> droughts reshape farming"*, despite sharing no keywords.
+
+### Cross-domain (multimodal) retrieval
+
+Because a vector can represent **any** modality — text, images, audio — you can
+search *across* them: query with one kind of data, match another.
+
+**Example — a shopper uploads a photo and finds similar products:**
+
+```bash
+GETSIMN 3 WITH [0.31, 0.88, 0.64, ...] USING cosinesimilarity IN fashion_store WHERE (availability = "in_stock")
 ```
 
-This returns the top 5 most semantically similar articles, even if the exact keywords differ.
+> The photo is embedded into the same space as the catalog images, so the 3
+> visually closest in-stock products come back — image-to-product search.
 
+---
 
-### 2. Recommendation Engines
-Recommendation systems depend on finding similar users or items. By storing user embeddings and item embeddings, **Ahnlich DB** can power **real-time recommendations**.
+## 🎯 Personalization
 
-**Example:**
-An e-commerce platform wants to recommend products to a user based on their browsing history.
+*"Given who this user is, find the items closest to them."*
 
-- **User embedding:** **[0.24, 0.15, 0.93, ...]** (from their profile + past behavior).
+Recommendation is just search where the **query vector is a user** instead of a
+text or image. Store a vector per user (built from their profile and behavior) and
+a vector per item; the nearest items are the recommendations.
 
-- **Product embeddings:** vectors representing catalog items.
+### Recommendation engines
 
-- **Query:** Find the 10 most similar products to the user’s embedding.
+**Example — an e-commerce store recommends products from browsing history:**
 
-```
+```python
 get_sim_n(
     store="product_store",
-    search_input=[0.24, 0.15, 0.93, ...],
+    search_input=[0.24, 0.15, 0.93, ...],   # the user's embedding
     closest_n=10,
     algorithm=CosineSimilarity,
-    condition=Predicate::NotEquals {
-        key="status",
-        value="out_of_stock",
-    }
+    condition=Predicate::NotEquals { key="status", value="out_of_stock" },
 )
-``` 
-
-This returns **personalized recommendations**, excluding unavailable items.
-
-
-### 3. Clustering & Exploration
-Clustering groups together vectors that are close in high-dimensional space. **Ahnlich DB** makes this possible by serving as a **backbone for unsupervised learning workflows**.
-
-**Example:**
-A research lab stores embeddings of thousands of genomic sequences. To discover patterns:
-
-- Query vectors representing sequences with certain traits.
-
-- Run similarity searches to group them into clusters.
-
-- Use metadata filters (`species = human`) to narrow analysis.
-
-This allows scientists to explore relationships between data points without explicit labels.
-
-
-### 4. Filtering with Context
-**Ahnlich DB** allows developers to combine **vector similarity search** with **predicate-based filtering** to return results that are both semantically relevant and contextually constrained.
-
-**Example:**
-A video platform wants to recommend “similar” videos but only those uploaded in the last 12 months.
-
-```
-find top-8 similar videos
-GETSIMN 8 WITH [0.89, -0.33, 0.55, ...] USING euclideandistance IN video_store;
-
-filter results by upload_date
-GETPRED (upload_date = 2024-09-01) IN video_store
 ```
 
-In this workflow, GETSIMN identifies the most similar vectors, while `GETPRED` applies metadata conditions. By chaining them together, applications ensure that retrieved results are not only “similar” but also satisfy real-world constraints such as **time windows, categories, or user-specific rules**.
+> The 10 products nearest the user's vector — personalized, and never showing
+> out-of-stock items.
 
+---
 
-### 5. Cross-Domain Retrieval
-Since embeddings can represent any modality—text, images, audio—**Ahnlich DB** supports **multi-modal retrieval**.
+## 🧭 Analysis & discovery
 
-Example:
-A fashion company wants customers to upload a **photo of an outfit** and find similar products in their catalog.
+*"I don't have a single query — show me how everything relates."*
 
-- Image  converted into an embedding.
+<ClusterFigure />
 
-- Query against the vector database (`fashion_store`).
+### Clustering & exploration
 
-- Metadata filter ensures only items in stock are suggested.
+Because similar vectors sit near each other, similarity search reveals the
+**natural groups** in your data — no labels required. Ahnlich DB becomes the
+backbone for unsupervised exploration.
 
+**Example — a research lab explores thousands of genomic-sequence embeddings:**
+
+- Pick sample vectors with certain traits.
+- Run similarity searches to gather their neighbors into groups.
+- Narrow with metadata filters (e.g. `species = "human"`).
+
+> Scientists discover relationships between sequences **without** having labelled
+> them first.
+
+---
+
+## Combining any of these with filters
+
+*"Similar — but only the ones that also fit the rules."*
+
+<FilterVennFigure />
+
+This is the trick that makes results trustworthy: pair **vector similarity** with
+**metadata predicates**, and you get only the items that are both relevant *and*
+correct (in stock, recent, the right language…).
+
+**Example — a video platform recommends similar videos, but only recent uploads:**
+
+```bash
+# 1. find the most similar videos
+GETSIMN 8 WITH [0.89, -0.33, 0.55, ...] USING euclideandistance IN video_store
+
+# 2. keep only those matching a metadata rule
+GETPRED (upload_date >= "2024-09-01") IN video_store
 ```
-GETSIMN 3 WITH [0.31, 0.88, 0.64, ...] USING cosinesimilarity 
-IN fashion_store WHERE (availability = "in_stock")
 
-This enables image-to-product search, a powerful e-commerce feature.
-```
+> `GETSIMN` handles "similar", `GETPRED` handles "fits the rules". Together they
+> enforce real-world constraints like time windows, categories, or per-user
+> permissions.
+
+## Where to go next
+
+- [Vector index](/docs/concepts/vector-index) — keep searches fast as a store grows.
+- [Metadata & filtering](/docs/concepts/metadata) — how predicates work.
+- [Quickstart: Ahnlich DB](/docs/getting-started/quickstart-db) — build one of these end to end.
 
 
 
@@ -25924,7 +26208,7 @@ import {AIStoreDiagram} from '@site/src/components/ConceptFigures';
 
 # AI & embeddings
 
-An **AI store** lets you work with raw **text or images** instead of vectors.
+An **AI store** lets you work with raw **text, images, or audio** instead of vectors.
 Ahnlich AI runs an embedding model for you, turns each input into a
 [vector](/docs/concepts/vectors), and stores it — so you get semantic search
 without running a model yourself.
@@ -25961,7 +26245,7 @@ CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2 \
 
 - **Preprocess action** — controls how inputs are prepared before embedding (e.g.
   truncating or padding to the model's expected size vs. erroring on a mismatch).
-- **Store original** (`STOREORIGINAL`) — keep the raw text/image alongside its
+- **Store original** (`STOREORIGINAL`) — keep the raw text, image, or audio alongside its
   vector so results can return the source, not just the embedding.
 
 ## Related
@@ -26055,7 +26339,7 @@ Each item in a store is an **entry** made of two parts:
 | | You provide | Port | Vectors are… |
 | --- | --- | --- | --- |
 | **Vector DB store** | raw vectors | 1369 | supplied by you |
-| **AI store** | text or images | 1370 | [generated for you](/docs/concepts/ai-and-embeddings) |
+| **AI store** | text, images, or audio | 1370 | [generated for you](/docs/concepts/ai-and-embeddings) |
 
 The [operations](/docs/stores) — insert, similarity search, filtering — are the
 same for both; only the input differs.
@@ -26086,7 +26370,7 @@ Every entry in a [store](/docs/concepts/data-model) has two halves: a **key** (t
 **metadata** — a set of named fields describing it, stored in a `StoreValue`.
 
 Where the vector captures *meaning*, metadata captures *facts*: who wrote it, what
-category it belongs to, when it was created, the original text or image. It's how
+category it belongs to, when it was created, the original text, image, or audio. It's how
 you keep the human-readable context next to the vector.
 
 <MetadataDiagram />
@@ -26463,7 +26747,7 @@ Working with vectors is a three-step loop:
 
 1. **Store** — turn your data into vectors and [insert](/docs/stores/set) them into
    a [store](/docs/concepts/data-model). Compute the vectors yourself, or send raw
-   text/images to an [AI store](/docs/concepts/ai-and-embeddings) and let Ahnlich
+   text, images, or audio to an [AI store](/docs/concepts/ai-and-embeddings) and let Ahnlich
    embed them.
 2. **Search** — turn your query into a vector *with the same model*, then run a
    [similarity search](/docs/stores/get-simn).
@@ -26588,7 +26872,7 @@ end: **local-first development, fast iteration, and built-in embeddings**, with
 a roadmap toward clustering and stronger persistence.
 
 :::tip TL;DR
-- **Pick Ahnlich** to build and iterate fast, embed text/images out of the box,
+- **Pick Ahnlich** to build and iterate fast, embed text, images, or audio out of the box,
   and run everything locally with no external services.
 - **Pick Pinecone / Weaviate / Milvus** when you need managed hosting, horizontal
   scale to billions of vectors, or advanced ANN tuning today.
@@ -26618,7 +26902,7 @@ a roadmap toward clustering and stronger persistence.
   [**Helm charts**](../ahnlich-in-production/kubernetes) when you're ready for
   Kubernetes — self-healing pods, rolling upgrades, and cluster-managed volumes.
   Clustering, replication, and stronger persistence are on the roadmap.
-- **Batteries-included AI.** A native proxy embeds text and images for you, so
+- **Batteries-included AI.** A native proxy embeds text, images, and audio for you, so
   there's no separate model service to wire up (external providers still work).
 - **Multi-language.** Official clients for Python, Rust, Node, and Go, plus the CLI.
 
@@ -29474,7 +29758,7 @@ ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369
 </TabItem>
 <TabItem value="ai" label="AI Proxy">
 
-Talk to the AI proxy — send raw text/images and it embeds them for you.
+Talk to the AI proxy — send raw text, images, or audio and it embeds them for you.
 
 ```bash
 ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370
@@ -29494,7 +29778,7 @@ this shape:
 
 Commands are case-insensitive and can be chained with `;`. Both agents share the
 same grammar — the only difference is that the **DB engine** takes raw vectors
-while the **AI proxy** takes raw text/images. Pick an agent below; the tabs stay
+while the **AI proxy** takes raw text, images, or audio. Pick an agent below; the tabs stay
 in sync with the connection command above.
 
 <Tabs groupId="ahnlich-agent" queryString>
@@ -29588,7 +29872,7 @@ against the stored vectors.
 | `INFOSERVER` | Get server metadata / version |
 | `CREATESTORE <name> QUERYMODEL <m> INDEXMODEL <m> ...` | Create an AI store bound to embedding models |
 | `CREATEPREDINDEX (k1, k2) IN <store>` | Create a predicate (metadata) index |
-| `SET (...) IN <store> PREPROCESSACTION <action>` | Insert raw text/images (embedded automatically) |
+| `SET (...) IN <store> PREPROCESSACTION <action>` | Insert raw text, images, or audio (embedded automatically) |
 | `UPSERT NEWINPUT [<text>] NEWVALUE {k:v} WHERE (<predicate>) IN <store>` | Update a single entry matching predicate |
 | `GETSIMN <n> WITH [<raw input>] USING <metric> IN <store> WHERE (<predicate>)` | Query nearest neighbors by meaning |
 | `DROPSTORE <name> IF EXISTS` | Delete a store |
@@ -29837,7 +30121,7 @@ sidebar_position: 10
 # What is Ahnlich?
 
 **Ahnlich is an in-memory vector database with a built-in AI proxy** that embeds
-your text and images for you. Point it at raw content, search by meaning, and
+your text, images, and audio for you. Point it at raw content, search by meaning, and
 get ranked results — all from a single binary with no external services.
 
 ```bash
@@ -29848,7 +30132,7 @@ Ready to try it? Jump straight to the [**Quickstart**](./getting-started/quickst
 
 ## Why Ahnlich?
 
-- **No embedding pipeline to build.** Send raw text or images; the AI proxy
+- **No embedding pipeline to build.** Send raw text, images, or audio; the AI proxy
   embeds and stores them automatically. No separate model server to run.
 - **Runs anywhere, instantly.** A self-contained binary — no cluster, no managed
   service, no cloud dependency. Great for local dev, prototypes, and the edge.
@@ -29878,7 +30162,7 @@ Ahnlich ships two services and a CLI:
 | Component | What it does |
 | --- | --- |
 | **`ahnlich-db`** | The in-memory vector store — holds vectors and metadata, runs similarity search. |
-| **`ahnlich-ai`** | The AI proxy — turns raw text/images into embeddings, then talks to the DB for you. |
+| **`ahnlich-ai`** | The AI proxy — turns raw text, images, or audio into embeddings, then talks to the DB for you. |
 | **`ahnlich-cli`** | An interactive shell for creating stores, inserting data, and querying. |
 
 Use `ahnlich-ai` when you want automatic embeddings, or talk to `ahnlich-db`
@@ -30778,7 +31062,7 @@ Same as DB errors above, but for AI stores.
 
 **Cause:** Required input field is missing or empty.
 
-**Solution:** Provide the required input (text or image).
+**Solution:** Provide the required input (text, image, or audio).
 
 ---
 
@@ -31250,7 +31534,7 @@ import TabItem from '@theme/TabItem';
 
 Add a non-linear index (HNSW) to accelerate [similarity search](/docs/stores/get-simn) on a [store](/docs/stores).
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -31683,7 +31967,7 @@ import TabItem from '@theme/TabItem';
 
 Index one or more [metadata](/docs/concepts/metadata) fields so [predicate queries](/docs/stores/get-by-predicate) run faster.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -32105,7 +32389,7 @@ import TabItem from '@theme/TabItem';
 
 Create a new, isolated [store](/docs/stores) — Ahnlich's container for vectors and their [metadata](/docs/concepts/metadata), like a *collection* in a document database or a *table* in a relational one.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -32568,7 +32852,7 @@ import TabItem from '@theme/TabItem';
 
 Delete entries by an exact vector-key match.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -33009,7 +33293,7 @@ import TabItem from '@theme/TabItem';
 
 Delete every entry that matches a **metadata condition**.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -33562,7 +33846,7 @@ import TabItem from '@theme/TabItem';
 
 Remove a [non-linear index](/docs/stores/create-non-linear-algx) (HNSW) from a store.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -34000,7 +34284,7 @@ import TabItem from '@theme/TabItem';
 
 Remove a [predicate index](/docs/stores/create-predicate-index) when it's no longer needed or to reduce storage overhead.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -34432,7 +34716,7 @@ import TabItem from '@theme/TabItem';
 
 Permanently delete a [store](/docs/stores) and **all** its contents. This is destructive and cannot be undone.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -34847,7 +35131,7 @@ import TabItem from '@theme/TabItem';
 
 Retrieve entries by **metadata conditions** instead of by vector.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -35398,7 +35682,7 @@ import TabItem from '@theme/TabItem';
 
 Retrieve entries by an exact vector-key match.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -35882,7 +36166,7 @@ import TabItem from '@theme/TabItem';
 
 Return the `closest_n` entries most similar to a query vector, ranked by a similarity metric. This is the core vector-search operation.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -36438,7 +36722,7 @@ import TabItem from '@theme/TabItem';
 
 Return detailed information about a single [store](/docs/stores) by name.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -36847,7 +37131,7 @@ import TabItem from '@theme/TabItem';
 
 Retrieve [metadata](/docs/concepts/metadata) about the running server, including its binary **version** and **type** (DB, AI, or Hybrid).
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -37210,7 +37494,7 @@ import TabItem from '@theme/TabItem';
 
 List every client currently connected to the server.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -37570,7 +37854,7 @@ import TabItem from '@theme/TabItem';
 
 List the [stores](/docs/stores) currently registered on the server — handy for introspection, admin tooling, and debugging.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -37957,7 +38241,7 @@ import TabItem from '@theme/TabItem';
 
 Test connectivity to the server — a lightweight health check that confirms the service is up.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -38346,7 +38630,7 @@ import TabItem from '@theme/TabItem';
 
 Insert one or more entries into a store. Each entry pairs a **key** (the vector) with a **value** (its metadata).
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -38950,7 +39234,7 @@ import TabItem from '@theme/TabItem';
 
 Update a single existing entry matched by a predicate — replace its vector, its [metadata](/docs/concepts/metadata), or both.
 
-> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text, images, or audio and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
