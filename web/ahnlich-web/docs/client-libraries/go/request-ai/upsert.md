@@ -15,7 +15,7 @@ The `Upsert` request updates a single entry matching a predicate condition in an
 Fields:
 - `Store` - store name
 - `Condition` - predicate that must match exactly one entry
-- `NewInput` (optional) - new raw input (text/image) to re-embed
+- `NewInput` (optional) - new raw input (text, image, or audio) to re-embed
 - `NewValue` (optional) - metadata to update (always merged by AI proxy)
 - `PreprocessAction` - how to preprocess new input
 - `ExecutionProvider` (optional) - hardware acceleration (e.g., CUDA)

@@ -35,7 +35,7 @@ ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369
 </TabItem>
 <TabItem value="ai" label="AI Proxy">
 
-Talk to the AI proxy — send raw text/images and it embeds them for you.
+Talk to the AI proxy — send raw text, images, or audio and it embeds them for you.
 
 ```bash
 ahnlich-cli ahnlich --agent ai --host 127.0.0.1 --port 1370
@@ -55,7 +55,7 @@ this shape:
 
 Commands are case-insensitive and can be chained with `;`. Both agents share the
 same grammar — the only difference is that the **DB engine** takes raw vectors
-while the **AI proxy** takes raw text/images. Pick an agent below; the tabs stay
+while the **AI proxy** takes raw text, images, or audio. Pick an agent below; the tabs stay
 in sync with the connection command above.
 
 <Tabs groupId="ahnlich-agent" queryString>
@@ -149,7 +149,7 @@ against the stored vectors.
 | `INFOSERVER` | Get server metadata / version |
 | `CREATESTORE <name> QUERYMODEL <m> INDEXMODEL <m> ...` | Create an AI store bound to embedding models |
 | `CREATEPREDINDEX (k1, k2) IN <store>` | Create a predicate (metadata) index |
-| `SET (...) IN <store> PREPROCESSACTION <action>` | Insert raw text/images (embedded automatically) |
+| `SET (...) IN <store> PREPROCESSACTION <action>` | Insert raw text, images, or audio (embedded automatically) |
 | `UPSERT NEWINPUT [<text>] NEWVALUE {k:v} WHERE (<predicate>) IN <store>` | Update a single entry matching predicate |
 | `GETSIMN <n> WITH [<raw input>] USING <metric> IN <store> WHERE (<predicate>)` | Query nearest neighbors by meaning |
 | `DROPSTORE <name> IF EXISTS` | Delete a store |

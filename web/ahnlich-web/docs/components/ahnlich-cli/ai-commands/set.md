@@ -5,7 +5,7 @@ sidebar_label: Insert data
 
 # Insert data
 
-Insert raw text/images with metadata — the proxy embeds them. `PREPROCESSACTION` controls preprocessing.
+Insert text, images, or audio with metadata — the proxy embeds them. `PREPROCESSACTION` controls preprocessing.
 
 Run it after connecting the CLI with `--agent ai`.
 

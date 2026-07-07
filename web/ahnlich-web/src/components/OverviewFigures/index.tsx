@@ -328,3 +328,161 @@ export function UseCasesFigure(): ReactNode {
     'Every use case below is the same three steps: turn your input into a vector, find the nearest stored vectors, and optionally filter by metadata. Only the data and the labels change.',
   );
 }
+
+/**
+ * Search & retrieval: a query lands in the "meaning map" and the closest points
+ * come back — matched by meaning, not exact keywords.
+ */
+export function SemanticSearchFigure(): ReactNode {
+  // scattered stored items (muted); the three nearest to the query are accented.
+  const far = [
+    [70, 60], [120, 200], [430, 70], [470, 180], [360, 210],
+    [250, 45], [90, 130], [420, 130],
+  ];
+  const near = [[250, 120], [300, 160], [215, 175]];
+  const qx = 250, qy = 150;
+  return fig(
+    <svg viewBox="0 0 540 250" role="img"
+      aria-label="A query point in a meaning map; the three nearest stored items are returned"
+      style={svgStyle(540)}>
+      <rect x="30" y="24" width="480" height="200" rx="12" fill={ACCENT} opacity="0.04" />
+      <text x="44" y="20" style={label}>Meaning map (vector space)</text>
+
+      {/* radius showing "nearest" */}
+      <circle cx={qx} cy={qy} r="66" fill={ACCENT} opacity="0.08" />
+      <circle cx={qx} cy={qy} r="66" fill="none" stroke={ACCENT} strokeWidth="1" strokeDasharray="4 4" />
+
+      {far.map(([x, y], i) => <circle key={`f${i}`} cx={x} cy={y} r="6" fill={MUTED} opacity="0.5" />)}
+      {near.map(([x, y], i) => (
+        <g key={`n${i}`}>
+          <circle cx={x} cy={y} r="8" fill={ACCENT} />
+          <circle cx={x} cy={y} r="12" fill="none" stroke={ACCENT} strokeWidth="1.5" opacity="0.6" />
+        </g>
+      ))}
+
+      {/* query star */}
+      <path
+        d={`M${qx} ${qy - 13} l3.3 6.7 7.4 1.1-5.3 5.2 1.2 7.4-6.6-3.5-6.6 3.5 1.2-7.4-5.3-5.2 7.4-1.1z`}
+        fill={ACCENT} stroke={SURFACE} strokeWidth="1" />
+      <text x={qx} y={qy + 40} textAnchor="middle" style={mono} fill={INK}>your query</text>
+      <text x="500" y="216" textAnchor="end" fontSize="11" fill={MUTED}>nearest 3 → results</text>
+    </svg>,
+    'Search finds items by meaning. The query sits in the same space as your data; the closest points come back even when they share no exact keywords.',
+  );
+}
+
+/** Analysis & discovery: vectors naturally fall into groups. */
+export function ClusterFigure(): ReactNode {
+  const groups = [
+    {cx: 130, cy: 90, label: 'Group A', pts: [[105, 70], [140, 65], [120, 105], [155, 95], [130, 88]]},
+    {cx: 390, cy: 95, label: 'Group B', pts: [[365, 75], [410, 70], [385, 110], [420, 100], [395, 92]]},
+    {cx: 240, cy: 185, label: 'Group C', pts: [[215, 170], [260, 165], [235, 200], [270, 195], [242, 183]]},
+  ];
+  return fig(
+    <svg viewBox="0 0 520 250" role="img"
+      aria-label="Stored vectors naturally form three groups"
+      style={svgStyle(520)}>
+      <text x="20" y="22" style={label}>Similar items sit together → natural groups</text>
+      {groups.map((g, gi) => (
+        <g key={gi}>
+          <ellipse cx={g.cx} cy={g.cy} rx="58" ry="46" fill={ACCENT}
+            opacity={0.09} />
+          <ellipse cx={g.cx} cy={g.cy} rx="58" ry="46" fill="none" stroke={ACCENT}
+            strokeWidth="1.3" strokeDasharray="5 4" opacity="0.7" />
+          {g.pts.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="6" fill={ACCENT} opacity="0.75" />)}
+          <text x={g.cx} y={g.cy + 66} textAnchor="middle" style={mono} fill={INK}>{g.label}</text>
+        </g>
+      ))}
+    </svg>,
+    'No labels required: because similar items land near each other, running similarity searches reveals the natural groups already present in your data.',
+  );
+}
+
+/** The cross-cutting trick: results = similar AND matching the metadata filter. */
+export function FilterVennFigure(): ReactNode {
+  return fig(
+    <svg viewBox="0 0 520 240" role="img"
+      aria-label="Results are the overlap of similar items and items matching the metadata filter"
+      style={svgStyle(520)}>
+      {/* left: similar */}
+      <circle cx="210" cy="120" r="92" fill={ACCENT} opacity="0.1" stroke={ACCENT} strokeWidth="1.5" />
+      {/* right: filter */}
+      <circle cx="310" cy="120" r="92" fill={INK} opacity="0.06" stroke={MUTED} strokeWidth="1.5" />
+
+      <text x="150" y="66" textAnchor="middle" fontSize="12.5" fontWeight="700" fill={INK}>Similar</text>
+      <text x="150" y="84" textAnchor="middle" fontSize="11" fill={MUTED}>by vector</text>
+      <text x="372" y="66" textAnchor="middle" fontSize="12.5" fontWeight="700" fill={INK}>Matches filter</text>
+      <text x="372" y="84" textAnchor="middle" fontSize="11" fill={MUTED}>by metadata</text>
+
+      {/* intersection highlight */}
+      <text x="260" y="118" textAnchor="middle" fontSize="12.5" fontWeight="700" fill={ACCENT}>returned</text>
+      <text x="260" y="136" textAnchor="middle" fontSize="11" fill={MUTED}>relevant &amp;</text>
+      <text x="260" y="151" textAnchor="middle" fontSize="11" fill={MUTED}>correct</text>
+    </svg>,
+    'Filtering with context returns only the overlap: items that are both semantically similar and satisfy your metadata rules (in stock, recent, this language…).',
+  );
+}
+
+/**
+ * The model-aware store, two lanes: the index model embeds what you store, the
+ * query model embeds what you search with, and both must share a dimension so the
+ * vectors are comparable.
+ */
+export function AiPipelineFigure(): ReactNode {
+  const modelBox = (x: number, y: number, title: string) => (
+    <g>
+      <rect x={x} y={y} width="128" height="50" rx="10" fill={ACCENT} opacity="0.1" stroke={ACCENT} strokeWidth="1.4" />
+      <text x={x + 64} y={y + 24} textAnchor="middle" fontSize="12.5" fontWeight="700" fill={INK}>{title}</text>
+      <text x={x + 64} y={y + 40} textAnchor="middle" fontSize="10.5" fill={MUTED}>ML model</text>
+    </g>
+  );
+  const plainBox = (x: number, y: number, l1: string, l2: string) => (
+    <g>
+      <rect x={x} y={y} width="118" height="50" rx="10" fill={SURFACE} stroke={LINE} />
+      <text x={x + 59} y={y + 22} textAnchor="middle" fontSize="12" fontWeight="700" fill={INK}>{l1}</text>
+      <text x={x + 59} y={y + 39} textAnchor="middle" style={mono} fill={MUTED}>{l2}</text>
+    </g>
+  );
+  return fig(
+    <svg viewBox="0 0 700 288" role="img"
+      aria-label="Index model embeds stored items, query model embeds searches, both share the same dimension, results go to Ahnlich DB"
+      style={svgStyle(700)}>
+      <Arrow id="aip-a" />
+
+      {/* --- indexing lane --- */}
+      <text x="20" y="30" style={label}>When you store (SET)</text>
+      {plainBox(20, 42, 'an item', 'text·img·audio')}
+      <path d="M140 67 H172" stroke={MUTED} strokeWidth="2" fill="none" markerEnd="url(#aip-a)" />
+      {modelBox(174, 42, 'Index model')}
+      <path d="M304 67 H336" stroke={MUTED} strokeWidth="2" fill="none" markerEnd="url(#aip-a)" />
+      <rect x="338" y="46" width="118" height="42" rx="8" fill={SURFACE} stroke={LINE} />
+      <text x="397" y="72" textAnchor="middle" style={mono} fill={ACCENT}>[0.12, 0.98, …]</text>
+
+      {/* --- search lane --- */}
+      <text x="20" y="184" style={label}>When you search (GETSIMN)</text>
+      {plainBox(20, 196, 'your query', '"a red bike"')}
+      <path d="M140 221 H172" stroke={MUTED} strokeWidth="2" fill="none" markerEnd="url(#aip-a)" />
+      {modelBox(174, 196, 'Query model')}
+      <path d="M304 221 H336" stroke={MUTED} strokeWidth="2" fill="none" markerEnd="url(#aip-a)" />
+      <rect x="338" y="200" width="118" height="42" rx="8" fill={SURFACE} stroke={LINE} />
+      <text x="397" y="226" textAnchor="middle" style={mono} fill={ACCENT}>[0.10, 0.95, …]</text>
+
+      {/* dimension-match bracket between the two models */}
+      <path d="M238 92 V196" stroke={ACCENT} strokeWidth="1.3" strokeDasharray="4 4" />
+      <rect x="150" y="128" width="176" height="34" rx="8" fill={SURFACE} stroke={ACCENT} strokeWidth="1" />
+      <text x="238" y="149" textAnchor="middle" fontSize="11" fontWeight="700" fill={ACCENT}>must share one dimension</text>
+
+      {/* converge to DB */}
+      <path d="M456 67 C 520 67, 520 130, 560 140" stroke={MUTED} strokeWidth="2" fill="none" markerEnd="url(#aip-a)" />
+      <path d="M456 221 C 520 221, 520 158, 560 148" stroke={ACCENT} strokeWidth="2" fill="none" markerEnd="url(#aip-a)" />
+
+      <ellipse cx="622" cy="120" rx="48" ry="13" fill={ACCENT} opacity="0.12" />
+      <path d="M574 120 V172 A48 13 0 0 0 670 172 V120" fill={ACCENT} opacity="0.08" />
+      <ellipse cx="622" cy="120" rx="48" ry="13" fill="none" stroke={ACCENT} strokeWidth="1.5" />
+      <path d="M574 120 V172 A48 13 0 0 0 670 172 V120" fill="none" stroke={ACCENT} strokeWidth="1.5" />
+      <text x="622" y="196" textAnchor="middle" fontSize="12" fontWeight="700" fill={INK}>Ahnlich DB</text>
+      <text x="622" y="212" textAnchor="middle" fontSize="10.5" fill={MUTED}>store · compare</text>
+    </svg>,
+    'A store remembers two models: one to embed what you store, one to embed what you search with. As long as they output vectors of the same size, the query and the stored items live in one space and can be compared.',
+  );
+}

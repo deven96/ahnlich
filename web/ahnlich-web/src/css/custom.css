@@ -516,6 +516,7 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
 .ahn-docsnav__inner {
   display: flex;
   align-items: stretch;
+  justify-content: safe center;
   gap: 0.25rem;
   height: var(--ahn-docsnav-height);
   overflow-x: auto;
@@ -562,6 +563,15 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
     max-height: calc(100vh - var(--ifm-navbar-height) - var(--ahn-docsnav-height)) !important;
     overflow-y: auto;
     overflow-x: hidden;
+    /* Smooth in-sidebar scrolling, with the scrollbar visually hidden. */
+    scroll-behavior: smooth;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* legacy Edge */
+  }
+  .docs-wrapper .theme-doc-sidebar-container > div::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none; /* Chrome, Safari */
   }
   /* The inner sidebar is already offset by the container's `top` — drop the
      default navbar-height padding and let it grow so the viewport scrolls. */

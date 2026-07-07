@@ -95,19 +95,20 @@ const sidebars: SidebarsConfig = {
             'stores/drop-non-linear-algx',
           ],
         },
-        {
-          type: 'category',
-          label: 'Data operations',
-          items: [
-            'stores/set',
-            'stores/upsert',
-            'stores/get-key',
-            'stores/get-simn',
-            'stores/get-by-predicate',
-            'stores/delete-key',
-            'stores/delete-predicate',
-          ],
-        },
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Data operations',
+      customProps: sbIcon('code'),
+      items: [
+        'stores/set',
+        'stores/upsert',
+        'stores/get-key',
+        'stores/get-simn',
+        'stores/get-by-predicate',
+        'stores/delete-key',
+        'stores/delete-predicate',
       ],
     },
     {
@@ -263,7 +264,18 @@ const sidebars: SidebarsConfig = {
       ],
     },
     'components/ahnlich-ai/reference/sdk-mapping',
-    'components/ahnlich-ai/advanced',
+    {
+      type: 'category',
+      label: 'Advanced',
+      link: {type: 'doc', id: 'components/ahnlich-ai/advanced'},
+      items: [
+        'components/ahnlich-ai/advanced/models',
+        'components/ahnlich-ai/advanced/model-constraints',
+        'components/ahnlich-ai/advanced/code-search',
+        'components/ahnlich-ai/advanced/model-parameters',
+        'components/ahnlich-ai/advanced/embedding-metadata',
+      ],
+    },
     'components/ahnlich-ai/deep-dive',
   ],
 

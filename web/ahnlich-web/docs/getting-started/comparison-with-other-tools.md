@@ -11,7 +11,7 @@ end: **local-first development, fast iteration, and built-in embeddings**, with
 a roadmap toward clustering and stronger persistence.
 
 :::tip TL;DR
-- **Pick Ahnlich** to build and iterate fast, embed text/images out of the box,
+- **Pick Ahnlich** to build and iterate fast, embed text, images, or audio out of the box,
   and run everything locally with no external services.
 - **Pick Pinecone / Weaviate / Milvus** when you need managed hosting, horizontal
   scale to billions of vectors, or advanced ANN tuning today.
@@ -41,7 +41,7 @@ a roadmap toward clustering and stronger persistence.
   [**Helm charts**](../ahnlich-in-production/kubernetes) when you're ready for
   Kubernetes — self-healing pods, rolling upgrades, and cluster-managed volumes.
   Clustering, replication, and stronger persistence are on the roadmap.
-- **Batteries-included AI.** A native proxy embeds text and images for you, so
+- **Batteries-included AI.** A native proxy embeds text, images, and audio for you, so
   there's no separate model service to wire up (external providers still work).
 - **Multi-language.** Official clients for Python, Rust, Node, and Go, plus the CLI.
 

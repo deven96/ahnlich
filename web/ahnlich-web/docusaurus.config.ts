@@ -227,8 +227,8 @@ const config: Config = {
 
   themeConfig: {
     colorMode: {
-      defaultMode: 'light',
-      respectPrefersColorScheme: true,
+      defaultMode: 'dark',
+      respectPrefersColorScheme: false,
     },
     docs: {
       sidebar: {

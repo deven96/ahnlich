@@ -12,7 +12,7 @@ The GetKey request retrieves entries from a store based on exact input matches.
 
 * **Input**:
   * `store`: the store name.
-  * `keys`: the exact inputs (text/image) you want to retrieve.
+  * `keys`: the exact inputs (text, image, or audio) you want to retrieve.
 
 * **Behavior**: Finds the stored entries that match the inputs exactly.
 

@@ -66,7 +66,7 @@ The AI service automatically merges metadata, preserving AI-generated fields.
 
 * **`condition`** - predicate that must match exactly one entry.
 
-* **`new_input`** (optional) - new raw input to re-embed (e.g., updated text or image).
+* **`new_input`** (optional) - new raw input to re-embed (e.g., updated text, image, or audio).
 
 * **`new_value`** (optional) - metadata to update. Always merged with existing metadata.
 

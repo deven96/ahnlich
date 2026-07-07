@@ -5,7 +5,7 @@ sidebar_label: SET
 
 # SET
 
-Insert **raw input** (text or an image) into a store — Ahnlich AI embeds it for you. Add metadata as key–value pairs.
+Insert **raw input** (text, an image, or audio) into a store — Ahnlich AI embeds it for you. Add metadata as key–value pairs.
 
 ## Syntax
 

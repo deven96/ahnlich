@@ -9,13 +9,13 @@ The **Ahnlich AI Client** provides intelligent services that extend the capabili
 While the DB client is optimized for storing vectors, managing stores, and retrieving them efficiently, the AI client is responsible for **embedding generation**, **preprocessing**, and **querying using raw inputs**.
 
 ## Key Features
-* **Raw input support**: Accepts text or images as input.
+* **Raw input support**: Accepts text, images, or audio as input.
 
 * **Embedding generation**: Automatically transforms raw input into embeddings using AI models.
 
 * **AI proxy**: Communicates with Ahnlich-DB to persist embeddings and metadata.
 
-* **Query with raw input**: No need to manually generate vectors just pass text or images.
+* **Query with raw input**: No need to manually generate vectors just pass text, images, or audio.
 
 * **Flexible models**: Choose different models for indexing vs querying.
 

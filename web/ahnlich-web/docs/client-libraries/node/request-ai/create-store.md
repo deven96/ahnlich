@@ -103,5 +103,5 @@ createImageStore();
 ## Notes
 
 - The query and index models typically should be the same for consistent similarity
-- `storeOriginal: true` is useful for retrieving the original text/image in results
+- `storeOriginal: true` is useful for retrieving the original text, image, or audio in results
 - See [Type Meanings](/docs/client-libraries/node/type-meanings) for more details on AI models

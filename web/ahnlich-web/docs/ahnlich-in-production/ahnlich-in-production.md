@@ -32,7 +32,7 @@ A typical production setup consists of:
 ```
 
 - **Ahnlich DB** handles vector storage and similarity search
-- **Ahnlich AI** transforms inputs (text/images) into embeddings
+- **Ahnlich AI** transforms inputs (text, images, or audio) into embeddings
 - Both services communicate over gRPC
 
 ## Key Features for Production

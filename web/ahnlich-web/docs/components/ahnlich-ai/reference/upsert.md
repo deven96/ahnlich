@@ -15,7 +15,7 @@ UPSERT [KEY <raw input>] [VALUE <metadata>] IN <store> WHERE (<predicate>) [PREP
 
 ## Parameters
 
-- `KEY <raw input>` — new text/image to re-embed.
+- `KEY <raw input>` — new text, image, or audio to re-embed.
 - `VALUE <metadata>` — metadata to merge.
 - `PREPROCESSACTION` — how to prepare input before embedding.
 - `WHERE (<predicate>)` — must match exactly one entry.

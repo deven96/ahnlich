@@ -81,7 +81,7 @@ Updates a single entry matching a predicate condition in an AI-powered store. Th
 
   * `condition` — Predicate that must match exactly one entry.
 
-  * `new_input` (optional) — New raw input (text/image) to re-embed.
+  * `new_input` (optional) — New raw input (text, image, or audio) to re-embed.
 
   * `new_value` (optional) — Metadata to update (always merged by AI proxy).
 

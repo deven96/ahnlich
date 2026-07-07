@@ -69,7 +69,7 @@ This request is critical in AI workflows because it allows you to:
 
 * Configure **semantic stores** with specialized embedding models.
 
-* Decide whether to preserve raw input text/images for retrieval.
+* Decide whether to preserve raw input text, images, or audio for retrieval.
 
 * Build **intelligent**, **AI-driven search** and **recommendation systems** without managing embeddings manually.
 
