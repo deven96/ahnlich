@@ -31,7 +31,7 @@ Removes an existing non-linear algorithm index from a store. This operation is u
       let params = DropNonLinearAlgorithmIndex {
           store: "Main".to_string(),
           schema: Some("analytics".to_string()),
-          non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32, NonLinearAlgorithm::Hnsw as i32],
+          non_linear_indices: vec![NonLinearAlgorithm::Hnsw as i32],
           error_if_not_exists: false,
       };
 

@@ -16,7 +16,7 @@ const TABS: Tab[] = [
     match: ['/docs/components/ahnlich-db'],
   },
   {
-    label: 'AI',
+    label: 'AI proxy',
     to: '/docs/components/ahnlich-ai',
     match: ['/docs/components/ahnlich-ai'],
   },
@@ -26,13 +26,13 @@ const TABS: Tab[] = [
     match: ['/docs/components/ahnlich-cli'],
   },
   {
-    label: 'Clients',
+    label: 'Client libraries',
     to: '/docs/client-libraries',
     match: ['/docs/client-libraries'],
   },
   {label: 'Guides', to: '/docs/guides', match: ['/docs/guides']},
   {
-    label: 'Reference',
+    label: 'Advanced',
     to: '/docs/components',
     match: [
       '/docs/components',

@@ -8,7 +8,9 @@ import TabItem from '@theme/TabItem';
 
 # Server info
 
-Retrieve metadata about the running server, including its binary **version** and **type** (DB, AI, or Hybrid).
+Retrieve [metadata](/docs/concepts/metadata) about the running server, including its binary **version** and **type** (DB, AI, or Hybrid).
+
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -20,6 +22,9 @@ This request takes no arguments.
 - Use it to validate you're connected to the correct server role — useful for environment checks, feature gating, and diagnostics.
 
 ## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
 
 <Tabs groupId="ahnlich-lang">
 <TabItem value="python" label="Python">
@@ -169,6 +174,174 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```bash
 INFOSERVER
 ```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+
+
+async def info_server():
+  async with Channel(host="127.0.0.1", port=1370) as channel:
+      client = AiServiceStub(channel)
+      response = await client.info_server(ai_query.InfoServer())
+      print(response) #InfoServer(info=ServerInfo(address='Ok(0.0.0.0:1370)', version='0.1.0', limit=10073741824, remaining=10067931251))
+
+
+if __name__ == "__main__":
+  asyncio.run(info_server())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "ahnlich-client-node";
+import { InfoServer } from "ahnlich-client-node/grpc/ai/query_pb";
+
+async function infoServer() {
+  const client = createAiClient("127.0.0.1:1370");
+
+  const response = await client.infoServer(new InfoServer());
+
+  console.log(response.info?.version);
+}
+
+infoServer();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+  "context"
+  "fmt"
+  "log"
+  "time"
+
+
+  "google.golang.org/grpc"
+  "google.golang.org/grpc/credentials/insecure"
+
+
+  aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+  aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+)
+
+
+const AIAddr = "127.0.0.1:1370"
+
+
+// ExampleAIClient holds the gRPC connection and AI client.
+type ExampleAIClient struct {
+  conn   *grpc.ClientConn
+  client aisvc.AIServiceClient
+  ctx    context.Context
+}
+
+
+// NewAIClient connects to the AI server and returns a client.
+func NewAIClient(ctx context.Context) (*ExampleAIClient, error) {
+  conn, err := grpc.DialContext(ctx, AIAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+  if err != nil {
+      return nil, fmt.Errorf("failed to dial AI server %q: %w", AIAddr, err)
+  }
+  client := aisvc.NewAIServiceClient(conn)
+  return &ExampleAIClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+// Close closes the gRPC connection.
+func (c *ExampleAIClient) Close() error {
+  return c.conn.Close()
+}
+
+
+// ---- InfoServer Example ----
+// Retrieve server information such as address, version, limits.
+func (c *ExampleAIClient) exampleInfoServerAI() error {
+  resp, err := c.client.InfoServer(c.ctx, &aiquery.InfoServer{})
+  if err != nil {
+      return err
+  }
+  fmt.Println(" AI InfoServer:", resp)
+  return nil
+}
+
+
+// ---- MAIN ----
+func main() {
+  ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+  defer cancel()
+
+
+  client, err := NewAIClient(ctx)
+  if err != nil {
+      log.Fatalf("Failed to create AI client: %v", err)
+  }
+  defer client.Close()
+
+
+  if err := client.exampleInfoServerAI(); err != nil {
+      log.Fatalf("InfoServer failed: %v", err)
+  }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient; // <-- note the `ai::` path
+use ahnlich_client_rs::error::AhnlichError;
+use ahnlich_types::shared::info::ServerInfo;
+
+
+#[tokio::main]
+async fn main() -> Result<(), AhnlichError> {
+    let addr = "127.0.0.1:1370";
+    let client = AiClient::new(addr.to_string()).await?;
+
+
+    // Direct info_server call
+    let server_info: ServerInfo = client.info_server(None).await?;
+    println!("Server Info: {:?}", server_info);
+
+
+    // Using pipeline
+    let mut pipeline = client.pipeline(None);
+    pipeline.info_server();
+    let pipeline_result = pipeline.exec().await?;
+    println!("Pipeline Server Info: {:?}", pipeline_result);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+INFOSERVER
+```
+
+</TabItem>
+</Tabs>
 
 </TabItem>
 </Tabs>

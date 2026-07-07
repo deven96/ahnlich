@@ -10,9 +10,9 @@ This request accepts an optional `schema` field. When it is omitted, the server 
 
 ## Description
 
-The `CreateNonLinearAlgorithmIndex` request allows you to build specialized indices for **non-linear similarity search algorithms**. Unlike linear approaches (such as cosine or Euclidean), non-linear algorithms (like KD-Tree and HNSW) are optimized for faster and more scalable vector searches, especially as the dataset grows in size.
+The `CreateNonLinearAlgorithmIndex` request allows you to build specialized indices for **non-linear similarity search algorithms**. Unlike linear approaches (such as cosine or Euclidean), non-linear algorithms (like HNSW) are optimized for faster and more scalable vector searches, especially as the dataset grows in size.
 
-Each index type is specified using a `NonLinearIndex` message with either a `KDTreeConfig` or `HNSWConfig`.
+Each index type is specified using a `NonLinearIndex` message with a `HNSWConfig`.
 
 ## Source Code Example
 
@@ -69,18 +69,8 @@ func (c *ExampleDBClient) Close() error {
 
 
 func (c *ExampleDBClient) exampleCreateNonLinearAlgoIndex() error {
-    // Create a KDTree index
+    // Create an HNSW index (with optional config)
     _, err := c.client.CreateNonLinearAlgorithmIndex(c.ctx, &dbquery.CreateNonLinearAlgorithmIndex{
-        Store: "my_store",
-        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
-        NonLinearIndices: []*nonlinear.NonLinearIndex{
-            {Index: &nonlinear.NonLinearIndex_Kdtree{Kdtree: &nonlinear.KDTreeConfig{}}},
-        },
-    })
-    if err != nil { return err }
-
-    // Or create an HNSW index (with optional config)
-    _, err = c.client.CreateNonLinearAlgorithmIndex(c.ctx, &dbquery.CreateNonLinearAlgorithmIndex{
         Store: "my_store",
         Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         NonLinearIndices: []*nonlinear.NonLinearIndex{

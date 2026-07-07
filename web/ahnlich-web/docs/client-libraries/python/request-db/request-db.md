@@ -37,7 +37,7 @@ For efficiency, the DB provides indexing strategies:
 
 * **Predicate Indexes** → Speed up queries on metadata conditions.
 
-* **Non-Linear Algorithm Indexes** → Enable optimized similarity searches (e.g., KD-Tree).
+* **Non-Linear Algorithm Indexes** → Enable optimized similarity searches (e.g., HNSW).
 
 Indexes ensure that even at scale, searches and lookups remain fast.
 

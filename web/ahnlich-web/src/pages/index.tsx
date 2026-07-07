@@ -24,7 +24,7 @@ function HomepageHeader() {
 
       <div className="container relative z-10 flex min-h-screen flex-col items-center justify-center py-32 text-center md:py-48">
         <h1
-          className="ahn-fade-up max-w-4xl text-4xl font-extrabold leading-[1.08] tracking-tight text-[#0c1e28] dark:text-white md:text-6xl lg:text-7xl"
+          className="ahn-hero-title ahn-fade-up max-w-5xl text-3xl font-extrabold leading-[1.08] tracking-tight text-[#0c1e28] dark:text-white md:text-5xl lg:text-6xl"
           style={{animationDelay: '0.1s'}}>
           Add{' '}
           <span className="bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
@@ -44,10 +44,10 @@ function HomepageHeader() {
         <div
           className="ahn-fade-up mt-10 flex flex-col items-center gap-4 sm:flex-row"
           style={{animationDelay: '0.22s'}}>
-          <ActionLinks href="/docs/getting-started" icon={<RocketIcon />}>
+          <ActionLinks href="/docs/getting-started/quickstart" icon={<RocketIcon />}>
             Get Started
           </ActionLinks>
-          <ActionLinks href="/docs" variant="ghost">
+          <ActionLinks href="/docs/overview" variant="ghost">
             View Docs
             <svg
               viewBox="0 0 24 24"
@@ -196,7 +196,7 @@ function Quickstart() {
             embeddings.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <ActionLinks href="/docs/getting-started" icon={<RocketIcon />}>
+            <ActionLinks href="/docs/getting-started/quickstart" icon={<RocketIcon />}>
               Read the Quickstart
             </ActionLinks>
             <Link

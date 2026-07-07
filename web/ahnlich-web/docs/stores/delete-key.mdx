@@ -10,6 +10,8 @@ import TabItem from '@theme/TabItem';
 
 Delete entries by an exact vector-key match.
 
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+
 ## Parameters
 
 | Parameter | Type | Description |
@@ -26,6 +28,9 @@ Delete entries by an exact vector-key match.
 - Keys that aren't present are silently ignored.
 
 ## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
 
 <Tabs groupId="ahnlich-lang">
 <TabItem value="python" label="Python">
@@ -46,7 +51,7 @@ async def delete_key():
       
       response = await client.del_key(
           db_query.DelKey(
-              store="my_store 002",
+              store="my_store",
               schema="analytics",
               keys=[store_key]
           )
@@ -213,6 +218,208 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```bash
 DELETEKEY (key1) IN my_store
 ```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc import keyval
+
+
+async def drop_key():
+  async with Channel(host="127.0.0.1", port=1370) as channel:
+      client = AiServiceStub(channel)
+      response = await client.del_key(
+          ai_query.DelKey(
+              store="my_store",
+              schema="analytics",
+              keys=[keyval.StoreInput(raw_string="Custom Made Jordan 4")]
+          )
+      )
+      print(response) # Del()
+
+
+if __name__ == "__main__":
+  asyncio.run(drop_key())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "ahnlich-client-node";
+import { DelKey } from "ahnlich-client-node/grpc/ai/query_pb";
+import { StoreInput } from "ahnlich-client-node/grpc/keyval_pb";
+
+async function deleteKey() {
+  const client = createAiClient("127.0.0.1:1370");
+
+  await client.delKey(
+    new DelKey({
+      store: "ai_store",
+      schema: "analytics",
+      keys: [
+        new StoreInput({ value: { case: "rawString", value: "Jordan One" } }),
+      ],
+    })
+  );
+
+  console.log("Entry deleted");
+}
+
+deleteKey();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+  "context"
+  "fmt"
+  "log"
+  "time"
+
+
+  "google.golang.org/grpc"
+  "google.golang.org/grpc/credentials/insecure"
+
+
+  aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+  aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+  keyval "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+)
+
+
+const AIAddr = "127.0.0.1:1370"
+
+
+// ExampleAIClient wraps the connection + AIService client
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleAIClient struct {
+  conn   *grpc.ClientConn
+  client aisvc.AIServiceClient
+  ctx    context.Context
+}
+
+
+// NewAIClient creates and connects the AI client
+func NewAIClient(ctx context.Context) (*ExampleAIClient, error) {
+  conn, err := grpc.DialContext(ctx, AIAddr,
+      grpc.WithTransportCredentials(insecure.NewCredentials()),
+      grpc.WithBlock(),
+  )
+  if err != nil {
+      return nil, fmt.Errorf("failed to dial AI server %q: %w", AIAddr, err)
+  }
+  client := aisvc.NewAIServiceClient(conn)
+  return &ExampleAIClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleAIClient) Close() error {
+  return c.conn.Close()
+}
+
+
+// ---- DelKey  ----
+func (c *ExampleAIClient) exampleDeleteKeyAI() error {
+  _, err := c.client.DelKey(c.ctx, &aiquery.DelKey{
+      Store: "ai_store01",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+      Keys: []*keyval.StoreInput{
+          {Value: &keyval.StoreInput_RawString{RawString: "X"}},
+      },
+  })
+  if err != nil {
+      return err
+  }
+  fmt.Println(" Successfully deleted key 'X' from store ai_store")
+  return nil
+}
+
+
+func main() {
+  ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+  defer cancel()
+
+
+  client, err := NewAIClient(ctx)
+  if err != nil {
+      log.Fatalf(" Failed to create AI client: %v", err)
+  }
+  defer client.Close()
+
+
+  if err := client.exampleDeleteKeyAI(); err != nil {
+      log.Fatalf(" DeleteKey failed: %v", err)
+  }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_client_rs::error::AhnlichError;
+use ahnlich_types::ai::query::DelKey;
+use ahnlich_types::ai::server::Del;
+use ahnlich_types::keyval::StoreInput;
+use ahnlich_types::keyval::store_input::Value;
+
+
+#[tokio::main]
+async fn main() -> Result<(), AhnlichError> {
+    // Connect to server
+    let ai_client = AiClient::new("http://127.0.0.1:1370".to_string())
+        .await
+        .expect(" Failed to connect AI client");
+
+
+    // Define key to delete
+    let params = DelKey {
+        store: "Deven Kicks".to_string(),
+        schema: Some("analytics".to_string()),
+        keys: vec![StoreInput {
+            value: Some(Value::RawString("Nike Air Jordans".to_string())),
+        }],
+    };
+
+
+    // Call delete
+    let response: Del = ai_client.del_key(params, None).await?;
+    println!(" Deleted key result: {:?}", response);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+DELETEKEY ([This is a sentence]) IN my_store
+```
+
+</TabItem>
+</Tabs>
 
 </TabItem>
 </Tabs>

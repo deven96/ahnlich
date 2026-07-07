@@ -87,7 +87,7 @@ func (c *ExampleDBClient) exampleCreateStore(store string, dimension int32) erro
         Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Dimension:         uint32(dimension),
         CreatePredicates:  []string{}, // Optional: list of metadata fields to index for filtering
-        NonLinearIndices:  []*nonlinear.NonLinearIndex{},  // Optional: non-linear algorithms (e.g., KDTree, HNSW) for faster search
+        NonLinearIndices:  []*nonlinear.NonLinearIndex{},  // Optional: non-linear algorithms (e.g., HNSW) for faster search
         ErrorIfExists:     true,        // Return error if store already exists
     })
     if err != nil {

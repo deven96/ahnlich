@@ -10,6 +10,8 @@ import TabItem from '@theme/TabItem';
 
 Return the `closest_n` entries most similar to a query vector, ranked by a similarity metric. This is the core vector-search operation.
 
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+
 ## Parameters
 
 | Parameter | Type | Description |
@@ -26,10 +28,13 @@ Return the `closest_n` entries most similar to a query vector, ranked by a simil
 ## Behavior
 
 - The server compares the query vector against stored vectors using the chosen metric.
-- An optional `condition` narrows candidates by metadata before ranking.
+- An optional `condition` narrows candidates by [metadata](/docs/concepts/metadata) before ranking.
 - Results are ordered from most to least similar.
 
 ## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
 
 <Tabs groupId="ahnlich-lang">
 <TabItem value="python" label="Python">
@@ -249,6 +254,286 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```bash
 GETSIMN 3 WITH ([1.0, 2.0, 3.0, 4.0]) USING cosinesimilarity IN my_store
 ```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc import keyval
+from ahnlich_client_py.grpc.algorithm import algorithms
+from ahnlich_client_py.grpc.ai.preprocess import PreprocessAction
+
+
+async def get_sim_n():
+  async with Channel(host="127.0.0.1", port=1370) as channel:
+      client = AiServiceStub(channel)
+      
+      response = await client.get_sim_n(
+          ai_query.GetSimN(
+              store="my_store",
+              schema="analytics",
+              search_input=keyval.StoreInput(raw_string="Jordan"),
+              condition=None,  # Optional predicate condition
+              closest_n=3,
+              algorithm=algorithms.Algorithm.CosineSimilarity,
+              preprocess_action=PreprocessAction.ModelPreprocessing,  # Apply model's preprocessing
+              execution_provider=None,  # Optional execution provider
+              model_params={}  # Optional: runtime model parameters (e.g., {"confidence_threshold": "0.9"} for face detection)
+          )
+      )
+      
+      # Response contains entries with similarity scores
+      for entry in response.entries:
+          print(f"Key: {entry.key.raw_string}")
+          print(f"Score: {entry.similarity}")
+          print(f"Value: {entry.value}")
+
+
+      # Key: Jordan One
+      # Score: Similarity(value=0.858908474445343)
+      # Value: StoreValue(value={'brand': MetadataValue(raw_string='Nike')})
+      # Key: Yeezey
+      # Score: Similarity(value=0.21911849081516266)
+      # Value: StoreValue(value={'brand': MetadataValue(raw_string='Adidas')})
+
+
+if __name__ == "__main__":
+  asyncio.run(get_sim_n())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "ahnlich-client-node";
+import { GetSimN } from "ahnlich-client-node/grpc/ai/query_pb";
+import { StoreInput } from "ahnlich-client-node/grpc/keyval_pb";
+import { Algorithm } from "ahnlich-client-node/grpc/algorithm/algorithm_pb";
+
+async function getSimN() {
+  const client = createAiClient("127.0.0.1:1370");
+
+  const response = await client.getSimN(
+    new GetSimN({
+      store: "ai_store",
+      schema: "analytics",
+      searchInput: new StoreInput({ value: { case: "rawString", value: "Jordan" } }),
+      closestN: 3,
+      algorithm: Algorithm.COSINE_SIMILARITY,
+    })
+  );
+
+  console.log(response.entries);
+
+  for (const entry of response.entries) {
+    console.log(`Input: ${entry.input?.value}`);
+    console.log(`Similarity: ${entry.similarity}`);
+    console.log(`Metadata: ${JSON.stringify(entry.value?.value)}`);
+  }
+}
+
+getSimN();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+import (
+  "context"
+  "fmt"
+  "log"
+  "time"
+
+
+  "google.golang.org/grpc"
+  "google.golang.org/grpc/credentials/insecure"
+
+
+  aiquery    "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+  aisvc      "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+  keyval     "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+  metadata   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+  algorithms "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms"
+  preprocess "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess"
+  predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
+)
+
+
+const AIAddr = "127.0.0.1:1370"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleAIClient struct {
+  conn   *grpc.ClientConn
+  client aisvc.AIServiceClient
+  ctx    context.Context
+}
+
+
+func NewAIClient(ctx context.Context) (*ExampleAIClient, error) {
+  conn, err := grpc.DialContext(ctx, AIAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+  if err != nil {
+      return nil, fmt.Errorf("failed to dial AI server %q: %w", AIAddr, err)
+  }
+  client := aisvc.NewAIServiceClient(conn)
+  return &ExampleAIClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleAIClient) Close() error {
+  return c.conn.Close()
+}
+
+
+// Helper to unwrap Key (StoreInput)
+func unwrapKey(k *keyval.StoreInput) string {
+  if k == nil {
+      return "<nil>"
+  }
+  switch v := k.Value.(type) {
+  case *keyval.StoreInput_RawString:
+      return v.RawString
+  default:
+      return fmt.Sprintf("%v", v)
+  }
+}
+
+
+// Helper to unwrap Value (StoreValue)
+func unwrapValue(v *keyval.StoreValue) map[string]string {
+  result := make(map[string]string)
+  if v == nil {
+      return result
+  }
+  for k, val := range v.Value {
+      switch mv := val.Value.(type) {
+      case *metadata.MetadataValue_RawString:
+          result[k] = mv.RawString
+      default:
+          result[k] = fmt.Sprintf("%v", mv)
+      }
+  }
+  return result
+}
+
+
+// ---- GetSimN  ----
+func (c *ExampleAIClient) exampleGetSimNAI() error {
+  resp, err := c.client.GetSimN(c.ctx, &aiquery.GetSimN{
+      Store:            "ai_store01", // must already exist and have data
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+      SearchInput:      &keyval.StoreInput{Value: &keyval.StoreInput_RawString{RawString: "X"}},
+      Condition:        nil, // Optional: filter results using predicates
+      ClosestN:         3,
+      Algorithm:        algorithms.Algorithm_CosineSimilarity,
+      PreprocessAction: preprocess.PreprocessAction_ModelPreprocessing, // Apply model's preprocessing
+      ExecutionProvider: nil, // Optional: e.g., ExecutionProvider_CUDA for GPU acceleration
+  })
+  if err != nil {
+      return err
+  }
+
+
+  fmt.Println(" AI GetSimN Response:")
+  for i, entry := range resp.Entries {
+      fmt.Printf("  #%d Key=%s  Value=%v\n", i+1, unwrapKey(entry.Key), unwrapValue(entry.Value))
+  }
+  return nil
+}
+
+
+func main() {
+  ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+  defer cancel()
+
+
+  client, err := NewAIClient(ctx)
+  if err != nil {
+      log.Fatalf(" Failed to create AI client: %v", err)
+  }
+  defer client.Close()
+
+
+  if err := client.exampleGetSimNAI(); err != nil {
+      log.Fatalf(" GetSimN failed: %v", err)
+  }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_client_rs::error::AhnlichError;
+use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::ai::query::GetSimN;
+use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_types::keyval::StoreInput;
+use ahnlich_types::keyval::store_input::Value;
+use std::collections::HashMap;
+
+
+#[tokio::main]
+async fn main() -> Result<(), AhnlichError> {
+    // Connect to AI server
+    let addr = "127.0.0.1:1370";
+    let client = AiClient::new(addr.to_string()).await?;
+
+
+    // Prepare the search input
+    let search_input = StoreInput {
+        value: Some(Value::RawString("example query".into())),
+    };
+
+
+    // Construct GetSimN parameters
+    let params = GetSimN {
+        store: "Main0".to_string(),
+        schema: Some("analytics".to_string()),
+        search_input: Some(search_input),
+        closest_n: 3, // number of similar entries to retrieve
+        algorithm: Algorithm::CosineSimilarity as i32,
+        execution_provider: None,
+        preprocess_action: PreprocessAction::NoPreprocessing as i32,
+        condition: None,
+        model_params: HashMap::new(),
+    };
+
+
+    // Run the GetSimN command
+    let res = client.get_sim_n(params, None).await?;
+    println!("GetSimN result: {:?}", res);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETSIMN 3 WITH [This is a sentence] USING cosinesimilarity IN my_store
+```
+
+</TabItem>
+</Tabs>
 
 </TabItem>
 </Tabs>

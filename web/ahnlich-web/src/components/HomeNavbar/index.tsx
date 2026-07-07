@@ -5,7 +5,7 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 import {GithubIcon} from '../icons';
 
 const NAV_LINKS = [
-  {label: 'Docs', to: '/docs/getting-started'},
+  {label: 'Docs', to: '/docs/overview'},
   {label: 'Guides', to: '/docs/guides'},
   {label: 'Blog', to: '/blog'},
 ];

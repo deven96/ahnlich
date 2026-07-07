@@ -48,7 +48,7 @@ Returns the list of vector stores registered in the connected Ahnlich DB service
   * `name` – The store identifier.
   * `len` – Number of entries in the store.
   * `size_in_bytes` – Total memory footprint of the store.
-  * `non_linear_indices` – List of non-linear index configurations (HNSW with full config parameters, or k-d tree) active on the store. Empty if no non-linear indices are configured.
+  * `non_linear_indices` – List of non-linear index configurations (HNSW with full config parameters) active on the store. Empty if no non-linear indices are configured.
 
 * `Err(AhnlichError)` – Returned when the request cannot be completed (e.g., transport or server error).
 

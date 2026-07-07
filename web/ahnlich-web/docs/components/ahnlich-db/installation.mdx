@@ -3,11 +3,25 @@ title: Installation
 sidebar_position: 20
 ---
 
+import {InstallFigure} from '@site/src/components/OverviewFigures';
+
 # Installation
 
-## Setup & Configuration (**Ahnlich DB**)
-This section explains how to install, configure, and run **Ahnlich DB**. The database can run standalone and is available as prebuilt binaries and Docker images for multiple platforms.
+**Goal: get an Ahnlich DB server running on your machine.** Once it's running and
+answers `PING` with `PONG`, you're ready to create stores and run searches.
 
+There are three ways to install it — pick whichever suits you:
+
+<InstallFigure />
+
+| Option | Best if you… | Where |
+| --- | --- | --- |
+| **Download a binary** | just want it running fast | [below](#1-download-binaries) |
+| **Docker** | prefer an isolated, reproducible setup | [below](#2-using-docker) |
+| **Build from source** | are developing on Ahnlich itself | [CLI install → from source](/docs/components/ahnlich-cli/installation) |
+
+The rest of this page walks through each option, then a quick smoke test at the
+end.
 
 ### 1. Download Binaries
 Prebuilt binaries are available from [GitHub Releases](https://github.com/deven96/ahnlich/releases).
@@ -141,7 +155,7 @@ CREATESTORE my_store DIMENSION 2
 
 #### Insert a vector with metadata:
 ```
-INSERT [0.2, 0.1] WITH { "page": "home" } IN my_store
+SET [0.2, 0.1] WITH { "page": "home" } IN my_store
 ```
 
 #### Run a similarity search:

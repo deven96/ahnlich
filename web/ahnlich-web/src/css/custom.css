@@ -235,6 +235,11 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
   height: 100%;
   object-fit: contain;
 }
+.sidebarIcon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 
 /* ==========================================================================
  * Fumadocs-style docs refinements
@@ -549,9 +554,22 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
   top: calc(var(--ifm-navbar-height) + var(--ahn-docsnav-height));
 }
 @media (min-width: 997px) {
-  .docs-wrapper .theme-doc-sidebar-container > div,
-  .docs-wrapper .theme-doc-sidebar-menu {
+  /* The sticky sidebar viewport: pin it below the tab bar AND cap its height to
+     the visible area so its own scroll works independently of the page. */
+  .docs-wrapper .theme-doc-sidebar-container > div {
     top: calc(var(--ifm-navbar-height) + var(--ahn-docsnav-height)) !important;
+    height: calc(100vh - var(--ifm-navbar-height) - var(--ahn-docsnav-height)) !important;
+    max-height: calc(100vh - var(--ifm-navbar-height) - var(--ahn-docsnav-height)) !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  /* The inner sidebar is already offset by the container's `top` — drop the
+     default navbar-height padding and let it grow so the viewport scrolls. */
+  .docs-wrapper .theme-doc-sidebar-container > div > div {
+    padding-top: 0.5rem !important;
+    max-height: none !important;
+    height: auto !important;
+    min-height: 100%;
   }
   .docs-wrapper .table-of-contents {
     top: calc(var(--ifm-navbar-height) + var(--ahn-docsnav-height));
@@ -1582,6 +1600,142 @@ a code {
   color: #40606e;
 }
 
+/* --------------------------------------------------------------------------
+ * Quickstart chooser cards (docs/getting-started/quickstart)
+ * ------------------------------------------------------------------------ */
+.ahn-qs-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin: 1.75rem 0;
+}
+@media (min-width: 700px) {
+  .ahn-qs-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.ahn-qs-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid var(--ifm-toc-border-color);
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-content) !important;
+  text-decoration: none !important;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+.ahn-qs-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.3);
+}
+.ahn-qs-card--rec {
+  border-color: color-mix(in srgb, var(--ifm-color-primary) 55%, var(--ifm-toc-border-color));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ifm-color-primary) 32%, transparent);
+}
+.ahn-qs-badge {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.1rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ifm-color-primary);
+  background: color-mix(in srgb, var(--ifm-color-primary) 14%, transparent);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+.ahn-qs-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  color: var(--ifm-color-primary);
+  background: color-mix(in srgb, var(--ifm-color-primary) 12%, transparent);
+}
+.ahn-qs-icon svg {
+  width: 24px;
+  height: 24px;
+}
+.ahn-qs-title {
+  margin: 0.35rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.ahn-qs-desc {
+  margin: 0;
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+.ahn-qs-start {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+}
+.ahn-qs-start svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.15s ease;
+}
+.ahn-qs-card:hover .ahn-qs-start svg {
+  transform: translateX(3px);
+}
+
+/* --------------------------------------------------------------------------
+ * GitHub repo card — top of the docs sidebar.
+ * ------------------------------------------------------------------------ */
+.ahn-repo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.75rem 0.75rem 0.25rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 0.7rem;
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-content) !important;
+  text-decoration: none !important;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.ahn-repo-card:hover {
+  border-color: var(--ifm-color-primary);
+  background: color-mix(in srgb, var(--ifm-color-primary) 6%, var(--ifm-background-surface-color));
+}
+.ahn-repo-card__top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ahn-repo-card__name {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.ahn-repo-card__stats {
+  display: flex;
+  gap: 1.1rem;
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.82rem;
+}
+.ahn-repo-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 /* ---- Landing page modern flourishes ---- */
 @keyframes ahn-blob {
   0%,
@@ -1611,6 +1765,13 @@ a code {
 }
 .ahn-fade-up {
   animation: ahn-fade-up 0.7s ease both;
+}
+
+/* Funky display face for the homepage hero tagline. */
+.ahn-hero-title {
+  font-family: 'Unbounded', var(--ifm-font-family-base);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 @keyframes ahn-grid-pan {

@@ -1,25 +1,55 @@
 ---
-title: 📟 Ahnlich CLI
+title: Ahnlich CLI
 sidebar_position: 10
 ---
 
+import {CliFigure} from '@site/src/components/OverviewFigures';
+
 # Ahnlich CLI
 
-The **Ahnlich Command-Line Interface (CLI)** is a lightweight tool that allows developers, researchers, and operators to interact directly with the **Ahnlich AI** and **Ahnlich DB** servers.
-It provides a simple way to issue commands using a custom **Domain-Specific Language (DSL)** without writing any code.
+**The CLI lets you talk to Ahnlich by typing commands in your terminal — no code
+required.** You type a short instruction, press Enter, and the server answers
+right away. It's the fastest way to try Ahnlich and see how it behaves.
+
+Under the hood it speaks a small, readable command language (a
+**Domain-Specific Language, or DSL**) like `PING`, `CREATESTORE books`, and
+`GETSIMN 3 …`. Each command goes straight to the **Ahnlich DB** or **Ahnlich AI**
+server and the response comes back in the same window.
+
+<CliFigure />
 
 Think of the CLI as your **playground** for exploring Ahnlich:
 
 - **Test queries quickly** without setting up an SDK project
-
 - **Experiment with similarity search** and vector operations interactively
-
 - **Prototype pipelines** for embedding, storage, and retrieval
-
 - **Debug servers locally** before moving to production
 
+## Your first commands
 
-Although the CLI is a powerful tool for testing, it is not intended as the main integration method. For production applications, the **Ahnlich SDKs (Rust, Go, Python)** should be used, as they provide richer APIs, better error handling, and integration capabilities.
+Start an interactive session against the DB server and try a few commands:
+
+```bash
+ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369
+```
+
+```text
+> PING
+< PONG
+> CREATESTORE books DIMENSION 3
+< OK
+> LISTSTORES
+< books (0 entries)
+```
+
+- `--agent db` talks to Ahnlich DB (port `1369`); use `--agent ai` for the AI
+  proxy (port `1370`).
+- Type `PING` first — if you get `PONG`, you're connected.
+
+> **When _not_ to use the CLI:** it's built for exploring and debugging, not for
+> production apps. For real integrations use the
+> [client libraries](/docs/client-libraries) (Python, Node.js, Go, Rust), which
+> give you richer APIs and proper error handling.
 
 ---
 

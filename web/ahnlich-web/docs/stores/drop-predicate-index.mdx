@@ -10,6 +10,8 @@ import TabItem from '@theme/TabItem';
 
 Remove a [predicate index](/docs/stores/create-predicate-index) when it's no longer needed or to reduce storage overhead.
 
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+
 ## Parameters
 
 | Parameter | Type | Description |
@@ -23,10 +25,13 @@ Remove a [predicate index](/docs/stores/create-predicate-index) when it's no lon
 
 ## Behavior
 
-- Deletes the index only — the underlying entries and metadata remain.
+- Deletes the index only — the underlying entries and [metadata](/docs/concepts/metadata) remain.
 - Queries on the field still work, just without the index speed-up.
 
 ## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
 
 <Tabs groupId="ahnlich-lang">
 <TabItem value="python" label="Python">
@@ -210,6 +215,202 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```bash
 DROPPREDINDEX (category) IN my_store
 ```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+
+
+async def drop_predicate_index():
+  async with Channel(host="127.0.0.1", port=1370) as channel:
+      client = AiServiceStub(channel)
+      response = await client.drop_pred_index(
+          ai_query.DropPredIndex(
+              store="my_store",
+              schema="analytics",
+              predicates=["job"],
+              error_if_not_exists=True
+          )
+      )
+      print(response) # Del(deleted_count=1)
+
+
+if __name__ == "__main__":
+  asyncio.run(drop_predicate_index())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "ahnlich-client-node";
+import { DropPredIndex } from "ahnlich-client-node/grpc/ai/query_pb";
+
+async function dropPredicateIndex() {
+  const client = createAiClient("127.0.0.1:1370");
+
+  await client.dropPredIndex(
+    new DropPredIndex({
+      store: "ai_store",
+      schema: "analytics",
+      predicates: ["brand"],
+      errorIfNotExists: true,
+    })
+  );
+
+  console.log("Predicate index dropped");
+}
+
+dropPredicateIndex();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+import (
+  "context"
+  "fmt"
+  "log"
+  "time"
+
+
+  "google.golang.org/grpc"
+  "google.golang.org/grpc/credentials/insecure"
+
+
+  aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+  aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+)
+
+
+const AIAddr = "127.0.0.1:1370"
+
+
+// ExampleAIClient wraps the connection + AIService client
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleAIClient struct {
+  conn   *grpc.ClientConn
+  client aisvc.AIServiceClient
+  ctx    context.Context
+}
+
+
+// NewAIClient creates and connects the AI client
+func NewAIClient(ctx context.Context) (*ExampleAIClient, error) {
+  conn, err := grpc.DialContext(ctx, AIAddr,
+      grpc.WithTransportCredentials(insecure.NewCredentials()),
+      grpc.WithBlock(),
+  )
+  if err != nil {
+      return nil, fmt.Errorf("failed to dial AI server %q: %w", AIAddr, err)
+  }
+  client := aisvc.NewAIServiceClient(conn)
+  return &ExampleAIClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleAIClient) Close() error {
+  return c.conn.Close()
+}
+
+
+// ---- DropPredIndex standalone ----
+func (c *ExampleAIClient) exampleDropPredicateIndexAI() error {
+  _, err := c.client.DropPredIndex(c.ctx, &aiquery.DropPredIndex{
+      Store:            "ai_store",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+      Predicates:       []string{"f"},
+      ErrorIfNotExists: true,
+  })
+  if err != nil {
+      return err
+  }
+  fmt.Println(" Successfully dropped predicate index for Predicates: [\"f\"] in store ai_store")
+  return nil
+}
+
+
+func main() {
+  ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+  defer cancel()
+
+
+  client, err := NewAIClient(ctx)
+  if err != nil {
+      log.Fatalf(" Failed to create AI client: %v", err)
+  }
+  defer client.Close()
+
+
+  if err := client.exampleDropPredicateIndexAI(); err != nil {
+      log.Fatalf(" DropPredIndex failed: %v", err)
+  }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_client_rs::error::AhnlichError;
+use ahnlich_types::ai::query::DropPredIndex;
+use ahnlich_types::ai::server::Del;
+
+
+#[tokio::main]
+async fn main() -> Result<(), AhnlichError> {
+    // Connect to the AI service
+    let ai_client = AiClient::new("http://127.0.0.1:1370".to_string())
+        .await
+        .expect("Failed to connect AI client");
+
+
+    // Define which store and which predicate index to drop
+    let params = DropPredIndex {
+        store: "Deven Kicks".to_string(),
+        schema: Some("analytics".to_string()),
+        predicates: vec!["Brand".to_string()],
+        error_if_not_exists: true, // 👈 required field, prevents silent no-op
+    };
+
+
+    // Call the API
+    let response: Del = ai_client.drop_pred_index(params, None).await?;
+
+
+    println!(" Dropped predicate index result: {:?}", response);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+DROPPREDINDEX (category) IN my_store
+```
+
+</TabItem>
+</Tabs>
 
 </TabItem>
 </Tabs>

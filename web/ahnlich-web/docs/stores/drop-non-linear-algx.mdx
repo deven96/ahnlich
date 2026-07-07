@@ -8,7 +8,9 @@ import TabItem from '@theme/TabItem';
 
 # Drop non-linear index
 
-Remove a [non-linear index](/docs/stores/create-non-linear-algx) (KD-Tree/HNSW) from a store.
+Remove a [non-linear index](/docs/stores/create-non-linear-algx) (HNSW) from a store.
+
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
 
 ## Parameters
 
@@ -22,10 +24,13 @@ Remove a [non-linear index](/docs/stores/create-non-linear-algx) (KD-Tree/HNSW) 
 
 ## Behavior
 
-- Deletes the index only — stored vectors and metadata are untouched.
+- Deletes the index only — stored vectors and [metadata](/docs/concepts/metadata) are untouched.
 - [Similarity search](/docs/stores/get-simn) still works, falling back to a linear scan.
 
 ## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
 
 <Tabs groupId="ahnlich-lang">
 <TabItem value="python" label="Python">
@@ -44,9 +49,9 @@ async def drop_non_linear_algo():
       
       response = await client.drop_non_linear_algorithm_index(
           db_query.DropNonLinearAlgorithmIndex(
-              store="my_store 003",
+              store="my_store",
               schema="analytics",
-              non_linear_indices=[NonLinearAlgorithm.KDTree],
+              non_linear_indices=[NonLinearAlgorithm.HNSW],
               error_if_not_exists=True
           )
       )
@@ -73,12 +78,12 @@ async function dropNonLinearIndex() {
     new DropNonLinearAlgorithmIndex({
       store: "my_store",
       schema: "analytics",
-      nonLinearIndices: [NonLinearAlgorithm.KDTree],
+      nonLinearIndices: [NonLinearAlgorithm.HNSW],
       errorIfNotExists: true,
     })
   );
 
-  console.log("KDTree index dropped successfully");
+  console.log("HNSW index dropped successfully");
 }
 
 dropNonLinearIndex();
@@ -140,7 +145,7 @@ func (c *ExampleDBClient) exampleDropNonLinearAlgoIndex() error {
     _, err := c.client.DropNonLinearAlgorithmIndex(c.ctx, &dbquery.DropNonLinearAlgorithmIndex{
         Store:            "my_store",
         Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
-        NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_KDTree},
+        NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_HNSW},
         ErrorIfNotExists: true,
     })
     return err
@@ -185,7 +190,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let params = DropNonLinearAlgorithmIndex {
         store: "my_store".to_string(),
         schema: Some("analytics".to_string()),
-        non_linear_indices: vec![NonLinearAlgorithm::KdTree as i32, NonLinearAlgorithm::Hnsw as i32],
+        non_linear_indices: vec![NonLinearAlgorithm::Hnsw as i32],
         error_if_not_exists: false,
     };
 
@@ -211,8 +216,207 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 <TabItem value="cli" label="CLI">
 
 ```bash
-DROPNONLINEARALGORITHMINDEX (kdtree) IN my_store
+DROPNONLINEARALGORITHMINDEX (hnsw) IN my_store
 ```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearAlgorithm
+
+
+async def drop_non_linear_algorithm_index():
+  async with Channel(host="127.0.0.1", port=1370) as channel:
+      client = AiServiceStub(channel)
+      response = await client.drop_non_linear_algorithm_index(
+          ai_query.DropNonLinearAlgorithmIndex(
+              store="my_store",
+              schema="analytics",
+              non_linear_indices=[NonLinearAlgorithm.HNSW],
+              error_if_not_exists=True
+          )
+      )
+      print(response) # Del(deleted_count=1)
+
+
+if __name__ == "__main__":
+  asyncio.run(drop_non_linear_algorithm_index())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "ahnlich-client-node";
+import { DropNonLinearAlgorithmIndex } from "ahnlich-client-node/grpc/ai/query_pb";
+import { NonLinearAlgorithm } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
+
+async function dropNonLinearIndex() {
+  const client = createAiClient("127.0.0.1:1370");
+
+  await client.dropNonLinearAlgorithmIndex(
+    new DropNonLinearAlgorithmIndex({
+      store: "ai_store",
+      schema: "analytics",
+      nonLinearIndices: [NonLinearAlgorithm.HNSW],
+      errorIfNotExists: true,
+    })
+  );
+
+  console.log("HNSW index dropped");
+}
+
+dropNonLinearIndex();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+  "context"
+  "fmt"
+  "log"
+  "time"
+
+
+  "google.golang.org/grpc"
+  "google.golang.org/grpc/credentials/insecure"
+
+
+  aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+  aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+  nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
+)
+
+
+const AIAddr = "127.0.0.1:1370"
+
+
+// ExampleAIClient wraps the connection + AIService client
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleAIClient struct {
+  conn   *grpc.ClientConn
+  client aisvc.AIServiceClient
+  ctx    context.Context
+}
+
+
+// NewAIClient connects to the AI server
+func NewAIClient(ctx context.Context) (*ExampleAIClient, error) {
+  conn, err := grpc.DialContext(ctx, AIAddr,
+      grpc.WithTransportCredentials(insecure.NewCredentials()),
+      grpc.WithBlock(),
+  )
+  if err != nil {
+      return nil, fmt.Errorf("failed to dial AI server %q: %w", AIAddr, err)
+  }
+  client := aisvc.NewAIServiceClient(conn)
+  return &ExampleAIClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleAIClient) Close() error {
+  return c.conn.Close()
+}
+
+
+// ---- DropNonLinearAlgorithmIndex standalone ----
+func (c *ExampleAIClient) exampleDropNonLinearIndexAI() error {
+  _, err := c.client.DropNonLinearAlgorithmIndex(c.ctx, &aiquery.DropNonLinearAlgorithmIndex{
+      Store:            "ai_store",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+      NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_HNSW},
+      ErrorIfNotExists: true,
+  })
+  if err != nil {
+      return err
+  }
+  fmt.Println(" Successfully dropped NonLinearAlgorithm index: HNSW from store ai_store")
+  return nil
+}
+
+
+func main() {
+  ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+  defer cancel()
+
+
+  client, err := NewAIClient(ctx)
+  if err != nil {
+      log.Fatalf(" Failed to create AI client: %v", err)
+  }
+  defer client.Close()
+
+
+  if err := client.exampleDropNonLinearIndexAI(); err != nil {
+      log.Fatalf(" DropNonLinearAlgorithmIndex failed: %v", err)
+  }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_types::ai::query::DropNonLinearAlgorithmIndex;
+use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
+use tokio;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Connect to AI server
+    let client = AiClient::new("http://127.0.0.1:1370".to_string()).await?;
+
+
+    // Set parameters for dropping the non-linear index
+    let params = DropNonLinearAlgorithmIndex {
+        store: "MyStore".to_string(),
+        schema: Some("analytics".to_string()),
+        non_linear_indices: vec![NonLinearAlgorithm::Hnsw as i32],
+        error_if_not_exists: true, // error if the index doesn't exist
+    };
+
+
+    // Execute drop request
+    let result = client
+        .drop_non_linear_algorithm_index(params, None)
+        .await?;
+  
+    println!("Dropped non-linear indices: {:?}", result);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+DROPNONLINEARALGORITHMINDEX (hnsw) IN my_store
+```
+
+</TabItem>
+</Tabs>
 
 </TabItem>
 </Tabs>

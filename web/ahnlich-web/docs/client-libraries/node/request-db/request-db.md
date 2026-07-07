@@ -12,7 +12,7 @@ Ahnlich DB is the core vector storage engine that provides:
 * Vector storage with configurable dimensions
 * Similarity search using various algorithms
 * Metadata filtering with predicates
-* Non-linear indexing (KDTree, HNSW) for faster searches
+* Non-linear indexing (HNSW) for faster searches
 
 ## Available Operations
 
@@ -39,5 +39,5 @@ Ahnlich DB is the core vector storage engine that provides:
 ### Index Operations
 - [Create Predicate Index](/docs/client-libraries/node/request-db/create-predicate-index) - Create metadata index
 - [Drop Predicate Index](/docs/client-libraries/node/request-db/drop-predicate-index) - Remove metadata index
-- [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-db/create-non-linear-algx) - Create KDTree/HNSW index
-- [Drop Non Linear Algorithm Index](/docs/client-libraries/node/request-db/drop-non-linear-algx) - Remove KDTree/HNSW index
+- [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-db/create-non-linear-algx) - Create HNSW index
+- [Drop Non Linear Algorithm Index](/docs/client-libraries/node/request-db/drop-non-linear-algx) - Remove HNSW index

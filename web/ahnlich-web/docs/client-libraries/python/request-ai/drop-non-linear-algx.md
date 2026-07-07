@@ -8,7 +8,7 @@ title: Drop Non-Linear Algorithm Index
 
 This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
 
-The `Drop Non Linear Algorithm` Index operation removes an index that was previously created for non-linear algorithms such as KD-Tree or HNSW. These indices are typically used to accelerate similarity searches in high-dimensional spaces.
+The `Drop Non Linear Algorithm` Index operation removes an index that was previously created for non-linear algorithms such as HNSW. These indices are typically used to accelerate similarity searches in high-dimensional spaces.
 
 This operation is useful when:
 * An index is no longer needed and you want to free up system resources.
@@ -37,7 +37,7 @@ If the specified index does not exist, the request will fail if `error_if_not_ex
             ai_query.DropNonLinearAlgorithmIndex(
                 store="test store",
                 schema="analytics",
-                non_linear_indices=[NonLinearAlgorithm.KDTree],
+                non_linear_indices=[NonLinearAlgorithm.HNSW],
                 error_if_not_exists=True
             )
         )

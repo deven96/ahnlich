@@ -2,31 +2,49 @@
 title: Setup & Configuration
 ---
 
+import {InstallFigure} from '@site/src/components/OverviewFigures';
+
 # Setup & Configuration
 
-This section explains how to install, configure, and run **Ahnlich AI**. Ahnlich AI acts as a proxy layer to Ahnlich DB, handling raw input, embedding generation, and semantic querying. It can run standalone or alongside Ahnlich DB, and is available as prebuilt binaries and Docker images.
+**Goal: get an Ahnlich AI proxy running and connected to Ahnlich DB.** The AI proxy
+turns your raw text, images, and audio into vectors, then hands them to the database — so
+it always runs *alongside* an Ahnlich DB server (via `--db-url`).
+
+Install it the same three ways as the database:
+
+<InstallFigure />
+
+:::tip First time here?
+Install and start [Ahnlich DB](/docs/components/ahnlich-db/installation) first — the
+AI proxy needs a database to talk to. The Docker Compose example below starts both
+together.
+:::
 
 ## Installation
 
 ### 1. Download Binaries
-Prebuilt binaries are available from GitHub Releases.
+Prebuilt binaries are available from
+[GitHub Releases](https://github.com/deven96/ahnlich/releases). Pick the file that
+matches your OS and chip (on macOS, run `uname -m` — `arm64` = Apple Silicon,
+`x86_64` = Intel).
 
-#### Download with wget:
-```
-wget https://github.com/deven96/ahnlich/releases/download/bin%2Fai%2F0.3.0/aarch64-apple-darwin-ahnlich-ai.tar.gz
+#### Download the binary (macOS Apple Silicon shown):
+```bash
+curl -L -O "https://github.com/deven96/ahnlich/releases/download/bin%2Fai%2F0.3.0/aarch64-apple-darwin-ahnlich-ai.tar.gz"
 ```
 
 #### Extract the archive:
-```
-tar -xvzf aarch64-darwin-ahnlich-ai.tar.gz
+```bash
+tar -xvzf *-ahnlich-ai.tar.gz
 ```
 
 #### Run the binary:
-```
+```bash
 ./ahnlich-ai
 ```
 
-Replace `aarch64-darwin-ahnlich-ai.tar.gz` with the correct file for your platform.
+> On macOS, if Gatekeeper blocks the unsigned binary, clear the quarantine flag
+> first: `xattr -d com.apple.quarantine ./ahnlich-ai`
 
 ### 2. Using Docker
 Ahnlich AI also ships as a Docker image:
@@ -103,7 +121,7 @@ Create a model-aware store:
 CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
 ```
 
-Insert raw input (text/image):
+Insert raw input (text, image, or audio):
 
 ```
 INSERT "The rise of renewable energy storage solutions" INTO my_store

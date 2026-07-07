@@ -121,5 +121,5 @@ getSimNWithFilter();
 ## Notes
 
 - The query vector dimension must match the store dimension
-- Non-linear indices (KDTree, HNSW) can significantly speed up searches on large stores
+- Non-linear indices (HNSW) can significantly speed up searches on large stores
 - When using predicate filters, ensure the filter key has a predicate index for optimal performance

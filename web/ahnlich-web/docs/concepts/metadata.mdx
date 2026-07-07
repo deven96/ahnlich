@@ -1,0 +1,68 @@
+---
+title: Metadata
+sidebar_label: Metadata
+---
+
+import {MetadataDiagram, MetadataFilterDiagram} from '@site/src/components/ConceptFigures';
+
+# Metadata
+
+Every entry in a [store](/docs/concepts/data-model) has two halves: a **key** (the
+[vector](/docs/concepts/vectors)) and a **value**. That value is the entry's
+**metadata** — a set of named fields describing it, stored in a `StoreValue`.
+
+Where the vector captures *meaning*, metadata captures *facts*: who wrote it, what
+category it belongs to, when it was created, the original text or image. It's how
+you keep the human-readable context next to the vector.
+
+<MetadataDiagram />
+
+## Fields and values
+
+Metadata is a map from **field names** to **values**:
+
+```text
+{ author: "Asimov", genre: "SciFi", tags: "epic, space" }
+```
+
+- **Field name** — a label you choose (`author`, `genre`, `category`, …).
+- **Value** — the data for that field. Values can be **text** (`raw_string`) or
+  **binary** such as an image (`raw_binary`).
+
+You decide the shape of your metadata; Ahnlich doesn't impose a fixed schema on the
+fields inside a value.
+
+## What metadata is for
+
+Metadata earns its place in three ways:
+
+1. **Context on results** — search returns the vector *and* its metadata, so you
+   get back the author, title, or original text — not just an opaque list of
+   numbers.
+2. **Filtering** — select entries by their fields with
+   [Get by predicate](/docs/stores/get-by-predicate) (e.g. every entry where
+   `author = "Asimov"`). A *predicate* is simply a condition over metadata; see the
+   [predicates reference](/docs/components/predicates) for the full grammar.
+3. **Narrowing similarity search** — pass a predicate as the `condition` on
+   [Similarity search](/docs/stores/get-simn) to rank only the vectors that also
+   match the metadata — "nearest neighbours *where* `genre = SciFi`".
+
+<MetadataFilterDiagram />
+
+## Making metadata fast
+
+Filtering scans metadata, which slows down on large stores. Tell Ahnlich which
+fields you filter on so it can index them:
+
+- declare them as `create_predicates` when you
+  [create the store](/docs/stores/create-store), or
+- add a [predicate index](/docs/stores/create-predicate-index) later.
+
+An index turns a full scan into a direct lookup.
+
+## Related
+
+- [Data model](/docs/concepts/data-model)
+- [Get by predicate](/docs/stores/get-by-predicate)
+- [Create predicate index](/docs/stores/create-predicate-index)
+- [Predicates reference](/docs/components/predicates)

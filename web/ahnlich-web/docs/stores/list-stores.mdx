@@ -10,6 +10,8 @@ import TabItem from '@theme/TabItem';
 
 List the [stores](/docs/stores) currently registered on the server — handy for introspection, admin tooling, and debugging.
 
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+
 ## Parameters
 
 | Parameter | Type | Description |
@@ -24,6 +26,9 @@ List the [stores](/docs/stores) currently registered on the server — handy for
 - An empty list means no stores have been created yet.
 
 ## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
 
 <Tabs groupId="ahnlich-lang">
 <TabItem value="python" label="Python">
@@ -190,6 +195,177 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```bash
 LISTSTORES
 ```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+
+
+async def list_stores():
+  async with Channel(host="127.0.0.1", port=1370) as channel:
+      client = AiServiceStub(channel)
+      response = await client.list_stores(ai_query.ListStores(schema="analytics"))
+      print(response) #StoreList(stores=[AiStoreInfo(name='my_store', embedding_size=384)])
+
+
+if __name__ == "__main__":
+  asyncio.run(list_stores())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "ahnlich-client-node";
+import { ListStores } from "ahnlich-client-node/grpc/ai/query_pb";
+
+async function listStores() {
+  const client = createAiClient("127.0.0.1:1370");
+
+  const response = await client.listStores(new ListStores({ schema: "analytics" }));
+
+  console.log(response.stores.map((s) => s.name));
+
+  for (const store of response.stores) {
+    console.log(`Store: ${store.name}`);
+    console.log(`  Query Model: ${store.queryModel}`);
+    console.log(`  Index Model: ${store.indexModel}`);
+    console.log(`  Embedding Size: ${store.embeddingSize}`);
+  }
+}
+
+listStores();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+    aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+)
+
+
+const AIAddr = "127.0.0.1:1370"
+
+
+// ExampleAIClient holds the gRPC connection and AI client.
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleAIClient struct {
+    conn   *grpc.ClientConn
+    client aisvc.AIServiceClient
+    ctx    context.Context
+}
+
+
+// NewAIClient connects to the AI server and returns a client.
+func NewAIClient(ctx context.Context) (*ExampleAIClient, error) {
+    conn, err := grpc.DialContext(ctx, AIAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial AI server %q: %w", AIAddr, err)
+    }
+    client := aisvc.NewAIServiceClient(conn)
+    return &ExampleAIClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+// Close closes the gRPC connection.
+func (c *ExampleAIClient) Close() error {
+    return c.conn.Close()
+}
+
+
+// ---- ListStores Example ----
+// List stores in the analytics schema on the AI server.
+func (c *ExampleAIClient) exampleListStoresAI() error {
+    resp, err := c.client.ListStores(c.ctx, &aiquery.ListStores{Schema: stringPtr("analytics")})
+    if err != nil {
+        return err
+    }
+    fmt.Println(" AI Stores:", resp.Stores)
+    return nil
+}
+
+
+// ---- MAIN ----
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewAIClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create AI client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleListStoresAI(); err != nil {
+        log.Fatalf("ListStores failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_client_rs::error::AhnlichError;
+
+
+#[tokio::main]
+async fn main() -> Result<(), AhnlichError> {
+    let addr = "127.0.0.1:1370";
+    let client = AiClient::new(addr.to_string()).await?;
+
+
+    let stores = client
+        .list_stores_with_schema(Some("analytics".to_string()), None)
+        .await?;
+    println!("Stores: {:?}", stores);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+LISTSTORES
+```
+
+</TabItem>
+</Tabs>
 
 </TabItem>
 </Tabs>

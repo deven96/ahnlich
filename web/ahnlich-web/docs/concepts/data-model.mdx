@@ -1,0 +1,51 @@
+---
+title: Data model
+sidebar_label: Data model
+---
+
+import {DataModelDiagram} from '@site/src/components/ConceptFigures';
+
+# Data model
+
+Ahnlich organizes everything into **stores**. Understanding the store and the
+shape of what goes inside it is most of what you need to be productive.
+
+## Store
+
+A [**store**](/docs/stores) is a named container for your data — the equivalent
+of a *collection* in a document database or a *table* in a relational one. A
+store fixes two things up front:
+
+- a **dimension** — the length every vector in it must have, and
+- an optional set of **predicates** — the metadata fields you plan to filter on.
+
+Many stores can coexist on one server, each isolated from the others, so you can
+separate data by application, environment, or tenant.
+
+## Entry: key + value
+
+Each item in a store is an **entry** made of two parts:
+
+- **Key** — a [vector](/docs/concepts/vectors) (`StoreKey`), a list of floats
+  whose length matches the store's dimension. This is what similarity search
+  compares against.
+- **Value** — a [`StoreValue`](/docs/concepts/metadata): a map of metadata
+  fields (predicates) describing the entry, e.g. `{author: "Asimov", genre: "SciFi"}`.
+
+<DataModelDiagram />
+
+## Two kinds of store
+
+| | You provide | Port | Vectors are… |
+| --- | --- | --- | --- |
+| **Vector DB store** | raw vectors | 1369 | supplied by you |
+| **AI store** | text or images | 1370 | [generated for you](/docs/concepts/ai-and-embeddings) |
+
+The [operations](/docs/stores) — insert, similarity search, filtering — are the
+same for both; only the input differs.
+
+## Related
+
+- [Stores & operations](/docs/stores)
+- [Vectors](/docs/concepts/vectors)
+- [Schemas](/docs/concepts/schemas)

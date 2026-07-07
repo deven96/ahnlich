@@ -10,6 +10,8 @@ import TabItem from '@theme/TabItem';
 
 Test connectivity to the server — a lightweight health check that confirms the service is up.
 
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+
 ## Parameters
 
 This request takes no arguments. An optional tracing ID may be passed for [distributed tracing](/docs/components/distributed-tracing/distributed-tracing).
@@ -20,6 +22,9 @@ This request takes no arguments. An optional tracing ID may be passed for [distr
 - Handy for readiness/liveness probes, monitoring, and debugging connections.
 
 ## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
 
 <Tabs groupId="ahnlich-lang">
 <TabItem value="python" label="Python">
@@ -190,6 +195,179 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```bash
 PING
 ```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+
+
+async def ping():
+  async with Channel(host="127.0.0.1", port=1370) as channel:
+      client = AiServiceStub(channel)
+      response = await client.ping(ai_query.Ping())
+  print(response) #Pong()
+
+
+if __name__ == "__main__":
+  asyncio.run(ping())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "ahnlich-client-node";
+import { Ping } from "ahnlich-client-node/grpc/ai/query_pb";
+
+async function ping() {
+  const client = createAiClient("127.0.0.1:1370");
+
+  const response = await client.ping(new Ping());
+
+  console.log(response); // Pong
+}
+
+ping();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+  "context"
+  "fmt"
+  "log"
+  "time"
+
+
+  "google.golang.org/grpc"
+  "google.golang.org/grpc/credentials/insecure"
+
+
+  aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+  aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+)
+
+
+const AIAddr = "127.0.0.1:1370"
+
+
+// ExampleAIClient holds the gRPC connection and AI client.
+type ExampleAIClient struct {
+  conn   *grpc.ClientConn
+  client aisvc.AIServiceClient
+  ctx    context.Context
+}
+
+
+// NewAIClient connects to the AI server and returns a client.
+func NewAIClient(ctx context.Context) (*ExampleAIClient, error) {
+  conn, err := grpc.DialContext(ctx, AIAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+  if err != nil {
+      return nil, fmt.Errorf("failed to dial AI server %q: %w", AIAddr, err)
+  }
+  client := aisvc.NewAIServiceClient(conn)
+  return &ExampleAIClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+// Close closes the gRPC connection.
+func (c *ExampleAIClient) Close() error {
+  return c.conn.Close()
+}
+
+
+// ---- Ping Example ----
+func (c *ExampleAIClient) examplePingAI() error {
+  resp, err := c.client.Ping(c.ctx, &aiquery.Ping{})
+  if err != nil {
+      return err
+  }
+  fmt.Println(" AI Ping:", resp)
+  return nil
+}
+
+
+func main() {
+  ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+  defer cancel()
+
+
+  client, err := NewAIClient(ctx)
+  if err != nil {
+      log.Fatalf("Failed to create AI client: %v", err)
+  }
+  defer client.Close()
+
+
+  if err := client.examplePingAI(); err != nil {
+      log.Fatalf("Ping failed: %v", err)
+  }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+// src/bin/pingai.rs
+
+
+use ahnlich_client_rs::ai::AiClient; // AiClient path
+use ahnlich_client_rs::error::AhnlichError; // Error type
+use ahnlich_types::ai::pipeline::AiResponsePipeline;
+
+
+#[tokio::main]
+async fn main() -> Result<(), AhnlichError> {
+    // AI server address
+    let addr = "http://127.0.0.1:1370";
+
+
+    // Initialize the AI client
+    let ai_client = AiClient::new(addr.to_string()).await?;
+
+
+    // Simple ping request
+    let pong = ai_client.ping(None).await?;
+    println!("AI Server Pong received: {:?}", pong);
+
+
+    // Using a pipeline to send a ping
+    let mut pipeline = ai_client.pipeline(None);
+    pipeline.ping();
+    let res: AiResponsePipeline = pipeline.exec().await?;
+    println!("Pipeline response: {:?}", res);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+PING
+```
+
+</TabItem>
+</Tabs>
 
 </TabItem>
 </Tabs>

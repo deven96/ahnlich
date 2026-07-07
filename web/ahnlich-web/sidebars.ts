@@ -1,4 +1,5 @@
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
+import { sbIcon } from './src/sidebarIcons';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
@@ -11,32 +12,57 @@ const sidebars: SidebarsConfig = {
   gettingStartedSidebar: [
     {
       type: 'html',
-      value: 'Introduction',
+      value: 'Getting started',
       className: 'sidebar-section-title',
       defaultStyle: true,
     },
     { type: 'doc', id: 'overview', label: 'What is Ahnlich?' },
+    'getting-started/installation',
     {
       type: 'category',
-      label: '🚀 Getting Started',
-      link: { type: 'doc', id: 'getting-started/getting-started' },
+      label: 'Quickstart',
+      link: { type: 'doc', id: 'getting-started/quickstart' },
       items: [
-        'getting-started/installation',
-        'getting-started/quickstart',
-        'getting-started/usage',
-        'getting-started/comparison-with-other-tools',
-        'getting-started/next-steps',
+        'getting-started/quickstart-ai',
+        'getting-started/quickstart-db',
       ],
     },
+    'getting-started/usage',
+    'getting-started/comparison-with-other-tools',
     {
       type: 'html',
-      value: 'Stores',
+      value: 'Guides',
       className: 'sidebar-section-title',
       defaultStyle: true,
     },
     {
       type: 'category',
-      label: '🗂️ Stores',
+      label: 'Concepts',
+      customProps: sbIcon('book'),
+      link: { type: 'doc', id: 'concepts/concepts' },
+      items: [
+        'concepts/data-model',
+        'concepts/vectors',
+        'concepts/schemas',
+        'concepts/metadata',
+        'concepts/similarity-metrics',
+        {
+          type: 'category',
+          label: 'Vector index',
+          customProps: sbIcon('layers'),
+          link: { type: 'doc', id: 'concepts/vector-index' },
+          items: [
+            'concepts/vector-index/exact-search',
+            'concepts/vector-index/hnsw',
+          ],
+        },
+        'concepts/ai-and-embeddings',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Stores',
+      customProps: sbIcon('database'),
       link: { type: 'doc', id: 'stores/stores' },
       collapsed: false,
       items: [
@@ -84,6 +110,12 @@ const sidebars: SidebarsConfig = {
         },
       ],
     },
+    {
+      type: 'link',
+      label: 'Client libraries',
+      href: '/docs/client-libraries',
+    },
+    'getting-started/ai-friendly',
   ],
 
   // ---- Vector DB tab ------------------------------------------------------
@@ -103,8 +135,67 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-section-title',
       defaultStyle: true,
     },
-    'components/ahnlich-db/reference',
-    'components/ahnlich-db/advanced',
+    {
+      type: 'category',
+      label: 'Server & system',
+      items: [
+        'components/ahnlich-db/reference/ping',
+        'components/ahnlich-db/reference/infoserver',
+        'components/ahnlich-db/reference/list-connected-clients',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Store management',
+      items: [
+        'components/ahnlich-db/reference/list-stores',
+        'components/ahnlich-db/reference/get-store',
+        'components/ahnlich-db/reference/create-store',
+        'components/ahnlich-db/reference/drop-store',
+        'components/ahnlich-db/reference/drop-schema',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Data operations',
+      items: [
+        'components/ahnlich-db/reference/set',
+        'components/ahnlich-db/reference/upsert',
+        'components/ahnlich-db/reference/delete-key',
+        'components/ahnlich-db/reference/delete-predicate',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Query & retrieval',
+      items: [
+        'components/ahnlich-db/reference/get-sim-n',
+        'components/ahnlich-db/reference/get-key',
+        'components/ahnlich-db/reference/get-by-predicate',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Index management',
+      items: [
+        'components/ahnlich-db/reference/create-predicate-index',
+        'components/ahnlich-db/reference/drop-predicate-index',
+        'components/ahnlich-db/reference/create-non-linear-index',
+        'components/ahnlich-db/reference/drop-non-linear-index',
+      ],
+    },
+    'components/ahnlich-db/reference/sdk-mapping',
+    {
+      type: 'category',
+      label: 'Advanced',
+      link: {type: 'doc', id: 'components/ahnlich-db/advanced'},
+      items: [
+        'components/ahnlich-db/advanced/similarity-algorithms',
+        'components/ahnlich-db/advanced/choosing-and-performance',
+        'components/ahnlich-db/advanced/command-deep-dive',
+        'components/ahnlich-db/advanced/end-to-end-flow',
+      ],
+    },
   ],
 
   // ---- AI tab -------------------------------------------------------------
@@ -124,7 +215,54 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-section-title',
       defaultStyle: true,
     },
-    'components/ahnlich-ai/reference',
+    {
+      type: 'category',
+      label: 'Server & system',
+      items: [
+        'components/ahnlich-ai/reference/ping',
+        'components/ahnlich-ai/reference/infoserver',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Store management',
+      items: [
+        'components/ahnlich-ai/reference/list-stores',
+        'components/ahnlich-ai/reference/get-store',
+        'components/ahnlich-ai/reference/create-store',
+        'components/ahnlich-ai/reference/drop-store',
+        'components/ahnlich-ai/reference/drop-schema',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Data operations',
+      items: [
+        'components/ahnlich-ai/reference/set',
+        'components/ahnlich-ai/reference/upsert',
+        'components/ahnlich-ai/reference/delete-key',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Query & retrieval',
+      items: [
+        'components/ahnlich-ai/reference/get-sim-n',
+        'components/ahnlich-ai/reference/get-by-predicate',
+        'components/ahnlich-ai/reference/get-key',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Index management',
+      items: [
+        'components/ahnlich-ai/reference/create-predicate-index',
+        'components/ahnlich-ai/reference/drop-predicate-index',
+        'components/ahnlich-ai/reference/create-non-linear-index',
+        'components/ahnlich-ai/reference/drop-non-linear-index',
+      ],
+    },
+    'components/ahnlich-ai/reference/sdk-mapping',
     'components/ahnlich-ai/advanced',
     'components/ahnlich-ai/deep-dive',
   ],
@@ -145,8 +283,50 @@ const sidebars: SidebarsConfig = {
       className: 'sidebar-section-title',
       defaultStyle: true,
     },
-    'components/ahnlich-cli/db-commands',
-    'components/ahnlich-cli/ai-commands',
+    {
+      type: 'category',
+      label: 'DB commands',
+      link: { type: 'doc', id: 'components/ahnlich-cli/db-commands' },
+      items: [
+        'components/ahnlich-cli/db-commands/ping',
+        'components/ahnlich-cli/db-commands/infoserver',
+        'components/ahnlich-cli/db-commands/list-stores',
+        'components/ahnlich-cli/db-commands/create-store',
+        'components/ahnlich-cli/db-commands/set',
+        'components/ahnlich-cli/db-commands/upsert',
+        'components/ahnlich-cli/db-commands/get-key',
+        'components/ahnlich-cli/db-commands/get-pred',
+        'components/ahnlich-cli/db-commands/delete-key',
+        'components/ahnlich-cli/db-commands/create-predicate-index',
+        'components/ahnlich-cli/db-commands/drop-predicate-index',
+        'components/ahnlich-cli/db-commands/create-non-linear-index',
+        'components/ahnlich-cli/db-commands/drop-non-linear-index',
+        'components/ahnlich-cli/db-commands/drop-store',
+        'components/ahnlich-cli/db-commands/drop-schema',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'AI commands',
+      link: { type: 'doc', id: 'components/ahnlich-cli/ai-commands' },
+      items: [
+        'components/ahnlich-cli/ai-commands/ping',
+        'components/ahnlich-cli/ai-commands/infoserver',
+        'components/ahnlich-cli/ai-commands/list-stores',
+        'components/ahnlich-cli/ai-commands/create-store',
+        'components/ahnlich-cli/ai-commands/set',
+        'components/ahnlich-cli/ai-commands/upsert',
+        'components/ahnlich-cli/ai-commands/get-sim-n',
+        'components/ahnlich-cli/ai-commands/get-pred',
+        'components/ahnlich-cli/ai-commands/delete-key',
+        'components/ahnlich-cli/ai-commands/create-predicate-index',
+        'components/ahnlich-cli/ai-commands/drop-predicate-index',
+        'components/ahnlich-cli/ai-commands/create-non-linear-index',
+        'components/ahnlich-cli/ai-commands/drop-non-linear-index',
+        'components/ahnlich-cli/ai-commands/drop-store',
+        'components/ahnlich-cli/ai-commands/drop-schema',
+      ],
+    },
   ],
 
   // ---- Clients tab --------------------------------------------------------
@@ -439,7 +619,7 @@ const sidebars: SidebarsConfig = {
   referenceSidebar: [
     {
       type: 'html',
-      value: 'Concepts',
+      value: 'Data & internals',
       className: 'sidebar-section-title',
       defaultStyle: true,
     },
@@ -447,13 +627,15 @@ const sidebars: SidebarsConfig = {
     'components/schemas/schemas',
     {
       type: 'category',
-      label: '🔍 Predicates',
+      label: 'Predicates',
+      customProps: sbIcon('filter'),
       link: { type: 'doc', id: 'components/predicates/predicates' },
       items: ['components/predicates/quick-reference'],
     },
     {
       type: 'category',
-      label: '♾️ Persistence In Ahnlich',
+      label: 'Persistence in Ahnlich',
+      customProps: sbIcon('save'),
       link: { type: 'doc', id: 'components/persistence-in-ahnlich/persistence-in-ahnlich' },
       items: [
         'components/persistence-in-ahnlich/persistence-for-ahnlich-db',
@@ -462,7 +644,8 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: '🕸️ Distributed Tracing',
+      label: 'Distributed Tracing',
+      customProps: sbIcon('branch'),
       link: { type: 'doc', id: 'components/distributed-tracing/distributed-tracing' },
       items: [
         'components/distributed-tracing/ahnlich-db',
@@ -478,17 +661,20 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: '⚡ Ahnlich in production',
+      label: 'Ahnlich in production',
+      customProps: sbIcon('zap'),
       items: [{ type: 'autogenerated', dirName: 'ahnlich-in-production' }],
     },
     {
       type: 'category',
-      label: '📖 Reference',
+      label: 'Reference',
+      customProps: sbIcon('bookOpen'),
       items: ['reference/error-codes', 'reference/configuration'],
     },
     {
       type: 'category',
-      label: '🔧 Troubleshooting',
+      label: 'Troubleshooting',
+      customProps: sbIcon('wrench'),
       items: ['troubleshooting/common-issues'],
     },
     {

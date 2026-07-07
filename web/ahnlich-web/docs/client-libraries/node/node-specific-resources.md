@@ -94,7 +94,7 @@ The Ahnlich Node.js client provides a gRPC-based SDK for interacting with Ahnlic
 
 * `ahnlich-client-node/grpc/algorithm/algorithm_pb` - Algorithm types (Algorithm enum)
 
-* `ahnlich-client-node/grpc/algorithm/nonlinear_pb` - Non-linear algorithm types (KDTreeConfig, HNSWConfig)
+* `ahnlich-client-node/grpc/algorithm/nonlinear_pb` - Non-linear algorithm types (HNSWConfig)
 
 * `ahnlich-client-node/grpc/ai/models_pb` - AI model types (AIModel enum)
 

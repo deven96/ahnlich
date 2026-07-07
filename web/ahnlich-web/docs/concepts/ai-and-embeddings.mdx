@@ -1,0 +1,54 @@
+---
+title: AI & embeddings
+sidebar_label: AI & embeddings
+---
+
+import {AIStoreDiagram} from '@site/src/components/ConceptFigures';
+
+# AI & embeddings
+
+An **AI store** lets you work with raw **text or images** instead of vectors.
+Ahnlich AI runs an embedding model for you, turns each input into a
+[vector](/docs/concepts/vectors), and stores it — so you get semantic search
+without running a model yourself.
+
+<AIStoreDiagram />
+
+## DB store vs AI store
+
+- **[Vector DB store](/docs/concepts/data-model)** (port 1369) — you compute
+  vectors and send them.
+- **AI store** (port 1370) — you send `raw_string` or `raw_binary` inputs and the
+  server embeds them.
+
+Both expose the [same operations](/docs/stores); only the input type differs — the
+**Vector DB / AI** switch on each operation page shows both.
+
+## Index model & query model
+
+An AI store is created with two models:
+
+- **index model** — embeds the data you store.
+- **query model** — embeds incoming search queries.
+
+They're usually the **same** model (e.g. `all-minilm-l6-v2` for text, `resnet-50`
+for images) so stored data and queries share one vector space. Ahnlich ships
+several models; pick one that matches your modality.
+
+```bash
+CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2 \
+  PREDICATES (author, category) STOREORIGINAL
+```
+
+## Preprocessing & original data
+
+- **Preprocess action** — controls how inputs are prepared before embedding (e.g.
+  truncating or padding to the model's expected size vs. erroring on a mismatch).
+- **Store original** (`STOREORIGINAL`) — keep the raw text/image alongside its
+  vector so results can return the source, not just the embedding.
+
+## Related
+
+- [Ahnlich AI component](/docs/components/ahnlich-ai)
+- [Vectors](/docs/concepts/vectors)
+- [Insert data](/docs/stores/set)

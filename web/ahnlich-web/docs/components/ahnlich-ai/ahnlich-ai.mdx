@@ -1,0 +1,98 @@
+---
+title: Ahnlich AI proxy
+sidebar_position: 30
+---
+
+import {AiProxyFigure} from '@site/src/components/OverviewFigures';
+
+# Ahnlich AI proxy
+
+**The AI proxy lets you work in text, images, and audio instead of numbers.**
+
+[Ahnlich DB](/docs/components/ahnlich-db) stores and searches _vectors_ — but where
+do those vectors come from? Normally you'd have to run a machine-learning model
+yourself to turn a sentence or an image into numbers before saving it. That's the
+fiddly part.
+
+The **Ahnlich AI proxy sits in front of the database and does that step for you.**
+You hand it raw text, an image, or audio; it picks the right model, produces the vector,
+and stores or searches it in Ahnlich DB — automatically.
+
+<AiProxyFigure />
+
+## Why it helps
+
+Without the proxy you'd write code to load a model, embed your input, keep the
+model versions in sync between saving and searching, and only then call the
+database. The proxy removes all of that. You send:
+
+```bash
+INSERT "The rise of renewable energy storage" INTO article_store
+```
+
+…and behind the scenes it becomes a vector and lands in the database. When you
+search, you again send plain text — the proxy embeds your query the same way, so
+the comparison is fair.
+
+## The one key idea: model-aware stores
+
+When you create a store through the AI proxy, you choose **two models**:
+
+| Model | When it runs | Its job |
+| --- | --- | --- |
+| **Index model** | when you _add_ data | turn each stored item into a vector |
+| **Query model** | when you _search_ | turn each query into a vector |
+
+There's a single rule: **both models must output vectors of the same size**
+(dimension), so stored items and queries live in the same space and can be
+compared.
+
+```bash
+CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
+```
+
+## Text, images, and audio
+
+Because the index and query models are chosen separately, you can mix modalities —
+text, images, or audio — as long as the two models output the same dimension:
+
+- **Text → text** (same model both sides): classic semantic search over documents.
+
+  ```bash
+  CREATESTORE product_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
+  ```
+
+- **Text → image** (different, compatible models): index photos, then search them
+  with words like _"blue denim jacket"_.
+
+  ```bash
+  CREATESTORE image_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL resnet-50
+  ```
+
+## Ready-to-use models
+
+The proxy ships with several **off-the-shelf models** for text and images (MiniLM,
+BGE variants, ResNet-50, CLIP, and more). You don't install or fine-tune anything —
+you just name the model when creating a store. See
+[Supported models](/docs/components/ahnlich-ai/advanced#supported-models) for the full list.
+
+## Searching in plain language
+
+At query time you provide natural input, not vectors:
+
+```bash
+GETSIMN 3 WITH ["climate change effects on agriculture"] USING cosinesimilarity IN news_store
+```
+
+The proxy embeds your query, asks Ahnlich DB for the nearest stored vectors, and
+returns the matching items.
+
+## Where to go next
+
+- [Quickstart: Ahnlich AI](/docs/getting-started/quickstart-ai) — the recommended
+  starting point.
+- [Command reference](/docs/components/ahnlich-ai/reference) — every command.
+- [Supported models](/docs/components/ahnlich-ai/advanced#supported-models) — text and
+  image models you can use.
+- [Advanced](/docs/components/ahnlich-ai/advanced) — model parameters, input types,
+  and more.

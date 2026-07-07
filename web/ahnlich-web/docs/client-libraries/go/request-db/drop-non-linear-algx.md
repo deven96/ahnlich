@@ -10,7 +10,7 @@ This request accepts an optional `schema` field. When it is omitted, the server 
 
 ## Description
 
-The `DropNonLinearAlgorithmIndex` request removes previously created non-linear indices (e.g., KD-Tree, HNSW) from a store. This is useful when you no longer need a specific algorithm index or want to reclaim resources used for maintaining it.
+The `DropNonLinearAlgorithmIndex` request removes previously created non-linear indices (e.g., HNSW) from a store. This is useful when you no longer need a specific algorithm index or want to reclaim resources used for maintaining it.
 
 ## Source Code Example
 
@@ -70,7 +70,7 @@ func (c *ExampleDBClient) exampleDropNonLinearAlgoIndex() error {
     _, err := c.client.DropNonLinearAlgorithmIndex(c.ctx, &dbquery.DropNonLinearAlgorithmIndex{
         Store:            "my_store",
         Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
-        NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_KDTree},
+        NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_HNSW},
         ErrorIfNotExists: true,
     })
     return err

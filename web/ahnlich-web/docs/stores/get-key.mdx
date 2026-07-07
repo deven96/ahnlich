@@ -10,6 +10,8 @@ import TabItem from '@theme/TabItem';
 
 Retrieve entries by an exact vector-key match.
 
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+
 ## Parameters
 
 | Parameter | Type | Description |
@@ -26,6 +28,9 @@ Retrieve entries by an exact vector-key match.
 - Returns nothing for keys that aren't present — it does not do nearest-neighbour matching (use [Similarity search](/docs/stores/get-simn) for that).
 
 ## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
 
 <Tabs groupId="ahnlich-lang">
 <TabItem value="python" label="Python">
@@ -233,6 +238,231 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```bash
 GETKEY ([1.0, 2.0, 3.0, 4.0]) IN my_store
 ```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc import keyval
+
+
+async def get_key():
+  async with Channel(host="127.0.0.1", port=1370) as channel:
+      client = AiServiceStub(channel)
+      
+      response = await client.get_key(
+          ai_query.GetKey(
+              store="my_store",
+              schema="analytics",
+              keys=[
+                  keyval.StoreInput(raw_string="Adidas Yeezy"),
+                  keyval.StoreInput(raw_string="Nike Air Jordans"),
+              ]
+          )
+      )
+      
+      # Response contains entries for each found key
+      for entry in response.entries:
+          print(f"Key: {entry.key}")
+          print(f"Value: {entry.value}")
+
+
+if __name__ == "__main__":
+  asyncio.run(get_key())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "ahnlich-client-node";
+import { GetKey } from "ahnlich-client-node/grpc/ai/query_pb";
+import { StoreInput } from "ahnlich-client-node/grpc/keyval_pb";
+
+async function getKey() {
+  const client = createAiClient("127.0.0.1:1370");
+
+  // Create the input to look up (using oneof discriminated union)
+  const storeInput = new StoreInput({
+    value: {
+      case: "rawString",
+      value: "Your search text"
+    }
+  });
+
+  const response = await client.getKey(
+    new GetKey({
+      store: "my_store",
+      schema: "analytics",
+      keys: [storeInput]
+    })
+  );
+
+  // response.entries contains matching (key, value) pairs
+  for (const entry of response.entries) {
+    console.log("Found entry:", entry);
+  }
+}
+
+getKey();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+  "context"
+  "fmt"
+  "log"
+  "time"
+
+
+  "google.golang.org/grpc"
+  "google.golang.org/grpc/credentials/insecure"
+
+
+  aiquery  "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+  aisvc    "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+  keyval   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+)
+
+
+const AIAddr = "127.0.0.1:1370"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleAIClient struct {
+  conn   *grpc.ClientConn
+  client aisvc.AIServiceClient
+  ctx    context.Context
+}
+
+
+func NewAIClient(ctx context.Context) (*ExampleAIClient, error) {
+  conn, err := grpc.DialContext(ctx, AIAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+  if err != nil {
+      return nil, fmt.Errorf("failed to dial AI server %q: %w", AIAddr, err)
+  }
+  client := aisvc.NewAIServiceClient(conn)
+  return &ExampleAIClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleAIClient) Close() error {
+  return c.conn.Close()
+}
+
+
+// ---- GetKey Example ----
+func (c *ExampleAIClient) exampleGetKey() error {
+  resp, err := c.client.GetKey(c.ctx, &aiquery.GetKey{
+      Store: "ai_store01",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+      Keys: []*keyval.StoreInput{
+          {Value: &keyval.StoreInput_RawString{RawString: "Adidas Yeezy"}},
+          {Value: &keyval.StoreInput_RawString{RawString: "Nike Air Jordans"}},
+      },
+  })
+  if err != nil {
+      return err
+  }
+
+  fmt.Println("GetKey Results:")
+  for _, entry := range resp.Entries {
+      fmt.Printf("  Key: %v\n", entry.Key)
+      fmt.Printf("  Value: %v\n", entry.Value)
+  }
+  return nil
+}
+
+
+func main() {
+  ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+  defer cancel()
+
+
+  client, err := NewAIClient(ctx)
+  if err != nil {
+      log.Fatalf("Failed to create AI client: %v", err)
+  }
+  defer client.Close()
+
+
+  if err := client.exampleGetKey(); err != nil {
+      log.Fatalf("GetKey failed: %v", err)
+  }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_client_rs::error::AhnlichError;
+use ahnlich_types::ai::query::GetKey;
+use ahnlich_types::keyval::store_input::Value;
+use ahnlich_types::keyval::StoreInput;
+
+
+#[tokio::main]
+async fn main() -> Result<(), AhnlichError> {
+    let addr = "127.0.0.1:1370";
+    let client = AiClient::new(addr.to_string()).await?;
+
+
+    let keys = vec![
+        StoreInput { value: Some(Value::RawString("Adidas Yeezy".to_string())) },
+        StoreInput { value: Some(Value::RawString("Nike Air Jordans".to_string())) },
+    ];
+
+
+    let params = GetKey {
+        store: "Main0".to_string(),
+        schema: Some("analytics".to_string()),
+        keys, // directly pass the Vec
+    };
+
+
+    let result = client.get_key(params, None).await?;
+
+
+    for entry in result.entries {
+        if let Some(k) = entry.key {
+            println!("Key retrieved: {:?}", k.value);
+        }
+    }
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETKEY ([This is a sentence]) IN my_store
+```
+
+</TabItem>
+</Tabs>
 
 </TabItem>
 </Tabs>

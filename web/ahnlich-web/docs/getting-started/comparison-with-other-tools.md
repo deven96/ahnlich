@@ -25,7 +25,7 @@ a roadmap toward clustering and stronger persistence.
 | **Kubernetes** | ✅ official Helm charts | ❌ managed only | ✅ Helm chart / operator | ✅ Helm chart / operator |
 | **Setup** | Seconds (local) · one `helm install` (K8s) | Managed signup | Cluster config | Cluster config |
 | **Built-in embeddings** | ✅ AI proxy (text + image) | ❌ external provider | ⚠️ via modules | ❌ external provider |
-| **Search** | Cosine · L2 · Dot; ANN (KDTree, HNSW) | ANN (HNSW) | ANN (HNSW, IVF, PQ) | ANN (HNSW, IVF, PQ, DiskANN) |
+| **Search** | Cosine · L2 · Dot; ANN (HNSW) | ANN (HNSW) | ANN (HNSW, IVF, PQ) | ANN (HNSW, IVF, PQ, DiskANN) |
 | **Persistence** | In-memory or file-based | Always persistent | Persistent | Persistent |
 | **Scaling** | Single node (clustering in progress) | Multi-region | Replicated | Petabyte-scale |
 | **Clients** | Python · Rust · Node · Go + CLI | REST / gRPC | REST / GraphQL / Python | REST / multi-language |

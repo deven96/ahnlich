@@ -63,7 +63,7 @@ if __name__ == "__main__":
 | `size_in_bytes` | `int` | Total size of the store in bytes |
 | `dimension` | `int` | Vector dimension |
 | `predicate_indices` | `List[str]` | List of indexed predicate keys |
-| `non_linear_indices` | `List[NonLinearIndex]` | List of non-linear algorithm indices (KDTree, HNSW) |
+| `non_linear_indices` | `List[NonLinearIndex]` | List of non-linear algorithm indices (HNSW) |
 
 ## Notes
 

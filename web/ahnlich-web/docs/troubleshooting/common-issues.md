@@ -80,9 +80,9 @@ INFOSERVER
 
 3. **Verify algorithm choice:**
 - Linear algorithms (Cosine, Euclidean, DotProduct) scale linearly with data size
-- Use `KDTree` for faster searches with large datasets:
+- Use `HNSW` for faster searches with large datasets:
 ```
-CREATESTORE my_store DIMENSION 128 NONLINEARALGORITHMINDEX (KDTree)
+CREATESTORE my_store DIMENSION 128 NONLINEARALGORITHMINDEX (HNSW)
 ```
 
 **Solutions:**
@@ -107,7 +107,7 @@ client.set(Set(store="my_store", inputs=entries))
 - **CosineSimilarity**: Best for normalized vectors, direction-based similarity
 - **EuclideanDistance**: Best for absolute distance measures
 - **DotProduct**: Fast when vectors are pre-normalized
-- **KDTree**: Best for high-dimensional spatial searches
+- **HNSW**: Best for large-scale approximate nearest neighbor searches
 
 4. **Adjust thread pool size:**
 ```bash
