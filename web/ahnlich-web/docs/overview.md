@@ -28,7 +28,7 @@ Ready to try it? Jump straight to the [**Quickstart**](./getting-started/quickst
   combine similarity with metadata conditions in one query.
 - **Update in place.** Add, change, or delete vectors on the fly — no full index
   rebuilds.
-- **Scales when you need it.** Approximate search via KDTree and HNSW indexes for
+- **Scales when you need it.** Approximate search via HNSW indexes for
   large datasets.
 - **Use your language.** Native clients for **Python, Rust, Node, and Go**, plus
   an interactive CLI.

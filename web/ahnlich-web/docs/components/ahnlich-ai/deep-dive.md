@@ -63,12 +63,12 @@ Optimizes queries based on the category field.
 Removes an existing predicate index.
 
 #### Create Non-Linear Algorithm Index
-- `CREATENONLINEARALGORITHM INDEX kdtree IN my_store`
+- `CREATENONLINEARALGORITHM INDEX hnsw IN my_store`
 
-Enables advanced search indexing strategies (e.g., KD-Tree).
+Enables advanced search indexing strategies (e.g., HNSW).
 
 #### Drop Non-Linear Algorithm Index
-- `DROPNONLINEARALGORITHMINDEX (kdtree) IN my_store`
+- `DROPNONLINEARALGORITHMINDEX (hnsw) IN my_store`
 
 Removes a non-linear algorithm index.
 

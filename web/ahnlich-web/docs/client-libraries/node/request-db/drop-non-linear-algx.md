@@ -9,7 +9,7 @@ sidebar_position: 14
 
 This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
 
-The DropNonLinearAlgorithmIndex request removes a non-linear index (KDTree or HNSW) from a store.
+The DropNonLinearAlgorithmIndex request removes a non-linear index (HNSW) from a store.
 
 * **Input**: Store name, list of index types to remove, and error handling flag.
 
@@ -32,12 +32,12 @@ async function dropNonLinearIndex() {
     new DropNonLinearAlgorithmIndex({
       store: "my_store",
       schema: "analytics",
-      nonLinearIndices: [NonLinearAlgorithm.KDTree],
+      nonLinearIndices: [NonLinearAlgorithm.HNSW],
       errorIfNotExists: true,
     })
   );
 
-  console.log("KDTree index dropped successfully");
+  console.log("HNSW index dropped successfully");
 }
 
 dropNonLinearIndex();
@@ -56,7 +56,6 @@ dropNonLinearIndex();
 
 | Value | Description |
 |-------|-------------|
-| `NonLinearAlgorithm.KDTree` | K-dimensional tree |
 | `NonLinearAlgorithm.HNSW` | Hierarchical Navigable Small World |
 
 ## Notes

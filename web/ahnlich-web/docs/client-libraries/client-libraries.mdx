@@ -2,6 +2,7 @@
 title: Client libraries
 ---
 
+import {ClientsFigure} from '@site/src/components/OverviewFigures';
 import CustomDocCard from '@site/src/components/CustomDocCard';
 import rustLogo from '@site/static/img/rust-logo.png';
 import rustLogoLight from '@site/static/img/Rust.png';
@@ -38,6 +39,20 @@ export const components = [
 ];
 
 # Client libraries
+
+**Client libraries let you use Ahnlich from your own code, in the language you
+already work in.** Instead of typing commands in a terminal, you call functions
+like `create_store(...)` and `get_sim_n(...)` directly from your app.
+
+Every client does the same thing under the hood: it packages your request and
+sends it to the Ahnlich **DB** and **AI** servers over **gRPC** (a fast, typed way
+for programs to talk to each other). Because they all share one protocol, the
+ideas you learn in one language carry straight over to the others — only the
+syntax changes.
+
+<ClientsFigure />
+
+## Pick your language
 
 <div className="remove-link-line grid md:grid-cols-2 gap-4">
     {components.map((component) => (

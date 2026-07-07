@@ -58,4 +58,4 @@ Each `StoreInfo` object contains:
 | `len` | `number` | Number of entries in the store |
 | `sizeInBytes` | `bigint` | Total size of the store in bytes |
 | `predicateIndices` | `string[]` | List of indexed predicate keys |
-| `nonLinearIndices` | `NonLinearAlgorithm[]` | List of non-linear indices (KDTree, HNSW) |
+| `nonLinearIndices` | `NonLinearAlgorithm[]` | List of non-linear indices (HNSW) |

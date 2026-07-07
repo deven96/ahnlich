@@ -1,6 +1,7 @@
 import Link from '@docusaurus/Link';
-import { useColorMode } from '@docusaurus/theme-common';
-import React from 'react'
+import {useColorMode} from '@docusaurus/theme-common';
+import React from 'react';
+import CardIcon from '@site/src/components/CardIcons';
 
 interface Props {
   title: string;
@@ -11,26 +12,35 @@ interface Props {
   description?: string;
 }
 
-const CustomDocCard = ({ title, icon, link, logoLight, logoDark, description }: Props) => {
-  const { colorMode } = useColorMode();
+/**
+ * Overview tile — shares the Quickstart chooser card styling (accent icon chip,
+ * title, optional description, and a "Learn more" arrow) so every menu/overview
+ * page looks consistent.
+ */
+const CustomDocCard = ({title, icon, link, logoLight, logoDark, description}: Props) => {
+  const {colorMode} = useColorMode();
+  const logo = colorMode === 'dark' ? logoDark : logoLight;
 
   return (
-    <Link
-      className="font-medium !no-underline"
-      to={link}
-    >
-      <div className='flex flex-col gap-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700
-                rounded-2xl p-6 shadow-md hover:shadow-xl transition transform hover:-translate-y-1 
-                hover:border-primary'>
-        <div className='flex items-center gap-4'>
-          {icon && <p className='text-3xl'>{icon}</p>}
-          {(logoDark || logoLight) && <img src={colorMode === "dark" ? logoDark : logoLight} className="w-10" />}
-          <h4 className='text-xl'>{title}</h4>
-        </div>
-        {description && <p className='text-sm'>{description}</p>}
-      </div>
+    <Link className="ahn-qs-card" to={link}>
+      <span className="ahn-qs-icon" aria-hidden>
+        {logoDark || logoLight ? (
+          <img src={logo} alt="" style={{width: 24, height: 24, objectFit: 'contain'}} />
+        ) : (
+          <CardIcon name={icon} />
+        )}
+      </span>
+      <span className="ahn-qs-title">{title}</span>
+      {description && <span className="ahn-qs-desc">{description}</span>}
+      <span className="ahn-qs-start">
+        Learn more
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}
+          strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="m9 6 6 6-6 6" />
+        </svg>
+      </span>
     </Link>
-  )
-}
+  );
+};
 
 export default CustomDocCard;

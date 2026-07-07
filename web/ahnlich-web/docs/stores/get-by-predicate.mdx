@@ -1,0 +1,544 @@
+---
+title: Get by predicate
+sidebar_label: Get by predicate
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Get by predicate
+
+Retrieve entries by **metadata conditions** instead of by vector.
+
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Name of the store to read from. |
+| `condition` | predicate | A [metadata](/docs/concepts/metadata) predicate, e.g. `equals`, `greater_than`. Combine with `and`/`or`. |
+| `schema` | string · optional | Schema to target. Defaults to `public`. |
+
+> All requests accept an optional `schema` field. When omitted, the server uses the `public` schema.
+
+## Behavior
+
+- Evaluates the predicate against metadata fields and returns **every** entry that satisfies it.
+- Create a [predicate index](/docs/stores/create-predicate-index) on the queried fields to keep this fast.
+
+## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+from ahnlich_client_py.grpc import predicates, metadata
+
+
+async def get_predicate():
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+    client = DbServiceStub(channel)
+    
+    condition = predicates.PredicateCondition(
+      value=predicates.Predicate(
+        equals=predicates.Equals(
+          key="label",
+          value=metadata.MetadataValue(raw_string="sorcerer")
+        )
+      )
+    )
+    
+    response = await client.get_pred(
+      db_query.GetPred(
+        store="my_store",
+        schema="analytics",
+        condition=condition
+      )
+    )
+    # response.entries contains matching items
+  print(response)
+
+if __name__ == "__main__":
+  asyncio.run(get_predicate())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { GetPred } from "ahnlich-client-node/grpc/db/query_pb";
+import { PredicateCondition, Predicate, Equals } from "ahnlich-client-node/grpc/predicate_pb";
+import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+
+async function getByPredicate() {
+  const client = createDbClient("127.0.0.1:1369");
+
+  const response = await client.getPred(
+    new GetPred({
+      store: "my_store",
+      schema: "analytics",
+      condition: new PredicateCondition({
+        kind: {
+          case: "value",
+          value: new Predicate({
+            kind: {
+              case: "equals",
+              value: new Equals({
+                key: "label",
+                value: new MetadataValue({ value: { case: "rawString", value: "A" } }),
+              }),
+            },
+          }),
+        },
+      }),
+    })
+  );
+
+  console.log(`Found ${response.entries.length} entries with label='A'`);
+}
+
+getByPredicate();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    dbsvc      "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery    "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    metadata   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+    predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+// ExampleDBClient holds the gRPC connection, client, and context.
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleDBClient struct {
+    conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+// NewDBClient connects to the Ahnlich DB server.
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+// Close closes the gRPC connection.
+func (c *ExampleDBClient) Close() error {
+    return c.conn.Close()
+}
+
+
+// -------------------- Get By Predicate --------------------
+func (c *ExampleDBClient) exampleGetByPredicate() error {
+    // Build a PredicateCondition for "label == A"
+    cond := &predicates.PredicateCondition{
+        Kind: &predicates.PredicateCondition_Value{
+            Value: &predicates.Predicate{
+                Kind: &predicates.Predicate_Equals{
+                    Equals: &predicates.Equals{
+                        Key: "label",
+                        Value: &metadata.MetadataValue{
+                            Value: &metadata.MetadataValue_RawString{RawString: "A"},
+                        },
+                    },
+                },
+            },
+        },
+    }
+
+
+    // Call GetPred with the condition
+    resp, err := c.client.GetPred(c.ctx, &dbquery.GetPred{
+        Store:     "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+        Condition: cond,
+    })
+    if err != nil {
+        return err
+    }
+
+
+    fmt.Println("GetByPredicate Results:", resp.Entries)
+    return nil
+}
+
+
+// -------------------- Main --------------------
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleGetByPredicate(); err != nil {
+        log.Fatalf("GetByPredicate failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+use ahnlich_types::{
+    db::query::GetPred,
+    metadata::{MetadataValue, metadata_value::Value},
+    predicates::{
+        Predicate, PredicateCondition,
+        predicate::Kind as PredicateKind,
+        predicate_condition::Kind as PredicateConditionKind,
+        Equals,
+    },
+};
+use tokio;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let addr = "http://127.0.0.1:1369";
+    let client = DbClient::new(addr.to_string()).await?;
+
+
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(Equals {
+                key: "label".into(),
+                value: Some(MetadataValue {
+                    value: Some(Value::RawString("A".into())),
+                }),
+            })),
+        })),
+    };
+
+
+    let get_pred_params = GetPred {
+        store: "my_store".to_string(),
+        schema: Some("analytics".to_string()),
+        condition: Some(condition),
+    };
+
+
+    let result = client.get_pred(get_pred_params, None).await?;
+    println!("Fetched rows: {:#?}", result);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETPRED (author = Alice) IN my_store
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc import predicates, metadata
+
+
+async def get_by_predicate():
+  async with Channel(host="127.0.0.1", port=1370) as channel:
+      client = AiServiceStub(channel)
+      condition = predicates.PredicateCondition(
+          value=predicates.Predicate(
+              equals=predicates.Equals(
+                  key="brand",
+                  value=metadata.MetadataValue(raw_string="Nike")
+              )
+          )
+      )
+      response = await client.get_pred(
+          ai_query.GetPred(
+              store="my_store",
+              schema="analytics",
+              condition=condition
+          )
+      )
+      print(response) #Get(entries=[GetEntry(key=StoreInput(raw_string='Jordan One'), value=StoreValue(value={'brand': MetadataValue(raw_string='Nike')}))])
+
+
+if __name__ == "__main__":
+  asyncio.run(get_by_predicate())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "ahnlich-client-node";
+import { GetPred } from "ahnlich-client-node/grpc/ai/query_pb";
+import { PredicateCondition, Predicate, Equals } from "ahnlich-client-node/grpc/predicate_pb";
+import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+
+async function getByPredicate() {
+  const client = createAiClient("127.0.0.1:1370");
+
+  const response = await client.getPred(
+    new GetPred({
+      store: "ai_store",
+      schema: "analytics",
+      condition: new PredicateCondition({
+        kind: {
+          case: "value",
+          value: new Predicate({
+            kind: {
+              case: "equals",
+              value: new Equals({
+                key: "brand",
+                value: new MetadataValue({ value: { case: "rawString", value: "Nike" } }),
+              }),
+            },
+          }),
+        },
+      }),
+    })
+  );
+
+  console.log(`Found ${response.entries.length} Nike products`);
+}
+
+getByPredicate();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+    aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+    metadata "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+    predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
+)
+
+
+const AIAddr = "127.0.0.1:1370"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleAIClient struct {
+    conn   *grpc.ClientConn
+    client aisvc.AIServiceClient
+    ctx    context.Context
+}
+
+
+func NewAIClient(ctx context.Context) (*ExampleAIClient, error) {
+    conn, err := grpc.DialContext(ctx, AIAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial AI server %q: %w", AIAddr, err)
+    }
+    client := aisvc.NewAIServiceClient(conn)
+    return &ExampleAIClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleAIClient) Close() error {
+    return c.conn.Close()
+}
+
+
+// ---- GetByPredicate standalone ----
+func (c *ExampleAIClient) exampleGetByPredicateAI() error {
+    cond := &predicates.PredicateCondition{
+        Kind: &predicates.PredicateCondition_Value{
+            Value: &predicates.Predicate{
+                Kind: &predicates.Predicate_Equals{
+                    Equals: &predicates.Equals{
+                        Key: "f",
+                        Value: &metadata.MetadataValue{
+                            Value: &metadata.MetadataValue_RawString{RawString: "v"},
+                        },
+                    },
+                },
+            },
+        },
+    }
+
+
+    resp, err := c.client.GetPred(c.ctx, &aiquery.GetPred{
+        Store:     "ai_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+        Condition: cond,
+    })
+    if err != nil {
+        return err
+    }
+    fmt.Println(" AI GetByPredicate Response:", resp.Entries)
+    return nil
+}
+
+
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+    defer cancel()
+
+
+    client, err := NewAIClient(ctx)
+    if err != nil {
+        log.Fatalf(" Failed to create AI client: %v", err)
+    }
+    defer client.Close()
+
+
+    if err := client.exampleGetByPredicateAI(); err != nil {
+        log.Fatalf(" GetByPredicate failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_client_rs::error::AhnlichError;
+use ahnlich_client_rs::prelude::StoreName;
+use ahnlich_types::{
+    ai::query::GetPred,
+    predicates::{Predicate, PredicateCondition, predicate::Kind as PredicateKind, predicate_condition::Kind as PredicateConditionKind, Equals},
+    metadata::{MetadataValue, metadata_value::Value as MValue},
+};
+use tokio;
+
+
+#[tokio::main]
+async fn main() -> Result<(), AhnlichError> {
+    // Connect to AI server
+    let ai_client = AiClient::new("http://127.0.0.1:1370".to_string())
+        .await
+        .expect("Failed to connect AI client");
+
+
+    // Define store and metadata condition
+    let store_name = StoreName { value: "Deven Kicks".to_string() };
+    let matching_metadatakey = "Brand".to_string();
+    let matching_metadatavalue = MetadataValue { value: Some(MValue::RawString("Nike".into())) };
+
+
+    // Build predicate condition
+    let condition = PredicateCondition {
+        kind: Some(PredicateConditionKind::Value(Predicate {
+            kind: Some(PredicateKind::Equals(Equals {
+                key: matching_metadatakey.clone(),
+                value: Some(matching_metadatavalue.clone()),
+            })),
+        })),
+    };
+
+
+    let get_pred_params = GetPred {
+        store: store_name.value.clone(),
+        schema: Some("analytics".to_string()),
+        condition: Some(condition),
+    };
+
+
+    // Call get_pred
+    let response = ai_client.get_pred(get_pred_params, None).await?;
+
+
+    println!("Matching entries:");
+    for entry in response.entries {
+        println!("{:?}", entry);
+    }
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETPRED (author = Alice) IN my_store
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+</Tabs>
+
+## Response
+
+A list of all matching entries (vector + metadata).
+
+## Related
+
+- [Predicates](/docs/components/predicates)
+- [Create predicate index](/docs/stores/create-predicate-index)
+- [Similarity search](/docs/stores/get-simn)

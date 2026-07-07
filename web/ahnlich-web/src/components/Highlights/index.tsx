@@ -8,6 +8,16 @@ type Highlight = {
   href: string;
 };
 
+/* Bento spans — a tall flagship tile, two wide tiles, three equal thirds. */
+const BENTO_SPANS = [
+  'md:col-span-2 lg:col-span-3 lg:row-span-2',
+  'md:col-span-2 lg:col-span-3',
+  'md:col-span-2 lg:col-span-3',
+  'md:col-span-2 lg:col-span-2',
+  'md:col-span-2 lg:col-span-2',
+  'md:col-span-2 lg:col-span-2',
+];
+
 /* Lucide-style line icons, size controlled by the wrapping element */
 const iconProps = {
   viewBox: '0 0 24 24',
@@ -102,11 +112,17 @@ const HIGHLIGHTS: Highlight[] = [
   },
 ];
 
-function HighlightCard({icon, title, description, href}: Highlight) {
+function HighlightCard({
+  icon,
+  title,
+  description,
+  href,
+  className = '',
+}: Highlight & {className?: string}) {
   return (
     <Link
       to={href}
-      className="group relative flex min-h-[16rem] flex-col overflow-hidden rounded-2xl border border-solid border-black/[0.06] bg-white p-8 text-left text-inherit no-underline shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:text-inherit hover:no-underline hover:shadow-xl dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-primary/40">
+      className={`group relative flex h-full min-h-[15rem] flex-col overflow-hidden rounded-2xl border border-solid border-black/[0.06] bg-white p-8 text-left text-inherit no-underline shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/30 hover:text-inherit hover:no-underline hover:shadow-xl dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-primary/40 ${className}`}>
       {/* oversized icon bleeding off the top-right edge as a translucent overlay */}
       <div
         aria-hidden
@@ -149,24 +165,26 @@ function HighlightCard({icon, title, description, href}: Highlight) {
 
 export default function Highlights(): ReactNode {
   return (
-    <section className="bg-white py-24 dark:bg-[#242526]">
-      <div className="container">
+    <section className="relative overflow-hidden bg-gradient-to-b from-white via-[#eef3fb] to-white py-24 dark:from-[#08161d] dark:via-[#0c2230] dark:to-[#08161d]">
+      <div className="ahn-grid pointer-events-none absolute inset-0 opacity-30 [mask-image:radial-gradient(ellipse_at_center,black,transparent_80%)] dark:opacity-20" />
+      <div className="pointer-events-none absolute left-1/2 top-1/3 h-96 w-[42rem] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl dark:bg-primary/10" />
+      <div className="container relative">
         <div className="mx-auto mb-16 max-w-3xl text-center">
-          <h2 className="text-3xl font-bold leading-tight md:text-5xl">
+          <h2 className="text-3xl font-bold leading-tight text-[#0c1e28] dark:text-white md:text-5xl">
             Everything you need to ship{' '}
             <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
               semantic search
             </span>
           </h2>
-          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed opacity-70">
+          <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-[#5a6b86] dark:text-slate-300/80">
             One fast, open-source engine that handles it all: embed, index,
             filter, and retrieve, so you can focus on your product, not your
             infrastructure.
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-4 lg:grid-cols-6 lg:auto-rows-[15rem]">
           {HIGHLIGHTS.map((h, idx) => (
-            <HighlightCard key={idx} {...h} />
+            <HighlightCard key={idx} {...h} className={BENTO_SPANS[idx]} />
           ))}
         </div>
       </div>

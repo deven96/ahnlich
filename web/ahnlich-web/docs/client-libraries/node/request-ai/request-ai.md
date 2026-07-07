@@ -35,8 +35,8 @@ Ahnlich AI is the semantic layer that provides:
 ### Index Operations
 - [Create Predicate Index](/docs/client-libraries/node/request-ai/create-predicate-index) - Create metadata index
 - [Drop Predicate Index](/docs/client-libraries/node/request-ai/drop-predicate-index) - Remove metadata index
-- [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-ai/create-non-linear-algx) - Create KDTree/HNSW index
-- [Drop Non Linear Algorithm Index](/docs/client-libraries/node/request-ai/drop-non-linear-algx) - Remove KDTree/HNSW index
+- [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-ai/create-non-linear-algx) - Create HNSW index
+- [Drop Non Linear Algorithm Index](/docs/client-libraries/node/request-ai/drop-non-linear-algx) - Remove HNSW index
 
 ## Key Differences from DB
 

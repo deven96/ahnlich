@@ -13,7 +13,7 @@ It provides AI/ML engineers with the ability to:
 
 - Search for similar vectors using linear similarity algorithms (Cosine, Euclidean).
 
-- Perform searches with non-linear similarity algorithms (such as KD-Tree).
+- Perform searches with non-linear similarity algorithms (such as HNSW).
 
 - Filter results based on metadata values.
 

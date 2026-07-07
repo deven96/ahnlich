@@ -14,7 +14,7 @@ title: List Stores
 
 ## Behavior
 
-- The call returns a collection of store metadata from the server at the time of the request. Each store entry includes: name, entry count, size in bytes, and non-linear index configurations (HNSW parameters or k-d tree) if any are active.
+- The call returns a collection of store metadata from the server at the time of the request. Each store entry includes: name, entry count, size in bytes, and non-linear index configurations (HNSW parameters) if any are active.
 
 - Treat the result as an **enumeration**: don’t assume ordering or uniqueness semantics beyond what the server provides.
 

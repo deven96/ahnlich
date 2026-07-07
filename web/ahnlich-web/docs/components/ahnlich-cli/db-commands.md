@@ -1,163 +1,30 @@
 ---
 title: DB Commands
+sidebar_label: DB commands
 ---
 
-# Ahnlich CLI – Database Commands
+# Ahnlich CLI — Database commands
 
-The Ahnlich CLI also supports structured database stores that allow you to insert, retrieve, and manage key-value data with predicates and indexes. Unlike AI Stores, which use embeddings and models, DB Stores are optimized for direct key-based and predicate-based queries.
+Run structured queries against **DB stores** from the CLI: insert, retrieve, and
+manage key–value vector data with predicates and indexes. Connect first with
+`--agent db`:
 
-A **DB Store** manages:
-- **Keys and Values** – you insert plain data (strings, JSON-like objects, numbers).
-
-- **Predicates** – metadata fields for filtering queries.
-
-- **Indexes** – predicate and algorithmic indexes for efficient lookups.
-
-With DB Stores, you can:
-
-- Insert data as key-value pairs.
-
-- Retrieve values directly by key.
-
-- Query data using predicates.
-
-- Create and drop indexes for better performance.
-
-- Delete specific keys or drop entire stores.
-
-## Example Workflow
-1. **Create a DB Store** with predicates and optional indexes.
-
-2. **Insert Data** into the store.
-
-3. **Query Data** by key or predicate.
-
-4. **Manage Indexes** for faster searches.
-
-5. **Drop Stores or Keys** when they’re no longer needed.
-
-## DB CLI Commands
-
-Below are the most common commands you can run against your DB store:
-
-### 1. Ping the DB server
-`PING`
-
-Checks if the DB server is alive and responding.
-
-### 2. Get DB server information
-`INFOSERVER`
-
-Returns server metadata, including version, address, type, and resource limits.
-
-### 3. List DB stores
-`LISTSTORES`
-
-Lists stores in the `public` schema.
-
-```
-LISTSTORES SCHEMA analytics
-```
-
-Lists stores in the `analytics` schema.
-
-### 4. Create a Store for DB
 ```bash
-CREATESTORE my_store DIMENSION 128 PREDICATES (author, category)
-CREATESTORE my_store DIMENSION 128 PREDICATES (author, category) SCHEMA analytics
+ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369
 ```
 
-Creates a new database store `my_store` with `author` and `category` as metadata fields.
+## Example workflow
 
-### 5. Insert DB Data
-```bash
-SET ((key1, {author: Alice, category: ml}),(key2, {author: Bob, category: dev})) IN my_store
-```
+1. **Create a store** with predicates and optional indexes.
+2. **Insert data** into the store.
+3. **Query** by key or predicate.
+4. **Manage indexes** for faster searches.
+5. **Drop** stores or keys when they're no longer needed.
 
-Inserts two records into `my_store` with associated predicates.
+## Commands
 
-### 6. Drop a Store
-```bash
-DROPSTORE my_store IF EXISTS
-DROPSTORE my_store IF EXISTS SCHEMA analytics
-```
+**Server & stores** — [Ping](./db-commands/ping) · [Server info](./db-commands/infoserver) · [List stores](./db-commands/list-stores) · [Create a store](./db-commands/create-store) · [Drop a store](./db-commands/drop-store) · [Drop a schema](./db-commands/drop-schema)
 
-Deletes the store `my_store` if it exists.
+**Data** — [Insert data](./db-commands/set) · [Upsert](./db-commands/upsert) · [Get by key](./db-commands/get-key) · [Query by predicate](./db-commands/get-pred) · [Delete a key](./db-commands/delete-key)
 
-### 7. Get Data by Key
-```bash
-GETKEY ([1.0, 2.0]) IN my_store
-```
-
-Retrieves the entry with `key1` from `my_store`.
-
-### 8. Query DB Data by Predicate
-```bash
-GETPRED (author = Alice) IN my_store
-```
-
-Retrieves all entries in `my_store` where `author = Alice`.
-
-### 9. Create Predicate Index
-```bash
-CREATEPREDINDEX (author, category) IN my_store
-```
-
-Creates an index on `author` and `category` predicates to speed up lookups.
-
-### 10. Drop Predicate Index
-```bash
-DROPPREDINDEX (category) IN my_store
-```
-
-Removes the index on the `category` predicate.
-
-### 11. Create Non-Linear Algorithm Index
-```bash
-CREATENONLINEARALGORITHMINDEX (kdtree) IN my_store
-```
-
-Creates a KD-Tree index for efficient nearest-neighbor searches.
-
-### 12. Drop Non-Linear Algorithm Index
-```bash
-DROPNONLINEARALGORITHMINDEX (kdtree) IN my_store
-```
-
-Drops the KD-Tree index from `my_store`.
-
-### 13. Upsert (Update or Insert)
-```bash
-UPSERT VALUE {status: published} IN my_store WHERE (id = 123)
-```
-
-Updates a single entry matching the predicate. Errors if 0 or multiple entries match.
-
-**Merge metadata (preserves unchanged fields):**
-```bash
-UPSERT MERGE VALUE {updated_at: 2026-07-02} IN my_store WHERE (id = 123)
-```
-
-**Update vector only:**
-```bash
-UPSERT KEY [0.1, 0.2, 0.3] IN my_store WHERE (doc_id = abc)
-```
-
-**Update both with schema:**
-```bash
-UPSERT MERGE KEY [0.5, 0.6] VALUE {version: 2} IN my_store SCHEMA analytics WHERE (version = 1)
-```
-
-### 14. Delete a Key
-```bash
-DELETEKEY (key1) IN my_store
-```
-
-Deletes the entry `key1` from `my_store`.
-
-### 15. Drop a Schema
-```
-DROPSCHEMA analytics
-```
-
-Drops the non-public schema `analytics` and all stores inside it. The `public` schema cannot be dropped.
+**Indexes** — [Create predicate index](./db-commands/create-predicate-index) · [Drop predicate index](./db-commands/drop-predicate-index) · [Create non-linear index](./db-commands/create-non-linear-index) · [Drop non-linear index](./db-commands/drop-non-linear-index)

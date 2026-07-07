@@ -9,39 +9,7 @@ sidebar_position: 11
 
 This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
 
-Creates a non-linear index (KDTree or HNSW) to speed up similarity searches in an AI store.
-
-## Create a KDTree Index
-
-<details>
-  <summary>Click to expand source code</summary>
-
-```ts
-import { createAiClient } from "ahnlich-client-node";
-import { CreateNonLinearAlgorithmIndex } from "ahnlich-client-node/grpc/ai/query_pb";
-import { NonLinearIndex, KDTreeConfig } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
-
-async function createKDTreeIndex() {
-  const client = createAiClient("127.0.0.1:1370");
-
-  await client.createNonLinearAlgorithmIndex(
-    new CreateNonLinearAlgorithmIndex({
-      store: "ai_store",
-      schema: "analytics",
-      nonLinearIndices: [
-        new NonLinearIndex({
-          index: { case: "kdtree", value: new KDTreeConfig() },
-        }),
-      ],
-    })
-  );
-
-  console.log("KDTree index created");
-}
-
-createKDTreeIndex();
-```
-</details>
+Creates a non-linear index (HNSW) to speed up similarity searches in an AI store.
 
 ## Create an HNSW Index
 

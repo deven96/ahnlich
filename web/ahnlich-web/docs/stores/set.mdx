@@ -1,0 +1,504 @@
+---
+title: Insert data
+sidebar_label: Insert data
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Insert data
+
+Insert one or more entries into a store. Each entry pairs a **key** (the vector) with a **value** (its metadata).
+
+> Every operation works on both **Vector DB stores** (you supply raw vectors) and **AI stores** (you supply text or images and [Ahnlich AI](/docs/components/ahnlich-ai) generates the embeddings for you). Use the **Vector DB / AI** switch in the sample below.
+
+## Parameters
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `store` | string | Name of the target store. |
+| `inputs` | list of entries | Each entry is a `StoreKey` (vector, length must equal the store's dimension) and a `StoreValue` (map of [metadata](/docs/concepts/metadata) predicates). |
+| `schema` | string · optional | Schema to target. Defaults to `public`. |
+
+> All requests accept an optional `schema` field. When omitted, the server uses the `public` schema.
+
+## Behavior
+
+- If a key already exists, its metadata is **updated**; otherwise a new entry is **inserted**.
+- Every key's vector length must match the store's `dimension`.
+- Insert many entries in a single call by passing multiple `inputs`.
+
+## Sample query
+
+<Tabs groupId="ahnlich-agent">
+<TabItem value="db" label="Database engine">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc import keyval, metadata
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc.db import query as db_query
+
+
+async def set():
+  async with Channel(host="127.0.0.1", port=1369) as channel:
+    client = DbServiceStub(channel)
+
+    store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0, 4.0])
+    store_value = keyval.StoreValue(
+      value={"label": metadata.MetadataValue(raw_string="A")}
+    )
+
+    response = await client.set(
+      db_query.Set(
+        store="my_store",
+        schema="analytics",
+        inputs=[keyval.DbStoreEntry(key=store_key, value=store_value)]
+      )
+    )
+
+if __name__ == "__main__":
+  asyncio.run(set())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createDbClient } from "ahnlich-client-node";
+import { Set } from "ahnlich-client-node/grpc/db/query_pb";
+import { DbStoreEntry, StoreKey, StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+
+async function setEntries() {
+  const client = createDbClient("127.0.0.1:1369");
+
+  await client.set(
+    new Set({
+      store: "my_store",
+      schema: "analytics",
+      inputs: [
+        new DbStoreEntry({
+          key: new StoreKey({ key: [1.0, 2.0, 3.0, 4.0] }),
+          value: new StoreValue({
+            value: {
+              label: new MetadataValue({ value: { case: "rawString", value: "A" } }),
+            },
+          }),
+        }),
+      ],
+    })
+  );
+
+  console.log("Entry inserted successfully");
+}
+
+setEntries();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+
+
+    dbsvc   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+    dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+    keyval  "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+    metadata "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+)
+
+
+const ServerAddr = "127.0.0.1:1369"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+type ExampleDBClient struct {
+    conn   *grpc.ClientConn
+    client dbsvc.DBServiceClient
+    ctx    context.Context
+}
+
+
+func NewDBClient(ctx context.Context) (*ExampleDBClient, error) {
+    conn, err := grpc.NewClient(ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+    if err != nil {
+        return nil, fmt.Errorf("failed to dial DB server %q: %w", ServerAddr, err)
+    }
+    client := dbsvc.NewDBServiceClient(conn)
+    return &ExampleDBClient{conn: conn, client: client, ctx: ctx}, nil
+}
+
+
+func (c *ExampleDBClient) Close() error { return c.conn.Close() }
+
+
+// Set example
+func (c *ExampleDBClient) exampleSet(store string) error {
+    entries := []*keyval.DbStoreEntry{
+        {
+            Key: &keyval.StoreKey{Key: []float32{1, 2, 3, 4}},
+            Value: &keyval.StoreValue{
+                Value: map[string]*metadata.MetadataValue{
+                    "label": {
+                        Value: &metadata.MetadataValue_RawString{RawString: "A"},
+                    },
+                },
+            },
+        },
+    }
+    _, err := c.client.Set(c.ctx, &dbquery.Set{Store: store, Schema: stringPtr("analytics"), Inputs: entries})
+    if err != nil {
+        return err
+    }
+    fmt.Println("Inserted entry into store:", store)
+    return nil
+}
+
+
+func main() {
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+
+    client, err := NewDBClient(ctx)
+    if err != nil {
+        log.Fatalf("Failed to create DB client: %v", err)
+    }
+    defer client.Close()
+
+
+    storeName := "my_store"
+    if err := client.exampleSet(storeName); err != nil {
+        log.Fatalf("Set failed: %v", err)
+    }
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::db::DbClient;
+use ahnlich_types::{
+    db::query::Set,
+    keyval::{DbStoreEntry, StoreKey, StoreValue},
+    metadata::{MetadataValue, metadata_value::Value},
+};
+use std::collections::HashMap;
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Connect to DB server
+    let db_client = DbClient::new("127.0.0.1:1369".to_string()).await?;
+
+
+    let tracing_id: Option<String> = None;
+
+
+    // Construct inputs for the "set"
+    let inputs = vec![DbStoreEntry {
+        key: Some(StoreKey {
+            key: vec![1.0, 2.0, 3.0, 4.0], // must match store dimension
+        }),
+        value: Some(StoreValue {
+            value: HashMap::from_iter([(
+                "label".into(),
+                MetadataValue {
+                    value: Some(Value::RawString("A".into())),
+                },
+            )]),
+        }),
+    }];
+
+
+    let params = Set {
+        store: "my_store".to_string(), // store must already exist
+        schema: Some("analytics".to_string()),
+        inputs,
+    };
+
+
+    // Call set
+    match db_client.set(params, tracing_id).await {
+        Ok(result) => {
+            println!("Set operation result: {:?}", result);
+        }
+        Err(err) => {
+            eprintln!("Error inserting vector: {:?}", err);
+        }
+    }
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+SET (([1.0, 2.0, 3.0, 4.0], {label: A})) IN my_store
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+<TabItem value="ai" label="AI proxy">
+
+<Tabs groupId="ahnlich-lang">
+<TabItem value="python" label="Python">
+
+```python
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc import keyval, metadata
+from ahnlich_client_py.grpc.ai import preprocess
+
+
+async def sets():
+  async with Channel(host="127.0.0.1", port=1370) as channel:
+      client = AiServiceStub(channel)
+      response = await client.set(
+          ai_query.Set(
+              store="my_store",
+              schema="analytics",
+              inputs=[
+                  keyval.AiStoreEntry(
+                      key=keyval.StoreInput(raw_string="Jordan One"),
+                      value=keyval.StoreValue(
+                          value={"brand": metadata.MetadataValue(raw_string="Nike")}
+                      ),
+                  ),
+                  keyval.AiStoreEntry(
+                      key=keyval.StoreInput(raw_string="Yeezey"),
+                      value=keyval.StoreValue(
+                          value={"brand": metadata.MetadataValue(raw_string="Adidas")}
+                      ),
+                  )
+              ],
+              preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+              execution_provider=None,  # Optional: e.g., ExecutionProvider.CUDA for GPU acceleration
+              model_params={}  # Optional: runtime model parameters (e.g., {"confidence_threshold": "0.9"} for face detection)
+          )
+      )
+      print(response) #Set(upsert=StoreUpsert(inserted=2))
+
+
+if __name__ == "__main__":
+  asyncio.run(sets())
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```typescript
+import { createAiClient } from "ahnlich-client-node";
+import { Set } from "ahnlich-client-node/grpc/ai/query_pb";
+import { AiStoreEntry, StoreInput, StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+import { PreprocessAction } from "ahnlich-client-node/grpc/ai/preprocess_pb";
+
+async function setEntries() {
+  const client = createAiClient("127.0.0.1:1370");
+
+  await client.set(
+    new Set({
+      store: "ai_store",
+      schema: "analytics",
+      inputs: [
+        new AiStoreEntry({
+          key: new StoreInput({ value: { case: "rawString", value: "Jordan One" } }),
+          value: new StoreValue({
+            value: {
+              brand: new MetadataValue({ value: { case: "rawString", value: "Nike" } }),
+            },
+          }),
+        }),
+      ],
+      preprocessAction: PreprocessAction.NO_PREPROCESSING,
+    })
+  );
+
+  console.log("Entry inserted successfully");
+}
+
+setEntries();
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+package main
+
+import (
+  "context"
+  "fmt"
+  "log"
+  "time"
+
+
+  "google.golang.org/grpc"
+  "google.golang.org/grpc/credentials/insecure"
+
+
+  aiquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/query"
+  aisvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/ai_service"
+  keyval "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+  metadata "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+  preprocess "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/preprocess"
+)
+
+
+const AIAddr = "127.0.0.1:1370"
+
+
+func stringPtr(value string) *string { return &value }
+
+
+// ---- Standalone Set Example ----
+func main() {
+  ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+  defer cancel()
+
+
+  // connect to AI server
+  conn, err := grpc.DialContext(ctx, AIAddr,
+      grpc.WithTransportCredentials(insecure.NewCredentials()),
+      grpc.WithBlock(),
+  )
+  if err != nil {
+      log.Fatalf(" Failed to connect to AI server: %v", err)
+  }
+  defer conn.Close()
+
+
+  client := aisvc.NewAIServiceClient(conn)
+
+
+  // prepare key/value input
+  inputs := []*keyval.AiStoreEntry{
+      {
+          Key: &keyval.StoreInput{
+              Value: &keyval.StoreInput_RawString{RawString: "X"},
+          },
+          Value: &keyval.StoreValue{
+              Value: map[string]*metadata.MetadataValue{
+                  "f": {Value: &metadata.MetadataValue_RawString{RawString: "v"}},
+              },
+          },
+      },
+  }
+
+
+  // perform Set operation
+  _, err = client.Set(ctx, &aiquery.Set{
+      Store:             "ai_store", // must already exist
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+      Inputs:            inputs,
+      PreprocessAction:  preprocess.PreprocessAction_NoPreprocessing,
+      ExecutionProvider: nil, // Optional: e.g., ExecutionProvider_CUDA for GPU acceleration
+  })
+  if err != nil {
+      log.Fatalf(" Set failed: %v", err)
+  }
+
+
+  fmt.Println(" Successfully inserted key/value into ai_store01")
+}
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+use ahnlich_client_rs::ai::AiClient;
+use ahnlich_client_rs::error::AhnlichError;
+use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::ai::query::Set;
+use ahnlich_types::keyval::{AiStoreEntry, StoreInput, StoreValue};
+use ahnlich_types::keyval::store_input::Value;
+use std::collections::HashMap;
+
+
+#[tokio::main]
+async fn main() -> Result<(), AhnlichError> {
+    // Connect to AI server
+    let addr = "127.0.0.1:1370";
+    let client = AiClient::new(addr.to_string()).await?;
+
+
+    // Prepare data for Set
+    let set_params = Set {
+        store: "Main0".to_string(),
+        schema: Some("analytics".to_string()),
+        execution_provider: None,
+        preprocess_action: PreprocessAction::NoPreprocessing as i32,
+        inputs: vec![
+            AiStoreEntry {
+                key: Some(StoreInput { value: Some(Value::RawString("Adidas Yeezy".into())) }),
+                value: Some(StoreValue { value: HashMap::new() }),
+            },
+            AiStoreEntry {
+                key: Some(StoreInput { value: Some(Value::RawString("Nike Air Jordans".into())) }),
+                value: Some(StoreValue { value: HashMap::new() }),
+            },
+        ],
+        model_params: HashMap::new(),
+    };
+
+
+    // Run the set command
+    let res = client.set(set_params, None).await?;
+    println!("Inserted entries: {:?}", res.upsert);
+
+
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+SET (([This is a sentence], {label: A})) IN my_store PREPROCESSACTION nopreprocessing
+```
+
+</TabItem>
+</Tabs>
+
+</TabItem>
+</Tabs>
+
+## Response
+
+A confirmation response indicating success.
+
+## Related
+
+- [Upsert data](/docs/stores/upsert)
+- [Get by key](/docs/stores/get-key)
+- [Similarity search](/docs/stores/get-simn)

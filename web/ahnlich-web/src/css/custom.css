@@ -235,6 +235,11 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
   height: 100%;
   object-fit: contain;
 }
+.sidebarIcon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 
 /* ==========================================================================
  * Fumadocs-style docs refinements
@@ -243,6 +248,335 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
 /* sticky navbar with a hairline divider */
 .navbar {
   border-bottom: 1px solid var(--ifm-toc-border-color);
+}
+
+/* --------------------------------------------------------------------------
+ * Revamped navbar: brand left · centered search · links right (desktop).
+ * ------------------------------------------------------------------------ */
+@media (min-width: 997px) {
+  .navbar__inner.ahn-navbar-3col {
+    display: grid;
+    grid-template-columns: 1fr minmax(0, 32rem) 1fr;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  .ahn-navbar-3col > .navbar__items:not(.navbar__items--right) {
+    justify-self: start;
+  }
+  .ahn-navbar-3col > .navbar__items--right {
+    justify-self: end;
+  }
+  .ahn-navbar-center {
+    justify-self: center;
+    display: flex;
+    width: 100%;
+    max-width: 30rem;
+    justify-content: center;
+  }
+  .ahn-navbar-center .navbar__search,
+  .ahn-navbar-center [class*='searchBox'] {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+  }
+  /* the search field itself: a refined, centered pill */
+  .ahn-navbar-center .navbar__search-input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 2.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--ifm-toc-border-color);
+    background-color: color-mix(in srgb, var(--ifm-color-content) 4%, var(--ifm-background-color));
+    background-size: 1.05rem;
+    background-position: 1rem center;
+    padding: 0 1rem 0 2.75rem;
+    font-size: 0.9rem;
+    text-align: left;
+    box-shadow: inset 0 1px 2px color-mix(in srgb, var(--ifm-color-content) 6%, transparent);
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      background-color 0.15s ease;
+  }
+  .ahn-navbar-center .navbar__search-input::placeholder {
+    color: var(--ifm-color-content-secondary);
+    opacity: 0.8;
+  }
+  .ahn-navbar-center .navbar__search-input:hover {
+    border-color: color-mix(in srgb, var(--ifm-color-primary) 40%, var(--ifm-toc-border-color));
+    background-color: var(--ifm-background-surface-color);
+  }
+  .ahn-navbar-center .navbar__search-input:focus {
+    outline: none;
+    border-color: var(--ifm-color-primary);
+    background-color: var(--ifm-background-color);
+    box-shadow:
+      0 0 0 3px color-mix(in srgb, var(--ifm-color-primary) 16%, transparent),
+      0 4px 14px -6px color-mix(in srgb, var(--ifm-color-content) 22%, transparent);
+  }
+  /* keyboard-shortcut hint chips (⌘ K) rendered inside the search box */
+  .ahn-navbar-center .navbar__search .search-hint,
+  .ahn-navbar-center kbd {
+    border-radius: 0.35rem;
+    border: 1px solid var(--ifm-toc-border-color);
+    background: var(--ifm-background-surface-color);
+    box-shadow: none;
+    color: var(--ifm-color-content-secondary);
+    font-size: 0.7rem;
+  }
+}
+/* keep the color-mode toggle out of the mobile layout, like the default */
+@media (max-width: 996px) {
+  .ahn-navbar-color-toggle {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Command-palette search — a trigger "button" in the navbar that opens a
+ * centered modal hosting the real search input + results.
+ * ------------------------------------------------------------------------ */
+.ahn-search-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  max-width: 30rem;
+  height: 2.6rem;
+  padding: 0 0.6rem 0 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--ifm-toc-border-color);
+  background: color-mix(in srgb, var(--ifm-color-content) 4%, var(--ifm-background-color));
+  color: var(--ifm-color-content-secondary);
+  cursor: text;
+  font: inherit;
+  font-size: 0.9rem;
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--ifm-color-content) 6%, transparent);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+.ahn-search-trigger:hover {
+  border-color: color-mix(in srgb, var(--ifm-color-primary) 40%, var(--ifm-toc-border-color));
+  background: var(--ifm-background-surface-color);
+}
+.ahn-search-trigger svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: none;
+  opacity: 0.75;
+}
+.ahn-search-trigger__label {
+  flex: 1;
+  text-align: left;
+}
+.ahn-search-trigger__kbd {
+  display: inline-flex;
+  gap: 0.2rem;
+}
+.ahn-search-trigger__kbd kbd {
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 0.35rem;
+  background: var(--ifm-background-surface-color);
+  box-shadow: none;
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.68rem;
+  line-height: 1.4;
+  padding: 0 0.35rem;
+}
+/* On small screens collapse the trigger to a compact icon button. */
+@media (max-width: 996px) {
+  .ahn-search-trigger {
+    width: auto;
+    padding: 0;
+    height: 2.25rem;
+    width: 2.25rem;
+    justify-content: center;
+    border-radius: 0.6rem;
+  }
+  .ahn-search-trigger__label,
+  .ahn-search-trigger__kbd {
+    display: none;
+  }
+}
+
+.ahn-search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 11vh 1rem 2rem;
+  background: color-mix(in srgb, #04101a 55%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: ahn-overlay-in 0.12s ease;
+}
+.ahn-search-modal {
+  position: relative;
+  width: 100%;
+  max-width: 40rem;
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 1rem;
+  box-shadow: 0 24px 70px -12px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  animation: ahn-modal-in 0.15s ease;
+}
+@keyframes ahn-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ahn-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* the real search field, restyled big & borderless inside the modal */
+.ahn-search-modal .navbar__search {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+.ahn-search-modal .navbar__search-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 3.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+  border-radius: 0;
+  background-color: transparent;
+  background-position: 1.15rem center;
+  background-size: 1.2rem;
+  padding: 0 1.25rem 0 3.1rem;
+  font-size: 1.05rem;
+}
+.ahn-search-modal .navbar__search-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+/* results dropdown: fill the modal, flow beneath the input (not floating) */
+.ahn-search-modal .dropdown-menu,
+.ahn-search-modal [class*='searchResult'],
+.ahn-search-modal [class*='dropdown'] {
+  position: static !important;
+  display: block !important;
+  width: 100% !important;
+  max-height: 55vh;
+  overflow-y: auto;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.ahn-search-modal .search-result-match {
+  color: var(--ifm-color-primary);
+  font-weight: 600;
+}
+/* the plugin's inline ⌘K / hint chips are redundant inside the modal */
+.ahn-search-modal [class*='searchHintContainer'],
+.ahn-search-modal [class*='searchHint'] {
+  display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+ * Docs secondary navigation — a horizontal tab bar under the main navbar
+ * (Prisma-docs style). Sticks directly below the navbar as you scroll.
+ * ------------------------------------------------------------------------ */
+:root {
+  --ahn-docsnav-height: 3.25rem;
+}
+.ahn-docsnav {
+  position: sticky;
+  top: var(--ifm-navbar-height);
+  z-index: calc(var(--ifm-z-index-fixed) - 1);
+  background: var(--ifm-navbar-background-color);
+  border-bottom: 1px solid var(--ifm-toc-border-color);
+}
+@media (min-width: 997px) {
+  .ahn-docsnav {
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+  }
+}
+.ahn-docsnav__inner {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  height: var(--ahn-docsnav-height);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ahn-docsnav__inner::-webkit-scrollbar {
+  display: none;
+}
+.ahn-docsnav__tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--ifm-color-content-secondary);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+.ahn-docsnav__tab:hover {
+  color: var(--ifm-color-content);
+  text-decoration: none;
+}
+.ahn-docsnav__tab--active {
+  color: var(--ifm-color-primary);
+  border-bottom-color: var(--ifm-color-primary);
+  font-weight: 600;
+}
+
+/* The sidebar and TOC stick to the navbar by default — push them below the
+   secondary tab bar too so nothing hides behind it on docs pages. */
+.docs-wrapper .theme-doc-sidebar-container {
+  top: calc(var(--ifm-navbar-height) + var(--ahn-docsnav-height));
+}
+@media (min-width: 997px) {
+  /* The sticky sidebar viewport: pin it below the tab bar AND cap its height to
+     the visible area so its own scroll works independently of the page. */
+  .docs-wrapper .theme-doc-sidebar-container > div {
+    top: calc(var(--ifm-navbar-height) + var(--ahn-docsnav-height)) !important;
+    height: calc(100vh - var(--ifm-navbar-height) - var(--ahn-docsnav-height)) !important;
+    max-height: calc(100vh - var(--ifm-navbar-height) - var(--ahn-docsnav-height)) !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  /* The inner sidebar is already offset by the container's `top` — drop the
+     default navbar-height padding and let it grow so the viewport scrolls. */
+  .docs-wrapper .theme-doc-sidebar-container > div > div {
+    padding-top: 0.5rem !important;
+    max-height: none !important;
+    height: auto !important;
+    min-height: 100%;
+  }
+  .docs-wrapper .table-of-contents {
+    top: calc(var(--ifm-navbar-height) + var(--ahn-docsnav-height));
+  }
+  .docs-wrapper .theme-doc-toc-desktop {
+    top: calc(var(--ifm-navbar-height) + var(--ahn-docsnav-height)) !important;
+  }
 }
 .navbar__brand:hover {
   opacity: 0.85;
@@ -266,51 +600,45 @@ html.docs-doc-id-guides\/python .docItemCol_VOVn {
   background: rgba(0, 0, 0, 0.5);
 }
 
-/* Sidebar section headers (non-clickable group labels) */
+/* Sidebar section headers (non-clickable group labels)
+   A refined "eyebrow" label sitting under a full-width divider, with a small
+   accent tick. The divider separates groups; the label names them. */
 .sidebar-section-title {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin: 2.5rem 0 0.85rem;
-  padding: 0 0.7rem;
-  font-size: 0.7rem;
+  gap: 0.5rem;
+  margin: 2rem 0 0.5rem;
+  padding: 1.15rem 0.75rem 0;
+  border-top: 1px solid var(--ifm-toc-border-color);
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--ifm-color-content-secondary);
   cursor: default;
   user-select: none;
 }
-/* small gold dot marker before the label */
+/* short accent tick before the label */
 .sidebar-section-title::before {
   content: "";
   flex: none;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
   background: var(--ifm-color-primary);
-  box-shadow: 0 0 0 3px
-    color-mix(in srgb, var(--ifm-color-primary) 18%, transparent);
 }
-/* hairline that fills the rest of the row, fading out */
-.sidebar-section-title::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    var(--ifm-toc-border-color) 0%,
-    var(--ifm-toc-border-color) 55%,
-    transparent 100%
-  );
+/* first header sits flush at the top — no divider, tight to the navbar */
+.menu .menu__list > .sidebar-section-title:first-child {
+  margin-top: 0.5rem;
+  padding-top: 0;
+  border-top: 0;
 }
-/* first header still gets a clear top margin below the navbar */
-.menu__list > .sidebar-section-title:first-child {
-  margin-top: 1.5rem;
-}
-/* more air before each subsequent section header (Guides, Operations, Project) */
-.sidebar-section-title:not(:first-child) {
-  margin-top: 6.5rem;
+/* Differential spacing: each subsequent section header (Guides, Operations,
+   Project) is pushed well clear of the section above so the groups read as
+   distinct. Higher specificity than .menu__list-item so it actually wins. */
+.menu .sidebar-section-title:not(:first-child) {
+  margin-top: 2rem;
 }
 
 /* Sidebar: rounded pill items, muted labels, gold active bar */
@@ -1231,6 +1559,183 @@ a code {
   margin-bottom: 1.25rem;
 }
 
+/* --------------------------------------------------------------------------
+ * Landing "A simple, intuitive API" editor — strip the nested CodeBlock window
+ * chrome so the swizzled block sits flush inside our single editor frame
+ * (no container-in-a-container, no double traffic lights).
+ * ------------------------------------------------------------------------ */
+.ahn-api-editor .ahn-codeblock,
+.ahn-api-editor .ahn-codeblock div[class^='codeBlockContainer'],
+.ahn-api-editor .ahn-codeblock div[class^='codeBlockContent'],
+.ahn-api-editor .ahn-codeblock pre {
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.ahn-api-editor .ahn-codeblock__header {
+  display: none;
+}
+/* hide the scrollbars inside the editor (still scrollable) */
+.ahn-api-editor,
+.ahn-api-editor pre {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ahn-api-editor::-webkit-scrollbar,
+.ahn-api-editor pre::-webkit-scrollbar {
+  display: none;
+}
+.ahn-api-editor .ahn-codeblock pre {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  font-size: 0.84rem;
+  line-height: 1.7;
+}
+/* line-number gutter blends into the editor surface */
+.ahn-api-editor .ahn-codeblock span[class*='codeLineNumber'] {
+  background: transparent !important;
+  border-right: 0;
+  min-width: 2.2rem;
+  color: #40606e;
+}
+
+/* --------------------------------------------------------------------------
+ * Quickstart chooser cards (docs/getting-started/quickstart)
+ * ------------------------------------------------------------------------ */
+.ahn-qs-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin: 1.75rem 0;
+}
+@media (min-width: 700px) {
+  .ahn-qs-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.ahn-qs-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  border: 1px solid var(--ifm-toc-border-color);
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-content) !important;
+  text-decoration: none !important;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+.ahn-qs-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 14px 34px -14px rgba(0, 0, 0, 0.3);
+}
+.ahn-qs-card--rec {
+  border-color: color-mix(in srgb, var(--ifm-color-primary) 55%, var(--ifm-toc-border-color));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ifm-color-primary) 32%, transparent);
+}
+.ahn-qs-badge {
+  position: absolute;
+  top: 1.1rem;
+  right: 1.1rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ifm-color-primary);
+  background: color-mix(in srgb, var(--ifm-color-primary) 14%, transparent);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+.ahn-qs-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  color: var(--ifm-color-primary);
+  background: color-mix(in srgb, var(--ifm-color-primary) 12%, transparent);
+}
+.ahn-qs-icon svg {
+  width: 24px;
+  height: 24px;
+}
+.ahn-qs-title {
+  margin: 0.35rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.ahn-qs-desc {
+  margin: 0;
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+.ahn-qs-start {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: var(--ifm-color-primary);
+}
+.ahn-qs-start svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.15s ease;
+}
+.ahn-qs-card:hover .ahn-qs-start svg {
+  transform: translateX(3px);
+}
+
+/* --------------------------------------------------------------------------
+ * GitHub repo card — top of the docs sidebar.
+ * ------------------------------------------------------------------------ */
+.ahn-repo-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.75rem 0.75rem 0.25rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: 0.7rem;
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-content) !important;
+  text-decoration: none !important;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.ahn-repo-card:hover {
+  border-color: var(--ifm-color-primary);
+  background: color-mix(in srgb, var(--ifm-color-primary) 6%, var(--ifm-background-surface-color));
+}
+.ahn-repo-card__top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ahn-repo-card__name {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+.ahn-repo-card__stats {
+  display: flex;
+  gap: 1.1rem;
+  color: var(--ifm-color-content-secondary);
+  font-size: 0.82rem;
+}
+.ahn-repo-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 /* ---- Landing page modern flourishes ---- */
 @keyframes ahn-blob {
   0%,
@@ -1262,6 +1767,13 @@ a code {
   animation: ahn-fade-up 0.7s ease both;
 }
 
+/* Funky display face for the homepage hero tagline. */
+.ahn-hero-title {
+  font-family: 'Unbounded', var(--ifm-font-family-base);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
 @keyframes ahn-grid-pan {
   from {
     background-position: 0 0;
@@ -1271,11 +1783,16 @@ a code {
   }
 }
 .ahn-grid {
+  /* blue-tinted lines in light mode; faint white in dark mode (set below) */
+  --ahn-grid-line: rgba(37, 99, 235, 0.08);
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    linear-gradient(var(--ahn-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--ahn-grid-line) 1px, transparent 1px);
   background-size: 40px 40px;
   animation: ahn-grid-pan 6s linear infinite;
+}
+[data-theme="dark"] .ahn-grid {
+  --ahn-grid-line: rgba(255, 255, 255, 0.06);
 }
 
 @keyframes ahn-code-swap {

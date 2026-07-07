@@ -84,7 +84,7 @@ Creates a new vector store within the Ahnlich DB service. A store is the primary
 
 
 ## Usage considerations
-* Use `List Stores` after creation to verify that the store has been registered successfully. The response includes the non-linear index configurations (HNSW parameters, k-d tree) for each store.
+* Use `List Stores` after creation to verify that the store has been registered successfully. The response includes the non-linear index configurations (HNSW parameters) for each store.
 
 * Stores are persistent until explicitly removed using `Drop Store`.
 
