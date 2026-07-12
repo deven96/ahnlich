@@ -55,6 +55,8 @@ pulp = "0.21.4"
 smallvec = "1.13"
 openraft = { version = "0.9", features = ["serde", "storage-v2"] }
 bitcode = { version = "0.6", features = ["serde"] }
+tikv-jemallocator = { version = "0.7", features = ["override_allocator_on_supported_platforms", "background_threads", "profiling", "stats"] }
+tikv-jemalloc-ctl = { version = "0.7", features = ["stats"] }
 
 [profile.release]
 lto = true

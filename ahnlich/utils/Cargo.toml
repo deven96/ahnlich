@@ -3,11 +3,7 @@ name = "utils"
 version = "0.0.0"
 edition = "2024"
 
-[features]
-dhat-heap = ["dhat"]
-
 [dependencies]
-dhat = { version = "0.3", optional = true }
 ahnlich_types = { path = "../types", version = "*"  }
 task-manager = { path = "../task-manager", version = "*" }
 tracing.workspace = true
@@ -22,6 +18,8 @@ tempfile = "3.5"
 serde_json.workspace = true
 log.workspace = true
 cap = "0.1.2"
+tikv-jemallocator.workspace = true
+tikv-jemalloc-ctl.workspace = true
 tokio-util.workspace = true
 fallible_collections.workspace = true
 rayon.workspace = true

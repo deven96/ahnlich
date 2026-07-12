@@ -38,23 +38,14 @@ where
     }
 }
 
-// When dhat-heap feature is enabled, use dhat's global allocator for memory profiling
-#[cfg(feature = "dhat-heap")]
 #[global_allocator]
-pub static GLOBAL_ALLOCATOR: dhat::Alloc = dhat::Alloc;
+pub static GLOBAL_ALLOCATOR: AhnlichAllocator<tikv_jemallocator::Jemalloc> =
+    AhnlichAllocator::new(tikv_jemallocator::Jemalloc, usize::MAX);
 
-// Otherwise, use the custom AhnlichAllocator
-#[cfg(not(feature = "dhat-heap"))]
-#[global_allocator]
-pub static GLOBAL_ALLOCATOR: AhnlichAllocator<alloc::System> =
-    AhnlichAllocator::new(alloc::System, usize::MAX);
-
-#[cfg(not(feature = "dhat-heap"))]
 pub fn check_memory_available(estimated_bytes: usize) -> Result<(), AllocationError> {
     let current = GLOBAL_ALLOCATOR.allocated();
     let limit = GLOBAL_ALLOCATOR.limit();
 
-    // Add 10% safety margin to account for allocation overhead
     let needed = estimated_bytes + (estimated_bytes / 10);
 
     if current + needed > limit {
@@ -64,11 +55,6 @@ pub fn check_memory_available(estimated_bytes: usize) -> Result<(), AllocationEr
         });
     }
 
-    Ok(())
-}
-
-#[cfg(feature = "dhat-heap")]
-pub fn check_memory_available(_estimated_bytes: usize) -> Result<(), AllocationError> {
     Ok(())
 }
 
