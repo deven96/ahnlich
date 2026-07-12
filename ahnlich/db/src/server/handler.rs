@@ -30,7 +30,6 @@ use task_manager::BlockingTask;
 use task_manager::TaskManager;
 
 use tokio_util::sync::CancellationToken;
-#[cfg(not(feature = "dhat-heap"))]
 use utils::allocator::GLOBAL_ALLOCATOR;
 use utils::auth::{AuthConfig, AuthInterceptor, load_tls_config};
 use utils::connection_layer::trace_with_parent;
@@ -463,11 +462,6 @@ impl DbService for Server {
     ) -> std::result::Result<tonic::Response<server::InfoServer>, tonic::Status> {
         let version = env!("CARGO_PKG_VERSION").to_string();
 
-        // When using dhat-heap profiling, report 0 for limit/remaining as dhat::Alloc doesn't track these
-        #[cfg(feature = "dhat-heap")]
-        let (limit, remaining) = (0, 0);
-
-        #[cfg(not(feature = "dhat-heap"))]
         let (limit, remaining) = (
             GLOBAL_ALLOCATOR.limit() as u64,
             GLOBAL_ALLOCATOR.remaining() as u64,

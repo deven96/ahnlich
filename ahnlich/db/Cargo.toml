@@ -3,9 +3,6 @@ name = "db"
 version = "0.3.0"
 edition = "2024"
 
-[features]
-dhat-heap = ["utils/dhat-heap"]
-
 [[bin]]
 name = "ahnlich-db"
 path = "src/main.rs"
@@ -54,11 +51,11 @@ pretty_assertions.workspace = true
 criterion = "0.4"
 rand.workspace = true
 fastrand = "1.9"
-dhat = "0.3"
 rcgen = "0.13"
 tempfile = "3"
 ahnlich_client_rs = { path = "../client", version = "*" }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+tikv-jemalloc-ctl.workspace = true
 
 [[bench]]
 name = "database"
@@ -70,4 +67,8 @@ harness = false
 
 [[bench]]
 name = "persistence"
+harness = false
+
+[[bench]]
+name = "linear_analysis"
 harness = false
