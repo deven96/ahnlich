@@ -68,7 +68,7 @@ dependencies = [
 
 [[package]]
 name = "ahnlich_client_rs"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "ahnlich_types",
  "ai",
@@ -110,7 +110,7 @@ dependencies = [
 
 [[package]]
 name = "ahnlich_types"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "ascii85",
  "prost 0.13.5",

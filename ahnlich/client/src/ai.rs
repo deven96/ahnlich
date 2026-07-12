@@ -3,9 +3,9 @@ use ahnlich_types::{
         pipeline::{AiQuery, AiRequestPipeline, AiResponsePipeline, ai_query::Query},
         query::{
             ConvertStoreInputToEmbeddings, CreateNonLinearAlgorithmIndex, CreatePredIndex,
-            CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropStore,
-            GetKey, GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping,
-            PurgeStores, Set, Upsert,
+            CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema,
+            DropStore, GetKey, GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores,
+            Ping, PurgeStores, Set, Upsert,
         },
         server::{
             AiStoreInfo, ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong,
@@ -93,6 +93,10 @@ impl AiPipeline {
 
     pub fn drop_store(&mut self, params: DropStore) {
         self.queries.push(Query::DropStore(params));
+    }
+
+    pub fn drop_schema(&mut self, params: DropSchema) {
+        self.queries.push(Query::DropSchema(params));
     }
 
     pub fn info_server(&mut self) {
@@ -345,6 +349,22 @@ impl AiClient {
         Ok(self.client.clone().drop_store(req).await?.into_inner())
     }
 
+    /// Drops a schema and every store in it, on both the AI proxy and the DB.
+    ///
+    /// `deleted_count` is the number of stores removed from the proxy. Dropping a
+    /// schema that does not exist is not an error and returns 0. The `public` schema
+    /// cannot be dropped.
+    pub async fn drop_schema(
+        &self,
+        params: DropSchema,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
+        Ok(self.client.clone().drop_schema(req).await?.into_inner())
+    }
+
     pub async fn list_clients(
         &self,
         tracing_id: Option<String>,
@@ -501,12 +521,19 @@ mod test {
     async fn provision_test_servers_with_models(
         supported_models: Vec<SupportedModels>,
     ) -> SocketAddr {
+        provision_test_servers_with_db(supported_models).await.0
+    }
+
+    /// Also hands back the DB address, for assertions on what the proxy forwarded.
+    async fn provision_test_servers_with_db(
+        supported_models: Vec<SupportedModels>,
+    ) -> (SocketAddr, SocketAddr) {
         let server = Server::new(&CONFIG)
             .await
             .expect("Could not initialize server");
-        let db_port = server.local_addr().unwrap().port();
+        let db_address = server.local_addr().expect("Could not get local addr");
         let mut config = test_ai_config(supported_models);
-        config.db_port = db_port;
+        config.db_port = db_address.port();
 
         let ai_server = AIProxyServer::new(config)
             .await
@@ -519,7 +546,7 @@ mod test {
         // Allow some time for the servers to start
         tokio::time::sleep(Duration::from_millis(200)).await;
 
-        ai_address
+        (ai_address, db_address)
     }
 
     #[tokio::test]
@@ -554,6 +581,93 @@ mod test {
 
         let res = pipeline.exec().await.expect("Could not execute pipeline");
         assert_eq!(res, expected);
+    }
+
+    #[tokio::test]
+    async fn test_drop_schema() {
+        let (ai_address, db_address) =
+            provision_test_servers_with_db(vec![SupportedModels::AllMiniLML6V2]).await;
+        let ai_client = AiClient::new(ai_address.to_string())
+            .await
+            .expect("Could not initialize client");
+        let db_client = crate::db::DbClient::new(db_address.to_string())
+            .await
+            .expect("Could not initialize db client");
+
+        let schema = "tobedropped".to_string();
+
+        for store in ["Main", "Main2"] {
+            ai_client
+                .create_store(
+                    CreateStore {
+                        store: store.to_string(),
+                        index_model: AiModel::AllMiniLmL6V2 as i32,
+                        query_model: AiModel::AllMiniLmL6V2 as i32,
+                        predicates: vec![],
+                        non_linear_indices: vec![],
+                        error_if_exists: true,
+                        store_original: true,
+                        schema: Some(schema.clone()),
+                    },
+                    None,
+                )
+                .await
+                .expect("Could not create store");
+        }
+
+        assert_eq!(
+            ai_client
+                .drop_schema(
+                    DropSchema {
+                        schema: schema.clone(),
+                    },
+                    None,
+                )
+                .await
+                .expect("Could not drop schema"),
+            Del { deleted_count: 2 }
+        );
+
+        // The proxy keeps a store registry of its own, so both sides have to be gone:
+        // dropping only the DB would leave the proxy still listing the stores, and
+        // dropping only the proxy would strand them in the DB.
+        assert!(
+            ai_client
+                .list_stores_with_schema(Some(schema.clone()), None)
+                .await
+                .expect("Could not list stores")
+                .stores
+                .is_empty()
+        );
+        assert!(
+            db_client
+                .list_stores_with_schema(Some(schema), None)
+                .await
+                .expect("Could not list db stores")
+                .stores
+                .is_empty()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_drop_schema_that_does_not_exist_is_not_an_error() {
+        let address = provision_test_servers().await;
+        let ai_client = AiClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+
+        assert_eq!(
+            ai_client
+                .drop_schema(
+                    DropSchema {
+                        schema: "neverexisted".to_string(),
+                    },
+                    None,
+                )
+                .await
+                .expect("Dropping an absent schema should succeed"),
+            Del { deleted_count: 0 }
+        );
     }
 
     #[tokio::test]
