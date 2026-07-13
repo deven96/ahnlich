@@ -37,7 +37,7 @@ pub trait NonLinearAlgorithmWithIndexImpl: DeserializeOwned {
         &self,
         reference_point: &[f32],
         n: NonZeroUsize,
-        accept_list: Option<HashSet<EmbeddingKey>>,
+        accept_list: Option<HashSet<u64>>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, error::Error>;
     // size of index structure
     fn size(&self) -> usize;

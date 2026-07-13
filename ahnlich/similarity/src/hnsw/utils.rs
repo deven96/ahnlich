@@ -21,7 +21,7 @@ impl NonLinearAlgorithmWithIndexImpl for HNSW<LinearAlgorithm> {
         &self,
         reference_point: &[f32],
         n: NonZeroUsize,
-        accept_list: Option<HashSet<EmbeddingKey>>,
+        accept_list: Option<HashSet<u64>>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
         self.n_nearest(reference_point, n, accept_list)
     }

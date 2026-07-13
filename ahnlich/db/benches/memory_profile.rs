@@ -25,7 +25,7 @@ fn main() {
 
     println!("=== Memory Usage Profiling ===");
     println!("Measuring memory patterns under different workloads\n");
-    
+
     // Helper to print current memory stats
     let print_stats = |label: &str| {
         epoch::mib().unwrap().advance().unwrap();
@@ -37,46 +37,53 @@ fn main() {
         println!("  Resident:  {} MB", resident / 1_048_576);
         println!("  Active:    {} MB\n", active / 1_048_576);
     };
-    
+
     print_stats("Baseline");
-    
+
     println!("\n>>> Testing memory usage with ONE persistent store...\n");
-    
+
     // Create ONE handler that stays alive throughout all tests
     let handler = initialize_store_handler();
     print_stats("After creating StoreHandler");
-    
+
     // Test 1: Batch insertion with NO index
     let store1 = "store_no_index";
     println!(">>> Inserting 10k vectors (1024-dim) WITHOUT HNSW index...");
     insert_vectors(&handler, store1, 10000, 1024, vec![], false);
     print_stats("After 10k vectors (NO index)");
-    
+
     // Test 2: Batch insertion WITH HNSW index
     let store2 = "store_with_hnsw";
     println!(">>> Inserting 10k vectors (1024-dim) WITH HNSW index...");
     insert_vectors(&handler, store2, 10000, 1024, vec![], true);
     print_stats("After 10k vectors (WITH HNSW index)");
-    
+
     // Test 3: Store with predicate index
     let store3 = "store_with_predicate";
     println!(">>> Inserting 10k vectors WITH predicate index...");
-    insert_vectors(&handler, store3, 10000, 1024, vec!["category".to_string()], true);
+    insert_vectors(
+        &handler,
+        store3,
+        10000,
+        1024,
+        vec!["category".to_string()],
+        true,
+    );
     print_stats("After 10k vectors (WITH predicate index)");
-    
+
     // Test 4: Run similarity queries
     println!(">>> Running 1000 similarity queries...");
     run_similarity_queries(&handler, store2, 1000, 1024);
     print_stats("After 1000 similarity queries");
-    
-    // Test 5: Run predicate queries  
+
+    // Test 5: Run predicate queries
     println!(">>> Running 1000 predicate queries...");
     run_predicate_queries(&handler, store3, 1000);
     print_stats("After 1000 predicate queries");
-    
+
     // Keep handler alive to see final memory
     std::mem::forget(handler);
-    
+
     println!("\n>>> Expected memory breakdown:");
     println!("  10k vectors (1024-dim): ~40 MB (theoretical minimum)");
     println!("  Per store overhead: ~5-10 MB");
@@ -115,7 +122,7 @@ fn insert_vectors(
         .map(|i| {
             let random_array: Vec<f32> = (0..dimension).map(|_| rand::random()).collect();
             let mut metadata = HashMap::new();
-            
+
             // Add metadata for predicate testing
             if i % 3 == 0 {
                 metadata.insert(
@@ -127,7 +134,7 @@ fn insert_vectors(
                     },
                 );
             }
-            
+
             (
                 StoreKey { key: random_array },
                 StoreValue { value: metadata },
@@ -172,11 +179,7 @@ fn run_similarity_queries(
     }
 }
 
-fn run_predicate_queries(
-    handler: &Arc<StoreHandler>,
-    store_name: &str,
-    num_queries: usize,
-) {
+fn run_predicate_queries(handler: &Arc<StoreHandler>, store_name: &str, num_queries: usize) {
     let condition = PredicateCondition {
         kind: Some(ahnlich_types::predicates::predicate_condition::Kind::Value(
             Predicate {

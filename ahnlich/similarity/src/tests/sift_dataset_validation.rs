@@ -123,7 +123,7 @@ fn test_hnsw_recall_sift10k() {
 fn recall_experiment(#[case] config: ExperimentConfig) {
     let dataset = load_dataset();
 
-    let recall = compute_recall_for_config(&dataset, config.hnsw.clone(), K);
+    let recall = compute_recall_for_config(&dataset, config.hnsw, K);
 
     println!(
         "M={}, ef_construction={}, ef_search={}, recall={:.4}",

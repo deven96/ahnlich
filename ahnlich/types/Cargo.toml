@@ -16,6 +16,7 @@ prost.workspace = true
 prost-types = "0.13"
 serde.workspace = true
 ascii85 = "0.2.1"
+ahash.workspace = true
 
 
 [build-dependencies]
