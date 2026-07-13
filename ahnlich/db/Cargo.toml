@@ -68,7 +68,3 @@ harness = false
 [[bench]]
 name = "persistence"
 harness = false
-
-[[bench]]
-name = "linear_analysis"
-harness = false

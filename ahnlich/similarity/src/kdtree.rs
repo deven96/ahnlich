@@ -228,7 +228,7 @@ struct NearestRecuriveArgs<'a> {
     n: NonZeroUsize,
     guard: &'a Guard,
     heap: &'a mut BinaryHeap<Reverse<OrderedArray>>,
-    accept_list: &'a Option<HashSet<EmbeddingKey>>,
+    accept_list: &'a Option<HashSet<u64>>,
 }
 
 impl KDTree {
@@ -434,12 +434,10 @@ impl KDTree {
     }
 
     #[tracing::instrument(skip_all)]
-    fn is_in_accept_list(
-        accept_list: &Option<HashSet<EmbeddingKey>>,
-        point: &EmbeddingKey,
-    ) -> bool {
+    fn is_in_accept_list(accept_list: &Option<HashSet<u64>>, point: &EmbeddingKey) -> bool {
         if let Some(accept_list) = accept_list {
-            return accept_list.contains(point);
+            let point_id = ahnlich_types::utils::hash_f32_vec(&point.0);
+            return accept_list.contains(&point_id);
         }
         true
     }
@@ -583,7 +581,7 @@ impl NonLinearAlgorithmWithIndexImpl for KDTree {
         &self,
         reference_point: &[f32],
         n: NonZeroUsize,
-        accept_list: Option<HashSet<EmbeddingKey>>,
+        accept_list: Option<HashSet<u64>>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
         self.assert_shape(reference_point)?;
         let guard = epoch::pin();
@@ -629,7 +627,6 @@ mod tests {
         );
         let handlers = (0..3).map(|_| {
             let tree = kdtree.clone();
-            let dimension = dimension.clone();
             std::thread::spawn(move || {
                 let random = (0..dimension).map(|_| rand::random()).collect::<Vec<f32>>();
                 tree.insert(random)
@@ -640,12 +637,12 @@ mod tests {
             let _ = handler.join().unwrap();
         }
 
-        let res = kdtree.n_nearest(&vec![1.0, 2.0], NonZeroUsize::new(5).unwrap(), None);
+        let res = kdtree.n_nearest(&[1.0, 2.0], NonZeroUsize::new(5).unwrap(), None);
         // should error as dimension does not match
         assert!(res.is_err());
         let res = kdtree
             .n_nearest(
-                &vec![1.0, 2.0, 3.0, 4.0, 5.0],
+                &[1.0, 2.0, 3.0, 4.0, 5.0],
                 NonZeroUsize::new(5).unwrap(),
                 None,
             )
@@ -667,19 +664,13 @@ mod tests {
         kdtree.insert(vec![1.3, 2.1, 3.2]).unwrap();
 
         // Exact matches
-        let res = kdtree
-            .n_nearest(&vec![1.0, 2.0, 3.0], closest_n, None)
-            .unwrap();
+        let res = kdtree.n_nearest(&[1.0, 2.0, 3.0], closest_n, None).unwrap();
         assert_eq!(res, vec![(EmbeddingKey::new(vec![1.0, 2.0, 3.0]), 0.0)]);
-        let res = kdtree
-            .n_nearest(&vec![1.3, 2.1, 3.2], closest_n, None)
-            .unwrap();
+        let res = kdtree.n_nearest(&[1.3, 2.1, 3.2], closest_n, None).unwrap();
         assert_eq!(res, vec![(EmbeddingKey::new(vec![1.3, 2.1, 3.2]), 0.0)]);
 
         // Close matches
-        let res = kdtree
-            .n_nearest(&vec![1.3, 2.1, 3.0], closest_n, None)
-            .unwrap();
+        let res = kdtree.n_nearest(&[1.3, 2.1, 3.0], closest_n, None).unwrap();
         assert_eq!(
             res,
             vec![(EmbeddingKey::new(vec![1.3, 2.1, 3.2]), 0.040000018)]
@@ -687,7 +678,7 @@ mod tests {
 
         // check insertion length remained 4 despite 4 inserts
         let res = kdtree
-            .n_nearest(&vec![1.3, 2.1, 3.2], NonZeroUsize::new(5).unwrap(), None)
+            .n_nearest(&[1.3, 2.1, 3.2], NonZeroUsize::new(5).unwrap(), None)
             .unwrap();
         assert_eq!(res.len(), 4);
     }
@@ -731,11 +722,11 @@ mod tests {
         // Exact matches
         let res = kdtree
             .n_nearest(
-                &vec![0.9, 2.0, 3.0],
+                &[0.9, 2.0, 3.0],
                 closest_n,
                 Some(HashSet::from_iter([
-                    EmbeddingKey::new(arr_1.clone()),
-                    EmbeddingKey::new(arr_2.clone()),
+                    ahnlich_types::utils::hash_f32_vec(&arr_1),
+                    ahnlich_types::utils::hash_f32_vec(&arr_2),
                 ])),
             )
             .unwrap();
@@ -762,9 +753,7 @@ mod tests {
         let kdtree: KDTree = serde_json::from_str(&serialized).unwrap();
         let closest_n = NonZeroUsize::new(1).unwrap();
         // Exact matches
-        let res = kdtree
-            .n_nearest(&vec![0.9, 2.0, 3.0], closest_n, None)
-            .unwrap();
+        let res = kdtree.n_nearest(&[0.9, 2.0, 3.0], closest_n, None).unwrap();
         assert_eq!(res, vec![(EmbeddingKey::new(vec![0.9, 2.0, 3.0]), 0.0)]);
     }
 
@@ -785,12 +774,10 @@ mod tests {
         kdtree.insert(key4.clone()).unwrap();
 
         // Exact matches
-        let res = kdtree
-            .n_nearest(&vec![0.9, 2.0, 3.0], closest_n, None)
-            .unwrap();
+        let res = kdtree.n_nearest(&[0.9, 2.0, 3.0], closest_n, None).unwrap();
         assert_eq!(res, vec![(key2.clone(), 0.0)]);
         let res = kdtree
-            .n_nearest(&vec![0.9, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
+            .n_nearest(&[0.9, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         assert_eq!(res.len(), 4);
 
@@ -799,7 +786,7 @@ mod tests {
         let res = kdtree.delete(&nonexistent).unwrap();
         assert!(res.is_none());
         let res = kdtree
-            .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
+            .n_nearest(&[1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size remains the same as nothing was deleted
         assert_eq!(res.len(), 4);
@@ -808,7 +795,7 @@ mod tests {
         let res = kdtree.delete(&key2).unwrap().unwrap();
         assert_eq!(res, key2);
         let res = kdtree
-            .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
+            .n_nearest(&[1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size changes but only one node got removed
         assert_eq!(
@@ -823,7 +810,7 @@ mod tests {
         let res = kdtree.delete(&key4).unwrap().unwrap();
         assert_eq!(res, key4);
         let res = kdtree
-            .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
+            .n_nearest(&[1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size changes but only one node got removed
         assert_eq!(res, vec![(key1.clone(), 0.0), (key3.clone(), 0.010000004),]);
@@ -831,7 +818,7 @@ mod tests {
         let res = kdtree.delete(&key1).unwrap().unwrap();
         assert_eq!(res, key1);
         let res = kdtree
-            .n_nearest(&vec![1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
+            .n_nearest(&[1.0, 2.0, 3.0], NonZeroUsize::new(4).unwrap(), None)
             .unwrap();
         // ensure size changes but only one node got removed
         assert_eq!(res, vec![(key3, 0.010000004)]);

@@ -14,6 +14,9 @@ use crate::metadata::metadata_value::Value as MetadataValueInner;
 use crate::predicates::{AndCondition, Equals, In, NotEquals, NotIn, OrCondition};
 use crate::shared::info::StoreUpsert;
 
+pub mod store_key_id;
+pub use store_key_id::{StoreKeyId, hash_f32_vec};
+
 impl TryFrom<StoreInput> for MetadataValue {
     type Error = String;
     fn try_from(input: StoreInput) -> Result<Self, Self::Error> {

@@ -218,7 +218,7 @@ impl<D: DistanceFn> HNSW<D> {
         &self,
         reference_point: &[f32],
         n: NonZeroUsize,
-        accept_list: Option<std::collections::HashSet<EmbeddingKey>>,
+        accept_list: Option<std::collections::HashSet<u64>>,
     ) -> Result<Vec<(EmbeddingKey, f32)>, Error> {
         if matches!(accept_list.as_ref(), Some(a) if a.is_empty()) {
             return Ok(vec![]);
@@ -244,7 +244,7 @@ impl<D: DistanceFn> HNSW<D> {
                 let key = node.value.clone();
                 // Filter by accept_list if provided
                 if let Some(ref accept) = accept_list
-                    && !accept.contains(&key)
+                    && !accept.contains(&node_id.0)
                 {
                     continue;
                 }
@@ -743,7 +743,7 @@ impl<D: DistanceFn> HNSW<D> {
     /// Get a node by NodeId (cloned from the concurrent map)
     fn get_node(&self, id: &NodeId) -> Option<Node> {
         let nodes = self.nodes.pin();
-        nodes.get(id).map(|n| n.clone())
+        nodes.get(id).cloned()
     }
 }
 
@@ -940,7 +940,7 @@ pub fn brute_knn(query: &Node, data: &[Node], k: usize) -> Vec<(NodeId, f32)> {
     data.iter()
         .map(|n| {
             (
-                n.id.clone(),
+                n.id,
                 LinearAlgorithm::EuclideanDistance
                     .distance(n.value.as_slice(), query.value.as_slice()),
             )
@@ -978,7 +978,7 @@ mod tests {
         let graph = hnsw.graph.pin();
         assert_eq!(hnsw.nodes.pin().len(), 1, "Nodes size does not match");
         let (_, node_hashset) = graph.iter().next().unwrap();
-        assert_eq!(node_hashset.clone(), HashSet::from_iter([node_id.clone()]));
+        assert_eq!(node_hashset.clone(), HashSet::from_iter([node_id]));
         let node = hnsw.get_node(&node_id).unwrap();
 
         assert!(node.neighbours.pin().is_empty());
@@ -1037,7 +1037,7 @@ mod tests {
 
         for id in &ids {
             hnsw.insert_node(Node {
-                id: id.clone(),
+                id: *id,
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
                 back_links: HashSet::new(),
@@ -1084,7 +1084,7 @@ mod tests {
         let b = NodeId(20);
 
         hnsw.insert_node(Node {
-            id: a.clone(),
+            id: a,
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
@@ -1092,7 +1092,7 @@ mod tests {
         .unwrap();
 
         hnsw.insert_node(Node {
-            id: b.clone(),
+            id: b,
             value: EmbeddingKey::new(vec![10.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
@@ -1101,7 +1101,7 @@ mod tests {
 
         let node_id = NodeId(99);
         let query_node = Node {
-            id: node_id.clone(),
+            id: node_id,
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
@@ -1119,7 +1119,7 @@ mod tests {
         let b = NodeId(20);
 
         hnsw.insert_node(Node {
-            id: a.clone(),
+            id: a,
             value: EmbeddingKey::new(vec![0.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
@@ -1127,7 +1127,7 @@ mod tests {
         .unwrap();
 
         hnsw.insert_node(Node {
-            id: b.clone(),
+            id: b,
             value: EmbeddingKey::new(vec![1.0]),
             neighbours: HashMap::new(),
             back_links: HashSet::new(),
@@ -1157,7 +1157,7 @@ mod tests {
 
         for id in &ids {
             hnsw.insert_node(Node {
-                id: id.clone(),
+                id: *id,
                 value: EmbeddingKey::new(vec![0.0]),
                 neighbours: HashMap::new(),
                 back_links: HashSet::new(),

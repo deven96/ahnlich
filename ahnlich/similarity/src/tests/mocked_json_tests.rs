@@ -253,7 +253,8 @@ fn load_synthetic_dataset(size: usize) -> HashMap<String, Node> {
         _ => panic!("Unsupported dataset size"),
     };
 
-    let data = std::fs::read_to_string(filename).expect(&format!("Failed to load {}", filename));
+    let data =
+        std::fs::read_to_string(filename).unwrap_or_else(|_| panic!("Failed to load {}", filename));
     let json: HashMap<String, Vec<f32>> =
         serde_json::from_str(&data).expect("Failed to parse JSON");
 
@@ -299,11 +300,11 @@ fn test_recall_vs_ef_on_realistic_dataset() {
             hnsw.insert(&embeddings).unwrap();
 
             // Brute force ground truth
-            let brute = brute_knn(&query_node, &nodes, k);
+            let brute = brute_knn(query_node, &nodes, k);
 
             // HNSW search
             let ann_ids: Vec<_> = hnsw
-                .knn_search(&query_node, k, Some(ef))
+                .knn_search(query_node, k, Some(ef))
                 .expect("HNSW search failed");
 
             // Calculate recall
@@ -359,9 +360,9 @@ fn test_recall_vs_ef_on_large_dataset() {
             let hnsw = HNSW::default();
             hnsw.insert(&embeddings).unwrap();
 
-            let brute = brute_knn(&query_node, &nodes, k);
+            let brute = brute_knn(query_node, &nodes, k);
             let ann_ids: Vec<_> = hnsw
-                .knn_search(&query_node, k, Some(ef))
+                .knn_search(query_node, k, Some(ef))
                 .expect("HNSW search failed");
 
             let overlap: usize = brute.iter().filter(|(id, _)| ann_ids.contains(id)).count();

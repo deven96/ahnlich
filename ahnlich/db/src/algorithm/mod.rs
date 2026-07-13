@@ -12,7 +12,7 @@ use heap::{BoundedMaxHeap, BoundedMinHeap, HeapOrder};
 use rayon::iter::ParallelIterator;
 
 use self::similarity::SimilarityFunc;
-use crate::engine::store::StoreKeyId;
+use ahnlich_types::utils::StoreKeyId;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) enum AlgorithmByType {
@@ -74,7 +74,7 @@ pub(crate) trait FindSimilarN {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &EmbeddingKey,
-        search_list: impl ParallelIterator<Item = &'a EmbeddingKey>,
+        search_list: impl ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)>;
@@ -85,7 +85,7 @@ impl FindSimilarN for LinearAlgorithm {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &EmbeddingKey,
-        search_list: impl ParallelIterator<Item = &'a EmbeddingKey>,
+        search_list: impl ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)> {
@@ -98,13 +98,12 @@ impl FindSimilarN for LinearAlgorithm {
                 let bounded_heap = search_list
                     .fold(
                         || BoundedMinHeap::new(n),
-                        |mut heap, second_vector| {
+                        |mut heap, (key_id, second_vector)| {
                             let similarity = similarity_function(
                                 search_vector.as_slice(),
                                 second_vector.as_slice(),
                             );
-                            let key_id = StoreKeyId::from(second_vector);
-                            let heap_value: SimilarityVector = (key_id, similarity).into();
+                            let heap_value: SimilarityVector = (*key_id, similarity).into();
                             heap.push(heap_value);
                             heap
                         },
@@ -130,13 +129,12 @@ impl FindSimilarN for LinearAlgorithm {
                 let bounded_heap = search_list
                     .fold(
                         || BoundedMaxHeap::new(n),
-                        |mut heap, second_vector| {
+                        |mut heap, (key_id, second_vector)| {
                             let similarity = similarity_function(
                                 search_vector.as_slice(),
                                 second_vector.as_slice(),
                             );
-                            let key_id = StoreKeyId::from(second_vector);
-                            let heap_value: SimilarityVector = (key_id, similarity).into();
+                            let heap_value: SimilarityVector = (*key_id, similarity).into();
                             heap.push(heap_value);
                             heap
                         },
@@ -223,6 +221,7 @@ mod tests {
     use rayon::iter::IntoParallelRefIterator;
 
     use super::*;
+    use crate::engine::store::embedding_key_to_id;
     use crate::tests::*;
     use ahnlich_types::keyval::StoreKey;
 
@@ -247,12 +246,18 @@ mod tests {
         // Build a mapping from StoreKeyId to EmbeddingKey for test verification
         let key_map: std::collections::HashMap<StoreKeyId, &EmbeddingKey> = search_list
             .iter()
-            .map(|key| (StoreKeyId::from(key), key))
+            .map(|key| (embedding_key_to_id(key), key))
+            .collect();
+
+        // Convert to (StoreKeyId, EmbeddingKey) pairs for the new signature
+        let search_with_ids: Vec<_> = search_list
+            .iter()
+            .map(|key| (embedding_key_to_id(key), key))
             .collect();
 
         let similar_n_search = cosine_algorithm.find_similar_n(
             &first_embedding,
-            search_list.par_iter(),
+            search_with_ids.par_iter().map(|(id, key)| (id, *key)),
             false,
             NonZeroUsize::new(no_similar_values).unwrap(),
         );

@@ -73,7 +73,7 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
     async fn start(self) -> IoResult<()> {
         let global_allocator_cap = self.config().allocator_size;
         let service_name = self.config().service_name;
-        
+
         GLOBAL_ALLOCATOR
             .set_limit(global_allocator_cap)
             .unwrap_or_else(|_| panic!("Could not set up {service_name} with allocator_size"));
