@@ -42,7 +42,7 @@ fn compute_recall_for_config(dataset: &AnnDataset, config: HNSWConfig, k: usize)
     for (query_idx, query_vec) in dataset.sift_query.iter().enumerate() {
         let query_node = Node::new(EmbeddingKey::new(query_vec.clone()));
 
-        let ann_ids = hnsw.knn_search(&query_node, K, Some(16)).unwrap();
+        let ann_ids = hnsw.knn_search(&query_node, K, Some(16), None).unwrap();
 
         let true_neighbors = &dataset.ground_truth[query_idx];
 

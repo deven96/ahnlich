@@ -22,6 +22,11 @@ use std::{
     sync::atomic::{AtomicU8, Ordering},
 };
 
+/// Below this many accepted vectors, a filtered search scans the accepted set directly
+/// instead of traversing the graph. At this size an exact SIMD scan costs less than a
+/// graph walk that cannot fill `ef` and therefore keeps widening.
+const BRUTE_FORCE_ACCEPT_LIST_THRESHOLD: usize = 4096;
+
 /// Wrapper around papaya `HashMap::new()` that forces immediate allocation
 /// inside `catch_unwind` to surface initialization panics at construction time
 /// rather than on the first insert.
@@ -224,15 +229,21 @@ impl<D: DistanceFn> HNSW<D> {
             return Ok(vec![]);
         }
 
-        // When accept_list is provided, search for more candidates to account for filtering
-        let search_k = match accept_list {
-            Some(ref list) => n.get().max(list.len()),
-            None => n.get(),
-        };
+        // Highly selective predicate: scanning the matched vectors directly is both cheaper
+        // and exact. Graph traversal degenerates here — with few acceptable nodes the search
+        // cannot fill `ef` and keeps widening, approaching a full traversal for a handful of
+        // results. Below the threshold a linear scan is strictly the better plan.
+        if let Some(ref accept) = accept_list
+            && accept.len() <= BRUTE_FORCE_ACCEPT_LIST_THRESHOLD
+        {
+            return Ok(self.brute_force_accept_list(reference_point, n, accept));
+        }
 
         let query = Node::new(EmbeddingKey::new(reference_point.to_vec()));
-        // knn_search returns results in ascending distance order
-        let result_ids = self.knn_search(&query, search_k, None)?;
+        // `k` is what the caller asked for. It is NOT derived from the size of the filter:
+        // the filter is applied during traversal (see search_layer), so no over-search is
+        // needed to compensate for post-filtering.
+        let result_ids = self.knn_search(&query, n.get(), None, accept_list.as_ref())?;
 
         let nodes_guard = self.nodes.pin();
         let mut results: Vec<(EmbeddingKey, f32)> = Vec::with_capacity(n.get());
@@ -242,13 +253,6 @@ impl<D: DistanceFn> HNSW<D> {
             }
             if let Some(node) = nodes_guard.get(&node_id) {
                 let key = node.value.clone();
-                // Filter by accept_list if provided
-                if let Some(ref accept) = accept_list
-                    && !accept.contains(&node_id.0)
-                {
-                    continue;
-                }
-
                 let distance = self
                     .distance_algorithm
                     .distance(reference_point, key.as_slice());
@@ -257,6 +261,37 @@ impl<D: DistanceFn> HNSW<D> {
         }
 
         Ok(results)
+    }
+
+    /// Exact nearest-neighbour scan restricted to `accept`, used when the predicate is
+    /// selective enough that touching the graph is not worth it.
+    fn brute_force_accept_list(
+        &self,
+        reference_point: &[f32],
+        n: NonZeroUsize,
+        accept: &std::collections::HashSet<u64>,
+    ) -> Vec<(EmbeddingKey, f32)> {
+        let nodes_guard = self.nodes.pin();
+        let mut scored: Vec<(NodeId, EmbeddingKey, f32)> = accept
+            .iter()
+            .filter_map(|id| nodes_guard.get(&NodeId(*id)))
+            .map(|node| {
+                let key = node.value.clone();
+                let distance = self
+                    .distance_algorithm
+                    .distance(reference_point, key.as_slice());
+                (node.id, key, distance)
+            })
+            .collect();
+
+        // Ties break on NodeId, not on HashSet iteration order, so replicas agree.
+        // NodeId is a content hash, so this ordering is stable across processes and restarts.
+        scored.sort_by(|(id_a, _, a), (id_b, _, b)| a.total_cmp(b).then(id_a.0.cmp(&id_b.0)));
+        scored.truncate(n.get());
+        scored
+            .into_iter()
+            .map(|(_, key, distance)| (key, distance))
+            .collect()
     }
 
     /// Insert a new element into the HNSW graph
@@ -288,6 +323,7 @@ impl<D: DistanceFn> HNSW<D> {
                 &enter_point,
                 inital_ef,
                 &LayerIndex(level_current as u16),
+                None,
             )?;
 
             // NOTE: get the nearest element from W to q
@@ -312,8 +348,13 @@ impl<D: DistanceFn> HNSW<D> {
             let layer_index = LayerIndex(level_current as u16);
 
             // NOTE: W = search-layer(q, ep, efConstruction, lc)
-            let nearest_neighbours =
-                self.search_layer(&value, &enter_point, self.ef_construction, &layer_index)?;
+            let nearest_neighbours = self.search_layer(
+                &value,
+                &enter_point,
+                self.ef_construction,
+                &layer_index,
+                None,
+            )?;
 
             // Select M neighbors for the new node at this layer
             // (Algorithm 1: neighbors = SELECT-NEIGHBORS(q, W, M, lc))
@@ -429,15 +470,24 @@ impl<D: DistanceFn> HNSW<D> {
 
     /// Search for ef nearest neighbours in a specific layer
     /// Corresponds to Algorithm 2 (SEARCH-LAYER)
+    ///
+    /// `accept_list`, when supplied, restricts which nodes may enter the result set `W`.
+    /// Rejected nodes are still traversed *through* (they stay in the candidate set `C`),
+    /// because the graph's navigability depends on them as stepping stones — dropping them
+    /// from `C` would disconnect the search. This is "in-filtering": the paper's Algorithm 2
+    /// is unchanged except for which nodes are admitted to `W`.
     pub fn search_layer(
         &self,
         query: &Node,
         entry_points: &[NodeId],
         ef: usize,
         layer: &LayerIndex,
+        accept_list: Option<&std::collections::HashSet<u64>>,
     ) -> Result<Vec<NodeId>, Error> {
         let nodes = self.nodes.pin();
         let mut visited_items: NodeIdHashSet = entry_points.iter().copied().collect();
+
+        let is_accepted = |id: &NodeId| accept_list.is_none_or(|accept| accept.contains(&id.0));
 
         // C - candidates (min heap via Reverse: smallest distance pops first)
         let mut candidates = MinHeapQueue::from_nodes(
@@ -450,6 +500,10 @@ impl<D: DistanceFn> HNSW<D> {
         let ef_nonzero = NonZeroUsize::new(ef).unwrap_or(NonZeroUsize::new(1).unwrap());
         let mut nearest_neighbours: BoundedMinHeap<OrderedNode> = BoundedMinHeap::new(ef_nonzero);
         for node in entry_points.iter().filter_map(|id| nodes.get(id)) {
+            // Entry points navigate regardless, but only enter W if they satisfy the filter.
+            if !is_accepted(&node.id) {
+                continue;
+            }
             let distance = self
                 .distance_algorithm
                 .distance(node.value.as_slice(), query.value.as_slice());
@@ -460,8 +514,13 @@ impl<D: DistanceFn> HNSW<D> {
             let OrderedNode((nearest_id, nearest_dist)) =
                 candidates.pop().ok_or(Error::QueueEmpty)?;
 
-            // Check stopping condition: if candidate is further than worst in nearest_neighbours
-            if let Some(OrderedNode((_, furthest_dist))) = nearest_neighbours.peek()
+            // Stop only once W is FULL and the next candidate is worse than W's furthest.
+            // The `len() >= ef` guard matters: W holds only accepted nodes, so under a
+            // filter it fills slowly. Breaking while W is still under-full would abandon
+            // the search early and return fewer than `ef` results — the unfiltered path
+            // never noticed because W fills immediately when everything is accepted.
+            if nearest_neighbours.len() >= ef
+                && let Some(OrderedNode((_, furthest_dist))) = nearest_neighbours.peek()
                 && nearest_dist > *furthest_dist
             {
                 break;
@@ -488,17 +547,25 @@ impl<D: DistanceFn> HNSW<D> {
                         .distance_algorithm
                         .distance(neighbour_node.value.as_slice(), query.value.as_slice());
 
-                    // Add if better than worst in nearest_neighbours OR if we haven't filled ef yet
-                    let should_add =
+                    // Explore if better than worst in W, OR if we haven't filled ef yet.
+                    // Note W only ever holds accepted nodes, so when a filter is active and
+                    // few nodes are accepted, W stays under ef and the search keeps widening
+                    // until it has found ef acceptable nodes or exhausted the candidates.
+                    let should_explore =
                         if let Some(OrderedNode((_, worst_dist))) = nearest_neighbours.peek() {
                             neighbour_dist < *worst_dist || nearest_neighbours.len() < ef
                         } else {
                             true
                         };
 
-                    if should_add {
+                    if should_explore {
+                        // Always traverse through the node...
                         candidates.push(neighbour_node);
-                        nearest_neighbours.push(OrderedNode((neighbour_node.id, neighbour_dist)));
+                        // ...but only return it if it satisfies the filter.
+                        if is_accepted(neighbour_id) {
+                            nearest_neighbours
+                                .push(OrderedNode((neighbour_node.id, neighbour_dist)));
+                        }
                     }
                 }
             }
@@ -638,6 +705,7 @@ impl<D: DistanceFn> HNSW<D> {
         query: &Node,
         k: usize,
         ef: Option<usize>,
+        accept_list: Option<&std::collections::HashSet<u64>>,
     ) -> Result<Vec<NodeId>, Error> {
         let nodes = self.nodes.pin();
         let valid_len = NonZeroUsize::new(k).expect("K should be a non zero number");
@@ -656,7 +724,9 @@ impl<D: DistanceFn> HNSW<D> {
         for level_current in (1..=ep_level).rev() {
             let layer = LayerIndex(level_current as u16);
 
-            let searched = self.search_layer(query, &enter_point, 1, &layer)?;
+            // Upper layers are navigation only (ef=1 greedy descent). Filtering here would
+            // strand the descent on a non-matching entry point, so it stays unfiltered.
+            let searched = self.search_layer(query, &enter_point, 1, &layer, None)?;
 
             let ep = MinHeapQueue::from_nodes(
                 searched.iter().filter_map(|id| nodes.get(id)),
@@ -669,7 +739,8 @@ impl<D: DistanceFn> HNSW<D> {
             enter_point = smallvec![ep];
         }
 
-        let level_zero = self.search_layer(query, &enter_point, ef, &LayerIndex(0))?;
+        // Layer 0 is where results are collected, so this is the only layer that filters.
+        let level_zero = self.search_layer(query, &enter_point, ef, &LayerIndex(0), accept_list)?;
         let mut current_nearest_elements = MinHeapQueue::from_nodes(
             level_zero.iter().filter_map(|id| nodes.get(id)),
             query,
@@ -1107,7 +1178,7 @@ mod tests {
             back_links: HashSet::new(),
         };
 
-        let res = hnsw.knn_search(&query_node, 1, Some(10)).unwrap();
+        let res = hnsw.knn_search(&query_node, 1, Some(10), None).unwrap();
         assert_eq!(res[0], a);
     }
 
