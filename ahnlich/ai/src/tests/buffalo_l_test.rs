@@ -25,6 +25,12 @@ use ahnlich_types::{
     services::ai_service::ai_service_client::AiServiceClient,
 };
 
+/// Two shots of one person clear this. Expect ~0.75 in practice.
+const SAME_PERSON_MIN: f32 = 0.5;
+
+/// Two different people stay under this. Expect ~0.0 in practice.
+const DIFFERENT_PERSON_MAX: f32 = 0.3;
+
 /// Returns optimized model parameters for face detection tests.
 /// Uses confidence=0.7 and NMS=0.2 for consistent test results.
 fn optimized_face_params() -> HashMap<String, String> {
@@ -573,12 +579,10 @@ async fn test_buffalo_l_get_sim_n() {
                 second_similarity < top_similarity,
                 "Second result should have lower similarity than identical face"
             );
-            // Different faces should have significantly lower similarity (typically < 0.6)
-            // Allow small margin for edge cases where similarity is right at threshold
+            // A different person scores around 0.0, not "a bit less than 1.0".
             assert!(
-                second_similarity <= 0.71,
-                "Different faces should have lower similarity (≤0.71), got: {}",
-                second_similarity
+                second_similarity < DIFFERENT_PERSON_MAX,
+                "A different person should score < {DIFFERENT_PERSON_MAX}, got: {second_similarity}",
             );
         }
     } else {
@@ -2134,4 +2138,113 @@ async fn test_buffalo_l_genderage_opt_in() {
         "✓ Values: female={:.3}, male={:.3}, age={}",
         female_prob, male_prob, age
     );
+}
+
+#[tokio::test]
+async fn test_buffalo_l_embeddings_discriminate_faces() {
+    // Index the 6 faces of faces_multiple.jpg, then query with a crop of one of them. The
+    // crop must match the face it came from and nobody else: if what reaches the
+    // recognition model is not really a face, every face resembles every other one.
+    let ai_address = provision_test_servers().await;
+    let channel =
+        Channel::from_shared(format!("http://{}", ai_address)).expect("Failed to create channel");
+    let mut client = AiServiceClient::connect(channel)
+        .await
+        .expect("Failed to connect to server");
+
+    let store_name = "buffalo_l_discrimination".to_string();
+    let group = include_bytes!("../../test_data/faces_multiple.jpg").to_vec();
+    let one_face = include_bytes!("../../test_data/face_from_group.jpg").to_vec();
+
+    let create_store = ai_pipeline::AiQuery {
+        query: Some(Query::CreateStore(ai_query_types::CreateStore {
+            store: store_name.clone(),
+            query_model: AiModel::BuffaloL.into(),
+            index_model: AiModel::BuffaloL.into(),
+            predicates: vec![],
+            non_linear_indices: vec![],
+            error_if_exists: true,
+            store_original: false,
+            schema: None,
+        })),
+    };
+
+    let set = ai_pipeline::AiQuery {
+        query: Some(Query::Set(ai_query_types::Set {
+            store: store_name.clone(),
+            inputs: vec![AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Image(group)),
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::from([(
+                        "source".to_string(),
+                        MetadataValue {
+                            value: Some(metadata_value::Value::RawString("group".to_string())),
+                        },
+                    )]),
+                }),
+            }],
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: optimized_face_params(),
+            schema: None,
+        })),
+    };
+
+    let query = ai_pipeline::AiQuery {
+        query: Some(Query::GetSimN(ai_query_types::GetSimN {
+            store: store_name.clone(),
+            search_input: Some(StoreInput {
+                value: Some(Value::Image(one_face)),
+            }),
+            condition: None,
+            closest_n: 6,
+            algorithm: Algorithm::CosineSimilarity.into(),
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: optimized_face_params(),
+            schema: None,
+        })),
+    };
+
+    let response = client
+        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
+            queries: vec![create_store, set, query],
+        }))
+        .await
+        .expect("Failed to execute pipeline");
+
+    let responses = response.into_inner().responses;
+
+    let Some(ai_pipeline::AiServerResponse {
+        response: Some(ai_pipeline::ai_server_response::Response::GetSimN(result)),
+    }) = responses.get(2)
+    else {
+        panic!("Expected GetSimN response, got: {:?}", responses.get(2));
+    };
+
+    let scores: Vec<f32> = result
+        .entries
+        .iter()
+        .map(|e| e.similarity.as_ref().expect("similarity").value)
+        .collect();
+
+    assert!(
+        scores.len() >= 2,
+        "Expected the group's faces, got {scores:?}"
+    );
+
+    assert!(
+        scores[0] > SAME_PERSON_MIN,
+        "The same person should score > {SAME_PERSON_MIN}, got {} (all: {scores:?})",
+        scores[0],
+    );
+
+    for (i, &other) in scores.iter().enumerate().skip(1) {
+        assert!(
+            other < DIFFERENT_PERSON_MAX,
+            "Face {i} is a different person and should score < {DIFFERENT_PERSON_MAX}, got {other} (all: {scores:?})",
+        );
+    }
 }
