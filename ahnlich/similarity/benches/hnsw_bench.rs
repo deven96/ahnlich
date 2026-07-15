@@ -161,7 +161,8 @@ fn bench_search_varying_k(c: &mut Criterion) {
     for k in [1, 10, 50] {
         group.bench_with_input(BenchmarkId::new("k", k), &k, |b, &k| {
             b.iter(|| {
-                hnsw.knn_search(black_box(&query), k, Some(100)).unwrap();
+                hnsw.knn_search(black_box(&query), k, Some(100), None)
+                    .unwrap();
             });
         });
     }
@@ -188,7 +189,8 @@ fn bench_search_varying_ef(c: &mut Criterion) {
     for ef in [16, 50, 100, 200] {
         group.bench_with_input(BenchmarkId::new("ef", ef), &ef, |b, &ef| {
             b.iter(|| {
-                hnsw.knn_search(black_box(&query), 10, Some(ef)).unwrap();
+                hnsw.knn_search(black_box(&query), 10, Some(ef), None)
+                    .unwrap();
             });
         });
     }
@@ -210,7 +212,8 @@ fn bench_search_batch_queries(c: &mut Criterion) {
     c.bench_function("search/batch_100_queries_k10_ef100", |b| {
         b.iter(|| {
             for query in &queries {
-                hnsw.knn_search(black_box(query), 10, Some(100)).unwrap();
+                hnsw.knn_search(black_box(query), 10, Some(100), None)
+                    .unwrap();
             }
         });
     });
@@ -246,7 +249,7 @@ fn bench_concurrent_search(c: &mut Criterion) {
                             let hnsw = Arc::clone(&hnsw);
                             let query = queries[t % queries.len()].clone();
                             thread::spawn(move || {
-                                hnsw.knn_search(&query, 10, Some(100)).unwrap();
+                                hnsw.knn_search(&query, 10, Some(100), None).unwrap();
                             })
                         })
                         .collect();
