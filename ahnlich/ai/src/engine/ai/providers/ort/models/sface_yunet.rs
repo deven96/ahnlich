@@ -2,7 +2,7 @@ use super::super::InnerAIExecutionProvider;
 use super::super::executor::ExecutorWithSessionCache;
 use super::super::inference_model::ORTInferenceModel;
 use super::bbox_utils::apply_letterbox_correction;
-use super::face_align::{FaceDetection, apply_nms, crop_and_align_faces};
+use super::face::align::{FaceDetection, apply_nms, crop_and_align_faces};
 use crate::engine::ai::models::{ModelInput, ModelResponse};
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
@@ -76,9 +76,13 @@ impl ORTInferenceModel for SfaceYunetModel {
         let _model_params = model_params.clone();
         Box::pin(async move {
             match input {
-                ModelInput::Images(images) => {
-                    self.detect_and_recognize_batch(images, _execution_provider, &_model_params)
-                        .await
+                ModelInput::Images(batch) => {
+                    self.detect_and_recognize_batch(
+                        batch.tensor,
+                        _execution_provider,
+                        &_model_params,
+                    )
+                    .await
                 }
                 ModelInput::Texts(_) | ModelInput::Audios(_) => {
                     Err(AIProxyError::AIModelNotSupported {
@@ -127,13 +131,12 @@ impl SfaceYunetModel {
                 continue;
             }
 
-            let cropped_faces = crop_and_align_faces(&detections, single_image)?;
+            let aligned = crop_and_align_faces(&detections, single_image);
 
-            let num_faces = cropped_faces.shape()[0];
-            face_counts.push(num_faces);
+            face_counts.push(aligned.len());
 
-            for (face_idx, detection) in detections.iter().enumerate().take(num_faces) {
-                all_cropped_faces.push(cropped_faces.slice(s![face_idx, .., .., ..]).to_owned());
+            for (face_idx, detection) in aligned.faces.iter().enumerate() {
+                all_cropped_faces.push(aligned.crops.slice(s![face_idx, .., .., ..]).to_owned());
                 all_detections.push(detection.clone());
             }
         }

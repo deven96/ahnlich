@@ -7,7 +7,7 @@
 //! Wrong landmarks fail silently, since the counts come from the boxes but the recognition
 //! crop comes from the landmarks. `test_buffalo_l_embeddings_discriminate_faces` catches it.
 
-use super::face_align::FaceDetection;
+use super::align::FaceDetection;
 use crate::error::AIProxyError;
 use ndarray::{ArrayView, IxDyn};
 

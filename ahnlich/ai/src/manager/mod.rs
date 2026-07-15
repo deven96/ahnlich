@@ -7,7 +7,7 @@ use crate::engine::ai::models::{ImageArray, InputAction, ModelResponse};
 /// The ModelManager is a wrapper around all the AI models running on various green threads. It
 /// lets AIProxyTasks communicate with any model to receive immediate responses via a oneshot
 /// channel
-use crate::engine::ai::models::{Model, ModelInput};
+use crate::engine::ai::models::{ImageBatch, Model, ModelInput};
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::processors::imagearray_to_ndarray::ImageArrayToNdArray;
 use crate::engine::ai::providers::processors::{Preprocessor, PreprocessorData};
@@ -123,24 +123,49 @@ impl ModelThread {
                 Ok(ModelInput::Texts(output))
             }
             Value::Image(_) => {
-                if self.enable_streaming {
+                let wants_originals = self.model.needs_original_images();
+
+                // Streaming decodes in chunks to bound peak memory; only decode the whole
+                // batch up front when it will be preprocessed as one.
+                if self.enable_streaming && !wants_originals {
                     let batch_size = self.model.batch_size();
-                    let output =
+                    let tensor =
                         self.preprocess_images_chunked(inputs, process_action, batch_size)?;
-                    Ok(ModelInput::Images(output))
-                } else {
-                    let image_arrays = inputs
-                        .par_iter()
-                        .filter_map(|input| match &input.value {
-                            Some(Value::Image(image_bytes)) => {
-                                Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
-                            }
-                            _ => None,
-                        })
-                        .collect();
-                    let output = self.preprocess_image(image_arrays, process_action)?;
-                    Ok(ModelInput::Images(output))
+                    return Ok(ModelInput::Images(ImageBatch {
+                        tensor,
+                        originals: Vec::new(),
+                    }));
                 }
+
+                let image_arrays: Vec<ImageArray> = inputs
+                    .par_iter()
+                    .filter_map(|input| match &input.value {
+                        Some(Value::Image(image_bytes)) => {
+                            Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
+                        }
+                        _ => None,
+                    })
+                    .collect();
+
+                // Recognition keeps the decoded originals, which are large. Fail cleanly on
+                // a pathological batch rather than let the clone OOM the shared server.
+                let originals = if wants_originals {
+                    let bytes: usize = image_arrays
+                        .iter()
+                        .map(|a| {
+                            let (w, h) = a.image().dimensions();
+                            w as usize * h as usize * 3
+                        })
+                        .sum();
+                    utils::allocator::check_memory_available(bytes)
+                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
+                    image_arrays.clone()
+                } else {
+                    Vec::new()
+                };
+                let tensor = self.preprocess_image(image_arrays, process_action)?;
+
+                Ok(ModelInput::Images(ImageBatch { tensor, originals }))
             }
             Value::Audio(_) => {
                 let audio_bytes: Vec<Vec<u8>> = inputs

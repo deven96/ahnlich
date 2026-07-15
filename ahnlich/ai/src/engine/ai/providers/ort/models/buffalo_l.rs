@@ -2,15 +2,15 @@ use super::super::InnerAIExecutionProvider;
 use super::super::executor::ExecutorWithSessionCache;
 use super::super::inference_model::ORTInferenceModel;
 use super::bbox_utils::apply_letterbox_correction;
-use super::face_align::{FaceDetection, apply_nms, crop_and_align_faces};
-use super::scrfd;
-use crate::engine::ai::models::{ModelInput, ModelResponse};
+use super::face::align::{FaceDetection, apply_nms, crop_and_align_from_original};
+use super::face::{detect, recognize};
+use crate::engine::ai::models::{ImageBatch, ModelInput, ModelResponse};
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
 use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::metadata::MetadataValue;
 use hf_hub::api::sync::Api;
-use ndarray::{Array, Axis, Ix2, Ix3, Ix4, s};
+use ndarray::{Array, Axis, Ix3, Ix4, s};
 use ort::Session;
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -28,7 +28,7 @@ pub(crate) struct BuffaloLModel {
     recognition_cache: ExecutorWithSessionCache,
     genderage_cache: ExecutorWithSessionCache,
     model_batch_size: usize,
-    anchors: Vec<scrfd::Anchor>,
+    anchors: Vec<detect::Anchor>,
 }
 
 impl BuffaloLModel {
@@ -66,7 +66,7 @@ impl BuffaloLModel {
 
         tracing::info!("Loaded gender/age model for BuffaloL");
 
-        let anchors = scrfd::generate_anchors();
+        let anchors = detect::generate_anchors();
 
         Ok(Box::new(Self {
             detection_cache: det_cache,
@@ -108,10 +108,10 @@ impl ORTInferenceModel for BuffaloLModel {
 
 impl BuffaloLModel {
     /// Detection is per image; recognition is one batched pass over every face found.
-    #[tracing::instrument(skip(self, images))]
+    #[tracing::instrument(skip(self, batch))]
     async fn detect_and_recognize_batch(
         &self,
-        images: Array<f32, Ix4>,
+        batch: ImageBatch,
         execution_provider: Option<AIExecutionProvider>,
         model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<ModelResponse>, AIProxyError> {
@@ -127,6 +127,11 @@ impl BuffaloLModel {
         let det_session = self.detection_cache.try_get_with(exec_prov).await?;
         let rec_session = self.recognition_cache.try_get_with(exec_prov).await?;
 
+        let ImageBatch {
+            tensor: images,
+            originals,
+        } = batch;
+
         let batch_size = images.shape()[0];
         let mut all_cropped_faces: Vec<Array<f32, Ix3>> = Vec::new();
         let mut all_detections: Vec<FaceDetection> = Vec::new();
@@ -135,7 +140,6 @@ impl BuffaloLModel {
         // Stage 1: Detect and extract faces from each input image
         for image_idx in 0..batch_size {
             let single_image = images.slice(s![image_idx..image_idx + 1, .., .., ..]);
-            tracing::info!("🖼️ Input image shape: {:?}", single_image.shape());
             let detections =
                 self.detect_faces(single_image.to_owned(), &det_session, model_params)?;
 
@@ -144,15 +148,25 @@ impl BuffaloLModel {
                 continue;
             }
 
-            // Crop and align detected faces to canonical pose
-            let cropped_faces = crop_and_align_faces(&detections, single_image)?;
-            let num_faces = cropped_faces.shape()[0];
-            face_counts.push(num_faces);
+            // Cropping from the tensor instead would produce an embedding that is not
+            // comparable with the rest of the store, so a missing original is an error.
+            let original = originals.get(image_idx).ok_or_else(|| {
+                AIProxyError::ModelProviderPreprocessingError(format!(
+                    "image {image_idx} reached recognition without its original pixels"
+                ))
+            })?;
 
-            // Collect all faces for batch recognition
-            for (face_idx, detection) in detections.iter().enumerate().take(num_faces) {
-                all_cropped_faces.push(cropped_faces.slice(s![face_idx, .., .., ..]).to_owned());
-                all_detections.push(detection.clone());
+            let aligned = crop_and_align_from_original(
+                &detections,
+                original.image(),
+                detect::INPUT_SIZE as u32,
+            );
+
+            face_counts.push(aligned.len());
+
+            for (face_idx, face) in aligned.faces.into_iter().enumerate() {
+                all_cropped_faces.push(aligned.crops.slice(s![face_idx, .., .., ..]).to_owned());
+                all_detections.push(face);
             }
         }
 
@@ -185,7 +199,7 @@ impl BuffaloLModel {
                 )
                 .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
 
-                self.recognize_faces(faces_batch, &rec_session)
+                recognize::embed(faces_batch, &rec_session)
             }
         };
 
@@ -241,7 +255,7 @@ impl BuffaloLModel {
                             model_params
                                 .get(&format!("{name}_{image_idx}"))
                                 .and_then(|s| s.parse::<f32>().ok())
-                                .unwrap_or(scrfd::INPUT_SIZE as f32)
+                                .unwrap_or(detect::INPUT_SIZE as f32)
                         };
                         let orig_width = dimension("orig_width");
                         let orig_height = dimension("orig_height");
@@ -251,7 +265,7 @@ impl BuffaloLModel {
                             &detection.bbox,
                             orig_width,
                             orig_height,
-                            scrfd::INPUT_SIZE as f32,
+                            detect::INPUT_SIZE as f32,
                         );
 
                         // Store normalized bounding box coordinates (0-1 range)
@@ -511,37 +525,8 @@ impl BuffaloLModel {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
-        let faces = scrfd::decode(&tensors, &self.anchors, confidence_threshold)?;
+        let faces = detect::decode(&tensors, &self.anchors, confidence_threshold)?;
 
         Ok(apply_nms(faces, nms_threshold))
-    }
-
-    /// Run recognition model on cropped faces
-    #[tracing::instrument(skip(self, faces, session))]
-    fn recognize_faces(
-        &self,
-        faces: Array<f32, Ix4>,
-        session: &Session,
-    ) -> Result<Array<f32, Ix2>, AIProxyError> {
-        // Recognition model expects "input.1" tensor (same as detection)
-        let session_inputs = ort::inputs!["input.1" => faces.view()]
-            .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
-
-        let outputs = session
-            .run(session_inputs)
-            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
-
-        // Extract embeddings from output
-        let embeddings = outputs[0]
-            .try_extract_tensor::<f32>()
-            .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
-
-        let shape = embeddings.shape();
-        let embedding_array = embeddings
-            .to_owned()
-            .into_shape_with_order((shape[0], shape[1]))
-            .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
-
-        Ok(embedding_array)
     }
 }

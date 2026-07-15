@@ -16,8 +16,9 @@ use fast_image_resize::Resizer;
 use fast_image_resize::images::Image;
 use fast_image_resize::images::ImageRef;
 use image::ImageReader;
-use image::RgbImage;
 use image::imageops;
+use image::metadata::Orientation;
+use image::{ImageDecoder, RgbImage};
 use ndarray::{Array, Ix3};
 use ndarray::{ArrayView, Ix4};
 use nonzero_ext::nonzero;
@@ -333,6 +334,14 @@ impl Model {
         self.model_details.model_name()
     }
 
+    /// BuffaloL detects on the tensor but crops for recognition from the original.
+    pub fn needs_original_images(&self) -> bool {
+        matches!(
+            self.model_details.supported_model,
+            SupportedModels::BuffaloL
+        )
+    }
+
     /// Returns the batch size used for inference
     /// This is used for chunking inputs during preprocessing to reduce memory usage
     pub fn batch_size(&self) -> usize {
@@ -385,9 +394,20 @@ impl fmt::Display for InputAction {
 #[derive(Debug)]
 pub enum ModelInput {
     Texts(Vec<Encoding>),
-    Images(Array<f32, Ix4>),
+    Images(ImageBatch),
     /// CLAP-ready log-Mel spectrogram features for a batch of audio clips
     Audios(AudioInput),
+}
+
+/// A preprocessed batch, and the images it was made from.
+///
+/// Face recognition crops from `originals`: the tensor is a letterbox of them, in which a
+/// face that is small in frame has lost the detail recognition needs. Empty for every other
+/// model.
+#[derive(Debug)]
+pub struct ImageBatch {
+    pub tensor: Array<f32, Ix4>,
+    pub originals: Vec<ImageArray>,
 }
 
 #[derive(Debug)]
@@ -434,7 +454,7 @@ impl TryFrom<ImageArray> for OnnxTransformResult {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImageArray {
     image: RgbImage,
 }
@@ -448,12 +468,22 @@ impl TryFrom<&[u8]> for ImageArray {
             .with_guessed_format()
             .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
 
+        // Honor EXIF orientation. A phone camera writes portrait JPEGs with upright pixels
+        // and an orientation tag; decoders ignore the tag, so the face reaches the detector
+        // sideways and is missed. Read the tag, then rotate the pixels to match. Images with
+        // no tag (e.g. re-encoded through a canvas) report NoTransforms and are untouched.
+        let mut decoder = img_reader
+            .into_decoder()
+            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
+        let orientation = decoder.orientation().unwrap_or(Orientation::NoTransforms);
+
+        let mut image = image::DynamicImage::from_decoder(decoder)
+            .map_err(|_| AIProxyError::ImageBytesDecodeError)?;
+        image.apply_orientation(orientation);
+
         // Always convert to RGB8 format
         // https://github.com/Anush008/fastembed-rs/blob/cea92b6c8b877efda762393848d1c449a4eea126/src/image_embedding/utils.rs#L198
-        let image = img_reader
-            .decode()
-            .map_err(|_| AIProxyError::ImageBytesDecodeError)?
-            .into_rgb8();
+        let image = image.into_rgb8();
 
         let (width, height) = image.dimensions();
 
@@ -480,6 +510,10 @@ impl ImageArray {
     }
 
     #[tracing::instrument(skip(self))]
+    pub fn image(&self) -> &RgbImage {
+        &self.image
+    }
+
     pub fn resize(
         &mut self,
         width: u32,
@@ -518,16 +552,21 @@ impl ImageArray {
     ) -> Result<(Self, f32, u32, u32), AIProxyError> {
         let (src_width, src_height) = self.image.dimensions();
 
-        // Calculate scale to fit image inside target while preserving aspect ratio
-        let scale =
-            (target_width as f32 / src_width as f32).min(target_height as f32 / src_height as f32);
-
-        let scaled_width = (src_width as f32 * scale) as u32;
-        let scaled_height = (src_height as f32 * scale) as u32;
-
-        // Calculate offset to center the scaled image
-        let offset_x = (target_width - scaled_width) / 2;
-        let offset_y = (target_height - scaled_height) / 2;
+        debug_assert_eq!(
+            target_width, target_height,
+            "letterbox_params assumes a square target"
+        );
+        let geometry = crate::engine::ai::providers::ort::models::face::letterbox::params(
+            src_width,
+            src_height,
+            target_width,
+        );
+        let (scale, scaled_width, scaled_height) = (
+            geometry.scale,
+            geometry.scaled_width,
+            geometry.scaled_height,
+        );
+        let (offset_x, offset_y) = (geometry.offset_x as u32, geometry.offset_y as u32);
 
         // First, resize to scaled dimensions
         let mut dest_image = Image::new(scaled_width, scaled_height, PixelType::U8x3);
@@ -580,5 +619,26 @@ impl From<&ModelInput> for AiStoreInputType {
             ModelInput::Images(_) => AiStoreInputType::Image,
             ModelInput::Audios(_) => AiStoreInputType::Audio,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A portrait photo is stored with sideways pixels and an orientation tag; the decode
+    /// must apply the tag, or the face reaches the detector rotated and is missed.
+    #[test]
+    fn decoding_applies_exif_orientation() {
+        // 40x20 pixels, tag 6 = "rotate 90 to view", so upright is 20x40.
+        let bytes = include_bytes!("../../../test_data/portrait_exif_orientation.jpg");
+        let image = ImageArray::try_from(bytes.as_slice()).unwrap();
+
+        let (width, height) = image.image().dimensions();
+        assert_eq!(
+            (width, height),
+            (20, 40),
+            "expected the sideways pixels to be rotated upright"
+        );
     }
 }

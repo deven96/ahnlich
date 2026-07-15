@@ -332,9 +332,12 @@ impl SingleStageModel {
         match input {
             ModelInput::Images(images) => {
                 let mut store_keys: Vec<ModelResponse> =
-                    FallibleVec::try_with_capacity(images.len())?;
+                    FallibleVec::try_with_capacity(images.tensor.len())?;
 
-                for batch_image in images.axis_chunks_iter(Axis(0), self.model_batch_size) {
+                for batch_image in images
+                    .tensor
+                    .axis_chunks_iter(Axis(0), self.model_batch_size)
+                {
                     let embeddings =
                         self.batch_inference_image(batch_image.to_owned(), &session)?;
 

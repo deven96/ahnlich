@@ -1,7 +1,7 @@
 mod executor;
 pub(crate) mod helper;
 mod inference_model;
-mod models;
+pub(crate) mod models;
 mod single_stage;
 
 use inference_model::{ORTInferenceModel, ORTModality};

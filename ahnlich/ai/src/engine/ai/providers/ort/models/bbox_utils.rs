@@ -29,16 +29,11 @@ pub fn apply_letterbox_correction(
     orig_height: f32,
     img_size: f32,
 ) -> NormalizedBBox {
-    // Calculate letterbox parameters
-    // The image was resized to img_size x img_size with letterboxing (black bars) to preserve aspect ratio
-    // IMPORTANT: Use integer math to match the preprocessing code exactly
-    let scale = (img_size / orig_width).min(img_size / orig_height);
-    let scaled_width_int = (orig_width * scale) as u32;
-    let scaled_height_int = (orig_height * scale) as u32;
-    let scaled_width = scaled_width_int as f32;
-    let scaled_height = scaled_height_int as f32;
-    let offset_x = ((img_size as u32 - scaled_width_int) / 2) as f32;
-    let offset_y = ((img_size as u32 - scaled_height_int) / 2) as f32;
+    let geometry =
+        super::face::letterbox::params(orig_width as u32, orig_height as u32, img_size as u32);
+    let (offset_x, offset_y) = (geometry.offset_x, geometry.offset_y);
+    let scaled_width = geometry.scaled_width as f32;
+    let scaled_height = geometry.scaled_height as f32;
 
     // Adjust bounding boxes to account for letterboxing
     // 1. Subtract letterbox offset to get coords in scaled image space
