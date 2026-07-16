@@ -105,13 +105,12 @@ impl ORTImagePreprocessor {
         })
     }
 
-    /// Buffalo_L-specific preprocessor - resize to 640x640 for RetinaFace detection
+    /// Buffalo_L: letterbox to 640x640 for SCRFD detection.
     fn load_buffalo_l(supported_model: SupportedModels) -> Result<Self, AIProxyError> {
         use serde_json::json;
 
         let imagearray_to_ndarray = ImageArrayToNdArray;
 
-        // Create config for RetinaFace detection (640x640 input with letterboxing)
         let config = json!({
             "do_resize": true,
             "size": {

@@ -197,7 +197,6 @@ impl ORTProvider {
         // Handle multi-stage models separately
         match supported_models {
             SupportedModels::BuffaloL => {
-                // Build BuffaloLModel (multi-stage: RetinaFace detection + ResNet50 recognition)
                 let inner = BuffaloLModel::build(api.clone(), session_profiling).await?;
                 let model = ORTModel { inner };
 
