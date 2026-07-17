@@ -15,3 +15,5 @@ class ExecutionProvider(betterproto.Enum):
     CUDA = 1
     DIRECT_ML = 2
     CORE_ML = 3
+    ROCM = 4
+    MIGRAPHX = 5

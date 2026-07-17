@@ -782,3 +782,44 @@ fn test_set_in_store_parse() {
         })]
     );
 }
+
+#[test]
+fn test_get_sim_n_parse_rocm_execution_provider() {
+    let input = r#"GETSIMN 3 with [find me] using cosinesimilarity executionprovider rocm in store1"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::GetSimN(GetSimN {
+            store: "store1".to_string(),
+            search_input: Some(StoreInput {
+                value: Some(StoreValue::RawString("find me".to_string()))
+            }),
+            closest_n: 3,
+            algorithm: Algorithm::CosineSimilarity as i32,
+            condition: None,
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            execution_provider: Some(ExecutionProvider::Rocm as i32),
+            model_params: HashMap::new(),
+        })]
+    );
+}
+
+#[test]
+fn test_get_sim_n_parse_migraphx_execution_provider() {
+    let input =
+        r#"GETSIMN 3 with [find me] using cosinesimilarity executionprovider migraphx in store1"#;
+    assert_eq!(
+        parse_ai_query(input).expect("Could not parse query input"),
+        vec![AiQuery::GetSimN(GetSimN {
+            store: "store1".to_string(),
+            search_input: Some(StoreInput {
+                value: Some(StoreValue::RawString("find me".to_string()))
+            }),
+            closest_n: 3,
+            algorithm: Algorithm::CosineSimilarity as i32,
+            condition: None,
+            preprocess_action: PreprocessAction::NoPreprocessing as i32,
+            execution_provider: Some(ExecutionProvider::Migraphx as i32),
+            model_params: HashMap::new(),
+        })]
+    );
+}
