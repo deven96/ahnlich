@@ -132,7 +132,7 @@ fn render_ai_responses(input: Vec<AiServerResponse>) -> Vec<String> {
                 code: _,
                 message,
             })) => Some(format_error(message)),
-            Some(success) => Some(format_success(format!("{:#?}", &success))),
+            Some(success) => Some(format_success(format!("{:#?}", success))),
             None => None,
         })
         .collect()
@@ -145,7 +145,7 @@ fn render_db_responses(input: Vec<DbServerResponse>) -> Vec<String> {
             Some(ahnlich_types::db::pipeline::db_server_response::Response::Error(
                 ErrorResponse { code: _, message },
             )) => Some(format_error(message)),
-            Some(success) => Some(format_success(format!("{:#?}", &success))),
+            Some(success) => Some(format_success(format!("{:#?}", success))),
             None => None,
         })
         .collect()

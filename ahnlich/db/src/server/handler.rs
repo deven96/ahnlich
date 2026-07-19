@@ -955,7 +955,7 @@ impl Server {
     pub async fn new_with_config(config: &ServerConfig) -> IoResult<Self> {
         let client_handler = Arc::new(ClientHandler::new(config.common.maximum_clients));
         let listener = ListenerStreamOrAddress::new(
-            format!("{}:{}", &config.common.host, &config.port),
+            format!("{}:{}", config.common.host, config.port),
             client_handler.clone(),
         )
         .await?;
@@ -1096,6 +1096,7 @@ impl BlockingTask for Server {
             None
         };
 
+        #[allow(clippy::result_large_err)]
         let service = tonic::codegen::InterceptedService::new(db_service, move |req| {
             if let Some(ref interceptor) = auth_interceptor {
                 interceptor.intercept(req)
