@@ -28,7 +28,7 @@ impl Tokenize {
             &model_repo
                 .get(&tokenizer_files.tokenizer_file)
                 .map_err(|e| AIProxyError::ModelConfigLoadError {
-                    message: format!("failed to fetch {}, {}", &tokenizer_files.tokenizer_file, e),
+                    message: format!("failed to fetch {}, {}", tokenizer_files.tokenizer_file, e),
                 })?,
         )?;
         let mut config_reader = HFConfigReader::new(model_repo);
