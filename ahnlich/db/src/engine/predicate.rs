@@ -10,9 +10,8 @@ use ahnlich_types::utils::StoreKeyId;
 use itertools::Itertools;
 use papaya::HashMap as ConcurrentHashMap;
 use papaya::HashSet as ConcurrentHashSet;
-use rayon::iter::IndexedParallelIterator;
-use rayon::iter::IntoParallelIterator;
-use rayon::iter::ParallelIterator;
+#[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -20,6 +19,8 @@ use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 use std::sync::Arc;
 use utils::fallible;
+
+#[cfg(feature = "server")]
 use utils::parallel;
 
 /// Predicates are essentially nested hashmaps that let us retrieve original keys that match a
@@ -180,6 +181,7 @@ impl PredicateIndices {
     /// Adds predicates if the key is within allowed_predicates
     #[tracing::instrument(skip_all, fields(new_len = new.len()))]
     pub(super) fn add(&self, new: Vec<(StoreKeyId, Arc<StoreValue>)>) {
+        #[cfg(not(target_arch = "wasm32"))]
         let iter = new
             .into_par_iter()
             .flat_map(|(store_key_id, store_value)| {
@@ -206,6 +208,30 @@ impl PredicateIndices {
                 for (key, mut values) in map {
                     acc.entry(key).or_default().append(&mut values);
                 }
+                acc
+            });
+
+        // WASM: Single-threaded version
+        #[cfg(target_arch = "wasm32")]
+        let iter = new
+            .into_iter()
+            .flat_map(|(store_key_id, store_value)| {
+                let value_clone = Arc::clone(&store_value);
+                value_clone
+                    .value
+                    .clone()
+                    .into_iter()
+                    .map(move |(key, val)| {
+                        let allowed_keys = self.allowed_predicates.pin();
+                        allowed_keys
+                            .contains(&key)
+                            .then_some((store_key_id, key, val))
+                    })
+            })
+            .flatten()
+            .map(|(store_key_id, key, val)| (key, (val.to_owned(), store_key_id)))
+            .fold(HashMap::new(), |mut acc: HashMap<_, Vec<_>>, (k, v)| {
+                acc.entry(k).or_default().push(v);
                 acc
             });
 
@@ -321,30 +347,53 @@ impl PredicateIndex {
         if update.is_empty() {
             return;
         }
-        let chunk_size = parallel::chunk_size(update.len());
-        update
-            .into_par_iter()
-            .chunks(chunk_size)
-            .for_each(|values| {
-                let pinned = self.0.pin();
-                for (predicate_value, store_key_id) in values {
-                    if let Some((_, value)) = pinned.get_key_value(&predicate_value) {
-                        value.insert(store_key_id, &value.guard());
-                    } else {
-                        // Use try_insert as it is very possible that the hashmap itself now has that key that
-                        // was not previously there as it has been inserted on a different thread
-                        let new_hashset = fallible::try_new_hashset()
-                            .expect("Failed to initialize new predicate hashset");
-                        new_hashset.insert(store_key_id, &new_hashset.guard());
-                        if let Err(error_current) = pinned.try_insert(predicate_value, new_hashset)
-                        {
-                            error_current
-                                .current
-                                .insert(store_key_id, &error_current.current.guard());
+
+        #[cfg(feature = "server")]
+        {
+            let chunk_size = parallel::chunk_size(update.len());
+            update
+                .into_par_iter()
+                .chunks(chunk_size)
+                .for_each(|values| {
+                    let pinned = self.0.pin();
+                    for (predicate_value, store_key_id) in values {
+                        if let Some((_, value)) = pinned.get_key_value(&predicate_value) {
+                            value.insert(store_key_id, &value.guard());
+                        } else {
+                            let new_hashset = fallible::try_new_hashset()
+                                .expect("Failed to initialize new predicate hashset");
+                            new_hashset.insert(store_key_id, &new_hashset.guard());
+                            if let Err(error_current) =
+                                pinned.try_insert(predicate_value, new_hashset)
+                            {
+                                error_current
+                                    .current
+                                    .insert(store_key_id, &error_current.current.guard());
+                            }
                         }
                     }
+                });
+        }
+
+        // WASM: Sequential processing (single-threaded)
+        #[cfg(not(feature = "server"))]
+        {
+            let pinned = self.0.pin();
+            for (predicate_value, store_key_id) in update {
+                if let Some((_, value)) = pinned.get_key_value(&predicate_value) {
+                    value.insert(store_key_id, &value.guard());
+                } else {
+                    let new_hashset = fallible::try_new_hashset()
+                        .expect("Failed to initialize new predicate hashset");
+                    new_hashset.insert(store_key_id, &new_hashset.guard());
+                    if let Err(error_current) = pinned.try_insert(predicate_value, new_hashset) {
+                        error_current
+                            .current
+                            .insert(store_key_id, &error_current.current.guard());
+                    }
                 }
-            });
+            }
+        }
     }
 
     /// checks the predicate index for a predicate op and value. The return type is a StdHashSet<_>

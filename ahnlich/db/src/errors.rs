@@ -3,6 +3,7 @@ use ahnlich_types::keyval::StoreName;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use fallible_collections::TryReserveError;
 use thiserror::Error;
+#[cfg(feature = "server")]
 use tonic::{Code, Status};
 
 #[derive(Error, Debug, Eq, PartialEq)]
@@ -32,6 +33,7 @@ pub enum ServerError {
     InternalError(String),
 }
 
+#[cfg(feature = "server")]
 impl From<ServerError> for Status {
     fn from(input: ServerError) -> Status {
         let message = input.to_string();

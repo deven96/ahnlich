@@ -11,6 +11,7 @@ members = [
   "tracer",
   "utils",
   "types",
+  "wasm-db",
 ]
 resolver = "2"
 
@@ -28,6 +29,7 @@ pretty_assertions = "1.4.0"
 tracing = "0.1"
 thiserror = "1.0"
 ahash = "0.8"
+getrandom = { version = "0.3", features = ["wasm_js"] }
 tokio = { version = "1.37.0", features = [
   "net",
   "macros",

@@ -7,6 +7,7 @@ pub mod metadata;
 pub mod predicates;
 pub mod schema;
 pub mod server_types;
+#[cfg(feature = "server")]
 pub mod services;
 pub mod shared;
 pub mod similarity;

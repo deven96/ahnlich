@@ -3,6 +3,23 @@ name = "db"
 version = "0.3.0"
 edition = "2024"
 
+[features]
+default = ["server"]
+server = [
+    "dep:tonic",
+    "dep:prost",
+    "dep:openraft",
+    "dep:ahnlich-replication",
+    "ahnlich_types/server",
+    "dep:tokio",
+    "dep:tokio-util",
+    "dep:rayon",
+    "utils/server",
+    "dep:tracer",
+    "dep:task-manager",
+]
+wasm = []
+
 [[bin]]
 name = "ahnlich-db"
 path = "src/main.rs"
@@ -18,30 +35,31 @@ bench = false
 [dependencies]
 serde.workspace = true
 ahash.workspace = true
-ndarray.workspace = true
+getrandom = { workspace = true }
+getrandom_0_2 = { package = "getrandom", version = "0.2", features = ["js"] }
 itertools.workspace = true
 clap.workspace = true
 thiserror.workspace = true
-utils = { path = "../utils", version = "*" }
-task-manager = { path = "../task-manager", version = "*" }
+utils = { path = "../utils", version = "*", default-features = false }
+task-manager = { path = "../task-manager", version = "*", optional = true }
 ahnlich_similarity = { path = "../similarity", version = "*", features = ["serde"] }
-tokio.workspace = true
-tokio-util.workspace = true
+tokio = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true }
 once_cell.workspace = true
 tracing.workspace = true
-tracer = { path = "../tracer", version = "*" }
+tracer = { path = "../tracer", version = "*", optional = true }
 serde_json.workspace = true
 async-trait.workspace = true
-rayon.workspace = true
+rayon = { workspace = true, optional = true }
 log.workspace = true
 fallible_collections.workspace = true
 pulp.workspace = true
 papaya.workspace = true
-ahnlich_types = { path = "../types", version = "*"  }
-tonic.workspace = true
-prost.workspace = true
-openraft.workspace = true
-ahnlich-replication = { path = "../replication", version = "*" }
+ahnlich_types = { path = "../types", version = "*", default-features = false, features = [] }
+tonic = { workspace = true, optional = true }
+prost = { workspace = true, optional = true }
+openraft = { workspace = true, optional = true }
+ahnlich-replication = { path = "../replication", version = "*", optional = true }
 bitcode.workspace = true
 
 [dev-dependencies]
