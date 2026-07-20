@@ -9,7 +9,8 @@ use ahnlich_types::algorithm::algorithms::DistanceMetric;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::algorithm::{algorithms::Algorithm, nonlinear::HnswConfig};
 use heap::{BoundedMaxHeap, BoundedMinHeap, HeapOrder};
-use rayon::iter::ParallelIterator;
+#[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
 
 use self::similarity::SimilarityFunc;
 use ahnlich_types::utils::StoreKeyId;
@@ -74,7 +75,12 @@ pub(crate) trait FindSimilarN {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &EmbeddingKey,
-        search_list: impl ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
+        #[cfg(not(target_arch = "wasm32"))] search_list: impl rayon::iter::ParallelIterator<
+            Item = (&'a StoreKeyId, &'a EmbeddingKey),
+        >,
+        #[cfg(target_arch = "wasm32")] search_list: impl Iterator<
+            Item = (&'a StoreKeyId, &'a EmbeddingKey),
+        >,
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)>;
@@ -85,7 +91,12 @@ impl FindSimilarN for LinearAlgorithm {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &EmbeddingKey,
-        search_list: impl ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
+        #[cfg(not(target_arch = "wasm32"))] search_list: impl rayon::iter::ParallelIterator<
+            Item = (&'a StoreKeyId, &'a EmbeddingKey),
+        >,
+        #[cfg(target_arch = "wasm32")] search_list: impl Iterator<
+            Item = (&'a StoreKeyId, &'a EmbeddingKey),
+        >,
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)> {
@@ -95,6 +106,7 @@ impl FindSimilarN for LinearAlgorithm {
         match heap_order {
             HeapOrder::Min => {
                 // Use bounded min heap for minimum similarity (Euclidean distance)
+                #[cfg(not(target_arch = "wasm32"))]
                 let bounded_heap = search_list
                     .fold(
                         || BoundedMinHeap::new(n),
@@ -118,6 +130,19 @@ impl FindSimilarN for LinearAlgorithm {
                         },
                     );
 
+                // WASM: Single-threaded fold
+                #[cfg(target_arch = "wasm32")]
+                let bounded_heap = search_list.fold(
+                    BoundedMinHeap::new(n),
+                    |mut heap, (key_id, second_vector)| {
+                        let similarity =
+                            similarity_function(search_vector.as_slice(), second_vector.as_slice());
+                        let heap_value: SimilarityVector = (*key_id, similarity).into();
+                        heap.push(heap_value);
+                        heap
+                    },
+                );
+
                 bounded_heap
                     .into_sorted_vec()
                     .into_iter()
@@ -126,6 +151,7 @@ impl FindSimilarN for LinearAlgorithm {
             }
             HeapOrder::Max => {
                 // Use bounded max heap for maximum similarity (Cosine, Dot Product)
+                #[cfg(not(target_arch = "wasm32"))]
                 let bounded_heap = search_list
                     .fold(
                         || BoundedMaxHeap::new(n),
@@ -148,6 +174,19 @@ impl FindSimilarN for LinearAlgorithm {
                             heap1
                         },
                     );
+
+                // WASM: Single-threaded fold
+                #[cfg(target_arch = "wasm32")]
+                let bounded_heap = search_list.fold(
+                    BoundedMaxHeap::new(n),
+                    |mut heap, (key_id, second_vector)| {
+                        let similarity =
+                            similarity_function(search_vector.as_slice(), second_vector.as_slice());
+                        let heap_value: SimilarityVector = (*key_id, similarity).into();
+                        heap.push(heap_value);
+                        heap
+                    },
+                );
 
                 bounded_heap
                     .into_sorted_vec()
@@ -218,7 +257,8 @@ impl From<HnswConfig> for DbHnswConfig {
 
 #[cfg(test)]
 mod tests {
-    use rayon::iter::IntoParallelRefIterator;
+    #[cfg(not(target_arch = "wasm32"))]
+    use rayon::prelude::*;
 
     use super::*;
     use crate::engine::store::embedding_key_to_id;

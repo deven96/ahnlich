@@ -58,6 +58,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ahnlich-wasm-db"
+version = "0.1.0"
+dependencies = [
+ "ahnlich_types",
+ "console_error_panic_hook",
+ "db",
+ "prost 0.13.5",
+ "rmp-serde",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "ahnlich_client_rs"
 version = "0.4.1"
 dependencies = [
@@ -106,6 +118,7 @@ version = "0.4.1"
 dependencies = [
  "ahash 0.8.12",
  "ascii85",
+ "getrandom 0.3.4",
  "prost 0.13.5",
  "prost-build",
  "prost-types",
@@ -1006,6 +1019,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "console_error_panic_hook"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06aeb73f470f66dcdbf7223caeebb85984942f22f1adb2a088cf9668146bbbc"
+dependencies = [
+ "cfg-if",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1232,9 +1255,10 @@ dependencies = [
  "fallible_collections",
  "fastrand 1.9.0",
  "futures",
+ "getrandom 0.2.17",
+ "getrandom 0.3.4",
  "itertools 0.10.5",
  "log",
- "ndarray",
  "once_cell",
  "openraft",
  "papaya",
@@ -3999,6 +4023,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "rmp"
+version = "0.8.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ba8be72d372b2c9b35542551678538b562e7cf86c3315773cae48dfbfe7790c"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "rmp-serde"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72f81bee8c8ef9b577d1681a70ebbc962c232461e397b22c208c43c04b67a155"
+dependencies = [
+ "rmp",
+ "serde",
 ]
 
 [[package]]

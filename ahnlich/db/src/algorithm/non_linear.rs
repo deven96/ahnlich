@@ -14,8 +14,8 @@ use ahnlich_types::algorithm::nonlinear::{
 };
 use ahnlich_types::utils::StoreKeyId;
 use papaya::HashMap as ConcurrentHashMap;
-use rayon::iter::IntoParallelIterator;
-use rayon::iter::ParallelIterator;
+#[cfg(not(target_arch = "wasm32"))]
+use rayon::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -126,7 +126,12 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &EmbeddingKey,
-        search_list: impl ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
+        #[cfg(not(target_arch = "wasm32"))] search_list: impl rayon::iter::ParallelIterator<
+            Item = (&'a StoreKeyId, &'a EmbeddingKey),
+        >,
+        #[cfg(target_arch = "wasm32")] search_list: impl Iterator<
+            Item = (&'a StoreKeyId, &'a EmbeddingKey),
+        >,
         used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)> {
@@ -149,7 +154,7 @@ impl NonLinearAlgorithmWithIndex {
         accept_list: Option<std::collections::HashSet<u64>>,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)> {
-        match &self {
+        let raw_result = match &self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
                 <KDTree as NonLinearAlgorithmWithIndexImpl>::n_nearest(
                     kdtree,
@@ -167,10 +172,21 @@ impl NonLinearAlgorithmWithIndex {
                 )
             }
         }
-        .expect("Index does not have the same size as reference_point")
-        .into_par_iter()
-        .map(|(arr, sim)| (embedding_key_to_id(&arr), sim))
-        .collect()
+        .expect("Index does not have the same size as reference_point");
+
+        #[cfg(not(target_arch = "wasm32"))]
+        let final_result = raw_result
+            .into_par_iter()
+            .map(|(arr, sim)| (embedding_key_to_id(&arr), sim))
+            .collect();
+
+        #[cfg(target_arch = "wasm32")]
+        let final_result = raw_result
+            .into_iter()
+            .map(|(arr, sim)| (embedding_key_to_id(&arr), sim))
+            .collect();
+
+        final_result
     }
 }
 

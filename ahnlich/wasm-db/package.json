@@ -1,0 +1,32 @@
+{
+  "name": "@deven96/ahnlich-wasm-db",
+  "version": "0.1.0",
+  "description": "In-memory vector database for browsers and Node.js using WebAssembly",
+  "main": "pkg/ahnlich_wasm_db.js",
+  "types": "pkg/ahnlich_wasm_db.d.ts",
+  "files": [
+    "pkg"
+  ],
+  "scripts": {
+    "build": "wasm-pack build --target web --out-dir pkg",
+    "test": "cd examples && node test-types.mjs"
+  },
+  "keywords": [
+    "vector-database",
+    "wasm",
+    "webassembly",
+    "embeddings",
+    "similarity-search",
+    "in-memory"
+  ],
+  "author": "Ahnlich Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/deven96/ahnlich.git",
+    "directory": "ahnlich/wasm-db"
+  },
+  "peerDependencies": {
+    "@deven96/ahnlich-client-node": "^0.4.0"
+  }
+}

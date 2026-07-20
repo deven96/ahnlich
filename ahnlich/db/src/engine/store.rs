@@ -1,6 +1,7 @@
 use crate::errors::ServerError;
 use ahnlich_similarity::EmbeddingKey;
 use itertools::Itertools;
+#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 
 use super::super::algorithm::non_linear::NonLinearAlgorithmIndices;
@@ -29,7 +30,9 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use utils::fallible;
+#[cfg(feature = "server")]
 use utils::persistence::AhnlichPersistenceUtils;
+#[cfg(feature = "server")]
 use utils::persistence::VersionedPersistence;
 
 type StoreEntry = (EmbeddingKey, Arc<StoreValue>);
@@ -51,6 +54,7 @@ pub struct StoreHandler {
     default_schema: Schema,
 }
 
+#[cfg(feature = "server")]
 impl AhnlichPersistenceUtils for StoreHandler {
     type PersistenceObject = super::versioned::VersionedDbStores;
 
@@ -65,6 +69,7 @@ impl AhnlichPersistenceUtils for StoreHandler {
     }
 }
 
+#[cfg(feature = "server")]
 impl utils::size_calculation::SizeCalculationHandler for StoresSnapshot {
     #[tracing::instrument(skip(self))]
     fn recalculate_all_sizes(&self) {
@@ -131,6 +136,12 @@ impl StoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
+    #[cfg(feature = "wasm")]
+    pub fn get_stores(&self) -> Stores {
+        self.stores.clone()
+    }
+
+    #[cfg(not(feature = "wasm"))]
     pub(crate) fn get_stores(&self) -> Stores {
         self.stores.clone()
     }
@@ -148,11 +159,19 @@ impl StoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
+    #[cfg(feature = "wasm")]
+    pub fn use_snapshot(&mut self, stores_snapshot: Stores) {
+        self.stores = stores_snapshot;
+    }
+
+    #[tracing::instrument(skip(self))]
+    #[cfg(not(feature = "wasm"))]
     pub(crate) fn use_snapshot(&mut self, stores_snapshot: Stores) {
         self.stores = stores_snapshot;
     }
 
     /// Loads and migrates a persistence snapshot using the versioned format.
+    #[cfg(feature = "server")]
     pub(crate) fn load_snapshot(
         bytes: &[u8],
     ) -> Result<Stores, utils::persistence::PersistenceTaskError> {
@@ -317,7 +336,10 @@ impl StoreHandler {
                     return Ok(vec![]);
                 }
 
+                #[cfg(not(target_arch = "wasm32"))]
                 let filtered_iter = filtered_with_ids.par_iter().map(|(id, (key, _))| (id, key));
+                #[cfg(target_arch = "wasm32")]
+                let filtered_iter = filtered_with_ids.iter().map(|(id, (key, _))| (id, key));
                 let result =
                     linear_algo.find_similar_n(&search_embedding, filtered_iter, false, closest_n);
 
@@ -355,7 +377,10 @@ impl StoreHandler {
             // Linear WITHOUT predicates: Need full data
             (AlgorithmByType::Linear(linear_algo), None) => {
                 let filtered_with_ids = store.get_all_with_ids();
+                #[cfg(not(target_arch = "wasm32"))]
                 let filtered_iter = filtered_with_ids.par_iter().map(|(id, (key, _))| (id, key));
+                #[cfg(target_arch = "wasm32")]
+                let filtered_iter = filtered_with_ids.iter().map(|(id, (key, _))| (id, key));
                 linear_algo.find_similar_n(&search_embedding, filtered_iter, true, closest_n)
             }
         };
@@ -799,7 +824,8 @@ impl Store {
     /// filters input dimension to make sure it matches store dimension
     #[tracing::instrument(skip(self, input), fields(input_length=input.len()))]
     fn filter_dimension(&self, input: Vec<StoreKey>) -> Result<Vec<StoreKey>, ServerError> {
-        input
+        #[cfg(not(target_arch = "wasm32"))]
+        let result = input
             .into_par_iter()
             .map(|key| {
                 let store_dimension = self.dimension.get();
@@ -812,7 +838,25 @@ impl Store {
                 }
                 Ok(key)
             })
-            .collect()
+            .collect();
+
+        #[cfg(target_arch = "wasm32")]
+        let result = input
+            .into_iter()
+            .map(|key| {
+                let store_dimension = self.dimension.get();
+                let input_dimension = key.key.len();
+                if input_dimension != store_dimension {
+                    return Err(ServerError::StoreDimensionMismatch {
+                        store_dimension,
+                        input_dimension,
+                    });
+                }
+                Ok(key)
+            })
+            .collect();
+
+        result
     }
 
     /// Deletes a bunch of store keys from the store
@@ -864,20 +908,37 @@ impl Store {
         // Use parallel iteration only for large datasets (> 1000 entries)
         // to avoid parallelization overhead on small datasets
         const PARALLEL_THRESHOLD: usize = 1000;
+        #[cfg(not(target_arch = "wasm32"))]
         let use_parallel = entries.len() > PARALLEL_THRESHOLD;
+        #[cfg(target_arch = "wasm32")]
+        let use_parallel = false;
 
         let res = match &predicate.kind {
             Some(PredicateKind::Equals(predicates::Equals { key, value })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            let metadata_value = store_value.value.get(key);
-                            metadata_value.eq(&value.as_ref())
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if use_parallel {
+                        entries
+                            .par_iter()
+                            .filter(|(_, (_, store_value))| {
+                                let metadata_value = store_value.value.get(key);
+                                metadata_value.eq(&value.as_ref())
+                            })
+                            .map(|(k, _)| *(*k))
+                            .collect()
+                    } else {
+                        entries
+                            .iter()
+                            .filter(|(_, (_, store_value))| {
+                                let metadata_value = store_value.value.get(key);
+                                metadata_value.eq(&value.as_ref())
+                            })
+                            .map(|(k, _)| *(*k))
+                            .collect()
+                    }
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
                     entries
                         .iter()
                         .filter(|(_, (_, store_value))| {
@@ -889,16 +950,30 @@ impl Store {
                 }
             }
             Some(PredicateKind::NotEquals(predicates::NotEquals { key, value })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            let metdata_value = store_value.value.get(key);
-                            !metdata_value.eq(&value.as_ref())
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if use_parallel {
+                        entries
+                            .par_iter()
+                            .filter(|(_, (_, store_value))| {
+                                let metdata_value = store_value.value.get(key);
+                                !metdata_value.eq(&value.as_ref())
+                            })
+                            .map(|(k, _)| *(*k))
+                            .collect()
+                    } else {
+                        entries
+                            .iter()
+                            .filter(|(_, (_, store_value))| {
+                                let metdata_value = store_value.value.get(key);
+                                !metdata_value.eq(&value.as_ref())
+                            })
+                            .map(|(k, _)| *(*k))
+                            .collect()
+                    }
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
                     entries
                         .iter()
                         .filter(|(_, (_, store_value))| {
@@ -910,19 +985,36 @@ impl Store {
                 }
             }
             Some(PredicateKind::In(predicates::In { key, values })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            store_value
-                                .value
-                                .get(key)
-                                .map(|v| values.contains(v))
-                                .unwrap_or(false)
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if use_parallel {
+                        entries
+                            .par_iter()
+                            .filter(|(_, (_, store_value))| {
+                                store_value
+                                    .value
+                                    .get(key)
+                                    .map(|v| values.contains(v))
+                                    .unwrap_or(false)
+                            })
+                            .map(|(k, _)| *(*k))
+                            .collect()
+                    } else {
+                        entries
+                            .iter()
+                            .filter(|(_, (_, store_value))| {
+                                store_value
+                                    .value
+                                    .get(key)
+                                    .map(|v| values.contains(v))
+                                    .unwrap_or(false)
+                            })
+                            .map(|(k, _)| *(*k))
+                            .collect()
+                    }
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
                     entries
                         .iter()
                         .filter(|(_, (_, store_value))| {
@@ -937,19 +1029,36 @@ impl Store {
                 }
             }
             Some(PredicateKind::NotIn(predicates::NotIn { key, values })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            store_value
-                                .value
-                                .get(key)
-                                .map(|v| !values.contains(v))
-                                .unwrap_or(true)
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if use_parallel {
+                        entries
+                            .par_iter()
+                            .filter(|(_, (_, store_value))| {
+                                store_value
+                                    .value
+                                    .get(key)
+                                    .map(|v| !values.contains(v))
+                                    .unwrap_or(true)
+                            })
+                            .map(|(k, _)| *(*k))
+                            .collect()
+                    } else {
+                        entries
+                            .iter()
+                            .filter(|(_, (_, store_value))| {
+                                store_value
+                                    .value
+                                    .get(key)
+                                    .map(|v| !values.contains(v))
+                                    .unwrap_or(true)
+                            })
+                            .map(|(k, _)| *(*k))
+                            .collect()
+                    }
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
                     entries
                         .iter()
                         .filter(|(_, (_, store_value))| {
@@ -1036,6 +1145,7 @@ impl Store {
             value: StdHashMap::new(),
         }) + 64;
         let estimated_bytes = new.len() * entry_size * 3;
+        #[cfg(feature = "server")]
         utils::allocator::check_memory_available(estimated_bytes)
             .map_err(|e| ServerError::Allocation(e.into()))?;
 
@@ -1059,23 +1169,56 @@ impl Store {
         };
 
         // Consume input vec, wrapping each entry once
+        #[cfg(not(target_arch = "wasm32"))]
         let res: Vec<(StoreKeyId, EmbeddingKey, Arc<StoreValue>)> = new
             .into_par_iter()
             .map(check_and_wrap)
             .collect::<Result<_, _>>()?;
 
+        #[cfg(target_arch = "wasm32")]
+        let res: Vec<(StoreKeyId, EmbeddingKey, Arc<StoreValue>)> = new
+            .into_iter()
+            .map(check_and_wrap)
+            .collect::<Result<_, _>>()?;
+
         // Build predicate insert list using cheap clones
+        #[cfg(not(target_arch = "wasm32"))]
         let predicate_insert: Vec<(StoreKeyId, Arc<StoreValue>)> = res
             .par_iter()
             .map(|(k, _, v)| (*k, Arc::clone(v)))
             .collect();
 
+        #[cfg(target_arch = "wasm32")]
+        let predicate_insert: Vec<(StoreKeyId, Arc<StoreValue>)> =
+            res.iter().map(|(k, _, v)| (*k, Arc::clone(v))).collect();
+
         let inserted = AtomicUsize::new(0);
         let updated = AtomicUsize::new(0);
 
         // Insert into main store, collecting keys for non-linear indices
+        #[cfg(not(target_arch = "wasm32"))]
         let inserted_keys: Vec<_> = res
             .into_par_iter()
+            .filter_map(|(k, embedding_key, arc_val)| {
+                let pinned = self.id_to_value.pin();
+                // EmbeddingKey clone is a cheap Arc pointer bump
+                if pinned
+                    .insert(k, (embedding_key.clone(), Arc::clone(&arc_val)))
+                    .is_some()
+                {
+                    updated.fetch_add(1, Ordering::SeqCst);
+                    None
+                } else {
+                    inserted.fetch_add(1, Ordering::SeqCst);
+                    // Pointer bump — the same Arc<Vec<f32>> is shared with the map entry
+                    Some(embedding_key)
+                }
+            })
+            .collect();
+
+        #[cfg(target_arch = "wasm32")]
+        let inserted_keys: Vec<_> = res
+            .into_iter()
             .filter_map(|(k, embedding_key, arc_val)| {
                 let pinned = self.id_to_value.pin();
                 // EmbeddingKey clone is a cheap Arc pointer bump

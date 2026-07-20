@@ -25,7 +25,7 @@ itertools.workspace = true
 ahash.workspace = true
 pulp.workspace = true
 smallvec.workspace = true
-ahnlich_types = { version = "0.4.1", path = "../types" }
+ahnlich_types = { version = "0.4.1", path = "../types", default-features = false }
 
 [features]
 default = ["serde"]

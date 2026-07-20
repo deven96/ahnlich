@@ -79,6 +79,36 @@ jobs:
                 GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
               shell: bash
 
+    build_wasm_and_publish:
+        needs: prebuild_preparation
+        name: Build WASM package
+        runs-on: ubuntu-latest
+        if: ${{needs.prebuild_preparation.outputs.bin_name == 'ahnlich-db'}}
+        steps:
+          - name: "Checkout"
+            uses: actions/checkout@v4
+
+          - name: Get Cargo toolchain
+            uses: actions-rs/toolchain@v1
+            with:
+              toolchain: 1.97.1
+              target: wasm32-unknown-unknown
+
+          - name: Install wasm-pack
+            run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+          - name: Build WASM package
+            working-directory: ./ahnlich/wasm-db
+            run: |
+              wasm-pack build --target web --out-dir pkg
+              tar -cvzf ahnlich-wasm-db.tar.gz pkg/
+
+          - name: Upload WASM package to release
+            working-directory: ./ahnlich/wasm-db
+            run: gh release upload ${{github.event.release.tag_name}} ahnlich-wasm-db.tar.gz
+            env:
+              GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
     push_to_registries:
         needs: prebuild_preparation
         name: Push Docker image to multiple registries

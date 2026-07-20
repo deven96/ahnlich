@@ -5,6 +5,7 @@ use ahnlich_types::keyval::StoreName;
 use ahnlich_types::schema::Schema;
 use serde::{Deserialize, Serialize};
 use utils::fallible;
+#[cfg(feature = "server")]
 use utils::persistence::{PersistenceTaskError, VersionedPersistence};
 
 use super::store::{Store, Stores};
@@ -40,6 +41,7 @@ pub enum VersionedDbStores {
     V2 { stores: Stores },
 }
 
+#[cfg(feature = "server")]
 impl VersionedPersistence for VersionedDbStores {
     const CURRENT_VERSION: u32 = DB_CURRENT_VERSION;
     const MIN_VERSION: u32 = DB_MIN_VERSION;

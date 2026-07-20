@@ -157,6 +157,7 @@ pub fn convert_to_nonzerousize(val: u64) -> Result<NonZeroUsize, String> {
 
 pub static TRACE_HEADER: &str = "ahnlich-trace-id";
 
+#[cfg(feature = "server")]
 pub fn add_trace_parent<T>(req: &mut tonic::Request<T>, tracing_id: Option<String>) {
     if let Some(trace_parent) = tracing_id {
         req.metadata_mut().insert(
