@@ -55,14 +55,33 @@ const results = GetSimNResponse.fromBinary(db.get_sim_n(searchReq.toBinary()));
 
 All methods take/return protobuf bytes:
 
+**Store Management:**
 - `create_store` - Create vector store
-- `set` - Insert/update vectors
-- `get_key` - Retrieve by exact key
-- `get_sim_n` - Find N most similar vectors
-- `get_pred` - Query by metadata predicate
-- `list_stores` - List all stores
 - `drop_store` - Delete a store
+- `list_stores` - List all stores
+- `get_store` - Get store metadata
+- `drop_schema` - Drop entire schema
+
+**Index Management:**
+- `create_pred_index` - Create predicate index
+- `drop_pred_index` - Drop predicate index
+- `create_non_linear_algorithm_index` - Create HNSW/other non-linear index
+- `drop_non_linear_algorithm_index` - Drop non-linear index
+
+**Data Operations:**
+- `set` - Insert/update vectors
+- `upsert` - Upsert vectors (merge with existing)
 - `del_key` - Delete specific keys
+- `del_pred` - Delete by predicate
+
+**Query Operations:**
+- `get_key` - Retrieve by exact key
+- `get_pred` - Query by metadata predicate
+- `get_sim_n` - Find N most similar vectors
+
+**Persistence:**
+- `export_snapshot` - Export database to MessagePack bytes
+- `import_snapshot` - Restore from MessagePack bytes
 
 See [examples/](./examples/)
 
