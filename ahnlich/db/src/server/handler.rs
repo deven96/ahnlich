@@ -4,6 +4,7 @@ use crate::engine::store::StoreHandler;
 use crate::engine::store::StoresSnapshot;
 use crate::errors::ServerError;
 use crate::server::cluster::{build_cluster_runtime, initialize_cluster_runtime};
+use crate::server::cluster_forwarding::forwarded_request;
 use crate::server::cluster_mutations::submit_db_command;
 use crate::server::cluster_queries::{
     cluster_info_response, list_stores_response, read_store_handler,
@@ -55,15 +56,22 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateStore>,
     ) -> std::result::Result<tonic::Response<server::Unit>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 let (): () = submit_db_command!(
-                    Some(cluster),
+                    cluster,
+                    metadata,
                     query::CreateStore,
                     params,
-                    DbCommand::CreateStore
+                    DbCommand::CreateStore,
+                    |mut client, request| async move {
+                        client
+                            .create_store(request)
+                            .await
+                            .map(|_| tonic::Response::new(()))
+                    }
                 )
                 .await?;
             }
@@ -219,15 +227,21 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreatePredIndex>,
     ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let created_indexes = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
+                    metadata,
                     query::CreatePredIndex,
                     params,
-                    DbCommand::CreatePredIndex
+                    DbCommand::CreatePredIndex,
+                    |mut client, request| async move {
+                        client.create_pred_index(request).await.map(|response| {
+                            response.map(|response| response.created_indexes as usize)
+                        })
+                    }
                 )
                 .await?
             }
@@ -246,15 +260,24 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateNonLinearAlgorithmIndex>,
     ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let created_indexes = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
+                    metadata,
                     query::CreateNonLinearAlgorithmIndex,
                     params,
-                    DbCommand::CreateNonLinearAlgorithmIndex
+                    DbCommand::CreateNonLinearAlgorithmIndex,
+                    |mut client, request| async move {
+                        client
+                            .create_non_linear_algorithm_index(request)
+                            .await
+                            .map(|response| {
+                                response.map(|response| response.created_indexes as usize)
+                            })
+                    }
                 )
                 .await?
             }
@@ -273,15 +296,21 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropPredIndex>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
+                    metadata,
                     query::DropPredIndex,
                     params,
-                    DbCommand::DropPredIndex
+                    DbCommand::DropPredIndex,
+                    |mut client, request| async move {
+                        client.drop_pred_index(request).await.map(|response| {
+                            response.map(|response| response.deleted_count as usize)
+                        })
+                    }
                 )
                 .await?
             }
@@ -298,15 +327,24 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropNonLinearAlgorithmIndex>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
+                    metadata,
                     query::DropNonLinearAlgorithmIndex,
                     params,
-                    DbCommand::DropNonLinearAlgorithmIndex
+                    DbCommand::DropNonLinearAlgorithmIndex,
+                    |mut client, request| async move {
+                        client
+                            .drop_non_linear_algorithm_index(request)
+                            .await
+                            .map(|response| {
+                                response.map(|response| response.deleted_count as usize)
+                            })
+                    }
                 )
                 .await?
             }
@@ -323,11 +361,23 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DelKey>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command!(Some(cluster), query::DelKey, params, DbCommand::DelKey).await?
+                submit_db_command!(
+                    cluster,
+                    metadata,
+                    query::DelKey,
+                    params,
+                    DbCommand::DelKey,
+                    |mut client, request| async move {
+                        client.del_key(request).await.map(|response| {
+                            response.map(|response| response.deleted_count as usize)
+                        })
+                    }
+                )
+                .await?
             }
             StoreRuntime::Standalone(store_handler) => operations::del_key(store_handler, params)?,
         }) as u64;
@@ -340,12 +390,23 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DelPred>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command!(Some(cluster), query::DelPred, params, DbCommand::DelPred)
-                    .await?
+                submit_db_command!(
+                    cluster,
+                    metadata,
+                    query::DelPred,
+                    params,
+                    DbCommand::DelPred,
+                    |mut client, request| async move {
+                        client.del_pred(request).await.map(|response| {
+                            response.map(|response| response.deleted_count as usize)
+                        })
+                    }
+                )
+                .await?
             }
             StoreRuntime::Standalone(store_handler) => operations::del_pred(store_handler, params)?,
         }) as u64;
@@ -358,15 +419,21 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropStore>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
+                    metadata,
                     query::DropStore,
                     params,
-                    DbCommand::DropStore
+                    DbCommand::DropStore,
+                    |mut client, request| async move {
+                        client.drop_store(request).await.map(|response| {
+                            response.map(|response| response.deleted_count as usize)
+                        })
+                    }
                 )
                 .await?
             }
@@ -383,15 +450,22 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropSchema>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let dropped = match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
+                    metadata,
                     query::DropSchema,
                     params,
-                    DbCommand::DropSchema
+                    DbCommand::DropSchema,
+                    |mut client, request| async move {
+                        client
+                            .drop_schema(request)
+                            .await
+                            .map(|response| response.map(|response| response.deleted_count))
+                    }
                 )
                 .await?
             }
@@ -428,7 +502,8 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::ListStores>,
     ) -> std::result::Result<tonic::Response<server::StoreList>, tonic::Status> {
-        let store_list = list_stores_response(&self.runtime, request.into_inner()).await?;
+        let (metadata, _, params) = request.into_parts();
+        let store_list = list_stores_response(&self.runtime, metadata, params).await?;
         Ok(tonic::Response::new(store_list))
     }
 
@@ -487,11 +562,25 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::Set>,
     ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let set = match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command!(Some(cluster), query::Set, params, DbCommand::Set).await?
+                submit_db_command!(
+                    cluster,
+                    metadata,
+                    query::Set,
+                    params,
+                    DbCommand::Set,
+                    |mut client, request| async move {
+                        let response = client.set(request).await?.into_inner();
+                        let upsert = response.upsert.ok_or_else(|| {
+                            tonic::Status::internal("forwarded Set response is missing upsert")
+                        })?;
+                        Ok(tonic::Response::new(upsert))
+                    }
+                )
+                .await?
             }
             StoreRuntime::Standalone(store_handler) => operations::set(store_handler, params)?,
         };
@@ -504,11 +593,25 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::Upsert>,
     ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let upsert = match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
-                submit_db_command!(Some(cluster), query::Upsert, params, DbCommand::Upsert).await?
+                submit_db_command!(
+                    cluster,
+                    metadata,
+                    query::Upsert,
+                    params,
+                    DbCommand::Upsert,
+                    |mut client, request| async move {
+                        let response = client.upsert(request).await?.into_inner();
+                        let upsert = response.upsert.ok_or_else(|| {
+                            tonic::Status::internal("forwarded Upsert response is missing upsert")
+                        })?;
+                        Ok(tonic::Response::new(upsert))
+                    }
+                )
+                .await?
             }
             StoreRuntime::Standalone(store_handler) => operations::upsert(store_handler, params)?,
         };
@@ -533,7 +636,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<pipeline::DbRequestPipeline>,
     ) -> std::result::Result<tonic::Response<pipeline::DbResponsePipeline>, tonic::Status> {
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let estimated_bytes = params.queries.len() * 1024;
         utils::allocator::check_memory_available(estimated_bytes)
@@ -546,22 +649,27 @@ impl DbService for Server {
                 ahnlich_types::unwrap_or_invalid!(pipeline_query.query, "query is required");
 
             match pipeline_query {
-                Query::Ping(params) => match self.ping(tonic::Request::new(params)).await {
-                    Ok(res) => response_vec.push(pipeline::db_server_response::Response::Pong(
-                        res.into_inner(),
-                    )),
-                    Err(err) => {
-                        response_vec.push(pipeline::db_server_response::Response::Error(
-                            ErrorResponse {
-                                message: err.message().to_string(),
-                                code: err.code().into(),
-                            },
-                        ));
+                Query::Ping(params) => {
+                    match self.ping(forwarded_request(metadata.clone(), params)).await {
+                        Ok(res) => response_vec.push(pipeline::db_server_response::Response::Pong(
+                            res.into_inner(),
+                        )),
+                        Err(err) => {
+                            response_vec.push(pipeline::db_server_response::Response::Error(
+                                ErrorResponse {
+                                    message: err.message().to_string(),
+                                    code: err.code().into(),
+                                },
+                            ));
+                        }
                     }
-                },
+                }
 
                 Query::ListClients(params) => {
-                    match self.list_clients(tonic::Request::new(params)).await {
+                    match self
+                        .list_clients(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
                         Ok(res) => response_vec.push(
                             pipeline::db_server_response::Response::ClientList(res.into_inner()),
                         ),
@@ -577,7 +685,10 @@ impl DbService for Server {
                 }
 
                 Query::InfoServer(params) => {
-                    match self.info_server(tonic::Request::new(params)).await {
+                    match self
+                        .info_server(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
                         Ok(res) => response_vec.push(
                             pipeline::db_server_response::Response::InfoServer(res.into_inner()),
                         ),
@@ -593,7 +704,10 @@ impl DbService for Server {
                 }
 
                 Query::ListStores(params) => {
-                    match self.list_stores(tonic::Request::new(params)).await {
+                    match self
+                        .list_stores(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
                         Ok(res) => response_vec.push(
                             pipeline::db_server_response::Response::StoreList(res.into_inner()),
                         ),
@@ -608,7 +722,10 @@ impl DbService for Server {
                     }
                 }
 
-                Query::DelKey(params) => match self.del_key(tonic::Request::new(params)).await {
+                Query::DelKey(params) => match self
+                    .del_key(forwarded_request(metadata.clone(), params))
+                    .await
+                {
                     Ok(res) => response_vec.push(pipeline::db_server_response::Response::Del(
                         res.into_inner(),
                     )),
@@ -624,7 +741,10 @@ impl DbService for Server {
 
                 Query::DropNonLinearAlgorithmIndex(params) => {
                     match self
-                        .drop_non_linear_algorithm_index(tonic::Request::new(params))
+                        .drop_non_linear_algorithm_index(forwarded_request(
+                            metadata.clone(),
+                            params,
+                        ))
                         .await
                     {
                         Ok(res) => response_vec.push(pipeline::db_server_response::Response::Del(
@@ -642,7 +762,10 @@ impl DbService for Server {
                 }
 
                 Query::CreateStore(params) => {
-                    match self.create_store(tonic::Request::new(params)).await {
+                    match self
+                        .create_store(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
                         Ok(res) => response_vec.push(pipeline::db_server_response::Response::Unit(
                             res.into_inner(),
                         )),
@@ -656,7 +779,10 @@ impl DbService for Server {
                         }
                     }
                 }
-                Query::GetSimN(params) => match self.get_sim_n(tonic::Request::new(params)).await {
+                Query::GetSimN(params) => match self
+                    .get_sim_n(forwarded_request(metadata.clone(), params))
+                    .await
+                {
                     Ok(res) => response_vec.push(pipeline::db_server_response::Response::GetSimN(
                         res.into_inner(),
                     )),
@@ -670,7 +796,10 @@ impl DbService for Server {
                     }
                 },
 
-                Query::GetKey(params) => match self.get_key(tonic::Request::new(params)).await {
+                Query::GetKey(params) => match self
+                    .get_key(forwarded_request(metadata.clone(), params))
+                    .await
+                {
                     Ok(res) => response_vec.push(pipeline::db_server_response::Response::Get(
                         res.into_inner(),
                     )),
@@ -684,7 +813,10 @@ impl DbService for Server {
                     }
                 },
 
-                Query::GetPred(params) => match self.get_pred(tonic::Request::new(params)).await {
+                Query::GetPred(params) => match self
+                    .get_pred(forwarded_request(metadata.clone(), params))
+                    .await
+                {
                     Ok(res) => response_vec.push(pipeline::db_server_response::Response::Get(
                         res.into_inner(),
                     )),
@@ -700,7 +832,10 @@ impl DbService for Server {
 
                 Query::CreateNonLinearAlgorithmIndex(params) => {
                     match self
-                        .create_non_linear_algorithm_index(tonic::Request::new(params))
+                        .create_non_linear_algorithm_index(forwarded_request(
+                            metadata.clone(),
+                            params,
+                        ))
                         .await
                     {
                         Ok(res) => response_vec.push(
@@ -717,7 +852,10 @@ impl DbService for Server {
                     }
                 }
 
-                Query::DelPred(params) => match self.del_pred(tonic::Request::new(params)).await {
+                Query::DelPred(params) => match self
+                    .del_pred(forwarded_request(metadata.clone(), params))
+                    .await
+                {
                     Ok(res) => response_vec.push(pipeline::db_server_response::Response::Del(
                         res.into_inner(),
                     )),
@@ -732,7 +870,10 @@ impl DbService for Server {
                 },
 
                 Query::CreatePredIndex(params) => {
-                    match self.create_pred_index(tonic::Request::new(params)).await {
+                    match self
+                        .create_pred_index(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
                         Ok(res) => response_vec.push(
                             pipeline::db_server_response::Response::CreateIndex(res.into_inner()),
                         ),
@@ -747,42 +888,30 @@ impl DbService for Server {
                     }
                 }
 
-                Query::Set(params) => match self.set(tonic::Request::new(params)).await {
-                    Ok(res) => response_vec.push(pipeline::db_server_response::Response::Set(
-                        res.into_inner(),
-                    )),
-                    Err(err) => {
-                        response_vec.push(pipeline::db_server_response::Response::Error(
-                            ErrorResponse {
-                                message: err.message().to_string(),
-                                code: err.code().into(),
-                            },
-                        ));
+                Query::Set(params) => {
+                    match self.set(forwarded_request(metadata.clone(), params)).await {
+                        Ok(res) => response_vec.push(pipeline::db_server_response::Response::Set(
+                            res.into_inner(),
+                        )),
+                        Err(err) => {
+                            response_vec.push(pipeline::db_server_response::Response::Error(
+                                ErrorResponse {
+                                    message: err.message().to_string(),
+                                    code: err.code().into(),
+                                },
+                            ));
+                        }
                     }
-                },
+                }
 
                 Query::Upsert(params) => {
-                    let upsert_result: Result<_, tonic::Status> = match &self.runtime {
-                        StoreRuntime::Cluster(cluster) => {
-                            submit_db_command!(
-                                Some(cluster),
-                                query::Upsert,
-                                params,
-                                DbCommand::Upsert
-                            )
-                            .await
-                        }
-                        StoreRuntime::Standalone(store_handler) => {
-                            operations::upsert(store_handler, params).map_err(Into::into)
-                        }
-                    };
-
-                    match upsert_result {
-                        Ok(upsert) => {
+                    match self
+                        .upsert(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
+                        Ok(response) => {
                             response_vec.push(pipeline::db_server_response::Response::Set(
-                                server::Set {
-                                    upsert: Some(upsert),
-                                },
+                                response.into_inner(),
                             ));
                         }
                         Err(err) => {
@@ -797,7 +926,10 @@ impl DbService for Server {
                 }
 
                 Query::DropPredIndex(params) => {
-                    match self.drop_pred_index(tonic::Request::new(params)).await {
+                    match self
+                        .drop_pred_index(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
                         Ok(res) => response_vec.push(pipeline::db_server_response::Response::Del(
                             res.into_inner(),
                         )),
@@ -813,7 +945,10 @@ impl DbService for Server {
                 }
 
                 Query::DropStore(params) => {
-                    match self.drop_store(tonic::Request::new(params)).await {
+                    match self
+                        .drop_store(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
                         Ok(res) => response_vec.push(pipeline::db_server_response::Response::Del(
                             res.into_inner(),
                         )),
@@ -829,7 +964,10 @@ impl DbService for Server {
                 }
 
                 Query::GetStore(params) => {
-                    match self.get_store(tonic::Request::new(params)).await {
+                    match self
+                        .get_store(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
                         Ok(res) => response_vec.push(
                             pipeline::db_server_response::Response::StoreInfo(res.into_inner()),
                         ),
@@ -845,7 +983,10 @@ impl DbService for Server {
                 }
 
                 Query::ClusterInfo(params) => {
-                    match self.cluster_info(tonic::Request::new(params)).await {
+                    match self
+                        .cluster_info(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
                         Ok(res) => response_vec.push(
                             pipeline::db_server_response::Response::ClusterInfo(res.into_inner()),
                         ),
@@ -861,7 +1002,10 @@ impl DbService for Server {
                 }
 
                 Query::DropSchema(params) => {
-                    match self.drop_schema(tonic::Request::new(params)).await {
+                    match self
+                        .drop_schema(forwarded_request(metadata.clone(), params))
+                        .await
+                    {
                         Ok(res) => response_vec.push(pipeline::db_server_response::Response::Del(
                             res.into_inner(),
                         )),

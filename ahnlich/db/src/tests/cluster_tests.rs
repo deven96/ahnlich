@@ -15,7 +15,6 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, sleep};
-use tonic::Code;
 use tonic::transport::Channel;
 use utils::server::AhnlichServerUtils;
 
@@ -116,31 +115,28 @@ async fn wait_for_cluster_size(client: &mut DbServiceClient<Channel>, expected_n
     panic!("cluster did not reach {expected_nodes} visible nodes in time");
 }
 
-async fn wait_for_get_key_count(
+async fn wait_for_store_entry_count(
     client: &mut DbServiceClient<Channel>,
     store: &str,
-    expected_entries: usize,
+    expected_entries: u64,
 ) {
     for _ in 0..50 {
         let response = client
-            .get_key(tonic::Request::new(db_query_types::GetKey {
+            .get_store(tonic::Request::new(db_query_types::GetStore {
                 store: store.to_owned(),
-                keys: vec![StoreKey {
-                    key: vec![0.1, 0.2, 0.3],
-                }],
                 schema: None,
             }))
             .await;
 
         if let Ok(response) = response
-            && response.into_inner().entries.len() == expected_entries
+            && response.into_inner().len == expected_entries
         {
             return;
         }
 
         sleep(Duration::from_millis(200)).await;
     }
-    panic!("replicated entry did not appear in follower in time");
+    panic!("replicated store did not reach {expected_entries} entries in time");
 }
 
 #[tokio::test]
@@ -229,7 +225,7 @@ async fn test_single_node_clustered_pipeline_and_cluster_info() {
 }
 
 #[tokio::test]
-async fn test_three_node_cluster_replication_and_follower_list_stores_error() {
+async fn test_three_node_cluster_replication_and_follower_forwarding() {
     let leader_dir = tempfile::tempdir().expect("leader tempdir");
     let follower_one_dir = tempfile::tempdir().expect("follower one tempdir");
     let follower_two_dir = tempfile::tempdir().expect("follower two tempdir");
@@ -285,17 +281,53 @@ async fn test_three_node_cluster_replication_and_follower_list_stores_error() {
         .await
         .expect("leader create_store should succeed");
 
-    leader_client
+    follower_one_client
         .set(tonic::Request::new(db_query_types::Set {
             store: "replicated-store".to_owned(),
             inputs: vec![store_entry("replicated")],
             schema: None,
         }))
         .await
-        .expect("leader set should succeed");
+        .expect("follower set should be forwarded to the leader");
 
-    wait_for_get_key_count(&mut follower_one_client, "replicated-store", 1).await;
-    wait_for_get_key_count(&mut follower_two_client, "replicated-store", 1).await;
+    let pipeline_response = follower_two_client
+        .pipeline(tonic::Request::new(DbRequestPipeline {
+            queries: vec![
+                DbQuery {
+                    query: Some(Query::Set(db_query_types::Set {
+                        store: "replicated-store".to_owned(),
+                        inputs: vec![DbStoreEntry {
+                            key: Some(StoreKey {
+                                key: vec![0.4, 0.5, 0.6],
+                            }),
+                            value: Some(store_value("forwarded-pipeline")),
+                        }],
+                        schema: None,
+                    })),
+                },
+                DbQuery {
+                    query: Some(Query::ListStores(db_query_types::ListStores {
+                        schema: None,
+                    })),
+                },
+            ],
+        }))
+        .await
+        .expect("follower pipeline should be forwarded to the leader")
+        .into_inner();
+
+    assert!(matches!(
+        pipeline_response.responses[0].response,
+        Some(Response::Set(_))
+    ));
+    let pipeline_store_list = match pipeline_response.responses[1].response.clone() {
+        Some(Response::StoreList(store_list)) => store_list,
+        other => panic!("expected forwarded StoreList response, got {other:?}"),
+    };
+    assert_eq!(pipeline_store_list.stores.len(), 1);
+
+    wait_for_store_entry_count(&mut follower_one_client, "replicated-store", 2).await;
+    wait_for_store_entry_count(&mut follower_two_client, "replicated-store", 2).await;
 
     let cluster_info = leader_client
         .cluster_info(tonic::Request::new(ClusterInfoQuery {}))
@@ -324,24 +356,26 @@ async fn test_three_node_cluster_replication_and_follower_list_stores_error() {
     let replicated_store = &leader_store_list.stores[0];
     assert_eq!(replicated_store.name, "replicated-store");
     assert_eq!(replicated_store.dimension, 3);
-    assert_eq!(replicated_store.len, 1);
+    assert_eq!(replicated_store.len, 2);
     assert!(replicated_store.size_in_bytes > 0);
     assert!(replicated_store.non_linear_indices.is_empty());
     assert!(replicated_store.predicate_indices.is_empty());
 
-    let list_stores_error = follower_one_client
+    let follower_one_store_list = follower_one_client
         .list_stores(tonic::Request::new(db_query_types::ListStores {
             schema: None,
         }))
         .await
-        .expect_err("follower ListStores should error in M2");
-    assert_eq!(list_stores_error.code(), Code::FailedPrecondition);
+        .expect("follower ListStores should be forwarded to the leader")
+        .into_inner();
+    assert_eq!(follower_one_store_list.stores.len(), 1);
 
-    let second_list_stores_error = follower_two_client
+    let follower_two_store_list = follower_two_client
         .list_stores(tonic::Request::new(db_query_types::ListStores {
             schema: None,
         }))
         .await
-        .expect_err("second follower ListStores should error in M2");
-    assert_eq!(second_list_stores_error.code(), Code::FailedPrecondition);
+        .expect("second follower ListStores should be forwarded to the leader")
+        .into_inner();
+    assert_eq!(follower_two_store_list.stores.len(), 1);
 }
