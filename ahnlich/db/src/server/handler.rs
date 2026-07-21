@@ -56,13 +56,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateStore>,
     ) -> std::result::Result<tonic::Response<server::Unit>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 let (): () = submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::CreateStore,
                     params,
@@ -228,13 +227,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreatePredIndex>,
     ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let created_indexes = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::CreatePredIndex,
                     params,
@@ -262,13 +260,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::CreateNonLinearAlgorithmIndex>,
     ) -> std::result::Result<tonic::Response<server::CreateIndex>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let created_indexes = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::CreateNonLinearAlgorithmIndex,
                     params,
@@ -299,13 +296,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropPredIndex>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::DropPredIndex,
                     params,
@@ -331,13 +327,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropNonLinearAlgorithmIndex>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::DropNonLinearAlgorithmIndex,
                     params,
@@ -366,13 +361,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DelKey>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::DelKey,
                     params,
@@ -396,13 +390,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DelPred>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::DelPred,
                     params,
@@ -426,13 +419,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropStore>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let deleted_count = (match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::DropStore,
                     params,
@@ -458,13 +450,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::DropSchema>,
     ) -> std::result::Result<tonic::Response<server::Del>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let dropped = match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::DropSchema,
                     params,
@@ -511,9 +502,8 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::ListStores>,
     ) -> std::result::Result<tonic::Response<server::StoreList>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let store_list =
-            list_stores_response(&self.runtime, metadata, request.into_inner()).await?;
+        let (metadata, _, params) = request.into_parts();
+        let store_list = list_stores_response(&self.runtime, metadata, params).await?;
         Ok(tonic::Response::new(store_list))
     }
 
@@ -572,13 +562,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::Set>,
     ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let set = match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::Set,
                     params,
@@ -604,13 +593,12 @@ impl DbService for Server {
         &self,
         request: tonic::Request<query::Upsert>,
     ) -> std::result::Result<tonic::Response<server::Set>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let upsert = match &self.runtime {
             StoreRuntime::Cluster(cluster) => {
                 submit_db_command!(
-                    Some(cluster),
+                    cluster,
                     metadata,
                     query::Upsert,
                     params,
@@ -648,8 +636,7 @@ impl DbService for Server {
         &self,
         request: tonic::Request<pipeline::DbRequestPipeline>,
     ) -> std::result::Result<tonic::Response<pipeline::DbResponsePipeline>, tonic::Status> {
-        let metadata = request.metadata().clone();
-        let params = request.into_inner();
+        let (metadata, _, params) = request.into_parts();
 
         let estimated_bytes = params.queries.len() * 1024;
         utils::allocator::check_memory_available(estimated_bytes)

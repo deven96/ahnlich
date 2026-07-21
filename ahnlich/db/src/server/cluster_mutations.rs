@@ -47,16 +47,10 @@ fn map_client_write_error(
 }
 
 async fn submit_raw_db_command(
-    cluster: Option<&ClusterRuntime>,
+    cluster: &ClusterRuntime,
     command_name: &str,
     command: DbCommand,
 ) -> Result<DbResponse, ClientWriteFailure> {
-    let cluster = cluster.ok_or_else(|| {
-        ClientWriteFailure::Status(tonic::Status::failed_precondition(
-            "DB server is not running in cluster mode",
-        ))
-    })?;
-
     cluster
         .raft
         .client_write(command)
@@ -66,7 +60,7 @@ async fn submit_raw_db_command(
 }
 
 pub(crate) async fn submit_db_command_inner<Q, T, F, Fut>(
-    cluster: Option<&ClusterRuntime>,
+    cluster: &ClusterRuntime,
     metadata: tonic::metadata::MetadataMap,
     params: Q,
     command_builder: impl FnOnce(Vec<u8>) -> DbCommand,
@@ -88,7 +82,6 @@ where
 
     match submit_raw_db_command(cluster, command_name, command).await {
         Err(ClientWriteFailure::ForwardToLeader(leader_addr)) => {
-            let cluster = cluster.expect("cluster was required before forwarding");
             forward_to_leader(cluster, &leader_addr, metadata, params, forward).await
         }
         Err(ClientWriteFailure::Status(status)) => Err(status),
