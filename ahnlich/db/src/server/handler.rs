@@ -12,15 +12,12 @@ use crate::server::cluster_tasks::spawn_cluster_tasks;
 use crate::server::store_runtime::StoreRuntime;
 use ahnlich_replication::types::DbCommand;
 use ahnlich_types::db::pipeline::db_query::Query;
-use ahnlich_types::db::server::GetSimNEntry;
-use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName};
-use ahnlich_types::schema::Schema;
 use ahnlich_types::services::db_service::db_service_server::{DbService, DbServiceServer};
 use ahnlich_types::shared::cluster::{ClusterInfoQuery, ClusterInfoResponse};
 use ahnlich_types::shared::info::ErrorResponse;
 
+use ahnlich_types::client as types_client;
 use ahnlich_types::db::{pipeline, query, server};
-use ahnlich_types::{client as types_client, utils as types_utils};
 use std::future::Future;
 use std::io::Result as IoResult;
 use std::net::SocketAddr;
@@ -81,39 +78,10 @@ impl DbService for Server {
         request: tonic::Request<query::GetKey>,
     ) -> std::result::Result<tonic::Response<server::Get>, tonic::Status> {
         let params = request.into_inner();
-        let schema = params
-            .schema
-            .as_ref()
-            .map(|schema| Schema::try_new(schema.clone()))
-            .transpose()
-            .map_err(tonic::Status::invalid_argument)?
-            .unwrap_or_default();
-        let keys = params
-            .keys
-            .into_iter()
-            .map(|key| StoreKey { key: key.key })
-            .collect();
-
-        let entries: Vec<DbStoreEntry> = read_store_handler(&self.runtime, |store_handler| {
-            Ok(store_handler
-                .get_key_in_store(
-                    &StoreName {
-                        value: params.store,
-                    },
-                    &schema,
-                    keys,
-                )?
-                .into_iter()
-                .map(|(embedding_key, store_value)| DbStoreEntry {
-                    key: Some(StoreKey {
-                        key: embedding_key.as_slice().to_vec(),
-                    }),
-                    value: Some(Arc::unwrap_or_clone(store_value)),
-                })
-                .collect())
+        let result = read_store_handler(&self.runtime, |store_handler| {
+            operations::get_key(store_handler, params)
         })?;
-
-        Ok(tonic::Response::new(server::Get { entries }))
+        Ok(tonic::Response::new(result))
     }
 
     #[tracing::instrument(skip_all)]
@@ -122,37 +90,10 @@ impl DbService for Server {
         request: tonic::Request<query::GetPred>,
     ) -> std::result::Result<tonic::Response<server::Get>, tonic::Status> {
         let params = request.into_inner();
-        let schema = params
-            .schema
-            .as_ref()
-            .map(|schema| Schema::try_new(schema.clone()))
-            .transpose()
-            .map_err(tonic::Status::invalid_argument)?
-            .unwrap_or_default();
-
-        let condition =
-            ahnlich_types::unwrap_or_invalid!(params.condition, "Predicate Condition is required");
-
-        let entries = read_store_handler(&self.runtime, |store_handler| {
-            Ok(store_handler
-                .get_pred_in_store(
-                    &StoreName {
-                        value: params.store,
-                    },
-                    &schema,
-                    &condition,
-                )?
-                .into_iter()
-                .map(|(embedding_key, store_value)| DbStoreEntry {
-                    key: Some(StoreKey {
-                        key: embedding_key.as_slice().to_vec(),
-                    }),
-                    value: Some(Arc::unwrap_or_clone(store_value)),
-                })
-                .collect())
+        let result = read_store_handler(&self.runtime, |store_handler| {
+            operations::get_pred(store_handler, params)
         })?;
-
-        Ok(tonic::Response::new(server::Get { entries }))
+        Ok(tonic::Response::new(result))
     }
 
     #[tracing::instrument(skip_all)]
@@ -161,49 +102,10 @@ impl DbService for Server {
         request: tonic::Request<query::GetSimN>,
     ) -> std::result::Result<tonic::Response<server::GetSimN>, tonic::Status> {
         let params = request.into_inner();
-        let schema = params
-            .schema
-            .as_ref()
-            .map(|schema| Schema::try_new(schema.clone()))
-            .transpose()
-            .map_err(tonic::Status::invalid_argument)?
-            .unwrap_or_default();
-        let search_input =
-            ahnlich_types::unwrap_or_invalid!(params.search_input, "search input is required");
-
-        let search_input = StoreKey {
-            key: search_input.key,
-        };
-
-        let algorithm = ahnlich_types::algorithm::algorithms::Algorithm::try_from(params.algorithm)
-            .map_err(|err| tonic::Status::invalid_argument(err.to_string()))?;
-
-        let closest_n = types_utils::convert_to_nonzerousize(params.closest_n)
-            .map_err(tonic::Status::invalid_argument)?;
-        let entries = read_store_handler(&self.runtime, |store_handler| {
-            Ok(store_handler
-                .get_sim_in_store(
-                    &StoreName {
-                        value: params.store,
-                    },
-                    &schema,
-                    search_input,
-                    closest_n,
-                    algorithm,
-                    params.condition,
-                )?
-                .into_iter()
-                .map(|(embedding_key, store_value, sim)| GetSimNEntry {
-                    key: Some(StoreKey {
-                        key: embedding_key.as_slice().to_vec(),
-                    }),
-                    value: Some(Arc::unwrap_or_clone(store_value)),
-                    similarity: Some(sim),
-                })
-                .collect())
+        let result = read_store_handler(&self.runtime, |store_handler| {
+            operations::get_sim_n(store_handler, params)
         })?;
-
-        Ok(tonic::Response::new(server::GetSimN { entries }))
+        Ok(tonic::Response::new(result))
     }
 
     #[tracing::instrument(skip_all)]
@@ -438,21 +340,10 @@ impl DbService for Server {
         request: tonic::Request<query::GetStore>,
     ) -> std::result::Result<tonic::Response<server::StoreInfo>, tonic::Status> {
         let params = request.into_inner();
-        let schema = params
-            .schema
-            .map(Schema::try_new)
-            .transpose()
-            .map_err(tonic::Status::invalid_argument)?
-            .unwrap_or_default();
-        let store_info = read_store_handler(&self.runtime, |store_handler| {
-            store_handler.get_store(
-                &StoreName {
-                    value: params.store,
-                },
-                &schema,
-            )
+        let result = read_store_handler(&self.runtime, |store_handler| {
+            operations::get_store(store_handler, params)
         })?;
-        Ok(tonic::Response::new(store_info))
+        Ok(tonic::Response::new(result))
     }
 
     #[tracing::instrument(skip_all)]
