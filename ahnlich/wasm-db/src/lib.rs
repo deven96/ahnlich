@@ -35,11 +35,74 @@ impl AhnlichDB {
         Ok(response.encode_to_vec())
     }
 
+    pub fn create_pred_index(&self, request_bytes: &[u8]) -> Result<Vec<u8>, JsValue> {
+        let params = query::CreatePredIndex::decode(request_bytes)
+            .map_err(|e| JsValue::from_str(&format!("Decode error: {}", e)))?;
+
+        operations::create_pred_index(&self.handler, params)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let response = server::Unit {};
+        Ok(response.encode_to_vec())
+    }
+
+    pub fn create_non_linear_algorithm_index(
+        &self,
+        request_bytes: &[u8],
+    ) -> Result<Vec<u8>, JsValue> {
+        let params = query::CreateNonLinearAlgorithmIndex::decode(request_bytes)
+            .map_err(|e| JsValue::from_str(&format!("Decode error: {}", e)))?;
+
+        operations::create_non_linear_algorithm_index(&self.handler, params)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let response = server::Unit {};
+        Ok(response.encode_to_vec())
+    }
+
+    pub fn drop_pred_index(&self, request_bytes: &[u8]) -> Result<Vec<u8>, JsValue> {
+        let params = query::DropPredIndex::decode(request_bytes)
+            .map_err(|e| JsValue::from_str(&format!("Decode error: {}", e)))?;
+
+        operations::drop_pred_index(&self.handler, params)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let response = server::Unit {};
+        Ok(response.encode_to_vec())
+    }
+
+    pub fn drop_non_linear_algorithm_index(
+        &self,
+        request_bytes: &[u8],
+    ) -> Result<Vec<u8>, JsValue> {
+        let params = query::DropNonLinearAlgorithmIndex::decode(request_bytes)
+            .map_err(|e| JsValue::from_str(&format!("Decode error: {}", e)))?;
+
+        operations::drop_non_linear_algorithm_index(&self.handler, params)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let response = server::Unit {};
+        Ok(response.encode_to_vec())
+    }
+
     pub fn set(&self, request_bytes: &[u8]) -> Result<Vec<u8>, JsValue> {
         let params = query::Set::decode(request_bytes)
             .map_err(|e| JsValue::from_str(&format!("Decode error: {}", e)))?;
 
         let result = operations::set(&self.handler, params)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let response = server::Set {
+            upsert: Some(result),
+        };
+        Ok(response.encode_to_vec())
+    }
+
+    pub fn upsert(&self, request_bytes: &[u8]) -> Result<Vec<u8>, JsValue> {
+        let params = query::Upsert::decode(request_bytes)
+            .map_err(|e| JsValue::from_str(&format!("Decode error: {}", e)))?;
+
+        let result = operations::upsert(&self.handler, params)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let response = server::Set {
@@ -61,6 +124,19 @@ impl AhnlichDB {
         Ok(response.encode_to_vec())
     }
 
+    pub fn del_pred(&self, request_bytes: &[u8]) -> Result<Vec<u8>, JsValue> {
+        let params = query::DelPred::decode(request_bytes)
+            .map_err(|e| JsValue::from_str(&format!("Decode error: {}", e)))?;
+
+        let deleted = operations::del_pred(&self.handler, params)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let response = server::Del {
+            deleted_count: deleted as u64,
+        };
+        Ok(response.encode_to_vec())
+    }
+
     pub fn drop_store(&self, request_bytes: &[u8]) -> Result<Vec<u8>, JsValue> {
         let params = query::DropStore::decode(request_bytes)
             .map_err(|e| JsValue::from_str(&format!("Decode error: {}", e)))?;
@@ -71,6 +147,17 @@ impl AhnlichDB {
         let response = server::Del {
             deleted_count: deleted as u64,
         };
+        Ok(response.encode_to_vec())
+    }
+
+    pub fn drop_schema(&self, request_bytes: &[u8]) -> Result<Vec<u8>, JsValue> {
+        let params = query::DropSchema::decode(request_bytes)
+            .map_err(|e| JsValue::from_str(&format!("Decode error: {}", e)))?;
+
+        operations::drop_schema(&self.handler, params)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let response = server::Unit {};
         Ok(response.encode_to_vec())
     }
 
