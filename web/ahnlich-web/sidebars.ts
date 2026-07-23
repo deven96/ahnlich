@@ -614,6 +614,19 @@ const sidebars: SidebarsConfig = {
         'client-libraries/rust/distributed-tracing',
       ],
     },
+    {
+      type: 'category',
+      label: 'WebAssembly',
+      link: { type: 'doc', id: 'client-libraries/wasm/wasm' },
+      customProps: {
+        iconLight: '/img/wasm-logo.svg',
+        iconDark: '/img/wasm-logo.svg',
+        iconType: 'img',
+      },
+      items: [
+        'client-libraries/wasm/wasm',
+      ],
+    },
   ],
 
   // ---- Guides tab ---------------------------------------------------------

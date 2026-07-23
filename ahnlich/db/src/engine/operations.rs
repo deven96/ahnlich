@@ -12,7 +12,6 @@ use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName, StoreValue};
 use ahnlich_types::schema::Schema;
 use ahnlich_types::shared::info::StoreUpsert;
 use itertools::Itertools;
-#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 
 use crate::engine::store::StoreHandler;
@@ -177,26 +176,9 @@ pub fn drop_store(
 pub fn set(store_handler: &StoreHandler, params: query::Set) -> Result<StoreUpsert, ServerError> {
     let schema = resolve_schema(&params.schema)?;
 
-    #[cfg(not(target_arch = "wasm32"))]
     let inputs = params
         .inputs
         .into_par_iter()
-        .filter_map(|entry| match (entry.key, entry.value) {
-            (Some(key), Some(value)) => Some((key, value)),
-            (Some(key), None) => Some((
-                key,
-                StoreValue {
-                    value: HashMap::new(),
-                },
-            )),
-            _ => None,
-        })
-        .collect();
-
-    #[cfg(target_arch = "wasm32")]
-    let inputs = params
-        .inputs
-        .into_iter()
         .filter_map(|entry| match (entry.key, entry.value) {
             (Some(key), Some(value)) => Some((key, value)),
             (Some(key), None) => Some((

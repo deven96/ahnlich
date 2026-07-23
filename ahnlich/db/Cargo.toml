@@ -19,6 +19,7 @@ server = [
     "dep:task-manager",
 ]
 wasm = []
+wasm-threads = ["dep:rayon"]
 
 [[bin]]
 name = "ahnlich-db"

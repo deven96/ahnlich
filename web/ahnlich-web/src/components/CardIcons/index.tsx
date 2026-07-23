@@ -131,6 +131,12 @@ const ICONS: Record<string, ReactNode> = {
       <path d="M7 3v4a1 1 0 0 0 1 1h7" />
     </>
   ),
+  wasm: (
+    <>
+      <path d="M14.745 2L12 8.243 9.255 2H2l6.242 12L2 22h7.255L12 15.757 14.745 22H22l-6.242-12L22 2h-7.255z" />
+      <circle cx="12" cy="10.757" r="1.2" fill="currentColor" />
+    </>
+  ),
 };
 
 export default function CardIcon({name}: {name?: string}): ReactNode {

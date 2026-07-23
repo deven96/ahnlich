@@ -52,6 +52,7 @@ const config: Config = {
     locales: ['en'],
   },
 
+  // Remove scripts - will load dynamically via ES module
   stylesheets: [
     {
       href: 'https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800&display=swap',
@@ -68,6 +69,57 @@ const config: Config = {
           postcssOptions.plugins.push(require("tailwindcss"));
           postcssOptions.plugins.push(require("autoprefixer"));
           return postcssOptions;
+        },
+      };
+    },
+    // Enable SharedArrayBuffer for WASM threading
+    function wasmHeadersPlugin() {
+      return {
+        name: 'wasm-headers-plugin',
+        configureWebpack() {
+          const webpack = require('webpack');
+          
+          return {
+            plugins: [
+              // Ignore ONNX Runtime binaries that can't be bundled
+              new webpack.IgnorePlugin({
+                resourceRegExp: /\.node$/,
+                contextRegExp: /onnxruntime-node/,
+              }),
+            ],
+            module: {
+              rules: [
+                {
+                  test: /\.wasm$/,
+                  type: 'asset/resource',
+                },
+                {
+                  test: /\.onnx$/,
+                  type: 'asset/resource',
+                },
+              ],
+            },
+            resolve: {
+              fallback: {
+                fs: false,
+                path: false,
+                url: false,
+                crypto: false,
+                stream: false,
+                buffer: false,
+              },
+              alias: {
+                // Prevent sharp from being bundled (used by transformers.js but not needed in browser)
+                'sharp$': false,
+              },
+            },
+            devServer: {
+              headers: {
+                'Cross-Origin-Opener-Policy': 'same-origin',
+                'Cross-Origin-Embedder-Policy': 'require-corp',
+              },
+            },
+          };
         },
       };
     },

@@ -1,0 +1,96 @@
+name: Build and Deploy to Netlify
+on:
+  push:
+    branches:
+      - main
+      - wasm-db-rayon
+permissions:
+  contents: write
+jobs:
+  build-and-deploy:
+    concurrency: ci-${{ github.ref }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 🛎️
+        uses: actions/checkout@v4
+
+      - name: Setup Rust nightly for WASM
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2025-11-15
+          target: wasm32-unknown-unknown
+          override: true
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ahnlich/target/
+          key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Install esbuild
+        run: npm install -g esbuild
+
+      - name: Build SDK (for protobuf types)
+        run: |
+          cd sdk/ahnlich-client-node
+          npm install
+          npm run build
+          echo "SDK built at sdk/ahnlich-client-node/dist/"
+
+      - name: Generate protobuf entry point
+        run: |
+          cat > ahnlich/wasm-db/protobuf-entry.js << 'EOF'
+          // Import and re-export with namespaces to avoid conflicts
+          import * as queryPb from '../../sdk/ahnlich-client-node/dist/grpc/db/query_pb.js';
+          import * as serverPb from '../../sdk/ahnlich-client-node/dist/grpc/db/server_pb.js';
+          import * as keyvalPb from '../../sdk/ahnlich-client-node/dist/grpc/keyval_pb.js';
+          import * as metadataPb from '../../sdk/ahnlich-client-node/dist/grpc/metadata_pb.js';
+          import * as predicatePb from '../../sdk/ahnlich-client-node/dist/grpc/predicate_pb.js';
+
+          // Export all individual types from keyval, metadata, predicate (no conflicts)
+          export * from '../../sdk/ahnlich-client-node/dist/grpc/keyval_pb.js';
+          export * from '../../sdk/ahnlich-client-node/dist/grpc/metadata_pb.js';
+          export * from '../../sdk/ahnlich-client-node/dist/grpc/predicate_pb.js';
+
+          // Export query and server as namespaces to avoid conflicts
+          export { queryPb, serverPb };
+          EOF
+          echo "Protobuf entry point generated"
+
+      - name: Build WASM package
+        run: |
+          cd ahnlich/wasm-db
+          chmod +x build.sh
+          ./build.sh
+          echo "WASM package built at ahnlich/wasm-db/pkg/"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+          cache-dependency-path: web/ahnlich-web/yarn.lock
+
+      - name: Install and Build Docusaurus 🔧
+        working-directory: web/ahnlich-web
+        run: |
+          export G_TRACKING_ID=${{ secrets.G_TRACKING_ID }}
+          yarn install --frozen-lockfile
+          yarn run build
+          touch build/.nojekyll
+          cp netlify.toml build/netlify.toml
+
+      - name: Deploy to gh-pages-netlify 🚀
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: web/ahnlich-web/build
+          branch: gh-pages-netlify
+          clean: true
