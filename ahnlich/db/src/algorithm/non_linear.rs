@@ -14,7 +14,6 @@ use ahnlich_types::algorithm::nonlinear::{
 };
 use ahnlich_types::utils::StoreKeyId;
 use papaya::HashMap as ConcurrentHashMap;
-#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
@@ -126,12 +125,7 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &EmbeddingKey,
-        #[cfg(not(target_arch = "wasm32"))] search_list: impl rayon::iter::ParallelIterator<
-            Item = (&'a StoreKeyId, &'a EmbeddingKey),
-        >,
-        #[cfg(target_arch = "wasm32")] search_list: impl Iterator<
-            Item = (&'a StoreKeyId, &'a EmbeddingKey),
-        >,
+        search_list: impl rayon::iter::ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
         used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)> {
@@ -174,15 +168,8 @@ impl NonLinearAlgorithmWithIndex {
         }
         .expect("Index does not have the same size as reference_point");
 
-        #[cfg(not(target_arch = "wasm32"))]
         let final_result = raw_result
             .into_par_iter()
-            .map(|(arr, sim)| (embedding_key_to_id(&arr), sim))
-            .collect();
-
-        #[cfg(target_arch = "wasm32")]
-        let final_result = raw_result
-            .into_iter()
             .map(|(arr, sim)| (embedding_key_to_id(&arr), sim))
             .collect();
 

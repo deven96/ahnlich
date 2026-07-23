@@ -33,7 +33,6 @@ mod tests {
     use super::*;
     use crate::tests::*;
     use ahnlich_types::keyval::StoreKey;
-    #[cfg(not(target_arch = "wasm32"))]
     use rayon::prelude::*;
 
     fn euclidean_distance_comp(first: &[f32], second: &[f32]) -> f32 {
