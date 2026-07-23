@@ -5,6 +5,7 @@ import Link from '@docusaurus/Link';
 
 import Highlights from '@site/src/components/Highlights';
 import PythonApi from '@site/src/components/PythonApi';
+import HomepageSearchDemo from '@site/src/components/HomepageSearchDemo';
 
 import {ActionLinks} from '../components/buttons';
 import {DownloadIcon, GithubIcon, RocketIcon} from '../components/icons';
@@ -22,7 +23,7 @@ function HomepageHeader() {
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-white to-transparent dark:from-[#08161d]" />
 
-      <div className="container relative z-10 flex min-h-screen flex-col items-center justify-center py-32 text-center md:py-48">
+      <div className="container relative z-10 flex min-h-screen flex-col items-center justify-center py-20 text-center md:py-32">
         <h1
           className="ahn-hero-title ahn-fade-up max-w-5xl text-3xl font-extrabold leading-[1.08] tracking-tight text-[#0c1e28] dark:text-white md:text-5xl lg:text-6xl"
           style={{animationDelay: '0.1s'}}>
@@ -33,13 +34,7 @@ function HomepageHeader() {
           to anything, in minutes
         </h1>
 
-        <p
-          className="ahn-fade-up mt-6 max-w-2xl text-lg text-[#5a6b86] dark:text-slate-300/80 md:text-xl"
-          style={{animationDelay: '0.16s'}}>
-          Ahnlich gives you a fast vector database and built-in AI embeddings,
-          so you can ship semantic search in minutes instead of wiring up
-          infrastructure.
-        </p>
+
 
         <div
           className="ahn-fade-up mt-10 flex flex-col items-center gap-4 sm:flex-row"
@@ -60,6 +55,25 @@ function HomepageHeader() {
               <path d="m9 18 6-6-6-6" />
             </svg>
           </ActionLinks>
+        </div>
+
+        {/* Live Demo integrated into hero */}
+        <div
+          className="ahn-fade-up mt-16 w-full max-w-3xl"
+          style={{animationDelay: '0.28s'}}>
+          <div className="mb-4 flex items-center gap-2">
+            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-green-500"></span>
+            <span className="text-base font-bold uppercase tracking-wide text-secondary">
+              Try it live
+            </span>
+          </div>
+          <HomepageSearchDemo />
+          <div className="mt-3 text-xs opacity-50">
+            Transformers.js •{' '}
+            <Link to="/docs/client-libraries/wasm" className="text-secondary hover:underline">
+              Ahnlich WASM
+            </Link>
+          </div>
         </div>
       </div>
 
