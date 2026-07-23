@@ -434,56 +434,6 @@ Stop Ahnlich:
 docker compose down
 ```
 
-## Dependency management
-
-Add a runtime dependency:
-
-```bash
-uv add package-name
-```
-
-Add a development dependency:
-
-```bash
-uv add --dev package-name
-```
-
-Remove a runtime dependency:
-
-```bash
-uv remove package-name
-```
-
-Remove a development dependency:
-
-```bash
-uv remove --dev package-name
-```
-
-Update one dependency within the constraints in `pyproject.toml`:
-
-```bash
-uv lock --upgrade-package package-name
-uv sync
-```
-
-Update all dependencies within their configured constraints:
-
-```bash
-uv lock --upgrade
-uv sync
-```
-
-After changing dependencies, update the environment with:
-
-```bash
-uv lock
-uv sync
-```
-
-Commit both `pyproject.toml` and `uv.lock` so installations remain
-reproducible.
-
 ## Testing
 
 The integration tests require Ahnlich DB and Ahnlich AI to be running on the

@@ -18,8 +18,8 @@ services:
         ]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 5s
+      retries: 12
+      start_period: 10s
 
   ahnlich_ai:
     image: ghcr.io/deven96/ahnlich-ai:latest
@@ -45,5 +45,5 @@ services:
         ]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 10s
+      retries: 30
+      start_period: 30s
