@@ -15,7 +15,7 @@ interface SearchResult {
 }
 
 function BookSearchDemoInner() {
-  const [status, setStatus] = useState<string>('Click "Initialize" to load Animal Farm');
+  const [status, setStatus] = useState<string>('Loading embedding model...');
   const [db, setDb] = useState<any>(null);
   const [sentences, setSentences] = useState<Sentence[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -26,19 +26,35 @@ function BookSearchDemoInner() {
   const [queryEmbeddingTime, setQueryEmbeddingTime] = useState<number>(0);
   const [embeddingTime, setEmbeddingTime] = useState<number>(0);
   const [insertTime, setInsertTime] = useState<number>(0);
+  const [modelLoaded, setModelLoaded] = useState(false);
   const embeddingModel = useRef<any>(null);
 
-  // Create embedding using Transformers.js (installed via yarn, not CDN)
+  // Preload the embedding model on mount
+  useEffect(() => {
+    async function preloadModel() {
+      try {
+        setStatus('Loading embedding model (one-time)...');
+        const { pipeline, env } = await import('@huggingface/transformers');
+        
+        env.allowRemoteModels = true;
+        env.allowLocalModels = false;
+        
+        embeddingModel.current = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+        setModelLoaded(true);
+        setStatus('Ready! Click "Initialize Database" to start.');
+      } catch (err) {
+        setError('Failed to load embedding model: ' + (err instanceof Error ? err.message : String(err)));
+        setStatus('Model loading failed. Click Initialize to retry.');
+      }
+    }
+    
+    preloadModel();
+  }, []);
+
+  // Create embedding using Transformers.js (preloaded on mount)
   async function createEmbedding(text: string): Promise<number[]> {
     if (!embeddingModel.current) {
-      const { pipeline, env } = await import('@huggingface/transformers');
-      
-      // Configure for browser
-      env.allowRemoteModels = true;
-      env.allowLocalModels = false;
-      
-      // Load the embedding model
-      embeddingModel.current = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+      throw new Error('Embedding model not loaded. Please wait for initialization.');
     }
     
     const output = await embeddingModel.current(text, { pooling: 'mean', normalize: true });
@@ -48,10 +64,20 @@ function BookSearchDemoInner() {
   async function initialize() {
     setIsInitializing(true);
     setError(null);
-    setStatus('Loading pre-computed embeddings...');
+    
+    // Wait for model to load if it hasn't finished yet
+    if (!modelLoaded) {
+      setStatus('Waiting for embedding model to load...');
+      while (!embeddingModel.current && !error) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      if (error) {
+        setIsInitializing(false);
+        return;
+      }
+    }
     
     try {
-      // Model will be loaded lazily on first search
       setStatus('Loading WASM module...');
       const wasmModule = await import('/wasm-pkg/ahnlich_wasm_db.js');
       const { default: init, initThreadPool, AhnlichDB } = wasmModule;
@@ -140,7 +166,7 @@ function BookSearchDemoInner() {
       
       setDb(dbInstance);
       setSentences(sentenceObjs);
-      setStatus(`Ready! Indexed ${sentenceObjs.length} sentences. Embeddings: ${(embEnd - embStart) / 1000}s, Insert: ${(insertEnd - insertStart) / 1000}s`);
+      setStatus(`Ready! Indexed ${sentenceObjs.length} sentences from 4 books. Start searching!`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setStatus('Initialization failed');

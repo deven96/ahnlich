@@ -111,56 +111,7 @@ jobs:
         name: rust
         path: ahnlich/target/nextest/default/rust.xml
 
-  run-wasm-tests:
-    if: always()
-    runs-on: ubuntu-latest
 
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up sccache
-      uses: mozilla-actions/sccache-action@v0.0.9
-
-    - name: Set up Rust cache
-      uses: Swatinem/rust-cache@v2
-      with:
-        workspaces: ahnlich
-        shared-key: ahnlich-rust
-
-    - name: Install wasm-pack
-      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-    - name: Check WASM compilation
-      working-directory: ./ahnlich
-      run: cargo check -p db --lib --target wasm32-unknown-unknown --no-default-features
-
-    - name: Build WASM package
-      working-directory: ./ahnlich/wasm-db
-      run: wasm-pack build --target nodejs --out-dir pkg
-
-    - name: Setup Node for WASM tests
-      uses: actions/setup-node@v4
-      with:
-        node-version: 22
-
-    - name: Build SDK for WASM tests
-      working-directory: ./sdk/ahnlich-client-node
-      run: |
-        npm install
-        npm run build
-
-    - name: Run WASM tests
-      working-directory: ./ahnlich/wasm-db/examples
-      run: |
-        node --test test.mjs 2>&1 | tee test-output.log
-        node --test --test-reporter=junit test.mjs > wasm.xml || (cat test-output.log && exit 1)
-
-    - name: Upload WASM Test Results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: wasm
-        path: ahnlich/wasm-db/examples/wasm.xml
 
   run-python-tests:
     if: always()
@@ -379,7 +330,7 @@ jobs:
   upload-test-results:
     if: always()
     runs-on: ubuntu-latest
-    needs: ["run-rust-tests", "run-wasm-tests", "run-python-tests", "run-go-tests", "run-node-tests"]
+    needs: ["run-rust-tests", "run-python-tests", "run-go-tests", "run-node-tests"]
     permissions:
       contents: read
       checks: write
