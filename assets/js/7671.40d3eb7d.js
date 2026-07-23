@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkahnlich_web=globalThis.webpackChunkahnlich_web||[]).push([[7671],{47671(e,a,h){h.d(a,{createTreemapServices:()=>c.d});var c=h(14687);h(51400)}}]);

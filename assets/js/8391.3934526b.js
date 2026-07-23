@@ -1,0 +1,1 @@
+"use strict";(globalThis.webpackChunkahnlich_web=globalThis.webpackChunkahnlich_web||[]).push([[8391],{28391(e,h,a){a.d(h,{createInfoServices:()=>c.v});var c=a(6491);a(51400)}}]);

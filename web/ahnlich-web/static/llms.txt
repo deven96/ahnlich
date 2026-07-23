@@ -1,2 +1,0 @@
-Allow: /
-Sitemap: https://ahnlich.dev/sitemap.xml
