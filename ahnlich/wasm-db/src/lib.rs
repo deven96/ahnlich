@@ -5,6 +5,8 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use wasm_bindgen::prelude::*;
 
+pub use wasm_bindgen_rayon::init_thread_pool;
+
 #[wasm_bindgen(start)]
 pub fn init() {
     console_error_panic_hook::set_once();

@@ -10,7 +10,6 @@ use ahnlich_types::utils::StoreKeyId;
 use itertools::Itertools;
 use papaya::HashMap as ConcurrentHashMap;
 use papaya::HashSet as ConcurrentHashSet;
-#[cfg(not(target_arch = "wasm32"))]
 use rayon::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
@@ -181,7 +180,6 @@ impl PredicateIndices {
     /// Adds predicates if the key is within allowed_predicates
     #[tracing::instrument(skip_all, fields(new_len = new.len()))]
     pub(super) fn add(&self, new: Vec<(StoreKeyId, Arc<StoreValue>)>) {
-        #[cfg(not(target_arch = "wasm32"))]
         let iter = new
             .into_par_iter()
             .flat_map(|(store_key_id, store_value)| {
@@ -208,30 +206,6 @@ impl PredicateIndices {
                 for (key, mut values) in map {
                     acc.entry(key).or_default().append(&mut values);
                 }
-                acc
-            });
-
-        // WASM: Single-threaded version
-        #[cfg(target_arch = "wasm32")]
-        let iter = new
-            .into_iter()
-            .flat_map(|(store_key_id, store_value)| {
-                let value_clone = Arc::clone(&store_value);
-                value_clone
-                    .value
-                    .clone()
-                    .into_iter()
-                    .map(move |(key, val)| {
-                        let allowed_keys = self.allowed_predicates.pin();
-                        allowed_keys
-                            .contains(&key)
-                            .then_some((store_key_id, key, val))
-                    })
-            })
-            .flatten()
-            .map(|(store_key_id, key, val)| (key, (val.to_owned(), store_key_id)))
-            .fold(HashMap::new(), |mut acc: HashMap<_, Vec<_>>, (k, v)| {
-                acc.entry(k).or_default().push(v);
                 acc
             });
 
