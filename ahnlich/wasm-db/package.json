@@ -8,7 +8,8 @@
     "pkg"
   ],
   "scripts": {
-    "build": "wasm-pack build --target web --out-dir pkg",
+    "build": "wasm-pack build --target nodejs --out-dir pkg",
+    "bench": "npm run build && cd examples && node benchmark.mjs",
     "test": "cd examples && node test-types.mjs"
   },
   "keywords": [
