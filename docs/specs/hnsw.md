@@ -44,6 +44,10 @@
 
     * [Breakdown](#breakdown-5)
 
+  * [Algorithm 7 — Filtered Search](#algorithm-7)
+
+    * [Breakdown](#breakdown-6)
+
 * [Data Model & API Interface](#data-model--api-interfaces)
 
 * [Needs Further Research / Open Questions](#needs-further-research--open-questions)
@@ -53,7 +57,8 @@
     * [Correctness Testing (Core Validation)](#1-correctness-testing-core-validation)
         * [Linear Scan Baseline (Required, V1)](#11-linear-scan-baseline-required-v1)
         * [FAISS HNSW Comparison (Required, Optional Output Check)](#12-faiss-hnsw-comparison-required-optional-output-check)
-        * [Optional / Advanced Correctness Checks](#13-optional--advanced-correctness-checks)
+        * [Filtered Recall (Required for alg. 7)](#13-filtered-recall-required-for-alg-7)
+        * [Optional / Advanced Correctness Checks](#14-optional--advanced-correctness-checks)
     * [Determinism in a Replicated System](#2-determinism-in-a-replicated-system)
     * [Performance Testing](#3-performance-testing)
         * [Speed Benchmarks](#31-speed-benchmarks)
@@ -569,6 +574,154 @@ To support efficient back-link-based deletions, the **INSERT** procedure would i
 ---
 
 
+### Algorithm 7
+
+> **This algorithm is ours, not the paper's.** The paper does not cover filtered/predicate-constrained
+> search at all — algs. 1-6 assume every node in the graph is a valid answer. We need it because a
+> `GETSIMN` can arrive with a predicate condition attached, so only the subset of nodes matching that
+> predicate may be returned. Everything below is an extension on top of alg. 5 and alg. 2.
+
+The input is an `acceptList`: the set of NodeIds whose vectors satisfy the predicate. It is computed by
+the predicate indices *before* we ever touch the graph, so by this point the filter is just a set membership test.
+
+```
+FILTERED-SEARCH(hnsw, q, K, ef, acceptList)
+Input: multilayer graph hnsw, query element q, number of nearest neighbors to
+return K, size of the dynamic candidate list ef, set of allowed NodeIds acceptList
+Output: K nearest elements to q that are members of acceptList
+
+1 if acceptList = ∅
+2   return ∅                          // predicate matched nothing, no work to do
+3 if │acceptList│ ≤ bruteForceThreshold
+4   return K nearest elements to q from acceptList   // exact scan, skip the graph entirely
+5 return K-NN-SEARCH-FILTERED(hnsw, q, K, ef, acceptList)   // alg. 5, with alg. 2 filtered
+```
+
+`K-NN-SEARCH-FILTERED` is **alg. 5 unchanged**, except that the layer-0 call passes `acceptList` down
+into SEARCH-LAYER. The upper layers (lc ← L … 1) are called with **no** acceptList.
+
+`SEARCH-LAYER` is **alg. 2 unchanged**, except for two lines:
+
+```
+SEARCH-LAYER-FILTERED(q, ep, ef, lc, acceptList)
+  ... identical to alg. 2 ...
+7   if distance(c, q) > distance(f, q) and │W│ = ef      // <- CHANGED: the │W│ = ef guard
+8     break
+  ...
+13  if distance(e, q) < distance(f, q) or │W│ < ef
+14    C ← C ⋃ e                                          // e always joins the candidates
+15    if e ∈ acceptList                                  // <- CHANGED: but only joins W if allowed
+16      W ← W ⋃ e
+17      if │W│ > ef
+18        remove furthest element from W to q
+19 return W
+```
+
+### Breakdown
+
+1. **Empty acceptList** → return immediately. The predicate matched nothing, so no vector can be an answer.
+
+2. **Small acceptList (line 3)**: if the predicate is selective enough, we do not touch the graph at all.
+We just compute the distance from `q` to each of the accepted vectors and take the K nearest. This is
+**exact**, not approximate, and at this size it is cheaper than a graph walk. See Q3 for why the graph walk
+is *especially* bad in exactly this case.
+
+3. **Otherwise (line 5)**: run alg. 5 as normal, and filter inside alg. 2. This is the important part.
+
+4. **Line 14 — `e` always joins `C`.** A node that fails the predicate is still a legitimate *stepping stone*.
+The graph's navigability does not know or care about our predicate; the small-world property lives in the
+edges. If we refused to traverse *through* rejected nodes, we would be walking a different (and disconnected)
+graph than the one we built, and the search would strand itself. So rejected nodes are traversed through.
+
+5. **Line 15-16 — `e` only joins `W` if it is in the acceptList.** `W` is the *result* set, so this is the
+only place the predicate is allowed to have an opinion. This is the whole trick, and it is what the literature
+calls **in-filtering** (filter during traversal) as opposed to **post-filtering** (search, then discard).
+
+6. **Line 7 — the `│W│ = ef` guard.** We only stop early once `W` is *full*. This matters here in a way it
+never did for unfiltered search: `W` now only accepts matching nodes, so under a selective predicate it fills
+*slowly*. Without the guard, `f` (the furthest in `W`) is a very tight bound while `W` is still nearly empty,
+the stopping condition fires almost immediately, and the search gives up having found only a handful of
+results. Unfiltered, `W` fills on the first expansion, so this was never observable.
+
+7. **Upper layers are never filtered.** lc ← L … 1 is pure navigation with ef=1; its only job is to hand a
+good entry point to layer 0. Filtering there would mean the descent could fail to find *any* acceptable node
+at some upper layer and strand itself, when all it was ever supposed to do was get us to the right
+neighbourhood. Only layer 0 collects results, so only layer 0 filters.
+
+---
+
+## **Questions & Answers/Assumptions Made**
+
+### **Q1. Why not just search normally and drop the non-matching results afterwards?**
+
+That is post-filtering, and it is what we did originally. It does not work:
+
+* If the accepted vectors are all far from `q`, the top-K are all rejects and you return **nothing** —
+  even though plenty of vectors satisfied the predicate. The results are silently wrong, not just badly ordered.
+* The only way to defend against that with post-filtering is to over-search. But there is no over-search
+  factor that is *safe*: in the worst case the accepted vectors are the K **furthest** from `q`, so you would
+  have to retrieve the entire store to be sure of finding them.
+
+Post-filtering cannot give a guarantee at any price. In-filtering can, because `W` never fills with rejects
+in the first place.
+
+---
+
+### **Q2. Should `ef` be scaled up to compensate for the filter?**
+
+**No, and this is the trap.** `ef` is a quality/latency knob (paper §4, "the quality of the search is controlled
+by ... ef"). It is a *configured constant*, not a function of the data. Tying `ef` to `│acceptList│` means the
+breadth of a search is decided by how many rows the WHERE clause happened to match — a loose predicate
+(half the store) would drive `ef` into the tens of thousands and traverse essentially the whole graph to return
+10 results, which is slower than the linear scan HNSW exists to beat.
+
+`K` is what the caller asked for. `ef` is what we configured. Neither is derived from the predicate.
+
+---
+
+### **Q3. Then what happens when the predicate is very selective?**
+
+In-filtering degrades here, and honestly so: `W` can only fill with accepted nodes, so if very few nodes are
+acceptable, `W` never reaches `ef`, the stop condition (line 7) never fires, and the search keeps widening —
+approaching a full traversal to return a handful of results. The visited count grows roughly as `ef / selectivity`.
+
+That is exactly why line 3 exists. Below the threshold we abandon the graph and scan the accepted set directly:
+it is O(│acceptList│) distance computations, it is exact, and it is bounded. The graph is the wrong tool when
+the candidate set is already small.
+
+---
+
+### **Q4. How is the bruteForceThreshold chosen?**
+
+Currently a constant (4096). This is a **weak point and an open question** — see the open questions below.
+It should probably be relative to the size of the store, not absolute, since "selective" is a ratio, not a count.
+
+---
+
+### **Q5. Does this stay deterministic across replicas?**
+
+It must, per the determinism requirements in the testing strategy. Two places to be careful:
+
+* The brute-force path sorts by distance. Equal distances must **not** tie-break on hash-set iteration order.
+  We break ties on NodeId, which is a content hash and therefore stable across processes and restarts.
+* The acceptList itself is a set of NodeIds, so it is identical on every replica given the same data and the
+  same predicate.
+
+---
+
+### **Notes / Observations**
+
+* The acceptList is keyed by NodeId (u64), not by the vector, so membership is a single integer hash lookup on
+  the hot path and we never re-hash a 1024-dim vector during traversal.
+* Recall under a filter is *not* the same quantity as recall without one. The ground truth for a filtered query
+  is the true K nearest **among the accepted set**, i.e. brute force restricted to the acceptList. Any recall
+  test for this path must compare against that, not against the unfiltered brute force.
+* This algorithm has a hard requirement that alg. 2's `W` only ever contains accepted nodes — the stopping
+  condition reads `W`, so a single reject leaking into `W` corrupts the bound and silently truncates the search.
+
+---
+
+
 
 
 ## Data Model & API Interfaces:
@@ -779,6 +932,21 @@ impl Node {
 - How do we define a default for this value if not provided by the user? If a wrong default is chosen, do we recreate after we understand the dimensionality of said data??
   > @deven96's comment: Yeah we already know the dimensionality of the data so what i propose we do is surface some options as Option but if the values are not provided then we compute our defaults
 
+- **Filtered search (alg. 7): what should `bruteForceThreshold` actually be?** It is currently an absolute
+  constant (4096), which is crude — "selective" is a ratio, not a count. An acceptList of 5,000 is a loose
+  predicate on a 10k store and an extremely tight one on a 10M store, and only the second case wants the
+  graph. Options: make it relative (`max(4096, N/100)`), derive it from a cost model (estimated distance
+  computations for the scan vs. the expected `ef / selectivity` visits for the walk), or surface it as config.
+  Needs measurement across selectivities before we pick.
+
+- **Filtered search: should we cap the visited-node count?** At low selectivity but above the threshold,
+  in-filtering can still approach a full traversal. A visited cap would bound the latency at the cost of recall.
+  We have no data yet on where that trade sits, and a silent recall cliff is worse than a slow query, so it is
+  deliberately not implemented.
+
+- **Filtered search: is `ef` still the right knob under a filter?** `ef` accepted nodes is a different amount of
+  work than `ef` nodes. It may be that filtered queries want their own `ef` default. Open.
+
 
 
 ## **Testing Strategy**
@@ -855,7 +1023,42 @@ Compare our HNSW implementation against **FAISS’s HNSW** on the same dataset.
 
 ---
 
-#### **1.3. Optional / Advanced Correctness Checks**
+#### **1.3. Filtered Recall (Required for alg. 7)**
+
+Filtered search needs its own recall test, because **the ground truth is a different quantity**. For a filtered
+query the true answer is the K nearest **among the accepted set** — i.e. brute force restricted to the
+acceptList — *not* the K nearest overall. Comparing a filtered result against the unfiltered brute force will
+look like a recall collapse even when the implementation is perfect.
+
+```r
+FilteredRecall@K = (# of true accepted-neighbors returned in top K) / K
+    where true accepted-neighbors = brute-force KNN over acceptList only
+```
+
+**Procedure:**
+
+1. Build an index over a dataset.
+2. Pick an acceptList (a predicate) and sweep its **selectivity**: e.g. 100%, 50%, 10%, 1%, 0.1%.
+3. Ground truth: brute-force KNN restricted to the acceptList.
+4. Compare, and record both recall **and** latency at each selectivity.
+
+**The two cases that must be covered, because both were live bugs:**
+
+* **Adversarial placement (correctness).** Construct the acceptList so the accepted vectors are *far* from the
+  query and the rejected ones are *near* it (e.g. two separated clusters, query sitting in the rejected cluster,
+  predicate matching only the far cluster). A post-filtering implementation returns **zero** results here while
+  hundreds of vectors satisfy the predicate. This is the regression test for the original defect.
+* **Loose predicate (latency).** acceptList = ~half the store, K = 10. This must be *fast*: nearly everything
+  near the query is acceptable, so it should cost about what an unfiltered search costs. An implementation that
+  scales `ef` with `│acceptList│` blows up here — traversing the whole graph to return 10 rows, i.e. worse than
+  the linear scan HNSW is supposed to beat.
+
+> Latency must be asserted alongside recall for this path. A filtered search that is correct but traverses the
+> entire graph is still a failure — it silently turns the ANN index back into a linear scan.
+
+---
+
+#### **1.4. Optional / Advanced Correctness Checks**
 
 * **Sanity tests:** simple vectors, identical vectors, widely separated points.
 * **Structural integrity tests:** no duplicate neighbors, bidirectional edges, valid levels.

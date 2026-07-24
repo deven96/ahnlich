@@ -1,10 +1,9 @@
 use crate::{EmbeddingKey, hnsw::Node};
 use std::collections::HashMap;
 
-pub const SEACH_TEXT: &'static str =
-    "Football fans enjoy gathering to watch matches at sports bars.";
+pub const SEACH_TEXT: &str = "Football fans enjoy gathering to watch matches at sports bars.";
 
-pub const MOST_SIMILAR: [&'static str; 3] = [
+pub const MOST_SIMILAR: [&str; 3] = [
     "Attending football games at the stadium is an exciting experience.",
     "On sunny days, people often gather outdoors for a friendly game of football.",
     "Rainy weather can sometimes lead to canceled outdoor events like football matches.",

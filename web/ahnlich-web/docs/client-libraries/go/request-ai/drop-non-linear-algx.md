@@ -4,11 +4,15 @@ title: Drop Non-Linear Algorithm Index
 
 # Drop Non-Linear Algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `Drop Non Linear Algorithm Index` request removes a previously created non-linear index from a store. This operation is important when you want to reclaim resources, update to a different algorithm, or revert to default brute-force scanning for search.
 
-By dropping the index, the AI proxy no longer uses the KDTree or HNSW (or any other specified algorithm) for accelerating queries. Instead, searches will fall back to direct vector comparisons.
+By dropping the index, the AI proxy no longer uses the HNSW (or any other specified algorithm) for accelerating queries. Instead, searches will fall back to direct vector comparisons.
 
 ## Source Code Example
 
@@ -40,6 +44,9 @@ const AIAddr = "127.0.0.1:1370"
 
 
 // ExampleAIClient wraps the connection + AIService client
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
   conn   *grpc.ClientConn
   client aisvc.AIServiceClient
@@ -70,13 +77,14 @@ func (c *ExampleAIClient) Close() error {
 func (c *ExampleAIClient) exampleDropNonLinearIndexAI() error {
   _, err := c.client.DropNonLinearAlgorithmIndex(c.ctx, &aiquery.DropNonLinearAlgorithmIndex{
       Store:            "ai_store",
-      NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_KDTree},
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
+      NonLinearIndices: []nonlinear.NonLinearAlgorithm{nonlinear.NonLinearAlgorithm_HNSW},
       ErrorIfNotExists: true,
   })
   if err != nil {
       return err
   }
-  fmt.Println(" Successfully dropped NonLinearAlgorithm index: KDTree from store ai_store")
+  fmt.Println(" Successfully dropped NonLinearAlgorithm index: HNSW from store ai_store")
   return nil
 }
 
@@ -105,8 +113,8 @@ func main() {
 
 - **Target Store**: Operates on `"ai_store"`.
 
-- **Drop Target**: Removes the **KDTree** index from the store.
+- **Drop Target**: Removes the **HNSW** index from the store.
 
 - **Error Handling**: With `ErrorIfNotExists`: `true`, the request will fail if no such index exists.
 
-- **Effect**: Queries against the store will **no longer benefit from KDTree acceleration**, reverting to full-scan or other available indices.
+- **Effect**: Queries against the store will **no longer benefit from HNSW acceleration**, reverting to full-scan or other available indices.

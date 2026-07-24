@@ -6,6 +6,7 @@ import {
   ListStores,
   CreateNonLinearAlgorithmIndex,
   DropNonLinearAlgorithmIndex,
+  DropSchema,
 } from "../../grpc/ai/query_pb.js";
 import { AIModel } from "../../grpc/ai/models_pb.js";
 import {
@@ -56,6 +57,43 @@ describe("AI client", () => {
     const resp = await client.listStores(new ListStores());
     const names = resp.stores.map((s) => s.name);
     expect(names).toContain(storeName);
+  });
+
+  test("schema-scoped AI store lifecycle", async () => {
+    const client = createAiClient(address);
+    const schema = "media";
+    const storeName = "ai_schema_scoped_store";
+
+    await client.createStore(
+      new CreateStore({
+        store: storeName,
+        queryModel: AIModel.ALL_MINI_LM_L6_V2,
+        indexModel: AIModel.ALL_MINI_LM_L6_V2,
+        errorIfExists: true,
+        storeOriginal: true,
+        schema,
+      }),
+    );
+
+    const defaultList = await client.listStores(new ListStores());
+    expect(defaultList.stores.map((s) => s.name)).not.toContain(storeName);
+
+    const schemaList = await client.listStores(new ListStores({ schema }));
+    expect(schemaList.stores.map((s) => s.name)).toContain(storeName);
+    const schemaStore = schemaList.stores.find((s) => s.name === storeName);
+    expect(schemaStore?.schema).toBe(schema);
+    expect(schemaStore?.dbInfo).toBeDefined();
+
+    const storeInfo = await client.getStore(new GetStore({ store: storeName, schema }));
+    expect(storeInfo.name).toBe(storeName);
+    expect(storeInfo.schema).toBe(schema);
+    expect(storeInfo.dbInfo).toBeDefined();
+
+    const dropResp = await client.dropSchema(new DropSchema({ schema }));
+    expect(Number(dropResp.deletedCount)).toBe(1);
+
+    const afterDrop = await client.listStores(new ListStores({ schema }));
+    expect(afterDrop.stores).toHaveLength(0);
   });
 
   test("get store returns AI store info", async () => {

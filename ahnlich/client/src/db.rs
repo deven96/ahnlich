@@ -4,7 +4,7 @@ use ahnlich_types::{
         query::{
             CreateNonLinearAlgorithmIndex, CreatePredIndex, CreateStore, DelKey, DelPred,
             DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema, DropStore, GetKey, GetPred,
-            GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set,
+            GetSimN, GetStore, InfoServer, ListClients, ListStores, Ping, Set, Upsert,
         },
         server::{
             ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong, Set as SetResult,
@@ -264,6 +264,17 @@ impl DbClient {
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().set(req).await?.into_inner())
+    }
+
+    pub async fn upsert(
+        &self,
+        params: Upsert,
+        tracing_id: Option<String>,
+    ) -> Result<SetResult, AhnlichError> {
+        let mut req = tonic::Request::new(params);
+        add_trace_parent(&mut req, tracing_id);
+        add_auth_header(&mut req, &self.auth_token);
+        Ok(self.client.clone().upsert(req).await?.into_inner())
     }
 
     pub async fn drop_pred_index(
@@ -610,6 +621,7 @@ mod test {
                     }),
                 },
             ],
+            schema: None,
         };
 
         assert!(db_client.set(set_key_params, None).await.is_ok());
@@ -622,6 +634,7 @@ mod test {
             closest_n: 2,
             algorithm: Algorithm::EuclideanDistance as i32,
             condition: None,
+            schema: None,
         };
         assert!(db_client.get_sim_n(get_sim_n_params, None).await.is_err());
 
@@ -646,6 +659,7 @@ mod test {
             closest_n: 2,
             algorithm: Algorithm::CosineSimilarity as i32,
             condition: Some(condition),
+            schema: None,
         };
 
         assert_eq!(
@@ -836,6 +850,7 @@ mod test {
         let del_key_params = DelKey {
             store: "Main".to_string(),
             keys: vec![],
+            schema: None,
         };
         assert!(db_client.del_key(del_key_params, None).await.is_err());
 
@@ -862,6 +877,7 @@ mod test {
             keys: vec![StoreKey {
                 key: vec![1.0, 1.1, 1.2, 1.3],
             }],
+            schema: None,
         };
 
         assert_eq!(
@@ -889,6 +905,7 @@ mod test {
                     }),
                 },
             ],
+            schema: None,
         };
 
         assert!(db_client.set(set_key_params, None).await.is_ok());
@@ -916,6 +933,7 @@ mod test {
             keys: vec![StoreKey {
                 key: vec![1.0, 1.1],
             }],
+            schema: None,
         };
 
         assert!(db_client.del_key(del_key_params, None).await.is_err());
@@ -925,6 +943,7 @@ mod test {
             keys: vec![StoreKey {
                 key: vec![1.0, 1.1, 1.2, 1.3],
             }],
+            schema: None,
         };
 
         assert_eq!(
@@ -1023,6 +1042,7 @@ mod test {
                     }),
                 },
             ],
+            schema: None,
         };
 
         assert!(db_client.set(set_key_params, None).await.is_ok());
@@ -1037,6 +1057,7 @@ mod test {
             closest_n: 2,
             algorithm: Algorithm::EuclideanDistance as i32,
             condition: None,
+            schema: None,
         };
         assert!(db_client.get_sim_n(get_sim_n_params, None).await.is_err());
 
@@ -1061,6 +1082,7 @@ mod test {
             closest_n: 2,
             algorithm: Algorithm::CosineSimilarity as i32,
             condition: Some(condition),
+            schema: None,
         };
 
         assert_eq!(

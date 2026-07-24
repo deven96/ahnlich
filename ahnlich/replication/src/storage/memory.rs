@@ -45,6 +45,7 @@ impl<C: RaftTypeConfig> MemLogStore<C>
 where
     C::Entry: RaftLogId<C::NodeId> + Clone,
 {
+    #[allow(clippy::result_large_err)]
     fn lock_inner(
         &self,
     ) -> Result<std::sync::MutexGuard<'_, MemLogStoreInner<C>>, StorageError<C::NodeId>> {

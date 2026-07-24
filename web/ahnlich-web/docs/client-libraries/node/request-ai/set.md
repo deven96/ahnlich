@@ -5,6 +5,10 @@ sidebar_position: 6
 
 # Set
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The Set request inserts entries into an AI store. The AI server automatically generates embeddings for the provided inputs.
 
 * **Input**: Store name, array of entries (input-value pairs), and preprocessing options.
@@ -29,6 +33,7 @@ async function setEntries() {
   await client.set(
     new Set({
       store: "ai_store",
+      schema: "analytics",
       inputs: [
         new AiStoreEntry({
           key: new StoreInput({ value: { case: "rawString", value: "Jordan One" } }),
@@ -96,6 +101,7 @@ async function setMultipleEntries() {
   await client.set(
     new Set({
       store: "products",
+      schema: "analytics",
       inputs: products.map(
         (p) =>
           new AiStoreEntry({
@@ -138,6 +144,7 @@ async function setImageEntry() {
   await client.set(
     new Set({
       store: "image_store",
+      schema: "analytics",
       inputs: [
         new AiStoreEntry({
           key: new StoreInput({ value: { case: "image", value: imageData } }),

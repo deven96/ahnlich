@@ -8,7 +8,7 @@ sidebar_position: 10
 Ahnlich consists of two services that work together:
 
 - **ahnlich-db**: In-memory vector store with exact similarity search
-- **ahnlich-ai**: AI proxy that transforms raw inputs (text/image) into embeddings
+- **ahnlich-ai**: AI proxy that transforms raw inputs (text, image, or audio) into embeddings
 
 The recommended production setup runs both services using Docker.
 

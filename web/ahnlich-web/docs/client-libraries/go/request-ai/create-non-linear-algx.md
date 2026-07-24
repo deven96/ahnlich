@@ -4,11 +4,15 @@ title: Create Non-Linear algorithm Index
 
 # Create Non-Linear algorithm Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
-The `Create Non Linear Algorithm Index` request allows the AI service to build specialized non-linear search indices (e.g., KD-Tree, HNSW) on top of vector embeddings that have already been stored in an AI-managed store.
+The `Create Non Linear Algorithm Index` request allows the AI service to build specialized non-linear search indices (e.g., HNSW) on top of vector embeddings that have already been stored in an AI-managed store.
 
-Each index type is specified using a `NonLinearIndex` message with either a `KDTreeConfig` or `HNSWConfig`.
+Each index type is specified using a `NonLinearIndex` message with a `HNSWConfig`.
 
 Non-linear indices are essential when scaling similarity search, as they provide faster and more efficient retrieval of high-dimensional vectors compared to brute-force search.
 
@@ -44,6 +48,9 @@ const AIAddr = "127.0.0.1:1370"
 
 
 // ExampleAIClient wraps the connection + AIService client
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
   conn   *grpc.ClientConn
   client aisvc.AIServiceClient
@@ -72,21 +79,10 @@ func (c *ExampleAIClient) Close() error {
 
 // ---- CreateNonLinearAlgorithmIndex ----
 func (c *ExampleAIClient) exampleCreateNonLinearIndexAI() error {
-  // Create a KDTree index
+  // Create an HNSW index (with optional config)
   _, err := c.client.CreateNonLinearAlgorithmIndex(c.ctx, &aiquery.CreateNonLinearAlgorithmIndex{
       Store: "ai_store",
-      NonLinearIndices: []*nonlinear.NonLinearIndex{
-          {Index: &nonlinear.NonLinearIndex_Kdtree{Kdtree: &nonlinear.KDTreeConfig{}}},
-      },
-  })
-  if err != nil {
-      return err
-  }
-  fmt.Println(" Successfully created NonLinearAlgorithm index: KDTree on store ai_store")
-
-  // Or create an HNSW index (with optional config)
-  _, err = c.client.CreateNonLinearAlgorithmIndex(c.ctx, &aiquery.CreateNonLinearAlgorithmIndex{
-      Store: "ai_store",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       NonLinearIndices: []*nonlinear.NonLinearIndex{
           {Index: &nonlinear.NonLinearIndex_Hnsw{Hnsw: &nonlinear.HNSWConfig{}}},
       },

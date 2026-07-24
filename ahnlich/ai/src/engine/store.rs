@@ -52,6 +52,15 @@ type StoreValidateResponse = (
     Vec<(StoreInput, StoreValue)>,
     Option<StdHashSet<MetadataValue>>,
 );
+
+/// Groups model execution inputs shared by indexing and query paths.
+pub(crate) struct ModelExecutionParams<'a> {
+    pub(crate) model_manager: &'a ModelManager,
+    pub(crate) preprocess_action: PreprocessAction,
+    pub(crate) execution_provider: Option<ExecutionProvider>,
+    pub(crate) model_params: std::collections::HashMap<String, String>,
+}
+
 impl AhnlichPersistenceUtils for AIStoreHandler {
     type PersistenceObject = super::versioned::VersionedAiStores;
 
@@ -127,21 +136,19 @@ impl AIStoreHandler {
 
     /// Returns a store using the store name and schema, else returns an error
     #[tracing::instrument(skip(self))]
-    pub(crate) fn get(&self, store_name: &StoreName) -> Result<Arc<AIStore>, AIProxyError> {
-        let guard = self.stores.guard();
-        if let Some(inner_stores) = self.stores.get(&self.default_schema, &guard) {
-            let inner_guard = inner_stores.guard();
-            if let Some(store) = inner_stores.get(store_name, &inner_guard) {
-                return Ok(store.clone());
-            }
-        }
-        for (_, inner_stores) in self.stores.iter(&guard) {
-            let inner_guard = inner_stores.guard();
-            if let Some(store) = inner_stores.get(store_name, &inner_guard) {
-                return Ok(store.clone());
-            }
-        }
-        Err(AIProxyError::StoreNotFound(store_name.clone()))
+    pub(crate) fn get(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+    ) -> Result<Arc<AIStore>, AIProxyError> {
+        let inner_stores = self
+            .get_schema(schema)
+            .ok_or_else(|| AIProxyError::StoreNotFound(store_name.clone()))?;
+        let inner_guard = inner_stores.guard();
+        inner_stores
+            .get(store_name, &inner_guard)
+            .cloned()
+            .ok_or_else(|| AIProxyError::StoreNotFound(store_name.clone()))
     }
 
     #[tracing::instrument(skip(self))]
@@ -271,9 +278,10 @@ impl AIStoreHandler {
     pub(crate) fn validate_and_prepare_store_data(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         inputs: Vec<(StoreInput, StoreValue)>,
     ) -> Result<StoreValidateResponse, AIProxyError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         let index_model = store.index_model;
         let chunk_size = parallel::chunk_size(inputs.len());
         inputs
@@ -339,32 +347,31 @@ impl AIStoreHandler {
     }
 
     /// Stores storeinput into ahnlich db
-    #[tracing::instrument(skip(self, inputs), fields(input_length=inputs.len()))]
+    #[tracing::instrument(skip(self, inputs, model_execution_params), fields(input_length=inputs.len()))]
     pub(crate) async fn set(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         inputs: Vec<(StoreInput, StoreValue)>,
-        model_manager: &ModelManager,
-        preprocess_action: PreprocessAction,
-        execution_provider: Option<ExecutionProvider>,
-        model_params: std::collections::HashMap<String, String>,
+        model_execution_params: ModelExecutionParams<'_>,
     ) -> Result<StoreSetResponse, AIProxyError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         if inputs.is_empty() {
             return Ok((vec![], None));
         }
         let (validated_data, delete_hashset) =
-            self.validate_and_prepare_store_data(store_name, inputs)?;
+            self.validate_and_prepare_store_data(store_name, schema, inputs)?;
 
         let (store_inputs, store_values): (Vec<_>, Vec<_>) = validated_data.into_iter().unzip();
-        let store_keys = model_manager
+        let store_keys = model_execution_params
+            .model_manager
             .handle_request(
                 &store.index_model,
                 store_inputs,
-                preprocess_action,
+                model_execution_params.preprocess_action,
                 InputAction::Index,
-                execution_provider,
-                model_params,
+                model_execution_params.execution_provider,
+                model_execution_params.model_params,
             )
             .await?;
 
@@ -419,6 +426,76 @@ impl AIStoreHandler {
         Ok((output, delete_hashset))
     }
 
+    /// Updates a single entry matching the predicate condition with new input and/or value.
+    /// AI proxy always uses merge mode for metadata and constructs partial updates.
+    /// Returns (new_key, new_value_partial) to be sent to DB's upsert.
+    #[tracing::instrument(skip(self, new_input, new_value, model_execution_params), fields(store_name=%store_name.value))]
+    pub(crate) async fn prepare_upsert(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+        new_input: Option<StoreInput>,
+        new_value: Option<StoreValue>,
+        model_execution_params: ModelExecutionParams<'_>,
+    ) -> Result<(Option<StoreKey>, Option<StoreValue>), AIProxyError> {
+        let store = self.get(store_name, schema)?;
+
+        // Generate new key if new_input is provided
+        let (new_key, model_metadata, input_for_metadata) = if let Some(input) = new_input {
+            let store_keys = model_execution_params
+                .model_manager
+                .handle_request(
+                    &store.index_model,
+                    vec![input.clone()],
+                    model_execution_params.preprocess_action,
+                    InputAction::Index,
+                    model_execution_params.execution_provider,
+                    model_execution_params.model_params.clone(),
+                )
+                .await?;
+
+            match store_keys.into_iter().next() {
+                Some(ModelResponse::OneToOne(key, metadata)) => (Some(key), metadata, Some(input)),
+                Some(ModelResponse::OneToMany(_)) => {
+                    return Err(AIProxyError::InvalidArgument(
+                        "UPSERT does not support OneToMany models".to_string(),
+                    ));
+                }
+                None => {
+                    return Err(AIProxyError::InvalidArgument(
+                        "Model returned no results".to_string(),
+                    ));
+                }
+            }
+        } else {
+            (None, None, None)
+        };
+
+        // Construct partial new_value for merge mode
+        let mut partial_value = new_value.unwrap_or_else(|| StoreValue {
+            value: std::collections::HashMap::new(),
+        });
+
+        // Add model metadata if provided
+        if let Some(meta) = model_metadata {
+            partial_value.value.extend(meta);
+        }
+
+        // Add the original input to metadata if store_original is true and new_input was provided
+        if let Some(input) = input_for_metadata
+            && store.store_original
+        {
+            let metadata_value: MetadataValue = input
+                .try_into()
+                .map_err(|_| AIProxyError::InputNotSpecified("Store Input Value".to_string()))?;
+            partial_value
+                .value
+                .insert(AHNLICH_AI_RESERVED_META_KEY.to_string(), metadata_value);
+        }
+
+        Ok((new_key, Some(partial_value)))
+    }
+
     #[tracing::instrument(skip(self, input), fields(input_len=input.len()))]
     pub(crate) fn db_store_entry_to_store_get_key(
         &self,
@@ -467,25 +544,24 @@ impl AIStoreHandler {
             .collect()
     }
 
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(skip(self, model_execution_params))]
     pub(crate) async fn get_ndarray_repr_for_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         store_input: StoreInput,
-        model_manager: &ModelManager,
-        preprocess_action: PreprocessAction,
-        execution_provider: Option<ExecutionProvider>,
-        model_params: std::collections::HashMap<String, String>,
+        model_execution_params: ModelExecutionParams<'_>,
     ) -> Result<StoreKey, AIProxyError> {
-        let store = self.get(store_name)?;
-        let mut store_keys = model_manager
+        let store = self.get(store_name, schema)?;
+        let mut store_keys = model_execution_params
+            .model_manager
             .handle_request(
                 &store.query_model,
                 vec![store_input],
-                preprocess_action,
+                model_execution_params.preprocess_action,
                 InputAction::Query,
-                execution_provider,
-                model_params,
+                model_execution_params.execution_provider,
+                model_execution_params.model_params,
             )
             .await?;
 
@@ -553,8 +629,12 @@ impl AIStoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
-    pub(crate) fn store_original(&self, store_name: StoreName) -> Result<bool, AIProxyError> {
-        let store = self.get(&store_name)?;
+    pub(crate) fn store_original(
+        &self,
+        store_name: StoreName,
+        schema: &Schema,
+    ) -> Result<bool, AIProxyError> {
+        let store = self.get(&store_name, schema)?;
         Ok(store.store_original)
     }
 

@@ -21,6 +21,7 @@ A Node.js/TypeScript client that interacts with both Ahnlich DB and AI over gRPC
   - [Get Store](#get-store)
   - [Create Store](#create-store)
   - [Set](#set)
+  - [Upsert](#upsert)
   - [Get Sim N](#get-sim-n)
   - [Get Key](#get-key)
   - [Get By Predicate](#get-by-predicate)
@@ -38,6 +39,7 @@ A Node.js/TypeScript client that interacts with both Ahnlich DB and AI over gRPC
   - [Get Store](#get-store-1)
   - [Create Store](#create-store-1)
   - [Set](#set-1)
+  - [Upsert](#upsert-1)
   - [Get Sim N](#get-sim-n-1)
   - [Get By Predicate](#get-by-predicate-1)
   - [Create Predicate Index](#create-predicate-index-1)
@@ -200,6 +202,45 @@ await client.set(
         }),
       }),
     ],
+  }),
+);
+```
+
+### Upsert
+
+```ts
+import { Upsert } from "ahnlich-client-node/grpc/db/query_pb";
+import { StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+import { PredicateCondition, Predicate, Equals } from "ahnlich-client-node/grpc/predicates_pb";
+
+const condition = new PredicateCondition({
+  kind: {
+    case: "value",
+    value: new Predicate({
+      kind: {
+        case: "equals",
+        value: new Equals({
+          key: "id",
+          value: new MetadataValue({ value: { case: "rawString", value: "123" } }),
+        }),
+      },
+    }),
+  },
+});
+
+const newValue = new StoreValue({
+  value: {
+    status: new MetadataValue({ value: { case: "rawString", value: "published" } }),
+  },
+});
+
+await client.upsert(
+  new Upsert({
+    store: "my_store",
+    condition,
+    newValue,
+    mergeMetadata: true,
   }),
 );
 ```
@@ -445,6 +486,46 @@ await client.set(
         }),
       }),
     ],
+    preprocessAction: PreprocessAction.NO_PREPROCESSING,
+  }),
+);
+```
+
+### Upsert
+
+```ts
+import { Upsert } from "ahnlich-client-node/grpc/ai/query_pb";
+import { StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+import { PredicateCondition, Predicate, Equals } from "ahnlich-client-node/grpc/predicates_pb";
+import { PreprocessAction } from "ahnlich-client-node/grpc/ai/preprocess_pb";
+
+const condition = new PredicateCondition({
+  kind: {
+    case: "value",
+    value: new Predicate({
+      kind: {
+        case: "equals",
+        value: new Equals({
+          key: "filename",
+          value: new MetadataValue({ value: { case: "rawString", value: "photo.jpg" } }),
+        }),
+      },
+    }),
+  },
+});
+
+const newValue = new StoreValue({
+  value: {
+    tags: new MetadataValue({ value: { case: "rawString", value: "cat,outdoors" } }),
+  },
+});
+
+await client.upsert(
+  new Upsert({
+    store: "images",
+    condition,
+    newValue,
     preprocessAction: PreprocessAction.NO_PREPROCESSING,
   }),
 );

@@ -4,6 +4,10 @@ title: Set
 
 # Set
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The `Set` request is used to **insert or update entries** inside an AI-powered store.
 
 Unlike the DB client (which expects raw vectors), the AI client allows you to store **raw strings or other inputs** directly.
@@ -27,6 +31,7 @@ The AI service will automatically **embed these inputs** using the store’s con
         response = await client.set(
             ai_query.Set(
                 store="test store",
+                schema="analytics",
                 inputs=[
                     keyval.AiStoreEntry(
                         key=keyval.StoreInput(raw_string="Jordan One"),
@@ -73,6 +78,6 @@ The AI service will automatically **embed these inputs** using the store’s con
 
 * **`execution_provider`** - Optional hardware acceleration for model inference (e.g., `CUDA`, `TensorRT`, `CoreML`). Set to `None` for default CPU execution.
 
-* **`model_params`** - Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
+* **`model_params`** - Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced/model-parameters) for details.
 
 * **Response** → returns counts of inserted vs. updated items (`upsert counts`).  

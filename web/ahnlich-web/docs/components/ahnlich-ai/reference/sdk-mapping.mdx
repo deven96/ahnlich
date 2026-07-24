@@ -1,0 +1,228 @@
+---
+title: Command → SDK map
+sidebar_label: Command → SDK map
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Command → SDK map
+
+Everything you can type as a **DSL command** (in the CLI) has a matching **method
+call** in each client library. With the AI proxy the big difference from raw DB
+usage is that you pass **raw text** (or images/audio) instead of vectors — the
+proxy embeds it for you either way, CLI or SDK.
+
+Pick your language once with the tabs below and it stays selected across the page.
+
+:::note
+Signatures here are **simplified** to show the shape of each call. For full,
+runnable examples, follow each command's [Stores operation page](/docs/stores) and
+choose the **AI proxy** tab.
+:::
+
+## One operation, every language
+
+Creating a **model-aware store** (an index model to embed stored items, a query
+model to embed searches):
+
+<Tabs groupId="lang">
+<TabItem value="cli" label="CLI (DSL)">
+
+```bash
+CREATESTORE article_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2
+```
+
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+client.create_store("article_store", index_model="all-minilm-l6-v2", query_model="all-minilm-l6-v2")
+```
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+```javascript
+await client.createStore("article_store", "all-minilm-l6-v2", "all-minilm-l6-v2");
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go
+client.CreateStore(ctx, "article_store", "all-minilm-l6-v2", "all-minilm-l6-v2")
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust
+client.create_store("article_store", "all-minilm-l6-v2", "all-minilm-l6-v2")?;
+```
+
+</TabItem>
+</Tabs>
+
+## Full command map
+
+<Tabs groupId="lang">
+<TabItem value="python" label="Python">
+
+#### Server & system
+| Command | Python |
+| --- | --- |
+| `PING` | `client.ping()` |
+| `INFO SERVER` | `client.info_server()` |
+
+#### Store management
+| Command | Python |
+| --- | --- |
+| `LIST STORES` | `client.list_stores()` |
+| `GETSTORE article_store` | `client.get_store("article_store")` |
+| `CREATESTORE … QUERYMODEL … INDEXMODEL …` | `client.create_store("article_store", index_model="all-minilm-l6-v2", query_model="all-minilm-l6-v2")` |
+| `DROPSTORE article_store` | `client.drop_store("article_store")` |
+
+#### Data operations
+| Command | Python |
+| --- | --- |
+| `SET doc1 "…text…" WITH {...} IN article_store` | `client.set("article_store", "doc1", "The future of AI in healthcare", {"category": "news"})` |
+| `DELKEY doc1 IN article_store` | `client.delete_key("article_store", "doc1")` |
+
+#### Query & retrieval
+| Command | Python |
+| --- | --- |
+| `GETSIMN 3 WITH ["…text…"] USING cosine IN article_store` | `client.get_sim_n("article_store", "renewable energy storage", 3, "cosine", predicate="category!='sports'")` |
+| `GETKEY doc1 IN article_store` | `client.get_key("article_store", "doc1")` |
+| `GETPRED (category='news') IN article_store` | `client.get_by_predicate("article_store", "category='news'")` |
+
+#### Index management
+| Command | Python |
+| --- | --- |
+| `CREATEPREDINDEX (category) IN article_store` | `client.create_predicate_index("article_store", "category")` |
+| `DROPPREDINDEX (category) IN article_store` | `client.drop_predicate_index("article_store", "category")` |
+| `CREATENONLINEARALGORITHMINDEX (hnsw) IN article_store` | `client.create_non_linear_algorithm_index("article_store", NonLinearIndex(hnsw=HNSWConfig()))` |
+| `DROPNONLINEARALGORITHMINDEX (hnsw) IN article_store` | `client.drop_non_linear_algorithm_index("article_store", "hnsw")` |
+
+</TabItem>
+<TabItem value="node" label="Node.js">
+
+#### Server & system
+| Command | Node.js |
+| --- | --- |
+| `PING` | `await client.ping()` |
+| `INFO SERVER` | `await client.infoServer()` |
+
+#### Store management
+| Command | Node.js |
+| --- | --- |
+| `LIST STORES` | `await client.listStores()` |
+| `GETSTORE article_store` | `await client.getStore("article_store")` |
+| `CREATESTORE … QUERYMODEL … INDEXMODEL …` | `await client.createStore("article_store", "all-minilm-l6-v2", "all-minilm-l6-v2")` |
+| `DROPSTORE article_store` | `await client.dropStore("article_store")` |
+
+#### Data operations
+| Command | Node.js |
+| --- | --- |
+| `SET doc1 "…text…" WITH {...} IN article_store` | `await client.set("article_store", "doc1", "The future of AI in healthcare", {category: "news"})` |
+| `DELKEY doc1 IN article_store` | `await client.delKey("article_store", "doc1")` |
+
+#### Query & retrieval
+| Command | Node.js |
+| --- | --- |
+| `GETSIMN 3 WITH ["…text…"] USING cosine IN article_store` | `await client.getSimN("article_store", "renewable energy storage", 3, "cosine", "category!='sports'")` |
+| `GETKEY doc1 IN article_store` | `await client.getKey("article_store", "doc1")` |
+| `GETPRED (category='news') IN article_store` | `await client.getPred("article_store", "category='news'")` |
+
+#### Index management
+| Command | Node.js |
+| --- | --- |
+| `CREATEPREDINDEX (category) IN article_store` | `await client.createPredIndex("article_store", "category")` |
+| `DROPPREDINDEX (category) IN article_store` | `await client.dropPredIndex("article_store", "category")` |
+| `CREATENONLINEARALGORITHMINDEX (hnsw) IN article_store` | `await client.createNonLinearAlgorithmIndex("article_store", hnsw)` |
+| `DROPNONLINEARALGORITHMINDEX (hnsw) IN article_store` | `await client.dropNonLinearAlgorithmIndex("article_store", "hnsw")` |
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+#### Server & system
+| Command | Go |
+| --- | --- |
+| `PING` | `client.Ping(ctx)` |
+| `INFO SERVER` | `client.InfoServer(ctx)` |
+
+#### Store management
+| Command | Go |
+| --- | --- |
+| `LIST STORES` | `client.ListStores(ctx)` |
+| `GETSTORE article_store` | `client.GetStore(ctx, "article_store")` |
+| `CREATESTORE … QUERYMODEL … INDEXMODEL …` | `client.CreateStore(ctx, "article_store", "all-minilm-l6-v2", "all-minilm-l6-v2")` |
+| `DROPSTORE article_store` | `client.DropStore(ctx, "article_store")` |
+
+#### Data operations
+| Command | Go |
+| --- | --- |
+| `SET doc1 "…text…" WITH {...} IN article_store` | `client.Set(ctx, "article_store", "doc1", "The future of AI in healthcare", map[string]string{"category": "news"})` |
+| `DELKEY doc1 IN article_store` | `client.DeleteKey(ctx, "article_store", "doc1")` |
+
+#### Query & retrieval
+| Command | Go |
+| --- | --- |
+| `GETSIMN 3 WITH ["…text…"] USING cosine IN article_store` | `client.GetSimN(ctx, "article_store", "renewable energy storage", 3, "cosine", "category!='sports'")` |
+| `GETKEY doc1 IN article_store` | `client.GetKey(ctx, "article_store", "doc1")` |
+| `GETPRED (category='news') IN article_store` | `client.GetByPredicate(ctx, "article_store", "category='news'")` |
+
+#### Index management
+| Command | Go |
+| --- | --- |
+| `CREATEPREDINDEX (category) IN article_store` | `client.CreatePredicateIndex(ctx, "article_store", "category")` |
+| `DROPPREDINDEX (category) IN article_store` | `client.DropPredicateIndex(ctx, "article_store", "category")` |
+| `CREATENONLINEARALGORITHMINDEX (hnsw) IN article_store` | `client.CreateNonLinearAlgorithmIndex(ctx, "article_store", NonLinearIndex_Hnsw)` |
+| `DROPNONLINEARALGORITHMINDEX (hnsw) IN article_store` | `client.DropNonLinearAlgorithmIndex(ctx, "article_store", "hnsw")` |
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+#### Server & system
+| Command | Rust |
+| --- | --- |
+| `PING` | `client.ping()?;` |
+| `INFO SERVER` | `client.info_server()?;` |
+
+#### Store management
+| Command | Rust |
+| --- | --- |
+| `LIST STORES` | `client.list_stores()?;` |
+| `GETSTORE article_store` | `client.get_store("article_store")?;` |
+| `CREATESTORE … QUERYMODEL … INDEXMODEL …` | `client.create_store("article_store", "all-minilm-l6-v2", "all-minilm-l6-v2")?;` |
+| `DROPSTORE article_store` | `client.drop_store("article_store")?;` |
+
+#### Data operations
+| Command | Rust |
+| --- | --- |
+| `SET doc1 "…text…" WITH {...} IN article_store` | `client.set("article_store", "doc1", "The future of AI in healthcare", hashmap!{"category" => "news"})?;` |
+| `DELKEY doc1 IN article_store` | `client.delete_key("article_store", "doc1")?;` |
+
+#### Query & retrieval
+| Command | Rust |
+| --- | --- |
+| `GETSIMN 3 WITH ["…text…"] USING cosine IN article_store` | `client.get_sim_n("article_store", "renewable energy storage", 3, "cosine", Some("category!='sports'"))?;` |
+| `GETKEY doc1 IN article_store` | `client.get_key("article_store", "doc1")?;` |
+| `GETPRED (category='news') IN article_store` | `client.get_by_predicate("article_store", "category='news'")?;` |
+
+#### Index management
+| Command | Rust |
+| --- | --- |
+| `CREATEPREDINDEX (category) IN article_store` | `client.create_predicate_index("article_store", "category")?;` |
+| `DROPPREDINDEX (category) IN article_store` | `client.drop_predicate_index("article_store", "category")?;` |
+| `CREATENONLINEARALGORITHMINDEX (hnsw) IN article_store` | `client.create_non_linear_algorithm_index("article_store", NonLinearIndex { hnsw })?;` |
+| `DROPNONLINEARALGORITHMINDEX (hnsw) IN article_store` | `client.drop_non_linear_algorithm_index("article_store", "hnsw")?;` |
+
+</TabItem>
+</Tabs>
+
+## Next steps
+
+- [Command reference](/docs/components/ahnlich-ai/reference) — what each command does.
+- [Client libraries](/docs/client-libraries) — install and set up your SDK.
+- [Stores operations](/docs/stores) — full runnable examples per operation.

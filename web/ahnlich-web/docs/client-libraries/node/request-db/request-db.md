@@ -12,7 +12,7 @@ Ahnlich DB is the core vector storage engine that provides:
 * Vector storage with configurable dimensions
 * Similarity search using various algorithms
 * Metadata filtering with predicates
-* Non-linear indexing (KDTree, HNSW) for faster searches
+* Non-linear indexing (HNSW) for faster searches
 
 ## Available Operations
 
@@ -22,13 +22,14 @@ Ahnlich DB is the core vector storage engine that provides:
 - [List Connected Clients](/docs/client-libraries/node/request-db/list-connected-clients) - List all connected clients
 
 ### Store Operations
-- [List Stores](/docs/client-libraries/node/request-db/list-stores) - List all stores
+- [List Stores](/docs/client-libraries/node/request-db/list-stores) - List stores in a schema
 - [Get Store](/docs/client-libraries/node/request-db/get-store) - Get details of a specific store
 - [Create Store](/docs/client-libraries/node/request-db/create-store) - Create a new store
 - [Drop Store](/docs/client-libraries/node/request-db/drop-store) - Delete a store
 
 ### Data Operations
 - [Set](/docs/client-libraries/node/request-db/set) - Insert or update entries
+- [Upsert](/docs/client-libraries/node/request-db/upsert) - Update a single entry matching a predicate
 - [Get Key](/docs/client-libraries/node/request-db/get-key) - Retrieve entries by key
 - [GetSimN](/docs/client-libraries/node/request-db/get-simn) - Find N most similar entries
 - [Get By Predicate](/docs/client-libraries/node/request-db/get-by-predicate) - Filter entries by metadata
@@ -38,5 +39,5 @@ Ahnlich DB is the core vector storage engine that provides:
 ### Index Operations
 - [Create Predicate Index](/docs/client-libraries/node/request-db/create-predicate-index) - Create metadata index
 - [Drop Predicate Index](/docs/client-libraries/node/request-db/drop-predicate-index) - Remove metadata index
-- [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-db/create-non-linear-algx) - Create KDTree/HNSW index
-- [Drop Non Linear Algorithm Index](/docs/client-libraries/node/request-db/drop-non-linear-algx) - Remove KDTree/HNSW index
+- [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-db/create-non-linear-algx) - Create HNSW index
+- [Drop Non Linear Algorithm Index](/docs/client-libraries/node/request-db/drop-non-linear-algx) - Remove HNSW index

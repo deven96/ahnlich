@@ -4,6 +4,10 @@ title: Get Store
 
 # Get Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `GetStore` request retrieves detailed information about a specific store by name. This is useful for inspecting store configuration, checking dimensions, or monitoring size.
@@ -31,6 +35,9 @@ import (
 
 const ServerAddr = "127.0.0.1:1369"
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -53,6 +60,7 @@ func (c *ExampleDBClient) Close() error {
 func (c *ExampleDBClient) exampleGetStore() error {
     resp, err := c.client.GetStore(c.ctx, &dbquery.GetStore{
         Store: "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
     })
     if err != nil {
         return err
@@ -106,5 +114,5 @@ func main() {
 ## Notes
 
 - Returns an error if the store does not exist
-- Use `ListStores` to get information about all stores
+- Use `ListStores` to get information about stores in a schema
 - The `SizeInBytes` field is useful for monitoring memory usage

@@ -45,6 +45,7 @@ class DbQuery(betterproto.Message):
         18, group="query"
     )
     drop_schema: "_query__.DropSchema" = betterproto.message_field(19, group="query")
+    upsert: "_query__.Upsert" = betterproto.message_field(20, group="query")
 
 
 @dataclass(eq=False, repr=False)

@@ -48,6 +48,7 @@ Below are the operations for managing vector stores, storing and retrieving vect
 * [List Stores](/docs/client-libraries/rust/request-db/list-stores)
 * [Create Store](/docs/client-libraries/rust/request-db/create-store)
 * [Set](/docs/client-libraries/rust/request-db/set)
+* [Upsert](/docs/client-libraries/rust/request-db/upsert)
 * [Get Sim N](/docs/client-libraries/rust/request-db/get-simn)
 * [Get Key](/docs/client-libraries/rust/request-db/get-key)
 * [Get by Predicate](/docs/client-libraries/rust/request-db/get-by-predicate)

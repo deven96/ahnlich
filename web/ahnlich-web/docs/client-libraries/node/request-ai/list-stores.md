@@ -5,11 +5,15 @@ sidebar_position: 3
 
 # List Stores
 
-The ListStores request retrieves a list of all AI stores available on the Ahnlich AI server.
+## Schema
 
-* **Input**: No arguments required.
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
 
-* **Behavior**: The server returns information about all existing AI stores.
+The ListStores request retrieves AI stores from one schema on the Ahnlich AI server. When `schema` is omitted, that schema is `public`.
+
+* **Input**: Optional `schema` field.
+
+* **Behavior**: The server returns AI stores in the requested schema.
 
 * **Response**: A list of AI store information.
 
@@ -23,7 +27,7 @@ import { ListStores } from "ahnlich-client-node/grpc/ai/query_pb";
 async function listStores() {
   const client = createAiClient("127.0.0.1:1370");
 
-  const response = await client.listStores(new ListStores());
+  const response = await client.listStores(new ListStores({ schema: "analytics" }));
 
   console.log(response.stores.map((s) => s.name));
 

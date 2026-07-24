@@ -4,6 +4,10 @@ title: Create Store
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Creates a new vector store within the AI service. A store acts as a container for embeddings and metadata, enabling structured organization of data for similarity search and retrieval tasks. This is typically the first step before inserting embeddings or performing queries against a specific dataset.
 
 ## Source Code Example
@@ -25,6 +29,7 @@ Creates a new vector store within the AI service. A store acts as a container fo
       // Create a new AI store
       let create_params = CreateStore {
           store: "Deven Kicks".to_string(),
+          schema: Some("analytics".to_string()),
           index_model: AiModel::AllMiniLmL6V2 as i32,
           query_model: AiModel::AllMiniLmL6V2 as i32,
           predicates: vec![],

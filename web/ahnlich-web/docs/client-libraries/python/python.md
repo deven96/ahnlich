@@ -102,6 +102,21 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 
 <div className="m-10">
 
+  #### [Upsert](/docs/client-libraries/python/request-db/upsert)
+
+    * Description
+
+    * Source Code Example
+
+    * Parameters
+
+    * Returns
+
+    * Behavior
+</div>
+
+<div className="m-10">
+
   #### [GetSimN](/docs/client-libraries/python/request-db/get-simn)
 
     * Description
@@ -315,6 +330,21 @@ Build Ahnlich Applications with the Python SDK – Vector Storage, Search, and A
 <div className="m-10">
 
   #### [Set](/docs/client-libraries/python/request-ai/set)
+
+  * Description
+
+  * Source Code Example
+
+  * Parameters
+
+  * Returns
+
+  * Behavior
+</div>
+
+<div className="m-10">
+
+  #### [Upsert](/docs/client-libraries/python/request-ai/upsert)
 
   * Description
 

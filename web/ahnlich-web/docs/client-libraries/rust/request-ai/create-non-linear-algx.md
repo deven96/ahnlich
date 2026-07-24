@@ -4,9 +4,13 @@ title: Create Non-Linear Algorithm Index
 
 # Create Non-Linear Algorithm Index
 
-Creates a **non-linear algorithm index** on a vector store within the **AI service** to optimize similarity search performance. These indexes (KDTree, HNSW) accelerate nearest-neighbor and semantic searches over large embedding datasets, making retrieval faster and more efficient.
+## Schema
 
-Each index type is specified using a `NonLinearIndex` message with either a `KdTreeConfig` or `HnswConfig`.
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
+Creates a **non-linear algorithm index** on a vector store within the **AI service** to optimize similarity search performance. These indexes (HNSW) accelerate nearest-neighbor and semantic searches over large embedding datasets, making retrieval faster and more efficient.
+
+Each index type is specified using a `NonLinearIndex` message with a `HnswConfig`.
 
 ## Source Code Example
 
@@ -16,7 +20,7 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
   ```rust
   use ahnlich_client_rs::ai::AiClient;
   use ahnlich_types::ai::query::CreateNonLinearAlgorithmIndex;
-  use ahnlich_types::algorithm::nonlinear::{NonLinearIndex, non_linear_index, KdTreeConfig, HnswConfig};
+  use ahnlich_types::algorithm::nonlinear::{NonLinearIndex, non_linear_index, HnswConfig};
   use tokio;
 
 
@@ -24,22 +28,10 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
   async fn main() -> Result<(), Box<dyn std::error::Error>> {
       let client = AiClient::new("http://127.0.0.1:1370".to_string()).await?;
 
-      // Create a KDTree index
+      // Create an HNSW index (with default config)
       let params = CreateNonLinearAlgorithmIndex {
           store: "MyStore".to_string(),
-          non_linear_indices: vec![
-              NonLinearIndex {
-                  index: Some(non_linear_index::Index::Kdtree(KdTreeConfig {})),
-              },
-          ],
-      };
-
-      let result = client.create_non_linear_algorithm_index(params, None).await?;
-      println!("Created non-linear indices: {:?}", result);
-
-      // Or create an HNSW index (with default config)
-      let params = CreateNonLinearAlgorithmIndex {
-          store: "MyStore".to_string(),
+          schema: Some("analytics".to_string()),
           non_linear_indices: vec![
               NonLinearIndex {
                   index: Some(non_linear_index::Index::Hnsw(HnswConfig::default())),

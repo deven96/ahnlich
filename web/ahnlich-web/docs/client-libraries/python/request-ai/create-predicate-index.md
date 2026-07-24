@@ -4,6 +4,10 @@ title: Create Predicate Index
 
 # Create Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Predicate indices allow the AI store to efficiently filter results based on metadata fields. Use this operation to define which metadata keys should be indexed for faster query operations like `GetPred`.
 
 * `store` – Name of the AI store to create predicate indices on.
@@ -29,6 +33,7 @@ The response confirms the creation of indices.
         response = await client.create_pred_index(
             ai_query.CreatePredIndex(
                 store="test store",
+                schema="analytics",
                 predicates=["job", "rank"]
             )
         )

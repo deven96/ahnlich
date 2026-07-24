@@ -37,7 +37,7 @@ For efficiency, the DB provides indexing strategies:
 
 * **Predicate Indexes** → Speed up queries on metadata conditions.
 
-* **Non-Linear Algorithm Indexes** → Enable optimized similarity searches (e.g., KD-Tree).
+* **Non-Linear Algorithm Indexes** → Enable optimized similarity searches (e.g., HNSW).
 
 Indexes ensure that even at scale, searches and lookups remain fast.
 
@@ -82,6 +82,7 @@ Below is a break down common DB request examples:
 * [List Stores](/docs/client-libraries/python/request-db/list-stores)
 * [Create Store](/docs/client-libraries/python/request-db/create-store)
 * [Set](/docs/client-libraries/python/request-db/set)
+* [Upsert](/docs/client-libraries/python/request-db/upsert)
 * [GetSimN](/docs/client-libraries/python/request-db/get-simn)
 * [Get Key](/docs/client-libraries/python/request-db/get-key)
 * [Get By Predicate](/docs/client-libraries/python/request-db/get-by-predicate)

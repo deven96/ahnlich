@@ -15,7 +15,7 @@ import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
 import { AIModel } from "./models_pb.js";
 import { NonLinearAlgorithm, NonLinearIndex } from "../algorithm/nonlinear_pb.js";
 import { PredicateCondition } from "../predicate_pb.js";
-import { AiStoreEntry, StoreInput } from "../keyval_pb.js";
+import { AiStoreEntry, StoreInput, StoreValue } from "../keyval_pb.js";
 import { Algorithm } from "../algorithm/algorithm_pb.js";
 import { PreprocessAction } from "./preprocess_pb.js";
 import { ExecutionProvider } from "./execution_provider_pb.js";
@@ -146,6 +146,13 @@ export class GetPred extends Message<GetPred> {
    */
   condition?: PredicateCondition;
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 3;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<GetPred>) {
     super();
     proto3.util.initPartial(data, this);
@@ -156,6 +163,7 @@ export class GetPred extends Message<GetPred> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "condition", kind: "message", T: PredicateCondition },
+    { no: 3, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetPred {
@@ -240,6 +248,13 @@ export class GetSimN extends Message<GetSimN> {
    */
   modelParams: { [key: string]: string } = {};
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 9;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<GetSimN>) {
     super();
     proto3.util.initPartial(data, this);
@@ -268,6 +283,7 @@ export class GetSimN extends Message<GetSimN> {
       K: 9 /* ScalarType.STRING */,
       V: { kind: "scalar", T: 9 /* ScalarType.STRING */ },
     },
+    { no: 9, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetSimN {
@@ -310,6 +326,13 @@ export class CreatePredIndex extends Message<CreatePredIndex> {
    */
   predicates: string[] = [];
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 3;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<CreatePredIndex>) {
     super();
     proto3.util.initPartial(data, this);
@@ -320,6 +343,7 @@ export class CreatePredIndex extends Message<CreatePredIndex> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "predicates", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 3, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CreatePredIndex {
@@ -362,6 +386,13 @@ export class CreateNonLinearAlgorithmIndex extends Message<CreateNonLinearAlgori
    */
   nonLinearIndices: NonLinearIndex[] = [];
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 3;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<CreateNonLinearAlgorithmIndex>) {
     super();
     proto3.util.initPartial(data, this);
@@ -372,6 +403,7 @@ export class CreateNonLinearAlgorithmIndex extends Message<CreateNonLinearAlgori
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "non_linear_indices", kind: "message", T: NonLinearIndex, repeated: true },
+    { no: 3, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(
@@ -431,6 +463,13 @@ export class DropPredIndex extends Message<DropPredIndex> {
    */
   errorIfNotExists = false;
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 4;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<DropPredIndex>) {
     super();
     proto3.util.initPartial(data, this);
@@ -442,6 +481,7 @@ export class DropPredIndex extends Message<DropPredIndex> {
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "predicates", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
     { no: 3, name: "error_if_not_exists", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 4, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DropPredIndex {
@@ -492,6 +532,13 @@ export class DropNonLinearAlgorithmIndex extends Message<DropNonLinearAlgorithmI
    */
   errorIfNotExists = false;
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 4;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<DropNonLinearAlgorithmIndex>) {
     super();
     proto3.util.initPartial(data, this);
@@ -509,6 +556,7 @@ export class DropNonLinearAlgorithmIndex extends Message<DropNonLinearAlgorithmI
       repeated: true,
     },
     { no: 3, name: "error_if_not_exists", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
+    { no: 4, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(
@@ -561,6 +609,13 @@ export class DelKey extends Message<DelKey> {
    */
   keys: StoreInput[] = [];
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 3;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<DelKey>) {
     super();
     proto3.util.initPartial(data, this);
@@ -571,6 +626,7 @@ export class DelKey extends Message<DelKey> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "keys", kind: "message", T: StoreInput, repeated: true },
+    { no: 3, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DelKey {
@@ -615,6 +671,13 @@ export class DelPred extends Message<DelPred> {
    */
   condition?: PredicateCondition;
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 3;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<DelPred>) {
     super();
     proto3.util.initPartial(data, this);
@@ -625,6 +688,7 @@ export class DelPred extends Message<DelPred> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "condition", kind: "message", T: PredicateCondition },
+    { no: 3, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DelPred {
@@ -728,6 +792,13 @@ export class GetKey extends Message<GetKey> {
    */
   keys: StoreInput[] = [];
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 3;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<GetKey>) {
     super();
     proto3.util.initPartial(data, this);
@@ -738,6 +809,7 @@ export class GetKey extends Message<GetKey> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "keys", kind: "message", T: StoreInput, repeated: true },
+    { no: 3, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetKey {
@@ -837,7 +909,7 @@ export class ListStores extends Message<ListStores> {
   /**
    * Lists all stores on the server along with details like store size, embedding dimensions, AI models, etc.
    *
-   * Optional schema/namespace to filter stores. If unset, lists all schemas.
+   * Optional schema/namespace to filter stores. Defaults to "public" when unset.
    *
    * @generated from field: optional string schema = 1;
    */
@@ -1082,6 +1154,13 @@ export class Set extends Message<Set> {
    */
   modelParams: { [key: string]: string } = {};
 
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 6;
+   */
+  schema?: string;
+
   constructor(data?: PartialMessage<Set>) {
     super();
     proto3.util.initPartial(data, this);
@@ -1107,6 +1186,7 @@ export class Set extends Message<Set> {
       K: 9 /* ScalarType.STRING */,
       V: { kind: "scalar", T: 9 /* ScalarType.STRING */ },
     },
+    { no: 6, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Set {
@@ -1126,6 +1206,120 @@ export class Set extends Message<Set> {
     b: Set | PlainMessage<Set> | undefined,
   ): boolean {
     return proto3.util.equals(Set, a, b);
+  }
+}
+
+/**
+ * @generated from message ai.query.Upsert
+ */
+export class Upsert extends Message<Upsert> {
+  /**
+   * Updates a single entry matching the predicate condition with new input and/or value
+   * AI proxy always uses merge mode internally and constructs partial updates
+   * Generates embeddings for new input using the store's index model
+   *
+   * Store name
+   *
+   * @generated from field: string store = 1;
+   */
+  store = "";
+
+  /**
+   * Condition to match exactly one entry
+   *
+   * @generated from field: predicates.PredicateCondition condition = 2;
+   */
+  condition?: PredicateCondition;
+
+  /**
+   * Optional new input (image/text). If None, keeps original key.
+   *
+   * @generated from field: optional keyval.StoreInput new_input = 3;
+   */
+  newInput?: StoreInput;
+
+  /**
+   * Optional new metadata. If None, keeps original value.
+   *
+   * @generated from field: optional keyval.StoreValue new_value = 4;
+   */
+  newValue?: StoreValue;
+
+  /**
+   * Preprocessing action to apply to new input
+   *
+   * @generated from field: ai.preprocess.PreprocessAction preprocess_action = 5;
+   */
+  preprocessAction = PreprocessAction.NoPreprocessing;
+
+  /**
+   * Optional execution provider for optimizations
+   *
+   * @generated from field: optional ai.execution_provider.ExecutionProvider execution_provider = 6;
+   */
+  executionProvider?: ExecutionProvider;
+
+  /**
+   * Optional runtime parameters for the model
+   *
+   * @generated from field: map<string, string> model_params = 7;
+   */
+  modelParams: { [key: string]: string } = {};
+
+  /**
+   * Optional schema/namespace for the store. Defaults to "public".
+   *
+   * @generated from field: optional string schema = 8;
+   */
+  schema?: string;
+
+  constructor(data?: PartialMessage<Upsert>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "ai.query.Upsert";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "condition", kind: "message", T: PredicateCondition },
+    { no: 3, name: "new_input", kind: "message", T: StoreInput, opt: true },
+    { no: 4, name: "new_value", kind: "message", T: StoreValue, opt: true },
+    { no: 5, name: "preprocess_action", kind: "enum", T: proto3.getEnumType(PreprocessAction) },
+    {
+      no: 6,
+      name: "execution_provider",
+      kind: "enum",
+      T: proto3.getEnumType(ExecutionProvider),
+      opt: true,
+    },
+    {
+      no: 7,
+      name: "model_params",
+      kind: "map",
+      K: 9 /* ScalarType.STRING */,
+      V: { kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    },
+    { no: 8, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): Upsert {
+    return new Upsert().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): Upsert {
+    return new Upsert().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): Upsert {
+    return new Upsert().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: Upsert | PlainMessage<Upsert> | undefined,
+    b: Upsert | PlainMessage<Upsert> | undefined,
+  ): boolean {
+    return proto3.util.equals(Upsert, a, b);
   }
 }
 

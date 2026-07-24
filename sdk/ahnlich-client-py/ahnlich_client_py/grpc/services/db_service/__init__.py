@@ -158,6 +158,23 @@ class DbServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def upsert(
+        self,
+        db_query_upsert: "__db_query__.Upsert",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__db_server__.Set":
+        return await self._unary_unary(
+            "/services.db_service.DBService/Upsert",
+            db_query_upsert,
+            __db_server__.Set,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def drop_pred_index(
         self,
         db_query_drop_pred_index: "__db_query__.DropPredIndex",
@@ -404,6 +421,11 @@ class DbServiceBase(ServiceBase):
     async def set(self, db_query_set: "__db_query__.Set") -> "__db_server__.Set":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def upsert(
+        self, db_query_upsert: "__db_query__.Upsert"
+    ) -> "__db_server__.Set":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def drop_pred_index(
         self, db_query_drop_pred_index: "__db_query__.DropPredIndex"
     ) -> "__db_server__.Del":
@@ -522,6 +544,13 @@ class DbServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.set(request)
+        await stream.send_message(response)
+
+    async def __rpc_upsert(
+        self, stream: "grpclib.server.Stream[__db_query__.Upsert, __db_server__.Set]"
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.upsert(request)
         await stream.send_message(response)
 
     async def __rpc_drop_pred_index(
@@ -664,6 +693,12 @@ class DbServiceBase(ServiceBase):
                 self.__rpc_set,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __db_query__.Set,
+                __db_server__.Set,
+            ),
+            "/services.db_service.DBService/Upsert": grpclib.const.Handler(
+                self.__rpc_upsert,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __db_query__.Upsert,
                 __db_server__.Set,
             ),
             "/services.db_service.DBService/DropPredIndex": grpclib.const.Handler(

@@ -4,6 +4,10 @@ title: Get Sim N
 
 # Get Sim N
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The `GetSimN` request retrieves the **top-N most similar vectors** to a given query vector from a specified store. This is the core similarity search operation in Ahnlich DB, allowing you to find nearest neighbors by vector distance.
 
 ## Source Code Example
@@ -31,6 +35,7 @@ The `GetSimN` request retrieves the **top-N most similar vectors** to a given qu
       // prepare parameters
       let params = GetSimN {
           store: "Main".to_string(),
+          schema: Some("analytics".to_string()),
           search_input: Some(StoreKey { key: vec![1.0, 2.0, 3.0] }),
           closest_n: 2,
           algorithm: Algorithm::EuclideanDistance as i32,

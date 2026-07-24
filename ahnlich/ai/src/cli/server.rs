@@ -247,7 +247,6 @@ impl AIProxyConfig {
         self
     }
 
-    #[cfg(test)]
     pub fn set_supported_models(mut self, models: Vec<SupportedModels>) -> Self {
         self.supported_models = models;
         self

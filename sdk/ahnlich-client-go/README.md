@@ -17,6 +17,7 @@
   - [Get Store](#get-store)
   - [Create Store](#create-store)
   - [Set](#set)
+  - [Upsert](#upsert)
   - [Get Sim N](#get-sim-n)
   - [Get Key](#get-key)
   - [Get By Predicate](#get-by-predicate)
@@ -36,6 +37,7 @@
   - [Get Store](#get-store-1)
   - [Create Store](#create-store-1)
   - [Set](#set-1)
+  - [Upsert](#upsert-1)
   - [Get Sim N](#get-sim-n-1)
   - [Get By Predicate](#get-by-predicate-1)
   - [Create Predicate Index](#create-predicate-index-1)
@@ -246,6 +248,17 @@ func (c *ExampleDBClient) exampleCreateStore() error {
 func (c *ExampleDBClient) exampleSet() error {
     entries := []*keyval.DbStoreEntry{{Key:&keyval.StoreKey{Key:[]float32{1,2,3,4}},Value:&keyval.StoreValue{Value:map[string]*metadata.MetadataValue{"label":{Value:&metadata.MetadataValue_RawString{RawString:"A"}}}}}}
     _, err := c.client.Set(c.ctx, &dbquery.Set{Store:"my_store", Inputs:entries})
+    return err
+}
+```
+
+### Upsert
+```go
+func (c *ExampleDBClient) exampleUpsert() error {
+    cond := &predicates.PredicateCondition{Kind:&predicates.PredicateCondition_Value{Value:&predicates.Predicate{Kind:&predicates.Predicate_Equals{Equals:&predicates.Equals{Key:"id",Value:&metadata.MetadataValue{Value:&metadata.MetadataValue_RawString{RawString:"123"}}}}}}}
+    newValue := &keyval.StoreValue{Value:map[string]*metadata.MetadataValue{"status":{Value:&metadata.MetadataValue_RawString{RawString:"published"}}}}
+    mergeMetadata := true
+    _, err := c.client.Upsert(c.ctx, &dbquery.Upsert{Store:"my_store", Condition:cond, NewValue:newValue, MergeMetadata:&mergeMetadata})
     return err
 }
 ```
@@ -464,6 +477,16 @@ func (c *ExampleAIClient) exampleSetAI(ctx context.Context) error {
         Inputs:           inputs,
         PreprocessAction: preprocess.PreprocessAction_NoPreprocessing,
     })
+    return err
+}
+```
+
+### Upsert
+```go
+func (c *ExampleAIClient) exampleUpsertAI(ctx context.Context) error {
+    cond := &predicates.PredicateCondition{Kind:&predicates.PredicateCondition_Value{Value:&predicates.Predicate{Kind:&predicates.Predicate_Equals{Equals:&predicates.Equals{Key:"filename",Value:&metadata.MetadataValue{Value:&metadata.MetadataValue_RawString{RawString:"photo.jpg"}}}}}}}
+    newValue := &keyval.StoreValue{Value:map[string]*metadata.MetadataValue{"tags":{Value:&metadata.MetadataValue_RawString{RawString:"cat,outdoors"}}}}
+    _, err := c.client.Upsert(c.ctx, &aiquery.Upsert{Store:"images", Condition:cond, NewValue:newValue, PreprocessAction:preprocess.PreprocessAction_NoPreprocessing})
     return err
 }
 ```

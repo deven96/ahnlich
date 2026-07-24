@@ -8,9 +8,13 @@ import {
   Ping,
   CreateNonLinearAlgorithmIndex,
   DropNonLinearAlgorithmIndex,
+  DropSchema,
+  Upsert,
+  GetPred,
 } from "../../grpc/db/query_pb.js";
 import { StoreKey, StoreValue, DbStoreEntry } from "../../grpc/keyval_pb.js";
 import { MetadataValue } from "../../grpc/metadata_pb.js";
+import { PredicateCondition, Predicate, Equals } from "../../grpc/predicate_pb.js";
 import { Algorithm } from "../../grpc/algorithm/algorithm_pb.js";
 import {
   NonLinearIndex,
@@ -59,6 +63,36 @@ describe("DB client", () => {
     expect(storeInfo).toBeDefined();
     expect(storeInfo!.dimension).toBe(3);
     expect(storeInfo!.predicateIndices).toContain("label");
+  });
+
+  test("schema-scoped store lifecycle", async () => {
+    const client = createDbClient(address);
+    const schema = "tenant_alpha";
+    const storeName = "schema_scoped_store";
+
+    await client.createStore(
+      new CreateStore({
+        store: storeName,
+        dimension: 3,
+        errorIfExists: true,
+        schema,
+      }),
+    );
+
+    const defaultList = await client.listStores(new ListStores());
+    expect(defaultList.stores.map((s) => s.name)).not.toContain(storeName);
+
+    const schemaList = await client.listStores(new ListStores({ schema }));
+    expect(schemaList.stores.map((s) => s.name)).toContain(storeName);
+
+    const storeInfo = await client.getStore(new GetStore({ store: storeName, schema }));
+    expect(storeInfo.name).toBe(storeName);
+
+    const dropResp = await client.dropSchema(new DropSchema({ schema }));
+    expect(Number(dropResp.deletedCount)).toBe(1);
+
+    const afterDrop = await client.listStores(new ListStores({ schema }));
+    expect(afterDrop.stores).toHaveLength(0);
   });
 
   test("get store returns store info", async () => {
@@ -193,5 +227,78 @@ describe("DB client", () => {
       }),
     );
     expect(dropResp).toBeDefined();
+  });
+
+  test("upsert updates entry with merge", async () => {
+    const client = createDbClient(address);
+    const storeName = "upsert_test";
+
+    await client.createStore(
+      new CreateStore({
+        store: storeName,
+        dimension: 3,
+        createPredicates: ["id", "status"],
+        errorIfExists: false,
+      }),
+    );
+
+    const storeKey = new StoreKey({ key: [1.0, 2.0, 3.0] });
+    const initialValue = new StoreValue({
+      value: {
+        id: new MetadataValue({ value: { case: "rawString", value: "123" } }),
+        status: new MetadataValue({ value: { case: "rawString", value: "draft" } }),
+      },
+    });
+
+    await client.set(
+      new Set({
+        store: storeName,
+        inputs: [new DbStoreEntry({ key: storeKey, value: initialValue })],
+      }),
+    );
+
+    const condition = new PredicateCondition({
+      kind: {
+        case: "value",
+        value: new Predicate({
+          kind: {
+            case: "equals",
+            value: new Equals({
+              key: "id",
+              value: new MetadataValue({ value: { case: "rawString", value: "123" } }),
+            }),
+          },
+        }),
+      },
+    });
+
+    const newValue = new StoreValue({
+      value: {
+        status: new MetadataValue({ value: { case: "rawString", value: "published" } }),
+      },
+    });
+
+    const resp = await client.upsert(
+      new Upsert({
+        store: storeName,
+        condition,
+        newValue,
+        mergeMetadata: true,
+      }),
+    );
+
+    expect(Number(resp.upsert?.updated)).toBe(1);
+    expect(Number(resp.upsert?.inserted)).toBe(0);
+
+    const getResp = await client.getPred(
+      new GetPred({
+        store: storeName,
+        condition,
+      }),
+    );
+
+    expect(getResp.entries.length).toBe(1);
+    expect(getResp.entries[0].value?.value["status"]?.value.value).toBe("published");
+    expect(getResp.entries[0].value?.value["id"]?.value.value).toBe("123");
   });
 });

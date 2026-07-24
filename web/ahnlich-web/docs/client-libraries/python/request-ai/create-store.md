@@ -4,6 +4,10 @@ title: Create Store
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The `CreateStore` request is used to **initialize a new AI-powered store**.
 Unlike the DB client (which deals with raw vector dimensions), the AI client lets you specify **pretrained AI models** to handle embedding generation and indexing.
 
@@ -27,6 +31,7 @@ This means you don’t have to manage vectors manually — the AI service will a
         response = await client.create_store(
             ai_query.CreateStore(
                 store="test store",
+                schema="analytics",
                 query_model=AiModel.ALL_MINI_LM_L6_V2,
                 index_model=AiModel.ALL_MINI_LM_L6_V2,
                 predicates=["job"],
@@ -64,7 +69,7 @@ This request is critical in AI workflows because it allows you to:
 
 * Configure **semantic stores** with specialized embedding models.
 
-* Decide whether to preserve raw input text/images for retrieval.
+* Decide whether to preserve raw input text, images, or audio for retrieval.
 
 * Build **intelligent**, **AI-driven search** and **recommendation systems** without managing embeddings manually.
 

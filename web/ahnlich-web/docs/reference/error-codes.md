@@ -113,7 +113,7 @@ CreateStore {
 
 **Solution:**
 ```
-CREATEPREDINDEX my_store PREDICATES (field_name)
+CREATEPREDINDEX (field_name) IN my_store
 ```
 
 Or include predicates when creating store:
@@ -125,20 +125,20 @@ CREATESTORE my_store DIMENSION 128 PREDICATES (author, category)
 
 #### NonLinearIndexNotFound
 
-**Error Message:** `Non linear algorithm KDTree not found in store, create store with support`
+**Error Message:** `Non linear algorithm HNSW not found in store, create store with support`
 
 **gRPC Code:** `NotFound`
 
-**Cause:** Attempting to use a non-linear algorithm (KDTree) not created with the store.
+**Cause:** Attempting to use a non-linear algorithm (HNSW) not created with the store.
 
 **Solution:**
 ```
-CREATE_NON_LINEAR_ALGORITHM_INDEX my_store NONLINEARALGORITHMINDEX (KDTree)
+CREATE_NON_LINEAR_ALGORITHM_INDEX my_store NONLINEARALGORITHMINDEX (HNSW)
 ```
 
 Or include when creating store:
 ```
-CREATESTORE my_store DIMENSION 128 NONLINEARALGORITHMINDEX (KDTree)
+CREATESTORE my_store DIMENSION 128 NONLINEARALGORITHMINDEX (HNSW)
 ```
 
 ---
@@ -200,7 +200,7 @@ Same as DB errors above, but for AI stores.
 
 **Cause:** Required input field is missing or empty.
 
-**Solution:** Provide the required input (text or image).
+**Solution:** Provide the required input (text, image, or audio).
 
 ---
 
@@ -596,7 +596,6 @@ http://127.0.0.1:1370  (AI)
 - `EuclideanDistance`
 - `DotProductSimilarity`
 - `CosineSimilarity`
-- `KDTree`
 - `HNSW`
 
 ---

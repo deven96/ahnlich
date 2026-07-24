@@ -109,6 +109,22 @@ Build Ahnlich Applications with the Go SDK – Vector Storage, Search, and AI to
 
 <div className="m-10">
 
+#### [Upsert](/docs/client-libraries/go/request-db/upsert)
+
+    * Description
+
+    * Source Code Example
+
+    * Parameters
+
+    * Returns
+
+    * Behavior
+
+</div>
+
+<div className="m-10">
+
 #### [GetSimN](/docs/client-libraries/go/request-db/get-simn)
 
     * Description
@@ -332,6 +348,21 @@ Build Ahnlich Applications with the Go SDK – Vector Storage, Search, and AI to
 <div className="m-10">
 
 #### [Set](/docs/client-libraries/go/request-ai/set)
+
+- Description
+
+- Source Code Example
+
+- Parameters
+
+- Returns
+
+- Behavior
+</div>
+
+<div className="m-10">
+
+#### [Upsert](/docs/client-libraries/go/request-ai/upsert)
 
 - Description
 

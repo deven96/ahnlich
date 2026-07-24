@@ -42,7 +42,7 @@ fn compute_recall_for_config(dataset: &AnnDataset, config: HNSWConfig, k: usize)
     for (query_idx, query_vec) in dataset.sift_query.iter().enumerate() {
         let query_node = Node::new(EmbeddingKey::new(query_vec.clone()));
 
-        let ann_ids = hnsw.knn_search(&query_node, K, Some(16)).unwrap();
+        let ann_ids = hnsw.knn_search(&query_node, K, Some(16), None).unwrap();
 
         let true_neighbors = &dataset.ground_truth[query_idx];
 
@@ -123,7 +123,7 @@ fn test_hnsw_recall_sift10k() {
 fn recall_experiment(#[case] config: ExperimentConfig) {
     let dataset = load_dataset();
 
-    let recall = compute_recall_for_config(&dataset, config.hnsw.clone(), K);
+    let recall = compute_recall_for_config(&dataset, config.hnsw, K);
 
     println!(
         "M={}, ef_construction={}, ef_search={}, recall={:.4}",

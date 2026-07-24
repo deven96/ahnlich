@@ -1,6 +1,7 @@
 use crate::engine::operations;
 use crate::engine::store::StoreHandler;
 use crate::errors::ServerError;
+use crate::server::cluster_forwarding::forward_to_leader;
 use crate::server::store_runtime::StoreRuntime;
 use ahnlich_replication::cluster_info;
 use ahnlich_replication::node::ReplicationNode;
@@ -55,14 +56,27 @@ pub(crate) fn read_store_handler<R>(
 
 pub(crate) async fn list_stores_response(
     runtime: &StoreRuntime,
+    metadata: tonic::metadata::MetadataMap,
     params: query::ListStores,
 ) -> Result<server::StoreList, tonic::Status> {
-    if let Some(cluster) = runtime.cluster() {
-        cluster
-            .raft
-            .ensure_linearizable()
-            .await
-            .map_err(map_linearizable_error)?;
+    if let Some(cluster) = runtime.cluster()
+        && let Err(err) = cluster.raft.ensure_linearizable().await
+    {
+        if let Some(leader) = err
+            .forward_to_leader()
+            .and_then(|forward| forward.leader_node.as_ref())
+        {
+            return forward_to_leader(
+                cluster,
+                &leader.service_addr,
+                metadata,
+                params,
+                |mut client, request| async move { client.list_stores(request).await },
+            )
+            .await;
+        }
+
+        return Err(map_linearizable_error(err));
     }
 
     read_store_handler(runtime, |store_handler| {

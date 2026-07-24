@@ -62,6 +62,10 @@ var (
 	}
 )
 
+func stringPtr(value string) *string {
+	return &value
+}
+
 func TestCreateStoreOK(t *testing.T) {
 	proc := startAI(t)
 	defer proc.Kill()
@@ -72,6 +76,64 @@ func TestCreateStoreOK(t *testing.T) {
 	client := aisvc.NewAIServiceClient(conn)
 	_, err := client.CreateStore(context.Background(), storeNoPred)
 	require.NoError(t, err)
+}
+
+func TestSchemaScopedAIStoreLifecycle(t *testing.T) {
+	proc := startAI(t)
+	defer proc.Kill()
+	conn, cancel := dialAI(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := aisvc.NewAIServiceClient(conn)
+
+	schema := "media"
+	storeName := "ai_schema_scoped_store"
+
+	_, err := client.CreateStore(context.Background(), &aiquery.CreateStore{
+		Store:         storeName,
+		QueryModel:    aimodel.AIModel_ALL_MINI_LM_L6_V2,
+		IndexModel:    aimodel.AIModel_ALL_MINI_LM_L6_V2,
+		ErrorIfExists: true,
+		StoreOriginal: true,
+		Schema:        stringPtr(schema),
+	})
+	require.NoError(t, err)
+
+	defaultList, err := client.ListStores(context.Background(), &aiquery.ListStores{})
+	require.NoError(t, err)
+	for _, store := range defaultList.Stores {
+		require.NotEqual(t, storeName, store.Name)
+	}
+
+	schemaList, err := client.ListStores(context.Background(), &aiquery.ListStores{Schema: stringPtr(schema)})
+	require.NoError(t, err)
+	require.Len(t, schemaList.Stores, 1)
+	require.Equal(t, storeName, schemaList.Stores[0].Name)
+	require.Equal(t, schema, schemaList.Stores[0].GetSchema())
+	require.NotNil(t, schemaList.Stores[0].DbInfo)
+
+	_, err = client.GetStore(context.Background(), &aiquery.GetStore{Store: storeName})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	require.Equal(t, codes.NotFound, st.Code())
+
+	storeInfo, err := client.GetStore(context.Background(), &aiquery.GetStore{
+		Store:  storeName,
+		Schema: stringPtr(schema),
+	})
+	require.NoError(t, err)
+	require.Equal(t, storeName, storeInfo.Name)
+	require.Equal(t, schema, storeInfo.GetSchema())
+	require.NotNil(t, storeInfo.DbInfo)
+
+	dropResp, err := client.DropSchema(context.Background(), &aiquery.DropSchema{Schema: schema})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, dropResp.DeletedCount)
+
+	schemaList, err = client.ListStores(context.Background(), &aiquery.ListStores{Schema: stringPtr(schema)})
+	require.NoError(t, err)
+	require.Empty(t, schemaList.Stores)
 }
 
 func TestCreateStoreAlreadyExists(t *testing.T) {

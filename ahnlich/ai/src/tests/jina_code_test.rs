@@ -89,6 +89,7 @@ async fn test_jina_code_model_loads_and_produces_embeddings() {
             preprocess_action: PreprocessAction::NoPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         })),
     };
 
@@ -240,6 +241,7 @@ app.listen(3000);"#;
             preprocess_action: PreprocessAction::NoPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         })),
     };
 
@@ -256,6 +258,7 @@ app.listen(3000);"#;
             algorithm: Algorithm::CosineSimilarity.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         })),
     };
 
@@ -396,6 +399,7 @@ async fn test_jina_code_natural_language_query() {
             preprocess_action: PreprocessAction::NoPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         })),
     };
 
@@ -413,6 +417,7 @@ async fn test_jina_code_natural_language_query() {
             algorithm: Algorithm::CosineSimilarity.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         })),
     };
 
@@ -489,6 +494,7 @@ async fn test_jina_code_embedding_dimensions() {
             preprocess_action: PreprocessAction::NoPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         })),
     };
 

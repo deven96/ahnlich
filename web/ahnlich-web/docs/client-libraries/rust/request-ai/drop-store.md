@@ -4,6 +4,10 @@ title: Drop Store
 
 # Drop Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Deletes an entire vector store from the **AI service**, including all embeddings and their associated metadata. This is a destructive operation and should be used with caution. Dropping a store is useful when the store is no longer needed, when cleaning up unused resources, or when resetting a dataset for fresh ingestion.
 
 ## Source Code Example
@@ -23,6 +27,7 @@ Deletes an entire vector store from the **AI service**, including all embeddings
 
       let drop_params = DropStore {
           store: "Deven Kicks".to_string(),
+          schema: Some("analytics".to_string()),
           error_if_not_exists: true,
       };
 

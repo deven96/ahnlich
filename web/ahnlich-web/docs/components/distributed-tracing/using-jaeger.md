@@ -41,7 +41,7 @@ LISTSTORES
 ```
 CREATESTORE ai_store_20250915143036 QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2 PREDICATES (author, category)
 SET ((["Jordan One"], {brand: Nike}), (["Yeezey"], {brand: Adidas})) IN ai_store_20250915143036
-GETSIMN 4 WITH ["Jordan One"] USING cosinesimilarity IN ai_store_20250915143036
+GETSIMN 4 WITH [Jordan One] USING cosinesimilarity IN ai_store_20250915143036
 LISTSTORES
 ```
 
@@ -273,7 +273,7 @@ if __name__ == "__main__":
 
     - `Set` → Inserts a numeric vector with metadata.
 
-    - `ListStores` → Retrieves all DB stores.
+    - `ListStores` → Retrieves DB stores in the requested schema, or `public` when schema is omitted.
 
 4. **AI Operations**
 
@@ -283,7 +283,7 @@ if __name__ == "__main__":
 
     - `GetSimN` → Queries the AI store for closest matches using cosine similarity.
 
-    - `ListStores` → Retrieves all AI stores.
+    - `ListStores` → Retrieves AI stores in the requested schema, or `public` when schema is omitted.
 
 
 5. **Tracing Spans**

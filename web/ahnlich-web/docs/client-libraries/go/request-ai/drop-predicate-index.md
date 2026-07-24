@@ -4,6 +4,10 @@ title: Drop Predicate Index
 
 # Drop Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `DropPredicateIndex` request removes an existing predicate index from a given AI-managed store. Predicate indexes are used to accelerate metadata-based queries (`GetByPredicate`), and dropping them reverts queries to a slower scan-based evaluation.
@@ -36,6 +40,9 @@ const AIAddr = "127.0.0.1:1370"
 
 
 // ExampleAIClient wraps the connection + AIService client
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
   conn   *grpc.ClientConn
   client aisvc.AIServiceClient
@@ -66,6 +73,7 @@ func (c *ExampleAIClient) Close() error {
 func (c *ExampleAIClient) exampleDropPredicateIndexAI() error {
   _, err := c.client.DropPredIndex(c.ctx, &aiquery.DropPredIndex{
       Store:            "ai_store",
+      Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
       Predicates:       []string{"f"},
       ErrorIfNotExists: true,
   })

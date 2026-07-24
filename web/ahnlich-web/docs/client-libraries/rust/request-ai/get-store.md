@@ -4,6 +4,10 @@ title: Get Store
 
 # Get Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Retrieves detailed information about a specific AI store by name, including the configured models and optional underlying DB store information.
 
 ## Source Code Example
@@ -21,7 +25,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tracing_id: Option<String> = None;
 
     let store_info = ai_client
-        .get_store("ai_store".to_string(), tracing_id)
+        .get_store_with_schema(
+            "ai_store".to_string(),
+            Some("analytics".to_string()),
+            tracing_id,
+        )
         .await?;
 
     println!("Store name: {}", store_info.name);
@@ -43,6 +51,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Parameters
 
 * `store: String` — The name of the AI store to retrieve.
+
+* `schema: Option<String>` — Schema containing the AI store. Omit it to use `public`.
 
 * `tracing_id: Option<String>` — Optional trace context for observability.
 
@@ -74,5 +84,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Notes
 
-- Use `list_stores` to get information about all AI stores
+- Use `list_stores` to get information about AI stores in a schema
 - The model fields indicate which embedding models are used for indexing and querying

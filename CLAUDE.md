@@ -6,7 +6,7 @@ When reviewing pull requests for Ahnlich, follow these guidelines:
 
 Ahnlich is a high-performance in-memory vector database system written in Rust.
 
-- **Language**: Rust (edition 2024, toolchain 1.92.0)
+- **Language**: Rust (edition 2024, toolchain 1.97.1)
 - **Architecture**: Multi-crate workspace with 12+ crates
 - **Core components**: 
   - ahnlich-db (vector storage)

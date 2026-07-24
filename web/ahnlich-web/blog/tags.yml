@@ -27,3 +27,13 @@ community:
   label: Community
   permalink: /community
   description: Community highlights and contributions
+
+simd:
+  label: SIMD
+  permalink: /simd
+  description: SIMD and low-level vectorization work
+
+rust:
+  label: Rust
+  permalink: /rust
+  description: Posts about Rust and the Ahnlich codebase

@@ -20,13 +20,14 @@ Ahnlich AI is the semantic layer that provides:
 - [Info Server](/docs/client-libraries/node/request-ai/info-server) - Get server information
 
 ### Store Operations
-- [List Stores](/docs/client-libraries/node/request-ai/list-stores) - List all AI stores
+- [List Stores](/docs/client-libraries/node/request-ai/list-stores) - List AI stores in a schema
 - [Get Store](/docs/client-libraries/node/request-ai/get-store) - Get details of a specific AI store
 - [Create Store](/docs/client-libraries/node/request-ai/create-store) - Create a new AI store
 - [Drop Store](/docs/client-libraries/node/request-ai/drop-store) - Delete an AI store
 
 ### Data Operations
 - [Set](/docs/client-libraries/node/request-ai/set) - Insert entries (auto-generates embeddings)
+- [Upsert](/docs/client-libraries/node/request-ai/upsert) - Update a single entry matching a predicate
 - [GetSimN](/docs/client-libraries/node/request-ai/get-simn) - Semantic similarity search
 - [Get By Predicate](/docs/client-libraries/node/request-ai/get-by-predicate) - Filter entries by metadata
 - [Delete Key](/docs/client-libraries/node/request-ai/delete-key) - Delete entries by input
@@ -34,11 +35,11 @@ Ahnlich AI is the semantic layer that provides:
 ### Index Operations
 - [Create Predicate Index](/docs/client-libraries/node/request-ai/create-predicate-index) - Create metadata index
 - [Drop Predicate Index](/docs/client-libraries/node/request-ai/drop-predicate-index) - Remove metadata index
-- [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-ai/create-non-linear-algx) - Create KDTree/HNSW index
-- [Drop Non Linear Algorithm Index](/docs/client-libraries/node/request-ai/drop-non-linear-algx) - Remove KDTree/HNSW index
+- [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-ai/create-non-linear-algx) - Create HNSW index
+- [Drop Non Linear Algorithm Index](/docs/client-libraries/node/request-ai/drop-non-linear-algx) - Remove HNSW index
 
 ## Key Differences from DB
 
-- **Automatic embeddings**: You provide text/images, AI generates vectors
+- **Automatic embeddings**: You provide text, images, or audio, AI generates vectors
 - **Semantic search**: Search by meaning, not exact vectors
 - **Model selection**: Choose from supported AI models (MiniLM, ResNet, CLIP, etc.)

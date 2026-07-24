@@ -79,6 +79,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 &StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 bulk_insert.clone(),
             )
             .unwrap();
@@ -93,6 +94,7 @@ fn bench_retrieval(c: &mut Criterion) {
                         &StoreName {
                             value: store_name.to_string(),
                         },
+                        &Schema::default(),
                         random_input.clone(),
                         NonZeroUsize::new(50).unwrap(),
                         Algorithm::CosineSimilarity,
@@ -137,6 +139,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 &StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 bulk_insert.clone(),
             )
             .unwrap();
@@ -151,6 +154,7 @@ fn bench_retrieval(c: &mut Criterion) {
                         &StoreName {
                             value: store_name.to_string(),
                         },
+                        &Schema::default(),
                         random_input.clone(),
                         NonZeroUsize::new(50).unwrap(),
                         Algorithm::KdTree,
@@ -202,6 +206,7 @@ fn bench_retrieval(c: &mut Criterion) {
                 &StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 bulk_insert.clone(),
             )
             .unwrap();
@@ -216,6 +221,7 @@ fn bench_retrieval(c: &mut Criterion) {
                         &StoreName {
                             value: store_name.to_string(),
                         },
+                        &Schema::default(),
                         random_input.clone(),
                         NonZeroUsize::new(50).unwrap(),
                         Algorithm::Hnsw,
@@ -267,6 +273,7 @@ fn bench_retrieval(c: &mut Criterion) {
                     &StoreName {
                         value: store_name.to_string(),
                     },
+                    &Schema::default(),
                     bulk_insert.clone(),
                 )
                 .unwrap();
@@ -281,6 +288,7 @@ fn bench_retrieval(c: &mut Criterion) {
                             &StoreName {
                                 value: store_name.to_string(),
                             },
+                            &Schema::default(),
                             random_input.clone(),
                             NonZeroUsize::new(50).unwrap(),
                             *algorithm,
@@ -334,6 +342,7 @@ fn bench_insertion(c: &mut Criterion) {
                             &StoreName {
                                 value: store_name.to_string(),
                             },
+                            &Schema::default(),
                             random_array.clone(),
                         )
                         .unwrap();
@@ -369,6 +378,7 @@ fn bench_insertion(c: &mut Criterion) {
                         &StoreName {
                             value: store_name.to_string(),
                         },
+                        &Schema::default(),
                         bulk_insert.clone(),
                     )
                     .unwrap();
@@ -436,6 +446,7 @@ fn bench_predicate_queries(c: &mut Criterion) {
                 &StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 bulk_insert,
             )
             .unwrap();
@@ -464,6 +475,7 @@ fn bench_predicate_queries(c: &mut Criterion) {
                         &StoreName {
                             value: store_name.to_string(),
                         },
+                        &Schema::default(),
                         &condition,
                     )
                     .unwrap();
@@ -526,6 +538,7 @@ fn bench_predicate_queries(c: &mut Criterion) {
                 &StoreName {
                     value: store_name.to_string(),
                 },
+                &Schema::default(),
                 bulk_insert,
             )
             .unwrap();
@@ -554,6 +567,7 @@ fn bench_predicate_queries(c: &mut Criterion) {
                         &StoreName {
                             value: store_name.to_string(),
                         },
+                        &Schema::default(),
                         &condition,
                     )
                     .unwrap();

@@ -18,14 +18,15 @@ Ahnlich AI acts as a proxy service that abstracts away the complexity of generat
 Verifies that the Ahnlich AI service is running.
 
 #### Server Info
-- `INFO SERVER`
+- `INFOSERVER`
 
 Retrieves information about the AI proxy (status, active models, connected DB).
 
 #### List Stores
-- `LIST STORES`
+- `LISTSTORES`
+- `LISTSTORES SCHEMA media`
 
-Returns all stores managed through the AI proxy.
+Returns stores managed through the AI proxy in the selected schema. If no schema is supplied, only `public` stores are returned.
 
 #### Create a Store with Models
 - `CREATESTORE my_store QUERYMODEL all-minilm-l6-v2 INDEXMODEL all-minilm-l6-v2`
@@ -42,7 +43,7 @@ This creates a store named `my_store` where:
 Raw text is automatically converted into embeddings before being sent to Ahnlich DB.
 
 #### Similarity Search with Natural Query
-- `GETSIMN 3 WITH "solar battery systems" IN my_store`
+- `GETSIMN 3 WITH [solar battery systems] USING cosinesimilarity IN my_store`
 
 The AI proxy embeds the query "`solar battery systems`", forwards it to Ahnlich DB, and retrieves the top 3 most similar entries.
 
@@ -62,12 +63,12 @@ Optimizes queries based on the category field.
 Removes an existing predicate index.
 
 #### Create Non-Linear Algorithm Index
-- `CREATENONLINEARALGORITHM INDEX kdtree IN my_store`
+- `CREATENONLINEARALGORITHM INDEX hnsw IN my_store`
 
-Enables advanced search indexing strategies (e.g., KD-Tree).
+Enables advanced search indexing strategies (e.g., HNSW).
 
 #### Drop Non-Linear Algorithm Index
-- `DROPNONLINEARALGORITHMINDEX kdtree IN my_store`
+- `DROPNONLINEARALGORITHMINDEX (hnsw) IN my_store`
 
 Removes a non-linear algorithm index.
 
@@ -99,7 +100,7 @@ The interaction model is two-tiered:
   - After embedding generation, commands are translated into their Ahnlich DB equivalents.
 
 ### Example:
-- `GETSIMN 3 WITH "renewable energy storage" IN article_store`
+- `GETSIMN 3 WITH [renewable energy storage] USING cosinesimilarity IN article_store`
 
 → The AI proxy embeds the query and calls DB:
 - `GETSIMN 3 WITH [0.23, 0.91, -0.44, ...] USING cosinesimilarity IN article_store`

@@ -8,6 +8,7 @@ use ahnlich_replication::proto::cluster_admin::{
     AddLearnerRequest, ChangeMembershipRequest, GetLeaderRequest, GetMetricsRequest, NodeInfo,
 };
 use ahnlich_replication::storage::{ReplicationFailureState, StateMachineStore};
+use ahnlich_types::services::db_service::db_service_client::DbServiceClient;
 use openraft::{Config as OpenRaftConfig, Membership, Raft, SnapshotPolicy, StoredMembership};
 use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -16,6 +17,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
+use tonic::transport::{Channel, Endpoint};
 use utils::server::ListenerStreamOrAddress;
 
 const SERVICE_NAME: &str = "ahnlich-db";
@@ -29,6 +31,7 @@ pub(crate) struct ClusterRuntime {
     pub(crate) state_machine: StateMachineStore<DbTypeConfig, DbStateMachine>,
     pub(crate) failure_state: Arc<ReplicationFailureState>,
     cluster_listener: Mutex<Option<ListenerStreamOrAddress>>,
+    leader_clients: Mutex<std::collections::HashMap<String, DbServiceClient<Channel>>>,
 }
 
 impl std::fmt::Debug for ClusterRuntime {
@@ -57,6 +60,7 @@ impl ClusterRuntime {
             state_machine,
             failure_state,
             cluster_listener: Mutex::new(Some(cluster_listener)),
+            leader_clients: Mutex::new(std::collections::HashMap::new()),
         }
     }
 
@@ -66,6 +70,26 @@ impl ClusterRuntime {
             .expect("cluster listener mutex poisoned")
             .take()
             .ok_or_else(|| std::io::Error::other("cluster listener already taken"))
+    }
+
+    pub(crate) fn leader_client(
+        &self,
+        service_addr: &str,
+    ) -> Result<DbServiceClient<Channel>, String> {
+        let mut clients = self
+            .leader_clients
+            .lock()
+            .expect("leader client cache mutex poisoned");
+
+        if let Some(client) = clients.get(service_addr) {
+            return Ok(client.clone());
+        }
+
+        let endpoint = Endpoint::from_shared(format!("http://{service_addr}"))
+            .map_err(|err| format!("invalid leader address {service_addr}: {err}"))?;
+        let client = DbServiceClient::new(endpoint.connect_lazy());
+        clients.insert(service_addr.to_owned(), client.clone());
+        Ok(client)
     }
 
     fn node_info(&self, service_addr: SocketAddr) -> NodeInfo {

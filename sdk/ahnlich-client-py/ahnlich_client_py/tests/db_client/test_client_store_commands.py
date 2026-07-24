@@ -64,6 +64,47 @@ async def test_client_sends_list_stores_on_existing_database_succeeds(
 
 
 @pytest.mark.asyncio
+async def test_client_schema_scoped_store_lifecycle(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        schema = "tenant_alpha"
+        store_name = "schema_scoped_store"
+
+        await client.create_store(
+            db_query.CreateStore(
+                store=store_name,
+                dimension=3,
+                error_if_exists=True,
+                schema=schema,
+            )
+        )
+
+        default_list = await client.list_stores(db_query.ListStores())
+        assert store_name not in [store.name for store in default_list.stores]
+
+        schema_list = await client.list_stores(db_query.ListStores(schema=schema))
+        assert [store.name for store in schema_list.stores] == [store_name]
+
+        with pytest.raises(GRPCError) as exc_info:
+            await client.get_store(db_query.GetStore(store=store_name))
+        assert exc_info.value.status == grpclib.Status.NOT_FOUND
+
+        store_info = await client.get_store(
+            db_query.GetStore(store=store_name, schema=schema)
+        )
+        assert store_info.name == store_name
+
+        drop_response = await client.drop_schema(db_query.DropSchema(schema=schema))
+        assert drop_response.deleted_count == 1
+
+        schema_list = await client.list_stores(db_query.ListStores(schema=schema))
+        assert len(schema_list.stores) == 0
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
 async def test_client_sends_create_stores_with_predicates_succeeds(spin_up_ahnlich_db):
     channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
     client = db_service.DbServiceStub(channel)
@@ -706,5 +747,72 @@ async def test_db_pipeline_mixed_success_and_error(spin_up_ahnlich_db):
         assert len(response.responses) == 2
         assert response.responses[0].unit is not None
         assert response.responses[1].error is not None
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_upsert_succeeds(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        store_name = "upsert_test"
+        await client.create_store(
+            db_query.CreateStore(
+                store=store_name,
+                dimension=3,
+                create_predicates=["id", "status"],
+                error_if_exists=True,
+            )
+        )
+
+        store_key = keyval.StoreKey(key=[1.0, 2.0, 3.0])
+        initial_value = keyval.StoreValue(
+            value={
+                "id": metadata.MetadataValue(raw_string="123"),
+                "status": metadata.MetadataValue(raw_string="draft"),
+            }
+        )
+
+        await client.set(
+            db_query.Set(
+                store=store_name,
+                inputs=[keyval.DbStoreEntry(key=store_key, value=initial_value)],
+            )
+        )
+
+        condition = predicates.PredicateCondition(
+            value=predicates.Predicate(
+                equals=predicates.Equals(
+                    key="id",
+                    value=metadata.MetadataValue(raw_string="123"),
+                )
+            )
+        )
+
+        new_value = keyval.StoreValue(
+            value={"status": metadata.MetadataValue(raw_string="published")}
+        )
+
+        response = await client.upsert(
+            db_query.Upsert(
+                store=store_name,
+                condition=condition,
+                new_value=new_value,
+                merge_metadata=True,
+            )
+        )
+
+        assert response.upsert.updated == 1
+        assert response.upsert.inserted == 0
+
+        get_response = await client.get_pred(
+            db_query.GetPred(store=store_name, condition=condition)
+        )
+
+        assert len(get_response.entries) == 1
+        entry = get_response.entries[0]
+        assert entry.value.value["status"].raw_string == "published"
+        assert entry.value.value["id"].raw_string == "123"
     finally:
         channel.close()

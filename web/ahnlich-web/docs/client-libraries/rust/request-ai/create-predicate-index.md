@@ -4,6 +4,10 @@ title: Create Predicate Index
 
 # Create Predicate Index
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Creates a predicate index in the AI service to optimize filtered embedding queries. Speeds up retrieval of embeddings based on metadata constraints, improving the performance of `get_pred` operations.
 
 ## Source Code Example
@@ -29,6 +33,7 @@ Creates a predicate index in the AI service to optimize filtered embedding queri
       // Define which store and which predicates to index
       let params = CreatePredIndex {
           store: "Deven Kicks".to_string(),
+          schema: Some("analytics".to_string()),
           predicates: vec!["Brand".to_string(), "Vintage".to_string()],
       };
 

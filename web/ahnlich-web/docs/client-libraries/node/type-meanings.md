@@ -227,11 +227,10 @@ Non-linear indexing algorithms for faster similarity search.
 
 | Algorithm | Description |
 |-----------|-------------|
-| `KDTree` | K-dimensional tree (lower dimensions) |
 | `HNSW` | Hierarchical Navigable Small World (high dimensions) |
 
 ```ts
-import { NonLinearAlgorithm, KDTreeConfig, HNSWConfig } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
+import { NonLinearAlgorithm, HNSWConfig } from "ahnlich-client-node/grpc/algorithm/nonlinear_pb";
 
 const algo = NonLinearAlgorithm.HNSW;
 ```

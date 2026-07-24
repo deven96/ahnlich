@@ -1,0 +1,228 @@
+---
+title: WebAssembly
+sidebar_label: WASM
+---
+
+import CodeBlock from '@theme/CodeBlock';
+import BookSearchDemo from '@site/src/components/BookSearchDemo';
+
+<div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px'}}>
+  <img src="/img/wasm-logo.svg" alt="WebAssembly" style={{width: '48px', height: '48px'}} />
+  <h1 style={{margin: 0}}>Ahnlich for WebAssembly</h1>
+</div>
+
+**Run Ahnlich's vector database entirely in the browser** with multi-threaded performance via WebAssembly. No server required.
+
+## Live Demo
+
+**Semantic search on George Orwell's "Animal Farm"** - Type any query to find relevant passages:
+
+<BookSearchDemo />
+
+## Why WASM?
+
+- **Privacy-first**: Keep embeddings and vectors client-side
+- **Offline-capable**: Works without network connectivity
+- **Fast**: Multi-threaded similarity search using Web Workers
+- **Zero setup**: No database server to install or configure
+
+## Installation
+
+```bash
+npm install @ahnlich/wasm-db
+```
+
+## Quick Start
+
+```typescript
+import init, { AhnlichDB, initThreadPool } from '@ahnlich/wasm-db';
+
+// Initialize WASM module
+await init();
+
+// Initialize thread pool for parallel processing
+await initThreadPool(navigator.hardwareConcurrency || 4);
+
+// Create database instance
+const db = new AhnlichDB();
+
+// Ready to use!
+```
+
+## Browser Requirements
+
+Requires browsers with:
+- WebAssembly threads support
+- SharedArrayBuffer support  
+- Cross-origin isolation (COOP/COEP headers)
+
+**Supported browsers:**
+- Chrome/Edge 91+
+- Firefox 89+
+- Safari 15.2+
+
+:::info Cross-Origin Isolation Required
+
+Your server must send these headers for multi-threading to work:
+
+```
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+See [Deployment](#deployment) for details.
+:::
+
+## API Overview
+
+All methods use Protocol Buffer binary format for requests and responses.
+
+### Store Management
+
+```typescript
+import { CreateStore } from '@ahnlich/wasm-db/protobuf-bundle.js';
+
+const createReq = CreateStore.toBinary({
+  store: 'embeddings',
+  dimension: 384,
+  createPredicates: ['category'],
+  nonLinearIndices: [],
+  errorIfExists: false,
+  schema: { Default: {} }
+});
+
+db.create_store(createReq);
+```
+
+### Insert Vectors
+
+```typescript
+import { Set } from '@ahnlich/wasm-db/protobuf-bundle.js';
+
+const setReq = Set.toBinary({
+  store: 'embeddings',
+  schema: { Default: {} },
+  inputs: [
+    {
+      key: { key: new Float32Array(384) }, // Your vector
+      value: { value: { category: 'product' } }
+    }
+  ]
+});
+
+db.set(setReq);
+```
+
+### Similarity Search
+
+```typescript
+import { GetSimN } from '@ahnlich/wasm-db/protobuf-bundle.js';
+
+const searchReq = GetSimN.toBinary({
+  store: 'embeddings',
+  schema: { Default: {} },
+  searchInput: { key: new Float32Array(384) },
+  closestN: 10,
+  algorithm: 0 // CosineSimilarity
+});
+
+const results = db.get_sim_n(searchReq);
+```
+
+## Performance
+
+With 8 threads on typical hardware:
+- **~160 similarity searches/sec** (k=10, 18k vectors, 384 dimensions)
+- **5x faster** than single-threaded
+- **Near-linear scaling** up to hardware concurrency limit
+
+## Persistence
+
+Export and import database state as MessagePack snapshots:
+
+```typescript
+// Export
+const snapshot = db.export_snapshot();
+localStorage.setItem('db-snapshot', snapshot);
+
+// Import
+const snapshot = localStorage.getItem('db-snapshot');
+db.import_snapshot(snapshot);
+```
+
+## Deployment
+
+### Development
+
+For local development with Vite, Webpack, or other bundlers, ensure your dev server sends the required headers:
+
+**Vite:**
+```javascript
+// vite.config.js
+export default {
+  server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
+};
+```
+
+**Webpack Dev Server:**
+```javascript
+// webpack.config.js
+module.exports = {
+  devServer: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
+};
+```
+
+### Production
+
+Configure your hosting provider to send the headers:
+
+**Vercel:**
+```json
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "require-corp" }
+      ]
+    }
+  ]
+}
+```
+
+**Netlify:**
+```toml
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cross-Origin-Opener-Policy = "same-origin"
+    Cross-Origin-Embedder-Policy = "require-corp"
+```
+
+## Limitations
+
+Compared to server-side Ahnlich:
+
+- **Memory**: Limited by browser heap (~2GB typical, 4GB max)
+- **Persistence**: Manual snapshot export/import only
+- **No clustering**: Single-instance only
+- **No gRPC**: Uses protobuf bytes directly
+
+For production workloads with millions of vectors, use the server version.
+
+## Next Steps
+
+- [API Reference](/docs/client-libraries/wasm/api-reference) - Complete method documentation
+- [Examples](/docs/client-libraries/wasm/examples) - Working code samples
+- [GitHub](https://github.com/deven96/ahnlich/tree/main/ahnlich/wasm-db) - Source code

@@ -4,6 +4,10 @@ title: GetSimN
 
 # GetSimN
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 How to retrieve the top N most similar entries from an AI store using the Ahnlich Python SDK.
 
 **GetSimN** returns an array of tuples (`store_key`, `store_value`, `similarity_score`) of the maximum specified `N`. This allows you to perform similarity searches against the stored AI embeddings.
@@ -24,7 +28,7 @@ How to retrieve the top N most similar entries from an AI store using the Ahnlic
 
 * `execution_provider` – Optional hardware acceleration (e.g., CUDA, TensorRT, CoreML). Set to `None` to use default CPU execution.
 
-* `model_params` – Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced#model-parameters-model_params) for details.
+* `model_params` – Optional dictionary of runtime parameters for the AI model (`Dict[str, str]`). Used by face detection models (Buffalo\_L, SFace+YuNet) to control behavior like `confidence_threshold`. Pass an empty dict `{}` to use model defaults. See [Model Parameters](/docs/components/ahnlich-ai/advanced/model-parameters) for details.
 
 The result contains a list of entries with similarity scores.
 
@@ -50,6 +54,7 @@ Source code in the context of the rest of the application code.
         response = await client.get_sim_n(
             ai_query.GetSimN(
                 store="test store 1",
+                schema="analytics",
                 search_input=keyval.StoreInput(raw_string="Jordan"),
                 condition=None,  # Optional predicate condition
                 closest_n=3,

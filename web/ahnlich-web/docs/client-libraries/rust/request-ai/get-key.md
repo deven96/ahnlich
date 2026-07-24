@@ -4,6 +4,10 @@ title: Get Key
 
 # Get Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Fetches a record from a vector store by its unique key. This provides a deterministic lookup of a specific embedding and its metadata, useful for retrieving known vectors or verifying insertion results.
 
 ## Source Code Example
@@ -33,6 +37,7 @@ Fetches a record from a vector store by its unique key. This provides a determin
 
       let params = GetKey {
           store: "Main0".to_string(),
+          schema: Some("analytics".to_string()),
           keys, // directly pass the Vec
       };
 

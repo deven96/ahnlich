@@ -1,0 +1,984 @@
+---
+title: 'Quickstart: Ahnlich DB'
+sidebar_label: Ahnlich DB
+description: Store and search your own vectors with Ahnlich DB — a movie library in a few minutes.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Quickstart: Ahnlich DB
+
+Use **Ahnlich DB** when you already have **vectors** — embeddings you've computed
+with your own model — and want a fast place to store and search them. Ahnlich
+indexes and ranks them; you bring the numbers.
+
+We'll build a tiny **movie library**: each movie is a vector (its embedding) plus
+some metadata (`title`, `genre`). To keep things readable we use 4-number vectors,
+but the flow is identical for 384- or 1536-dimensional embeddings. Pick your
+language — or the **CLI** — once below, and every sample follows your choice.
+
+> **New to vector search?** The [Ahnlich AI quickstart](./quickstart-ai) is gentler
+> — you send text and it computes the vectors for you.
+
+:::note Prerequisites
+You need the **Ahnlich DB server** running. The fastest way is Docker:
+
+```bash
+docker run -d --name ahnlich-db -p 1369:1369 ghcr.io/deven96/ahnlich-db:latest
+```
+
+See [Installation](./installation) for binaries and other options.
+:::
+
+## Install the client
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```bash
+pip install ahnlich-client-py
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```bash
+cargo add ahnlich_client_rs
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```bash
+npm install ahnlich-client-node
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```bash
+go get github.com/deven96/ahnlich/sdk/ahnlich-client-go
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+# Download the ahnlich-cli binary (see Installation for all platforms)
+curl -L -O "https://github.com/deven96/ahnlich/releases/download/bin%2Fcli%2F0.2.1/x86_64-apple-darwin-ahnlich-cli.tar.gz"
+tar -xvzf x86_64-apple-darwin-ahnlich-cli.tar.gz && chmod +x ahnlich-cli
+```
+
+</TabItem>
+</Tabs>
+
+## 1. Connect
+
+Open a client against the DB server (default port **1369**).
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="connect.py"
+import asyncio
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+
+
+async def main():
+    # Open a gRPC channel to the DB server (default port 1369).
+    # `async with` closes the connection automatically when you're done.
+    async with Channel(host="127.0.0.1", port=1369) as channel:
+        # The stub is your typed client — every Ahnlich call goes through it.
+        client = DbServiceStub(channel)
+        # ready to talk to Ahnlich DB
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="connect.rs"
+use ahnlich_client_rs::db::DbClient;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Connect to the DB server (host:port). Cheap to clone, safe to share.
+    let client = DbClient::new("127.0.0.1:1369".to_string()).await?;
+    // ready to talk to Ahnlich DB
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="connect.ts"
+import { createDbClient } from "ahnlich-client-node";
+
+// Connect to the DB server (host:port). Reuse this client for every call.
+const client = createDbClient("127.0.0.1:1369");
+// ready to talk to Ahnlich DB
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="connect.go"
+import (
+    "context"
+    "log"
+
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+    dbsvc "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/services/db_service"
+)
+
+// grpc.NewClient is lazy — it doesn't dial until the first request.
+conn, err := grpc.NewClient("127.0.0.1:1369",
+    grpc.WithTransportCredentials(insecure.NewCredentials()))
+if err != nil {
+    log.Fatalf("connect: %v", err)
+}
+defer conn.Close()
+
+client := dbsvc.NewDBServiceClient(conn)
+ctx := context.Background()
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+# Point the CLI at the DB server; --agent db selects the vector database.
+ahnlich-cli ahnlich --agent db --host 127.0.0.1 --port 1369
+```
+
+</TabItem>
+</Tabs>
+
+## 2. Create a store
+
+A [store](/docs/concepts/data-model) fixes the **dimension** every vector must
+have, and the metadata [predicates](/docs/concepts/metadata) you'll filter on.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="create_store.py"
+from ahnlich_client_py.grpc.db import query as db_query
+
+await client.create_store(db_query.CreateStore(
+    store="movies",                  # name of the store
+    dimension=4,                     # every vector must be exactly this long
+    create_predicates=["title", "genre"],  # metadata fields you can filter on
+    non_linear_indices=[],           # optional ANN indexes (e.g. hnsw) — later
+    error_if_exists=True,            # fail if a store with this name already exists
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="create_store.rs"
+use ahnlich_types::db::query::CreateStore;
+
+client.create_store(CreateStore {
+    store: "movies".to_string(),
+    schema: None,
+    dimension: 4,                       // fixed vector length
+    create_predicates: vec!["title".into(), "genre".into()], // filterable fields
+    non_linear_indices: vec![],         // optional ANN indexes
+    error_if_exists: true,              // fail if the store already exists
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="create_store.ts"
+import { CreateStore } from "ahnlich-client-node/grpc/db/query_pb";
+
+await client.createStore(
+  new CreateStore({
+    store: "movies",
+    dimension: 4,                    // fixed vector length
+    predicates: ["title", "genre"],  // filterable metadata fields
+    errorIfExists: true,             // fail if the store already exists
+  })
+);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="create_store.go"
+import dbquery "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/query"
+
+_, err = client.CreateStore(ctx, &dbquery.CreateStore{
+    Store:            "movies",
+    Dimension:        4,                          // fixed vector length
+    CreatePredicates: []string{"title", "genre"}, // filterable metadata fields
+    ErrorIfExists:    true,                        // fail if the store exists
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+CREATESTORE movies DIMENSION 4 PREDICATES (title, genre)
+```
+
+</TabItem>
+</Tabs>
+
+:::tip
+`dimension` is fixed for the life of the store — it must match the length of the
+vectors your model produces. `predicates` are the metadata fields you'll filter on
+later; field names must match exactly between insert and query.
+:::
+
+## 3. Insert your movies
+
+Each entry is a **key** (the movie's vector) and a **value** (its metadata).
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="insert.py"
+from ahnlich_client_py.grpc import keyval, metadata
+
+await client.set(db_query.Set(
+    store="movies",
+    inputs=[
+        # Each DbStoreEntry pairs a vector (key) with its metadata (value).
+        keyval.DbStoreEntry(
+            key=keyval.StoreKey(key=[0.10, 0.92, 0.05, 0.33]),
+            value=keyval.StoreValue(value={
+                "title": metadata.MetadataValue(raw_string="Inception"),
+                "genre": metadata.MetadataValue(raw_string="SciFi"),
+            }),
+        ),
+        keyval.DbStoreEntry(
+            key=keyval.StoreKey(key=[0.14, 0.88, 0.09, 0.40]),
+            value=keyval.StoreValue(value={
+                "title": metadata.MetadataValue(raw_string="Interstellar"),
+                "genre": metadata.MetadataValue(raw_string="SciFi"),
+            }),
+        ),
+        keyval.DbStoreEntry(
+            key=keyval.StoreKey(key=[0.85, 0.12, 0.40, 0.08]),
+            value=keyval.StoreValue(value={
+                "title": metadata.MetadataValue(raw_string="Pride & Prejudice"),
+                "genre": metadata.MetadataValue(raw_string="Romance"),
+            }),
+        ),
+    ],
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="insert.rs"
+use ahnlich_types::db::query::Set;
+use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreValue};
+use ahnlich_types::metadata::{MetadataValue, metadata_value::Value};
+use std::collections::HashMap;
+
+// Helper: build a {title, genre} metadata map.
+fn meta(title: &str, genre: &str) -> HashMap<String, MetadataValue> {
+    HashMap::from_iter([
+        ("title".into(), MetadataValue { value: Some(Value::RawString(title.into())) }),
+        ("genre".into(), MetadataValue { value: Some(Value::RawString(genre.into())) }),
+    ])
+}
+
+client.set(Set {
+    store: "movies".to_string(),
+    schema: None,
+    inputs: vec![
+        DbStoreEntry {
+            key: Some(StoreKey { key: vec![0.10, 0.92, 0.05, 0.33] }),
+            value: Some(StoreValue { value: meta("Inception", "SciFi") }),
+        },
+        DbStoreEntry {
+            key: Some(StoreKey { key: vec![0.14, 0.88, 0.09, 0.40] }),
+            value: Some(StoreValue { value: meta("Interstellar", "SciFi") }),
+        },
+        DbStoreEntry {
+            key: Some(StoreKey { key: vec![0.85, 0.12, 0.40, 0.08] }),
+            value: Some(StoreValue { value: meta("Pride & Prejudice", "Romance") }),
+        },
+    ],
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="insert.ts"
+import { Set } from "ahnlich-client-node/grpc/db/query_pb";
+import { DbStoreEntry, StoreKey, StoreValue } from "ahnlich-client-node/grpc/keyval_pb";
+import { MetadataValue } from "ahnlich-client-node/grpc/metadata_pb";
+
+// Helper: build a {title, genre} metadata map.
+const meta = (title: string, genre: string) => ({
+  title: new MetadataValue({ value: { case: "rawString", value: title } }),
+  genre: new MetadataValue({ value: { case: "rawString", value: genre } }),
+});
+
+await client.set(new Set({
+  store: "movies",
+  inputs: [
+    new DbStoreEntry({
+      key: new StoreKey({ key: [0.10, 0.92, 0.05, 0.33] }),
+      value: new StoreValue({ value: meta("Inception", "SciFi") }),
+    }),
+    new DbStoreEntry({
+      key: new StoreKey({ key: [0.14, 0.88, 0.09, 0.40] }),
+      value: new StoreValue({ value: meta("Interstellar", "SciFi") }),
+    }),
+    new DbStoreEntry({
+      key: new StoreKey({ key: [0.85, 0.12, 0.40, 0.08] }),
+      value: new StoreValue({ value: meta("Pride & Prejudice", "Romance") }),
+    }),
+  ],
+}));
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="insert.go"
+import (
+    keyval   "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/keyval"
+    metadata "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
+)
+
+// meta builds a {title, genre} metadata map.
+meta := func(title, genre string) map[string]*metadata.MetadataValue {
+    return map[string]*metadata.MetadataValue{
+        "title": {Value: &metadata.MetadataValue_RawString{RawString: title}},
+        "genre": {Value: &metadata.MetadataValue_RawString{RawString: genre}},
+    }
+}
+
+_, err = client.Set(ctx, &dbquery.Set{
+    Store: "movies",
+    Inputs: []*keyval.DbStoreEntry{
+        {Key: &keyval.StoreKey{Key: []float32{0.10, 0.92, 0.05, 0.33}},
+            Value: &keyval.StoreValue{Value: meta("Inception", "SciFi")}},
+        {Key: &keyval.StoreKey{Key: []float32{0.14, 0.88, 0.09, 0.40}},
+            Value: &keyval.StoreValue{Value: meta("Interstellar", "SciFi")}},
+        {Key: &keyval.StoreKey{Key: []float32{0.85, 0.12, 0.40, 0.08}},
+            Value: &keyval.StoreValue{Value: meta("Pride & Prejudice", "Romance")}},
+    },
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+SET (
+  ([0.10, 0.92, 0.05, 0.33], {title: Inception, genre: SciFi}),
+  ([0.14, 0.88, 0.09, 0.40], {title: Interstellar, genre: SciFi}),
+  ([0.85, 0.12, 0.40, 0.08], {title: Pride & Prejudice, genre: Romance})
+) IN movies
+```
+
+</TabItem>
+</Tabs>
+
+## 4. Update a movie
+
+`Upsert` finds a single entry with a [predicate](/docs/concepts/metadata) and
+updates it. Here we add a `rating` to *Inception* (`merge_metadata` keeps the
+existing fields).
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="upsert.py"
+from ahnlich_client_py.grpc import predicates
+
+await client.upsert(db_query.Upsert(
+    store="movies",
+    # Match exactly one entry: the movie titled "Inception".
+    condition=predicates.PredicateCondition(
+        value=predicates.Predicate(
+            equals=predicates.Equals(
+                key="title",
+                value=metadata.MetadataValue(raw_string="Inception"),
+            )
+        )
+    ),
+    # New metadata to apply.
+    new_value=keyval.StoreValue(value={
+        "rating": metadata.MetadataValue(raw_string="8.8"),
+    }),
+    merge_metadata=True,   # keep existing fields (title, genre); just add rating
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="upsert.rs"
+use ahnlich_types::db::query::Upsert;
+use ahnlich_types::predicates::{Predicate, PredicateCondition, Equals, predicate, predicate_condition};
+
+client.upsert(Upsert {
+    store: "movies".to_string(),
+    schema: None,
+    // Match the movie titled "Inception".
+    condition: Some(PredicateCondition {
+        kind: Some(predicate_condition::Kind::Value(Predicate {
+            kind: Some(predicate::Kind::Equals(Equals {
+                key: "title".to_string(),
+                value: Some(MetadataValue { value: Some(Value::RawString("Inception".into())) }),
+            })),
+        })),
+    }),
+    new_value: Some(StoreValue { value: HashMap::from_iter([(
+        "rating".into(), MetadataValue { value: Some(Value::RawString("8.8".into())) },
+    )]) }),
+    merge_metadata: true,  // keep title & genre, just add rating
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="upsert.ts"
+import { Upsert } from "ahnlich-client-node/grpc/db/query_pb";
+import { PredicateCondition, Predicate, Equals } from "ahnlich-client-node/grpc/predicates_pb";
+
+await client.upsert(new Upsert({
+  store: "movies",
+  // Match the movie titled "Inception".
+  condition: new PredicateCondition({
+    kind: { case: "value", value: new Predicate({
+      kind: { case: "equals", value: new Equals({
+        key: "title",
+        value: new MetadataValue({ value: { case: "rawString", value: "Inception" } }),
+      }) },
+    }) },
+  }),
+  newValue: new StoreValue({ value: {
+    rating: new MetadataValue({ value: { case: "rawString", value: "8.8" } }),
+  } }),
+  mergeMetadata: true,  // keep title & genre, just add rating
+}));
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="upsert.go"
+import predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
+
+_, err = client.Upsert(ctx, &dbquery.Upsert{
+    Store: "movies",
+    // Match the movie titled "Inception".
+    Condition: &predicates.PredicateCondition{
+        Kind: &predicates.PredicateCondition_Value{Value: &predicates.Predicate{
+            Kind: &predicates.Predicate_Equals{Equals: &predicates.Equals{
+                Key:   "title",
+                Value: &metadata.MetadataValue{Value: &metadata.MetadataValue_RawString{RawString: "Inception"}},
+            }},
+        }},
+    },
+    NewValue: &keyval.StoreValue{Value: map[string]*metadata.MetadataValue{
+        "rating": {Value: &metadata.MetadataValue_RawString{RawString: "8.8"}},
+    }},
+    MergeMetadata: true, // keep title & genre, just add rating
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+UPSERT MERGE VALUE {rating: 8.8} IN movies WHERE (title = Inception)
+```
+
+</TabItem>
+</Tabs>
+
+## 5. Search by similarity
+
+Find the movies closest to a **query vector** (an embedding of what you're looking
+for), ranked by a [similarity metric](/docs/concepts/similarity-metrics).
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="search.py"
+from ahnlich_client_py.grpc.algorithm import algorithms
+
+# A vector for "a mind-bending sci-fi thriller" (from your own model).
+response = await client.get_sim_n(db_query.GetSimN(
+    store="movies",
+    search_input=keyval.StoreKey(key=[0.12, 0.90, 0.07, 0.35]),
+    closest_n=2,                               # return the 2 nearest movies
+    algorithm=algorithms.Algorithm.CosineSimilarity,
+))
+
+# Results are ranked most-similar first.
+for entry in response.entries:
+    title = entry.value.value["title"].raw_string
+    print(title, entry.similarity.value)
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="search.rs"
+use ahnlich_types::algorithm::algorithms::Algorithm;
+use ahnlich_types::db::query::GetSimN;
+
+let response = client.get_sim_n(GetSimN {
+    store: "movies".to_string(),
+    schema: None,
+    // Query vector for "a mind-bending sci-fi thriller".
+    search_input: Some(StoreKey { key: vec![0.12, 0.90, 0.07, 0.35] }),
+    closest_n: 2,
+    algorithm: Algorithm::CosineSimilarity as i32,
+    condition: None,   // no metadata filter (see step 6)
+}, None).await?;
+
+println!("{:?}", response.entries);
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="search.ts"
+import { GetSimN } from "ahnlich-client-node/grpc/db/query_pb";
+import { Algorithm } from "ahnlich-client-node/grpc/algorithm/algorithm_pb";
+
+const response = await client.getSimN(new GetSimN({
+  store: "movies",
+  searchInput: new StoreKey({ key: [0.12, 0.90, 0.07, 0.35] }),
+  closestN: 2,
+  algorithm: Algorithm.COSINE_SIMILARITY,
+}));
+
+for (const entry of response.entries) {
+  console.log(entry.value?.value.title, entry.similarity);
+}
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="search.go"
+import algorithms "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms"
+
+resp, err := client.GetSimN(ctx, &dbquery.GetSimN{
+    Store:       "movies",
+    SearchInput: &keyval.StoreKey{Key: []float32{0.12, 0.90, 0.07, 0.35}},
+    ClosestN:    2,
+    Algorithm:   algorithms.Algorithm_CosineSimilarity,
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETSIMN 2 WITH ([0.12, 0.90, 0.07, 0.35]) USING cosinesimilarity IN movies
+```
+
+</TabItem>
+</Tabs>
+
+The two SciFi movies (*Inception*, *Interstellar*) come back ahead of the romance.
+
+## 6. Filter your search
+
+Pass a [predicate](/docs/concepts/metadata) as the `condition` to only rank
+vectors whose metadata matches — "nearest sci-fi movies".
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="filter.py"
+# genre = "SciFi"
+condition = predicates.PredicateCondition(
+    value=predicates.Predicate(
+        equals=predicates.Equals(
+            key="genre",
+            value=metadata.MetadataValue(raw_string="SciFi"),
+        )
+    )
+)
+
+response = await client.get_sim_n(db_query.GetSimN(
+    store="movies",
+    search_input=keyval.StoreKey(key=[0.12, 0.90, 0.07, 0.35]),
+    closest_n=3,
+    algorithm=algorithms.Algorithm.CosineSimilarity,
+    condition=condition,   # only entries where genre = SciFi
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="filter.rs"
+use ahnlich_types::predicates::{Predicate, PredicateCondition, Equals, predicate, predicate_condition};
+
+// genre = "SciFi"
+let condition = PredicateCondition {
+    kind: Some(predicate_condition::Kind::Value(Predicate {
+        kind: Some(predicate::Kind::Equals(Equals {
+            key: "genre".to_string(),
+            value: Some(MetadataValue { value: Some(Value::RawString("SciFi".into())) }),
+        })),
+    })),
+};
+
+let response = client.get_sim_n(GetSimN {
+    store: "movies".to_string(),
+    schema: None,
+    search_input: Some(StoreKey { key: vec![0.12, 0.90, 0.07, 0.35] }),
+    closest_n: 3,
+    algorithm: Algorithm::CosineSimilarity as i32,
+    condition: Some(condition),   // only entries where genre = SciFi
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="filter.ts"
+import { PredicateCondition, Predicate, Equals } from "ahnlich-client-node/grpc/predicates_pb";
+
+// genre = "SciFi"
+const condition = new PredicateCondition({
+  kind: { case: "value", value: new Predicate({
+    kind: { case: "equals", value: new Equals({
+      key: "genre",
+      value: new MetadataValue({ value: { case: "rawString", value: "SciFi" } }),
+    }) },
+  }) },
+});
+
+const response = await client.getSimN(new GetSimN({
+  store: "movies",
+  searchInput: new StoreKey({ key: [0.12, 0.90, 0.07, 0.35] }),
+  closestN: 3,
+  algorithm: Algorithm.COSINE_SIMILARITY,
+  condition,   // only entries where genre = SciFi
+}));
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="filter.go"
+import predicates "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/predicates"
+
+// genre = "SciFi"
+condition := &predicates.PredicateCondition{
+    Kind: &predicates.PredicateCondition_Value{Value: &predicates.Predicate{
+        Kind: &predicates.Predicate_Equals{Equals: &predicates.Equals{
+            Key:   "genre",
+            Value: &metadata.MetadataValue{Value: &metadata.MetadataValue_RawString{RawString: "SciFi"}},
+        }},
+    }},
+}
+
+resp, err := client.GetSimN(ctx, &dbquery.GetSimN{
+    Store:       "movies",
+    SearchInput: &keyval.StoreKey{Key: []float32{0.12, 0.90, 0.07, 0.35}},
+    ClosestN:    3,
+    Algorithm:   algorithms.Algorithm_CosineSimilarity,
+    Condition:   condition, // only entries where genre = SciFi
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETSIMN 3 WITH ([0.12, 0.90, 0.07, 0.35]) USING cosinesimilarity IN movies WHERE (genre = SciFi)
+```
+
+</TabItem>
+</Tabs>
+
+## 7. Retrieve by key
+
+Already know the exact vector? [Get by key](/docs/stores/get-key) fetches it
+directly — no similarity ranking.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="get_key.py"
+response = await client.get_key(db_query.GetKey(
+    store="movies",
+    keys=[keyval.StoreKey(key=[0.10, 0.92, 0.05, 0.33])],  # Inception's vector
+))
+
+for entry in response.entries:
+    print(entry.value.value["title"].raw_string)
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="get_key.rs"
+use ahnlich_types::db::query::GetKey;
+
+let response = client.get_key(GetKey {
+    store: "movies".to_string(),
+    schema: None,
+    keys: vec![StoreKey { key: vec![0.10, 0.92, 0.05, 0.33] }],
+}, None).await?;
+
+println!("{:?}", response.entries);
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="get_key.ts"
+import { GetKey } from "ahnlich-client-node/grpc/db/query_pb";
+
+const response = await client.getKey(new GetKey({
+  store: "movies",
+  keys: [new StoreKey({ key: [0.10, 0.92, 0.05, 0.33] })],
+}));
+
+console.log(response.entries);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="get_key.go"
+resp, err := client.GetKey(ctx, &dbquery.GetKey{
+    Store: "movies",
+    Keys:  []*keyval.StoreKey{{Key: []float32{0.10, 0.92, 0.05, 0.33}}},
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+GETKEY ([0.10, 0.92, 0.05, 0.33]) IN movies
+```
+
+</TabItem>
+</Tabs>
+
+## 8. Speed up filters with an index
+
+On a large store, filtering scans every entry. A
+[predicate index](/docs/stores/create-predicate-index) turns that into a direct
+lookup.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="index.py"
+await client.create_pred_index(db_query.CreatePredIndex(
+    store="movies",
+    predicates=["genre"],   # index the field you filter on most
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="index.rs"
+use ahnlich_types::db::query::CreatePredIndex;
+
+client.create_pred_index(CreatePredIndex {
+    store: "movies".to_string(),
+    schema: None,
+    predicates: vec!["genre".to_string()],
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="index.ts"
+import { CreatePredIndex } from "ahnlich-client-node/grpc/db/query_pb";
+
+await client.createPredIndex(new CreatePredIndex({
+  store: "movies",
+  predicates: ["genre"],
+}));
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="index.go"
+_, err = client.CreatePredIndex(ctx, &dbquery.CreatePredIndex{
+    Store:      "movies",
+    Predicates: []string{"genre"},
+})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+CREATEPREDINDEX (genre) IN movies
+```
+
+</TabItem>
+</Tabs>
+
+## 9. Inspect your stores
+
+[List stores](/docs/stores/list-stores) to see what's registered, with each
+store's entry count and size.
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="list_stores.py"
+response = await client.list_stores(db_query.ListStores())
+for store in response.stores:
+    print(store.name, store.len)
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="list_stores.rs"
+use ahnlich_types::db::query::ListStores;
+
+let response = client.list_stores(ListStores { schema: None }, None).await?;
+println!("{:?}", response.stores);
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="list_stores.ts"
+import { ListStores } from "ahnlich-client-node/grpc/db/query_pb";
+
+const response = await client.listStores(new ListStores({}));
+console.log(response.stores);
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="list_stores.go"
+resp, err := client.ListStores(ctx, &dbquery.ListStores{})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+LISTSTORES
+```
+
+</TabItem>
+</Tabs>
+
+## 10. Clean up
+
+Remove a single entry with [delete by key](/docs/stores/delete-key), or drop the
+whole [store](/docs/stores/drop-store).
+
+<Tabs groupId="ahnlich-lang" queryString>
+<TabItem value="python" label="Python" default>
+
+```python title="cleanup.py"
+# Remove one movie by its key.
+await client.del_key(db_query.DelKey(
+    store="movies",
+    keys=[keyval.StoreKey(key=[0.85, 0.12, 0.40, 0.08])],  # Pride & Prejudice
+))
+
+# ...or drop the entire store.
+await client.drop_store(db_query.DropStore(
+    store="movies",
+    error_if_not_exists=True,
+))
+```
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+```rust title="cleanup.rs"
+use ahnlich_types::db::query::{DelKey, DropStore};
+
+// Remove one movie by its key.
+client.del_key(DelKey {
+    store: "movies".to_string(),
+    schema: None,
+    keys: vec![StoreKey { key: vec![0.85, 0.12, 0.40, 0.08] }],
+}, None).await?;
+
+// ...or drop the entire store.
+client.drop_store(DropStore {
+    store: "movies".to_string(),
+    schema: None,
+    error_if_not_exists: true,
+}, None).await?;
+```
+
+</TabItem>
+<TabItem value="node" label="Node">
+
+```typescript title="cleanup.ts"
+import { DelKey, DropStore } from "ahnlich-client-node/grpc/db/query_pb";
+
+// Remove one movie by its key.
+await client.delKey(new DelKey({
+  store: "movies",
+  keys: [new StoreKey({ key: [0.85, 0.12, 0.40, 0.08] })],
+}));
+
+// ...or drop the entire store.
+await client.dropStore(new DropStore({ store: "movies", errorIfNotExists: true }));
+```
+
+</TabItem>
+<TabItem value="go" label="Go">
+
+```go title="cleanup.go"
+// Remove one movie by its key.
+_, err = client.DelKey(ctx, &dbquery.DelKey{
+    Store: "movies",
+    Keys:  []*keyval.StoreKey{{Key: []float32{0.85, 0.12, 0.40, 0.08}}},
+})
+
+// ...or drop the entire store.
+_, err = client.DropStore(ctx, &dbquery.DropStore{Store: "movies", ErrorIfNotExists: true})
+```
+
+</TabItem>
+<TabItem value="cli" label="CLI">
+
+```bash
+DELETEKEY ([0.85, 0.12, 0.40, 0.08]) IN movies
+DROPSTORE movies IF EXISTS
+```
+
+</TabItem>
+</Tabs>
+
+## Where to next?
+
+- **[Concepts](/docs/concepts)** — vectors, metadata, similarity metrics, and indexes explained.
+- **[Stores](/docs/stores)** — the full reference for every DB operation.
+- **[Client Libraries](/docs/client-libraries)** — deeper SDK docs for each language.
+
+Found a bug or something unclear? [Open an issue](https://github.com/deven96/ahnlich/issues).

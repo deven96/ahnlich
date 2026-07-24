@@ -5,6 +5,10 @@ sidebar_position: 6
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The CreateStore request creates a new vector store on the Ahnlich DB server.
 
 * **Input**: Store name, dimension, optional predicates, and error handling flag.
@@ -26,6 +30,7 @@ async function createStore() {
   await client.createStore(
     new CreateStore({
       store: "my_store",
+      schema: "analytics",
       dimension: 4,
       predicates: ["label", "category"],
       errorIfExists: true,
@@ -65,6 +70,7 @@ async function createStoreWithOptions() {
   await client.createStore(
     new CreateStore({
       store: "book_embeddings",
+      schema: "analytics",
       dimension: 128,
       predicates: ["title", "author", "genre"],
       errorIfExists: false, // Don't error if already exists
@@ -80,4 +86,4 @@ createStoreWithOptions();
 
 - Store dimension cannot be changed after creation
 - Predicate indices can be added later using [Create Predicate Index](/docs/client-libraries/node/request-db/create-predicate-index)
-- Non-linear indices (KDTree, HNSW) can be added using [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-db/create-non-linear-algx)
+- Non-linear indices (HNSW) can be added using [Create Non Linear Algorithm Index](/docs/client-libraries/node/request-db/create-non-linear-algx)

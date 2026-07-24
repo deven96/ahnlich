@@ -13,7 +13,7 @@ It provides AI/ML engineers with the ability to:
 
 - Search for similar vectors using linear similarity algorithms (Cosine, Euclidean).
 
-- Perform searches with non-linear similarity algorithms (such as KD-Tree).
+- Perform searches with non-linear similarity algorithms (such as HNSW).
 
 - Filter results based on metadata values.
 
@@ -34,6 +34,7 @@ Below is a breakdown of common DB request examples:
 - [List Stores](/docs/client-libraries/go/request-db/list-stores)
 - [Create Store](/docs/client-libraries/go/request-db/create-store)
 - [Set](/docs/client-libraries/go/request-db/set)
+- [Upsert](/docs/client-libraries/go/request-db/upsert)
 - [GetSimN](/docs/client-libraries/go/request-db/get-simn)
 - [Get Key](/docs/client-libraries/go/request-db/get-key)
 - [Get By Predicate](/docs/client-libraries/go/request-db/get-by-predicate)

@@ -27,6 +27,7 @@ pub enum DbCommand {
     CreatePredIndex(Vec<u8>),
     CreateNonLinearAlgorithmIndex(Vec<u8>),
     Set(Vec<u8>),
+    Upsert(Vec<u8>),
     DelKey(Vec<u8>),
     DelPred(Vec<u8>),
     DropPredIndex(Vec<u8>),

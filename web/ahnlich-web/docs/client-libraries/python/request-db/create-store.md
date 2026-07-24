@@ -4,6 +4,10 @@ title: Create Store
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 A Store in Ahnlich is like a logical dataset or collection. Each store holds vectors and their associated metadata, allowing you to organize data by application, environment, or project.
 
 * **Behavior**: Creates a new isolated vector store. Multiple stores can coexist, enabling different workloads.
@@ -33,6 +37,7 @@ async def create_store():
     response = await client.create_store(
       db_query.CreateStore(
         store="test store 006",
+        schema="analytics",
         dimension=5,  # Fixed vector dimension
         create_predicates=["job"],  # Index these metadata fields
         non_linear_indices=[],  # Optional: non-linear algorithms for faster search

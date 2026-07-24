@@ -317,17 +317,12 @@ impl<F: DistanceFn> MinHeapQueue<F> {
     }
 }
 
+/// Hash a float vector to a deterministic u64.
+/// Uses fixed seed for deterministic hashing across restarts and platforms.
+pub use ahnlich_types::utils::hash_f32_vec as hash_vec;
+
 pub fn get_node_id(value: &[f32]) -> NodeId {
-    use ahash::RandomState;
-    use std::hash::BuildHasher;
-    // Fixed seed so NodeId is deterministic across restarts and platforms.
-    // AHasher::default() is randomly seeded per-process (DoS protection for maps),
-    // which would break any future snapshot/persistence of NodeIds.
-    let mut hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
-    for element in value.iter() {
-        hasher.write_u32(element.to_bits());
-    }
-    NodeId(hasher.finish())
+    NodeId(hash_vec(value))
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Copy)]
@@ -342,7 +337,7 @@ pub struct HNSWConfig {
 
 impl Default for HNSWConfig {
     fn default() -> Self {
-        let maximum_connections = 48;
+        let maximum_connections = 16;
         Self {
             ef_construction: 100,
             maximum_connections,

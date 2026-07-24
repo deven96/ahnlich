@@ -1,18 +1,16 @@
 use super::super::errors::ServerError;
 use super::store::Store;
-use super::store::StoreKeyId;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::MetadataValue;
 use ahnlich_types::predicates::{
     self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
     predicate_condition::Kind as PredicateConditionKind,
 };
+use ahnlich_types::utils::StoreKeyId;
 use itertools::Itertools;
 use papaya::HashMap as ConcurrentHashMap;
 use papaya::HashSet as ConcurrentHashSet;
-use rayon::iter::IndexedParallelIterator;
-use rayon::iter::IntoParallelIterator;
-use rayon::iter::ParallelIterator;
+use rayon::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -20,6 +18,8 @@ use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 use std::sync::Arc;
 use utils::fallible;
+
+#[cfg(feature = "server")]
 use utils::parallel;
 
 /// Predicates are essentially nested hashmaps that let us retrieve original keys that match a
@@ -166,7 +166,7 @@ impl PredicateIndices {
                             .value
                             .iter()
                             .filter(|(key, _)| **key == new_predicate)
-                            .map(|(_, val)| (val.clone(), store_key_id.clone()))
+                            .map(|(_, val)| (val.clone(), *store_key_id))
                     })
                     .collect::<Vec<_>>();
                 let pred = PredicateIndex::init(val.clone());
@@ -193,7 +193,7 @@ impl PredicateIndices {
                         let allowed_keys = self.allowed_predicates.pin();
                         allowed_keys
                             .contains(&key)
-                            .then_some((store_key_id.clone(), key, val))
+                            .then_some((store_key_id, key, val))
                     })
             })
             .flatten()
@@ -321,30 +321,53 @@ impl PredicateIndex {
         if update.is_empty() {
             return;
         }
-        let chunk_size = parallel::chunk_size(update.len());
-        update
-            .into_par_iter()
-            .chunks(chunk_size)
-            .for_each(|values| {
-                let pinned = self.0.pin();
-                for (predicate_value, store_key_id) in values {
-                    if let Some((_, value)) = pinned.get_key_value(&predicate_value) {
-                        value.insert(store_key_id, &value.guard());
-                    } else {
-                        // Use try_insert as it is very possible that the hashmap itself now has that key that
-                        // was not previously there as it has been inserted on a different thread
-                        let new_hashset = fallible::try_new_hashset()
-                            .expect("Failed to initialize new predicate hashset");
-                        new_hashset.insert(store_key_id.clone(), &new_hashset.guard());
-                        if let Err(error_current) = pinned.try_insert(predicate_value, new_hashset)
-                        {
-                            error_current
-                                .current
-                                .insert(store_key_id, &error_current.current.guard());
+
+        #[cfg(feature = "server")]
+        {
+            let chunk_size = parallel::chunk_size(update.len());
+            update
+                .into_par_iter()
+                .chunks(chunk_size)
+                .for_each(|values| {
+                    let pinned = self.0.pin();
+                    for (predicate_value, store_key_id) in values {
+                        if let Some((_, value)) = pinned.get_key_value(&predicate_value) {
+                            value.insert(store_key_id, &value.guard());
+                        } else {
+                            let new_hashset = fallible::try_new_hashset()
+                                .expect("Failed to initialize new predicate hashset");
+                            new_hashset.insert(store_key_id, &new_hashset.guard());
+                            if let Err(error_current) =
+                                pinned.try_insert(predicate_value, new_hashset)
+                            {
+                                error_current
+                                    .current
+                                    .insert(store_key_id, &error_current.current.guard());
+                            }
                         }
                     }
+                });
+        }
+
+        // WASM: Sequential processing (single-threaded)
+        #[cfg(not(feature = "server"))]
+        {
+            let pinned = self.0.pin();
+            for (predicate_value, store_key_id) in update {
+                if let Some((_, value)) = pinned.get_key_value(&predicate_value) {
+                    value.insert(store_key_id, &value.guard());
+                } else {
+                    let new_hashset = fallible::try_new_hashset()
+                        .expect("Failed to initialize new predicate hashset");
+                    new_hashset.insert(store_key_id, &new_hashset.guard());
+                    if let Err(error_current) = pinned.try_insert(predicate_value, new_hashset) {
+                        error_current
+                            .current
+                            .insert(store_key_id, &error_current.current.guard());
+                    }
                 }
-            });
+            }
+        }
     }
 
     /// checks the predicate index for a predicate op and value. The return type is a StdHashSet<_>
@@ -505,7 +528,7 @@ mod tests {
                         value: StdHashMap::new(),
                     },
                 };
-                let store_key: StoreKeyId = i.into();
+                let store_key = StoreKeyId(i as u64);
                 let data = vec![(store_key, Arc::new(values))];
                 shared_data.add(data);
             });
@@ -529,7 +552,7 @@ mod tests {
                             key.into(),
                         )),
                     },
-                    i.into(),
+                    StoreKeyId(i),
                 )]);
             });
             handle
@@ -565,9 +588,9 @@ mod tests {
         shared_pred.add_predicates(
             vec!["country".into(), "name".into()],
             Some(vec![
-                (0.into(), Arc::new(store_value_0())),
-                (1.into(), Arc::new(store_value_1())),
-                (2.into(), Arc::new(store_value_2())),
+                (StoreKeyId(0), Arc::new(store_value_0())),
+                (StoreKeyId(1), Arc::new(store_value_1())),
+                (StoreKeyId(2), Arc::new(store_value_2())),
             ]),
         );
 
@@ -578,7 +601,10 @@ mod tests {
             )
             .unwrap();
         // Now we expect index to be up to date
-        assert_eq!(result, StdHashSet::from_iter([0.into(), 1.into()]),);
+        assert_eq!(
+            result,
+            StdHashSet::from_iter([StoreKeyId(0), StoreKeyId(1)]),
+        );
     }
 
     #[test]
@@ -630,7 +656,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is not from Nigeria
-        assert_eq!(result, StdHashSet::from_iter([1.into()]));
+        assert_eq!(result, StdHashSet::from_iter([StoreKeyId(1)]));
         let condition = &PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
                 kind: Some(PredicateKind::Equals(predicates::Equals {
@@ -650,7 +676,10 @@ mod tests {
                 &Store::create(NonZeroUsize::new(1).unwrap(), vec![], StdHashSet::new()),
             )
             .unwrap();
-        assert_eq!(result, StdHashSet::from_iter([0.into(), 2.into()]),);
+        assert_eq!(
+            result,
+            StdHashSet::from_iter([StoreKeyId(0), StoreKeyId(2)]),
+        );
 
         let check = &PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
@@ -684,7 +713,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is from Washington
-        assert_eq!(result, StdHashSet::from_iter([1.into()]));
+        assert_eq!(result, StdHashSet::from_iter([StoreKeyId(1)]));
 
         let check = PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
@@ -718,7 +747,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is fulfills all
-        assert_eq!(result, StdHashSet::from_iter([2.into()]));
+        assert_eq!(result, StdHashSet::from_iter([StoreKeyId(2)]));
 
         let check = PredicateCondition {
             kind: Some(PredicateConditionKind::Value(Predicate {
@@ -754,7 +783,7 @@ mod tests {
         // all 3 fulfill this
         assert_eq!(
             result,
-            StdHashSet::from_iter([2.into(), 0.into(), 1.into(),]),
+            StdHashSet::from_iter([StoreKeyId(2), StoreKeyId(0), StoreKeyId(1)]),
         );
 
         let check = check.and(PredicateCondition {
@@ -776,10 +805,10 @@ mod tests {
             )
             .unwrap();
         // only person 1 is from Washington with any of those names
-        assert_eq!(result, StdHashSet::from_iter([1.into()]));
+        assert_eq!(result, StdHashSet::from_iter([StoreKeyId(1)]));
         // remove all Nigerians from the predicate and check that conditions working before no
         // longer work and those working before still work
-        shared_pred.remove_store_keys(&[0.into(), 2.into()]);
+        shared_pred.remove_store_keys(&[StoreKeyId(0), StoreKeyId(2)]);
 
         let result = shared_pred
             .matches(
@@ -820,7 +849,7 @@ mod tests {
             )
             .unwrap();
         // only person 1 is from Washington with any of those names
-        assert_eq!(result, StdHashSet::from_iter([1.into()]));
+        assert_eq!(result, StdHashSet::from_iter([StoreKeyId(1)]));
     }
 
     #[test]
@@ -853,7 +882,7 @@ mod tests {
                 .len(),
             2
         );
-        shared_pred.remove_store_keys(&[1.into(), 0.into()]);
+        shared_pred.remove_store_keys(&[StoreKeyId(1), StoreKeyId(0)]);
         assert_eq!(
             shared_pred
                 .0

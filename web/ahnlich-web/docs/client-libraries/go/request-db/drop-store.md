@@ -4,6 +4,10 @@ title: Drop Store
 
 # Drop Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `DropStore` request deletes an entire store from the database. Once a store is dropped, all of its vectors, embeddings, and associated metadata are permanently removed. This operation is **destructive** and cannot be undone.
@@ -43,6 +47,9 @@ import (
 const ServerAddr = "127.0.0.1:1369"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -69,6 +76,7 @@ func (c *ExampleDBClient) Close() error {
 func (c *ExampleDBClient) exampleDropStore() error {
     _, err := c.client.DropStore(c.ctx, &dbquery.DropStore{
         Store:             "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         ErrorIfNotExists:  true,  // Return error if store doesn't exist
     })
     if err != nil {

@@ -14,6 +14,9 @@ use crate::metadata::metadata_value::Value as MetadataValueInner;
 use crate::predicates::{AndCondition, Equals, In, NotEquals, NotIn, OrCondition};
 use crate::shared::info::StoreUpsert;
 
+pub mod store_key_id;
+pub use store_key_id::{StoreKeyId, hash_f32_vec};
+
 impl TryFrom<StoreInput> for MetadataValue {
     type Error = String;
     fn try_from(input: StoreInput) -> Result<Self, Self::Error> {
@@ -154,6 +157,7 @@ pub fn convert_to_nonzerousize(val: u64) -> Result<NonZeroUsize, String> {
 
 pub static TRACE_HEADER: &str = "ahnlich-trace-id";
 
+#[cfg(feature = "server")]
 pub fn add_trace_parent<T>(req: &mut tonic::Request<T>, tracing_id: Option<String>) {
     if let Some(trace_parent) = tracing_id {
         req.metadata_mut().insert(

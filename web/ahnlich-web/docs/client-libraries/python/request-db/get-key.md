@@ -4,6 +4,10 @@ title: GetKey
 
 # GetKey
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The GetKey request retrieves entries from a store based on an exact vector key match.
 
 * **Input**:
@@ -34,6 +38,7 @@ The GetKey request retrieves entries from a store based on an exact vector key m
         response = await client.get_key(
           db_query.GetKey(
               store="customer_profiles",
+              schema="analytics",
               keys=[lookup_key]
           )
         )

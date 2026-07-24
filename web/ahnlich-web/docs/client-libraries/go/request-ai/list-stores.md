@@ -4,6 +4,10 @@ title: List Stores
 
 # List Stores
 
+## Schema
+
+`ListStores` accepts an optional `schema` field. When it is omitted, the server lists stores in `public` only; it does not list stores across every schema. Set `schema` to list stores in another schema.
+
 ## Description
 
 `ListStores` provides a **catalog of AI-managed stores** currently registered in the Ahnlich AI proxy. Each store represents a logical grouping where raw inputs (text, images, etc.) are converted into embeddings using the configured models and then indexed for retrieval.
@@ -47,6 +51,9 @@ const AIAddr = "127.0.0.1:1370"
 
 
 // ExampleAIClient holds the gRPC connection and AI client.
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
     conn   *grpc.ClientConn
     client aisvc.AIServiceClient
@@ -72,9 +79,9 @@ func (c *ExampleAIClient) Close() error {
 
 
 // ---- ListStores Example ----
-// List all stores available on the AI server.
+// List stores in the analytics schema on the AI server.
 func (c *ExampleAIClient) exampleListStoresAI() error {
-    resp, err := c.client.ListStores(c.ctx, &aiquery.ListStores{})
+    resp, err := c.client.ListStores(c.ctx, &aiquery.ListStores{Schema: stringPtr("analytics")})
     if err != nil {
         return err
     }

@@ -2,6 +2,7 @@
 <p align="left"><img src="assets/logo.jpg" alt="ahnlich" height="120px"></p>
 
 [![All Test](https://github.com/deven96/ahnlich/actions/workflows/test.yml/badge.svg)](https://github.com/deven96/ahnlich/actions/workflows/test.yml)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/3ba5137a-7488-4539-a037-7e73f0ed06a8/deploy-status)](https://app.netlify.com/projects/unrivaled-toffee-172de7/deploys)
 
 ⚠️ **Note:** Ahnlich continues to evolve **rapidly**, and while stable for most use cases, it may still receive occasional breaking updates as features improve.
 

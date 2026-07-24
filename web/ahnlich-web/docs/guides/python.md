@@ -1,5 +1,5 @@
 ---
-title: 📚 Python Book Search
+title: Python Book Search
 ---
 
 **Source**: [examples/python/book‑search](https://github.com/deven96/ahnlich/tree/main/examples/python/book-search)

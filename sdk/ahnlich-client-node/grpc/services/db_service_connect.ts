@@ -22,6 +22,7 @@ import {
   ListStores,
   Ping,
   Set,
+  Upsert,
 } from "../db/query_pb.js";
 import {
   ClientList,
@@ -121,6 +122,15 @@ export const DBService = {
     set: {
       name: "Set",
       I: Set,
+      O: Set$1,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc services.db_service.DBService.Upsert
+     */
+    upsert: {
+      name: "Upsert",
+      I: Upsert,
       O: Set$1,
       kind: MethodKind.Unary,
     },

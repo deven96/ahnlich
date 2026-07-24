@@ -31,6 +31,7 @@ import {
   ListStores,
   Ping,
   Set,
+  Upsert,
 } from "./query_pb.js";
 import { ClusterInfoQuery, ClusterInfoResponse } from "../shared/cluster_pb.js";
 import {
@@ -189,6 +190,13 @@ export class DBQuery extends Message<DBQuery> {
         value: DropSchema;
         case: "dropSchema";
       }
+    | {
+        /**
+         * @generated from field: db.query.Upsert upsert = 20;
+         */
+        value: Upsert;
+        case: "upsert";
+      }
     | { case: undefined; value?: undefined } = { case: undefined };
 
   constructor(data?: PartialMessage<DBQuery>) {
@@ -230,6 +238,7 @@ export class DBQuery extends Message<DBQuery> {
     { no: 17, name: "get_store", kind: "message", T: GetStore, oneof: "query" },
     { no: 18, name: "cluster_info", kind: "message", T: ClusterInfoQuery, oneof: "query" },
     { no: 19, name: "drop_schema", kind: "message", T: DropSchema, oneof: "query" },
+    { no: 20, name: "upsert", kind: "message", T: Upsert, oneof: "query" },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): DBQuery {

@@ -1,6 +1,15 @@
 # Dependencies
 /node_modules
 
+# Yarn 2+ (Berry)
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+
 # Production
 /build
 
@@ -19,3 +28,20 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# WASM build output (copied from ahnlich/wasm-db/pkg)
+static/wasm-pkg/*
+!static/wasm-pkg/.gitkeep
+
+# Embedding generation scripts and intermediate files (one-time use, not needed in repo)
+scripts/generate-embeddings-use.mjs
+scripts/parse-books-to-sentences.mjs
+static/*_sentences.json
+!static/sentencesWithEmbeddings.json
+
+# Book source files (only need the final embeddings file)
+static/animal_farm.txt
+static/animal_farm.epub
+static/1984.txt
+static/homage-to-catalonia.txt
+static/down-and-out.txt

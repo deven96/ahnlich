@@ -171,7 +171,7 @@ impl SfaceYunetModel {
         let mut results: Vec<ModelResponse> = Vec::with_capacity(batch_size);
         let mut embedding_offset = 0;
 
-        for &num_faces in &face_counts {
+        for (image_idx, &num_faces) in face_counts.iter().enumerate() {
             if num_faces == 0 {
                 results.push(ModelResponse::OneToMany(vec![]));
             } else {
@@ -186,16 +186,15 @@ impl SfaceYunetModel {
                         let detection = &all_detections[embedding_offset + idx];
                         let mut metadata = HashMap::new();
 
-                        // Get original image dimensions from model_params (if available)
-                        // The handler injects orig_width_0, orig_height_0 for the first image
-                        let orig_width = model_params
-                            .get("orig_width_0")
-                            .and_then(|s| s.parse::<f32>().ok())
-                            .unwrap_or(640.0);
-                        let orig_height = model_params
-                            .get("orig_height_0")
-                            .and_then(|s| s.parse::<f32>().ok())
-                            .unwrap_or(640.0);
+                        // Per image: the handler injects orig_width_{i} for each one.
+                        let dimension = |name: &str| {
+                            model_params
+                                .get(&format!("{name}_{image_idx}"))
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(640.0)
+                        };
+                        let orig_width = dimension("orig_width");
+                        let orig_height = dimension("orig_height");
 
                         // Apply letterbox correction and normalize bounding box to 0-1 range
                         let normalized_bbox = apply_letterbox_correction(

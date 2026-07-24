@@ -5,7 +5,11 @@ sidebar_position: 12
 
 # Drop Non Linear Algorithm Index
 
-Removes a non-linear index (KDTree or HNSW) from an AI store.
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
+Removes a non-linear index (HNSW) from an AI store.
 
 <details>
   <summary>Click to expand source code</summary>
@@ -21,12 +25,13 @@ async function dropNonLinearIndex() {
   await client.dropNonLinearAlgorithmIndex(
     new DropNonLinearAlgorithmIndex({
       store: "ai_store",
-      nonLinearIndices: [NonLinearAlgorithm.KDTree],
+      schema: "analytics",
+      nonLinearIndices: [NonLinearAlgorithm.HNSW],
       errorIfNotExists: true,
     })
   );
 
-  console.log("KDTree index dropped");
+  console.log("HNSW index dropped");
 }
 
 dropNonLinearIndex();

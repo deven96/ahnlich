@@ -17,6 +17,7 @@ use ahnlich_types::predicates::{
 use ahnlich_types::schema::Schema;
 use ahnlich_types::shared::info::StoreUpsert;
 use ahnlich_types::similarity::Similarity;
+use ahnlich_types::utils::{StoreKeyId, hash_f32_vec};
 use papaya::HashMap as ConcurrentHashMap;
 use serde::Deserialize;
 use serde::Serialize;
@@ -28,54 +29,19 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 use utils::fallible;
+#[cfg(feature = "server")]
 use utils::persistence::AhnlichPersistenceUtils;
+#[cfg(feature = "server")]
 use utils::persistence::VersionedPersistence;
 
 type StoreEntry = (EmbeddingKey, Arc<StoreValue>);
 type StoreEntryWithSimilarity = (EmbeddingKey, Arc<StoreValue>, Similarity);
 
-/// A hash of Store key, this is more preferable when passing around references as arrays can be
-/// potentially larger
-/// We should be only able to generate a store key id from a 1D vector except during tests
-
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub(crate) struct StoreKeyId(u64);
-
-#[cfg(test)]
-impl From<u64> for StoreKeyId {
-    fn from(value: u64) -> Self {
-        Self(value)
-    }
-}
-
-impl From<&StoreKey> for StoreKeyId {
-    fn from(value: &StoreKey) -> Self {
-        // compute a fast ahash of the vector to ensure it always gives us the same value
-        // and use that as a reference to the vector
-        // Fixed seed so StoreKeyId is deterministic across restarts and platforms.
-        // AHasher::default() is randomly seeded per-process (DoS protection for maps),
-        // which would break snapshot/persistence of StoreKeyIds across restarts.
-        use ahash::RandomState;
-        use std::hash::{BuildHasher, Hasher};
-        let mut hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
-        for element in value.key.iter() {
-            hasher.write_u32(element.to_bits());
-        }
-        Self(hasher.finish())
-    }
-}
-
-impl From<&EmbeddingKey> for StoreKeyId {
-    fn from(value: &EmbeddingKey) -> Self {
-        use ahash::RandomState;
-        use std::hash::{BuildHasher, Hasher};
-        let mut hasher = RandomState::with_seeds(0, 0, 0, 0).build_hasher();
-        for element in value.0.iter() {
-            hasher.write_u32(element.to_bits());
-        }
-        Self(hasher.finish())
-    }
+// Helper function to convert EmbeddingKey to StoreKeyId
+// Can't implement From trait due to orphan rules (both types are external to db crate)
+#[inline]
+pub(crate) fn embedding_key_to_id(key: &EmbeddingKey) -> StoreKeyId {
+    StoreKeyId(hash_f32_vec(&key.0))
 }
 
 /// Contains all the stores that have been created in memory
@@ -87,6 +53,7 @@ pub struct StoreHandler {
     default_schema: Schema,
 }
 
+#[cfg(feature = "server")]
 impl AhnlichPersistenceUtils for StoreHandler {
     type PersistenceObject = super::versioned::VersionedDbStores;
 
@@ -101,6 +68,7 @@ impl AhnlichPersistenceUtils for StoreHandler {
     }
 }
 
+#[cfg(feature = "server")]
 impl utils::size_calculation::SizeCalculationHandler for StoresSnapshot {
     #[tracing::instrument(skip(self))]
     fn recalculate_all_sizes(&self) {
@@ -167,6 +135,12 @@ impl StoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
+    #[cfg(feature = "wasm")]
+    pub fn get_stores(&self) -> Stores {
+        self.stores.clone()
+    }
+
+    #[cfg(not(feature = "wasm"))]
     pub(crate) fn get_stores(&self) -> Stores {
         self.stores.clone()
     }
@@ -184,11 +158,19 @@ impl StoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
+    #[cfg(feature = "wasm")]
+    pub fn use_snapshot(&mut self, stores_snapshot: Stores) {
+        self.stores = stores_snapshot;
+    }
+
+    #[tracing::instrument(skip(self))]
+    #[cfg(not(feature = "wasm"))]
     pub(crate) fn use_snapshot(&mut self, stores_snapshot: Stores) {
         self.stores = stores_snapshot;
     }
 
     /// Loads and migrates a persistence snapshot using the versioned format.
+    #[cfg(feature = "server")]
     pub(crate) fn load_snapshot(
         bytes: &[u8],
     ) -> Result<Stores, utils::persistence::PersistenceTaskError> {
@@ -222,17 +204,17 @@ impl StoreHandler {
         self.stores.get(schema, &self.stores.guard()).cloned()
     }
 
-    /// Returns a store using the store name and default schema, else returns an error
+    /// Returns a store using the store name and schema, else returns an error
     #[tracing::instrument(skip(self))]
-    fn get(&self, store_name: &StoreName) -> Result<Arc<Store>, ServerError> {
-        let guard = self.stores.guard();
-        if let Some(inner_stores) = self.stores.get(&self.default_schema, &guard) {
-            let inner_guard = inner_stores.guard();
-            if let Some(store) = inner_stores.get(store_name, &inner_guard) {
-                return Ok(store.clone());
-            }
-        }
-        Err(ServerError::StoreNotFound(store_name.clone()))
+    fn get(&self, store_name: &StoreName, schema: &Schema) -> Result<Arc<Store>, ServerError> {
+        let inner_stores = self
+            .get_schema(schema)
+            .ok_or_else(|| ServerError::StoreNotFound(store_name.clone()))?;
+        let inner_guard = inner_stores.guard();
+        inner_stores
+            .get(store_name, &inner_guard)
+            .cloned()
+            .ok_or_else(|| ServerError::StoreNotFound(store_name.clone()))
     }
 
     /// Matches CREATEPREDINDEX - reindexes a store with some predicate values
@@ -240,9 +222,10 @@ impl StoreHandler {
     pub(crate) fn create_pred_index(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         predicates: Vec<String>,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         let created_predicates = store.create_pred_index(predicates);
         if created_predicates > 0 {
             self.set_write_flag()
@@ -255,9 +238,10 @@ impl StoreHandler {
     pub(crate) fn create_non_linear_algorithm_index(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         non_linear_indices: StdHashSet<non_linear_index::Index>,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         let created_predicates = store.create_non_linear_algorithm_index(non_linear_indices);
         if created_predicates > 0 {
             self.set_write_flag()
@@ -270,9 +254,10 @@ impl StoreHandler {
     pub(crate) fn del_key_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         keys: Vec<StoreKey>,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         let deleted = store.delete_keys(keys.clone())?;
         if deleted > 0 {
             self.set_write_flag();
@@ -285,9 +270,10 @@ impl StoreHandler {
     pub(crate) fn del_pred_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         condition: &PredicateCondition,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         let deleted = store.delete_matches(condition)?;
         if deleted > 0 {
             self.set_write_flag();
@@ -300,12 +286,13 @@ impl StoreHandler {
     pub fn get_sim_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         search_input: StoreKey,
         closest_n: NonZeroUsize,
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     ) -> Result<Vec<StoreEntryWithSimilarity>, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         let store_dimension = store.dimension.get();
         let input_dimension = search_input.key.len();
 
@@ -316,54 +303,93 @@ impl StoreHandler {
             });
         }
 
-        // Get filtered entries with their IDs to avoid recomputing hashes
-        let (filtered_with_ids, used_all) = if let Some(ref condition) = condition {
-            (store.get_matches_with_ids(condition)?, false)
-        } else {
-            (store.get_all_with_ids(), true)
-        };
-
-        // early stopping: predicate filters everything out so no need to search
-        if filtered_with_ids.is_empty() {
-            return Ok(vec![]);
-        }
-
         let search_embedding = EmbeddingKey::new(search_input.key);
-
-        let filtered_iter = filtered_with_ids.par_iter().map(|(_, (key, _))| key);
-
         let algorithm_by_type: AlgorithmByType = algorithm.into();
-        let similar_result = match algorithm_by_type {
-            AlgorithmByType::Linear(linear_algo) => {
-                linear_algo.find_similar_n(&search_embedding, filtered_iter, used_all, closest_n)
-            }
-            AlgorithmByType::NonLinear(non_linear_algo) => {
+
+        // Optimize for different algorithm + predicate combinations
+        let similar_result = match (algorithm_by_type, condition.as_ref()) {
+            // Non-linear WITH predicates: Fast path - only need accept_list HashSet
+            (AlgorithmByType::NonLinear(non_linear_algo), Some(cond)) => {
+                let matching_ids = store.predicate_indices.matches(cond, &store)?;
+                if matching_ids.is_empty() {
+                    return Ok(vec![]);
+                }
+
+                let accept_list = matching_ids.into_iter().map(|id| id.0).collect();
                 let non_linear_indices = store.non_linear_indices.algorithm_to_index.pin();
                 let non_linear_index_with_algo = non_linear_indices
                     .get(&non_linear_algo)
                     .ok_or(ServerError::NonLinearIndexNotFound(non_linear_algo))?;
-                non_linear_index_with_algo.find_similar_n(
+
+                non_linear_index_with_algo.find_similar_n_with_ids(
                     &search_embedding,
-                    filtered_iter,
-                    used_all,
+                    Some(accept_list),
                     closest_n,
                 )
             }
+
+            // Linear WITH predicates: Need full data for distance computation
+            (AlgorithmByType::Linear(linear_algo), Some(cond)) => {
+                let filtered_with_ids = store.get_matches_with_ids(cond)?;
+                if filtered_with_ids.is_empty() {
+                    return Ok(vec![]);
+                }
+
+                let filtered_iter = filtered_with_ids.par_iter().map(|(id, (key, _))| (id, key));
+                let result =
+                    linear_algo.find_similar_n(&search_embedding, filtered_iter, false, closest_n);
+
+                // Build lookup map for linear + predicate case
+                let mut keys_to_entry_map: StdHashMap<StoreKeyId, StoreEntry> =
+                    StdHashMap::with_capacity(filtered_with_ids.len());
+                for (key_id, entry) in filtered_with_ids {
+                    keys_to_entry_map.insert(key_id, entry);
+                }
+
+                return Ok(result
+                    .into_iter()
+                    .flat_map(|(store_key_id, similarity)| {
+                        keys_to_entry_map
+                            .remove(&store_key_id)
+                            .map(|(key, value)| (key, value, Similarity { value: similarity }))
+                    })
+                    .collect());
+            }
+
+            // Non-linear WITHOUT predicates: Fast path - no accept_list needed
+            (AlgorithmByType::NonLinear(non_linear_algo), None) => {
+                let non_linear_indices = store.non_linear_indices.algorithm_to_index.pin();
+                let non_linear_index_with_algo = non_linear_indices
+                    .get(&non_linear_algo)
+                    .ok_or(ServerError::NonLinearIndexNotFound(non_linear_algo))?;
+
+                non_linear_index_with_algo.find_similar_n_with_ids(
+                    &search_embedding,
+                    None,
+                    closest_n,
+                )
+            }
+
+            // Linear WITHOUT predicates: Need full data
+            (AlgorithmByType::Linear(linear_algo), None) => {
+                let filtered_with_ids = store.get_all_with_ids();
+                let filtered_iter = filtered_with_ids.par_iter().map(|(id, (key, _))| (id, key));
+                linear_algo.find_similar_n(&search_embedding, filtered_iter, true, closest_n)
+            }
         };
 
-        // Build lookup map without recomputing StoreKeyId hashes
-        let mut keys_to_entry_map: StdHashMap<StoreKeyId, StoreEntry> =
-            StdHashMap::with_capacity(filtered_with_ids.len());
-        for (key_id, entry) in filtered_with_ids {
-            keys_to_entry_map.insert(key_id, entry);
-        }
-
+        // Map results to full entries by looking up directly in id_to_value
+        let pinned = store.id_to_value.pin();
         Ok(similar_result
             .into_iter()
             .flat_map(|(store_key_id, similarity)| {
-                keys_to_entry_map
-                    .remove(&store_key_id)
-                    .map(|(key, value)| (key, value, Similarity { value: similarity }))
+                pinned.get(&store_key_id).map(|(key, value)| {
+                    (
+                        key.clone(),
+                        Arc::clone(value),
+                        Similarity { value: similarity },
+                    )
+                })
             })
             .collect())
     }
@@ -373,9 +399,10 @@ impl StoreHandler {
     pub fn get_pred_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         condition: &PredicateCondition,
     ) -> Result<Vec<StoreEntry>, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         store.get_matches(condition)
     }
 
@@ -384,9 +411,10 @@ impl StoreHandler {
     pub(crate) fn get_key_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         keys: Vec<StoreKey>,
     ) -> Result<Vec<StoreEntry>, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         store.get_keys(keys)
     }
 
@@ -395,14 +423,104 @@ impl StoreHandler {
     pub fn set_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         new: Vec<(StoreKey, StoreValue)>,
     ) -> Result<StoreUpsert, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         let upsert = store.add(new)?;
         if upsert.modified() {
             self.set_write_flag();
         }
         Ok(upsert)
+    }
+
+    // Matches UPSERT - modifies a single entry in a store when it matches certain predicate
+    #[tracing::instrument(skip(self, new_key, new_value))]
+    pub fn upsert(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+        new_key: Option<StoreKey>,
+        new_value: Option<StoreValue>,
+        condition: &PredicateCondition,
+        merge_metadata: bool,
+    ) -> Result<StoreUpsert, ServerError> {
+        if new_key.is_none() && new_value.is_none() {
+            return Err(ServerError::InvalidArgument(
+                "UPSERT requires at least one of new_key or new_value".to_string(),
+            ));
+        }
+
+        let store = self.get(store_name, schema)?;
+
+        let initial_matches = store.predicate_indices.matches(condition, &store)?;
+        if initial_matches.len() != 1 {
+            return Err(ServerError::UpsertPredicateConditionMismatch(
+                initial_matches.len(),
+            ));
+        }
+
+        let mut possible_matches = store.get(initial_matches.into_iter());
+        if possible_matches.len() != 1 {
+            return Err(ServerError::UpsertPredicateConditionMismatch(
+                possible_matches.len(),
+            ));
+        }
+        let (mut key, value) = possible_matches
+            .pop()
+            .ok_or(ServerError::UpsertPredicateConditionMismatch(0))?;
+
+        let revalidate_matches = store.predicate_indices.matches(condition, &store)?;
+        if revalidate_matches.len() != 1 {
+            return Err(ServerError::UpsertPredicateConditionMismatch(
+                revalidate_matches.len(),
+            ));
+        }
+
+        store.delete(vec![embedding_key_to_id(&key)].into_iter());
+        self.set_write_flag();
+
+        if let Some(new_key) = new_key {
+            key = new_key.key.into();
+        }
+
+        let final_value = if let Some(new_value_data) = new_value {
+            if merge_metadata {
+                // Only clone if we actually need to merge
+                let mut merged = Arc::try_unwrap(value).unwrap_or_else(|arc| (*arc).clone());
+                for (k, v) in new_value_data.value.into_iter() {
+                    merged.value.insert(k, v);
+                }
+                merged
+            } else {
+                new_value_data
+            }
+        } else {
+            // No new value provided, unwrap existing or clone if still referenced
+            Arc::try_unwrap(value).unwrap_or_else(|arc| (*arc).clone())
+        };
+
+        let add_result = store.add(vec![(
+            StoreKey {
+                // Try to unwrap the Arc if possible, otherwise clone the vector
+                key: Arc::try_unwrap(Arc::clone(&key.0)).unwrap_or_else(|arc| (*arc).clone()),
+            },
+            final_value,
+        )])?;
+        self.set_write_flag();
+
+        // After delete, add() must insert exactly 1 entry
+        if add_result.inserted != 1 || add_result.updated != 0 {
+            return Err(ServerError::InternalError(format!(
+                "UPSERT invariant violated: inserted={} updated={}",
+                add_result.inserted, add_result.updated
+            )));
+        }
+
+        Ok(StoreUpsert {
+            inserted: 0,
+            updated: 1,
+        })
     }
 
     /// matches LISTSTORES - to return statistics of stores in a schema.
@@ -531,10 +649,11 @@ impl StoreHandler {
     pub(crate) fn drop_pred_index_in_store(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         predicates: Vec<String>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         let deleted = store.drop_predicates(predicates, error_if_not_exists)?;
         if deleted > 0 {
             self.set_write_flag();
@@ -548,10 +667,11 @@ impl StoreHandler {
     pub(crate) fn drop_non_linear_algorithm_index(
         &self,
         store_name: &StoreName,
+        schema: &Schema,
         non_linear_indices: StdHashSet<NonLinearAlgorithm>,
         error_if_not_exists: bool,
     ) -> Result<usize, ServerError> {
-        let store = self.get(store_name)?;
+        let store = self.get(store_name, schema)?;
         let deleted = store
             .non_linear_indices
             .remove_indices(non_linear_indices, error_if_not_exists)?;
@@ -773,7 +893,7 @@ impl Store {
                             let metadata_value = store_value.value.get(key);
                             metadata_value.eq(&value.as_ref())
                         })
-                        .map(|(k, _)| (*k).clone())
+                        .map(|(k, _)| *(*k))
                         .collect()
                 } else {
                     entries
@@ -782,7 +902,7 @@ impl Store {
                             let metadata_value = store_value.value.get(key);
                             metadata_value.eq(&value.as_ref())
                         })
-                        .map(|(k, _)| (*k).clone())
+                        .map(|(k, _)| *(*k))
                         .collect()
                 }
             }
@@ -794,7 +914,7 @@ impl Store {
                             let metdata_value = store_value.value.get(key);
                             !metdata_value.eq(&value.as_ref())
                         })
-                        .map(|(k, _)| (*k).clone())
+                        .map(|(k, _)| *(*k))
                         .collect()
                 } else {
                     entries
@@ -803,7 +923,7 @@ impl Store {
                             let metdata_value = store_value.value.get(key);
                             !metdata_value.eq(&value.as_ref())
                         })
-                        .map(|(k, _)| (*k).clone())
+                        .map(|(k, _)| *(*k))
                         .collect()
                 }
             }
@@ -818,7 +938,7 @@ impl Store {
                                 .map(|v| values.contains(v))
                                 .unwrap_or(false)
                         })
-                        .map(|(k, _)| (*k).clone())
+                        .map(|(k, _)| *(*k))
                         .collect()
                 } else {
                     entries
@@ -830,7 +950,7 @@ impl Store {
                                 .map(|v| values.contains(v))
                                 .unwrap_or(false)
                         })
-                        .map(|(k, _)| (*k).clone())
+                        .map(|(k, _)| *(*k))
                         .collect()
                 }
             }
@@ -845,7 +965,7 @@ impl Store {
                                 .map(|v| !values.contains(v))
                                 .unwrap_or(true)
                         })
-                        .map(|(k, _)| (*k).clone())
+                        .map(|(k, _)| *(*k))
                         .collect()
                 } else {
                     entries
@@ -857,7 +977,7 @@ impl Store {
                                 .map(|v| !values.contains(v))
                                 .unwrap_or(true)
                         })
-                        .map(|(k, _)| (*k).clone())
+                        .map(|(k, _)| *(*k))
                         .collect()
                 }
             }
@@ -892,10 +1012,7 @@ impl Store {
         pinned
             .into_iter()
             .map(|(key_id, (embedding_key, store_value))| {
-                (
-                    key_id.clone(),
-                    (embedding_key.clone(), Arc::clone(store_value)),
-                )
+                (*key_id, (embedding_key.clone(), Arc::clone(store_value)))
             })
             .collect()
     }
@@ -913,7 +1030,7 @@ impl Store {
             .flat_map(|key_id| {
                 pinned
                     .get(&key_id)
-                    .map(|(k, v)| (key_id.clone(), (k.clone(), Arc::clone(v))))
+                    .map(|(k, v)| (key_id, (k.clone(), Arc::clone(v))))
             })
             .collect())
     }
@@ -937,6 +1054,7 @@ impl Store {
             value: StdHashMap::new(),
         }) + 64;
         let estimated_bytes = new.len() * entry_size * 3;
+        #[cfg(feature = "server")]
         utils::allocator::check_memory_available(estimated_bytes)
             .map_err(|e| ServerError::Allocation(e.into()))?;
 
@@ -968,16 +1086,16 @@ impl Store {
         // Build predicate insert list using cheap clones
         let predicate_insert: Vec<(StoreKeyId, Arc<StoreValue>)> = res
             .par_iter()
-            .map(|(k, _, v)| (k.clone(), Arc::clone(v)))
+            .map(|(k, _, v)| (*k, Arc::clone(v)))
             .collect();
 
         let inserted = AtomicUsize::new(0);
         let updated = AtomicUsize::new(0);
 
         // Insert into main store, collecting keys for non-linear indices
-        let inserted_keys = res
+        let inserted_keys: Vec<_> = res
             .into_par_iter()
-            .flat_map_iter(|(k, embedding_key, arc_val)| {
+            .filter_map(|(k, embedding_key, arc_val)| {
                 let pinned = self.id_to_value.pin();
                 // EmbeddingKey clone is a cheap Arc pointer bump
                 if pinned
@@ -1021,7 +1139,7 @@ impl Store {
             let values = self
                 .get_all()
                 .into_iter()
-                .map(|(k, v)| (StoreKeyId::from(&k), v))
+                .map(|(k, v)| (embedding_key_to_id(&k), v))
                 .collect();
             self.predicate_indices
                 .add_predicates(new_predicates, Some(values));
@@ -1225,7 +1343,7 @@ mod tests {
             value: "Random".to_string(),
         };
         assert_eq!(
-            handler.get(&fake_store).unwrap_err(),
+            handler.get(&fake_store, &Schema::default()).unwrap_err(),
             ServerError::StoreNotFound(fake_store)
         );
     }
@@ -1241,7 +1359,9 @@ mod tests {
         };
         // set in nonexistent store should fail
         assert_eq!(
-            handler.set_in_store(&fake_store, vec![]).unwrap_err(),
+            handler
+                .set_in_store(&fake_store, &Schema::default(), vec![])
+                .unwrap_err(),
             ServerError::StoreNotFound(fake_store)
         );
         // set in store with wrong dimensions should fail
@@ -1249,6 +1369,7 @@ mod tests {
             handler
                 .set_in_store(
                     &even_store,
+                    &Schema::default(),
                     vec![(
                         StoreKey {
                             key: vec![0.33, 0.44, 0.5]
@@ -1285,6 +1406,7 @@ mod tests {
         let ret = handler
             .set_in_store(
                 &odd_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr.clone(),
@@ -1314,6 +1436,7 @@ mod tests {
         let ret = handler
             .set_in_store(
                 &odd_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr.clone(),
@@ -1354,6 +1477,7 @@ mod tests {
         handler
             .set_in_store(
                 &even_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr_1.clone(),
@@ -1388,6 +1512,7 @@ mod tests {
         handler
             .set_in_store(
                 &even_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr_2.clone(),
@@ -1422,6 +1547,7 @@ mod tests {
         handler
             .set_in_store(
                 &even_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr_3.clone(),
@@ -1466,7 +1592,9 @@ mod tests {
                 })),
             })),
         };
-        let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
+        let res = handler
+            .get_pred_in_store(&even_store, &Schema::default(), &condition)
+            .unwrap();
         assert_eq!(res.len(), 1);
 
         let condition = &PredicateCondition {
@@ -1482,7 +1610,9 @@ mod tests {
             })),
         };
 
-        let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
+        let res = handler
+            .get_pred_in_store(&even_store, &Schema::default(), &condition)
+            .unwrap();
         assert_eq!(res.len(), 2);
 
         let condition = &PredicateCondition {
@@ -1509,12 +1639,18 @@ mod tests {
                 })),
             })),
         });
-        let res = handler.get_pred_in_store(&even_store, &condition);
+        let res = handler.get_pred_in_store(&even_store, &Schema::default(), &condition);
         assert_eq!(res.unwrap().len(), 2);
         handler
-            .create_pred_index(&even_store, vec!["author".into(), "planet".into()])
+            .create_pred_index(
+                &even_store,
+                &Schema::default(),
+                vec!["author".into(), "planet".into()],
+            )
             .unwrap();
-        let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
+        let res = handler
+            .get_pred_in_store(&even_store, &Schema::default(), &condition)
+            .unwrap();
         assert_eq!(res.len(), 2);
     }
 
@@ -1532,6 +1668,7 @@ mod tests {
         handler
             .set_in_store(
                 &odd_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr_1.clone(),
@@ -1554,6 +1691,7 @@ mod tests {
         handler
             .set_in_store(
                 &odd_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr_2.clone(),
@@ -1574,12 +1712,15 @@ mod tests {
             )
             .unwrap();
         assert_eq!(
-            handler.get_key_in_store(&fake_store, vec![]).unwrap_err(),
+            handler
+                .get_key_in_store(&fake_store, &Schema::default(), vec![])
+                .unwrap_err(),
             ServerError::StoreNotFound(fake_store)
         );
         let ret = handler
             .get_key_in_store(
                 &odd_store,
+                &Schema::default(),
                 vec![StoreKey { key: input_arr_1 }, StoreKey { key: input_arr_2 }],
             )
             .unwrap();
@@ -1613,6 +1754,7 @@ mod tests {
         handler
             .set_in_store(
                 &even_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr_1.clone(),
@@ -1635,6 +1777,7 @@ mod tests {
         handler
             .set_in_store(
                 &even_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr_2.clone(),
@@ -1668,7 +1811,9 @@ mod tests {
             })),
         };
 
-        let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
+        let res = handler
+            .get_pred_in_store(&even_store, &Schema::default(), &condition)
+            .unwrap();
         assert!(res.is_empty());
 
         let condition = &PredicateCondition {
@@ -1684,7 +1829,9 @@ mod tests {
             })),
         };
 
-        let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
+        let res = handler
+            .get_pred_in_store(&even_store, &Schema::default(), &condition)
+            .unwrap();
         assert_eq!(res.len(), 2);
 
         let condition = &PredicateCondition {
@@ -1700,7 +1847,9 @@ mod tests {
             })),
         };
 
-        let res = handler.get_pred_in_store(&even_store, &condition).unwrap();
+        let res = handler
+            .get_pred_in_store(&even_store, &Schema::default(), &condition)
+            .unwrap();
         assert_eq!(res.len(), 1);
     }
 
@@ -1718,6 +1867,7 @@ mod tests {
         handler
             .set_in_store(
                 &odd_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr_1.clone(),
@@ -1740,6 +1890,7 @@ mod tests {
         handler
             .set_in_store(
                 &odd_store,
+                &Schema::default(),
                 vec![(
                     StoreKey {
                         key: input_arr_2.clone(),
@@ -1802,6 +1953,7 @@ mod tests {
         handler
             .set_in_store(
                 &even_store,
+                &Schema::default(),
                 vec![(
                     input_arr_1.clone(),
                     StoreValue {
@@ -1822,6 +1974,7 @@ mod tests {
         handler
             .set_in_store(
                 &even_store,
+                &Schema::default(),
                 vec![(
                     input_arr_2.clone(),
                     StoreValue {
@@ -1842,6 +1995,7 @@ mod tests {
         handler
             .set_in_store(
                 &even_store,
+                &Schema::default(),
                 vec![(
                     input_arr_3.clone(),
                     StoreValue {
@@ -1882,6 +2036,7 @@ mod tests {
         let res = handler
             .get_sim_in_store(
                 &even_store,
+                &Schema::default(),
                 search_input.clone(),
                 closest_n,
                 algorithm,
@@ -1894,6 +2049,7 @@ mod tests {
         let res = handler
             .get_sim_in_store(
                 &even_store,
+                &Schema::default(),
                 search_input.clone(),
                 closest_n,
                 algorithm,
@@ -1920,6 +2076,7 @@ mod tests {
         let res = handler
             .get_sim_in_store(
                 &even_store,
+                &Schema::default(),
                 search_input.clone(),
                 closest_n,
                 algorithm,
@@ -1948,10 +2105,13 @@ mod tests {
                 (store_key.clone(), value)
             })
             .collect();
-        handler.set_in_store(&even_store, store_values).unwrap();
+        handler
+            .set_in_store(&even_store, &Schema::default(), store_values)
+            .unwrap();
         let res = handler
             .get_sim_in_store(
                 &even_store,
+                &Schema::default(),
                 search_input.clone(),
                 closest_n,
                 Algorithm::EuclideanDistance,

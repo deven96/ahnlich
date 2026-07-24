@@ -5,6 +5,10 @@ sidebar_position: 5
 
 # Get Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The GetStore request retrieves detailed information about a single store by its name.
 
 * **Input**: Store name.
@@ -24,7 +28,7 @@ async function getStore() {
   const client = createDbClient("127.0.0.1:1369");
 
   const response = await client.getStore(
-    new GetStore({ store: "my_store" })
+    new GetStore({ store: "my_store", schema: "analytics" })
   );
 
   console.log(response.name);             // Store name

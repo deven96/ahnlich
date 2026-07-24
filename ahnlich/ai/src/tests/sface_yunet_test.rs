@@ -99,6 +99,7 @@ async fn test_sface_yunet_face_detection() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -179,6 +180,7 @@ async fn test_sface_yunet_single_face() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -253,6 +255,7 @@ async fn test_sface_yunet_no_faces() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -346,6 +349,7 @@ async fn test_sface_yunet_get_sim_n() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
             ai_pipeline::AiQuery {
@@ -360,6 +364,7 @@ async fn test_sface_yunet_get_sim_n() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -441,6 +446,7 @@ async fn test_sface_yunet_multi_face_query_errors() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -463,6 +469,7 @@ async fn test_sface_yunet_multi_face_query_errors() {
         preprocess_action: PreprocessAction::ModelPreprocessing.into(),
         execution_provider: None,
         model_params: HashMap::new(),
+        schema: None,
     };
 
     let result = client.get_sim_n(tonic::Request::new(get_query)).await;
@@ -556,6 +563,7 @@ async fn test_sface_yunet_mixed_batch_no_face_does_not_fail_batch() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -627,6 +635,7 @@ async fn test_sface_yunet_high_confidence_threshold() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(), // Empty = use default threshold (0.6)
+            schema: None,
         })),
     };
 
@@ -687,6 +696,7 @@ async fn test_sface_yunet_high_confidence_threshold() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: high_threshold_params, // Custom high threshold
+            schema: None,
         })),
     };
 
@@ -784,6 +794,7 @@ async fn test_sface_yunet_bounding_box_metadata() {
                     preprocess_action: PreprocessAction::ModelPreprocessing.into(),
                     execution_provider: None,
                     model_params: HashMap::new(),
+                    schema: None,
                 })),
             },
         ],
@@ -810,6 +821,7 @@ async fn test_sface_yunet_bounding_box_metadata() {
             preprocess_action: PreprocessAction::ModelPreprocessing.into(),
             execution_provider: None,
             model_params: HashMap::new(),
+            schema: None,
         }))
         .await
         .expect("GetSimN failed")

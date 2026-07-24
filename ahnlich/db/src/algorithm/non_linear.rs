@@ -1,7 +1,7 @@
 use super::super::errors::ServerError;
 use super::FindSimilarN;
 use crate::algorithm::DbHnswConfig;
-use crate::engine::store::StoreKeyId;
+use crate::engine::store::embedding_key_to_id;
 use ahnlich_similarity::EmbeddingKey;
 use ahnlich_similarity::LinearAlgorithm;
 use ahnlich_similarity::NonLinearAlgorithmWithIndexImpl;
@@ -12,9 +12,9 @@ use ahnlich_types::algorithm::nonlinear::{
     self, HnswConfig, KdTreeConfig, NonLinearAlgorithm,
     non_linear_index::Index as NonLinearAlgorithmIndexConf,
 };
+use ahnlich_types::utils::StoreKeyId;
 use papaya::HashMap as ConcurrentHashMap;
-use rayon::iter::IntoParallelIterator;
-use rayon::iter::ParallelIterator;
+use rayon::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -125,17 +125,30 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
     fn find_similar_n<'a>(
         &'a self,
         search_vector: &EmbeddingKey,
-        search_list: impl ParallelIterator<Item = &'a EmbeddingKey>,
+        search_list: impl rayon::iter::ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
         used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)> {
         let accept_list = if used_all {
             None
         } else {
-            Some(search_list.map(|key| key.clone()).collect())
+            Some(search_list.map(|(id, _)| id.0).collect())
         };
 
-        match &self {
+        self.find_similar_n_with_ids(search_vector, accept_list, n)
+    }
+}
+
+impl NonLinearAlgorithmWithIndex {
+    /// Optimized search that takes accept_list directly, avoiding iterator overhead
+    #[tracing::instrument(skip_all)]
+    pub(crate) fn find_similar_n_with_ids(
+        &self,
+        search_vector: &EmbeddingKey,
+        accept_list: Option<std::collections::HashSet<u64>>,
+        n: NonZeroUsize,
+    ) -> Vec<(StoreKeyId, f32)> {
+        let raw_result = match &self {
             NonLinearAlgorithmWithIndex::KDTree(kdtree) => {
                 <KDTree as NonLinearAlgorithmWithIndexImpl>::n_nearest(
                     kdtree,
@@ -153,10 +166,12 @@ impl FindSimilarN for NonLinearAlgorithmWithIndex {
                 )
             }
         }
-        .expect("Index does not have the same size as reference_point")
-        .into_par_iter()
-        .map(|(arr, sim)| (StoreKeyId::from(&arr), sim))
-        .collect()
+        .expect("Index does not have the same size as reference_point");
+
+        raw_result
+            .into_par_iter()
+            .map(|(arr, sim)| (embedding_key_to_id(&arr), sim))
+            .collect()
     }
 }
 

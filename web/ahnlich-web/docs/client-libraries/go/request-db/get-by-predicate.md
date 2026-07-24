@@ -4,6 +4,10 @@ title: Get by Predicate
 
 # Get by Predicate
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 `GetByPredicate` returns entries whose **metadata** matches a specified condition. Unlike similarity search, this is a **metadata-only** lookup (e.g., “all items where `label == "A"`”). Use it to filter or audit data based on tags, categories, or other metadata fields you maintain alongside vectors.
@@ -39,6 +43,9 @@ const ServerAddr = "127.0.0.1:1369"
 
 
 // ExampleDBClient holds the gRPC connection, client, and context.
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -85,6 +92,7 @@ func (c *ExampleDBClient) exampleGetByPredicate() error {
     // Call GetPred with the condition
     resp, err := c.client.GetPred(c.ctx, &dbquery.GetPred{
         Store:     "my_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Condition: cond,
     })
     if err != nil {

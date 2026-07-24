@@ -3,6 +3,7 @@ use super::super::executor::ExecutorWithSessionCache;
 use super::super::inference_model::ORTInferenceModel;
 use super::bbox_utils::apply_letterbox_correction;
 use super::face_align::{FaceDetection, apply_nms, crop_and_align_faces};
+use super::scrfd;
 use crate::engine::ai::models::{ModelInput, ModelResponse};
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
@@ -17,34 +18,17 @@ use std::future::Future;
 use std::mem::size_of;
 use std::pin::Pin;
 
-/// Buffalo_L: Multi-stage face detection + recognition model from InsightFace
+/// SCRFD detection, then ArcFace recognition on a 112x112 crop aligned from the detected
+/// landmarks: one embedding per face (OneToMany). Gender/age is off unless asked for.
 ///
-/// This model performs face detection using RetinaFace and face recognition using ResNet50.
-/// Pipeline: Image → RetinaFace detection → Face alignment → ResNet50 recognition → Embeddings
-///
-/// Key features:
-/// - RetinaFace: Multi-scale face detection with 3 FPN (Feature Pyramid Network) levels
-/// - Face alignment: Uses 5 facial landmarks to normalize face pose
-/// - ResNet50: Generates 512-dimensional face embeddings
-/// - OneToMany: Returns multiple face embeddings per input image
+/// A change here holds only if the same person still scores > 0.5 cosine and two different
+/// people < 0.3 (see `buffalo_l_test.rs`); `cargo test -p ai --lib buffalo_l` checks it.
 pub(crate) struct BuffaloLModel {
-    detection_cache: ExecutorWithSessionCache, // RetinaFace model session
-    recognition_cache: ExecutorWithSessionCache, // ResNet50 model session
-    genderage_cache: ExecutorWithSessionCache, // Gender/Age model session
+    detection_cache: ExecutorWithSessionCache,
+    recognition_cache: ExecutorWithSessionCache,
+    genderage_cache: ExecutorWithSessionCache,
     model_batch_size: usize,
-    anchors: Vec<Anchor>, // Pre-generated anchor boxes for RetinaFace bbox decoding
-}
-
-/// Anchor box for RetinaFace object detection
-///
-/// RetinaFace uses anchor-based detection where predictions are offsets relative to
-/// pre-defined anchor boxes at different scales and positions in the image.
-#[derive(Debug, Clone)]
-struct Anchor {
-    x: f32,      // Center x coordinate in pixels
-    y: f32,      // Center y coordinate in pixels
-    width: f32,  // Anchor width in pixels
-    height: f32, // Anchor height in pixels
+    anchors: Vec<scrfd::Anchor>,
 }
 
 impl BuffaloLModel {
@@ -82,9 +66,7 @@ impl BuffaloLModel {
 
         tracing::info!("Loaded gender/age model for BuffaloL");
 
-        // Generate anchors for RetinaFace detection model
-        // Input size is 640x640, with 3 FPN scales
-        let anchors = Self::generate_anchors(640, 640);
+        let anchors = scrfd::generate_anchors();
 
         Ok(Box::new(Self {
             detection_cache: det_cache,
@@ -125,65 +107,7 @@ impl ORTInferenceModel for BuffaloLModel {
 }
 
 impl BuffaloLModel {
-    /// Generate anchor boxes for RetinaFace at multiple FPN scales
-    ///
-    /// RetinaFace uses a Feature Pyramid Network (FPN) with 3 scales to detect faces
-    /// at different sizes. Each scale has its own stride (downsampling factor) and
-    /// base anchor sizes. This creates a dense grid of anchors across the image.
-    ///
-    /// For a 640x640 input:
-    /// - Scale 0 (stride=8):  80x80 grid = 12,800 anchors (2 sizes each)
-    /// - Scale 1 (stride=16): 40x40 grid = 3,200 anchors (2 sizes each)
-    /// - Scale 2 (stride=32): 20x20 grid = 800 anchors (2 sizes each)
-    /// Total: 16,800 anchors
-    #[tracing::instrument]
-    fn generate_anchors(input_height: usize, input_width: usize) -> Vec<Anchor> {
-        // FPN configuration: (stride, base_sizes)
-        // Smaller strides detect smaller faces, larger strides detect larger faces
-        let fpn_configs = vec![
-            (8, vec![16.0, 32.0]),    // Scale 0: Small faces
-            (16, vec![64.0, 128.0]),  // Scale 1: Medium faces
-            (32, vec![256.0, 512.0]), // Scale 2: Large faces
-        ];
-
-        let mut all_anchors = Vec::new();
-
-        for (stride, base_sizes) in fpn_configs {
-            // Calculate feature map dimensions after downsampling
-            let feat_h = input_height / stride;
-            let feat_w = input_width / stride;
-
-            // Generate anchors at each feature map position
-            for i in 0..feat_h {
-                for j in 0..feat_w {
-                    // Center anchors at the middle of each stride cell
-                    let center_x = (j as f32 + 0.5) * stride as f32;
-                    let center_y = (i as f32 + 0.5) * stride as f32;
-
-                    // Create multiple anchor boxes at this position with different sizes
-                    for &base_size in &base_sizes {
-                        all_anchors.push(Anchor {
-                            x: center_x,
-                            y: center_y,
-                            width: base_size,
-                            height: base_size,
-                        });
-                    }
-                }
-            }
-        }
-
-        all_anchors
-    }
-
-    /// Main pipeline: Detect faces in all images, then batch-recognize all faces together
-    ///
-    /// This is a two-stage process:
-    /// 1. Detection stage: Run RetinaFace on each image to find face locations
-    /// 2. Recognition stage: Batch all detected faces and run ResNet50 once
-    ///
-    /// Batching the recognition stage is crucial for performance - instead of running
-    /// ResNet50 N times for N faces, we run it once with a batch of N faces.
+    /// Detection is per image; recognition is one batched pass over every face found.
     #[tracing::instrument(skip(self, images))]
     async fn detect_and_recognize_batch(
         &self,
@@ -285,7 +209,7 @@ impl BuffaloLModel {
 
         // Step 4: Map embeddings back to source images with bounding box metadata
         // Memory check: Building ModelResponse for each face embedding
-        // 512: ResNet50 embedding dimension (fixed by model architecture)
+        // 512: the ArcFace embedding dimension.
         // + 64: Vec overhead for StoreKey
         let total_faces: usize = face_counts.iter().sum();
         let bytes_per_face =
@@ -297,7 +221,7 @@ impl BuffaloLModel {
         let mut results: Vec<ModelResponse> = Vec::with_capacity(batch_size);
         let mut embedding_offset = 0;
 
-        for &num_faces in &face_counts {
+        for (image_idx, &num_faces) in face_counts.iter().enumerate() {
             if num_faces == 0 {
                 results.push(ModelResponse::OneToMany(vec![]));
             } else {
@@ -312,23 +236,22 @@ impl BuffaloLModel {
                         let detection = &all_detections[embedding_offset + idx];
                         let mut metadata = HashMap::new();
 
-                        // Get original image dimensions from model_params (if available)
-                        // The handler injects orig_width_0, orig_height_0 for the first image
-                        let orig_width = model_params
-                            .get("orig_width_0")
-                            .and_then(|s| s.parse::<f32>().ok())
-                            .unwrap_or(640.0);
-                        let orig_height = model_params
-                            .get("orig_height_0")
-                            .and_then(|s| s.parse::<f32>().ok())
-                            .unwrap_or(640.0);
+                        // Per image: the handler injects orig_width_{i} for each one.
+                        let dimension = |name: &str| {
+                            model_params
+                                .get(&format!("{name}_{image_idx}"))
+                                .and_then(|s| s.parse::<f32>().ok())
+                                .unwrap_or(scrfd::INPUT_SIZE as f32)
+                        };
+                        let orig_width = dimension("orig_width");
+                        let orig_height = dimension("orig_height");
 
                         // Apply letterbox correction and normalize bounding box to 0-1 range
                         let normalized_bbox = apply_letterbox_correction(
                             &detection.bbox,
                             orig_width,
                             orig_height,
-                            640.0,
+                            scrfd::INPUT_SIZE as f32,
                         );
 
                         // Store normalized bounding box coordinates (0-1 range)
@@ -547,7 +470,6 @@ impl BuffaloLModel {
         session: &Session,
         model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<FaceDetection>, AIProxyError> {
-        // RetinaFace detection model expects "input.1" tensor (not "input")
         let session_inputs = ort::inputs!["input.1" => image.view()]
             .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
 
@@ -558,135 +480,40 @@ impl BuffaloLModel {
         self.parse_detections(outputs, model_params)
     }
 
-    /// Parse RetinaFace outputs and decode bounding boxes using anchor-based regression
-    ///
-    /// RetinaFace outputs 9 tensors (3 FPN scales × 3 outputs per scale):
-    /// - Scores: Confidence that an anchor contains a face
-    /// - Bbox deltas: Offsets to adjust anchor box to actual face location
-    /// - Landmark deltas: Offsets for 5 facial landmarks (eyes, nose, mouth corners)
-    ///
-    /// The model outputs DELTAS (offsets), not absolute positions. We must decode
-    /// them using the pre-generated anchors to get actual pixel coordinates.
+    /// Each face fires on several anchors across the pyramid levels; NMS collapses them.
     #[tracing::instrument(skip(self, outputs, model_params))]
     fn parse_detections(
         &self,
         outputs: ort::SessionOutputs,
         model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<FaceDetection>, AIProxyError> {
-        let output_tensors: Vec<_> = outputs
+        const DEFAULT_CONFIDENCE_THRESHOLD: f32 = 0.5;
+        // Group photos need a low IoU: neighbouring faces overlap and a high threshold
+        // merges them into one.
+        const DEFAULT_NMS_THRESHOLD: f32 = 0.4;
+
+        let param = |name: &str, fallback: f32| -> f32 {
+            model_params
+                .get(name)
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(fallback)
+        };
+        let confidence_threshold = param("confidence_threshold", DEFAULT_CONFIDENCE_THRESHOLD);
+        let nms_threshold = param("nms_threshold", DEFAULT_NMS_THRESHOLD);
+
+        // 50 faces is a generous ceiling for one image, plus Vec overhead.
+        utils::allocator::check_memory_available(50 * size_of::<FaceDetection>() + 64)
+            .map_err(|e| AIProxyError::Allocation(e.into()))?;
+
+        let tensors: Vec<_> = outputs
             .values()
             .map(|value| value.try_extract_tensor::<f32>())
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
-        // Extract confidence threshold from model_params or use default
-        const DEFAULT_CONFIDENCE_THRESHOLD: f32 = 0.5;
-        let confidence_threshold = model_params
-            .get("confidence_threshold")
-            .and_then(|v| v.parse::<f32>().ok())
-            .unwrap_or(DEFAULT_CONFIDENCE_THRESHOLD);
+        let faces = scrfd::decode(&tensors, &self.anchors, confidence_threshold)?;
 
-        // Extract NMS IoU threshold from model_params or use default
-        // Lower values = less merging of nearby faces (more conservative)
-        // Higher values = more merging (more aggressive)
-        // Default 0.4 works well for most cases, but for group photos with
-        // people close together, lower values (0.2-0.3) prevent face merging
-        const DEFAULT_NMS_THRESHOLD: f32 = 0.4;
-        let nms_threshold = model_params
-            .get("nms_threshold")
-            .and_then(|v| v.parse::<f32>().ok())
-            .unwrap_or(DEFAULT_NMS_THRESHOLD);
-
-        // Memory check: Allocating Vec for face detection results
-        // 50: Conservative upper bound (typical images have 1-10 faces, but group photos can have more)
-        // + 64: Vec overhead
-        let max_expected_faces = 50;
-        let bytes_per_detection = size_of::<FaceDetection>();
-        let estimated_bytes = max_expected_faces * bytes_per_detection + 64;
-        utils::allocator::check_memory_available(estimated_bytes)
-            .map_err(|e| AIProxyError::Allocation(e.into()))?;
-
-        let mut all_detections = Vec::new();
-        let mut anchor_offset = 0; // Track position in anchor array across scales
-
-        // Process each FPN scale separately
-        for scale_idx in 0..3 {
-            // RetinaFace outputs are ordered: [score0, bbox0, landmark0, score1, bbox1, landmark1, ...]
-            let score_idx = scale_idx * 3;
-            let bbox_idx = score_idx + 1;
-            let landmark_idx = score_idx + 2;
-
-            let scores = &output_tensors[score_idx];
-            let bbox_deltas = &output_tensors[bbox_idx];
-            let landmark_deltas = &output_tensors[landmark_idx];
-
-            let num_anchors = scores.shape()[0];
-
-            let scores_slice = scores.as_slice().unwrap();
-            let bbox_deltas_slice = bbox_deltas.as_slice().unwrap();
-            let landmark_deltas_slice = landmark_deltas.as_slice().unwrap();
-
-            // Check each anchor at this scale
-            for i in 0..num_anchors {
-                let confidence = scores_slice[i];
-
-                if confidence < confidence_threshold {
-                    continue;
-                }
-
-                let anchor_idx = anchor_offset + i;
-                let anchor = &self.anchors[anchor_idx];
-
-                // Decode bbox from anchor + deltas using variance [0.1, 0.2]
-                // This is the standard RetinaFace decoding formula
-                // RetinaFace uses variance [0.1, 0.2] for center/size encoding
-                let dx = bbox_deltas_slice[i * 4] * 0.1;
-                let dy = bbox_deltas_slice[i * 4 + 1] * 0.1;
-                let dw = bbox_deltas_slice[i * 4 + 2] * 0.2;
-                let dh = bbox_deltas_slice[i * 4 + 3] * 0.2;
-
-                let pred_cx = anchor.x + dx * anchor.width;
-                let pred_cy = anchor.y + dy * anchor.height;
-                let pred_w = anchor.width * dw.exp();
-                let pred_h = anchor.height * dh.exp();
-
-                // Convert to [x1, y1, x2, y2] format
-                let bbox = [
-                    pred_cx - pred_w / 2.0,
-                    pred_cy - pred_h / 2.0,
-                    pred_cx + pred_w / 2.0,
-                    pred_cy + pred_h / 2.0,
-                ];
-
-                // Decode landmarks from anchor + deltas
-                // Try treating landmarks as absolute pixel coordinates scaled to bbox
-                let bbox_cx = (bbox[0] + bbox[2]) / 2.0;
-                let bbox_cy = (bbox[1] + bbox[3]) / 2.0;
-                let bbox_w = bbox[2] - bbox[0];
-                let bbox_h = bbox[3] - bbox[1];
-
-                let mut landmarks = [[0.0f32; 2]; 5];
-                for j in 0..5 {
-                    let ldx = landmark_deltas_slice[i * 10 + j * 2];
-                    let ldy = landmark_deltas_slice[i * 10 + j * 2 + 1];
-                    // Landmarks relative to bbox center
-                    landmarks[j][0] = bbox_cx + ldx * bbox_w;
-                    landmarks[j][1] = bbox_cy + ldy * bbox_h;
-                }
-
-                all_detections.push(FaceDetection {
-                    bbox,
-                    landmarks,
-                    confidence,
-                });
-            }
-
-            anchor_offset += num_anchors;
-        }
-
-        // Apply Non-Maximum Suppression to remove duplicate detections
-        // Multi-scale detection produces ~4-6 duplicates per face, NMS keeps the best one
-        Ok(apply_nms(all_detections, nms_threshold))
+        Ok(apply_nms(faces, nms_threshold))
     }
 
     /// Run recognition model on cropped faces
@@ -705,7 +532,6 @@ impl BuffaloLModel {
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
 
         // Extract embeddings from output
-        // ResNet50 outputs a tensor with embeddings
         let embeddings = outputs[0]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;

@@ -45,11 +45,6 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y protobuf-compiler
-    
-    - name: Cache Docker images.
-      uses: ScribeMD/docker-cache@0.5.0
-      with:
-        key: ${{ runner.os }}-cargo-${{ hashFiles('ahnlich/Cargo.lock') }}
 
     - name: Cache Ahnlich Home directory images.
       uses: actions/cache@v4
@@ -62,6 +57,12 @@ jobs:
       run: |
         make format
         make clippy
+
+    - name: Compile benchmarks (guard against bench rot)
+      # `make clippy` does not build bench targets, so bench-only breakage
+      # (e.g. an engine API change) can merge undetected. Compile-check them.
+      working-directory: ./ahnlich
+      run: cargo build --benches --workspace
 
     - name: Check Rust Client is up to date
       working-directory: ./ahnlich
@@ -88,6 +89,10 @@ jobs:
       run: |
         cargo b && cargo fmt
 
+    - name: Test Rust Example
+      working-directory: ./examples/rust/image-search
+      run: cargo test
+
 
     - name: Run Full Workspace Tests
       if: steps.changes.outputs.ai == 'true' || steps.changes.outputs.types == 'true'
@@ -99,13 +104,13 @@ jobs:
       working-directory: ./ahnlich
       run: cargo nextest run --workspace --exclude ai --no-capture
 
-
     - name: Upload Test Results
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: rust
         path: ahnlich/target/nextest/default/rust.xml
+
 
 
   run-python-tests:
@@ -356,6 +361,12 @@ jobs:
         name: node
         path: ./node
 
+    - name: Download WASM Test Output
+      uses: actions/download-artifact@v4
+      with:
+        name: wasm
+        path: ./wasm
+
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action/macos@v2
       if: always()
@@ -365,3 +376,4 @@ jobs:
           python/*.xml
           go/*.xml
           node/*.xml
+          wasm/*.xml

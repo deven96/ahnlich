@@ -1,5 +1,5 @@
 ---
-title: ➡️ Next Steps
+title: Next Steps
 sidebar_position: 40
 ---
 

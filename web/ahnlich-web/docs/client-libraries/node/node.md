@@ -115,6 +115,21 @@ Build Ahnlich Applications with the Node.js/TypeScript SDK - Vector Storage, Sea
 
 <div className="m-10">
 
+  #### [Upsert](/docs/client-libraries/node/request-db/upsert)
+
+    * Description
+
+    * Source Code Example
+
+    * Parameters
+
+    * Returns
+
+    * Behavior
+</div>
+
+<div className="m-10">
+
   #### [GetSimN](/docs/client-libraries/node/request-db/get-simn)
 
     * Description
@@ -358,6 +373,21 @@ Build Ahnlich Applications with the Node.js/TypeScript SDK - Vector Storage, Sea
 <div className="m-10">
 
   #### [Set](/docs/client-libraries/node/request-ai/set)
+
+  * Description
+
+  * Source Code Example
+
+  * Parameters
+
+  * Returns
+
+  * Behavior
+</div>
+
+<div className="m-10">
+
+  #### [Upsert](/docs/client-libraries/node/request-ai/upsert)
 
   * Description
 

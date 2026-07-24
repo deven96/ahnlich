@@ -4,6 +4,10 @@ title: Set
 
 # Set
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The `Set` request inserts or updates a vector in a given store. Each vector is stored alongside optional metadata and a unique key. If a key already exists in the store, calling `Set` with the same key will overwrite the existing vector and metadata.
 
 ## Source Code Example
@@ -48,6 +52,7 @@ The `Set` request inserts or updates a vector in a given store. Each vector is s
 
       let params = Set {
           store: "Main".to_string(), // store must already exist
+          schema: Some("analytics".to_string()),
           inputs,
       };
 

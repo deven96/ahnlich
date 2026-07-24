@@ -4,6 +4,10 @@ title: Get Store
 
 # Get Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 Returns detailed information about a specific AI store by name.
 
 * **Input**: Store name.
@@ -27,7 +31,7 @@ async def get_ai_store_info():
         client = AiServiceStub(channel)
 
         response = await client.get_store(
-            ai_query.GetStore(store="ai_store")
+            ai_query.GetStore(store="ai_store", schema="analytics")
         )
 
         print(f"Store name: {response.name}")
@@ -51,6 +55,7 @@ if __name__ == "__main__":
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `store` | `str` | Yes | The name of the AI store to retrieve |
+| `schema` | `str` | No | Schema containing the AI store. Defaults to `public` when omitted |
 
 ## Response: AiStoreInfo
 
@@ -68,4 +73,4 @@ if __name__ == "__main__":
 
 - Returns an error if the store does not exist
 - The `db_info` field is present when the AI proxy is connected to a DB instance
-- Use `ListStores` to get information about all AI stores
+- Use `ListStores` to get information about AI stores in a schema

@@ -4,6 +4,10 @@ title: GetKey
 
 # GetKey
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `GetKey` request is used to retrieve **specific entries** from a store by providing the exact vector keys. Unlike GetSimN, which searches for approximate or closest matches, GetKey performs a **direct lookup** based on the stored vectors.
@@ -38,6 +42,9 @@ const ServerAddr = "127.0.0.1:1369"
 
 
 // ExampleDBClient holds the gRPC connection, client, and context.
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -71,6 +78,7 @@ func (c *ExampleDBClient) Close() error {
 func (c *ExampleDBClient) exampleGetKey() error {
     resp, err := c.client.GetKey(c.ctx, &dbquery.GetKey{
         Store: "my_stores",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         Keys:  []*keyval.StoreKey{{Key: []float32{1, 2, 3, 4}}},
     })
     if err != nil {

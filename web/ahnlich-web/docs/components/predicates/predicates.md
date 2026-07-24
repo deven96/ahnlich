@@ -48,12 +48,12 @@ A **predicate index** optimizes queries on specific metadata fields. Without an 
 
 **Creating an index:**
 ```
-CREATEPREDINDEX author, category IN my_store
+CREATEPREDINDEX (author, category) IN my_store
 ```
 
 **Dropping an index:**
 ```
-DROPPREDINDEX category IN my_store
+DROPPREDINDEX (category) IN my_store
 ```
 
 Indexes are idempotent - creating an existing index won't error, it just adds new ones.
@@ -79,7 +79,7 @@ GETPRED (author = "Alice") IN my_store
 Find tech articles by Alice or Bob:
 
 ```
-GETPRED ((author = "Alice") OR (author = "Bob")) AND (category = "tech") IN my_store
+GETPRED (((author = Alice) OR (author = Bob)) AND (category = tech)) IN my_store
 ```
 
 ### Hybrid Query (Similarity + Predicate)
@@ -88,7 +88,7 @@ Find similar documents, filtered by author:
 
 **Ahnlich AI:**
 ```
-GETSIMN 5 WITH [machine learning tutorial] USING cosinesimilarity IN my_store WHERE (author = "Alice")
+GETSIMN 5 WITH [machine learning tutorial] USING cosinesimilarity IN my_store WHERE (author = Alice)
 ```
 
 **Ahnlich DB:**
@@ -103,7 +103,7 @@ This combines vector similarity with metadata filtering.
 Find entries with multiple allowed values:
 
 ```
-GETPRED category IN ["tech", "science", "ai"] IN my_store
+GETPRED (category IN (tech, science, ai)) IN my_store
 ```
 
 ### Delete by Predicate
@@ -120,7 +120,7 @@ DELPRED (status = "draft") IN my_store
 
 If you often filter by `author`, create an index:
 ```
-CREATEPREDINDEX author IN my_store
+CREATEPREDINDEX (author) IN my_store
 ```
 
 ### 2. Declare Predicates at Store Creation

@@ -4,14 +4,18 @@ title: Create Non-Linear algorithm Index
 
 # Create Non-Linear algorithm Index
 
-The `Create Non Linear Algorithm Index` operation builds an index structure for non-linear search algorithms, such as KD-Tree or HNSW. These indexes enable faster query performance in high-dimensional vector spaces by avoiding brute-force scans.
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
+The `Create Non Linear Algorithm Index` operation builds an index structure for non-linear search algorithms, such as HNSW. These indexes enable faster query performance in high-dimensional vector spaces by avoiding brute-force scans.
 
 This operation is typically used when:
 * You want to optimize search performance for similarity lookups.
 
 * You are initializing a new store and need efficient query structures.
 
-Each index type is specified using a `NonLinearIndex` message with either a `KdTreeConfig` or `HnswConfig`.
+Each index type is specified using a `NonLinearIndex` message with a `HnswConfig`.
 
 
 <details>
@@ -22,26 +26,18 @@ Each index type is specified using a `NonLinearIndex` message with either a `KdT
   from grpclib.client import Channel
   from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
   from ahnlich_client_py.grpc.ai import query as ai_query
-  from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearIndex, KdTreeConfig, HnswConfig
+  from ahnlich_client_py.grpc.algorithm.nonlinear import NonLinearIndex, HnswConfig
 
 
   async def create_non_linear_algorithm_index():
     async with Channel(host="127.0.0.1", port=1370) as channel:
         client = AiServiceStub(channel)
 
-        # Create a KDTree index
+        # Create an HNSW index (with optional config)
         response = await client.create_non_linear_algorithm_index(
             ai_query.CreateNonLinearAlgorithmIndex(
                 store="test store",
-                non_linear_indices=[NonLinearIndex(kdtree=KdTreeConfig())],
-            )
-        )
-        print(response) # CreateIndex(created_indexes=1)
-
-        # Or create an HNSW index (with optional config)
-        response = await client.create_non_linear_algorithm_index(
-            ai_query.CreateNonLinearAlgorithmIndex(
-                store="test store",
+                schema="analytics",
                 non_linear_indices=[NonLinearIndex(hnsw=HnswConfig())],
             )
         )

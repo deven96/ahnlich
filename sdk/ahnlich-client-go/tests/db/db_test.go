@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	nonlinear "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/nonlinear"
 	pipeline "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/pipeline"
@@ -50,6 +52,10 @@ var (
 		CreatePredicates: []string{"is_tyrannical", "rank"},
 	}
 )
+
+func stringPtr(value string) *string {
+	return &value
+}
 
 func TestCreateStore_Succeeds(t *testing.T) {
 	t.Parallel()
@@ -101,6 +107,59 @@ func TestListStores_FindsCreatedStore(t *testing.T) {
 		}
 	}
 	require.True(t, found)
+}
+
+func TestSchemaScopedStoreLifecycle(t *testing.T) {
+	t.Parallel()
+	proc := startDB(t)
+	defer proc.Kill()
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := dbsvc.NewDBServiceClient(conn)
+
+	schema := "tenant_alpha"
+	storeName := "schema_scoped_store"
+
+	_, err := client.CreateStore(context.Background(), &dbquery.CreateStore{
+		Store:         storeName,
+		Dimension:     3,
+		ErrorIfExists: true,
+		Schema:        stringPtr(schema),
+	})
+	require.NoError(t, err)
+
+	defaultList, err := client.ListStores(context.Background(), &dbquery.ListStores{})
+	require.NoError(t, err)
+	for _, store := range defaultList.Stores {
+		require.NotEqual(t, storeName, store.Name)
+	}
+
+	schemaList, err := client.ListStores(context.Background(), &dbquery.ListStores{Schema: stringPtr(schema)})
+	require.NoError(t, err)
+	require.Len(t, schemaList.Stores, 1)
+	require.Equal(t, storeName, schemaList.Stores[0].Name)
+
+	_, err = client.GetStore(context.Background(), &dbquery.GetStore{Store: storeName})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	require.Equal(t, codes.NotFound, st.Code())
+
+	storeInfo, err := client.GetStore(context.Background(), &dbquery.GetStore{
+		Store:  storeName,
+		Schema: stringPtr(schema),
+	})
+	require.NoError(t, err)
+	require.Equal(t, storeName, storeInfo.Name)
+
+	dropResp, err := client.DropSchema(context.Background(), &dbquery.DropSchema{Schema: schema})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, dropResp.DeletedCount)
+
+	schemaList, err = client.ListStores(context.Background(), &dbquery.ListStores{Schema: stringPtr(schema)})
+	require.NoError(t, err)
+	require.Empty(t, schemaList.Stores)
 }
 
 func TestGetStore_Succeeds(t *testing.T) {
@@ -518,4 +577,75 @@ func TestPipeline_BulkSetAndGet(t *testing.T) {
 	require.NotNil(t, getResp)
 	require.Len(t, getResp.Entries, 1)
 	require.Equal(t, []float32{1, 2, 3, 4, 5}, getResp.Entries[0].Key.Key)
+}
+
+func TestUpsert_Succeeds(t *testing.T) {
+	t.Parallel()
+	proc := startDB(t)
+	defer proc.Kill()
+	conn, cancel := dialDB(t, proc.ServerAddr)
+	defer cancel()
+	defer conn.Close()
+	client := dbsvc.NewDBServiceClient(conn)
+
+	storeName := "upsert_test"
+	_, err := client.CreateStore(context.Background(), &dbquery.CreateStore{
+		Store:            storeName,
+		Dimension:        3,
+		CreatePredicates: []string{"id", "status"},
+		ErrorIfExists:    true,
+	})
+	require.NoError(t, err)
+
+	storeKey := &keyval.StoreKey{Key: []float32{1, 2, 3}}
+	initialValue := &keyval.StoreValue{
+		Value: map[string]*metadata.MetadataValue{
+			"id":     {Value: &metadata.MetadataValue_RawString{RawString: "123"}},
+			"status": {Value: &metadata.MetadataValue_RawString{RawString: "draft"}},
+		},
+	}
+
+	_, err = client.Set(context.Background(), &dbquery.Set{
+		Store:  storeName,
+		Inputs: []*keyval.DbStoreEntry{{Key: storeKey, Value: initialValue}},
+	})
+	require.NoError(t, err)
+
+	condition := &predicates.PredicateCondition{
+		Kind: &predicates.PredicateCondition_Value{
+			Value: &predicates.Predicate{
+				Kind: &predicates.Predicate_Equals{
+					Equals: &predicates.Equals{
+						Key:   "id",
+						Value: &metadata.MetadataValue{Value: &metadata.MetadataValue_RawString{RawString: "123"}},
+					},
+				},
+			},
+		},
+	}
+
+	newValue := &keyval.StoreValue{
+		Value: map[string]*metadata.MetadataValue{
+			"status": {Value: &metadata.MetadataValue_RawString{RawString: "published"}},
+		},
+	}
+
+	resp, err := client.Upsert(context.Background(), &dbquery.Upsert{
+		Store:         storeName,
+		Condition:     condition,
+		NewValue:      newValue,
+		MergeMetadata: true,
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, resp.Upsert.Updated)
+	require.EqualValues(t, 0, resp.Upsert.Inserted)
+
+	getResp, err := client.GetPred(context.Background(), &dbquery.GetPred{
+		Store:     storeName,
+		Condition: condition,
+	})
+	require.NoError(t, err)
+	require.Len(t, getResp.Entries, 1)
+	require.Equal(t, "published", getResp.Entries[0].Value.Value["status"].GetRawString())
+	require.Equal(t, "123", getResp.Entries[0].Value.Value["id"].GetRawString())
 }

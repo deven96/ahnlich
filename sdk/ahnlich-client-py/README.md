@@ -23,6 +23,7 @@ The following topics are covered:
     * [List Stores](#list-stores)
     * [Create Store](#create-store)
     * [Set](#set)
+    * [Upsert](#upsert)
     * [Drop Store](#drop-store)
     * [Get Sim N](#get-sim-n)
     * [Get Key](#get-key)
@@ -40,6 +41,7 @@ The following topics are covered:
     * [List Stores](#list-stores-1)
     * [Create Store](#create-store-1)
     * [Set](#set-1)
+    * [Upsert](#upsert-1)
     * [Drop Store](#drop-store-1)
     * [Get Sim N](#get-sim-n-1)
     * [Get By Predicate](#get-by-predicate-1)
@@ -220,6 +222,39 @@ async with Channel(host="127.0.0.1", port=1369) as channel:
     # response contains upsert counts (inserted, updated)
 ```
 
+### Upsert
+```py
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.db_service import DbServiceStub
+from ahnlich_client_py.grpc import keyval, metadata, predicates
+from ahnlich_client_py.grpc.db import query as db_query
+
+async with Channel(host="127.0.0.1", port=1369) as channel:
+    client = DbServiceStub(channel)
+    
+    condition = predicates.PredicateCondition(
+        value=predicates.Predicate(
+            equals=predicates.Equals(
+                key="id",
+                value=metadata.MetadataValue(raw_string="123")
+            )
+        )
+    )
+    
+    new_value = keyval.StoreValue(
+        value={"status": metadata.MetadataValue(raw_string="published")}
+    )
+    
+    response = await client.upsert(
+        db_query.Upsert(
+            store="test store",
+            condition=condition,
+            new_value=new_value,
+            merge_metadata=True
+        )
+    )
+    # response.upsert contains (inserted, updated) counts
+```
 
 ### Drop store
 ```py
@@ -574,6 +609,40 @@ async with Channel(host="127.0.0.1", port=1370) as channel:
     )
 ```
 
+### Upsert
+```py
+from grpclib.client import Channel
+from ahnlich_client_py.grpc.services.ai_service import AiServiceStub
+from ahnlich_client_py.grpc.ai import query as ai_query
+from ahnlich_client_py.grpc import keyval, metadata, predicates
+from ahnlich_client_py.grpc.ai import preprocess
+
+async with Channel(host="127.0.0.1", port=1370) as channel:
+    client = AiServiceStub(channel)
+    
+    condition = predicates.PredicateCondition(
+        value=predicates.Predicate(
+            equals=predicates.Equals(
+                key="filename",
+                value=metadata.MetadataValue(raw_string="photo.jpg")
+            )
+        )
+    )
+    
+    new_value = keyval.StoreValue(
+        value={"tags": metadata.MetadataValue(raw_string="cat,outdoors")}
+    )
+    
+    response = await client.upsert(
+        ai_query.Upsert(
+            store="images",
+            condition=condition,
+            new_value=new_value,
+            preprocess_action=preprocess.PreprocessAction.NoPreprocessing
+        )
+    )
+    # response.upsert contains (inserted, updated) counts
+```
 
 ### Drop store
 ```py

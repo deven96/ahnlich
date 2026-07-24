@@ -6,121 +6,160 @@ use std::{
 use walkdir::WalkDir;
 
 fn main() -> Result<()> {
-    // Get the current package directory
-    let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    // Skip gRPC code generation if server feature is not enabled
+    #[cfg(not(feature = "server"))]
+    {
+        return Ok(());
+    }
 
-    // Move up to the workspace root
-    let workspace_root = manifest_dir
-        .parent()
-        .expect("Failed parent 1")
-        .parent()
-        .expect("Failed parent 2"); // Adjust if needed
+    #[cfg(feature = "server")]
+    {
+        // Get the current package directory
+        let manifest_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    let proto_dir = workspace_root.join("protos/");
+        // Move up to the workspace root
+        let workspace_root = manifest_dir
+            .parent()
+            .expect("Failed parent 1")
+            .parent()
+            .expect("Failed parent 2"); // Adjust if needed
 
-    println!(
-        "cargo:rerun-if-changed={}",
-        proto_dir
-            .as_path()
-            .to_str()
-            .expect("Cannot get proto dir str path")
-    );
-    println!("cargo:warning=Run `cargo fmt` after build to format generated files.");
+        let proto_dir = workspace_root.join("protos/");
 
-    let protofiles: Vec<PathBuf> = WalkDir::new(proto_dir.clone())
-        .into_iter()
-        .filter_map(|a| a.ok())
-        .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "proto"))
-        .map(|a| a.path().to_path_buf())
-        .collect();
-    let out_dir = "src/";
+        println!(
+            "cargo:rerun-if-changed={}",
+            proto_dir
+                .as_path()
+                .to_str()
+                .expect("Cannot get proto dir str path")
+        );
 
-    if let Ok(entries) = std::fs::read_dir(out_dir) {
-        for entry in entries.filter_map(Result::ok) {
-            let path = entry.path();
-            let preserve = ["utils", "schema.rs"];
-            if path
-                .file_name()
-                .is_some_and(|name| !preserve.contains(&name.to_str().unwrap_or("")))
-            {
-                if path.is_dir() {
-                    std::fs::remove_dir_all(&path).expect("Failed to remove directory");
-                } else {
-                    std::fs::remove_file(&path).expect("Failed to remove file");
+        // Only regenerate when the proto sources are present, i.e. in-repo dev
+        // builds. Downstream consumers building from crates.io have no `protos/`
+        // and must use the committed, pre-generated code unchanged.
+        if !proto_dir.exists() {
+            return Ok(());
+        }
+
+        let protofiles: Vec<PathBuf> = WalkDir::new(proto_dir.clone())
+            .into_iter()
+            .filter_map(|a| a.ok())
+            .filter(|entry| entry.path().extension().is_some_and(|ext| ext == "proto"))
+            .map(|a| a.path().to_path_buf())
+            .collect();
+        let out_dir = "src/";
+
+        if let Ok(entries) = std::fs::read_dir(out_dir) {
+            for entry in entries.filter_map(Result::ok) {
+                let path = entry.path();
+                let preserve = ["utils", "schema.rs"];
+                if path
+                    .file_name()
+                    .is_some_and(|name| !preserve.contains(&name.to_str().unwrap_or("")))
+                {
+                    if path.is_dir() {
+                        std::fs::remove_dir_all(&path).expect("Failed to remove directory");
+                    } else {
+                        std::fs::remove_file(&path).expect("Failed to remove file");
+                    }
                 }
             }
         }
+
+        let out_dir = PathBuf::from("src/");
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(out_dir.join("lib.rs"))
+            .expect("Failed to create mod file");
+        // nonlinear algorthim, storekeyid, storevalue, metadatakey and value,
+        tonic_build::configure()
+            .build_client(true)
+            .build_client(true)
+            .out_dir(out_dir.clone())
+            .type_attribute(
+                "algorithm.nonlinear.HNSWConfig",
+                "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
+            )
+            .type_attribute(
+                "algorithm.nonlinear.KDTreeConfig",
+                "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
+            )
+            .type_attribute(
+                "algorithm.nonlinear.NonLinearAlgorithm",
+                "#[derive(serde::Serialize, serde::Deserialize)]",
+            )
+            .type_attribute(
+                "algorithm.nonlinear.NonLinearIndex.index",
+                "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
+            )
+            .type_attribute(
+                "algorithm.nonlinear.NonLinearIndex",
+                "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
+            )
+            .type_attribute(
+                "keyval.StoreValue",
+                "#[derive(serde::Serialize, serde::Deserialize)]",
+            )
+            .type_attribute(
+                "shared.info.StoreUpsert",
+                "#[derive(serde::Serialize, serde::Deserialize)]",
+            )
+            .type_attribute(
+                "metadata.MetadataValue",
+                "#[derive(PartialOrd, Ord, Hash, Eq)]",
+            )
+            .type_attribute("keyval.StoreName", "#[derive(Eq, Hash, Ord, PartialOrd)]")
+            .type_attribute(
+                "db.server.StoreInfo",
+                "#[derive(Hash, Eq, Ord, PartialOrd)]",
+            )
+            .type_attribute(
+                "metadata.MetadataValue.value",
+                "#[derive(PartialOrd, Ord, Hash, Eq)]",
+            )
+            .type_attribute(
+                "ai.models.AIModel",
+                "#[derive(serde::Serialize, serde::Deserialize)]",
+            )
+            .type_attribute(
+                "ai.server.AIStoreInfo",
+                "#[derive(Eq, PartialOrd, Ord, Hash)]",
+            )
+            .type_attribute("client.ConnectedClient", "#[derive(PartialOrd, Ord, Eq)]")
+            .compile_protos(&protofiles, &[proto_dir])
+            .inspect_err(|err| println!("{err}"))
+            .expect("failed");
+
+        restructure_generated_code(&out_dir, &mut file);
+        format_generated_code(&out_dir);
+
+        Ok(())
     }
+}
 
-    let out_dir = PathBuf::from("src/");
-    let mut file = std::fs::OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(out_dir.join("lib.rs"))
-        .expect("Failed to create mod file");
-    // nonlinear algorthim, storekeyid, storevalue, metadatakey and value,
-    tonic_build::configure()
-        .build_client(true)
-        .build_client(true)
-        .out_dir(out_dir.clone())
-        .type_attribute(
-            "algorithm.nonlinear.HNSWConfig",
-            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
-        )
-        .type_attribute(
-            "algorithm.nonlinear.KDTreeConfig",
-            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
-        )
-        .type_attribute(
-            "algorithm.nonlinear.NonLinearAlgorithm",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
-        )
-        .type_attribute(
-            "algorithm.nonlinear.NonLinearIndex.index",
-            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
-        )
-        .type_attribute(
-            "algorithm.nonlinear.NonLinearIndex",
-            "#[derive(serde::Serialize, serde::Deserialize, Eq, Hash, PartialOrd, Ord)]",
-        )
-        .type_attribute(
-            "keyval.StoreValue",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
-        )
-        .type_attribute(
-            "shared.info.StoreUpsert",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
-        )
-        .type_attribute(
-            "metadata.MetadataValue",
-            "#[derive(PartialOrd, Ord, Hash, Eq)]",
-        )
-        .type_attribute("keyval.StoreName", "#[derive(Eq, Hash, Ord, PartialOrd)]")
-        .type_attribute(
-            "db.server.StoreInfo",
-            "#[derive(Hash, Eq, Ord, PartialOrd)]",
-        )
-        .type_attribute(
-            "metadata.MetadataValue.value",
-            "#[derive(PartialOrd, Ord, Hash, Eq)]",
-        )
-        .type_attribute(
-            "ai.models.AIModel",
-            "#[derive(serde::Serialize, serde::Deserialize)]",
-        )
-        .type_attribute(
-            "ai.server.AIStoreInfo",
-            "#[derive(Eq, PartialOrd, Ord, Hash)]",
-        )
-        .type_attribute("client.ConnectedClient", "#[derive(PartialOrd, Ord, Eq)]")
-        .compile_protos(&protofiles, &[proto_dir])
-        .inspect_err(|err| println!("{err}"))
-        .expect("failed");
-
-    restructure_generated_code(&out_dir, &mut file);
-
-    Ok(())
+/// Run rustfmt over the freshly generated files so the output matches
+/// `cargo fmt`, avoiding the "regenerate produces an unformatted diff" churn.
+/// rustfmt not being available is non-fatal (formatting does not affect
+/// compilation).
+fn format_generated_code(out_dir: &PathBuf) {
+    let files: Vec<PathBuf> = WalkDir::new(out_dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "rs"))
+        .map(|e| e.path().to_path_buf())
+        .collect();
+    match std::process::Command::new("rustfmt")
+        .arg("--edition")
+        .arg("2024")
+        .args(&files)
+        .status()
+    {
+        Ok(status) if status.success() => {}
+        Ok(status) => println!("cargo:warning=rustfmt exited with {status} on generated code"),
+        Err(err) => println!("cargo:warning=could not run rustfmt on generated code: {err}"),
+    }
 }
 
 fn restructure_generated_code(out_dir: &PathBuf, file: &mut std::fs::File) {
@@ -181,7 +220,14 @@ fn restructure_generated_code(out_dir: &PathBuf, file: &mut std::fs::File) {
     let buffer = module_names
         .into_iter()
         .filter(|file| *file != "lib")
-        .map(|sub_str| format!("pub mod {sub_str};"))
+        .map(|sub_str| {
+            // Gate services module behind server feature since it contains gRPC definitions
+            if sub_str == "services" {
+                format!("#[cfg(feature = \"server\")]\npub mod {sub_str};")
+            } else {
+                format!("pub mod {sub_str};")
+            }
+        })
         .collect::<Vec<String>>()
         .join("\n");
 

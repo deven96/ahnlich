@@ -4,6 +4,10 @@ title: Set
 
 # Set
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 The `Set` request is used to **insert or update entries** (vectors with associated metadata) into a given store. This is one of the core operations of Ahnlich DB, as it establishes the embeddings that can later be queried for similarity search.
@@ -54,6 +58,9 @@ import (
 const ServerAddr = "127.0.0.1:1369"
 
 
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleDBClient struct {
     conn   *grpc.ClientConn
     client dbsvc.DBServiceClient
@@ -88,7 +95,7 @@ func (c *ExampleDBClient) exampleSet(store string) error {
             },
         },
     }
-    _, err := c.client.Set(c.ctx, &dbquery.Set{Store: store, Inputs: entries})
+    _, err := c.client.Set(c.ctx, &dbquery.Set{Store: store, Schema: stringPtr("analytics"), Inputs: entries})
     if err != nil {
         return err
     }

@@ -30,6 +30,7 @@ message AIQuery {
     ai.query.DelPred del_pred = 18;
     ai.query.GetStore get_store = 19;
     ai.query.DropSchema drop_schema = 20;
+    ai.query.Upsert upsert = 21;
   }
 }
 

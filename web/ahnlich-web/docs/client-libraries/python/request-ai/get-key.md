@@ -4,6 +4,10 @@ title: Get Key
 
 # Get Key
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The `GetKey` request retrieves specific entries from an AI store by their exact keys. This is a **direct lookup** operation that returns the stored data and metadata for the provided keys.
 
 ## Parameters
@@ -36,6 +40,7 @@ The `GetKey` request retrieves specific entries from an AI store by their exact 
         response = await client.get_key(
             ai_query.GetKey(
                 store="test store 1",
+                schema="analytics",
                 keys=[
                     keyval.StoreInput(raw_string="Adidas Yeezy"),
                     keyval.StoreInput(raw_string="Nike Air Jordans"),

@@ -1,0 +1,36 @@
+---
+title: Model constraints
+sidebar_label: Model constraints
+---
+
+# Model Constraints
+
+Some models have **rules about their input** — a max audio length, a fixed image
+size, or "exactly one face per query". If you break one, you get a clear error.
+Here's what to watch for per family.
+
+## Audio Models (CLAP)
+
+| Constraint | Value | Notes |
+| ----- | ----- | ----- |
+| Max duration | 10 seconds | Longer clips will error with `AudioTooLongError` |
+| Sample rate | 48 kHz | Audio is automatically resampled |
+| Max samples | 480,000 | 48,000 Hz × 10 seconds |
+| Preprocessing | Required | `NoPreprocessing` not supported - always use `ModelPreprocessing` |
+
+## Face Models (Buffalo\_L, SFace+YuNet)
+
+| Constraint | Value | Notes |
+| ----- | ----- | ----- |
+| Input size | 640x640 px | Images are resized internally |
+| Face alignment | 112x112 px | Standard ArcFace alignment |
+| Embedding mode | OneToMany | Returns one embedding per detected face |
+| Preprocessing | Required | `NoPreprocessing` not supported |
+| Query constraint | Single face | Query images must contain exactly 1 face |
+
+## Cross-modal pairs
+
+Certain text and media encoders share a dimension so you can search across
+modalities — see [Cross-modal pairs](/docs/components/ahnlich-ai/advanced/models#cross-modal-pairs)
+on the Models page.
+

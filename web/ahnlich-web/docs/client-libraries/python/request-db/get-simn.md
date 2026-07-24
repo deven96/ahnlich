@@ -4,6 +4,10 @@ title: GetSimN
 
 # GetSimN
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 The GetSimN request performs a similarity search.  
 It retrieves the N closest vectors to a given query vector.
 
@@ -52,6 +56,7 @@ It retrieves the N closest vectors to a given query vector.
       response = await client.get_sim_n(
         db_query.GetSimN(
           store="test store",
+          schema="analytics",
           search_input=search_key,
           closest_n=3,
           algorithm=Algorithm.CosineSimilarity,

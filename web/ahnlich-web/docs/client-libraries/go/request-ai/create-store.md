@@ -4,6 +4,10 @@ title: Create Store
 
 # Create Store
 
+## Schema
+
+This request accepts an optional `schema` field. When it is omitted, the server uses the `public` schema. Set `schema` to target a store in another schema.
+
 ## Description
 
 `CreateStore` is a **provisioning request** used to define a new AI-backed store within the Ahnlich AI proxy. Unlike the raw DB `CreateStore`, this AI-specific request requires model selection for **both indexing** and **querying**. These models determine how raw inputs (e.g., text, images) are embedded and how queries against the store are interpreted.
@@ -57,6 +61,9 @@ const AIAddr = "127.0.0.1:1370"
 
 
 // ExampleAIClient holds the gRPC connection and AI client.
+func stringPtr(value string) *string { return &value }
+
+
 type ExampleAIClient struct {
     conn   *grpc.ClientConn
     client aisvc.AIServiceClient
@@ -86,10 +93,11 @@ func (c *ExampleAIClient) Close() error {
 func (c *ExampleAIClient) exampleCreateStoreAI() error {
     _, err := c.client.CreateStore(c.ctx, &aiquery.CreateStore{
         Store:            "ai_store",
+        Schema: stringPtr("analytics"), // Optional: defaults to public when omitted
         QueryModel:       aimodel.AIModel_ALL_MINI_LM_L6_V2,
         IndexModel:       aimodel.AIModel_ALL_MINI_LM_L6_V2,
         Predicates:       []string{},  // Optional: metadata fields to index for filtering
-        NonLinearIndices: []*nonlinear.NonLinearIndex{},   // Optional: non-linear algorithms (e.g., KDTree, HNSW) for faster search
+        NonLinearIndices: []*nonlinear.NonLinearIndex{},   // Optional: non-linear algorithms (e.g., HNSW) for faster search
         ErrorIfExists:    true,         // Return error if store already exists
         StoreOriginal:    true,         // Store original input (needed for key deletion)
     })

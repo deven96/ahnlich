@@ -48,6 +48,53 @@ async def test_aiproxy_client_sends_create_stores_succeeds(spin_up_ahnlich_ai):
 
 
 @pytest.mark.asyncio
+async def test_ai_client_schema_scoped_store_lifecycle(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
+    try:
+        schema = "media"
+        store_name = "ai_schema_scoped_store"
+
+        await client.create_store(
+            ai_query.CreateStore(
+                store=store_name,
+                query_model=AiModel.ALL_MINI_LM_L6_V2,
+                index_model=AiModel.ALL_MINI_LM_L6_V2,
+                error_if_exists=True,
+                store_original=True,
+                schema=schema,
+            )
+        )
+
+        default_list = await client.list_stores(ai_query.ListStores())
+        assert store_name not in [store.name for store in default_list.stores]
+
+        schema_list = await client.list_stores(ai_query.ListStores(schema=schema))
+        assert [store.name for store in schema_list.stores] == [store_name]
+        assert schema_list.stores[0].schema == schema
+        assert schema_list.stores[0].db_info is not None
+
+        with pytest.raises(GRPCError) as exc_info:
+            await client.get_store(ai_query.GetStore(store=store_name))
+        assert exc_info.value.status == grpclib.Status.NOT_FOUND
+
+        store_info = await client.get_store(
+            ai_query.GetStore(store=store_name, schema=schema)
+        )
+        assert store_info.name == store_name
+        assert store_info.schema == schema
+        assert store_info.db_info is not None
+
+        drop_response = await client.drop_schema(ai_query.DropSchema(schema=schema))
+        assert drop_response.deleted_count == 1
+
+        schema_list = await client.list_stores(ai_query.ListStores(schema=schema))
+        assert len(schema_list.stores) == 0
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
 async def test_create_store_fails_when_exists(spin_up_ahnlich_ai):
     channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
     client = ai_service.AiServiceStub(channel)
@@ -634,5 +681,82 @@ async def test_ai_pipeline_with_error(spin_up_ahnlich_ai):
         assert len(response.responses) == 1
         assert response.responses[0].error is not None
         assert "not found" in response.responses[0].error.message.lower()
+    finally:
+        channel.close()
+
+
+@pytest.mark.asyncio
+async def test_ai_client_upsert_succeeds(spin_up_ahnlich_ai):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_ai)
+    client = ai_service.AiServiceStub(channel)
+    try:
+        store_name = "ai_upsert_test"
+        await client.create_store(
+            ai_query.CreateStore(
+                store=store_name,
+                query_model=AiModel.ALL_MINI_LM_L6_V2,
+                index_model=AiModel.ALL_MINI_LM_L6_V2,
+                predicates=["filename", "tags"],
+                error_if_exists=True,
+                store_original=True,
+            )
+        )
+
+        initial_value = keyval.StoreValue(
+            value={
+                "filename": metadata.MetadataValue(raw_string="photo.jpg"),
+                "tags": metadata.MetadataValue(raw_string="cat"),
+            }
+        )
+
+        await client.set(
+            ai_query.Set(
+                store=store_name,
+                inputs=[
+                    keyval.AiStoreEntry(
+                        key=keyval.StoreInput(raw_string="A cute cat"),
+                        value=initial_value,
+                    )
+                ],
+                preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+            )
+        )
+
+        condition = predicates.PredicateCondition(
+            value=predicates.Predicate(
+                equals=predicates.Equals(
+                    key="filename",
+                    value=metadata.MetadataValue(raw_string="photo.jpg"),
+                )
+            )
+        )
+
+        new_value = keyval.StoreValue(
+            value={"tags": metadata.MetadataValue(raw_string="cat,outdoors")}
+        )
+
+        response = await client.upsert(
+            ai_query.Upsert(
+                store=store_name,
+                condition=condition,
+                new_value=new_value,
+                preprocess_action=preprocess.PreprocessAction.NoPreprocessing,
+            )
+        )
+
+        # AI proxy always reports updated (not inserted) for UPSERT
+        assert response.upsert.updated == 1
+        assert response.upsert.inserted == 0
+
+        # Verify the update was applied and metadata was merged
+        get_response = await client.get_pred(
+            ai_query.GetPred(store=store_name, condition=condition)
+        )
+
+        assert len(get_response.entries) == 1
+        entry = get_response.entries[0]
+        # Metadata should be merged (AI always merges)
+        assert entry.value.value["filename"].raw_string == "photo.jpg"
+        assert entry.value.value["tags"].raw_string == "cat,outdoors"
     finally:
         channel.close()

@@ -1,4 +1,5 @@
 use crate::server::cluster::ClusterRuntime;
+use crate::server::cluster_forwarding::forward_to_leader;
 use ahnlich_replication::node::ReplicationNode;
 use ahnlich_replication::types::{DbCommand, DbResponse};
 use openraft::error::RaftError;
@@ -13,41 +14,43 @@ macro_rules! command_name {
 }
 
 macro_rules! submit_db_command {
-    ($cluster:expr, $query_ty:ty, $params:expr, $builder:path) => {{
-        crate::server::cluster_mutations::submit_db_command_inner::<$query_ty, _>(
-            $cluster, $params, $builder,
+    ($cluster:expr, $metadata:expr, $query_ty:ty, $params:expr, $builder:path, $forward:expr) => {{
+        crate::server::cluster_mutations::submit_db_command_inner(
+            $cluster, $metadata, $params, $builder, $forward,
         )
     }};
 }
 pub(crate) use submit_db_command;
 
-pub(crate) fn map_client_write_error(
+enum ClientWriteFailure {
+    ForwardToLeader(String),
+    Status(tonic::Status),
+}
+
+fn map_client_write_error(
     command_name: &str,
     err: RaftError<u64, openraft::error::ClientWriteError<u64, ReplicationNode>>,
-) -> tonic::Status {
+) -> ClientWriteFailure {
     if let Some(forward) = err.forward_to_leader() {
-        let leader = forward
-            .leader_node
-            .as_ref()
-            .map(|node| node.service_addr.as_str())
-            .unwrap_or("unknown leader");
-        tonic::Status::failed_precondition(format!(
-            "{command_name} requires leader routing; retry against {leader}",
-        ))
+        if let Some(leader) = forward.leader_node.as_ref() {
+            ClientWriteFailure::ForwardToLeader(leader.service_addr.clone())
+        } else {
+            ClientWriteFailure::Status(tonic::Status::failed_precondition(format!(
+                "{command_name} requires leader routing, but no leader is known",
+            )))
+        }
     } else {
-        tonic::Status::internal(format!("{command_name} raft write failed: {err}"))
+        ClientWriteFailure::Status(tonic::Status::internal(format!(
+            "{command_name} raft write failed: {err}"
+        )))
     }
 }
 
 async fn submit_raw_db_command(
-    cluster: Option<&ClusterRuntime>,
+    cluster: &ClusterRuntime,
     command_name: &str,
     command: DbCommand,
-) -> Result<DbResponse, tonic::Status> {
-    let cluster = cluster.ok_or_else(|| {
-        tonic::Status::failed_precondition("DB server is not running in cluster mode")
-    })?;
-
+) -> Result<DbResponse, ClientWriteFailure> {
     cluster
         .raft
         .client_write(command)
@@ -56,29 +59,42 @@ async fn submit_raw_db_command(
         .map_err(|err| map_client_write_error(command_name, err))
 }
 
-pub(crate) async fn submit_db_command_inner<Q, T>(
-    cluster: Option<&ClusterRuntime>,
+pub(crate) async fn submit_db_command_inner<Q, T, F, Fut>(
+    cluster: &ClusterRuntime,
+    metadata: tonic::metadata::MetadataMap,
     params: Q,
     command_builder: impl FnOnce(Vec<u8>) -> DbCommand,
+    forward: F,
 ) -> Result<T, tonic::Status>
 where
     Q: prost::Message,
     T: DeserializeOwned + 'static,
+    F: FnOnce(
+        ahnlich_types::services::db_service::db_service_client::DbServiceClient<
+            tonic::transport::Channel,
+        >,
+        tonic::Request<Q>,
+    ) -> Fut,
+    Fut: std::future::Future<Output = Result<tonic::Response<T>, tonic::Status>>,
 {
     let command_name = command_name!(Q);
     let command = command_builder(params.encode_to_vec());
 
-    match submit_raw_db_command(cluster, command_name, command).await? {
-        DbResponse::Bytes(bytes) => bitcode::deserialize(bytes.as_slice()).map_err(|err| {
+    match submit_raw_db_command(cluster, command_name, command).await {
+        Err(ClientWriteFailure::ForwardToLeader(leader_addr)) => {
+            forward_to_leader(cluster, &leader_addr, metadata, params, forward).await
+        }
+        Err(ClientWriteFailure::Status(status)) => Err(status),
+        Ok(DbResponse::Bytes(bytes)) => bitcode::deserialize(bytes.as_slice()).map_err(|err| {
             tonic::Status::internal(format!("failed to decode {command_name} raw result: {err}",))
         }),
-        DbResponse::Unit if TypeId::of::<T>() == TypeId::of::<()>() => {
+        Ok(DbResponse::Unit) if TypeId::of::<T>() == TypeId::of::<()>() => {
             let unit: Box<dyn Any> = Box::new(());
             Ok(*unit
                 .downcast::<T>()
                 .expect("unit type checked before downcast"))
         }
-        DbResponse::Unit => Err(tonic::Status::internal(format!(
+        Ok(DbResponse::Unit) => Err(tonic::Status::internal(format!(
             "{command_name} unexpectedly returned unit response",
         ))),
     }

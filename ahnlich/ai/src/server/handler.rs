@@ -8,6 +8,7 @@ use crate::engine::ai::models::ModelDetails;
 use crate::engine::ai::models::ModelResponse;
 use crate::engine::operations;
 use crate::engine::store::AIStoreHandler;
+use crate::engine::store::ModelExecutionParams;
 use crate::error::AIProxyError;
 use crate::manager::ModelManager;
 use ahnlich_types::ai::models::AiModel;
@@ -38,6 +39,7 @@ use ahnlich_types::ai::query::ListStores;
 use ahnlich_types::ai::query::Ping;
 use ahnlich_types::ai::query::PurgeStores;
 use ahnlich_types::ai::query::Set;
+use ahnlich_types::ai::query::Upsert;
 use ahnlich_types::ai::server;
 use ahnlich_types::ai::server::AiStoreInfo;
 use ahnlich_types::ai::server::ClientList;
@@ -61,6 +63,7 @@ use ahnlich_types::predicates::Predicate;
 use ahnlich_types::predicates::PredicateCondition;
 use ahnlich_types::predicates::predicate::Kind as PredicateKind;
 use ahnlich_types::predicates::predicate_condition::Kind;
+use ahnlich_types::schema::Schema;
 use ahnlich_types::services::ai_service::ai_service_server::AiService;
 use ahnlich_types::services::ai_service::ai_service_server::AiServiceServer;
 use ahnlich_types::shared::info::ErrorResponse;
@@ -166,6 +169,7 @@ impl BlockingTask for AIProxyServer {
             None
         };
 
+        #[allow(clippy::result_large_err)]
         let service = tonic::codegen::InterceptedService::new(ai_service, move |req| {
             if let Some(ref interceptor) = auth_interceptor {
                 interceptor.intercept(req)
@@ -254,6 +258,13 @@ impl AiService for AIProxyServer {
         request: tonic::Request<GetKey>,
     ) -> Result<tonic::Response<Get>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .as_ref()
+            .map(|schema| Schema::try_new(schema.clone()))
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let values = params
             .keys
@@ -277,6 +288,7 @@ impl AiService for AIProxyServer {
             .get_pred(
                 DbGetPred {
                     store: params.store,
+                    schema: Some(schema.to_string()),
                     condition,
                 },
                 parent_id,
@@ -294,6 +306,13 @@ impl AiService for AIProxyServer {
         request: tonic::Request<GetPred>,
     ) -> Result<tonic::Response<Get>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .as_ref()
+            .map(|schema| Schema::try_new(schema.clone()))
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
         let db_client = self
             .db_client
@@ -304,6 +323,7 @@ impl AiService for AIProxyServer {
             .get_pred(
                 DbGetPred {
                     store: params.store,
+                    schema: Some(schema.to_string()),
                     condition: params.condition,
                 },
                 parent_id,
@@ -321,6 +341,13 @@ impl AiService for AIProxyServer {
         request: tonic::Request<GetSimN>,
     ) -> Result<tonic::Response<server::GetSimN>, tonic::Status> {
         let params = request.into_inner();
+        let schema = params
+            .schema
+            .as_ref()
+            .map(|schema| Schema::try_new(schema.clone()))
+            .transpose()
+            .map_err(tonic::Status::invalid_argument)?
+            .unwrap_or_default();
         let search_input = params
             .search_input
             .ok_or_else(|| AIProxyError::InputNotSpecified("Search".to_string()))?;
@@ -337,12 +364,17 @@ impl AiService for AIProxyServer {
                 &StoreName {
                     value: params.store.clone(),
                 },
+                &schema,
                 search_input,
-                &self.model_manager,
-                TryInto::<PreprocessAction>::try_into(params.preprocess_action)
+                ModelExecutionParams {
+                    model_manager: &self.model_manager,
+                    preprocess_action: TryInto::<PreprocessAction>::try_into(
+                        params.preprocess_action,
+                    )
                     .map_err(AIProxyError::from)?,
-                params.execution_provider.and_then(|a| a.try_into().ok()),
-                model_params,
+                    execution_provider: params.execution_provider.and_then(|a| a.try_into().ok()),
+                    model_params,
+                },
             )
             .await?;
         let parent_id = tracer::span_to_trace_parent(tracing::Span::current());
@@ -352,6 +384,7 @@ impl AiService for AIProxyServer {
             closest_n: params.closest_n,
             algorithm: params.algorithm,
             condition: params.condition,
+            schema: Some(schema.to_string()),
         };
         let db_client = self
             .db_client
@@ -392,6 +425,22 @@ impl AiService for AIProxyServer {
         request: tonic::Request<Set>,
     ) -> Result<tonic::Response<server::Set>, tonic::Status> {
         let res = operations::set(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            self.model_manager.as_ref(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+        Ok(tonic::Response::new(res))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn upsert(
+        &self,
+        request: tonic::Request<Upsert>,
+    ) -> Result<tonic::Response<server::Set>, tonic::Status> {
+        let res = operations::upsert(
             self.store_handler.as_ref(),
             self.db_client.clone(),
             self.model_manager.as_ref(),
@@ -889,6 +938,19 @@ impl AiService for AIProxyServer {
                     }
                 },
 
+                Query::Upsert(params) => match self.upsert(tonic::Request::new(params)).await {
+                    Ok(set_response) => {
+                        response_vec
+                            .push(ai_server_response::Response::Set(set_response.into_inner()));
+                    }
+                    Err(err) => {
+                        response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                            message: err.message().to_string(),
+                            code: err.code().into(),
+                        }));
+                    }
+                },
+
                 Query::DropStore(params) => {
                     match self.drop_store(tonic::Request::new(params)).await {
                         Ok(res) => {
@@ -1030,7 +1092,7 @@ impl AIProxyServer {
         );
         let client_handler = Arc::new(ClientHandler::new(config.common.maximum_clients));
         let listener = ListenerStreamOrAddress::new(
-            format!("{}:{}", &config.common.host, &config.port),
+            format!("{}:{}", config.common.host, config.port),
             client_handler.clone(),
         )
         .await?;
