@@ -1,14 +1,22 @@
-name: Tests
+name: Ahnlich MCP Tests
 
 on:
   push:
+    paths:
+      - "mcp/**"
+      - ".github/workflows/mcp_test.yml"
   pull_request:
+    branches:
+      - main
+    paths:
+      - "mcp/**"
+      - ".github/workflows/mcp_test.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: tests-${{ github.workflow }}-${{ github.ref }}
+  group: mcp-tests-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -17,9 +25,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
+    defaults:
+      run:
+        working-directory: ./mcp
+
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
@@ -27,7 +39,7 @@ jobs:
           version: "0.11.31"
           python-version: "3.11"
           enable-cache: true
-          cache-dependency-glob: "uv.lock"
+          cache-dependency-glob: "mcp/uv.lock"
 
       - name: Install project
         run: uv sync --locked --dev
@@ -47,7 +59,7 @@ jobs:
       - name: Restore Ahnlich model cache
         uses: actions/cache@v6
         with:
-          path: data/ai_models
+          path: mcp/data/ai_models
           key: ahnlich-models-${{ runner.os }}-all-minilm-l6-v2-v1
 
       - name: Start Ahnlich
