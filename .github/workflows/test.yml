@@ -361,12 +361,6 @@ jobs:
         name: node
         path: ./node
 
-    - name: Download WASM Test Output
-      uses: actions/download-artifact@v4
-      with:
-        name: wasm
-        path: ./wasm
-
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action/macos@v2
       if: always()
@@ -376,4 +370,3 @@ jobs:
           python/*.xml
           go/*.xml
           node/*.xml
-          wasm/*.xml
