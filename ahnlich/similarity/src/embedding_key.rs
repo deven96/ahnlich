@@ -25,6 +25,7 @@ impl EmbeddingKey {
         Self(Arc::new(v))
     }
 
+    #[inline]
     pub fn as_slice(&self) -> &[f32] {
         self.0.as_slice()
     }

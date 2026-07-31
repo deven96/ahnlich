@@ -20,6 +20,7 @@ impl<T: Ord> BoundedMaxHeap<T> {
     /// Insert an element into the bounded heap.
     /// If the heap is at capacity and the new element is larger than the smallest,
     /// the smallest element is removed and the new element is added.
+    #[inline]
     pub fn push(&mut self, item: T) {
         if self.heap.len() < self.capacity {
             self.heap.push(Reverse(item));
@@ -31,14 +32,17 @@ impl<T: Ord> BoundedMaxHeap<T> {
         }
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.heap.len()
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.heap.is_empty()
     }
 
+    #[inline]
     pub fn peek(&self) -> Option<&T> {
         self.heap.peek().map(|r| &r.0)
     }
@@ -55,9 +59,12 @@ impl<T: Ord> BoundedMaxHeap<T> {
         vec
     }
 
-    /// Get an iterator over the heap elements (unordered)
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.heap.iter().map(|r| &r.0)
+    }
+
+    pub fn into_iter_unsorted(self) -> impl Iterator<Item = T> {
+        self.heap.into_iter().map(|r| r.0)
     }
 }
 
@@ -79,6 +86,7 @@ impl<T: Ord> BoundedMinHeap<T> {
     /// Insert an element into the bounded heap.
     /// If the heap is at capacity and the new element is smaller than the largest,
     /// the largest element is removed and the new element is added.
+    #[inline]
     pub fn push(&mut self, item: T) {
         if self.heap.len() < self.capacity {
             self.heap.push(item);
@@ -90,14 +98,17 @@ impl<T: Ord> BoundedMinHeap<T> {
         }
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.heap.len()
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.heap.is_empty()
     }
 
+    #[inline]
     pub fn peek(&self) -> Option<&T> {
         self.heap.peek()
     }
@@ -114,8 +125,11 @@ impl<T: Ord> BoundedMinHeap<T> {
         vec
     }
 
-    /// Get an iterator over the heap elements (unordered)
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.heap.iter()
+    }
+
+    pub fn into_iter_unsorted(self) -> impl Iterator<Item = T> {
+        self.heap.into_iter()
     }
 }

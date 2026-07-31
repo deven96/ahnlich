@@ -42,6 +42,7 @@ impl From<Algorithm> for AlgorithmByType {
 pub(crate) struct SimilarityVector((StoreKeyId, f32));
 
 impl From<(StoreKeyId, f32)> for SimilarityVector {
+    #[inline]
     fn from(value: (StoreKeyId, f32)) -> SimilarityVector {
         SimilarityVector((value.0, value.1))
     }
@@ -56,12 +57,14 @@ impl PartialEq for SimilarityVector {
 impl Eq for SimilarityVector {}
 
 impl PartialOrd for SimilarityVector {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for SimilarityVector {
+    #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         (self.0)
             .1
@@ -111,7 +114,7 @@ impl FindSimilarN for LinearAlgorithm {
                     .reduce(
                         || BoundedMinHeap::new(n),
                         |mut heap1, heap2| {
-                            for item in heap2.into_sorted_vec() {
+                            for item in heap2.into_iter_unsorted() {
                                 heap1.push(item);
                             }
                             heap1
@@ -142,7 +145,7 @@ impl FindSimilarN for LinearAlgorithm {
                     .reduce(
                         || BoundedMaxHeap::new(n),
                         |mut heap1, heap2| {
-                            for item in heap2.into_sorted_vec() {
+                            for item in heap2.into_iter_unsorted() {
                                 heap1.push(item);
                             }
                             heap1
