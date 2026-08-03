@@ -217,11 +217,6 @@ pub(crate) async fn build_cluster_runtime(
     let raft_addr = cluster_listener.local_addr()?;
     let raft_config = build_raft_config(config, service_addr, raft_addr);
     let failure_state = Arc::new(ReplicationFailureState::default());
-    let state_machine = StateMachineStore::new(
-        DbStateMachine::new(Arc::new(AtomicBool::new(false))),
-        StoredMembership::new(None, Membership::new(vec![], BTreeMap::new())),
-        failure_state.clone(),
-    );
 
     let openraft_config = OpenRaftConfig {
         cluster_name: SERVICE_NAME.to_owned(),
@@ -231,7 +226,7 @@ pub(crate) async fn build_cluster_runtime(
     .validate()
     .map_err(|err| std::io::Error::other(err.to_string()))?;
 
-    let raft = match raft_config.storage {
+    let (raft, state_machine) = match raft_config.storage {
         RaftStorageEngine::RocksDb => {
             let data_dir = raft_config.data_dir.ok_or_else(|| {
                 std::io::Error::other("cluster_data_dir is required when cluster_storage=rocksdb")
@@ -240,7 +235,14 @@ pub(crate) async fn build_cluster_runtime(
                 data_dir.join("raft"),
             )
             .map_err(|err| std::io::Error::other(err.to_string()))?;
-            Raft::new(
+            let state_machine = StateMachineStore::new(
+                DbStateMachine::new(Arc::new(AtomicBool::new(false))),
+                StoredMembership::new(None, Membership::new(vec![], BTreeMap::new())),
+                failure_state.clone(),
+                Arc::new(log_store.clone()),
+            )
+            .map_err(|err| std::io::Error::other(err.to_string()))?;
+            let raft = Raft::new(
                 raft_config.node_id,
                 Arc::new(openraft_config),
                 GrpcRaftNetworkFactory::<DbTypeConfig>::default(),
@@ -248,7 +250,8 @@ pub(crate) async fn build_cluster_runtime(
                 state_machine.clone(),
             )
             .await
-            .map_err(|err| std::io::Error::other(err.to_string()))?
+            .map_err(|err| std::io::Error::other(err.to_string()))?;
+            (raft, state_machine)
         }
         RaftStorageEngine::Memory => {
             return Err(std::io::Error::other(

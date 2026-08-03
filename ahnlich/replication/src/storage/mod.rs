@@ -9,7 +9,8 @@ use openraft::{LogId, RaftTypeConfig};
 pub use memory::MemLogStore;
 pub use rocksdb::RocksLogStore;
 pub use state_machine::{
-    ReplicationFailureState, SnapshotBuilder, StateMachineHandler, StateMachineStore,
+    MemorySnapshotStore, PersistedSnapshot, ReplicationFailureState, SnapshotBuilder,
+    StateMachineHandler, StateMachineSnapshotStore, StateMachineStore,
 };
 
 pub type LogIdOf<C> = LogId<<C as RaftTypeConfig>::NodeId>;

@@ -3,7 +3,9 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use ahnlich_replication::node::ReplicationNode;
-use ahnlich_replication::storage::{ReplicationFailureState, StateMachineStore};
+use ahnlich_replication::storage::{
+    MemorySnapshotStore, ReplicationFailureState, StateMachineStore,
+};
 use ahnlich_replication::types::DbCommand;
 use ahnlich_types::db::query;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName, StoreValue};
@@ -110,7 +112,9 @@ fn snapshot_round_trip_restores_store_state() {
         DbStateMachine::new(Arc::new(AtomicBool::new(false))),
         StoredMembership::new(None, membership(&[1])),
         failure_state,
-    );
+        Arc::new(MemorySnapshotStore::default()),
+    )
+    .expect("create state machine store");
 
     block_on(store.apply(vec![
         normal_entry(
@@ -135,7 +139,9 @@ fn snapshot_round_trip_restores_store_state() {
         DbStateMachine::new(Arc::new(AtomicBool::new(false))),
         StoredMembership::new(None, membership(&[1])),
         Arc::new(ReplicationFailureState::default()),
-    );
+        Arc::new(MemorySnapshotStore::default()),
+    )
+    .expect("create target state machine store");
 
     let openraft::Snapshot { meta, snapshot } = snapshot;
     block_on(target.install_snapshot(&meta, snapshot)).expect("install snapshot");
@@ -173,7 +179,9 @@ fn apply_operation_failure_marks_replication_failure_state() {
         DbStateMachine::new(Arc::new(AtomicBool::new(false))),
         StoredMembership::new(None, membership(&[1])),
         failure_state.clone(),
-    );
+        Arc::new(MemorySnapshotStore::default()),
+    )
+    .expect("create state machine store");
 
     let err = block_on(store.apply(vec![normal_entry(
         1,
