@@ -51,19 +51,19 @@ npx tsc --init
 Install the Ahnlich Node.js client SDK using npm:
 
 ```bash
-npm install ahnlich-client-node
+npm install @deven96/ahnlich-client-node
 ```
 
 Or using yarn:
 
 ```bash
-yarn add ahnlich-client-node
+yarn add @deven96/ahnlich-client-node
 ```
 
 Or using pnpm:
 
 ```bash
-pnpm add ahnlich-client-node
+pnpm add @deven96/ahnlich-client-node
 ```
 
 ## Package Information
