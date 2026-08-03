@@ -36,10 +36,10 @@ pub mod raft_internal_service_client {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
-    use tonic::codegen::*;
     use tonic::codegen::http::Uri;
+    use tonic::codegen::*;
     #[derive(Debug, Clone)]
     pub struct RaftInternalServiceClient<T> {
         inner: tonic::client::Grpc<T>,
@@ -78,14 +78,13 @@ pub mod raft_internal_service_client {
             F: tonic::service::Interceptor,
             T::ResponseBody: Default,
             T: tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-                Response = http::Response<
-                    <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+                    http::Request<tonic::body::BoxBody>,
+                    Response = http::Response<
+                        <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+                    >,
                 >,
-            >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::BoxBody>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+            <T as tonic::codegen::Service<http::Request<tonic::body::BoxBody>>>::Error:
+                Into<StdError> + std::marker::Send + std::marker::Sync,
         {
             RaftInternalServiceClient::new(InterceptedService::new(inner, interceptor))
         }
@@ -123,82 +122,57 @@ pub mod raft_internal_service_client {
         pub async fn append_entries(
             &mut self,
             request: impl tonic::IntoRequest<super::AppendEntriesRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::AppendEntriesResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::AppendEntriesResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/services.raft_internal.RaftInternalService/AppendEntries",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "services.raft_internal.RaftInternalService",
-                        "AppendEntries",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.raft_internal.RaftInternalService",
+                "AppendEntries",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn install_snapshot(
             &mut self,
             request: impl tonic::IntoRequest<super::InstallSnapshotRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::InstallSnapshotResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+        ) -> std::result::Result<tonic::Response<super::InstallSnapshotResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/services.raft_internal.RaftInternalService/InstallSnapshot",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new(
-                        "services.raft_internal.RaftInternalService",
-                        "InstallSnapshot",
-                    ),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.raft_internal.RaftInternalService",
+                "InstallSnapshot",
+            ));
             self.inner.unary(req, path, codec).await
         }
         pub async fn vote(
             &mut self,
             request: impl tonic::IntoRequest<super::VoteRequest>,
         ) -> std::result::Result<tonic::Response<super::VoteResponse>, tonic::Status> {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
                 "/services.raft_internal.RaftInternalService/Vote",
             );
             let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("services.raft_internal.RaftInternalService", "Vote"),
-                );
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.raft_internal.RaftInternalService",
+                "Vote",
+            ));
             self.inner.unary(req, path, codec).await
         }
     }
@@ -210,7 +184,7 @@ pub mod raft_internal_service_server {
         dead_code,
         missing_docs,
         clippy::wildcard_imports,
-        clippy::let_unit_value,
+        clippy::let_unit_value
     )]
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with RaftInternalServiceServer.
@@ -219,17 +193,11 @@ pub mod raft_internal_service_server {
         async fn append_entries(
             &self,
             request: tonic::Request<super::AppendEntriesRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::AppendEntriesResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::AppendEntriesResponse>, tonic::Status>;
         async fn install_snapshot(
             &self,
             request: tonic::Request<super::InstallSnapshotRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::InstallSnapshotResponse>,
-            tonic::Status,
-        >;
+        ) -> std::result::Result<tonic::Response<super::InstallSnapshotResponse>, tonic::Status>;
         async fn vote(
             &self,
             request: tonic::Request<super::VoteRequest>,
@@ -256,10 +224,7 @@ pub mod raft_internal_service_server {
                 max_encoding_message_size: None,
             }
         }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
+        pub fn with_interceptor<F>(inner: T, interceptor: F) -> InterceptedService<Self, F>
         where
             F: tonic::service::Interceptor,
         {
@@ -314,23 +279,19 @@ pub mod raft_internal_service_server {
                 "/services.raft_internal.RaftInternalService/AppendEntries" => {
                     #[allow(non_camel_case_types)]
                     struct AppendEntriesSvc<T: RaftInternalService>(pub Arc<T>);
-                    impl<
-                        T: RaftInternalService,
-                    > tonic::server::UnaryService<super::AppendEntriesRequest>
-                    for AppendEntriesSvc<T> {
+                    impl<T: RaftInternalService>
+                        tonic::server::UnaryService<super::AppendEntriesRequest>
+                        for AppendEntriesSvc<T>
+                    {
                         type Response = super::AppendEntriesResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::AppendEntriesRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as RaftInternalService>::append_entries(&inner, request)
-                                    .await
+                                <T as RaftInternalService>::append_entries(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -360,26 +321,19 @@ pub mod raft_internal_service_server {
                 "/services.raft_internal.RaftInternalService/InstallSnapshot" => {
                     #[allow(non_camel_case_types)]
                     struct InstallSnapshotSvc<T: RaftInternalService>(pub Arc<T>);
-                    impl<
-                        T: RaftInternalService,
-                    > tonic::server::UnaryService<super::InstallSnapshotRequest>
-                    for InstallSnapshotSvc<T> {
+                    impl<T: RaftInternalService>
+                        tonic::server::UnaryService<super::InstallSnapshotRequest>
+                        for InstallSnapshotSvc<T>
+                    {
                         type Response = super::InstallSnapshotResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::InstallSnapshotRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as RaftInternalService>::install_snapshot(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
+                                <T as RaftInternalService>::install_snapshot(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -409,14 +363,9 @@ pub mod raft_internal_service_server {
                 "/services.raft_internal.RaftInternalService/Vote" => {
                     #[allow(non_camel_case_types)]
                     struct VoteSvc<T: RaftInternalService>(pub Arc<T>);
-                    impl<
-                        T: RaftInternalService,
-                    > tonic::server::UnaryService<super::VoteRequest> for VoteSvc<T> {
+                    impl<T: RaftInternalService> tonic::server::UnaryService<super::VoteRequest> for VoteSvc<T> {
                         type Response = super::VoteResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
                             request: tonic::Request<super::VoteRequest>,
@@ -450,23 +399,19 @@ pub mod raft_internal_service_server {
                     };
                     Box::pin(fut)
                 }
-                _ => {
-                    Box::pin(async move {
-                        let mut response = http::Response::new(empty_body());
-                        let headers = response.headers_mut();
-                        headers
-                            .insert(
-                                tonic::Status::GRPC_STATUS,
-                                (tonic::Code::Unimplemented as i32).into(),
-                            );
-                        headers
-                            .insert(
-                                http::header::CONTENT_TYPE,
-                                tonic::metadata::GRPC_CONTENT_TYPE,
-                            );
-                        Ok(response)
-                    })
-                }
+                _ => Box::pin(async move {
+                    let mut response = http::Response::new(empty_body());
+                    let headers = response.headers_mut();
+                    headers.insert(
+                        tonic::Status::GRPC_STATUS,
+                        (tonic::Code::Unimplemented as i32).into(),
+                    );
+                    headers.insert(
+                        http::header::CONTENT_TYPE,
+                        tonic::metadata::GRPC_CONTENT_TYPE,
+                    );
+                    Ok(response)
+                }),
             }
         }
     }
