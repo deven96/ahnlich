@@ -12,6 +12,7 @@ pub mod kdtree;
 #[cfg(test)]
 pub mod tests;
 
+pub use distance::{Closeness, Distance, Score, Similarity};
 pub use embedding_key::EmbeddingKey;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
@@ -44,5 +45,22 @@ pub trait NonLinearAlgorithmWithIndexImpl: DeserializeOwned {
 }
 
 pub trait DistanceFn: Send + Sync + Copy {
-    fn distance(&self, a: &[f32], b: &[f32]) -> f32;
+    /// What the metric computes, tagged with which direction means closer.
+    ///
+    /// Implementors do not state a direction themselves: it comes from the return type
+    /// of the underlying function ([`Distance`] or [`Similarity`]), so the two cannot
+    /// drift apart.
+    fn score(&self, a: &[f32], b: &[f32]) -> Score;
+
+    /// Ordering key for this pair. Greater is closer, for every metric.
+    #[inline]
+    fn closeness(&self, a: &[f32], b: &[f32]) -> Closeness {
+        self.score(a, b).closeness()
+    }
+
+    /// The metric's own number, for reporting. Cosine stays a similarity.
+    #[inline]
+    fn value(&self, a: &[f32], b: &[f32]) -> f32 {
+        self.score(a, b).value()
+    }
 }

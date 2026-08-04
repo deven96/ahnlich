@@ -1,17 +1,17 @@
-mod heap;
 pub mod non_linear;
 mod similarity;
 
 use std::num::NonZeroUsize;
 
-use ahnlich_similarity::{EmbeddingKey, LinearAlgorithm, hnsw::HNSWConfig as SimilarityHnswConfig};
+use ahnlich_similarity::heap::BoundedMaxHeap;
+use ahnlich_similarity::{
+    Closeness, DistanceFn, EmbeddingKey, LinearAlgorithm, hnsw::HNSWConfig as SimilarityHnswConfig,
+};
 use ahnlich_types::algorithm::algorithms::DistanceMetric;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::algorithm::{algorithms::Algorithm, nonlinear::HnswConfig};
-use heap::{BoundedMaxHeap, BoundedMinHeap, HeapOrder};
 use rayon::prelude::*;
 
-use self::similarity::SimilarityFunc;
 use ahnlich_types::utils::StoreKeyId;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
@@ -38,19 +38,21 @@ impl From<Algorithm> for AlgorithmByType {
     }
 }
 
+/// A candidate ranked by how close it is to the search vector.
+///
+/// `closeness` orders it — greater is closer, for every algorithm — while `score` is
+/// the algorithm's own number, which is what callers are shown. Ties break on
+/// `StoreKeyId` so equally close entries come back in a stable order.
 #[derive(Debug)]
-pub(crate) struct SimilarityVector((StoreKeyId, f32));
-
-impl From<(StoreKeyId, f32)> for SimilarityVector {
-    #[inline]
-    fn from(value: (StoreKeyId, f32)) -> SimilarityVector {
-        SimilarityVector((value.0, value.1))
-    }
+pub(crate) struct SimilarityVector {
+    key_id: StoreKeyId,
+    closeness: Closeness,
+    score: f32,
 }
 
 impl PartialEq for SimilarityVector {
     fn eq(&self, other: &Self) -> bool {
-        (self.0).0 == (other.0).0
+        self.cmp(other) == std::cmp::Ordering::Equal
     }
 }
 
@@ -66,10 +68,9 @@ impl PartialOrd for SimilarityVector {
 impl Ord for SimilarityVector {
     #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (self.0)
-            .1
-            .partial_cmp(&(other.0).1)
-            .unwrap_or(std::cmp::Ordering::Less)
+        self.closeness
+            .cmp(&other.closeness)
+            .then_with(|| self.key_id.0.cmp(&other.key_id.0))
     }
 }
 
@@ -92,73 +93,36 @@ impl FindSimilarN for LinearAlgorithm {
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)> {
-        let heap_order: HeapOrder = self.into();
-        let similarity_function: SimilarityFunc = self.into();
+        // One heap for every algorithm: `Closeness` already points the right way, so
+        // there is no min/max variant to choose and no direction to get wrong here.
+        let bounded_heap = search_list
+            .fold(
+                || BoundedMaxHeap::new(n),
+                |mut heap, (key_id, second_vector)| {
+                    let score = self.score(search_vector.as_slice(), second_vector.as_slice());
+                    heap.push(SimilarityVector {
+                        key_id: *key_id,
+                        closeness: score.closeness(),
+                        score: score.value(),
+                    });
+                    heap
+                },
+            )
+            .reduce(
+                || BoundedMaxHeap::new(n),
+                |mut heap1, heap2| {
+                    for item in heap2.into_iter_unsorted() {
+                        heap1.push(item);
+                    }
+                    heap1
+                },
+            );
 
-        match heap_order {
-            HeapOrder::Min => {
-                // Use bounded min heap for minimum similarity (Euclidean distance)
-                let bounded_heap = search_list
-                    .fold(
-                        || BoundedMinHeap::new(n),
-                        |mut heap, (key_id, second_vector)| {
-                            let similarity = similarity_function(
-                                search_vector.as_slice(),
-                                second_vector.as_slice(),
-                            );
-                            let heap_value: SimilarityVector = (*key_id, similarity).into();
-                            heap.push(heap_value);
-                            heap
-                        },
-                    )
-                    .reduce(
-                        || BoundedMinHeap::new(n),
-                        |mut heap1, heap2| {
-                            for item in heap2.into_iter_unsorted() {
-                                heap1.push(item);
-                            }
-                            heap1
-                        },
-                    );
-
-                bounded_heap
-                    .into_sorted_vec()
-                    .into_iter()
-                    .map(|sv| (sv.0.0, sv.0.1))
-                    .collect()
-            }
-            HeapOrder::Max => {
-                // Use bounded max heap for maximum similarity (Cosine, Dot Product)
-                let bounded_heap = search_list
-                    .fold(
-                        || BoundedMaxHeap::new(n),
-                        |mut heap, (key_id, second_vector)| {
-                            let similarity = similarity_function(
-                                search_vector.as_slice(),
-                                second_vector.as_slice(),
-                            );
-                            let heap_value: SimilarityVector = (*key_id, similarity).into();
-                            heap.push(heap_value);
-                            heap
-                        },
-                    )
-                    .reduce(
-                        || BoundedMaxHeap::new(n),
-                        |mut heap1, heap2| {
-                            for item in heap2.into_iter_unsorted() {
-                                heap1.push(item);
-                            }
-                            heap1
-                        },
-                    );
-
-                bounded_heap
-                    .into_sorted_vec()
-                    .into_iter()
-                    .map(|sv| (sv.0.0, sv.0.1))
-                    .collect()
-            }
-        }
+        bounded_heap
+            .into_sorted_vec()
+            .into_iter()
+            .map(|candidate| (candidate.key_id, candidate.score))
+            .collect()
     }
 }
 
