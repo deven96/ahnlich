@@ -61,7 +61,7 @@ jobs:
             - name: Build Linux Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
               working-directory: ./ahnlich
               run: |
-                rm types/build.rs
+                rm types/build.rs replication/build.rs
                 rustup target add ${{matrix.target}}
                 export MATRIX_TARGET=${{matrix.target}}
                 echo ${{ needs.prebuild_preparation.outputs.bin_name }}

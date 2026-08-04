@@ -136,16 +136,19 @@ impl StoreHandler {
 
     #[tracing::instrument(skip(self))]
     #[cfg(feature = "wasm")]
+    #[inline]
     pub fn get_stores(&self) -> Stores {
         self.stores.clone()
     }
 
     #[cfg(not(feature = "wasm"))]
+    #[inline]
     pub(crate) fn get_stores(&self) -> Stores {
         self.stores.clone()
     }
 
     #[cfg(test)]
+    #[inline]
     pub fn write_flag(&self) -> Arc<AtomicBool> {
         self.write_flag.clone()
     }
@@ -200,6 +203,7 @@ impl StoreHandler {
     }
 
     /// Returns the inner stores map for a given schema, or `None` if the schema does not exist.
+    #[inline]
     fn get_schema(&self, schema: &Schema) -> Option<InnerStores> {
         self.stores.get(schema, &self.stores.guard()).cloned()
     }
@@ -1009,12 +1013,16 @@ impl Store {
     #[tracing::instrument(skip(self))]
     fn get_all_with_ids(&self) -> Vec<(StoreKeyId, StoreEntry)> {
         let pinned = self.id_to_value.pin();
-        pinned
-            .into_iter()
-            .map(|(key_id, (embedding_key, store_value))| {
-                (*key_id, (embedding_key.clone(), Arc::clone(store_value)))
-            })
-            .collect()
+        let capacity = pinned.len();
+        let mut result = Vec::with_capacity(capacity);
+        result.extend(
+            pinned
+                .into_iter()
+                .map(|(key_id, (embedding_key, store_value))| {
+                    (*key_id, (embedding_key.clone(), Arc::clone(store_value)))
+                }),
+        );
+        result
     }
 
     /// Like get_matches, but also returns the StoreKeyId to avoid recomputing hashes

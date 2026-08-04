@@ -78,7 +78,7 @@ jobs:
         run: |
           cp ../LICENSE ./types && cp ../LICENSE ./client
           # Remove types build.rs since we already prebuilt this
-          rm ./types/build.rs
+          rm ./types/build.rs ./replication/build.rs
           cargo publish --allow-dirty -p ahnlich_types --token '${{secrets.CARGO_TOKEN}}'
           # Removing dev dependencies as those use * and are only locally available
           sed -i '/^\[dev-dependencies\]/,/^\[/{//!d; /^\[dev-dependencies\]/s/.*/ /}' client/Cargo.toml

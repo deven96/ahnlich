@@ -9,6 +9,9 @@ pub const DATASET_PATH: &str = "sift/";
 
 pub struct AnnDataset {
     pub sift_data: Vec<Vec<f32>>,
+    /// Euclidean top-100 shipped with the dataset. Recall tests brute-force their own
+    /// ground truth instead, so that they can score any metric.
+    #[allow(dead_code)]
     pub ground_truth: Vec<Vec<i32>>,
     pub sift_query: Vec<Vec<f32>>,
 }

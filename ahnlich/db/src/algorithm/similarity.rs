@@ -1,36 +1,14 @@
-use super::LinearAlgorithm;
-use ahnlich_similarity::distance::{cosine_similarity, dot_product, euclidean_distance};
-use std::ops::Deref;
-
-type SimFuncSig = fn(&[f32], &[f32]) -> f32;
-
-pub(crate) struct SimilarityFunc(SimFuncSig);
-
-impl Deref for SimilarityFunc {
-    type Target = SimFuncSig;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl From<&LinearAlgorithm> for SimilarityFunc {
-    fn from(value: &LinearAlgorithm) -> SimilarityFunc {
-        match value {
-            LinearAlgorithm::CosineSimilarity => SimilarityFunc(cosine_similarity),
-
-            LinearAlgorithm::EuclideanDistance => SimilarityFunc(euclidean_distance),
-
-            LinearAlgorithm::DotProductSimilarity => SimilarityFunc(dot_product),
-        }
-    }
-}
+//! Correctness and SIMD tests for the distance kernels.
+//!
+//! The algorithm-to-function mapping lives in `ahnlich_similarity`'s `DistanceFn`
+//! impl, so that a metric's direction is declared once, where the formula is.
 
 #[cfg(test)]
 mod tests {
     use std::time::{Duration, Instant};
 
-    use super::*;
+    use ahnlich_similarity::distance::{cosine_similarity, dot_product, euclidean_distance};
+
     use crate::tests::*;
     use ahnlich_types::keyval::StoreKey;
     use rayon::prelude::*;
@@ -59,7 +37,7 @@ mod tests {
         //
         //
 
-        let dot = dot_product(first, second);
+        let dot = dot_product(first, second).value();
 
         // the magnitude can be calculated using the arr.norm method.
         let mag_first = &first.iter().map(|x| x * x).sum::<f32>(); //.sqrt();
@@ -115,7 +93,7 @@ mod tests {
 
         let with_simd_duration = time_execution(|| {
             for val in &store_values {
-                cosine_similarity(&comp_array.key, &val.key);
+                cosine_similarity(&comp_array.key, &val.key).value();
             }
         });
 
@@ -133,7 +111,7 @@ mod tests {
         let array_two = vec![2.0f32, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1];
 
         let scalar_dot_product = dot_product_comp(&array_one, &array_two);
-        let simd_dot_product = dot_product(&array_one, &array_two);
+        let simd_dot_product = dot_product(&array_one, &array_two).value();
 
         assert_eq!(scalar_dot_product, simd_dot_product);
     }
@@ -159,7 +137,7 @@ mod tests {
 
         let with_simd_duration = time_execution(|| {
             for val in &store_values {
-                dot_product(&comp_array.key, &val.key);
+                dot_product(&comp_array.key, &val.key).value();
             }
         });
 
@@ -177,7 +155,7 @@ mod tests {
         let array_two = vec![2.0f32, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1];
 
         let scalar_cos_sim = cosine_similarity_comp(&array_one, &array_two);
-        let simd_cos_sim = cosine_similarity(&array_one, &array_two);
+        let simd_cos_sim = cosine_similarity(&array_one, &array_two).value();
 
         assert_eq!(scalar_cos_sim, simd_cos_sim);
     }
@@ -188,7 +166,7 @@ mod tests {
         let array_two = vec![2.0f32, 3.1, 1.2, 1.3, 2.0, 3.0, 3.2, 4.1, 5.1];
 
         let scalar_euclid = euclidean_distance_comp(&array_one, &array_two);
-        let simd_euclid = euclidean_distance(&array_one, &array_two);
+        let simd_euclid = euclidean_distance(&array_one, &array_two).value();
 
         assert_eq!(scalar_euclid, simd_euclid);
     }
@@ -214,7 +192,7 @@ mod tests {
 
         let with_simd_duration = time_execution(|| {
             for val in &store_values {
-                euclidean_distance(&comp_array.key, &val.key);
+                euclidean_distance(&comp_array.key, &val.key).value();
             }
         });
 
@@ -237,7 +215,7 @@ mod tests {
         for sentence in SENTENCES.iter() {
             let second_vector = sentences_vectors.get(*sentence).unwrap().to_owned();
 
-            let similarity = cosine_similarity(&first_vector.key, &second_vector.key);
+            let similarity = cosine_similarity(&first_vector.key, &second_vector.key).value();
 
             most_similar_result.push((*sentence, similarity))
         }
@@ -260,7 +238,7 @@ mod tests {
         for sentence in SENTENCES.iter() {
             let second_vector = sentences_vectors.get(*sentence).unwrap().to_owned();
 
-            let similarity = euclidean_distance(&first_vector.key, &second_vector.key);
+            let similarity = euclidean_distance(&first_vector.key, &second_vector.key).value();
 
             most_similar_result.push((*sentence, similarity))
         }
@@ -284,7 +262,7 @@ mod tests {
         for sentence in SENTENCES.iter() {
             let second_vector = sentences_vectors.get(*sentence).unwrap().to_owned();
 
-            let similarity = dot_product(&first_vector.key, &second_vector.key);
+            let similarity = dot_product(&first_vector.key, &second_vector.key).value();
 
             most_similar_result.push((*sentence, similarity))
         }
