@@ -5309,17 +5309,17 @@ fn test_migrate_old_flat_snapshot_json_file() {
     let pinned = inner.pin();
     let json_bytes = serde_json::to_vec_pretty(&pinned).expect("Failed to serialize");
 
-    // Write to fixture file in tests/fixtures/
-    let fixture_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("src")
-        .join("tests")
-        .join("fixtures");
-    std::fs::create_dir_all(&fixture_dir).expect("Failed to create fixtures dir");
-    let fixture_path = fixture_dir.join("db_old_flat_snapshot.json");
-    std::fs::write(&fixture_path, &json_bytes).expect("Failed to write fixture");
+    // Written to a temp dir, never to src/tests/fixtures. The committed fixture is a
+    // frozen pre-schema snapshot; regenerating it from today's serialiser would let a
+    // broken migration rewrite the very file that is meant to catch it, and would leave
+    // the working tree dirty after every test run. Deliberate regeneration lives in the
+    // #[ignore]d `generate_db_v2_fixture` in migration_test.rs.
+    let temp_dir = tempfile::tempdir().expect("Failed to create temp dir");
+    let snapshot_path = temp_dir.path().join("db_old_flat_snapshot.json");
+    std::fs::write(&snapshot_path, &json_bytes).expect("Failed to write snapshot");
 
     // Now read it back and verify it migrates correctly
-    let read_bytes = std::fs::read(&fixture_path).expect("Failed to read fixture");
+    let read_bytes = std::fs::read(&snapshot_path).expect("Failed to read snapshot");
     let migrated = StoreHandler::load_snapshot(&read_bytes).expect("Migration of fixture failed");
 
     let migrated_guard = migrated.guard();
