@@ -7,7 +7,7 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub(crate) enum StoreRuntime {
     Standalone(Arc<StoreHandler>),
-    Cluster(ClusterRuntime),
+    Cluster(Box<ClusterRuntime>),
 }
 
 impl StoreRuntime {
