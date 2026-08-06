@@ -61,4 +61,3 @@ proto3.util.setEnumType(ExecutionProvider, "ai.execution_provider.ExecutionProvi
   { no: 4, name: "ROCM" },
   { no: 5, name: "MIGRAPHX" },
 ]);
-
