@@ -6,9 +6,9 @@ pub mod utils;
 /// Heirarchical Navigable Small Worlds establishes a localised list of closest nodes based on a
 /// similarity function. It then navigates between these localised lists in DFS manner until it
 /// gets the values it needs to
-use crate::{DistanceFn, EmbeddingKey};
+use crate::{Closeness, DistanceFn, EmbeddingKey};
 use papaya::{HashMap, HashSet};
-use std::{cmp::Reverse, collections::BinaryHeap, hash::Hasher, num::NonZeroUsize};
+use std::{collections::BinaryHeap, hash::Hasher, num::NonZeroUsize};
 
 /// A pass-through hasher for NodeId.
 ///
@@ -163,15 +163,22 @@ impl Node {
     }
 }
 
-pub(crate) struct OrderedNode(pub(crate) (NodeId, f32));
-
-impl PartialEq for OrderedNode {
-    fn eq(&self, other: &Self) -> bool {
-        ((self.0).0) == ((other.0).0)
-    }
+/// A node paired with how close it is to the query.
+///
+/// Ordered by `closeness` — greater is closer, for every metric — and tie-broken on
+/// `NodeId` so replicas agree on the order of equally close nodes. `Eq` and `Ord` agree
+/// with each other, which `BinaryHeap` relies on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct OrderedNode {
+    pub(crate) id: NodeId,
+    pub(crate) closeness: Closeness,
 }
 
-impl Eq for OrderedNode {}
+impl OrderedNode {
+    pub(crate) fn new(id: NodeId, closeness: Closeness) -> Self {
+        Self { id, closeness }
+    }
+}
 
 impl PartialOrd for OrderedNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -181,14 +188,17 @@ impl PartialOrd for OrderedNode {
 
 impl Ord for OrderedNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (self.0)
-            .1
-            .partial_cmp(&(other.0).1)
-            .unwrap_or(std::cmp::Ordering::Less)
+        self.closeness
+            .cmp(&other.closeness)
+            .then_with(|| self.id.0.cmp(&other.id.0))
     }
 }
 
-struct MaxHeapQueue<F>
+/// Candidate queue that pops the closest node first.
+///
+/// A plain max-heap: `OrderedNode` orders by closeness, so the closest is always the
+/// greatest, whichever metric is in use. There is no min/max variant to pick.
+pub(crate) struct NearestFirst<F>
 where
     F: DistanceFn,
 {
@@ -198,121 +208,58 @@ where
     query: EmbeddingKey,
 }
 
-impl<F: DistanceFn> MaxHeapQueue<F> {
-    fn from_nodes<'a>(
+impl<F: DistanceFn> NearestFirst<F> {
+    pub(crate) fn from_nodes<'a>(
         nodes: impl Iterator<Item = &'a Node>,
         query: &Node,
         distance_algorithm: F,
     ) -> Self {
         let heap = nodes
             .map(|node| {
-                let similarity =
-                    distance_algorithm.distance(node.value.as_slice(), query.value.as_slice());
-                OrderedNode((node.id, similarity))
+                let closeness =
+                    distance_algorithm.closeness(node.value.as_slice(), query.value.as_slice());
+                OrderedNode::new(node.id, closeness)
             })
             .collect::<BinaryHeap<_>>();
         Self {
             heap,
             distance_algorithm,
-            query: query.value.clone(), // Cheap Arc pointer bump
+            query: query.value.clone(),
         }
     }
 
-    fn pop(&mut self) -> Option<OrderedNode> {
+    pub(crate) fn push(&mut self, node: &Node) {
+        let closeness = self
+            .distance_algorithm
+            .closeness(node.value.as_slice(), self.query.as_slice());
+        self.heap.push(OrderedNode::new(node.id, closeness))
+    }
+
+    pub(crate) fn pop(&mut self) -> Option<OrderedNode> {
         self.heap.pop()
     }
 
-    fn pop_n(&mut self, n: NonZeroUsize) -> Vec<OrderedNode> {
+    pub(crate) fn pop_n(&mut self, n: NonZeroUsize) -> Vec<OrderedNode> {
         (0..n.get()).filter_map(|_| self.heap.pop()).collect()
     }
 
-    fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.heap.len()
     }
 
-    fn peek(&self) -> Option<&OrderedNode> {
+    pub(crate) fn peek(&self) -> Option<&OrderedNode> {
         self.heap.peek()
     }
 
-    fn push(&mut self, node: &Node) {
-        let distance = self
-            .distance_algorithm
-            .distance(node.value.as_slice(), self.query.as_slice());
-        let ordered = OrderedNode((node.id, distance));
-        self.heap.push(ordered)
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &OrderedNode> {
+        self.heap.iter()
     }
 
-    fn contains(&self, node_id: &NodeId) -> bool {
-        self.heap.iter().any(|x| &(x.0.0) == node_id)
+    pub(crate) fn contains(&self, node_id: &NodeId) -> bool {
+        self.heap.iter().any(|node| &node.id == node_id)
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.heap.is_empty()
-    }
-}
-
-struct MinHeapQueue<F>
-where
-    F: DistanceFn,
-{
-    heap: BinaryHeap<Reverse<OrderedNode>>,
-    distance_algorithm: F,
-    /// Query embedding - stored as EmbeddingKey for cheap cloning (Arc pointer bump)
-    query: EmbeddingKey,
-}
-
-impl<F: DistanceFn> MinHeapQueue<F> {
-    fn from_nodes<'a>(
-        nodes: impl Iterator<Item = &'a Node>,
-        query: &Node,
-        distance_algorithm: F,
-    ) -> Self {
-        let heap = nodes
-            .map(|node| {
-                let similarity =
-                    distance_algorithm.distance(node.value.as_slice(), query.value.as_slice());
-                let ordered_node = OrderedNode((node.id, similarity));
-                Reverse(ordered_node)
-            })
-            .collect::<BinaryHeap<_>>();
-        Self {
-            heap,
-            distance_algorithm,
-            query: query.value.clone(), // Cheap Arc pointer bump
-        }
-    }
-
-    fn push(&mut self, node: &Node) {
-        let distance = self
-            .distance_algorithm
-            .distance(node.value.as_slice(), self.query.as_slice());
-        let ordered = OrderedNode((node.id, distance));
-        self.heap.push(Reverse(ordered))
-    }
-
-    fn pop(&mut self) -> Option<OrderedNode> {
-        self.heap.pop().map(|popped| popped.0)
-    }
-
-    fn pop_n(&mut self, n: NonZeroUsize) -> Vec<OrderedNode> {
-        (0..n.get())
-            .filter_map(|_| self.heap.pop().map(|popped| popped.0))
-            .collect()
-    }
-
-    fn len(&self) -> usize {
-        self.heap.len()
-    }
-
-    fn peek(&self) -> Option<&OrderedNode> {
-        self.heap.peek().map(|popped| &popped.0)
-    }
-
-    fn contains(&self, node_id: &NodeId) -> bool {
-        self.heap.iter().any(|x| &(x.0.0.0) == node_id)
-    }
-
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.heap.is_empty()
     }
 }
