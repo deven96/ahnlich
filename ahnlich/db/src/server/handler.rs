@@ -1003,9 +1003,9 @@ impl Server {
                 ListenerStreamOrAddress::new(cluster_addr.to_string(), cluster_client_handler)
                     .await?;
             let service_addr = listener.local_addr()?;
-            StoreRuntime::Cluster(
+            StoreRuntime::Cluster(Box::new(
                 build_cluster_runtime(config, service_addr, cluster_listener).await?,
-            )
+            ))
         } else {
             let write_flag = Arc::new(AtomicBool::new(false));
             let mut store_handler = StoreHandler::new(write_flag);
