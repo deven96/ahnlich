@@ -1,0 +1,101 @@
+name: Ahnlich MCP Tests
+
+on:
+  push:
+    paths:
+      - "mcp/**"
+      - "sdk/ahnlich-client-py/**"
+      - ".github/workflows/mcp_test.yml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "mcp/**"
+      - "sdk/ahnlich-client-py/**"
+      - ".github/workflows/mcp_test.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mcp-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Python 3.11 unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: ./mcp
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.31"
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: "mcp/uv.lock"
+
+      - name: Install project
+        run: uv sync --locked --dev
+
+      - name: Run unit tests
+        run: uv run pytest tests/unit -v
+
+  integration:
+    name: Python 3.11 integration tests
+    needs: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    defaults:
+      run:
+        working-directory: ./mcp
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.31"
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: "mcp/uv.lock"
+
+      - name: Install project
+        run: uv sync --locked --dev
+
+      - name: Prepare Ahnlich data directories
+        run: mkdir -p data/db data/ai data/ai_models
+
+      - name: Restore Ahnlich model cache
+        uses: actions/cache@v4
+        with:
+          path: mcp/data/ai_models
+          key: ahnlich-models-${{ runner.os }}-all-minilm-l6-v2-v1
+
+      - name: Start Ahnlich
+        run: docker compose up -d --wait --wait-timeout 600
+
+      - name: Show container status
+        run: docker compose ps
+
+      - name: Run integration tests
+        run: uv run pytest tests/integration -v
+
+      - name: Show Ahnlich logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop Ahnlich
+        if: always()
+        run: docker compose down --remove-orphans
