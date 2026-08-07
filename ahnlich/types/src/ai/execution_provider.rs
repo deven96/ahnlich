@@ -7,6 +7,17 @@ pub enum ExecutionProvider {
     Cuda = 1,
     DirectMl = 2,
     CoreMl = 3,
+    /// ROCm execution provider for AMD GPUs (Linux + supported AMD Instinct /
+    /// Radeon hardware). Requires the host to have a matching ROCm runtime
+    /// installed and the ort/onnxruntime build configured with ROCm support.
+    /// Note: upstream onnxruntime removed the ROCm provider in 1.23; for newer
+    /// ORT builds prefer MIGRAPHX.
+    Rocm = 4,
+    /// MIGraphX execution provider for AMD GPUs (Linux + supported AMD Instinct
+    /// hardware). AMD's recommended replacement for the ROCm provider in
+    /// onnxruntime >= 1.23. Requires the host to have the MIGraphX runtime
+    /// installed (ships in AMD's ROCm apt repository).
+    Migraphx = 5,
 }
 impl ExecutionProvider {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -19,6 +30,8 @@ impl ExecutionProvider {
             Self::Cuda => "CUDA",
             Self::DirectMl => "DIRECT_ML",
             Self::CoreMl => "CORE_ML",
+            Self::Rocm => "ROCM",
+            Self::Migraphx => "MIGRAPHX",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -28,6 +41,8 @@ impl ExecutionProvider {
             "CUDA" => Some(Self::Cuda),
             "DIRECT_ML" => Some(Self::DirectMl),
             "CORE_ML" => Some(Self::CoreMl),
+            "ROCM" => Some(Self::Rocm),
+            "MIGRAPHX" => Some(Self::Migraphx),
             _ => None,
         }
     }
