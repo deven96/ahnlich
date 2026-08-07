@@ -17,13 +17,14 @@ use openraft::{
 use rocksdb::{ColumnFamilyDescriptor, DB, IteratorMode, Options};
 use serde_json::{from_slice, to_vec};
 
-use super::LogIdOf;
+use super::{LogIdOf, PersistedSnapshot, StateMachineSnapshotStore};
 
 const CF_LOGS: &str = "logs";
 const CF_META: &str = "meta";
 const META_VOTE: &str = "vote";
 const META_COMMITTED: &str = "committed";
 const META_LAST_PURGED_LOG_ID: &str = "last_purged_log_id";
+const META_STATE_MACHINE_SNAPSHOT: &str = "state_machine_snapshot";
 
 fn index_in_range<RB: RangeBounds<u64>>(range: &RB, idx: u64) -> bool {
     let start_ok = match range.start_bound() {
@@ -174,6 +175,18 @@ impl<C: RaftTypeConfig> RocksLogStore<C> {
     }
 }
 
+impl<C: RaftTypeConfig> StateMachineSnapshotStore<C> for RocksLogStore<C> {
+    fn load_snapshot(&self) -> Result<Option<PersistedSnapshot<C>>, StorageError<C::NodeId>> {
+        self.get_meta(META_STATE_MACHINE_SNAPSHOT)
+    }
+
+    fn persist_snapshot(
+        &self,
+        snapshot: &PersistedSnapshot<C>,
+    ) -> Result<(), StorageError<C::NodeId>> {
+        self.put_meta(META_STATE_MACHINE_SNAPSHOT, snapshot)
+    }
+}
 impl<C: RaftTypeConfig> RaftLogReader<C> for RocksLogStore<C>
 where
     C::Entry: serde::Serialize + serde::de::DeserializeOwned + RaftLogId<C::NodeId> + Clone,
@@ -235,7 +248,7 @@ where
         self.get_vote()
     }
 
-    fn append_to_log_sync<I>(&self, entries: I) -> Result<(), StorageError<C::NodeId>>
+    pub(crate) fn append_to_log_sync<I>(&self, entries: I) -> Result<(), StorageError<C::NodeId>>
     where
         I: IntoIterator<Item = C::Entry>,
     {
@@ -266,7 +279,7 @@ where
         Ok(())
     }
 
-    fn purge_logs_upto_sync(
+    pub(crate) fn purge_logs_upto_sync(
         &self,
         log_id: LogId<C::NodeId>,
     ) -> Result<(), StorageError<C::NodeId>> {

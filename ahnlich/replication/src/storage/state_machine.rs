@@ -90,10 +90,45 @@ pub trait StateMachineHandler<C: RaftTypeConfig>: Send + Sync + 'static {
 // state machines plug in without re-implementing the
 // snapshot bookkeeping.
 
-#[derive(Debug, Clone)]
-struct StoredSnapshot<C: RaftTypeConfig> {
-    meta: SnapshotMeta<C::NodeId, C::Node>,
-    data: Vec<u8>,
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct PersistedSnapshot<C: RaftTypeConfig> {
+    pub meta: SnapshotMeta<C::NodeId, C::Node>,
+    pub data: Vec<u8>,
+    pub snapshot_idx: u64,
+}
+
+pub trait StateMachineSnapshotStore<C: RaftTypeConfig>: Send + Sync + 'static {
+    fn load_snapshot(&self) -> Result<Option<PersistedSnapshot<C>>, StorageError<C::NodeId>>;
+    fn persist_snapshot(
+        &self,
+        snapshot: &PersistedSnapshot<C>,
+    ) -> Result<(), StorageError<C::NodeId>>;
+}
+
+#[derive(Debug, Default)]
+pub struct MemorySnapshotStore<C: RaftTypeConfig> {
+    snapshot: Mutex<Option<PersistedSnapshot<C>>>,
+}
+
+impl<C: RaftTypeConfig> StateMachineSnapshotStore<C> for MemorySnapshotStore<C> {
+    fn load_snapshot(&self) -> Result<Option<PersistedSnapshot<C>>, StorageError<C::NodeId>> {
+        Ok(self
+            .snapshot
+            .lock()
+            .expect("memory snapshot store lock poisoned")
+            .clone())
+    }
+
+    fn persist_snapshot(
+        &self,
+        snapshot: &PersistedSnapshot<C>,
+    ) -> Result<(), StorageError<C::NodeId>> {
+        *self
+            .snapshot
+            .lock()
+            .expect("memory snapshot store lock poisoned") = Some(snapshot.clone());
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -102,13 +137,19 @@ struct StateMachineInner<C: RaftTypeConfig, H: StateMachineHandler<C>> {
     last_applied: Option<LogIdOf<C>>,
     last_membership: StoredMembership<C::NodeId, C::Node>,
     snapshot_idx: u64,
-    current_snapshot: Option<StoredSnapshot<C>>,
+    current_snapshot: Option<PersistedSnapshot<C>>,
 }
 
-#[derive(Debug)]
 pub struct StateMachineStore<C: RaftTypeConfig, H: StateMachineHandler<C>> {
     inner: Arc<Mutex<StateMachineInner<C, H>>>,
     failure_state: Arc<ReplicationFailureState>,
+    snapshot_store: Arc<dyn StateMachineSnapshotStore<C>>,
+}
+
+impl<C: RaftTypeConfig, H: StateMachineHandler<C>> std::fmt::Debug for StateMachineStore<C, H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StateMachineStore").finish_non_exhaustive()
+    }
 }
 
 impl<C: RaftTypeConfig, H: StateMachineHandler<C>> Clone for StateMachineStore<C, H> {
@@ -116,6 +157,7 @@ impl<C: RaftTypeConfig, H: StateMachineHandler<C>> Clone for StateMachineStore<C
         Self {
             inner: self.inner.clone(),
             failure_state: self.failure_state.clone(),
+            snapshot_store: self.snapshot_store.clone(),
         }
     }
 }
@@ -125,17 +167,41 @@ impl<C: RaftTypeConfig, H: StateMachineHandler<C>> StateMachineStore<C, H> {
         handler: H,
         initial_membership: StoredMembership<C::NodeId, C::Node>,
         failure_state: Arc<ReplicationFailureState>,
-    ) -> Self {
-        Self {
+        snapshot_store: Arc<dyn StateMachineSnapshotStore<C>>,
+    ) -> Result<Self, StorageError<C::NodeId>> {
+        let persisted_snapshot = snapshot_store.load_snapshot()?;
+        let mut handler = handler;
+        let (last_applied, last_membership, snapshot_idx, current_snapshot) =
+            if let Some(snapshot) = persisted_snapshot {
+                let decoded = deserialize_snapshot::<H::Snapshot>(&snapshot.data).map_err(|e| {
+                    failure_state
+                        .mark_failed(format!("failed to restore state machine snapshot: {e}"));
+                    StorageError::IO {
+                        source: StorageIOError::read_state_machine(&e),
+                    }
+                })?;
+                handler.restore_snapshot(decoded);
+                (
+                    snapshot.meta.last_log_id.clone(),
+                    snapshot.meta.last_membership.clone(),
+                    snapshot.snapshot_idx,
+                    Some(snapshot),
+                )
+            } else {
+                (None, initial_membership, 0, None)
+            };
+
+        Ok(Self {
             inner: Arc::new(Mutex::new(StateMachineInner {
                 handler,
-                last_applied: None,
-                last_membership: initial_membership,
-                snapshot_idx: 0,
-                current_snapshot: None,
+                last_applied,
+                last_membership,
+                snapshot_idx,
+                current_snapshot,
             })),
             failure_state,
-        }
+            snapshot_store,
+        })
     }
 
     pub fn failure_state(&self) -> Arc<ReplicationFailureState> {
@@ -160,10 +226,11 @@ impl<C: RaftTypeConfig, H: StateMachineHandler<C>> StateMachineStore<C, H> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SnapshotBuilder<C: RaftTypeConfig, H: StateMachineHandler<C>> {
     inner: Arc<Mutex<StateMachineInner<C, H>>>,
     failure_state: Arc<ReplicationFailureState>,
+    snapshot_store: Arc<dyn StateMachineSnapshotStore<C>>,
 }
 
 impl<C: RaftTypeConfig, H: StateMachineHandler<C>> SnapshotBuilder<C, H> {
@@ -185,7 +252,7 @@ where
     C::SnapshotData: From<Cursor<Vec<u8>>>,
 {
     async fn build_snapshot(&mut self) -> Result<Snapshot<C>, StorageError<C::NodeId>> {
-        let (snapshot, meta) = {
+        let (snapshot, meta, snapshot_idx) = {
             let mut inner = self.lock_inner()?;
             let snapshot = inner.handler.get_snapshot()?;
 
@@ -210,18 +277,22 @@ where
                 ),
             };
 
-            (snapshot, meta)
+            (snapshot, meta, inner.snapshot_idx)
         };
 
         let encoded = serialize_snapshot(&snapshot).map_err(|e| StorageError::IO {
             source: StorageIOError::write_state_machine(&e),
         })?;
 
-        let mut inner = self.lock_inner()?;
-        inner.current_snapshot = Some(StoredSnapshot {
+        let stored = PersistedSnapshot {
             meta: meta.clone(),
             data: encoded.clone(),
-        });
+            snapshot_idx,
+        };
+        self.snapshot_store.persist_snapshot(&stored)?;
+
+        let mut inner = self.lock_inner()?;
+        inner.current_snapshot = Some(stored);
 
         Ok(Snapshot {
             meta,
@@ -288,6 +359,7 @@ where
         SnapshotBuilder {
             inner: self.inner.clone(),
             failure_state: self.failure_state.clone(),
+            snapshot_store: self.snapshot_store.clone(),
         }
     }
 
@@ -309,13 +381,17 @@ where
         })?;
 
         let mut inner = self.lock_inner()?;
+        inner.snapshot_idx += 1;
+        let stored = PersistedSnapshot {
+            meta: meta.clone(),
+            data,
+            snapshot_idx: inner.snapshot_idx,
+        };
+        self.snapshot_store.persist_snapshot(&stored)?;
         inner.handler.restore_snapshot(decoded);
         inner.last_applied = meta.last_log_id.clone();
         inner.last_membership = meta.last_membership.clone();
-        inner.current_snapshot = Some(StoredSnapshot {
-            meta: meta.clone(),
-            data,
-        });
+        inner.current_snapshot = Some(stored);
         Ok(())
     }
 
@@ -395,6 +471,7 @@ mod tests {
 
     use super::*;
     use crate::node::ReplicationNode;
+    use crate::storage::RocksLogStore;
 
     openraft::declare_raft_types!(
         pub TestConfig:
@@ -510,7 +587,9 @@ mod tests {
             handler,
             StoredMembership::new(None, membership(&[1])),
             failure_state.clone(),
-        );
+            Arc::new(MemorySnapshotStore::default()),
+        )
+        .expect("create state machine store");
 
         let poison_target = store.clone();
         let _ = std::thread::spawn(move || {
@@ -541,7 +620,9 @@ mod tests {
             handler,
             StoredMembership::new(None, membership(&[1])),
             failure_state.clone(),
-        );
+            Arc::new(MemorySnapshotStore::default()),
+        )
+        .expect("create state machine store");
 
         let err = store
             .apply_sync(vec![normal_entry(1, 1, 1, "boom")])
@@ -563,7 +644,9 @@ mod tests {
             handler.clone(),
             initial_membership,
             Arc::new(ReplicationFailureState::default()),
-        );
+            Arc::new(MemorySnapshotStore::default()),
+        )
+        .expect("create source state machine store");
 
         let entries = vec![
             normal_entry(1, 1, 2, "alpha"),
@@ -593,7 +676,9 @@ mod tests {
             fresh_handler.clone(),
             StoredMembership::new(None, membership(&[9])),
             Arc::new(ReplicationFailureState::default()),
-        );
+            Arc::new(MemorySnapshotStore::default()),
+        )
+        .expect("create target state machine store");
         target
             .install_snapshot_sync(&meta, *snapshot)
             .expect("install snapshot should succeed");
@@ -614,5 +699,116 @@ mod tests {
             .expect("snapshot should be stored");
         assert_eq!(current_snapshot.meta.last_log_id, Some(log_id(2, 2, 4)));
         assert_eq!(current_snapshot.meta.last_membership, expected_membership);
+    }
+
+    #[tokio::test]
+    async fn durable_snapshot_restores_after_log_purge_and_reopen() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let snapshot_store = Arc::new(
+            RocksLogStore::<TestConfig>::open(dir.path()).expect("open rocks snapshot store"),
+        );
+        let handler = TestHandler::new(None);
+        let mut source = StateMachineStore::<TestConfig, _>::new(
+            handler,
+            StoredMembership::new(None, membership(&[1])),
+            Arc::new(ReplicationFailureState::default()),
+            snapshot_store.clone(),
+        )
+        .expect("create source state machine store");
+        let entries = vec![
+            normal_entry(1, 1, 1, "alpha"),
+            membership_entry(1, 1, 2, &[1, 2]),
+            normal_entry(1, 1, 3, "beta"),
+        ];
+
+        snapshot_store
+            .append_to_log_sync(entries.clone())
+            .expect("persist raft log entries");
+        source.apply_sync(entries).expect("apply entries");
+        let mut builder = source.get_snapshot_builder().await;
+        builder.build_snapshot().await.expect("build snapshot");
+        drop(builder);
+        snapshot_store
+            .purge_logs_upto_sync(log_id(1, 1, 3))
+            .expect("purge compacted logs");
+        drop(source);
+        drop(snapshot_store);
+
+        let reopened_store = Arc::new(
+            RocksLogStore::<TestConfig>::open(dir.path()).expect("reopen rocks snapshot store"),
+        );
+        let restored_handler = TestHandler::new(None);
+        let restored = StateMachineStore::<TestConfig, _>::new(
+            restored_handler.clone(),
+            StoredMembership::new(None, membership(&[9])),
+            Arc::new(ReplicationFailureState::default()),
+            reopened_store,
+        )
+        .expect("restore state machine from durable snapshot");
+
+        assert_eq!(restored_handler.applied(), vec!["alpha", "beta"]);
+        let (last_applied, last_membership) = restored
+            .applied_state_sync()
+            .expect("read restored applied state");
+        assert_eq!(last_applied, Some(log_id(1, 1, 3)));
+        assert_eq!(
+            last_membership,
+            StoredMembership::new(Some(log_id(1, 1, 2)), membership(&[1, 2]))
+        );
+    }
+
+    #[tokio::test]
+    async fn installed_snapshot_restores_after_reopen() {
+        let source_handler = TestHandler::new(None);
+        let mut source = StateMachineStore::<TestConfig, _>::new(
+            source_handler,
+            StoredMembership::new(None, membership(&[1])),
+            Arc::new(ReplicationFailureState::default()),
+            Arc::new(MemorySnapshotStore::default()),
+        )
+        .expect("create source state machine store");
+        source
+            .apply_sync(vec![normal_entry(1, 1, 1, "alpha")])
+            .expect("apply entry");
+        let mut builder = source.get_snapshot_builder().await;
+        let Snapshot { meta, snapshot } = builder.build_snapshot().await.expect("build snapshot");
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let snapshot_store = Arc::new(
+            RocksLogStore::<TestConfig>::open(dir.path()).expect("open rocks snapshot store"),
+        );
+        let target = StateMachineStore::<TestConfig, _>::new(
+            TestHandler::new(None),
+            StoredMembership::new(None, membership(&[9])),
+            Arc::new(ReplicationFailureState::default()),
+            snapshot_store.clone(),
+        )
+        .expect("create target state machine store");
+        target
+            .install_snapshot_sync(&meta, *snapshot)
+            .expect("persist installed snapshot");
+        drop(target);
+        drop(snapshot_store);
+
+        let reopened_store = Arc::new(
+            RocksLogStore::<TestConfig>::open(dir.path()).expect("reopen rocks snapshot store"),
+        );
+        let restored_handler = TestHandler::new(None);
+        let restored = StateMachineStore::<TestConfig, _>::new(
+            restored_handler.clone(),
+            StoredMembership::new(None, membership(&[9])),
+            Arc::new(ReplicationFailureState::default()),
+            reopened_store,
+        )
+        .expect("restore installed snapshot");
+
+        assert_eq!(restored_handler.applied(), vec!["alpha"]);
+        assert_eq!(
+            restored
+                .applied_state_sync()
+                .expect("read restored applied state")
+                .0,
+            Some(log_id(1, 1, 1))
+        );
     }
 }
