@@ -62,13 +62,13 @@ prost = { workspace = true, optional = true }
 openraft = { workspace = true, optional = true }
 ahnlich-replication = { path = "../replication", version = "*", optional = true }
 bitcode.workspace = true
+rand.workspace = true
 
 [dev-dependencies]
 futures.workspace = true
 once_cell.workspace = true
 pretty_assertions.workspace = true
 criterion = "0.4"
-rand.workspace = true
 fastrand = "1.9"
 rcgen = "0.13"
 tempfile = "3"

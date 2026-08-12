@@ -14,6 +14,7 @@ Raft-based replication for horizontal scalability of ahnlich-db and ahnlich-ai.
 - [Architecture](#architecture)
   - [Current Architecture (Standalone)](#current-architecture-standalone)
   - [Clustered Architecture](#clustered-architecture)
+  - [Cluster Identity and Node Admission](#cluster-identity-and-node-admission)
   - [Independent DB and AI Clusters](#independent-db-and-ai-clusters)
   - [Service Surfaces](#service-surfaces)
 - [Replication Boundary](#replication-boundary)
@@ -157,6 +158,14 @@ In cluster mode, each server process exposes **two** gRPC service surfaces on se
 2. **Cluster service** (`--cluster-addr`): Node-to-node Raft RPCs (AppendEntries, Vote, InstallSnapshot) and cluster administration (membership changes, metrics). This separates internal cluster traffic from client traffic.
 
 Write requests received by any node are forwarded to the leader if necessary. The leader submits them through Raft consensus. Once committed, the log entry is applied to all nodes' state machines.
+
+### Cluster Identity and Node Admission
+
+Each cluster has a generated, immutable 128-bit identifier, persisted in Raft storage at bootstrap. A joining node verifies the cluster's replication-protocol and state-machine-format versions before persisting that identity locally.
+
+Each node has a generated, durable non-zero `u64` node ID. It is independent of listener addresses, so changing an address does not silently create a different node identity.
+
+Joining is leader-controlled: the leader validates a candidate's node ID, advertised endpoints, and compatibility versions; admits it as a learner; then explicitly promotes the caught-up learner to a voter.
 
 ### Independent DB and AI Clusters
 
@@ -594,7 +603,9 @@ To form a new cluster:
 1. Start the first node with `--cluster-bootstrap`. This creates a single-node cluster and elects itself leader.
 2. Start additional nodes with `--cluster-join <addr>`, pointing at any existing cluster node's `--cluster-addr`.
 
-Node IDs are automatically derived by hashing the `--cluster-addr` value, so they are guaranteed unique as long as cluster addresses are unique (which they must be). The user never needs to specify or track node IDs.
+Node IDs are generated once and persisted in local Raft storage. They are independent of `--cluster-addr`, and operators never need to specify or track them.
+
+When `--cluster-addr` and the public service bind to directly reachable addresses, no advertised-address options are needed. Those bound addresses are advertised automatically.
 
 ```bash
 # Bootstrap the first node (creates a new cluster)
@@ -606,16 +617,27 @@ ahnlich-db run --port 1370 --cluster-addr 127.0.0.1:9002 --cluster-join 127.0.0.
 ahnlich-db run --port 1371 --cluster-addr 127.0.0.1:9003 --cluster-join 127.0.0.1:9001
 ```
 
+When a listener binds to an unspecified or container-local address, supply the
+address that other members can actually dial:
+
+```bash
+ahnlich-db run --host 0.0.0.0 --port 1369 \
+  --cluster-addr 0.0.0.0:9001 \
+  --cluster-advertise-addr 10.0.1.25:9001 \
+  --cluster-leader-forwarding-advertise-addr 10.0.1.25:1369 \
+  --cluster-bootstrap
+```
+
 ### Joining an Existing Cluster
 
 When a node starts with `--cluster-join`:
 
-1. The node derives its own node ID from its `--cluster-addr`.
-2. It contacts the specified cluster address.
-3. The cluster leader adds the new node as a **learner** (non-voting).
-4. The leader sends a snapshot of the current state to the new node.
-5. The new node applies the snapshot and begins receiving log entries.
-6. Once caught up, the node is automatically promoted to a voter.
+1. It contacts the configured seed, finds the leader, and obtains cluster identity.
+2. It verifies protocol and state-machine compatibility before persisting that
+   identity locally.
+3. The leader validates and admits it as a **learner** (non-voting).
+4. OpenRaft catches the learner up through logs or a snapshot.
+5. The leader explicitly promotes the caught-up learner to a voter.
 
 ```bash
 # Add a 4th node to an existing cluster
@@ -656,15 +678,18 @@ This prevents unnecessary leader elections and minimizes disruption. Because it 
 
 Flags added to both `ahnlich-db run` and `ahnlich-ai run`:
 
-| Flag                          | Type   | Default   | Description                                                                                                          |
-|-------------------------------|--------|-----------|----------------------------------------------------------------------------------------------------------------------|
-| `--cluster-addr`              | string | (none)    | Address (`host:port`) for cluster traffic (Raft RPCs and admin). Node ID is derived by hashing this address.         |
-| `--cluster-bootstrap`         | bool   | `false`   | Bootstrap a new single-node cluster. This node becomes the initial leader. Mutually exclusive with `--cluster-join`. |
-| `--cluster-join`              | string | (none)    | Cluster address of an existing node to join as a learner. Mutually exclusive with `--cluster-bootstrap`.             |
-| `--cluster-storage`           | enum   | `rocksdb` | Storage engine: `rocksdb` (recommended) or `memory` (testing only, no durability).                                   |
-| `--cluster-data-dir`          | path   | (none)    | Filesystem path for RocksDB files. Required when `--cluster-storage rocksdb`.                                        |
-| `--cluster-snapshot-logs`     | u64    | `1000`    | Snapshot after this many log entries. Larger = fewer snapshots; smaller = bounded log size.                          |
-| `--cluster-snapshot-interval` | u64    | `300000`  | Milliseconds between snapshot checks. If mutations occurred since last snapshot, triggers one.                       |
+| Flag                                              | Type   | Default                | Description                                                                                                                      |
+|---------------------------------------------------|--------|------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| `--cluster-addr`                                  | string | (none)                 | Bind address (`host:port`) for Raft RPCs and cluster admin.                                                                      |
+| `--cluster-advertise-addr`                        | string | bound cluster address  | Raft/admin address advertised to peers. Needed only when `--cluster-addr` is not reachable by peers.                             |
+| `--cluster-leader-forwarding-advertise-addr`      | string | bound public address   | Public DB address followers use to forward requests to the leader. Needed only when the public bind address is unreachable.      |
+| `--cluster-bootstrap`                             | bool   | `false`                | Bootstrap a new single-node cluster. This node becomes the initial leader. Mutually exclusive with `--cluster-join`.             |
+| `--cluster-join`                                  | string | (none)                 | Cluster address of an existing node to join as a learner. Mutually exclusive with `--cluster-bootstrap`.                         |
+| `--cluster-storage`                               | enum   | `rocksdb`              | Storage engine: `rocksdb` (recommended) or `memory` (testing only, no durability).                                               |
+| `--cluster-data-dir`                              | path   | (none)                 | Filesystem path for RocksDB files. Required when `--cluster-storage rocksdb`.                                                    |
+| `--cluster-snapshot-logs`                         | u64    | `1000`                 | Snapshot after this many log entries. Larger = fewer snapshots; smaller = bounded log size.                                      |
+| `--cluster-snapshot-interval`                     | u64    | `300000`               | Milliseconds between snapshot checks. If mutations occurred since last snapshot, triggers one.                                   |
+| `--cluster-name`                                  | string | (none)                 | Optional human-readable name stored with a newly bootstrapped cluster identity.                                                  |
 
 ### CLI Cluster Commands
 

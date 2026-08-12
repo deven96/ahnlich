@@ -62,3 +62,7 @@ tikv-jemalloc-ctl = { version = "0.7", features = ["stats"] }
 
 [profile.release]
 lto = true
+
+[profile.release.package.ahnlich-wasm-db]
+opt-level = "z"
+strip = true

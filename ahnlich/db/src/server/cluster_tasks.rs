@@ -20,6 +20,7 @@ use utils::size_calculation::SizeCalculationHandler;
 struct ClusterServiceTask {
     listener: ListenerStreamOrAddress,
     raft: Arc<DbRaft>,
+    identity_store: ahnlich_replication::storage::RocksLogStore<crate::replication::DbTypeConfig>,
 }
 
 impl std::fmt::Debug for ClusterServiceTask {
@@ -53,7 +54,10 @@ impl BlockingTask for ClusterServiceTask {
         );
 
         let raft_service = RaftInternalServiceServer::new(GrpcRaftService::new(self.raft.clone()));
-        let admin_service = ClusterAdminServiceServer::new(ClusterAdmin::new(self.raft.clone()));
+        let admin_service = ClusterAdminServiceServer::new(ClusterAdmin::new(
+            self.raft.clone(),
+            Arc::new(self.identity_store),
+        ));
 
         let _ = tonic::transport::Server::builder()
             .trace_fn(trace_with_parent)
@@ -205,6 +209,7 @@ pub(crate) async fn spawn_cluster_tasks(
         .spawn_blocking(ClusterServiceTask {
             listener: cluster.take_cluster_listener()?,
             raft: cluster.raft.clone(),
+            identity_store: cluster.identity_store.clone(),
         })
         .await;
 

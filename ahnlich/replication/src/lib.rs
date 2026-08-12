@@ -17,6 +17,7 @@
 pub mod admin;
 pub mod cluster_info;
 pub mod config;
+pub mod identity;
 pub mod network;
 pub mod node;
 pub mod storage;

@@ -45,6 +45,6 @@ impl StoreRuntime {
     }
 
     pub(crate) fn cluster_local_addr(&self) -> Option<SocketAddr> {
-        self.cluster().map(|cluster| cluster.raft_addr)
+        self.cluster().map(|cluster| cluster.raft_bind_addr)
     }
 }

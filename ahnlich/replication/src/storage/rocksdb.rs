@@ -17,6 +17,8 @@ use openraft::{
 use rocksdb::{ColumnFamilyDescriptor, DB, IteratorMode, Options};
 use serde_json::{from_slice, to_vec};
 
+use crate::identity::{ClusterIdentity, ClusterIdentityProvider};
+
 use super::{LogIdOf, PersistedSnapshot, StateMachineSnapshotStore};
 
 const CF_LOGS: &str = "logs";
@@ -26,6 +28,8 @@ const META_COMMITTED: &str = "committed";
 const META_LAST_PURGED_LOG_ID: &str = "last_purged_log_id";
 const META_STATE_MACHINE_SNAPSHOT: &str = "state_machine_snapshot";
 
+const META_CLUSTER_IDENTITY: &str = "cluster_identity";
+const META_NODE_ID: &str = "node_id";
 fn index_in_range<RB: RangeBounds<u64>>(range: &RB, idx: u64) -> bool {
     let start_ok = match range.start_bound() {
         Bound::Included(v) => idx >= *v,
@@ -172,6 +176,47 @@ impl<C: RaftTypeConfig> RocksLogStore<C> {
     fn get_last_purged_log_id(&self) -> Result<Option<LogIdOf<C>>, StorageError<C::NodeId>> {
         self.get_meta(META_LAST_PURGED_LOG_ID)
             .map(|opt| opt.unwrap_or(None))
+    }
+    pub fn cluster_identity(&self) -> Result<Option<ClusterIdentity>, StorageError<C::NodeId>> {
+        self.get_meta(META_CLUSTER_IDENTITY)
+    }
+
+    pub fn node_id(&self) -> Result<Option<u64>, StorageError<C::NodeId>> {
+        self.get_meta(META_NODE_ID)
+    }
+
+    pub fn persist_node_id(&self, node_id: u64) -> Result<(), StorageError<C::NodeId>> {
+        match self.node_id()? {
+            Some(existing) if existing != node_id => Err(StorageError::IO {
+                source: StorageIOError::write_logs(&std::io::Error::other(format!(
+                    "node id mismatch: local={existing}, requested={node_id}",
+                ))),
+            }),
+            Some(_) => Ok(()),
+            None => self.put_meta(META_NODE_ID, &node_id),
+        }
+    }
+
+    pub fn persist_cluster_identity(
+        &self,
+        identity: &ClusterIdentity,
+    ) -> Result<(), StorageError<C::NodeId>> {
+        match self.cluster_identity()? {
+            Some(existing) if existing != *identity => Err(StorageError::IO {
+                source: StorageIOError::write_logs(&std::io::Error::other(format!(
+                    "cluster identity mismatch: local={} remote={}",
+                    existing.id, identity.id,
+                ))),
+            }),
+            Some(_) => Ok(()),
+            None => self.put_meta(META_CLUSTER_IDENTITY, identity),
+        }
+    }
+}
+
+impl<C: RaftTypeConfig> ClusterIdentityProvider for RocksLogStore<C> {
+    fn cluster_identity(&self) -> Result<Option<ClusterIdentity>, String> {
+        self.cluster_identity().map_err(|err| err.to_string())
     }
 }
 
@@ -484,5 +529,39 @@ mod tests {
             .expect("log state should succeed");
         assert_eq!(state.last_purged_log_id, Some(log_id(1, 1, 2)));
         assert_eq!(state.last_log_id, Some(log_id(1, 1, 3)));
+    }
+    #[test]
+    fn rocks_log_store_persists_cluster_identity_across_reopen() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let identity = ClusterIdentity::new("db-cluster-1".to_owned(), Some("test-db".to_owned()));
+
+        let store = RocksLogStore::<TestConfig>::open(dir.path()).expect("open rocks log store");
+        store
+            .persist_cluster_identity(&identity)
+            .expect("persist cluster identity");
+        drop(store);
+
+        let reopened =
+            RocksLogStore::<TestConfig>::open(dir.path()).expect("reopen rocks log store");
+        assert_eq!(
+            reopened.cluster_identity().expect("read cluster identity"),
+            Some(identity.clone())
+        );
+
+        let different = ClusterIdentity::new("db-cluster-2".to_owned(), None);
+        assert!(reopened.persist_cluster_identity(&different).is_err());
+    }
+
+    #[test]
+    fn rocks_log_store_persists_node_id_across_reopen() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let store = RocksLogStore::<TestConfig>::open(dir.path()).expect("open rocks log store");
+        store.persist_node_id(42).expect("persist node id");
+        drop(store);
+
+        let reopened =
+            RocksLogStore::<TestConfig>::open(dir.path()).expect("reopen rocks log store");
+        assert_eq!(reopened.node_id().expect("read node id"), Some(42));
+        assert!(reopened.persist_node_id(7).is_err());
     }
 }

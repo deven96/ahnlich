@@ -966,7 +966,7 @@ impl AhnlichServerUtils for Server {
         if let Some(cluster) = self.runtime.cluster() {
             spawn_cluster_tasks(&self.config, task_manager, cluster).await?;
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-            initialize_cluster_runtime(&self.config, self.listener.local_addr()?, cluster).await?;
+            initialize_cluster_runtime(&self.config, cluster).await?;
         } else {
             use utils::size_calculation::SizeCalculation;
 

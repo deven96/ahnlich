@@ -20,20 +20,29 @@ pub struct InitClusterRequest {
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct InitClusterResponse {}
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AddLearnerRequest {
-    /// Adds a non-voting node to Raft replication.
+pub struct CandidateNode {
     #[prost(message, optional, tag = "1")]
     pub node: ::core::option::Option<NodeInfo>,
+    #[prost(uint32, tag = "2")]
+    pub replication_protocol_version: u32,
+    #[prost(uint32, tag = "3")]
+    pub state_machine_format_version: u32,
 }
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct AddLearnerResponse {}
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ChangeMembershipRequest {
-    #[prost(uint64, repeated, tag = "1")]
-    pub node_ids: ::prost::alloc::vec::Vec<u64>,
+pub struct AdmitLearnerRequest {
+    /// Adds a compatible non-voting node to Raft replication.
+    #[prost(message, optional, tag = "1")]
+    pub candidate: ::core::option::Option<CandidateNode>,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ChangeMembershipResponse {}
+pub struct AdmitLearnerResponse {}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct PromoteLearnerRequest {
+    #[prost(uint64, tag = "1")]
+    pub node_id: u64,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct PromoteLearnerResponse {}
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct RemoveNodeRequest {
     /// Removes a node from the current voter set and then from registry tracking.
@@ -71,6 +80,19 @@ pub struct GetLeaderResponse {
     pub leader_id: u64,
     #[prost(string, tag = "2")]
     pub leader_addr: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetClusterIdentityRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetClusterIdentityResponse {
+    #[prost(string, tag = "1")]
+    pub cluster_id: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "2")]
+    pub cluster_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint32, tag = "3")]
+    pub replication_protocol_version: u32,
+    #[prost(uint32, tag = "4")]
+    pub state_machine_format_version: u32,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct TriggerSnapshotRequest {}
@@ -187,43 +209,42 @@ pub mod cluster_admin_service_client {
         }
         /// Leader-directed. Callers should resolve the current leader first via
         /// GetLeader, then send the mutation to that leader's cluster-admin address.
-        pub async fn add_learner(
+        pub async fn admit_learner(
             &mut self,
-            request: impl tonic::IntoRequest<super::AddLearnerRequest>,
-        ) -> std::result::Result<tonic::Response<super::AddLearnerResponse>, tonic::Status>
+            request: impl tonic::IntoRequest<super::AdmitLearnerRequest>,
+        ) -> std::result::Result<tonic::Response<super::AdmitLearnerResponse>, tonic::Status>
         {
             self.inner.ready().await.map_err(|e| {
                 tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
             })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/services.cluster_admin.ClusterAdminService/AddLearner",
+                "/services.cluster_admin.ClusterAdminService/AdmitLearner",
             );
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new(
                 "services.cluster_admin.ClusterAdminService",
-                "AddLearner",
+                "AdmitLearner",
             ));
             self.inner.unary(req, path, codec).await
         }
-        /// Leader-directed. Every node_id must already be known to the cluster,
-        /// typically via InitCluster or AddLearner.
-        pub async fn change_membership(
+        /// Leader-directed. The node must have been admitted and caught up first.
+        pub async fn promote_learner(
             &mut self,
-            request: impl tonic::IntoRequest<super::ChangeMembershipRequest>,
-        ) -> std::result::Result<tonic::Response<super::ChangeMembershipResponse>, tonic::Status>
+            request: impl tonic::IntoRequest<super::PromoteLearnerRequest>,
+        ) -> std::result::Result<tonic::Response<super::PromoteLearnerResponse>, tonic::Status>
         {
             self.inner.ready().await.map_err(|e| {
                 tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
             })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/services.cluster_admin.ClusterAdminService/ChangeMembership",
+                "/services.cluster_admin.ClusterAdminService/PromoteLearner",
             );
             let mut req = request.into_request();
             req.extensions_mut().insert(GrpcMethod::new(
                 "services.cluster_admin.ClusterAdminService",
-                "ChangeMembership",
+                "PromoteLearner",
             ));
             self.inner.unary(req, path, codec).await
         }
@@ -285,6 +306,25 @@ pub mod cluster_admin_service_client {
             ));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn get_cluster_identity(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetClusterIdentityRequest>,
+        ) -> std::result::Result<tonic::Response<super::GetClusterIdentityResponse>, tonic::Status>
+        {
+            self.inner.ready().await.map_err(|e| {
+                tonic::Status::unknown(format!("Service was not ready: {}", e.into()))
+            })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/services.cluster_admin.ClusterAdminService/GetClusterIdentity",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new(
+                "services.cluster_admin.ClusterAdminService",
+                "GetClusterIdentity",
+            ));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn trigger_snapshot(
             &mut self,
             request: impl tonic::IntoRequest<super::TriggerSnapshotRequest>,
@@ -325,16 +365,15 @@ pub mod cluster_admin_service_server {
         ) -> std::result::Result<tonic::Response<super::InitClusterResponse>, tonic::Status>;
         /// Leader-directed. Callers should resolve the current leader first via
         /// GetLeader, then send the mutation to that leader's cluster-admin address.
-        async fn add_learner(
+        async fn admit_learner(
             &self,
-            request: tonic::Request<super::AddLearnerRequest>,
-        ) -> std::result::Result<tonic::Response<super::AddLearnerResponse>, tonic::Status>;
-        /// Leader-directed. Every node_id must already be known to the cluster,
-        /// typically via InitCluster or AddLearner.
-        async fn change_membership(
+            request: tonic::Request<super::AdmitLearnerRequest>,
+        ) -> std::result::Result<tonic::Response<super::AdmitLearnerResponse>, tonic::Status>;
+        /// Leader-directed. The node must have been admitted and caught up first.
+        async fn promote_learner(
             &self,
-            request: tonic::Request<super::ChangeMembershipRequest>,
-        ) -> std::result::Result<tonic::Response<super::ChangeMembershipResponse>, tonic::Status>;
+            request: tonic::Request<super::PromoteLearnerRequest>,
+        ) -> std::result::Result<tonic::Response<super::PromoteLearnerResponse>, tonic::Status>;
         /// Leader-directed. Removes the node from the active voter set and registry
         /// tracking after Raft accepts the membership change.
         async fn remove_node(
@@ -349,6 +388,10 @@ pub mod cluster_admin_service_server {
             &self,
             request: tonic::Request<super::GetLeaderRequest>,
         ) -> std::result::Result<tonic::Response<super::GetLeaderResponse>, tonic::Status>;
+        async fn get_cluster_identity(
+            &self,
+            request: tonic::Request<super::GetClusterIdentityRequest>,
+        ) -> std::result::Result<tonic::Response<super::GetClusterIdentityResponse>, tonic::Status>;
         async fn trigger_snapshot(
             &self,
             request: tonic::Request<super::TriggerSnapshotRequest>,
@@ -469,21 +512,22 @@ pub mod cluster_admin_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/services.cluster_admin.ClusterAdminService/AddLearner" => {
+                "/services.cluster_admin.ClusterAdminService/AdmitLearner" => {
                     #[allow(non_camel_case_types)]
-                    struct AddLearnerSvc<T: ClusterAdminService>(pub Arc<T>);
+                    struct AdmitLearnerSvc<T: ClusterAdminService>(pub Arc<T>);
                     impl<T: ClusterAdminService>
-                        tonic::server::UnaryService<super::AddLearnerRequest> for AddLearnerSvc<T>
+                        tonic::server::UnaryService<super::AdmitLearnerRequest>
+                        for AdmitLearnerSvc<T>
                     {
-                        type Response = super::AddLearnerResponse;
+                        type Response = super::AdmitLearnerResponse;
                         type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::AddLearnerRequest>,
+                            request: tonic::Request<super::AdmitLearnerRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as ClusterAdminService>::add_learner(&inner, request).await
+                                <T as ClusterAdminService>::admit_learner(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -494,7 +538,7 @@ pub mod cluster_admin_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = AddLearnerSvc(inner);
+                        let method = AdmitLearnerSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -510,22 +554,22 @@ pub mod cluster_admin_service_server {
                     };
                     Box::pin(fut)
                 }
-                "/services.cluster_admin.ClusterAdminService/ChangeMembership" => {
+                "/services.cluster_admin.ClusterAdminService/PromoteLearner" => {
                     #[allow(non_camel_case_types)]
-                    struct ChangeMembershipSvc<T: ClusterAdminService>(pub Arc<T>);
+                    struct PromoteLearnerSvc<T: ClusterAdminService>(pub Arc<T>);
                     impl<T: ClusterAdminService>
-                        tonic::server::UnaryService<super::ChangeMembershipRequest>
-                        for ChangeMembershipSvc<T>
+                        tonic::server::UnaryService<super::PromoteLearnerRequest>
+                        for PromoteLearnerSvc<T>
                     {
-                        type Response = super::ChangeMembershipResponse;
+                        type Response = super::PromoteLearnerResponse;
                         type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::ChangeMembershipRequest>,
+                            request: tonic::Request<super::PromoteLearnerRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as ClusterAdminService>::change_membership(&inner, request).await
+                                <T as ClusterAdminService>::promote_learner(&inner, request).await
                             };
                             Box::pin(fut)
                         }
@@ -536,7 +580,7 @@ pub mod cluster_admin_service_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = ChangeMembershipSvc(inner);
+                        let method = PromoteLearnerSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -660,6 +704,49 @@ pub mod cluster_admin_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetLeaderSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/services.cluster_admin.ClusterAdminService/GetClusterIdentity" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetClusterIdentitySvc<T: ClusterAdminService>(pub Arc<T>);
+                    impl<T: ClusterAdminService>
+                        tonic::server::UnaryService<super::GetClusterIdentityRequest>
+                        for GetClusterIdentitySvc<T>
+                    {
+                        type Response = super::GetClusterIdentityResponse;
+                        type Future = BoxFuture<tonic::Response<Self::Response>, tonic::Status>;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetClusterIdentityRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ClusterAdminService>::get_cluster_identity(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetClusterIdentitySvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

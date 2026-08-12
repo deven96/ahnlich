@@ -1,5 +1,10 @@
 use crate::cli::ServerConfig;
 use crate::server::handler::Server;
+use ahnlich_replication::proto::cluster_admin::cluster_admin_service_client::ClusterAdminServiceClient;
+use ahnlich_replication::proto::cluster_admin::{
+    AdmitLearnerRequest, CandidateNode, GetClusterIdentityRequest, GetClusterIdentityResponse,
+    NodeInfo,
+};
 use ahnlich_types::db::{
     pipeline::{DbQuery, DbRequestPipeline, db_query::Query, db_server_response::Response},
     query as db_query_types,
@@ -36,6 +41,13 @@ fn cluster_data_dir(tempdir: &TempDir) -> PathBuf {
     path
 }
 
+fn unused_local_addr() -> std::net::SocketAddr {
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .expect("bind temporary local address")
+        .local_addr()
+        .expect("read temporary local address")
+}
+
 fn store_value(label: &str) -> StoreValue {
     let mut value = HashMap::new();
     value.insert(
@@ -60,6 +72,30 @@ async fn connect_client(addr: std::net::SocketAddr) -> DbServiceClient<Channel> 
     DbServiceClient::connect(format!("http://{addr}"))
         .await
         .expect("connect db client")
+}
+
+async fn get_cluster_identity(addr: std::net::SocketAddr) -> GetClusterIdentityResponse {
+    ClusterAdminServiceClient::connect(format!("http://{addr}"))
+        .await
+        .expect("connect cluster admin client")
+        .get_cluster_identity(tonic::Request::new(GetClusterIdentityRequest {}))
+        .await
+        .expect("get cluster identity")
+        .into_inner()
+}
+
+async fn admit_candidate(
+    addr: std::net::SocketAddr,
+    candidate: CandidateNode,
+) -> Result<(), tonic::Status> {
+    ClusterAdminServiceClient::connect(format!("http://{addr}"))
+        .await
+        .expect("connect cluster admin client")
+        .admit_learner(tonic::Request::new(AdmitLearnerRequest {
+            candidate: Some(candidate),
+        }))
+        .await
+        .map(|_| ())
 }
 
 async fn wait_for_ping(addr: std::net::SocketAddr) {
@@ -145,10 +181,23 @@ async fn test_single_node_clustered_pipeline_and_cluster_info() {
     let config = ServerConfig::default()
         .os_select_port()
         .cluster_bootstrap(std::net::SocketAddr::from(([127, 0, 0, 1], 0)))
-        .cluster_data_dir(cluster_data_dir(&data_dir));
+        .cluster_data_dir(cluster_data_dir(&data_dir))
+        .cluster_name("clustered-test-db");
 
-    let (server, _) = spawn_clustered_server(config, data_dir).await;
+    let (server, cluster_addr) = spawn_clustered_server(config, data_dir).await;
     let mut client = connect_client(server.addr).await;
+
+    let identity = get_cluster_identity(cluster_addr).await;
+    assert_eq!(identity.cluster_id.len(), 32);
+    assert!(
+        identity
+            .cluster_id
+            .chars()
+            .all(|character| character.is_ascii_hexdigit())
+    );
+    assert_eq!(identity.cluster_name.as_deref(), Some("clustered-test-db"));
+    assert_eq!(identity.replication_protocol_version, 1);
+    assert_eq!(identity.state_machine_format_version, 1);
 
     let pipeline = DbRequestPipeline {
         queries: vec![
@@ -225,6 +274,134 @@ async fn test_single_node_clustered_pipeline_and_cluster_info() {
 }
 
 #[tokio::test]
+async fn test_cluster_identity_survives_db_server_restart() {
+    let data_dir = tempfile::tempdir().expect("tempdir");
+    let cluster_addr = unused_local_addr();
+    let raft_data_dir = cluster_data_dir(&data_dir);
+
+    let bootstrap_config = ServerConfig::default()
+        .os_select_port()
+        .cluster_bootstrap(cluster_addr)
+        .cluster_data_dir(raft_data_dir.clone());
+    let bootstrap_server = Server::new(&bootstrap_config)
+        .await
+        .expect("create bootstrap server");
+    let bootstrap_addr = bootstrap_server.local_addr().expect("bootstrap local addr");
+    let bootstrap_cluster_addr = bootstrap_server
+        .cluster_local_addr()
+        .expect("bootstrap cluster local addr");
+    let bootstrap_shutdown = bootstrap_server.cancellation_token();
+    let bootstrap_task = tokio::spawn(async move {
+        let _ = bootstrap_server.start().await;
+    });
+
+    wait_for_ping(bootstrap_addr).await;
+    let identity = get_cluster_identity(bootstrap_cluster_addr).await;
+    bootstrap_shutdown.cancel();
+    let _ = bootstrap_task.await;
+
+    let restart_config = ServerConfig::default()
+        .os_select_port()
+        .cluster_addr(cluster_addr)
+        .cluster_data_dir(raft_data_dir);
+    let restart_server = Server::new(&restart_config)
+        .await
+        .expect("create restarted server");
+    let restart_addr = restart_server.local_addr().expect("restarted local addr");
+    let restart_cluster_addr = restart_server
+        .cluster_local_addr()
+        .expect("restarted cluster local addr");
+    let restart_shutdown = restart_server.cancellation_token();
+    let restart_task = tokio::spawn(async move {
+        let _ = restart_server.start().await;
+    });
+
+    wait_for_ping(restart_addr).await;
+    assert_eq!(get_cluster_identity(restart_cluster_addr).await, identity);
+    restart_shutdown.cancel();
+    let _ = restart_task.await;
+}
+
+#[tokio::test]
+async fn test_cluster_admission_rejects_incompatible_candidate() {
+    let data_dir = tempfile::tempdir().expect("tempdir");
+    let (server, cluster_addr) = spawn_clustered_server(
+        ServerConfig::default()
+            .os_select_port()
+            .cluster_bootstrap(std::net::SocketAddr::from(([127, 0, 0, 1], 0)))
+            .cluster_data_dir(cluster_data_dir(&data_dir)),
+        data_dir,
+    )
+    .await;
+
+    let identity = get_cluster_identity(cluster_addr).await;
+    let error = admit_candidate(
+        cluster_addr,
+        CandidateNode {
+            node: Some(NodeInfo {
+                id: 999,
+                raft_addr: unused_local_addr().to_string(),
+                service_addr: unused_local_addr().to_string(),
+            }),
+            replication_protocol_version: identity.replication_protocol_version + 1,
+            state_machine_format_version: identity.state_machine_format_version,
+        },
+    )
+    .await
+    .expect_err("incompatible candidate must be rejected");
+
+    assert_eq!(error.code(), tonic::Code::FailedPrecondition);
+    assert!(
+        error
+            .message()
+            .contains("replication protocol version mismatch")
+    );
+
+    let error = admit_candidate(
+        cluster_addr,
+        CandidateNode {
+            node: Some(NodeInfo {
+                id: 1_000,
+                raft_addr: unused_local_addr().to_string(),
+                service_addr: unused_local_addr().to_string(),
+            }),
+            replication_protocol_version: identity.replication_protocol_version,
+            state_machine_format_version: identity.state_machine_format_version + 1,
+        },
+    )
+    .await
+    .expect_err("incompatible candidate must be rejected");
+
+    assert_eq!(error.code(), tonic::Code::FailedPrecondition);
+    assert!(
+        error
+            .message()
+            .contains("state machine format version mismatch")
+    );
+    drop(server);
+}
+
+#[tokio::test]
+async fn test_cluster_wildcard_bind_requires_advertised_address() {
+    let data_dir = tempfile::tempdir().expect("tempdir");
+    let config = ServerConfig::default()
+        .os_select_port()
+        .cluster_bootstrap(std::net::SocketAddr::from(([0, 0, 0, 0], 0)))
+        .cluster_data_dir(cluster_data_dir(&data_dir));
+
+    let error = match Server::new(&config).await {
+        Ok(_) => panic!("wildcard cluster bind without advertised address must fail"),
+        Err(error) => error,
+    };
+
+    assert!(
+        error
+            .to_string()
+            .contains("--cluster-advertise-addr is required")
+    );
+}
+
+#[tokio::test]
 async fn test_three_node_cluster_replication_and_follower_forwarding() {
     let leader_dir = tempfile::tempdir().expect("leader tempdir");
     let follower_one_dir = tempfile::tempdir().expect("follower one tempdir");
@@ -239,7 +416,7 @@ async fn test_three_node_cluster_replication_and_follower_forwarding() {
     )
     .await;
 
-    let (follower_one, _) = spawn_clustered_server(
+    let (follower_one, follower_one_cluster_addr) = spawn_clustered_server(
         ServerConfig::default()
             .os_select_port()
             .cluster_join(
@@ -251,7 +428,7 @@ async fn test_three_node_cluster_replication_and_follower_forwarding() {
     )
     .await;
 
-    let (follower_two, _) = spawn_clustered_server(
+    let (follower_two, follower_two_cluster_addr) = spawn_clustered_server(
         ServerConfig::default()
             .os_select_port()
             .cluster_join(
@@ -268,6 +445,16 @@ async fn test_three_node_cluster_replication_and_follower_forwarding() {
     let mut follower_two_client = connect_client(follower_two.addr).await;
 
     wait_for_cluster_size(&mut leader_client, 3).await;
+
+    let leader_identity = get_cluster_identity(leader_cluster_addr).await;
+    assert_eq!(
+        get_cluster_identity(follower_one_cluster_addr).await,
+        leader_identity
+    );
+    assert_eq!(
+        get_cluster_identity(follower_two_cluster_addr).await,
+        leader_identity
+    );
 
     leader_client
         .create_store(tonic::Request::new(db_query_types::CreateStore {
