@@ -82,6 +82,14 @@ pub(crate) trait FindSimilarN {
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)>;
+
+    fn find_similar_n_sequential<'a>(
+        &'a self,
+        search_vector: &EmbeddingKey,
+        search_list: impl Iterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
+        _used_all: bool,
+        n: NonZeroUsize,
+    ) -> Vec<(StoreKeyId, f32)>;
 }
 
 impl FindSimilarN for LinearAlgorithm {
@@ -120,6 +128,32 @@ impl FindSimilarN for LinearAlgorithm {
 
         bounded_heap
             .into_sorted_vec()
+            .into_iter()
+            .map(|candidate| (candidate.key_id, candidate.score))
+            .collect()
+    }
+
+    // Sequential version: single heap, no parallel fold/reduce overhead
+    #[tracing::instrument(skip_all)]
+    fn find_similar_n_sequential<'a>(
+        &'a self,
+        search_vector: &EmbeddingKey,
+        search_list: impl Iterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
+        _used_all: bool,
+        n: NonZeroUsize,
+    ) -> Vec<(StoreKeyId, f32)> {
+        let mut heap = BoundedMaxHeap::new(n);
+
+        for (key_id, second_vector) in search_list {
+            let score = self.score(search_vector.as_slice(), second_vector.as_slice());
+            heap.push(SimilarityVector {
+                key_id: *key_id,
+                closeness: score.closeness(),
+                score: score.value(),
+            });
+        }
+
+        heap.into_sorted_vec()
             .into_iter()
             .map(|candidate| (candidate.key_id, candidate.score))
             .collect()

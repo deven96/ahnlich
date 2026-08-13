@@ -339,9 +339,9 @@ impl StoreHandler {
                     return Ok(vec![]);
                 }
 
-                let filtered_iter = filtered_with_ids.par_iter().map(|(id, (key, _))| (id, key));
+                let filtered_iter = filtered_with_ids.iter().map(|(id, (key, _))| (id, key));
                 let result =
-                    linear_algo.find_similar_n(&search_embedding, filtered_iter, false, closest_n);
+                    linear_algo.find_similar_n_sequential(&search_embedding, filtered_iter, false, closest_n);
 
                 // Build lookup map for linear + predicate case
                 let mut keys_to_entry_map: StdHashMap<StoreKeyId, StoreEntry> =
@@ -377,8 +377,8 @@ impl StoreHandler {
             // Linear WITHOUT predicates: Need full data
             (AlgorithmByType::Linear(linear_algo), None) => {
                 let filtered_with_ids = store.get_all_with_ids();
-                let filtered_iter = filtered_with_ids.par_iter().map(|(id, (key, _))| (id, key));
-                linear_algo.find_similar_n(&search_embedding, filtered_iter, true, closest_n)
+                let filtered_iter = filtered_with_ids.iter().map(|(id, (key, _))| (id, key));
+                linear_algo.find_similar_n_sequential(&search_embedding, filtered_iter, true, closest_n)
             }
         };
 
