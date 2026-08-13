@@ -1,5 +1,4 @@
 use super::super::errors::ServerError;
-use super::FindSimilarN;
 use crate::algorithm::DbHnswConfig;
 use crate::engine::store::embedding_key_to_id;
 use ahnlich_similarity::EmbeddingKey;
@@ -117,25 +116,6 @@ impl NonLinearAlgorithmWithIndex {
                 }
             }
         }
-    }
-}
-
-impl FindSimilarN for NonLinearAlgorithmWithIndex {
-    #[tracing::instrument(skip_all)]
-    fn find_similar_n<'a>(
-        &'a self,
-        search_vector: &EmbeddingKey,
-        search_list: impl rayon::iter::ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
-        used_all: bool,
-        n: NonZeroUsize,
-    ) -> Vec<(StoreKeyId, f32)> {
-        let accept_list = if used_all {
-            None
-        } else {
-            Some(search_list.map(|(id, _)| id.0).collect())
-        };
-
-        self.find_similar_n_with_ids(search_vector, accept_list, n)
     }
 }
 
