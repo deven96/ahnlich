@@ -9,8 +9,8 @@ use super::{LayerIndex, NearestFirst, Node, NodeId, NodeIdHashSet, OrderedNode, 
 use crate::EmbeddingKey;
 use crate::heap::BoundedMaxHeap;
 
+use arc_swap::ArcSwap;
 use papaya::HashSet;
-use parking_lot::RwLock;
 use smallvec::{SmallVec, smallvec};
 use std::{
     cmp::min,
@@ -102,8 +102,8 @@ pub struct HNSW<D: DistanceFn> {
     /// efficient hierarchical navigation through the graph.
     ///
     /// Updated whenever a new node is inserted at a higher layer than the current
-    /// top_most_layer. Protected by a RwLock for safe concurrent access.
-    enter_point: RwLock<SmallVec<[NodeId; 1]>>,
+    /// top_most_layer. Protected by ArcSwap for lock-free concurrent access.
+    enter_point: ArcSwap<SmallVec<[NodeId; 1]>>,
 
     /// distance algorithm
     /// can be ec
@@ -146,7 +146,7 @@ impl<D: DistanceFn> HNSW<D> {
             inv_log_m: 1.0 / (config.maximum_connections as f64).ln(),
             graph: new_hashmap(),
             nodes: new_hashmap(),
-            enter_point: RwLock::new(SmallVec::new()),
+            enter_point: ArcSwap::new(SmallVec::new().into()),
             distance_algorithm,
             keep_pruned_connections: config.keep_pruned_connections,
             extend_candidates: config.extend_candidates,
@@ -312,7 +312,7 @@ impl<D: DistanceFn> HNSW<D> {
         // internally uses SEARCH-LAYER, SELECT-neighbourS
         let inital_ef = 1;
 
-        let mut enter_point = self.enter_point.read().clone();
+        let mut enter_point = self.enter_point.load().as_ref().clone();
         let new_elements_lvl = value.level(self.maximum_connections);
 
         // NOTE: think of this as finding the best hallway in different floors in a building with
@@ -456,14 +456,13 @@ impl<D: DistanceFn> HNSW<D> {
         // NOTE: given that we use u8 for topmost layer, we want that on first insertion we always
         // set enterpoint else this would be a pain
         //
-        // Update enter_point and top_most_layer atomically under the enter_point write lock
+        // Update enter_point and top_most_layer atomically
         {
-            let mut ep = self.enter_point.write();
             let current_top = self.top_most_layer.load(Ordering::Acquire);
             if new_elements_lvl > current_top || nodes.len() == 1 {
                 self.top_most_layer
                     .store(new_elements_lvl, Ordering::Release);
-                *ep = smallvec![value_id];
+                self.enter_point.swap(smallvec![value_id].into());
             }
         }
         Ok(())
@@ -704,11 +703,11 @@ impl<D: DistanceFn> HNSW<D> {
         // Ensure ef >= k as per paper requirements
         let ef = ef.max(k);
 
-        // Read enter_point and top_most_layer together under the enter_point read lock
+        // Read enter_point and top_most_layer together
         // to ensure a consistent snapshot
         let (mut enter_point, ep_level) = {
-            let ep = self.enter_point.read();
-            (ep.clone(), self.top_most_layer.load(Ordering::Acquire))
+            let ep = self.enter_point.load();
+            (ep.as_ref().clone(), self.top_most_layer.load(Ordering::Acquire))
         };
 
         for level_current in (1..=ep_level).rev() {
@@ -823,7 +822,7 @@ impl Default for HNSW<LinearAlgorithm> {
             inv_log_m, // ln(1/M)
             graph: new_hashmap(),
             nodes: new_hashmap(),
-            enter_point: RwLock::new(SmallVec::new()),
+            enter_point: ArcSwap::new(SmallVec::new().into()),
             distance_algorithm,
 
             extend_candidates: config.extend_candidates,
@@ -915,7 +914,7 @@ impl<D: DistanceFn> From<&HNSW<D>> for TempHNSW<D> {
             nodes.insert(*node_id, TempNode::from(node));
         }
 
-        let enter_point: Vec<NodeId> = hnsw.enter_point.read().iter().copied().collect();
+        let enter_point: Vec<NodeId> = hnsw.enter_point.load().iter().copied().collect();
 
         TempHNSW {
             ef_construction: hnsw.ef_construction,
@@ -962,7 +961,7 @@ impl<D: DistanceFn> From<TempHNSW<D>> for HNSW<D> {
             inv_log_m: temp.inv_log_m,
             graph,
             nodes,
-            enter_point: RwLock::new(enter_point),
+            enter_point: ArcSwap::new(enter_point.into()),
             distance_algorithm: temp.distance_algorithm,
             keep_pruned_connections: temp.keep_pruned_connections,
             extend_candidates: temp.extend_candidates,
