@@ -707,7 +707,10 @@ impl<D: DistanceFn> HNSW<D> {
         // to ensure a consistent snapshot
         let (mut enter_point, ep_level) = {
             let ep = self.enter_point.load();
-            (ep.as_ref().clone(), self.top_most_layer.load(Ordering::Acquire))
+            (
+                ep.as_ref().clone(),
+                self.top_most_layer.load(Ordering::Acquire),
+            )
         };
 
         for level_current in (1..=ep_level).rev() {
