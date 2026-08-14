@@ -113,7 +113,6 @@ execution_provider = {
     ^"tensorrt" |
     ^"directml" |
     ^"migraphx" |
-    ^"rocm" |
     "cuda"
 }
 non_linear_algorithms = { non_linear_algorithm ~ (whitespace* ~ "," ~ whitespace* ~ non_linear_algorithm)* }
