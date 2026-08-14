@@ -12,7 +12,7 @@ use ahnlich_types::db::server::StoreInfo;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::{StoreKey, StoreValue};
 use ahnlich_types::predicates::{
-    self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
+    Predicate, PredicateCondition, predicate_condition::Kind as PredicateConditionKind,
 };
 use ahnlich_types::schema::Schema;
 use ahnlich_types::shared::info::StoreUpsert;
@@ -332,34 +332,29 @@ impl StoreHandler {
                 )
             }
 
-            // Linear WITH predicates: Need full data for distance computation
+            // Linear WITH predicates: Inline filtering during distance computation
             (AlgorithmByType::Linear(linear_algo), Some(cond)) => {
-                let filtered_with_ids = store.get_matches_with_ids(cond)?;
-                if filtered_with_ids.is_empty() {
-                    return Ok(vec![]);
-                }
+                let pinned = store.id_to_value.pin();
+                let filtered_iter = pinned
+                    .into_iter()
+                    .map(|(id, (key, value))| (id, key, value.as_ref()));
 
-                let filtered_iter = filtered_with_ids.iter().map(|(id, (key, _))| (id, key));
                 let result = linear_algo.find_similar_n_sequential(
                     &search_embedding,
                     filtered_iter,
+                    Some(cond),
                     false,
                     closest_n,
                 );
 
-                // Build lookup map for linear + predicate case
-                let mut keys_to_entry_map: StdHashMap<StoreKeyId, StoreEntry> =
-                    StdHashMap::with_capacity(filtered_with_ids.len());
-                for (key_id, entry) in filtered_with_ids {
-                    keys_to_entry_map.insert(key_id, entry);
-                }
-
+                // Lookup results in Papaya directly (no HashMap needed)
+                let pinned = store.id_to_value.pin();
                 return Ok(result
                     .into_iter()
                     .flat_map(|(store_key_id, similarity)| {
-                        keys_to_entry_map
-                            .remove(&store_key_id)
-                            .map(|(key, value)| (key, value, Similarity { value: similarity }))
+                        pinned.get(&store_key_id).map(|(k, v)| {
+                            (k.clone(), Arc::clone(v), Similarity { value: similarity })
+                        })
                     })
                     .collect());
             }
@@ -381,10 +376,13 @@ impl StoreHandler {
             // Linear WITHOUT predicates: Zero-copy iteration over Papaya HashMap
             (AlgorithmByType::Linear(linear_algo), None) => {
                 let pinned = store.id_to_value.pin();
-                let filtered_iter = pinned.into_iter().map(|(id, (key, _))| (id, key));
+                let filtered_iter = pinned
+                    .into_iter()
+                    .map(|(id, (key, value))| (id, key, value.as_ref()));
                 linear_algo.find_similar_n_sequential(
                     &search_embedding,
                     filtered_iter,
+                    None,
                     true,
                     closest_n,
                 )
@@ -888,116 +886,20 @@ impl Store {
         &self,
         predicate: &Predicate,
     ) -> Result<StdHashSet<StoreKeyId>, ServerError> {
+        use crate::engine::predicate::PredicateEvaluator;
+
         let store_val_pinned = self.id_to_value.pin();
-        // Collect into Vec for iteration
-        let entries: Vec<_> = store_val_pinned.into_iter().collect();
 
-        // Use parallel iteration only for large datasets (> 1000 entries)
-        // to avoid parallelization overhead on small datasets
-        const PARALLEL_THRESHOLD: usize = 1000;
-        let use_parallel = entries.len() > PARALLEL_THRESHOLD;
-
-        let res = match &predicate.kind {
-            Some(PredicateKind::Equals(predicates::Equals { key, value })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            let metadata_value = store_value.value.get(key);
-                            metadata_value.eq(&value.as_ref())
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
-                    entries
-                        .iter()
-                        .filter(|(_, (_, store_value))| {
-                            let metadata_value = store_value.value.get(key);
-                            metadata_value.eq(&value.as_ref())
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                }
-            }
-            Some(PredicateKind::NotEquals(predicates::NotEquals { key, value })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            let metdata_value = store_value.value.get(key);
-                            !metdata_value.eq(&value.as_ref())
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
-                    entries
-                        .iter()
-                        .filter(|(_, (_, store_value))| {
-                            let metdata_value = store_value.value.get(key);
-                            !metdata_value.eq(&value.as_ref())
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                }
-            }
-            Some(PredicateKind::In(predicates::In { key, values })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            store_value
-                                .value
-                                .get(key)
-                                .map(|v| values.contains(v))
-                                .unwrap_or(false)
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
-                    entries
-                        .iter()
-                        .filter(|(_, (_, store_value))| {
-                            store_value
-                                .value
-                                .get(key)
-                                .map(|v| values.contains(v))
-                                .unwrap_or(false)
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                }
-            }
-            Some(PredicateKind::NotIn(predicates::NotIn { key, values })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            store_value
-                                .value
-                                .get(key)
-                                .map(|v| !values.contains(v))
-                                .unwrap_or(true)
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
-                    entries
-                        .iter()
-                        .filter(|(_, (_, store_value))| {
-                            store_value
-                                .value
-                                .get(key)
-                                .map(|v| !values.contains(v))
-                                .unwrap_or(true)
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                }
-            }
-
-            None => unreachable!(),
+        // Wrap Predicate in PredicateCondition to use the trait
+        let condition = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(predicate.clone())),
         };
-        Ok(res)
+
+        Ok(store_val_pinned
+            .into_iter()
+            .filter(|(_, (_, store_value))| store_value.as_ref().matches(&condition))
+            .map(|(k, _)| *k)
+            .collect())
     }
 
     #[tracing::instrument(skip_all)]
@@ -1016,24 +918,6 @@ impl Store {
                 (embedding_key.clone(), Arc::clone(store_value))
             })
             .collect()
-    }
-
-    /// Like get_matches, but also returns the StoreKeyId to avoid recomputing hashes
-    #[tracing::instrument(skip_all)]
-    fn get_matches_with_ids(
-        &self,
-        condition: &PredicateCondition,
-    ) -> Result<Vec<(StoreKeyId, StoreEntry)>, ServerError> {
-        let matches = self.predicate_indices.matches(condition, self)?;
-        let pinned = self.id_to_value.pin();
-        Ok(matches
-            .into_iter()
-            .flat_map(|key_id| {
-                pinned
-                    .get(&key_id)
-                    .map(|(k, v)| (key_id, (k.clone(), Arc::clone(v))))
-            })
-            .collect())
     }
 
     /// Adds a bunch of entries into the store if they match the dimensions

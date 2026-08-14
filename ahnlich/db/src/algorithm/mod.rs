@@ -10,9 +10,11 @@ use ahnlich_similarity::{
 use ahnlich_types::algorithm::algorithms::DistanceMetric;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::algorithm::{algorithms::Algorithm, nonlinear::HnswConfig};
-use rayon::prelude::*;
-
+use ahnlich_types::keyval::StoreValue;
+use ahnlich_types::predicates::PredicateCondition;
 use ahnlich_types::utils::StoreKeyId;
+
+use crate::engine::predicate::PredicateEvaluator;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) enum AlgorithmByType {
@@ -78,7 +80,8 @@ pub(crate) trait FindSimilarN {
     fn find_similar_n_sequential<'a>(
         &'a self,
         search_vector: &EmbeddingKey,
-        search_list: impl Iterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
+        search_list: impl Iterator<Item = (&'a StoreKeyId, &'a EmbeddingKey, &'a StoreValue)>,
+        predicate: Option<&PredicateCondition>,
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)>;
@@ -89,14 +92,23 @@ impl FindSimilarN for LinearAlgorithm {
     fn find_similar_n_sequential<'a>(
         &'a self,
         search_vector: &EmbeddingKey,
-        search_list: impl Iterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
+        search_list: impl Iterator<Item = (&'a StoreKeyId, &'a EmbeddingKey, &'a StoreValue)>,
+        predicate: Option<&PredicateCondition>,
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)> {
         let mut heap = BoundedMaxHeap::new(n);
 
-        for (key_id, second_vector) in search_list {
-            let score = self.score(search_vector.as_slice(), second_vector.as_slice());
+        for (key_id, vector, store_value) in search_list {
+            // Check predicate inline before computing distance
+            if let Some(pred) = predicate {
+                if !store_value.matches(pred) {
+                    continue;
+                }
+            }
+
+            // Only compute distance if predicate passed (or no predicate)
+            let score = self.score(search_vector.as_slice(), vector.as_slice());
             heap.push(SimilarityVector {
                 key_id: *key_id,
                 closeness: score.closeness(),
@@ -201,15 +213,23 @@ mod tests {
             .map(|key| (embedding_key_to_id(key), key))
             .collect();
 
-        // Convert to (StoreKeyId, EmbeddingKey) pairs for the new signature
+        // Create dummy StoreValue for test (no metadata filtering needed)
+        let dummy_store_value = StoreValue {
+            value: std::collections::HashMap::new(),
+        };
+
+        // Convert to (StoreKeyId, EmbeddingKey, StoreValue) tuples for the new signature
         let search_with_ids: Vec<_> = search_list
             .iter()
-            .map(|key| (embedding_key_to_id(key), key))
+            .map(|key| (embedding_key_to_id(key), key, &dummy_store_value))
             .collect();
 
-        let similar_n_search = cosine_algorithm.find_similar_n(
+        let similar_n_search = cosine_algorithm.find_similar_n_sequential(
             &first_embedding,
-            search_with_ids.par_iter().map(|(id, key)| (id, *key)),
+            search_with_ids
+                .iter()
+                .map(|(id, key, val)| (id, *key, *val)),
+            None,
             false,
             NonZeroUsize::new(no_similar_values).unwrap(),
         );
