@@ -485,7 +485,13 @@ impl<D: DistanceFn> HNSW<D> {
         accept_list: Option<&std::collections::HashSet<u64>>,
     ) -> Result<Vec<NodeId>, Error> {
         let nodes = self.nodes.pin();
-        let mut visited_items: NodeIdHashSet = entry_points.iter().copied().collect();
+
+        // Pre-allocate visited set to avoid reallocation during search.
+        // Typical HNSW search visits 2-5x ef nodes; 512 covers most cases
+        // without wasting too much memory
+        let mut visited_items: NodeIdHashSet =
+            NodeIdHashSet::with_capacity_and_hasher(512, Default::default());
+        visited_items.extend(entry_points.iter().copied());
 
         let is_accepted = |id: &NodeId| accept_list.is_none_or(|accept| accept.contains(&id.0));
 
@@ -533,10 +539,10 @@ impl<D: DistanceFn> HNSW<D> {
             let vn_neighbours_guard = visited_node.neighbours.pin();
             if let Some(visited_node_neighbours) = vn_neighbours_guard.get(layer) {
                 for neighbour_id in visited_node_neighbours.pin().iter() {
-                    if visited_items.contains(neighbour_id) {
+                    // insert returns false if already present - combines contains + insert
+                    if !visited_items.insert(*neighbour_id) {
                         continue;
                     }
-                    visited_items.insert(*neighbour_id);
 
                     let neighbour_node = nodes
                         .get(neighbour_id)
