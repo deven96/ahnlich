@@ -15,19 +15,10 @@ class ExecutionProvider(betterproto.Enum):
     CUDA = 1
     DIRECT_ML = 2
     CORE_ML = 3
-    ROCM = 4
-    """
-    ROCm execution provider for AMD GPUs (Linux + supported AMD Instinct /
-     Radeon hardware). Requires the host to have a matching ROCm runtime
-     installed and the ort/onnxruntime build configured with ROCm support.
-     Note: upstream onnxruntime removed the ROCm provider in 1.23; for newer
-     ORT builds prefer MIGRAPHX.
-    """
-
     MIGRAPHX = 5
     """
     MIGraphX execution provider for AMD GPUs (Linux + supported AMD Instinct
-     hardware). AMD's recommended replacement for the ROCm provider in
-     onnxruntime >= 1.23. Requires the host to have the MIGraphX runtime
-     installed (ships in AMD's ROCm apt repository).
+     hardware). AMD's recommended provider for onnxruntime >= 1.23. Requires
+     the host to have the MIGraphX runtime installed (ships in AMD's ROCm apt
+     repository).
     """

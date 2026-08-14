@@ -366,8 +366,7 @@ class Image2ImageDemo:
                         store=self.store_name,
                         inputs=entries,
                         preprocess_action=preprocess.PreprocessAction.ModelPreprocessing,
-                        # NVIDIA GPUs use CUDA; AMD GPUs use ExecutionProvider.ROCM
-                        # (onnxruntime < 1.23) or ExecutionProvider.MIGRAPHX (>= 1.23).
+                        # NVIDIA GPUs use CUDA; AMD GPUs use ExecutionProvider.MIGRAPHX.
                         execution_provider=ExecutionProvider.CUDA,
                     )
                 ),

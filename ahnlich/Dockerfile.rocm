@@ -1,4 +1,5 @@
-# Dockerfile.rocm — ahnlich-ai with a ROCm-enabled ONNX Runtime bundle.
+# Dockerfile.rocm — ahnlich-ai with a ROCm-stack ONNX Runtime bundle
+# exposing the MIGraphX execution provider for AMD GPUs.
 #
 # This image is self-contained for AMD GPU inference: the runtime stage
 # is based on AMD's rocm/dev-ubuntu-24.04 image (which ships ROCm 6.4.2 +
@@ -7,9 +8,9 @@
 #
 # ROCm 6.4.2 is the minimum release with RDNA4 (gfx1200/gfx1201, e.g.
 # Radeon RX 9070) support; it also covers RDNA3 (gfx1100) and CDNA. The
-# matching AMD onnxruntime_rocm wheel is 1.21.0, which still ships both
-# the ROCm and the MIGraphX execution providers (upstream removed the
-# ROCm EP in ORT 1.23).
+# matching AMD onnxruntime_rocm wheel is 1.21.0, which ships the MIGraphX
+# execution provider (upstream removed the older ROCm EP in ORT 1.23;
+# ahnlich only exposes MIGraphX).
 #
 # The ahnlich-ai binary is built with ort's load-dynamic feature and
 # loads libonnxruntime via dlopen (ORT_DYLIB_PATH). The ORT C API is
@@ -37,7 +38,7 @@
 #     ahnlich-ai:rocm \
 #     ahnlich-ai run --host 0.0.0.0
 #
-# Then point clients at the ROCM or MIGRAPHX execution provider.
+# Then point clients at the MIGRAPHX execution provider.
 #
 # Image size note: the runtime stage is several GB (ROCm runtime +
 # device kernels + the ORT provider libraries). Most of that is the AMD
@@ -64,13 +65,13 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . /app/
 
 RUN rm types/build.rs
-# rocm/migraphx: compile in the AMD execution provider registration.
+# migraphx: compile in the AMD execution provider registration.
 # ort-load-dynamic: dlopen libonnxruntime at runtime (ORT_DYLIB_PATH)
 # so the AMD ROCm build of ORT can be swapped in without tripping ELF
 # symbol-version checks against the build-time ORT release.
 RUN if [ "$AHNLICH_BIN" = "ahnlich-ai" ]; then \
       cargo build --release -p ai --bin ${AHNLICH_BIN} \
-        --features rocm,migraphx,ort-load-dynamic; \
+        --features migraphx,ort-load-dynamic; \
     else \
       cargo build --release --bin ${AHNLICH_BIN}; \
     fi
@@ -97,8 +98,8 @@ WORKDIR /app
 # - migraphx: libmigraphx_c / migraphx runtime libraries that
 #   libonnxruntime_providers_migraphx.so dlopens
 # - hipblas hipfft hipsparse hiprand rocrand rccl: math/comm libraries
-#   that libonnxruntime_providers_rocm.so dlopens (verified empirically —
-#   the ROCm EP fails at session creation without each of these)
+#   dlopened by the bundled ORT provider libraries (verified empirically —
+#   session creation fails without each of these)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssl ca-certificates \
     libsasl2-modules-gssapi-mit libsasl2-dev \

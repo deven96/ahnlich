@@ -67,9 +67,8 @@ cuda = ["ort/cuda"]
 coreml = ["ort/coreml"]
 # activate only on windows devices
 directml = ["ort/directml"]
-# activate only on linux hosts with AMD GPUs (ROCm EP was removed
-# upstream in ONNX Runtime 1.23; MIGraphX is its replacement)
-rocm = ["ort/rocm"]
+# activate only on linux hosts with AMD GPUs (upstream ONNX Runtime removed
+# the ROCm EP in 1.23; MIGraphX is AMD's supported provider)
 migraphx = ["ort/migraphx"]
 # Load libonnxruntime via dlopen (ORT_DYLIB_PATH) instead of linking at
 # build time. Needed when the runtime library is a different ORT release
