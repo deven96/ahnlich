@@ -75,14 +75,6 @@ impl Ord for SimilarityVector {
 }
 
 pub(crate) trait FindSimilarN {
-    fn find_similar_n<'a>(
-        &'a self,
-        search_vector: &EmbeddingKey,
-        search_list: impl rayon::iter::ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
-        _used_all: bool,
-        n: NonZeroUsize,
-    ) -> Vec<(StoreKeyId, f32)>;
-
     fn find_similar_n_sequential<'a>(
         &'a self,
         search_vector: &EmbeddingKey,
@@ -93,47 +85,6 @@ pub(crate) trait FindSimilarN {
 }
 
 impl FindSimilarN for LinearAlgorithm {
-    #[tracing::instrument(skip_all)]
-    fn find_similar_n<'a>(
-        &'a self,
-        search_vector: &EmbeddingKey,
-        search_list: impl rayon::iter::ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
-        _used_all: bool,
-        n: NonZeroUsize,
-    ) -> Vec<(StoreKeyId, f32)> {
-        // One heap for every algorithm: `Closeness` already points the right way, so
-        // there is no min/max variant to choose and no direction to get wrong here.
-        let bounded_heap = search_list
-            .fold(
-                || BoundedMaxHeap::new(n),
-                |mut heap, (key_id, second_vector)| {
-                    let score = self.score(search_vector.as_slice(), second_vector.as_slice());
-                    heap.push(SimilarityVector {
-                        key_id: *key_id,
-                        closeness: score.closeness(),
-                        score: score.value(),
-                    });
-                    heap
-                },
-            )
-            .reduce(
-                || BoundedMaxHeap::new(n),
-                |mut heap1, heap2| {
-                    for item in heap2.into_iter_unsorted() {
-                        heap1.push(item);
-                    }
-                    heap1
-                },
-            );
-
-        bounded_heap
-            .into_sorted_vec()
-            .into_iter()
-            .map(|candidate| (candidate.key_id, candidate.score))
-            .collect()
-    }
-
-    // Sequential version: single heap, no parallel fold/reduce overhead
     #[tracing::instrument(skip_all)]
     fn find_similar_n_sequential<'a>(
         &'a self,

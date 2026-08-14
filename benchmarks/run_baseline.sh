@@ -174,6 +174,21 @@ server_cpu_seconds() {
         | awk -F: '{n=NF; s=$n; m=(n>1?$(n-1):0); h=(n>2?$(n-2):0); printf "%.2f", h*3600+m*60+s}'
 }
 
+scenario_label() {
+    case "$1" in
+        linear) echo "linear" ;;
+        linear_5k) echo "linear_5k" ;;
+        linear_1k) echo "linear_1k" ;;
+        linear_100) echo "linear_100" ;;
+        hnsw) echo "hnsw" ;;
+        hnsw_5k) echo "hnsw_5k" ;;
+        hnsw_1k) echo "hnsw_1k" ;;
+        hnsw_100) echo "hnsw_100" ;;
+        ping) echo "ping" ;;
+        *) echo "$1" ;;
+    esac
+}
+
 run_ghz() {
     local label="$1" concurrency="$2" method="$3" payload="$4" repeat="$5"
     local cpu_before cpu_after
@@ -221,12 +236,27 @@ run_ghz() {
 }
 
 log "Benchmarking ($TOTAL_REQUESTS requests per run, $WARMUP_REQUESTS warmup, $REPEATS repeats)"
+
+# Scenarios to benchmark
+SCENARIOS="ping linear linear_5k linear_1k linear_100 hnsw hnsw_5k hnsw_1k hnsw_100"
+
 # Repeats are the outer loop so background noise spreads across all configurations.
 for repeat in $(seq 1 "$REPEATS"); do
     for concurrency in $CONCURRENCY_LEVELS; do
-        run_ghz ping "$concurrency" Ping ping.json "$repeat"
-        run_ghz linear "$concurrency" GetSimN getsimn_linear.json "$repeat"
-        run_ghz hnsw "$concurrency" GetSimN getsimn_hnsw.json "$repeat"
+        for scenario in $SCENARIOS; do
+            label="$(scenario_label "$scenario")"
+            
+            # Determine method and payload based on scenario
+            if [ "$scenario" = "ping" ]; then
+                method="Ping"
+                payload="ping.json"
+            else
+                method="GetSimN"
+                payload="getsimn_${scenario}.json"
+            fi
+            
+            run_ghz "$label" "$concurrency" "$method" "$payload" "$repeat"
+        done
     done
 done
 

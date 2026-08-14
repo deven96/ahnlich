@@ -10,11 +10,188 @@ use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::algorithm::nonlinear::{HnswConfig, NonLinearIndex, non_linear_index};
 use ahnlich_types::db::query::{CreateStore, DropStore, GetSimN, Set};
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreValue};
+use ahnlich_types::metadata::{MetadataValue, metadata_value};
+use ahnlich_types::predicates::{
+    PredicateCondition, Predicate, Equals, AndCondition,
+    predicate_condition, predicate,
+};
 use anyhow::{Context, Result, bail};
-use serde::Serialize;
-use std::collections::HashMap;
+use serde::{Serialize, Serializer};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+
+fn string_value(s: &str) -> MetadataValue {
+    MetadataValue {
+        value: Some(metadata_value::Value::RawString(s.to_string())),
+    }
+}
+
+fn assign_metadata(vector_index: usize) -> std::collections::HashMap<String, MetadataValue> {
+    let mut metadata = std::collections::HashMap::new();
+    
+    if vector_index < 100 {
+        // 1% selectivity: all three conditions match
+        metadata.insert("category".to_string(), string_value("electronics"));
+        metadata.insert("price_range".to_string(), string_value("high"));
+        metadata.insert("in_stock".to_string(), string_value("true"));
+    } else if vector_index < 1000 {
+        // 10% selectivity: category + in_stock match
+        metadata.insert("category".to_string(), string_value("electronics"));
+        metadata.insert("price_range".to_string(), string_value("low"));
+        metadata.insert("in_stock".to_string(), string_value("true"));
+    } else if vector_index < 5000 {
+        // 50% selectivity: only category matches
+        metadata.insert("category".to_string(), string_value("electronics"));
+        metadata.insert("price_range".to_string(), string_value("mid"));
+        metadata.insert("in_stock".to_string(), string_value("false"));
+    } else {
+        // No match: different category
+        let categories = ["books", "clothing", "home", "toys", "sports"];
+        let category = categories[(vector_index / 1000) % categories.len()];
+        metadata.insert("category".to_string(), string_value(category));
+        metadata.insert("price_range".to_string(), string_value("mid"));
+        metadata.insert("in_stock".to_string(), string_value("true"));
+    }
+    
+    metadata
+}
+
+fn equals_predicate(key: &str, value: &str) -> PredicateCondition {
+    PredicateCondition {
+        kind: Some(predicate_condition::Kind::Value(Predicate {
+            kind: Some(predicate::Kind::Equals(Equals {
+                key: key.to_string(),
+                value: Some(string_value(value)),
+            })),
+        })),
+    }
+}
+
+fn and_predicate(left: PredicateCondition, right: PredicateCondition) -> PredicateCondition {
+    PredicateCondition {
+        kind: Some(predicate_condition::Kind::And(Box::new(AndCondition {
+            left: Some(Box::new(left)),
+            right: Some(Box::new(right)),
+        }))),
+    }
+}
+
+fn predicate_50_percent() -> PredicateCondition {
+    equals_predicate("category", "electronics")
+}
+
+fn predicate_10_percent() -> PredicateCondition {
+    and_predicate(
+        equals_predicate("category", "electronics"),
+        equals_predicate("in_stock", "true"),
+    )
+}
+
+fn predicate_1_percent() -> PredicateCondition {
+    and_predicate(
+        and_predicate(
+            equals_predicate("category", "electronics"),
+            equals_predicate("price_range", "high"),
+        ),
+        equals_predicate("in_stock", "true"),
+    )
+}
+
+fn serialize_predicate_condition<S>(
+    condition: &Option<PredicateCondition>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match condition {
+        None => serializer.serialize_none(),
+        Some(c) => {
+            let json = predicate_condition_to_json(c);
+            json.serialize(serializer)
+        }
+    }
+}
+
+fn predicate_condition_to_json(condition: &PredicateCondition) -> serde_json::Value {
+    use serde_json::json;
+    
+    match &condition.kind {
+        None => json!(null),
+        Some(predicate_condition::Kind::Value(predicate)) => {
+            json!({
+                "value": predicate_to_json(predicate)
+            })
+        }
+        Some(predicate_condition::Kind::And(and_cond)) => {
+            json!({
+                "and": {
+                    "left": and_cond.left.as_ref().map(|l| predicate_condition_to_json(l)),
+                    "right": and_cond.right.as_ref().map(|r| predicate_condition_to_json(r)),
+                }
+            })
+        }
+        Some(predicate_condition::Kind::Or(or_cond)) => {
+            json!({
+                "or": {
+                    "left": or_cond.left.as_ref().map(|l| predicate_condition_to_json(l)),
+                    "right": or_cond.right.as_ref().map(|r| predicate_condition_to_json(r)),
+                }
+            })
+        }
+    }
+}
+
+fn predicate_to_json(predicate: &Predicate) -> serde_json::Value {
+    use serde_json::json;
+    
+    match &predicate.kind {
+        None => json!(null),
+        Some(predicate::Kind::Equals(equals)) => {
+            json!({
+                "equals": {
+                    "key": equals.key,
+                    "value": metadata_value_to_json(equals.value.as_ref()),
+                }
+            })
+        }
+        Some(predicate::Kind::NotEquals(not_equals)) => {
+            json!({
+                "notEquals": {
+                    "key": not_equals.key,
+                    "value": metadata_value_to_json(not_equals.value.as_ref()),
+                }
+            })
+        }
+        Some(predicate::Kind::In(in_pred)) => {
+            json!({
+                "in": {
+                    "key": in_pred.key,
+                    "values": in_pred.values.iter().map(|v| metadata_value_to_json(Some(v))).collect::<Vec<_>>(),
+                }
+            })
+        }
+        Some(predicate::Kind::NotIn(not_in)) => {
+            json!({
+                "notIn": {
+                    "key": not_in.key,
+                    "values": not_in.values.iter().map(|v| metadata_value_to_json(Some(v))).collect::<Vec<_>>(),
+                }
+            })
+        }
+    }
+}
+
+fn metadata_value_to_json(value: Option<&MetadataValue>) -> serde_json::Value {
+    use serde_json::json;
+    
+    match value.and_then(|v| v.value.as_ref()) {
+        None => json!(null),
+        Some(metadata_value::Value::RawString(s)) => json!({ "rawString": s }),
+        Some(metadata_value::Value::Image(img)) => json!({ "image": img }),
+        Some(metadata_value::Value::Audio(audio)) => json!({ "audio": audio }),
+    }
+}
 
 const LINEAR_STORE: &str = "sift_linear";
 const HNSW_STORE: &str = "sift_hnsw";
@@ -60,6 +237,8 @@ struct GetSimNPayload {
     search_input: SearchInput,
     closest_n: u64,
     algorithm: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "serialize_predicate_condition")]
+    condition: Option<PredicateCondition>,
 }
 
 #[derive(Serialize)]
@@ -139,12 +318,13 @@ async fn main() -> Result<()> {
     let entries: Vec<DbStoreEntry> = dataset
         .base
         .iter()
-        .map(|vector| DbStoreEntry {
+        .enumerate()
+        .map(|(i, vector)| DbStoreEntry {
             key: Some(StoreKey {
                 key: vector.clone(),
             }),
             value: Some(StoreValue {
-                value: HashMap::new(),
+                value: assign_metadata(i),
             }),
         })
         .collect();
@@ -180,20 +360,55 @@ async fn main() -> Result<()> {
     .await?;
     verify_answers(&client, HNSW_STORE, "HNSW", probe, config.closest_n).await?;
 
-    write_payload(
-        &config.payload_dir.join("getsimn_linear.json"),
+    // Generate base payloads (no filter)
+    let linear_payload = config.payload_dir.join("getsimn_linear.json");
+    write_payload_with_condition(
+        &linear_payload,
         LINEAR_STORE,
         config.metric.linear_algorithm,
         &dataset.queries,
         config.closest_n,
+        None,
     )?;
-    write_payload(
-        &config.payload_dir.join("getsimn_hnsw.json"),
+
+    let hnsw_payload = config.payload_dir.join("getsimn_hnsw.json");
+    write_payload_with_condition(
+        &hnsw_payload,
         HNSW_STORE,
         "HNSW",
         &dataset.queries,
         config.closest_n,
+        None,
     )?;
+
+    // Generate filtered payloads
+    let filters = [
+        ("5k", predicate_50_percent()),
+        ("1k", predicate_10_percent()),
+        ("100", predicate_1_percent()),
+    ];
+
+    for (suffix, predicate) in &filters {
+        let linear_path = config.payload_dir.join(format!("getsimn_linear_{}.json", suffix));
+        write_payload_with_condition(
+            &linear_path,
+            LINEAR_STORE,
+            config.metric.linear_algorithm,
+            &dataset.queries,
+            config.closest_n,
+            Some(predicate.clone()),
+        )?;
+
+        let hnsw_path = config.payload_dir.join(format!("getsimn_hnsw_{}.json", suffix));
+        write_payload_with_condition(
+            &hnsw_path,
+            HNSW_STORE,
+            "HNSW",
+            &dataset.queries,
+            config.closest_n,
+            Some(predicate.clone()),
+        )?;
+    }
 
     let ping_path = config.payload_dir.join("ping.json");
     std::fs::write(&ping_path, b"{}")
@@ -320,20 +535,22 @@ fn algorithm_number(name: &str) -> i32 {
 }
 
 /// One message per query vector. ghz cycles the array.
-fn write_payload(
+fn write_payload_with_condition(
     path: &Path,
     store: &str,
     algorithm: &'static str,
     queries: &[Vec<f32>],
     closest_n: u64,
+    condition: Option<PredicateCondition>,
 ) -> Result<()> {
     let payloads: Vec<GetSimNPayload> = queries
         .iter()
-        .map(|query| GetSimNPayload {
-            store: store.to_owned(),
-            search_input: SearchInput { key: query.clone() },
+        .map(|q| GetSimNPayload {
+            store: store.to_string(),
+            search_input: SearchInput { key: q.clone() },
             closest_n,
             algorithm,
+            condition: condition.clone(),
         })
         .collect();
 
@@ -341,12 +558,15 @@ fn write_payload(
         std::fs::create_dir_all(parent)
             .with_context(|| format!("could not create {}", parent.display()))?;
     }
-    std::fs::write(path, serde_json::to_vec(&payloads)?)
-        .with_context(|| format!("could not write {}", path.display()))?;
 
-    println!(
-        "Wrote {} {algorithm} payloads to {}",
-        payloads.len(),
+    let json = serde_json::to_string_pretty(&payloads)
+        .context("serializing payloads")?;
+    std::fs::write(path, json)
+        .with_context(|| format!("writing {}", path.display()))?;
+    
+    println!("Wrote {} {} payloads to {}", 
+        queries.len(), 
+        if condition.is_some() { "filtered" } else { "unfiltered" },
         path.display()
     );
     Ok(())
