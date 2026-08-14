@@ -1018,22 +1018,6 @@ impl Store {
             .collect()
     }
 
-    /// Like get_all, but also returns the StoreKeyId to avoid recomputing hashes
-    #[tracing::instrument(skip(self))]
-    fn get_all_with_ids(&self) -> Vec<(StoreKeyId, StoreEntry)> {
-        let pinned = self.id_to_value.pin();
-        let capacity = pinned.len();
-        let mut result = Vec::with_capacity(capacity);
-        result.extend(
-            pinned
-                .into_iter()
-                .map(|(key_id, (embedding_key, store_value))| {
-                    (*key_id, (embedding_key.clone(), Arc::clone(store_value)))
-                }),
-        );
-        result
-    }
-
     /// Like get_matches, but also returns the StoreKeyId to avoid recomputing hashes
     #[tracing::instrument(skip_all)]
     fn get_matches_with_ids(

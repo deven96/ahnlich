@@ -158,7 +158,7 @@ fn collect_groups(dir: &Path) -> Result<Vec<Group>> {
         entry.1.push(server_cpu);
     }
 
-    Ok(grouped
+    let mut groups: Vec<Group> = grouped
         .into_iter()
         .map(|((label, concurrency), (reports, server_cpu))| Group {
             label,
@@ -166,7 +166,12 @@ fn collect_groups(dir: &Path) -> Result<Vec<Group>> {
             reports,
             server_cpu,
         })
-        .collect())
+        .collect();
+
+    // Sort by scenario type and concurrency for consistent output
+    groups.sort_by_key(|group| (scenario_sort_key(&group.label), group.concurrency));
+
+    Ok(groups)
 }
 
 /// `linear_c50_r2.json` -> ("linear", 50). Repeats are summarised together.
@@ -178,6 +183,46 @@ fn parse_run_name(path: &Path) -> Option<(String, u32)> {
     };
     let (label, concurrency) = stem.rsplit_once("_c")?;
     Some((label.to_owned(), concurrency.parse().ok()?))
+}
+
+/// Convert scenario names to human-readable display labels
+fn scenario_label(scenario: &str) -> &str {
+    match scenario {
+        // New naming with getsimn_ prefix
+        "getsimn_linear" => "linear (no filter)",
+        "getsimn_linear_5k" => "linear (filter: 5000 vectors)",
+        "getsimn_linear_1k" => "linear (filter: 1000 vectors)",
+        "getsimn_linear_100" => "linear (filter: 100 vectors)",
+        "getsimn_hnsw" => "hnsw (no filter)",
+        "getsimn_hnsw_5k" => "hnsw (filter: 5000 vectors)",
+        "getsimn_hnsw_1k" => "hnsw (filter: 1000 vectors)",
+        "getsimn_hnsw_100" => "hnsw (filter: 100 vectors)",
+        // Legacy naming without prefix (backward compatibility)
+        "linear" => "linear",
+        "hnsw" => "hnsw",
+        "ping" => "ping",
+        _ => scenario,
+    }
+}
+
+/// Define sort order: linear variants together, then hnsw variants, then ping
+fn scenario_sort_key(scenario: &str) -> (u8, u8) {
+    match scenario {
+        // New naming with getsimn_ prefix
+        "getsimn_linear" => (0, 0),
+        "getsimn_linear_5k" => (0, 1),
+        "getsimn_linear_1k" => (0, 2),
+        "getsimn_linear_100" => (0, 3),
+        "getsimn_hnsw" => (1, 0),
+        "getsimn_hnsw_5k" => (1, 1),
+        "getsimn_hnsw_1k" => (1, 2),
+        "getsimn_hnsw_100" => (1, 3),
+        // Legacy naming without prefix
+        "linear" => (0, 0),
+        "hnsw" => (1, 0),
+        "ping" => (2, 0),
+        _ => (99, 0),
+    }
 }
 
 fn render(groups: &[Group]) -> Result<String> {
@@ -206,7 +251,7 @@ fn render(groups: &[Group]) -> Result<String> {
         writeln!(
             out,
             "| {} | {} | {} | {} | {} | {} | {:.0}–{:.0} | {} | {} | {} | {} |",
-            group.label,
+            scenario_label(&group.label),
             group.concurrency,
             group.reports.len(),
             group.reports.first().map_or(0, |report| report.count),
