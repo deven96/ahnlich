@@ -101,10 +101,10 @@ impl FindSimilarN for LinearAlgorithm {
 
         for (key_id, vector, store_value) in search_list {
             // Check predicate inline before computing distance
-            if let Some(pred) = predicate {
-                if !store_value.matches(pred) {
-                    continue;
-                }
+            if let Some(pred) = predicate
+                && !store_value.matches(pred)
+            {
+                continue;
             }
 
             // Only compute distance if predicate passed (or no predicate)

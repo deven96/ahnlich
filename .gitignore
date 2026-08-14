@@ -42,3 +42,6 @@ docs/superpowers/
 # Chart.lock IS committed for reproducible builds.
 charts/*/charts/*.tgz
 package-lock.json
+
+# benchmark json
+benchmarks/*.json
