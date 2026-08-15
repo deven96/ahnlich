@@ -3,6 +3,7 @@ name = "ai"
 version = "0.4.1"
 edition = "2024"
 
+
 # only used for rust client test and not to be released
 [lib]
 name = "ahnlich_ai_proxy"
@@ -66,6 +67,15 @@ cuda = ["ort/cuda"]
 coreml = ["ort/coreml"]
 # activate only on windows devices
 directml = ["ort/directml"]
+# activate only on linux hosts with AMD GPUs (upstream ONNX Runtime removed
+# the ROCm EP in 1.23; MIGraphX is AMD's supported provider)
+migraphx = ["ort/migraphx"]
+# Load libonnxruntime via dlopen (ORT_DYLIB_PATH) instead of linking at
+# build time. Needed when the runtime library is a different ORT release
+# than the one ort was built against (e.g. AMD's ROCm builds), since
+# link-time ELF symbol versioning (VERS_x.y.z) rejects version skew that
+# the forward-compatible ORT C API would otherwise allow.
+ort-load-dynamic = ["ort/load-dynamic"]
 
 [dev-dependencies]
 db = { path = "../db", version = "*" }

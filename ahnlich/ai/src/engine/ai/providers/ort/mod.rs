@@ -18,7 +18,7 @@ use executor::ExecutorWithSessionCache;
 use hf_hub::{Cache, api::sync::ApiBuilder};
 use ort::{
     CUDAExecutionProvider, CoreMLExecutionProvider, DirectMLExecutionProvider, ExecutionProvider,
-    SessionBuilder, SessionOutputs, TensorRTExecutionProvider,
+    MIGraphXExecutionProvider, SessionBuilder, SessionOutputs, TensorRTExecutionProvider,
 };
 use strum::EnumIter;
 
@@ -49,6 +49,7 @@ pub(crate) enum InnerAIExecutionProvider {
     CUDA,
     DirectML,
     CoreML,
+    MIGraphX,
     #[default]
     CPU,
 }
@@ -60,6 +61,7 @@ impl From<AIExecutionProvider> for InnerAIExecutionProvider {
             AIExecutionProvider::Cuda => InnerAIExecutionProvider::CUDA,
             AIExecutionProvider::DirectMl => InnerAIExecutionProvider::DirectML,
             AIExecutionProvider::CoreMl => InnerAIExecutionProvider::CoreML,
+            AIExecutionProvider::Migraphx => InnerAIExecutionProvider::MIGraphX,
         }
     }
 }
@@ -77,6 +79,9 @@ fn register_provider(
             DirectMLExecutionProvider::default().register(builder)?
         }
         InnerAIExecutionProvider::CoreML => CoreMLExecutionProvider::default().register(builder)?,
+        InnerAIExecutionProvider::MIGraphX => {
+            MIGraphXExecutionProvider::default().register(builder)?
+        }
         InnerAIExecutionProvider::CPU => (),
     };
     Ok(())

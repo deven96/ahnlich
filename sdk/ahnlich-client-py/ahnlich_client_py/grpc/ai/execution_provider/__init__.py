@@ -15,3 +15,10 @@ class ExecutionProvider(betterproto.Enum):
     CUDA = 1
     DIRECT_ML = 2
     CORE_ML = 3
+    MIGRAPHX = 5
+    """
+    MIGraphX execution provider for AMD GPUs (Linux + supported AMD Instinct
+     hardware). AMD's recommended provider for onnxruntime >= 1.23. Requires
+     the host to have the MIGraphX runtime installed (ships in AMD's ROCm apt
+     repository).
+    """

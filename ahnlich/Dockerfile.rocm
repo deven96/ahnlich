@@ -1,0 +1,143 @@
+# Dockerfile.rocm — ahnlich-ai with a ROCm-stack ONNX Runtime bundle
+# exposing the MIGraphX execution provider for AMD GPUs.
+#
+# This image is self-contained for AMD GPU inference: the runtime stage
+# is based on AMD's rocm/dev-ubuntu-24.04 image (which ships ROCm 6.4.2 +
+# HIP + rocBLAS + MIOpen + ...), and we drop AMD's prebuilt onnxruntime
+# ROCm wheel libraries on top of it.
+#
+# ROCm 6.4.2 is the minimum release with RDNA4 (gfx1200/gfx1201, e.g.
+# Radeon RX 9070) support; it also covers RDNA3 (gfx1100) and CDNA. The
+# matching AMD onnxruntime_rocm wheel is 1.21.0, which ships the MIGraphX
+# execution provider (upstream removed the older ROCm EP in ORT 1.23;
+# ahnlich only exposes MIGraphX).
+#
+# The ahnlich-ai binary is built with ort's load-dynamic feature and
+# loads libonnxruntime via dlopen (ORT_DYLIB_PATH). The ORT C API is
+# forward compatible — a newer libonnxruntime serves older API
+# requests — and dlopen sidesteps the ELF symbol-version (VERS_1.19.0)
+# check that link-time loading would enforce against the 1.21 library.
+#
+# The default Dockerfile ships a CUDA-flavour ONNX Runtime tarball. This
+# file is its AMD sibling — the choice of which image to run is made at
+# deployment time, not at compile time.
+#
+# Build:
+#   docker build -f Dockerfile.rocm \
+#     --build-arg AHNLICH_BIN=ahnlich-ai \
+#     --build-arg DEFAULT_PORT=1370 \
+#     -t ahnlich-ai:rocm .
+#
+# Run (host needs a supported AMD GPU; ROCm runtime is bundled in the
+# image, but the kernel driver (/dev/kfd) and DRM devices must be
+# exposed):
+#   docker run --rm \
+#     --device /dev/kfd --device /dev/dri \
+#     --group-add video \
+#     -p 1370:1370 \
+#     ahnlich-ai:rocm \
+#     ahnlich-ai run --host 0.0.0.0
+#
+# Then point clients at the MIGRAPHX execution provider.
+#
+# Image size note: the runtime stage is several GB (ROCm runtime +
+# device kernels + the ORT provider libraries). Most of that is the AMD
+# device kernels and is unavoidable.
+
+FROM lukemathwalker/cargo-chef:latest-rust-1.88.0 AS chef
+WORKDIR /app
+RUN apt update && apt install lld clang protobuf-compiler -y
+
+FROM chef AS planner
+COPY . /app/
+
+# Matches the default Dockerfile: types/build.rs is dropped so cargo
+# chef can compute a stable recipe without regenerating proto code on
+# every layer rebuild.
+RUN rm types/build.rs
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+ARG AHNLICH_BIN
+ARG DEFAULT_PORT=1369
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+COPY . /app/
+
+RUN rm types/build.rs
+# migraphx: compile in the AMD execution provider registration.
+# ort-load-dynamic: dlopen libonnxruntime at runtime (ORT_DYLIB_PATH)
+# so the AMD ROCm build of ORT can be swapped in without tripping ELF
+# symbol-version checks against the build-time ORT release.
+RUN if [ "$AHNLICH_BIN" = "ahnlich-ai" ]; then \
+      cargo build --release -p ai --bin ${AHNLICH_BIN} \
+        --features migraphx,ort-load-dynamic; \
+    else \
+      cargo build --release --bin ${AHNLICH_BIN}; \
+    fi
+RUN cargo build --release --bin ahnlich-cli
+
+
+# AMD's ROCm 6.4.2 dev image. Bundles libhsa, libamdhip64, rocBLAS,
+# MIOpen, etc. — the system libraries the ROCm execution provider needs
+# at session creation. This base intentionally matches the ROCm release
+# directory we download the onnxruntime wheel from (rocm-rel-6.4.2).
+#
+# Ubuntu 24.04 (glibc 2.39) satisfies the wheel's manylinux_2_28
+# baseline.
+FROM rocm/dev-ubuntu-24.04:6.4.2 AS runtime
+
+ARG AHNLICH_BIN
+ARG DEFAULT_PORT
+ARG ORT_VER=1.21.0
+ARG ORT_PY=cp312
+ARG ROCM_REL=rocm-rel-6.4.2
+WORKDIR /app
+
+# Extra apt deps beyond the rocm/dev base image:
+# - migraphx: libmigraphx_c / migraphx runtime libraries that
+#   libonnxruntime_providers_migraphx.so dlopens
+# - hipblas hipfft hipsparse hiprand rocrand rccl: math/comm libraries
+#   dlopened by the bundled ORT provider libraries (verified empirically —
+#   session creation fails without each of these)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl ca-certificates \
+    libsasl2-modules-gssapi-mit libsasl2-dev \
+    curl unzip migraphx \
+    hipblas hipfft hipsparse hiprand rocrand rccl \
+  && apt-get autoremove -y \
+  && apt-get clean -y \
+  && rm -rf /var/lib/apt/lists/*
+
+# Pull AMD's prebuilt onnxruntime-rocm wheel and extract just the shared
+# libraries we need. The wheel itself is a Python distribution; we are
+# only after the C/C++ runtime artefacts.
+#
+# The main library is symlinked under every soname the ahnlich-ai
+# binary may request (built against the 1.19-era ORT API); the ORT C
+# API is forward compatible across these versions.
+RUN if [ "$AHNLICH_BIN" = "ahnlich-ai" ]; then \
+  WHL="onnxruntime_rocm-${ORT_VER}-${ORT_PY}-${ORT_PY}-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl" && \
+  curl -fSL -o /tmp/${WHL} \
+    "https://repo.radeon.com/rocm/manylinux/${ROCM_REL}/${WHL}" && \
+  mkdir -p /opt/onnxruntime-rocm && \
+  unzip -q /tmp/${WHL} -d /opt/onnxruntime-rocm && \
+  cp /opt/onnxruntime-rocm/onnxruntime/capi/libonnxruntime*.so* /lib/ && \
+  cp /opt/onnxruntime-rocm/onnxruntime_rocm.libs/*.so* /lib/ && \
+  MAIN_LIB=$(ls /lib/libonnxruntime.so.* 2>/dev/null | head -1) && \
+  ln -sf ${MAIN_LIB} /lib/libonnxruntime.so && \
+  ldconfig && \
+  rm -rf /tmp/${WHL} /opt/onnxruntime-rocm; \
+  fi
+
+COPY --from=builder /app/target/release/${AHNLICH_BIN} /usr/local/bin/
+COPY --from=builder /app/target/release/ahnlich-cli /usr/local/bin/
+
+ENV AHNLICH_BIN=${AHNLICH_BIN}
+ENV ORT_DYLIB_PATH=/lib/libonnxruntime.so
+
+ENTRYPOINT ["sh", "-c"]
+
+EXPOSE ${DEFAULT_PORT}
+
+CMD ["$AHNLICH_BIN"]

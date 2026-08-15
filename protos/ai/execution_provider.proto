@@ -10,4 +10,13 @@ enum ExecutionProvider {
   CUDA = 1;
   DIRECT_ML = 2;
   CORE_ML = 3;
+  // Tag 4 was ROCM, removed before release: upstream onnxruntime dropped the
+  // ROCm execution provider in 1.23 in favor of MIGRAPHX.
+  reserved 4;
+  reserved "ROCM";
+  // MIGraphX execution provider for AMD GPUs (Linux + supported AMD Instinct
+  // hardware). AMD's recommended provider for onnxruntime >= 1.23. Requires
+  // the host to have the MIGraphX runtime installed (ships in AMD's ROCm apt
+  // repository).
+  MIGRAPHX = 5;
 }

@@ -3121,6 +3121,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "45e45a172e6c0fb7d640e92c7740f4ea476bfc49ef5c52ea9c73e9fae32b09fe"
 dependencies = [
  "half",
+ "libloading",
  "ndarray",
  "ort-sys",
  "thiserror 1.0.69",

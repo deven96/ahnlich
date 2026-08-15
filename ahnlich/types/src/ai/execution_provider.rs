@@ -7,6 +7,11 @@ pub enum ExecutionProvider {
     Cuda = 1,
     DirectMl = 2,
     CoreMl = 3,
+    /// MIGraphX execution provider for AMD GPUs (Linux + supported AMD Instinct
+    /// hardware). AMD's recommended provider for onnxruntime >= 1.23. Requires
+    /// the host to have the MIGraphX runtime installed (ships in AMD's ROCm apt
+    /// repository).
+    Migraphx = 5,
 }
 impl ExecutionProvider {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -19,6 +24,7 @@ impl ExecutionProvider {
             Self::Cuda => "CUDA",
             Self::DirectMl => "DIRECT_ML",
             Self::CoreMl => "CORE_ML",
+            Self::Migraphx => "MIGRAPHX",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -28,6 +34,7 @@ impl ExecutionProvider {
             "CUDA" => Some(Self::Cuda),
             "DIRECT_ML" => Some(Self::DirectMl),
             "CORE_ML" => Some(Self::CoreMl),
+            "MIGRAPHX" => Some(Self::Migraphx),
             _ => None,
         }
     }

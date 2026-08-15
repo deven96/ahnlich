@@ -30,6 +30,16 @@ export enum ExecutionProvider {
    * @generated from enum value: CORE_ML = 3;
    */
   CORE_ML = 3,
+
+  /**
+   * MIGraphX execution provider for AMD GPUs (Linux + supported AMD Instinct
+   * hardware). AMD's recommended provider for onnxruntime >= 1.23. Requires
+   * the host to have the MIGraphX runtime installed (ships in AMD's ROCm apt
+   * repository).
+   *
+   * @generated from enum value: MIGRAPHX = 5;
+   */
+  MIGRAPHX = 5,
 }
 // Retrieve enum metadata with: proto3.getEnumType(ExecutionProvider)
 proto3.util.setEnumType(ExecutionProvider, "ai.execution_provider.ExecutionProvider", [
@@ -37,4 +47,6 @@ proto3.util.setEnumType(ExecutionProvider, "ai.execution_provider.ExecutionProvi
   { no: 1, name: "CUDA" },
   { no: 2, name: "DIRECT_ML" },
   { no: 3, name: "CORE_ML" },
+  { no: 5, name: "MIGRAPHX" },
 ]);
+
