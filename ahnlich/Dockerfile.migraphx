@@ -124,7 +124,6 @@ RUN if [ "$AHNLICH_BIN" = "ahnlich-ai" ]; then \
   mkdir -p /opt/onnxruntime-rocm && \
   unzip -q /tmp/${WHL} -d /opt/onnxruntime-rocm && \
   cp /opt/onnxruntime-rocm/onnxruntime/capi/libonnxruntime*.so* /lib/ && \
-  cp /opt/onnxruntime-rocm/onnxruntime_rocm.libs/*.so* /lib/ && \
   MAIN_LIB=$(ls /lib/libonnxruntime.so.* 2>/dev/null | head -1) && \
   ln -sf ${MAIN_LIB} /lib/libonnxruntime.so && \
   ldconfig && \
