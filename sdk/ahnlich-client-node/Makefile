@@ -13,9 +13,7 @@ format:
 format-check:
 	npx prettier --check "src/**/*.ts" "tests/**/*.ts" "grpc/**/*.ts"
 
-lint-check: format-check
-
-pre-commit-check: lint-check
+pre-commit-check: format-check
 
 generate:
 	@echo "➜ Generating TypeScript protobuf code from proto definitions"
