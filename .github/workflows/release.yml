@@ -17,6 +17,7 @@ jobs:
         bin_name: ${{ steps.get_binary_type.outputs.BIN_NAME }}
         bin_suffix: ${{ steps.get_binary_type.outputs.BIN_SUFFIX }}
         rust_version: ${{ steps.rust_version.outputs.RUST_VERSION }}
+        ort_version: ${{ steps.ort_version.outputs.ORT_VERSION }}
       steps:
           - name: "Checkout"
             uses: actions/checkout@v4
@@ -27,6 +28,11 @@ jobs:
             run: |
                 VERSION=$(grep -E '^channel\s*=' rust-toolchain.toml | sed 's/.*"\(.*\)".*/\1/')
                 echo "RUST_VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+          - name: "Set ORT version"
+            id: ort_version
+            run: |
+                echo "ORT_VERSION=1.23.2" >> $GITHUB_OUTPUT
 
           - name: "Get Binary Type"
             id: get_binary_type
@@ -117,9 +123,9 @@ jobs:
             env:
               GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-    push_to_registries:
+    push_to_registries_cuda:
         needs: prebuild_preparation
-        name: Push Docker image to multiple registries
+        name: Push Docker image (CUDA) to multiple registries
         runs-on: ubuntu-latest
         if: ${{needs.prebuild_preparation.outputs.bin_name != 'ahnlich-cli'}}
         permissions:
@@ -186,10 +192,85 @@ jobs:
                 AHNLICH_BIN=${{ needs.prebuild_preparation.outputs.bin_name}}
                 DEFAULT_PORT=${{env.DEFAULT_PORT}}
                 RUST_VERSION=${{ needs.prebuild_preparation.outputs.rust_version }}
+                ORT_VER=${{ needs.prebuild_preparation.outputs.ort_version }}
 
           - name: Generate artifact attestation
             uses: actions/attest-build-provenance@v1
             with:
-              subject-name: ghcr.io/${{ github.repository_owner }}/${{needs.prebuild_preparation.outputs.bin_name}}
+              subject-name: ghcr.io/${{ github.repository_owner }}/${{needs.prebuild_preparation.outputs.bin_name}}:${{env.BIN_VERSION}}
+              subject-digest: ${{ steps.push.outputs.digest }}
+              push-to-registry: true
+
+    push_to_registries_migraphx:
+        needs: prebuild_preparation
+        name: Push Docker image (MIGraphX) to multiple registries
+        runs-on: ubuntu-latest
+        if: ${{needs.prebuild_preparation.outputs.bin_name == 'ahnlich-ai'}}
+        permissions:
+          packages: write
+          contents: read
+          attestations: write
+          id-token: write
+        steps:
+          - name: Check out the repo
+            uses: actions/checkout@v4
+          
+          - name: Cache Docker images
+            uses: ScribeMD/docker-cache@0.5.0
+            with:
+              key: ${{ runner.os }}-cargo-${{ hashFiles('ahnlich/Cargo.lock') }}-migraphx
+
+          - name: Set Port Based on Bin Name
+            id: set_port
+            run: |
+              echo "DEFAULT_PORT=1370" >> $GITHUB_ENV
+              echo "DESCRIPTION=Ahnlich AI (MIGraphX)" >> $GITHUB_ENV
+
+          - name: Extract version number from tag
+            id: extract_version
+            run: |
+              # Extract version from release tag (format: bin/<suffix>/<version>)
+              VERSION=$(echo "${{ github.event.release.tag_name }}" | cut -d'/' -f3)
+              echo $VERSION
+              echo "BIN_VERSION=$VERSION" >> $GITHUB_ENV
+
+          - name: Log in to the Container registry
+            uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+            with:
+              registry: ghcr.io
+              username: ${{ github.repository_owner }}
+              password: ${{ secrets.GH_GCR_TOKEN }}
+
+          
+          - name: Extract metadata (tags, labels) for Docker
+            id: meta
+            uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+            with:
+              images: ghcr.io/${{ github.repository_owner }}/${{needs.prebuild_preparation.outputs.bin_name}}
+              tags: |
+                type=raw,value=${{env.BIN_VERSION}}-migraphx
+                type=raw,value=latest-migraphx
+              labels: |
+                org.opencontainers.image.description=${{ env.DESCRIPTION }}
+
+          - name: Build and push Docker images
+            id: push
+            uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+            with:
+              context: ./ahnlich
+              file: ./ahnlich/Dockerfile.migraphx
+              push: true
+              tags: ${{ steps.meta.outputs.tags }}
+              labels: ${{ steps.meta.outputs.labels }}
+              build-args: |
+                AHNLICH_BIN=${{ needs.prebuild_preparation.outputs.bin_name}}
+                DEFAULT_PORT=${{env.DEFAULT_PORT}}
+                RUST_VERSION=${{ needs.prebuild_preparation.outputs.rust_version }}
+                ORT_VER=${{ needs.prebuild_preparation.outputs.ort_version }}
+
+          - name: Generate artifact attestation
+            uses: actions/attest-build-provenance@v1
+            with:
+              subject-name: ghcr.io/${{ github.repository_owner }}/${{needs.prebuild_preparation.outputs.bin_name}}:${{env.BIN_VERSION}}-migraphx
               subject-digest: ${{ steps.push.outputs.digest }}
               push-to-registry: true
