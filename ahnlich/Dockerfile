@@ -1,4 +1,5 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.88.0 AS chef
+ARG RUST_VERSION
+FROM lukemathwalker/cargo-chef:latest-rust-${RUST_VERSION} AS chef
 WORKDIR /app
 RUN apt update && apt install lld clang protobuf-compiler -y 
 FROM chef AS planner
@@ -31,6 +32,7 @@ FROM debian:trixie-slim AS runtime
 
 ARG AHNLICH_BIN
 ARG DEFAULT_PORT
+ARG ORT_VER=1.23.2
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates \
@@ -43,7 +45,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-cert
 
 # ✅ Conditionally install onnxruntime from github if AHNLICH_BIN=ahnlich-ai
 RUN if [ "$AHNLICH_BIN" = "ahnlich-ai" ]; then \
-  ORT_VER=1.19.0 && \
   curl -L -o /tmp/ort.tgz \
   https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VER}/onnxruntime-linux-x64-gpu-${ORT_VER}.tgz && \
   mkdir -p /opt/onnxruntime && \

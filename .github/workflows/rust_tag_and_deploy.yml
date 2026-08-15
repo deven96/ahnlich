@@ -14,11 +14,19 @@ jobs:
       client_version: ${{ steps.get_version.outputs.CLIENT_VERSION }}
       client_version_changed: ${{ steps.check_version_changes.outputs.CLIENT_VERSION_CHANGED }}
       tag_version: ${{ steps.get_version.outputs.TAG_VERSION }}
+      rust_version: ${{ steps.rust_version.outputs.RUST_VERSION }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Get Rust version from toolchain file
+        id: rust_version
+        working-directory: ./ahnlich
+        run: |
+          VERSION=$(grep -E '^channel\s*=' rust-toolchain.toml | sed 's/.*"\(.*\)".*/\1/')
+          echo "RUST_VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Check for changes in rust client toml
         id: check_version_changes
@@ -66,7 +74,7 @@ jobs:
       - name: Get Cargo toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.97.1
+          toolchain: ${{ needs.check_version_changes_and_tag.outputs.rust_version }}
 
       - name: Install protoc
         run: |
