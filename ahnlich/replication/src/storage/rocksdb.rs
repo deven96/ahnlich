@@ -14,7 +14,7 @@ use openraft::{
     StorageIOError, Vote,
     storage::{LogFlushed, RaftLogStorage},
 };
-use rocksdb::{ColumnFamilyDescriptor, DB, IteratorMode, Options};
+use rocksdb::{ColumnFamilyDescriptor, DB, IteratorMode, Options, WriteBatch, WriteOptions};
 use serde_json::{from_slice, to_vec};
 
 use super::{LogIdOf, PersistedSnapshot, StateMachineSnapshotStore};
@@ -38,6 +38,19 @@ fn index_in_range<RB: RangeBounds<u64>>(range: &RB, idx: u64) -> bool {
         Bound::Unbounded => true,
     };
     start_ok && end_ok
+}
+
+// Write options that fsync the WAL before the write returns.
+//
+// Openraft requires the vote to be on disk before `save_vote` returns, and the
+// appended entries to be on disk before `LogFlushed::log_io_completed` fires.
+// RocksDB's default write options only reach the OS page cache, which a machine
+// crash discards: a lost vote lets this node vote twice in one term, and lost
+// entries drop data the leader already reported as committed.
+fn sync_write_opts() -> WriteOptions {
+    let mut opts = WriteOptions::default();
+    opts.set_sync(true);
+    opts
 }
 
 // RocksDB-backed log store. Production default. Persists Raft log entries and
@@ -119,7 +132,7 @@ impl<C: RaftTypeConfig> RocksLogStore<C> {
             source: StorageIOError::write_logs(&e),
         })?;
         self.db
-            .put_cf(self.cf_meta()?, key.as_bytes(), bytes)
+            .put_cf_opt(self.cf_meta()?, key.as_bytes(), bytes, &sync_write_opts())
             .map_err(|e| StorageError::IO {
                 source: StorageIOError::write_logs(&e),
             })
@@ -253,16 +266,22 @@ where
         I: IntoIterator<Item = C::Entry>,
     {
         let cf = self.cf_logs()?;
+        // One batch, one fsync: the whole append must be durable before the
+        // caller reports completion to openraft, and a per-entry sync would pay
+        // one fsync per log entry instead of one per append.
+        let mut batch = WriteBatch::default();
         for entry in entries {
             let key = Self::key(entry.get_log_id().index);
             let val = to_vec(&entry).map_err(|e| StorageError::IO {
                 source: StorageIOError::write_logs(&e),
             })?;
-            self.db.put_cf(cf, key, val).map_err(|e| StorageError::IO {
-                source: StorageIOError::write_logs(&e),
-            })?;
+            batch.put_cf(cf, key, val);
         }
-        Ok(())
+        self.db
+            .write_opt(batch, &sync_write_opts())
+            .map_err(|e| StorageError::IO {
+                source: StorageIOError::write_logs(&e),
+            })
     }
 
     fn delete_conflict_logs_since_sync(
@@ -271,12 +290,18 @@ where
     ) -> Result<(), StorageError<C::NodeId>> {
         let cf = self.cf_logs()?;
         let keys = self.collect_log_keys_matching(|idx| idx >= log_id.index)?;
+        // Durable before returning: if a crash loses the truncation, the
+        // conflicting tail comes back and `get_log_state` reports a last_log_id
+        // this node never accepted from the current leader.
+        let mut batch = WriteBatch::default();
         for key in keys {
-            self.db.delete_cf(cf, key).map_err(|e| StorageError::IO {
-                source: StorageIOError::write_logs(&e),
-            })?;
+            batch.delete_cf(cf, key);
         }
-        Ok(())
+        self.db
+            .write_opt(batch, &sync_write_opts())
+            .map_err(|e| StorageError::IO {
+                source: StorageIOError::write_logs(&e),
+            })
     }
 
     pub(crate) fn purge_logs_upto_sync(
@@ -285,11 +310,15 @@ where
     ) -> Result<(), StorageError<C::NodeId>> {
         let cf = self.cf_logs()?;
         let keys = self.collect_log_keys_matching(|idx| idx <= log_id.index)?;
+        let mut batch = WriteBatch::default();
         for key in keys {
-            self.db.delete_cf(cf, key).map_err(|e| StorageError::IO {
+            batch.delete_cf(cf, key);
+        }
+        self.db
+            .write_opt(batch, &sync_write_opts())
+            .map_err(|e| StorageError::IO {
                 source: StorageIOError::write_logs(&e),
             })?;
-        }
         self.put_last_purged_log_id(Some(log_id))
     }
 
