@@ -373,23 +373,33 @@ impl StoreHandler {
                 )
             }
 
-            // Linear WITHOUT predicates: Zero-copy iteration over Papaya HashMap
+            // Linear WITHOUT predicates: Single pin optimization
             (AlgorithmByType::Linear(linear_algo), None) => {
                 let pinned = store.id_to_value.pin();
                 let filtered_iter = pinned
                     .into_iter()
                     .map(|(id, (key, value))| (id, key, value.as_ref()));
-                linear_algo.find_similar_n_sequential(
+                let result = linear_algo.find_similar_n_sequential(
                     &search_embedding,
                     filtered_iter,
                     None,
                     true,
                     closest_n,
-                )
+                );
+
+                // Early return with same pin to avoid second Papaya pin
+                return Ok(result
+                    .into_iter()
+                    .flat_map(|(store_key_id, similarity)| {
+                        pinned.get(&store_key_id).map(|(k, v)| {
+                            (k.clone(), Arc::clone(v), Similarity { value: similarity })
+                        })
+                    })
+                    .collect());
             }
         };
 
-        // Map results to full entries by looking up directly in id_to_value
+        // Map results to full entries (only NonLinear paths reach here)
         let pinned = store.id_to_value.pin();
         Ok(similar_result
             .into_iter()
