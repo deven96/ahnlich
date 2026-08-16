@@ -337,9 +337,7 @@ impl<D: DistanceFn> HNSW<D> {
             )
             .pop()
             .map(|ele| ele.id)
-            .ok_or(Error::NotFoundError(
-                "nearest element not found".to_string(),
-            ))?;
+            .ok_or_else(|| Error::NotFoundError("nearest element not found".to_string()))?;
 
             enter_point = smallvec![nearest_ele];
         }
@@ -374,7 +372,7 @@ impl<D: DistanceFn> HNSW<D> {
             for neighbour_id in neighbours.iter() {
                 let neighbour_node = nodes
                     .get(neighbour_id)
-                    .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
+                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
 
                 let n_guard = neighbour_node.neighbours.pin();
                 n_guard
@@ -410,12 +408,12 @@ impl<D: DistanceFn> HNSW<D> {
                 // could be a node marked for deletion??
                 let neighbour_node = nodes
                     .get(neighbour)
-                    .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
+                    .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
 
                 let nn_guard = neighbour_node.neighbours.pin();
                 let e_conn = nn_guard
                     .get(&layer_index)
-                    .ok_or(Error::NotFoundError("Index not found".to_string()))?;
+                    .ok_or_else(|| Error::NotFoundError("Index not found".to_string()))?;
 
                 if e_conn.pin().len() > maximum_connections {
                     let e_conn_vec: Vec<NodeId> = e_conn.pin().iter().copied().collect();
@@ -432,7 +430,7 @@ impl<D: DistanceFn> HNSW<D> {
 
                     let neighbour_node = nodes
                         .get(neighbour)
-                        .ok_or(Error::NotFoundError("Node Ref not found".to_string()))?;
+                        .ok_or_else(|| Error::NotFoundError("Node Ref not found".to_string()))?;
 
                     neighbour_node
                         .neighbours
@@ -533,7 +531,7 @@ impl<D: DistanceFn> HNSW<D> {
 
             let visited_node = nodes
                 .get(&nearest.id)
-                .ok_or(Error::NotFoundError("Node not found".to_string()))?;
+                .ok_or_else(|| Error::NotFoundError("Node not found".to_string()))?;
 
             // Explore neighbors
             let vn_neighbours_guard = visited_node.neighbours.pin();
@@ -546,7 +544,7 @@ impl<D: DistanceFn> HNSW<D> {
 
                     let neighbour_node = nodes
                         .get(neighbour_id)
-                        .ok_or(Error::NotFoundError("Neighbor not found".to_string()))?;
+                        .ok_or_else(|| Error::NotFoundError("Neighbor not found".to_string()))?;
 
                     let neighbour_closeness = self
                         .distance_algorithm
@@ -607,12 +605,12 @@ impl<D: DistanceFn> HNSW<D> {
 
                 let candidate_node = nodes
                     .get(candidate)
-                    .ok_or(Error::NotFoundError(" Node Ref not Found".to_string()))?;
+                    .ok_or_else(|| Error::NotFoundError(" Node Ref not Found".to_string()))?;
 
                 let cn_guard = candidate_node.neighbours.pin();
                 let neighbours_at = cn_guard
                     .get(layer)
-                    .ok_or(Error::NotFoundError(format!("{:?} not Found", layer)))?;
+                    .ok_or_else(|| Error::NotFoundError(format!("{:?} not Found", layer)))?;
 
                 for neighbour_id in neighbours_at.pin().iter() {
                     if !working_queue.contains(neighbour_id)
@@ -638,7 +636,7 @@ impl<D: DistanceFn> HNSW<D> {
             if response.is_empty() {
                 let node = nodes
                     .get(&candidate.id)
-                    .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?;
+                    .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
                 response.push(node);
                 continue;
             }
@@ -646,13 +644,13 @@ impl<D: DistanceFn> HNSW<D> {
             // Get the candidate node to compute distances to already-selected neighbors
             let candidate_node = nodes
                 .get(&candidate.id)
-                .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?;
+                .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
             // Check if candidate is closer to query than to any already-selected neighbor
             let mut is_diverse = true;
             for selected in response.iter() {
                 let selected_node = nodes
                     .get(&selected.id)
-                    .ok_or(Error::NotFoundError("Selected node not found".to_string()))?;
+                    .ok_or_else(|| Error::NotFoundError("Selected node not found".to_string()))?;
 
                 let closeness_to_selected = self.distance_algorithm.closeness(
                     candidate_node.value.as_slice(),
@@ -680,7 +678,7 @@ impl<D: DistanceFn> HNSW<D> {
 
                 let node = nodes
                     .get(&nearest_from_wd_to_q.id)
-                    .ok_or(Error::NotFoundError("Node Ref not Found".to_string()))?;
+                    .ok_or_else(|| Error::NotFoundError("Node Ref not Found".to_string()))?;
                 response.push(node);
             }
         }
@@ -800,9 +798,7 @@ impl<D: DistanceFn> HNSW<D> {
             )
             .pop()
             .map(|node| node.id)
-            .ok_or(Error::NotFoundError(
-                "Nearest Element Not Found".to_string(),
-            ))?;
+            .ok_or_else(|| Error::NotFoundError("Nearest Element Not Found".to_string()))?;
 
             Ok(Some(enter_point))
         }
