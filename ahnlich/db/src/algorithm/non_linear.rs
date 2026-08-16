@@ -13,7 +13,6 @@ use ahnlich_types::algorithm::nonlinear::{
 };
 use ahnlich_types::utils::StoreKeyId;
 use papaya::HashMap as ConcurrentHashMap;
-use rayon::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
