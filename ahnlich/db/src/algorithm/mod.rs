@@ -182,8 +182,6 @@ impl From<HnswConfig> for DbHnswConfig {
 
 #[cfg(test)]
 mod tests {
-    use rayon::prelude::*;
-
     use super::*;
     use crate::engine::store::embedding_key_to_id;
     use crate::tests::*;
