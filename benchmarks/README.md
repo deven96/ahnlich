@@ -33,13 +33,61 @@ server.log
 
 ## What it measures
 
-Both stores hold the same vectors. Only the search path differs.
+Both stores hold the same vectors, each carrying `category`, `price_range` and
+`in_stock` metadata. Only the search path differs.
 
 | row | store | index | query algorithm |
 |---|---|---|---|
 | `linear` | `sift_linear` | none | matches `DISTANCE_METRIC` |
 | `hnsw` | `sift_hnsw` | HNSW | `HNSW` |
 | `ping` | none | none | `DBService/Ping`, does no work |
+
+The `linear` and `hnsw` rows query without a predicate. Each also runs with a
+predicate, suffixed by how many entries the predicate matches:
+
+| suffix | entries matched |
+|---|---|
+| `_5k` | ~5,000 |
+| `_1k` | ~1,000 |
+| `_100` | ~100 |
+
+## Reference numbers
+
+10k SIFT, 8-core M1, idle machine, commit `2c38f106`, `TOTAL_REQUESTS=5000`,
+`REPEATS=3`. Median of 3 runs, zero failed requests.
+
+RPS:
+
+| | c=1 | c=10 | c=50 | c=100 |
+|---|---|---|---|---|
+| ping | 5,158 | 15,633 | 25,866 | 30,931 |
+| hnsw | 1,139 | 5,480 | 6,355 | 6,511 |
+| linear | 803 | 4,329 | 5,097 | 5,167 |
+| hnsw_5k | 496 | 2,847 | 3,211 | 3,270 |
+| hnsw_1k | 395 | 2,374 | 2,631 | 2,665 |
+| hnsw_100 | 388 | 2,430 | 2,569 | 2,625 |
+| linear_5k | 579 | 3,307 | 3,861 | 3,904 |
+| linear_1k | 680 | 3,774 | 4,377 | 4,449 |
+| linear_100 | 690 | 3,716 | 4,461 | 4,491 |
+
+Server µs/req:
+
+| | c=1 | c=10 | c=50 | c=100 |
+|---|---|---|---|---|
+| ping | 69 | 64 | 36 | 31 |
+| hnsw | 249 | 278 | 267 | 267 |
+| linear | 571 | 686 | 609 | 596 |
+
+Before the linear and predicate work, on the same machine, linear measured
+273 / 1,064 / 1,066 / 1,063 and hnsw 1,128 / 4,748 / 5,755 / 5,898. Those runs stored
+empty metadata, so they moved less data per response than the numbers above.
+
+At c=100 the server spends 267 µs of CPU per hnsw request. Eight cores at that rate allow
+roughly 30,000 RPS against the 6,511 measured, so the query path is not CPU bound.
+
+Cross-invocation spread on an idle machine was 0.1% to 1.7%, except hnsw at c=1 at 5.4%.
+The same table measured with load average at 13 to 14 spread 8.5% to 15.2% on the linear
+rows.
 
 ## Configuration
 
@@ -72,7 +120,6 @@ TOTAL_REQUESTS=50000 CONCURRENCY_LEVELS="1 4 8 16 32" ./run_baseline.sh
 - `server µs/req` is the server process's own CPU time. It excludes client cost.
 - `RPS` includes client cost. At concurrency 1 ghz is about half the round trip, so use
   concurrency 10 and above for throughput figures, and concurrency 1 for A/B comparisons.
-- Entries are stored with empty metadata. The value path and predicates are not exercised.
 - `ping` does no work, so it bounds every other row.
 
 ## Profiling

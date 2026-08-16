@@ -122,7 +122,7 @@ SERVER_ARGS=(
     echo "server: ahnlich-db ${SERVER_ARGS[*]}"
     echo "requests: $TOTAL_REQUESTS x $REPEATS repeats, warmup $WARMUP_REQUESTS"
     echo "concurrency: $CONCURRENCY_LEVELS, connections: $CONNECTIONS"
-    echo "metric: $DISTANCE_METRIC, closest_n: $CLOSEST_N, ef_construction: ${EF_CONSTRUCTION:-512}"
+    echo "metric: $DISTANCE_METRIC, closest_n: $CLOSEST_N, ef_construction: ${EF_CONSTRUCTION:-100}"
     echo "store_size: ${STORE_SIZE:-full dataset}"
 } > "$RESULTS_DIR/RUN.txt"
 
