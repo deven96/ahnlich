@@ -1,3 +1,4 @@
+use crate::engine::predicate::PredicateEvaluator;
 use crate::errors::ServerError;
 use ahnlich_similarity::EmbeddingKey;
 use itertools::Itertools;
@@ -896,20 +897,26 @@ impl Store {
         &self,
         predicate: &Predicate,
     ) -> Result<StdHashSet<StoreKeyId>, ServerError> {
-        use crate::engine::predicate::PredicateEvaluator;
-
         let store_val_pinned = self.id_to_value.pin();
+        let store_size = store_val_pinned.len();
 
         // Wrap Predicate in PredicateCondition to use the trait
         let condition = PredicateCondition {
             kind: Some(PredicateConditionKind::Value(predicate.clone())),
         };
 
-        Ok(store_val_pinned
-            .into_iter()
-            .filter(|(_, (_, store_value))| store_value.as_ref().matches(&condition))
-            .map(|(k, _)| *k)
-            .collect())
+        // Conservative pre-allocation: cap at 1024 to avoid over-allocation for selective predicates
+        // while still benefiting from pre-allocation for common cases
+        let estimated_capacity = std::cmp::min(1024, store_size / 8);
+        let mut result = StdHashSet::new();
+        result.try_reserve(estimated_capacity)?;
+        result.extend(
+            store_val_pinned
+                .into_iter()
+                .filter(|(_, (_, store_value))| store_value.as_ref().matches(&condition))
+                .map(|(k, _)| *k),
+        );
+        Ok(result)
     }
 
     #[tracing::instrument(skip_all)]

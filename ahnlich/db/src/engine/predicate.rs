@@ -62,6 +62,7 @@ impl PredicateEvaluator for StoreValue {
 }
 
 /// Evaluates if a StoreValue matches a PredicateCondition
+#[inline]
 fn predicate_matches_store_value(condition: &PredicateCondition, store_value: &StoreValue) -> bool {
     match condition {
         PredicateCondition {
@@ -95,6 +96,7 @@ fn predicate_matches_store_value(condition: &PredicateCondition, store_value: &S
 }
 
 /// Evaluates a single Predicate against a StoreValue
+#[inline]
 fn predicate_matches_single(predicate: &Predicate, store_value: &StoreValue) -> bool {
     match &predicate.kind {
         Some(PredicateKind::Equals(predicates::Equals { key, value })) => {

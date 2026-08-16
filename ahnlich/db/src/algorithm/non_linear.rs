@@ -149,7 +149,7 @@ impl NonLinearAlgorithmWithIndex {
         .expect("Index does not have the same size as reference_point");
 
         raw_result
-            .into_par_iter()
+            .into_iter()
             .map(|(arr, sim)| (embedding_key_to_id(&arr), sim))
             .collect()
     }
