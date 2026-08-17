@@ -61,3 +61,13 @@ impl From<TryReserveError> for ServerError {
         Self::Allocation(input)
     }
 }
+
+impl From<std::collections::TryReserveError> for ServerError {
+    fn from(_input: std::collections::TryReserveError) -> Self {
+        // Convert std TryReserveError to fallible_collections TryReserveError
+        // We use a generic AllocError since we don't have the exact layout info
+        Self::Allocation(TryReserveError::AllocError {
+            layout: std::alloc::Layout::new::<u8>(),
+        })
+    }
+}

@@ -49,6 +49,76 @@ type InnerPredicateIndexVal = ConcurrentHashSet<StoreKeyId>;
 type InnerPredicateIndex = ConcurrentHashMap<MetadataValue, InnerPredicateIndexVal>;
 type InnerPredicateIndices = ConcurrentHashMap<String, PredicateIndex>;
 
+/// Extension trait for StoreValue to evaluate predicates
+pub(crate) trait PredicateEvaluator {
+    /// Evaluates if this StoreValue matches a PredicateCondition
+    fn matches(&self, condition: &PredicateCondition) -> bool;
+}
+
+impl PredicateEvaluator for StoreValue {
+    fn matches(&self, condition: &PredicateCondition) -> bool {
+        predicate_matches_store_value(condition, self)
+    }
+}
+
+/// Evaluates if a StoreValue matches a PredicateCondition
+#[inline]
+fn predicate_matches_store_value(condition: &PredicateCondition, store_value: &StoreValue) -> bool {
+    match condition {
+        PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(predicate)),
+        } => predicate_matches_single(predicate, store_value),
+
+        PredicateCondition {
+            kind: Some(PredicateConditionKind::And(cond)),
+        } => {
+            if let (Some(left), Some(right)) = (&cond.left, &cond.right) {
+                predicate_matches_store_value(left, store_value)
+                    && predicate_matches_store_value(right, store_value)
+            } else {
+                false
+            }
+        }
+
+        PredicateCondition {
+            kind: Some(PredicateConditionKind::Or(cond)),
+        } => {
+            if let (Some(left), Some(right)) = (&cond.left, &cond.right) {
+                predicate_matches_store_value(left, store_value)
+                    || predicate_matches_store_value(right, store_value)
+            } else {
+                false
+            }
+        }
+
+        _ => false,
+    }
+}
+
+/// Evaluates a single Predicate against a StoreValue
+#[inline]
+fn predicate_matches_single(predicate: &Predicate, store_value: &StoreValue) -> bool {
+    match &predicate.kind {
+        Some(PredicateKind::Equals(predicates::Equals { key, value })) => {
+            store_value.value.get(key).eq(&value.as_ref())
+        }
+        Some(PredicateKind::NotEquals(predicates::NotEquals { key, value })) => {
+            !store_value.value.get(key).eq(&value.as_ref())
+        }
+        Some(PredicateKind::In(predicates::In { key, values })) => store_value
+            .value
+            .get(key)
+            .map(|v| values.contains(v))
+            .unwrap_or(false),
+        Some(PredicateKind::NotIn(predicates::NotIn { key, values })) => !store_value
+            .value
+            .get(key)
+            .map(|v| values.contains(v))
+            .unwrap_or(false),
+        None => false,
+    }
+}
+
 /// Predicate indices are all the indexes referenced by their names
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct PredicateIndices {
@@ -1030,5 +1100,288 @@ mod tests {
             })),
         };
         assert_eq!(shared_pred.matches(&predicate).len(), 0);
+    }
+
+    #[test]
+    fn test_predicate_evaluator_trait() {
+        let store_value = store_value_0();
+
+        // Test Equals - match using trait
+        let cond = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(Predicate {
+                kind: Some(PredicateKind::Equals(predicates::Equals {
+                    key: "name".into(),
+                    value: Some(MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "David".to_string(),
+                        )),
+                    }),
+                })),
+            })),
+        };
+        assert!(store_value.matches(&cond));
+    }
+
+    #[test]
+    fn test_predicate_matches_single() {
+        let store_value = store_value_0();
+
+        // Test Equals - match
+        let pred = Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "name".into(),
+                value: Some(MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "David".to_string(),
+                    )),
+                }),
+            })),
+        };
+        assert!(predicate_matches_single(&pred, &store_value));
+
+        // Test Equals - no match
+        let pred = Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "name".into(),
+                value: Some(MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "John".to_string(),
+                    )),
+                }),
+            })),
+        };
+        assert!(!predicate_matches_single(&pred, &store_value));
+
+        // Test NotEquals - match
+        let pred = Predicate {
+            kind: Some(PredicateKind::NotEquals(predicates::NotEquals {
+                key: "name".into(),
+                value: Some(MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "John".to_string(),
+                    )),
+                }),
+            })),
+        };
+        assert!(predicate_matches_single(&pred, &store_value));
+
+        // Test In - match
+        let pred = Predicate {
+            kind: Some(PredicateKind::In(predicates::In {
+                key: "country".into(),
+                values: vec![
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Nigeria".to_string(),
+                        )),
+                    },
+                    MetadataValue {
+                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                            "Ghana".to_string(),
+                        )),
+                    },
+                ],
+            })),
+        };
+        assert!(predicate_matches_single(&pred, &store_value));
+
+        // Test In - no match
+        let pred = Predicate {
+            kind: Some(PredicateKind::In(predicates::In {
+                key: "country".into(),
+                values: vec![MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Ghana".to_string(),
+                    )),
+                }],
+            })),
+        };
+        assert!(!predicate_matches_single(&pred, &store_value));
+
+        // Test NotIn - match
+        let pred = Predicate {
+            kind: Some(PredicateKind::NotIn(predicates::NotIn {
+                key: "country".into(),
+                values: vec![MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "Ghana".to_string(),
+                    )),
+                }],
+            })),
+        };
+        assert!(predicate_matches_single(&pred, &store_value));
+
+        // Test missing key
+        let pred = Predicate {
+            kind: Some(PredicateKind::Equals(predicates::Equals {
+                key: "nonexistent".into(),
+                value: Some(MetadataValue {
+                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                        "value".to_string(),
+                    )),
+                }),
+            })),
+        };
+        assert!(!predicate_matches_single(&pred, &store_value));
+    }
+
+    #[test]
+    fn test_predicate_matches_store_value_and() {
+        let store_value = store_value_0();
+
+        let cond = PredicateCondition {
+            kind: Some(PredicateConditionKind::And(Box::new(
+                ahnlich_types::predicates::AndCondition {
+                    left: Some(Box::new(PredicateCondition {
+                        kind: Some(PredicateConditionKind::Value(Predicate {
+                            kind: Some(PredicateKind::Equals(predicates::Equals {
+                                key: "name".into(),
+                                value: Some(MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            "David".to_string(),
+                                        ),
+                                    ),
+                                }),
+                            })),
+                        })),
+                    })),
+                    right: Some(Box::new(PredicateCondition {
+                        kind: Some(PredicateConditionKind::Value(Predicate {
+                            kind: Some(PredicateKind::Equals(predicates::Equals {
+                                key: "country".into(),
+                                value: Some(MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            "Nigeria".to_string(),
+                                        ),
+                                    ),
+                                }),
+                            })),
+                        })),
+                    })),
+                },
+            ))),
+        };
+
+        assert!(predicate_matches_store_value(&cond, &store_value));
+
+        // Test AND with one false
+        let cond = PredicateCondition {
+            kind: Some(PredicateConditionKind::And(Box::new(
+                ahnlich_types::predicates::AndCondition {
+                    left: Some(Box::new(PredicateCondition {
+                        kind: Some(PredicateConditionKind::Value(Predicate {
+                            kind: Some(PredicateKind::Equals(predicates::Equals {
+                                key: "name".into(),
+                                value: Some(MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            "John".to_string(),
+                                        ),
+                                    ),
+                                }),
+                            })),
+                        })),
+                    })),
+                    right: Some(Box::new(PredicateCondition {
+                        kind: Some(PredicateConditionKind::Value(Predicate {
+                            kind: Some(PredicateKind::Equals(predicates::Equals {
+                                key: "country".into(),
+                                value: Some(MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            "Nigeria".to_string(),
+                                        ),
+                                    ),
+                                }),
+                            })),
+                        })),
+                    })),
+                },
+            ))),
+        };
+
+        assert!(!predicate_matches_store_value(&cond, &store_value));
+    }
+
+    #[test]
+    fn test_predicate_matches_store_value_or() {
+        let store_value = store_value_0();
+
+        let cond = PredicateCondition {
+            kind: Some(PredicateConditionKind::Or(Box::new(
+                ahnlich_types::predicates::OrCondition {
+                    left: Some(Box::new(PredicateCondition {
+                        kind: Some(PredicateConditionKind::Value(Predicate {
+                            kind: Some(PredicateKind::Equals(predicates::Equals {
+                                key: "name".into(),
+                                value: Some(MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            "John".to_string(),
+                                        ),
+                                    ),
+                                }),
+                            })),
+                        })),
+                    })),
+                    right: Some(Box::new(PredicateCondition {
+                        kind: Some(PredicateConditionKind::Value(Predicate {
+                            kind: Some(PredicateKind::Equals(predicates::Equals {
+                                key: "country".into(),
+                                value: Some(MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            "Nigeria".to_string(),
+                                        ),
+                                    ),
+                                }),
+                            })),
+                        })),
+                    })),
+                },
+            ))),
+        };
+
+        assert!(predicate_matches_store_value(&cond, &store_value));
+
+        // Test OR with both false
+        let cond = PredicateCondition {
+            kind: Some(PredicateConditionKind::Or(Box::new(
+                ahnlich_types::predicates::OrCondition {
+                    left: Some(Box::new(PredicateCondition {
+                        kind: Some(PredicateConditionKind::Value(Predicate {
+                            kind: Some(PredicateKind::Equals(predicates::Equals {
+                                key: "name".into(),
+                                value: Some(MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            "John".to_string(),
+                                        ),
+                                    ),
+                                }),
+                            })),
+                        })),
+                    })),
+                    right: Some(Box::new(PredicateCondition {
+                        kind: Some(PredicateConditionKind::Value(Predicate {
+                            kind: Some(PredicateKind::Equals(predicates::Equals {
+                                key: "country".into(),
+                                value: Some(MetadataValue {
+                                    value: Some(
+                                        ahnlich_types::metadata::metadata_value::Value::RawString(
+                                            "Ghana".to_string(),
+                                        ),
+                                    ),
+                                }),
+                            })),
+                        })),
+                    })),
+                },
+            ))),
+        };
+
+        assert!(!predicate_matches_store_value(&cond, &store_value));
     }
 }

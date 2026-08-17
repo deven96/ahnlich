@@ -63,8 +63,7 @@ pub struct CommandLineConfig {
     DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).maximum_clients.clone())]
     pub maximum_clients: usize,
 
-    ///  CPU threadpool size
-    ///  Defaults to 16
+    /// CPU threadpool size (defaults to number of CPU cores)
     #[arg(long, default_value_t =
     DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).threadpool_size.clone())]
     pub threadpool_size: usize,
@@ -103,6 +102,10 @@ pub struct CommandLineConfig {
 
 impl Default for CommandLineConfig {
     fn default() -> Self {
+        let default_threadpool = std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(16);
+
         Self {
             host: String::from("127.0.0.1"),
             enable_persistence: false,
@@ -115,7 +118,7 @@ impl Default for CommandLineConfig {
             otel_endpoint: None,
             log_level: String::from("info,hf_hub=warn"),
             maximum_clients: 512,
-            threadpool_size: 16,
+            threadpool_size: default_threadpool,
             enable_auth: false,
             auth_config: None,
             tls_cert: None,

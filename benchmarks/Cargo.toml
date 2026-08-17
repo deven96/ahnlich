@@ -1,0 +1,25 @@
+[package]
+name = "ahnlich-benchmarks"
+version = "0.1.0"
+edition = "2024"
+
+# Deliberately outside the ahnlich workspace, like examples/rust/image-search: this is
+# a load-testing harness, not part of the database. Versions are pinned here rather
+# than inherited because workspace dependencies do not cross that boundary.
+[dependencies]
+ahnlich_client_rs = { path = "../ahnlich/client" }
+ahnlich_types = { path = "../ahnlich/types" }
+tokio = { version = "1.37.0", features = ["rt-multi-thread", "macros"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+
+# Loads the dataset into a running server and generates the ghz payloads.
+[[bin]]
+name = "setup_sift"
+path = "src/setup_sift.rs"
+
+# Collapses the per-run ghz JSON reports into SUMMARY.md.
+[[bin]]
+name = "summarize"
+path = "src/summarize.rs"
