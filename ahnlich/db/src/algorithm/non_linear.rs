@@ -1,5 +1,4 @@
 use super::super::errors::ServerError;
-use super::FindSimilarN;
 use crate::algorithm::DbHnswConfig;
 use crate::engine::store::embedding_key_to_id;
 use ahnlich_similarity::EmbeddingKey;
@@ -14,7 +13,6 @@ use ahnlich_types::algorithm::nonlinear::{
 };
 use ahnlich_types::utils::StoreKeyId;
 use papaya::HashMap as ConcurrentHashMap;
-use rayon::prelude::*;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -120,25 +118,6 @@ impl NonLinearAlgorithmWithIndex {
     }
 }
 
-impl FindSimilarN for NonLinearAlgorithmWithIndex {
-    #[tracing::instrument(skip_all)]
-    fn find_similar_n<'a>(
-        &'a self,
-        search_vector: &EmbeddingKey,
-        search_list: impl rayon::iter::ParallelIterator<Item = (&'a StoreKeyId, &'a EmbeddingKey)>,
-        used_all: bool,
-        n: NonZeroUsize,
-    ) -> Vec<(StoreKeyId, f32)> {
-        let accept_list = if used_all {
-            None
-        } else {
-            Some(search_list.map(|(id, _)| id.0).collect())
-        };
-
-        self.find_similar_n_with_ids(search_vector, accept_list, n)
-    }
-}
-
 impl NonLinearAlgorithmWithIndex {
     /// Optimized search that takes accept_list directly, avoiding iterator overhead
     #[tracing::instrument(skip_all)]
@@ -169,7 +148,7 @@ impl NonLinearAlgorithmWithIndex {
         .expect("Index does not have the same size as reference_point");
 
         raw_result
-            .into_par_iter()
+            .into_iter()
             .map(|(arr, sim)| (embedding_key_to_id(&arr), sim))
             .collect()
     }

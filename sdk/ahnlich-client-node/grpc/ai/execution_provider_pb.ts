@@ -49,4 +49,3 @@ proto3.util.setEnumType(ExecutionProvider, "ai.execution_provider.ExecutionProvi
   { no: 3, name: "CORE_ML" },
   { no: 5, name: "MIGRAPHX" },
 ]);
-

@@ -1,0 +1,87 @@
+name: Ahnlich Baseline
+
+# Not on pull requests: shared runners vary more than this benchmark's noise floor, so
+# a per-PR gate would mostly fire falsely. benchmark.yml covers PRs.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      total_requests:
+        description: Measured requests per run
+        default: "5000"
+      concurrency_levels:
+        description: Space separated concurrency levels
+        default: "1 10 50"
+      repeats:
+        description: Runs per configuration, reported as the median
+        default: "3"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  GHZ_VERSION: v0.121.0
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            ahnlich
+            benchmarks
+
+      - name: Install protoc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Install ghz
+        run: |
+          curl -fsSL -o ghz.tar.gz \
+            "https://github.com/bojand/ghz/releases/download/${GHZ_VERSION}/ghz-linux-x86_64.tar.gz"
+          tar -xzf ghz.tar.gz ghz
+          sudo install -m 755 ghz /usr/local/bin/ghz
+          ghz --version
+
+      - name: Run baseline
+        working-directory: ./benchmarks
+        env:
+          # Smaller than local defaults: shared runners have fewer cores.
+          TOTAL_REQUESTS: ${{ inputs.total_requests || '5000' }}
+          CONCURRENCY_LEVELS: ${{ inputs.concurrency_levels || '1 10 50' }}
+          REPEATS: ${{ inputs.repeats || '3' }}
+          RESULTS_DIR: ${{ github.workspace }}/benchmarks/results/ci
+        run: ./run_baseline.sh
+
+      - name: Publish summary
+        if: always()
+        run: |
+          summary="${{ github.workspace }}/benchmarks/results/ci/SUMMARY.md"
+          if [ -f "$summary" ]; then
+            {
+              echo "Commit \`${GITHUB_SHA:0:8}\` on \`${GITHUB_REF_NAME}\`, \`${RUNNER_OS}\` runner."
+              echo
+              echo "Absolute numbers depend on the runner. Compare against previous runs."
+              echo
+              cat "$summary"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No summary produced; the run failed before benchmarking." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-${{ github.run_number }}
+          path: benchmarks/results/ci
+          retention-days: 90

@@ -15,9 +15,9 @@ maintenance = { status = "actively-developed" }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+arc-swap.workspace = true
 crossbeam = "0.8.4"
 papaya.workspace = true
-parking_lot.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 tracing.workspace = true
 rand.workspace = true

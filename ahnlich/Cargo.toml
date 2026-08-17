@@ -48,6 +48,7 @@ fallible_collections = "0.4.9"
 dirs = "5.0.1"
 strum = { version = "0.26", features = ["derive"] }
 papaya = { version = "0.2.0", features = ["serde"] }
+arc-swap = "1.9"
 parking_lot = "0.12"
 tonic = "0.12.3"
 tonic-build = "0.12.3"

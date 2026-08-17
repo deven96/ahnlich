@@ -1,3 +1,4 @@
+use crate::engine::predicate::PredicateEvaluator;
 use crate::errors::ServerError;
 use ahnlich_similarity::EmbeddingKey;
 use itertools::Itertools;
@@ -12,7 +13,7 @@ use ahnlich_types::db::server::StoreInfo;
 use ahnlich_types::keyval::StoreName;
 use ahnlich_types::keyval::{StoreKey, StoreValue};
 use ahnlich_types::predicates::{
-    self, Predicate, PredicateCondition, predicate::Kind as PredicateKind,
+    Predicate, PredicateCondition, predicate_condition::Kind as PredicateConditionKind,
 };
 use ahnlich_types::schema::Schema;
 use ahnlich_types::shared::info::StoreUpsert;
@@ -332,30 +333,29 @@ impl StoreHandler {
                 )
             }
 
-            // Linear WITH predicates: Need full data for distance computation
+            // Linear WITH predicates: Inline filtering during distance computation
             (AlgorithmByType::Linear(linear_algo), Some(cond)) => {
-                let filtered_with_ids = store.get_matches_with_ids(cond)?;
-                if filtered_with_ids.is_empty() {
-                    return Ok(vec![]);
-                }
+                let pinned = store.id_to_value.pin();
+                let filtered_iter = pinned
+                    .into_iter()
+                    .map(|(id, (key, value))| (id, key, value.as_ref()));
 
-                let filtered_iter = filtered_with_ids.par_iter().map(|(id, (key, _))| (id, key));
-                let result =
-                    linear_algo.find_similar_n(&search_embedding, filtered_iter, false, closest_n);
+                let result = linear_algo.find_similar_n_sequential(
+                    &search_embedding,
+                    filtered_iter,
+                    Some(cond),
+                    false,
+                    closest_n,
+                );
 
-                // Build lookup map for linear + predicate case
-                let mut keys_to_entry_map: StdHashMap<StoreKeyId, StoreEntry> =
-                    StdHashMap::with_capacity(filtered_with_ids.len());
-                for (key_id, entry) in filtered_with_ids {
-                    keys_to_entry_map.insert(key_id, entry);
-                }
-
+                // Lookup results in Papaya directly (no HashMap needed)
+                let pinned = store.id_to_value.pin();
                 return Ok(result
                     .into_iter()
                     .flat_map(|(store_key_id, similarity)| {
-                        keys_to_entry_map
-                            .remove(&store_key_id)
-                            .map(|(key, value)| (key, value, Similarity { value: similarity }))
+                        pinned.get(&store_key_id).map(|(k, v)| {
+                            (k.clone(), Arc::clone(v), Similarity { value: similarity })
+                        })
                     })
                     .collect());
             }
@@ -374,15 +374,33 @@ impl StoreHandler {
                 )
             }
 
-            // Linear WITHOUT predicates: Need full data
+            // Linear WITHOUT predicates: Single pin optimization
             (AlgorithmByType::Linear(linear_algo), None) => {
-                let filtered_with_ids = store.get_all_with_ids();
-                let filtered_iter = filtered_with_ids.par_iter().map(|(id, (key, _))| (id, key));
-                linear_algo.find_similar_n(&search_embedding, filtered_iter, true, closest_n)
+                let pinned = store.id_to_value.pin();
+                let filtered_iter = pinned
+                    .into_iter()
+                    .map(|(id, (key, value))| (id, key, value.as_ref()));
+                let result = linear_algo.find_similar_n_sequential(
+                    &search_embedding,
+                    filtered_iter,
+                    None,
+                    true,
+                    closest_n,
+                );
+
+                // Early return with same pin to avoid second Papaya pin
+                return Ok(result
+                    .into_iter()
+                    .flat_map(|(store_key_id, similarity)| {
+                        pinned.get(&store_key_id).map(|(k, v)| {
+                            (k.clone(), Arc::clone(v), Similarity { value: similarity })
+                        })
+                    })
+                    .collect());
             }
         };
 
-        // Map results to full entries by looking up directly in id_to_value
+        // Map results to full entries (only NonLinear paths reach here)
         let pinned = store.id_to_value.pin();
         Ok(similar_result
             .into_iter()
@@ -880,115 +898,25 @@ impl Store {
         predicate: &Predicate,
     ) -> Result<StdHashSet<StoreKeyId>, ServerError> {
         let store_val_pinned = self.id_to_value.pin();
-        // Collect into Vec for iteration
-        let entries: Vec<_> = store_val_pinned.into_iter().collect();
+        let store_size = store_val_pinned.len();
 
-        // Use parallel iteration only for large datasets (> 1000 entries)
-        // to avoid parallelization overhead on small datasets
-        const PARALLEL_THRESHOLD: usize = 1000;
-        let use_parallel = entries.len() > PARALLEL_THRESHOLD;
-
-        let res = match &predicate.kind {
-            Some(PredicateKind::Equals(predicates::Equals { key, value })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            let metadata_value = store_value.value.get(key);
-                            metadata_value.eq(&value.as_ref())
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
-                    entries
-                        .iter()
-                        .filter(|(_, (_, store_value))| {
-                            let metadata_value = store_value.value.get(key);
-                            metadata_value.eq(&value.as_ref())
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                }
-            }
-            Some(PredicateKind::NotEquals(predicates::NotEquals { key, value })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            let metdata_value = store_value.value.get(key);
-                            !metdata_value.eq(&value.as_ref())
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
-                    entries
-                        .iter()
-                        .filter(|(_, (_, store_value))| {
-                            let metdata_value = store_value.value.get(key);
-                            !metdata_value.eq(&value.as_ref())
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                }
-            }
-            Some(PredicateKind::In(predicates::In { key, values })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            store_value
-                                .value
-                                .get(key)
-                                .map(|v| values.contains(v))
-                                .unwrap_or(false)
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
-                    entries
-                        .iter()
-                        .filter(|(_, (_, store_value))| {
-                            store_value
-                                .value
-                                .get(key)
-                                .map(|v| values.contains(v))
-                                .unwrap_or(false)
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                }
-            }
-            Some(PredicateKind::NotIn(predicates::NotIn { key, values })) => {
-                if use_parallel {
-                    entries
-                        .par_iter()
-                        .filter(|(_, (_, store_value))| {
-                            store_value
-                                .value
-                                .get(key)
-                                .map(|v| !values.contains(v))
-                                .unwrap_or(true)
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                } else {
-                    entries
-                        .iter()
-                        .filter(|(_, (_, store_value))| {
-                            store_value
-                                .value
-                                .get(key)
-                                .map(|v| !values.contains(v))
-                                .unwrap_or(true)
-                        })
-                        .map(|(k, _)| *(*k))
-                        .collect()
-                }
-            }
-
-            None => unreachable!(),
+        // Wrap Predicate in PredicateCondition to use the trait
+        let condition = PredicateCondition {
+            kind: Some(PredicateConditionKind::Value(predicate.clone())),
         };
-        Ok(res)
+
+        // Conservative pre-allocation: cap at 1024 to avoid over-allocation for selective predicates
+        // while still benefiting from pre-allocation for common cases
+        let estimated_capacity = std::cmp::min(1024, store_size / 8);
+        let mut result = StdHashSet::new();
+        result.try_reserve(estimated_capacity)?;
+        result.extend(
+            store_val_pinned
+                .into_iter()
+                .filter(|(_, (_, store_value))| store_value.as_ref().matches(&condition))
+                .map(|(k, _)| *k),
+        );
+        Ok(result)
     }
 
     #[tracing::instrument(skip_all)]
@@ -1007,40 +935,6 @@ impl Store {
                 (embedding_key.clone(), Arc::clone(store_value))
             })
             .collect()
-    }
-
-    /// Like get_all, but also returns the StoreKeyId to avoid recomputing hashes
-    #[tracing::instrument(skip(self))]
-    fn get_all_with_ids(&self) -> Vec<(StoreKeyId, StoreEntry)> {
-        let pinned = self.id_to_value.pin();
-        let capacity = pinned.len();
-        let mut result = Vec::with_capacity(capacity);
-        result.extend(
-            pinned
-                .into_iter()
-                .map(|(key_id, (embedding_key, store_value))| {
-                    (*key_id, (embedding_key.clone(), Arc::clone(store_value)))
-                }),
-        );
-        result
-    }
-
-    /// Like get_matches, but also returns the StoreKeyId to avoid recomputing hashes
-    #[tracing::instrument(skip_all)]
-    fn get_matches_with_ids(
-        &self,
-        condition: &PredicateCondition,
-    ) -> Result<Vec<(StoreKeyId, StoreEntry)>, ServerError> {
-        let matches = self.predicate_indices.matches(condition, self)?;
-        let pinned = self.id_to_value.pin();
-        Ok(matches
-            .into_iter()
-            .flat_map(|key_id| {
-                pinned
-                    .get(&key_id)
-                    .map(|(k, v)| (key_id, (k.clone(), Arc::clone(v))))
-            })
-            .collect())
     }
 
     /// Adds a bunch of entries into the store if they match the dimensions
