@@ -11,7 +11,6 @@ mod tests {
 
     use crate::tests::*;
     use ahnlich_types::keyval::StoreKey;
-    use rayon::prelude::*;
 
     fn euclidean_distance_comp(first: &[f32], second: &[f32]) -> f32 {
         // Calculate the sum of squared differences for each dimension
@@ -56,16 +55,11 @@ mod tests {
         start.elapsed()
     }
 
-    // NOTE: Test runs a bit slow due to the number gen here
-    // Tried using fast number generation plus fixed buffers and parallel iteration but
-    // the test alone still clocks ~7-8 seconds locally
     fn generate_test_array(size: usize, dimension: usize) -> Vec<StoreKey> {
         let mut buffer: Vec<f32> = Vec::with_capacity(size * dimension);
         buffer.extend((0..size * dimension).map(|_| fastrand::f32()));
-
-        // Use Rayon to process the buffer in parallel
         buffer
-            .par_chunks_exact(dimension)
+            .chunks_exact(dimension)
             .map(|chunk| StoreKey {
                 key: chunk.to_owned(),
             })

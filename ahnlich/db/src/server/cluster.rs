@@ -236,7 +236,12 @@ pub(crate) async fn build_cluster_runtime(
             )
             .map_err(|err| std::io::Error::other(err.to_string()))?;
             let state_machine = StateMachineStore::new(
-                DbStateMachine::new(Arc::new(AtomicBool::new(false))),
+                DbStateMachine::new(
+                    Arc::new(AtomicBool::new(false)),
+                    config.common.threadpool_size,
+                    config.common.parallel_concurrency_threshold,
+                    config.common.parallel_batch_threshold,
+                ),
                 StoredMembership::new(None, Membership::new(vec![], BTreeMap::new())),
                 failure_state.clone(),
                 Arc::new(log_store.clone()),

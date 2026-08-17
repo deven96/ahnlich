@@ -7,7 +7,7 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ahnlich-db = { package = "db", path = "../db", default-features = false, features = ["wasm", "wasm-threads"] }
+ahnlich-db = { package = "db", path = "../db", default-features = false }
 ahnlich-types = { package = "ahnlich_types", path = "../types", default-features = false }
 wasm-bindgen = "0.2"
 prost = "0.13"

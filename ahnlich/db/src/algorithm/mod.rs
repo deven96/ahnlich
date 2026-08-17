@@ -85,6 +85,17 @@ pub(crate) trait FindSimilarN {
         _used_all: bool,
         n: NonZeroUsize,
     ) -> Vec<(StoreKeyId, f32)>;
+
+    fn find_similar_n_parallel<'a>(
+        &'a self,
+        search_vector: &EmbeddingKey,
+        search_list: impl rayon::iter::ParallelIterator<
+            Item = (&'a StoreKeyId, &'a EmbeddingKey, &'a StoreValue),
+        >,
+        predicate: Option<&PredicateCondition>,
+        _used_all: bool,
+        n: NonZeroUsize,
+    ) -> Vec<(StoreKeyId, f32)>;
 }
 
 impl FindSimilarN for LinearAlgorithm {
@@ -117,6 +128,55 @@ impl FindSimilarN for LinearAlgorithm {
         }
 
         heap.into_sorted_vec()
+            .into_iter()
+            .map(|candidate| (candidate.key_id, candidate.score))
+            .collect()
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn find_similar_n_parallel<'a>(
+        &'a self,
+        search_vector: &EmbeddingKey,
+        search_list: impl rayon::iter::ParallelIterator<
+            Item = (&'a StoreKeyId, &'a EmbeddingKey, &'a StoreValue),
+        >,
+        predicate: Option<&PredicateCondition>,
+        _used_all: bool,
+        n: NonZeroUsize,
+    ) -> Vec<(StoreKeyId, f32)> {
+        use rayon::prelude::*;
+
+        search_list
+            .fold(
+                || BoundedMaxHeap::new(n),
+                |mut heap, (key_id, vector, store_value)| {
+                    // Check predicate inline before computing distance
+                    if let Some(pred) = predicate
+                        && !store_value.matches(pred)
+                    {
+                        return heap;
+                    }
+
+                    // Only compute distance if predicate passed (or no predicate)
+                    let score = self.score(search_vector.as_slice(), vector.as_slice());
+                    heap.push(SimilarityVector {
+                        key_id: *key_id,
+                        closeness: score.closeness(),
+                        score: score.value(),
+                    });
+                    heap
+                },
+            )
+            .reduce(
+                || BoundedMaxHeap::new(n),
+                |mut heap1, heap2| {
+                    for item in heap2.into_sorted_vec() {
+                        heap1.push(item);
+                    }
+                    heap1
+                },
+            )
+            .into_sorted_vec()
             .into_iter()
             .map(|candidate| (candidate.key_id, candidate.score))
             .collect()
@@ -248,5 +308,105 @@ mod tests {
             .collect();
 
         assert_eq!(most_similar_sentences_vec, similar_n_vecs);
+    }
+
+    #[test]
+    fn test_parallel_matches_sequential_cosine() {
+        use rayon::prelude::*;
+        use std::collections::HashMap;
+        use std::sync::Arc;
+
+        // Create test vectors
+        let search = vec![1.0, 2.0, 3.0];
+        let data: Vec<(StoreKeyId, EmbeddingKey, Arc<StoreValue>)> = vec![
+            (
+                StoreKeyId(1),
+                EmbeddingKey::new(vec![1.0, 2.0, 3.0]),
+                Arc::new(StoreValue {
+                    value: HashMap::new(),
+                }),
+            ),
+            (
+                StoreKeyId(2),
+                EmbeddingKey::new(vec![4.0, 5.0, 6.0]),
+                Arc::new(StoreValue {
+                    value: HashMap::new(),
+                }),
+            ),
+            (
+                StoreKeyId(3),
+                EmbeddingKey::new(vec![7.0, 8.0, 9.0]),
+                Arc::new(StoreValue {
+                    value: HashMap::new(),
+                }),
+            ),
+            (
+                StoreKeyId(4),
+                EmbeddingKey::new(vec![1.0, 1.0, 1.0]),
+                Arc::new(StoreValue {
+                    value: HashMap::new(),
+                }),
+            ),
+        ];
+
+        let search_key = EmbeddingKey::new(search);
+        let algo = LinearAlgorithm::CosineSimilarity;
+        let n = NonZeroUsize::new(2).unwrap();
+
+        // Run sequential
+        let seq_iter = data.iter().map(|(id, key, val)| (id, key, val.as_ref()));
+        let seq_result = algo.find_similar_n_sequential(&search_key, seq_iter, None, false, n);
+
+        // Run parallel
+        let par_iter = data
+            .par_iter()
+            .map(|(id, key, val)| (id, key, val.as_ref()));
+        let par_result = algo.find_similar_n_parallel(&search_key, par_iter, None, false, n);
+
+        // Results should match exactly
+        assert_eq!(seq_result, par_result);
+        assert_eq!(seq_result.len(), 2);
+    }
+
+    #[test]
+    fn test_parallel_with_large_dataset() {
+        use rayon::prelude::*;
+        use std::collections::HashMap;
+        use std::sync::Arc;
+
+        // Large dataset to actually trigger parallelism
+        let search: Vec<f32> = (0..128).map(|i| (i as f32).sin()).collect();
+        let mut data = Vec::new();
+        for i in 0..1000 {
+            // Create varied vectors to avoid NaN from zero vectors
+            let vec: Vec<f32> = (0..128)
+                .map(|j| ((i + j) as f32 / 1000.0).sin() + 0.1)
+                .collect();
+            data.push((
+                StoreKeyId(i as u64),
+                EmbeddingKey::new(vec),
+                Arc::new(StoreValue {
+                    value: HashMap::new(),
+                }),
+            ));
+        }
+
+        let search_key = EmbeddingKey::new(search);
+        let algo = LinearAlgorithm::CosineSimilarity;
+        let n = NonZeroUsize::new(10).unwrap();
+
+        // Run sequential
+        let seq_iter = data.iter().map(|(id, key, val)| (id, key, val.as_ref()));
+        let seq_result = algo.find_similar_n_sequential(&search_key, seq_iter, None, false, n);
+
+        // Run parallel
+        let par_iter = data
+            .par_iter()
+            .map(|(id, key, val)| (id, key, val.as_ref()));
+        let par_result = algo.find_similar_n_parallel(&search_key, par_iter, None, false, n);
+
+        // Results should match
+        assert_eq!(seq_result, par_result);
+        assert_eq!(seq_result.len(), 10);
     }
 }

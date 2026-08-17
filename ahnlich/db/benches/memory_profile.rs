@@ -94,7 +94,9 @@ fn main() {
 
 fn initialize_store_handler() -> Arc<StoreHandler> {
     let write_flag = Arc::new(AtomicBool::new(false));
-    Arc::new(StoreHandler::new(write_flag))
+    let parallelism_config =
+        ahnlich_db::engine::store::ParallelismConfig::from_cli(16, None, 10_000);
+    Arc::new(StoreHandler::new(write_flag, parallelism_config))
 }
 
 fn insert_vectors(
