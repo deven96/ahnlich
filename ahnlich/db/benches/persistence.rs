@@ -77,7 +77,9 @@ fn create_test_store_with_data(
     with_metadata: bool,
 ) -> (Arc<StoreHandler>, StoreName) {
     let write_flag = Arc::new(AtomicBool::new(false));
-    let handler = Arc::new(StoreHandler::new(write_flag));
+    let parallelism_config =
+        ahnlich_db::engine::store::ParallelismConfig::from_cli(16, None, 10_000);
+    let handler = Arc::new(StoreHandler::new(write_flag, parallelism_config));
     let store_name = StoreName {
         value: "benchmark_store".to_string(),
     };

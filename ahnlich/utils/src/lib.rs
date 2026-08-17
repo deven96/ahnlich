@@ -1,9 +1,8 @@
 // Core modules (WASM-compatible)
 pub mod fallible;
+pub mod parallel;
 
 // Server-only modules (need tokio/async)
-#[cfg(feature = "server")]
-pub mod parallel;
 #[cfg(feature = "server")]
 pub mod size_calculation;
 

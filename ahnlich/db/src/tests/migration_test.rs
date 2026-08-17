@@ -1,5 +1,4 @@
-use crate::engine::store::StoreHandler;
-use crate::engine::store::Stores;
+use crate::engine::store::{ParallelismConfig, StoreHandler, Stores};
 use ahnlich_types::algorithm::{
     algorithms::DistanceMetric,
     nonlinear::{HnswConfig, KdTreeConfig, non_linear_index},
@@ -14,6 +13,10 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use utils::persistence::AhnlichPersistenceUtils;
 
+fn test_parallelism_config() -> ParallelismConfig {
+    ParallelismConfig::from_cli(16, None, 10_000)
+}
+
 fn db_fixture_dir() -> std::path::PathBuf {
     std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("src")
@@ -22,7 +25,7 @@ fn db_fixture_dir() -> std::path::PathBuf {
 }
 
 fn populated_db_fixture_handler() -> StoreHandler {
-    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     let predicates = vec!["category".to_string(), "color".to_string()];
     let mut non_linear_indices: HashSet<non_linear_index::Index> = HashSet::new();
     non_linear_indices.insert(non_linear_index::Index::Kdtree(KdTreeConfig {}));
@@ -102,7 +105,8 @@ fn populated_db_old_flat_snapshot_json() -> Value {
 }
 
 fn assert_populated_db_snapshot(migrated: Stores) {
-    let mut handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let mut handler =
+        StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     handler.use_snapshot(migrated);
     let store_info = handler
         .get_store(

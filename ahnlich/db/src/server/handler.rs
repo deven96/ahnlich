@@ -473,7 +473,15 @@ impl DbService for Server {
                 )
                 .await?
             }
-            StoreRuntime::Standalone(store_handler) => operations::set(store_handler, params)?,
+            StoreRuntime::Standalone(store_handler) => {
+                let active_requests = store_handler.active_requests_count();
+                operations::set(
+                    store_handler,
+                    params,
+                    store_handler.parallelism_config(),
+                    active_requests,
+                )?
+            }
         };
 
         Ok(tonic::Response::new(server::Set { upsert: Some(set) }))
@@ -1008,7 +1016,12 @@ impl Server {
             ))
         } else {
             let write_flag = Arc::new(AtomicBool::new(false));
-            let mut store_handler = StoreHandler::new(write_flag);
+            let parallelism_config = crate::engine::store::ParallelismConfig::from_cli(
+                config.common.threadpool_size,
+                config.common.parallel_concurrency_threshold,
+                config.common.parallel_batch_threshold,
+            );
+            let mut store_handler = StoreHandler::new(write_flag, parallelism_config);
             if let Some(persist_location) = &config.common.persist_location {
                 match Persistence::load_snapshot_with_migration(
                     persist_location,

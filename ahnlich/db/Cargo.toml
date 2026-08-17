@@ -13,13 +13,10 @@ server = [
     "ahnlich_types/server",
     "dep:tokio",
     "dep:tokio-util",
-    "dep:rayon",
     "utils/server",
     "dep:tracer",
     "dep:task-manager",
 ]
-wasm = []
-wasm-threads = ["dep:rayon"]
 
 [[bin]]
 name = "ahnlich-db"
@@ -51,7 +48,7 @@ tracing.workspace = true
 tracer = { path = "../tracer", version = "*", optional = true }
 serde_json.workspace = true
 async-trait.workspace = true
-rayon = { workspace = true, optional = true }
+rayon.workspace = true
 log.workspace = true
 fallible_collections.workspace = true
 pulp.workspace = true

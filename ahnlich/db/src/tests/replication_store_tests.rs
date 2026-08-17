@@ -109,7 +109,7 @@ fn decode_count_response(response: ahnlich_replication::types::DbResponse) -> us
 fn snapshot_round_trip_restores_store_state() {
     let failure_state = Arc::new(ReplicationFailureState::default());
     let mut store = StateMachineStore::<DbTypeConfig, _>::new(
-        DbStateMachine::new(Arc::new(AtomicBool::new(false))),
+        DbStateMachine::new(Arc::new(AtomicBool::new(false)), 16, None, 10_000),
         StoredMembership::new(None, membership(&[1])),
         failure_state,
         Arc::new(MemorySnapshotStore::default()),
@@ -136,7 +136,7 @@ fn snapshot_round_trip_restores_store_state() {
     let snapshot = block_on(snapshot_builder.build_snapshot()).expect("build snapshot");
 
     let mut target = StateMachineStore::<DbTypeConfig, _>::new(
-        DbStateMachine::new(Arc::new(AtomicBool::new(false))),
+        DbStateMachine::new(Arc::new(AtomicBool::new(false)), 16, None, 10_000),
         StoredMembership::new(None, membership(&[1])),
         Arc::new(ReplicationFailureState::default()),
         Arc::new(MemorySnapshotStore::default()),
@@ -176,7 +176,7 @@ fn snapshot_round_trip_restores_store_state() {
 fn apply_operation_failure_marks_replication_failure_state() {
     let failure_state = Arc::new(ReplicationFailureState::default());
     let mut store = StateMachineStore::<DbTypeConfig, _>::new(
-        DbStateMachine::new(Arc::new(AtomicBool::new(false))),
+        DbStateMachine::new(Arc::new(AtomicBool::new(false)), 16, None, 10_000),
         StoredMembership::new(None, membership(&[1])),
         failure_state.clone(),
         Arc::new(MemorySnapshotStore::default()),

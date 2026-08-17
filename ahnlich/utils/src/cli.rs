@@ -64,9 +64,23 @@ pub struct CommandLineConfig {
     pub maximum_clients: usize,
 
     /// CPU threadpool size (defaults to number of CPU cores)
-    #[arg(long, default_value_t =
-    DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).threadpool_size.clone())]
+    #[arg(long, env = "AHNLICH_THREADPOOL_SIZE", value_parser = validate_threadpool_size,
+        default_value_t = DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).threadpool_size.clone()
+    )]
     pub threadpool_size: usize,
+
+    /// Active request threshold for using parallel iteration (LINEAR, SET, predicate indexing)
+    /// Uses parallel when active_requests < threshold.
+    /// Defaults to threadpool_size (conservative: only parallel when cores genuinely idle)
+    #[arg(long, env = "AHNLICH_PARALLEL_CONCURRENCY_THRESHOLD")]
+    pub parallel_concurrency_threshold: Option<usize>,
+
+    /// Minimum batch size for using parallel iteration at low concurrency
+    /// At high concurrency (>= concurrency_threshold), threshold scales up automatically
+    /// Default: 10_000.
+    #[arg(long, env = "AHNLICH_PARALLEL_BATCH_THRESHOLD", default_value_t = 
+    DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).parallel_batch_threshold.clone())]
+    pub parallel_batch_threshold: usize,
 
     /// Enable authentication (requires TLS)
     #[arg(long, action=ArgAction::SetTrue, default_value_t =
@@ -119,6 +133,8 @@ impl Default for CommandLineConfig {
             log_level: String::from("info,hf_hub=warn"),
             maximum_clients: 512,
             threadpool_size: default_threadpool,
+            parallel_concurrency_threshold: None, // Defaults to threadpool_size if None
+            parallel_batch_threshold: 10_000,     // From empirical Criterion + ghz data
             enable_auth: false,
             auth_config: None,
             tls_cert: None,
@@ -136,6 +152,16 @@ fn validate_allocator_size(val: &str) -> Result<usize, String> {
         Err(format!(
             "Size mut be atleast {MIN_ALLOCATION_SIZE} bytes (10 MB)",
         ))
+    } else {
+        Ok(size)
+    }
+}
+
+fn validate_threadpool_size(val: &str) -> Result<usize, String> {
+    let size: usize = val.parse::<usize>().map_err(|err| err.to_string())?;
+
+    if size == 0 {
+        Err("Threadpool size must be at least 1".to_string())
     } else {
         Ok(size)
     }

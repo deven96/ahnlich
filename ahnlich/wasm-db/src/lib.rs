@@ -1,4 +1,7 @@
-use ahnlich_db::engine::{operations, store::StoreHandler};
+use ahnlich_db::engine::{
+    operations,
+    store::{ParallelismConfig, StoreHandler},
+};
 use ahnlich_types::db::{query, server};
 use prost::Message;
 use std::sync::Arc;
@@ -15,6 +18,7 @@ pub fn init() {
 #[wasm_bindgen]
 pub struct AhnlichDB {
     handler: StoreHandler,
+    parallelism_config: ParallelismConfig,
 }
 
 #[wasm_bindgen]
@@ -22,8 +26,17 @@ impl AhnlichDB {
     #[wasm_bindgen(constructor)]
     pub fn new() -> AhnlichDB {
         let write_flag = Arc::new(AtomicBool::new(false));
-        let handler = StoreHandler::new(Arc::clone(&write_flag));
-        AhnlichDB { handler }
+        // WASM runs single-threaded, use conservative defaults
+        let parallelism_config = ahnlich_db::engine::store::ParallelismConfig::from_cli(
+            1,       // Single-threaded in WASM
+            Some(1), // Always treat as low concurrency
+            10_000,  // Standard threshold
+        );
+        let handler = StoreHandler::new(Arc::clone(&write_flag), parallelism_config.clone());
+        AhnlichDB {
+            handler,
+            parallelism_config,
+        }
     }
 
     pub fn create_store(&self, request_bytes: &[u8]) -> Result<Vec<u8>, JsValue> {
@@ -91,7 +104,8 @@ impl AhnlichDB {
         let params = query::Set::decode(request_bytes)
             .map_err(|e| JsValue::from_str(&format!("Decode error: {}", e)))?;
 
-        let result = operations::set(&self.handler, params)
+        // WASM is single-threaded, so active_requests is always 1
+        let result = operations::set(&self.handler, params, &self.parallelism_config, 1)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let response = server::Set {

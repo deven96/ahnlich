@@ -29,9 +29,19 @@ pub struct DbStateMachine {
 }
 
 impl DbStateMachine {
-    pub fn new(write_flag: Arc<AtomicBool>) -> Self {
+    pub fn new(
+        write_flag: Arc<AtomicBool>,
+        threadpool_size: usize,
+        parallel_concurrency_threshold: Option<usize>,
+        parallel_batch_threshold: usize,
+    ) -> Self {
+        let parallelism_config = crate::engine::store::ParallelismConfig::from_cli(
+            threadpool_size,
+            parallel_concurrency_threshold,
+            parallel_batch_threshold,
+        );
         Self {
-            store_handler: StoreHandler::new(write_flag),
+            store_handler: StoreHandler::new(write_flag, parallelism_config),
         }
     }
 
@@ -120,8 +130,14 @@ impl StateMachineHandler<DbTypeConfig> for DbStateMachine {
             }
             DbCommand::Set(payload) => {
                 let params = decode_payload!(query::Set, payload)?;
-                let upsert = operations::set(&self.store_handler, params)
-                    .map_err(|err| operation_error!(query::Set, err))?;
+                let active_requests = self.store_handler.active_requests_count();
+                let upsert = operations::set(
+                    &self.store_handler,
+                    params,
+                    self.store_handler.parallelism_config(),
+                    active_requests,
+                )
+                .map_err(|err| operation_error!(query::Set, err))?;
 
                 encode_raw_result!(query::Set, &upsert)
             }
@@ -274,7 +290,8 @@ mod tests {
 
     #[test]
     fn apply_create_store_and_set_dispatches_and_mutates_state() {
-        let mut state_machine = DbStateMachine::new(Arc::new(AtomicBool::new(false)));
+        let mut state_machine =
+            DbStateMachine::new(Arc::new(AtomicBool::new(false)), 16, None, 10_000);
 
         let create_response = state_machine
             .apply(&encode_command(
@@ -316,7 +333,8 @@ mod tests {
 
     #[test]
     fn apply_drop_store_dispatches_and_returns_deleted_count() {
-        let mut state_machine = DbStateMachine::new(Arc::new(AtomicBool::new(false)));
+        let mut state_machine =
+            DbStateMachine::new(Arc::new(AtomicBool::new(false)), 16, None, 10_000);
 
         state_machine
             .apply(&encode_command(
@@ -345,7 +363,8 @@ mod tests {
 
     #[test]
     fn apply_rejects_malformed_payload_without_mutating_state() {
-        let mut state_machine = DbStateMachine::new(Arc::new(AtomicBool::new(false)));
+        let mut state_machine =
+            DbStateMachine::new(Arc::new(AtomicBool::new(false)), 16, None, 10_000);
 
         let err = state_machine
             .apply(&DbCommand::CreateStore(vec![0xff, 0x01, 0x02]))

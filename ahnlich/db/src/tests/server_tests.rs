@@ -1,4 +1,4 @@
-use crate::engine::store::StoreHandler;
+use crate::engine::store::{ParallelismConfig, StoreHandler};
 use crate::server::handler::Server;
 use crate::{cli::ServerConfig, errors::ServerError};
 use ahnlich_types::algorithm::algorithms::Algorithm;
@@ -25,6 +25,10 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::time::Duration;
 use utils::server::AhnlichServerUtils;
+
+fn test_parallelism_config() -> ParallelismConfig {
+    ParallelismConfig::from_cli(16, None, 10_000)
+}
 
 use ahnlich_types::{
     db::{
@@ -5241,7 +5245,7 @@ async fn test_schema_store_commands_use_custom_schema() {
 #[test]
 fn test_migrate_old_flat_snapshot() {
     // Create a store handler and populate a store under "public"
-    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     let store_name = StoreName {
         value: "test_store".to_string(),
     };
@@ -5285,7 +5289,7 @@ fn test_migrate_old_flat_snapshot() {
 #[test]
 fn test_migrate_old_flat_snapshot_json_file() {
     // Create a real store handler and serialize its inner public stores as old-format JSON
-    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     let store_name = StoreName {
         value: "fixture_store".to_string(),
     };

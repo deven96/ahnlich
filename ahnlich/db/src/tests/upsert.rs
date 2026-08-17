@@ -1,4 +1,4 @@
-use crate::engine::store::StoreHandler;
+use crate::engine::store::{ParallelismConfig, StoreHandler};
 use ahnlich_types::{
     keyval::{StoreKey, StoreName, StoreValue},
     metadata::{MetadataValue, metadata_value::Value as MValue},
@@ -12,9 +12,13 @@ use std::collections::{HashMap, HashSet as StdHashSet};
 use std::num::NonZeroUsize;
 use std::sync::{Arc, atomic::AtomicBool};
 
+fn test_parallelism_config() -> ParallelismConfig {
+    ParallelismConfig::from_cli(16, None, 10_000)
+}
+
 #[test]
 fn test_upsert_key_only_update() {
-    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     let store_name = StoreName {
         value: "test_store".to_string(),
     };
@@ -98,7 +102,7 @@ fn test_upsert_key_only_update() {
 
 #[test]
 fn test_upsert_value_only_update() {
-    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     let store_name = StoreName {
         value: "test_store".to_string(),
     };
@@ -203,7 +207,7 @@ fn test_upsert_value_only_update() {
 
 #[test]
 fn test_upsert_merge_metadata() {
-    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     let store_name = StoreName {
         value: "test_store".to_string(),
     };
@@ -306,7 +310,7 @@ fn test_upsert_merge_metadata() {
 
 #[test]
 fn test_upsert_both_key_and_value() {
-    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     let store_name = StoreName {
         value: "test_store".to_string(),
     };
@@ -397,7 +401,7 @@ fn test_upsert_both_key_and_value() {
 
 #[test]
 fn test_upsert_error_none_none() {
-    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     let store_name = StoreName {
         value: "test_store".to_string(),
     };
@@ -434,7 +438,7 @@ fn test_upsert_error_none_none() {
 
 #[test]
 fn test_upsert_error_no_match() {
-    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     let store_name = StoreName {
         value: "test_store".to_string(),
     };
@@ -491,7 +495,7 @@ fn test_upsert_error_no_match() {
 
 #[test]
 fn test_upsert_error_multiple_matches() {
-    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)));
+    let handler = StoreHandler::new(Arc::new(AtomicBool::new(false)), test_parallelism_config());
     let store_name = StoreName {
         value: "test_store".to_string(),
     };

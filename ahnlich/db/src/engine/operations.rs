@@ -14,6 +14,7 @@ use ahnlich_types::shared::info::StoreUpsert;
 use itertools::Itertools;
 use rayon::prelude::*;
 
+use crate::engine::store::ParallelismConfig;
 use crate::engine::store::StoreHandler;
 use crate::errors::ServerError;
 
@@ -173,23 +174,45 @@ pub fn drop_store(
     )
 }
 
-pub fn set(store_handler: &StoreHandler, params: query::Set) -> Result<StoreUpsert, ServerError> {
+pub fn set(
+    store_handler: &StoreHandler,
+    params: query::Set,
+    parallelism_config: &ParallelismConfig,
+    active_requests: usize,
+) -> Result<StoreUpsert, ServerError> {
     let schema = resolve_schema(&params.schema)?;
 
-    let inputs = params
-        .inputs
-        .into_par_iter()
-        .filter_map(|entry| match (entry.key, entry.value) {
-            (Some(key), Some(value)) => Some((key, value)),
-            (Some(key), None) => Some((
-                key,
-                StoreValue {
-                    value: HashMap::new(),
-                },
-            )),
-            _ => None,
-        })
-        .collect();
+    let inputs = if parallelism_config.should_use_parallel(params.inputs.len(), active_requests) {
+        params
+            .inputs
+            .into_par_iter()
+            .filter_map(|entry| match (entry.key, entry.value) {
+                (Some(key), Some(value)) => Some((key, value)),
+                (Some(key), None) => Some((
+                    key,
+                    StoreValue {
+                        value: HashMap::new(),
+                    },
+                )),
+                _ => None,
+            })
+            .collect()
+    } else {
+        params
+            .inputs
+            .into_iter()
+            .filter_map(|entry| match (entry.key, entry.value) {
+                (Some(key), Some(value)) => Some((key, value)),
+                (Some(key), None) => Some((
+                    key,
+                    StoreValue {
+                        value: HashMap::new(),
+                    },
+                )),
+                _ => None,
+            })
+            .collect()
+    };
 
     store_handler.set_in_store(
         &StoreName {

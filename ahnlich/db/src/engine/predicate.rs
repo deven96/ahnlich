@@ -18,8 +18,6 @@ use std::collections::HashSet as StdHashSet;
 use std::mem::size_of_val;
 use std::sync::Arc;
 use utils::fallible;
-
-#[cfg(feature = "server")]
 use utils::parallel;
 
 /// Predicates are essentially nested hashmaps that let us retrieve original keys that match a
@@ -213,6 +211,8 @@ impl PredicateIndices {
         &self,
         predicates: Vec<String>,
         refresh_with_values: Option<Vec<(StoreKeyId, Arc<StoreValue>)>>,
+        parallelism_config: &super::store::ParallelismConfig,
+        active_requests: usize,
     ) {
         let pinned_keys = self.allowed_predicates.pin();
         let pinned_inner = self.inner.pin();
@@ -239,9 +239,12 @@ impl PredicateIndices {
                             .map(|(_, val)| (val.clone(), *store_key_id))
                     })
                     .collect::<Vec<_>>();
-                let pred = PredicateIndex::init(val.clone());
+                let pred = PredicateIndex::init(val.clone(), parallelism_config, active_requests);
+
                 if let Err(existing_predicate) = pinned_inner.try_insert(new_predicate, pred) {
-                    existing_predicate.current.add(val)
+                    existing_predicate
+                        .current
+                        .add(val, parallelism_config, active_requests);
                 }
             }
         }
@@ -249,43 +252,68 @@ impl PredicateIndices {
 
     /// Adds predicates if the key is within allowed_predicates
     #[tracing::instrument(skip_all, fields(new_len = new.len()))]
-    pub(super) fn add(&self, new: Vec<(StoreKeyId, Arc<StoreValue>)>) {
-        let iter = new
-            .into_par_iter()
-            .flat_map(|(store_key_id, store_value)| {
-                // Clone the Arc to get access to the inner value
-                let value_clone = Arc::clone(&store_value);
-                value_clone
-                    .value
-                    .clone()
-                    .into_par_iter()
-                    .map(move |(key, val)| {
-                        let allowed_keys = self.allowed_predicates.pin();
-                        allowed_keys
-                            .contains(&key)
-                            .then_some((store_key_id, key, val))
-                    })
-            })
-            .flatten()
-            .map(|(store_key_id, key, val)| (key, (val.to_owned(), store_key_id)))
-            .fold(HashMap::new, |mut acc: HashMap<_, Vec<_>>, (k, v)| {
-                acc.entry(k).or_default().push(v);
-                acc
-            })
-            .reduce(HashMap::new, |mut acc, map| {
-                for (key, mut values) in map {
-                    acc.entry(key).or_default().append(&mut values);
+    pub(super) fn add(
+        &self,
+        new: Vec<(StoreKeyId, Arc<StoreValue>)>,
+        parallelism_config: &super::store::ParallelismConfig,
+        active_requests: usize,
+    ) {
+        let use_parallel = parallelism_config.should_use_parallel(new.len(), active_requests);
+
+        let iter = if use_parallel {
+            new.into_par_iter()
+                .flat_map(|(store_key_id, store_value)| {
+                    // Clone the Arc to get access to the inner value
+                    let value_clone = Arc::clone(&store_value);
+                    value_clone
+                        .value
+                        .clone()
+                        .into_par_iter()
+                        .map(move |(key, val)| {
+                            let allowed_keys = self.allowed_predicates.pin();
+                            allowed_keys
+                                .contains(&key)
+                                .then_some((store_key_id, key, val))
+                        })
+                })
+                .flatten()
+                .map(|(store_key_id, key, val)| (key, (val.to_owned(), store_key_id)))
+                .fold(HashMap::new, |mut acc: HashMap<_, Vec<_>>, (k, v)| {
+                    acc.entry(k).or_default().push(v);
+                    acc
+                })
+                .reduce(HashMap::new, |mut acc, map| {
+                    for (key, mut values) in map {
+                        acc.entry(key).or_default().append(&mut values);
+                    }
+                    acc
+                })
+        } else {
+            let mut result = HashMap::new();
+            for (store_key_id, store_value) in new {
+                let allowed_keys = self.allowed_predicates.pin();
+                for (key, val) in store_value.value.iter() {
+                    if allowed_keys.contains(key) {
+                        result
+                            .entry(key.clone())
+                            .or_insert_with(Vec::new)
+                            .push((val.to_owned(), store_key_id));
+                    }
                 }
-                acc
-            });
+            }
+            result
+        };
 
         let predicate_values = self.inner.pin();
         for (key, val) in iter {
             // If there exists a predicate index as we want to update it, just add to that
             // predicate index instead
-            let pred = PredicateIndex::init(val.clone());
+            let pred = PredicateIndex::init(val.clone(), parallelism_config, active_requests);
+
             if let Err(existing_predicate) = predicate_values.try_insert(key, pred) {
-                existing_predicate.current.add(val);
+                existing_predicate
+                    .current
+                    .add(val, parallelism_config, active_requests);
             };
         }
     }
@@ -363,11 +391,15 @@ impl PredicateIndex {
     }
 
     #[tracing::instrument(skip(init), fields(input_length = init.len()))]
-    fn init(init: Vec<(MetadataValue, StoreKeyId)>) -> Self {
+    fn init(
+        init: Vec<(MetadataValue, StoreKeyId)>,
+        parallelism_config: &super::store::ParallelismConfig,
+        active_requests: usize,
+    ) -> Self {
         let new = Self(
             fallible::try_new_hashmap().expect("Failed to initialize PredicateIndex inner map"),
         );
-        new.add(init);
+        new.add(init, parallelism_config, active_requests);
         new
     }
 
@@ -387,13 +419,19 @@ impl PredicateIndex {
     /// TODO: Optimize stack consumption of this particular call as it seems to consume more than
     /// the default number when ran using Loom, this may cause an issue down the line
     #[tracing::instrument(skip_all, fields(update_len = update.len()))]
-    fn add(&self, update: Vec<(MetadataValue, StoreKeyId)>) {
+    fn add(
+        &self,
+        update: Vec<(MetadataValue, StoreKeyId)>,
+        parallelism_config: &super::store::ParallelismConfig,
+        active_requests: usize,
+    ) {
         if update.is_empty() {
             return;
         }
 
-        #[cfg(feature = "server")]
-        {
+        let use_parallel = parallelism_config.should_use_parallel(update.len(), active_requests);
+
+        if use_parallel {
             let chunk_size = parallel::chunk_size(update.len());
             update
                 .into_par_iter()
@@ -417,11 +455,7 @@ impl PredicateIndex {
                         }
                     }
                 });
-        }
-
-        // WASM: Sequential processing (single-threaded)
-        #[cfg(not(feature = "server"))]
-        {
+        } else {
             let pinned = self.0.pin();
             for (predicate_value, store_key_id) in update {
                 if let Some((_, value)) = pinned.get_key_value(&predicate_value) {
@@ -585,6 +619,12 @@ mod tests {
         }
     }
 
+    fn test_parallelism_config() -> crate::engine::store::ParallelismConfig {
+        crate::engine::store::ParallelismConfig::from_cli(16, None, 10_000)
+    }
+
+    const TEST_ACTIVE_REQUESTS: usize = 0;
+
     fn create_shared_predicate_indices(allowed_predicates: Vec<String>) -> Arc<PredicateIndices> {
         let shared_pred = Arc::new(PredicateIndices::init(allowed_predicates));
         let handles = (0..4).map(|i| {
@@ -600,7 +640,7 @@ mod tests {
                 };
                 let store_key = StoreKeyId(i as u64);
                 let data = vec![(store_key, Arc::new(values))];
-                shared_data.add(data);
+                shared_data.add(data, &test_parallelism_config(), TEST_ACTIVE_REQUESTS);
             });
             handle
         });
@@ -611,19 +651,28 @@ mod tests {
     }
 
     fn create_shared_predicate() -> Arc<PredicateIndex> {
-        let shared_pred = Arc::new(PredicateIndex::init(vec![]));
+        let shared_pred = Arc::new(PredicateIndex::init(
+            vec![],
+            &test_parallelism_config(),
+            TEST_ACTIVE_REQUESTS,
+        ));
+
         let handles = (0..4).map(|i| {
             let shared_data = shared_pred.clone();
             let handle = std::thread::spawn(move || {
                 let key = if i % 2 == 0 { "Even" } else { "Odd" };
-                shared_data.add(vec![(
-                    MetadataValue {
-                        value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
-                            key.into(),
-                        )),
-                    },
-                    StoreKeyId(i),
-                )]);
+                shared_data.add(
+                    vec![(
+                        MetadataValue {
+                            value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                                key.into(),
+                            )),
+                        },
+                        StoreKeyId(i),
+                    )],
+                    &test_parallelism_config(),
+                    TEST_ACTIVE_REQUESTS,
+                );
             });
             handle
         });
@@ -662,6 +711,8 @@ mod tests {
                 (StoreKeyId(1), Arc::new(store_value_1())),
                 (StoreKeyId(2), Arc::new(store_value_2())),
             ]),
+            &test_parallelism_config(),
+            TEST_ACTIVE_REQUESTS,
         );
 
         let result = shared_pred

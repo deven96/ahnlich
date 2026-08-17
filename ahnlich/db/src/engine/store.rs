@@ -45,6 +45,79 @@ pub(crate) fn embedding_key_to_id(key: &EmbeddingKey) -> StoreKeyId {
     StoreKeyId(hash_f32_vec(&key.0))
 }
 
+/// RAII guard tracking active requests (increment on create, decrement on drop)
+#[derive(Debug)]
+struct ActiveRequestGuard {
+    counter: Arc<AtomicUsize>,
+}
+
+impl ActiveRequestGuard {
+    #[inline]
+    fn new(counter: Arc<AtomicUsize>) -> Self {
+        counter.fetch_add(1, Ordering::Relaxed);
+        Self { counter }
+    }
+}
+
+impl Drop for ActiveRequestGuard {
+    #[inline]
+    fn drop(&mut self) {
+        self.counter.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+/// Configuration for adaptive parallelism decisions
+#[derive(Debug, Clone)]
+pub struct ParallelismConfig {
+    /// Number of threads in Rayon pool
+    num_threads: usize,
+    /// Use parallel only when active_requests < this threshold
+    /// Default: num_threads (conservative: only parallel when cores genuinely idle)
+    high_concurrency_threshold: usize,
+    /// Minimum batch size for parallel at low concurrency
+    /// Scales up automatically at high concurrency to account for overhead
+    /// Default: 10_000 (from empirical data)
+    min_batch_threshold: usize,
+}
+
+impl ParallelismConfig {
+    /// Create config from CLI args (which already include env var fallbacks via clap)
+    pub fn from_cli(
+        threadpool_size: usize,
+        cli_concurrency_threshold: Option<usize>,
+        cli_batch_threshold: usize,
+    ) -> Self {
+        let num_threads = threadpool_size;
+        let high_concurrency_threshold = cli_concurrency_threshold.unwrap_or(num_threads);
+
+        Self {
+            num_threads,
+            high_concurrency_threshold,
+            min_batch_threshold: cli_batch_threshold,
+        }
+    }
+
+    /// Adaptive parallelism decision: batch size vs concurrency level
+    /// - Small batch (< 1k): always sequential
+    /// - Low concurrency: parallel if batch >= threshold
+    /// - High concurrency: scale threshold by (concurrency / threads)
+    #[inline]
+    pub fn should_use_parallel(&self, batch_size: usize, active_requests: usize) -> bool {
+        if batch_size < 1_000 {
+            return false;
+        }
+
+        if active_requests < self.high_concurrency_threshold {
+            return batch_size >= self.min_batch_threshold;
+        }
+
+        let concurrency_factor = active_requests / self.num_threads;
+        let scaled_threshold = self.min_batch_threshold * concurrency_factor;
+
+        batch_size >= scaled_threshold
+    }
+}
+
 /// Contains all the stores that have been created in memory
 #[derive(Debug)]
 pub struct StoreHandler {
@@ -52,6 +125,10 @@ pub struct StoreHandler {
     stores: Stores,
     pub write_flag: Arc<AtomicBool>,
     default_schema: Schema,
+    /// Runtime counter tracking active requests
+    active_requests: Arc<AtomicUsize>,
+    /// Configuration for adaptive parallelism decisions
+    parallelism_config: ParallelismConfig,
 }
 
 #[cfg(feature = "server")]
@@ -124,7 +201,7 @@ impl std::ops::Deref for StoresSnapshot {
 }
 
 impl StoreHandler {
-    pub fn new(write_flag: Arc<AtomicBool>) -> Self {
+    pub fn new(write_flag: Arc<AtomicBool>, parallelism_config: ParallelismConfig) -> Self {
         Self {
             stores: fallible::try_new_arc_hashmap().unwrap_or_else(|e| {
                 eprintln!("Fatal: Failed to create StoreHandler stores: {e}");
@@ -132,19 +209,14 @@ impl StoreHandler {
             }),
             write_flag,
             default_schema: Schema::default(),
+            active_requests: Arc::new(AtomicUsize::new(0)),
+            parallelism_config,
         }
     }
 
     #[tracing::instrument(skip(self))]
-    #[cfg(feature = "wasm")]
     #[inline]
     pub fn get_stores(&self) -> Stores {
-        self.stores.clone()
-    }
-
-    #[cfg(not(feature = "wasm"))]
-    #[inline]
-    pub(crate) fn get_stores(&self) -> Stores {
         self.stores.clone()
     }
 
@@ -152,6 +224,18 @@ impl StoreHandler {
     #[inline]
     pub fn write_flag(&self) -> Arc<AtomicBool> {
         self.write_flag.clone()
+    }
+
+    /// Returns the current count of active requests
+    #[inline]
+    pub(crate) fn active_requests_count(&self) -> usize {
+        self.active_requests.load(Ordering::Relaxed)
+    }
+
+    /// Returns a reference to the parallelism configuration
+    #[inline]
+    pub(crate) fn parallelism_config(&self) -> &ParallelismConfig {
+        &self.parallelism_config
     }
 
     #[tracing::instrument(skip(self))]
@@ -162,14 +246,7 @@ impl StoreHandler {
     }
 
     #[tracing::instrument(skip(self))]
-    #[cfg(feature = "wasm")]
     pub fn use_snapshot(&mut self, stores_snapshot: Stores) {
-        self.stores = stores_snapshot;
-    }
-
-    #[tracing::instrument(skip(self))]
-    #[cfg(not(feature = "wasm"))]
-    pub(crate) fn use_snapshot(&mut self, stores_snapshot: Stores) {
         self.stores = stores_snapshot;
     }
 
@@ -231,7 +308,12 @@ impl StoreHandler {
         predicates: Vec<String>,
     ) -> Result<usize, ServerError> {
         let store = self.get(store_name, schema)?;
-        let created_predicates = store.create_pred_index(predicates);
+        let created_predicates = store.create_pred_index(
+            predicates,
+            &self.parallelism_config,
+            self.active_requests.load(Ordering::Relaxed),
+        );
+
         if created_predicates > 0 {
             self.set_write_flag()
         }
@@ -297,6 +379,7 @@ impl StoreHandler {
         algorithm: Algorithm,
         condition: Option<PredicateCondition>,
     ) -> Result<Vec<StoreEntryWithSimilarity>, ServerError> {
+        let _guard = ActiveRequestGuard::new(Arc::clone(&self.active_requests));
         let store = self.get(store_name, schema)?;
         let store_dimension = store.dimension.get();
         let input_dimension = search_input.key.len();
@@ -333,23 +416,48 @@ impl StoreHandler {
                 )
             }
 
-            // Linear WITH predicates: Inline filtering during distance computation
+            // Linear WITH predicates: Adaptive parallel/sequential decision
             (AlgorithmByType::Linear(linear_algo), Some(cond)) => {
                 let pinned = store.id_to_value.pin();
-                let filtered_iter = pinned
-                    .into_iter()
-                    .map(|(id, (key, value))| (id, key, value.as_ref()));
 
-                let result = linear_algo.find_similar_n_sequential(
-                    &search_embedding,
-                    filtered_iter,
-                    Some(cond),
-                    false,
-                    closest_n,
-                );
+                let result = {
+                    let active_requests = self.active_requests.load(Ordering::Relaxed);
+                    let store_size = store.id_to_value.len();
+
+                    if self
+                        .parallelism_config
+                        .should_use_parallel(store_size, active_requests)
+                    {
+                        // Collect to Vec for parallel processing (Papaya iterators are !Send)
+                        let search_list: Vec<_> = pinned
+                            .into_iter()
+                            .map(|(id, (key, value))| (*id, key.clone(), Arc::clone(value)))
+                            .collect();
+
+                        linear_algo.find_similar_n_parallel(
+                            &search_embedding,
+                            search_list
+                                .par_iter()
+                                .map(|(id, key, value)| (id, key, value.as_ref())),
+                            Some(cond),
+                            false,
+                            closest_n,
+                        )
+                    } else {
+                        let filtered_iter = pinned
+                            .into_iter()
+                            .map(|(id, (key, value))| (id, key, value.as_ref()));
+                        linear_algo.find_similar_n_sequential(
+                            &search_embedding,
+                            filtered_iter,
+                            Some(cond),
+                            false,
+                            closest_n,
+                        )
+                    }
+                };
 
                 // Lookup results in Papaya directly (no HashMap needed)
-                let pinned = store.id_to_value.pin();
                 return Ok(result
                     .into_iter()
                     .flat_map(|(store_key_id, similarity)| {
@@ -374,19 +482,46 @@ impl StoreHandler {
                 )
             }
 
-            // Linear WITHOUT predicates: Single pin optimization
+            // Linear WITHOUT predicates: Adaptive parallel/sequential decision
             (AlgorithmByType::Linear(linear_algo), None) => {
                 let pinned = store.id_to_value.pin();
-                let filtered_iter = pinned
-                    .into_iter()
-                    .map(|(id, (key, value))| (id, key, value.as_ref()));
-                let result = linear_algo.find_similar_n_sequential(
-                    &search_embedding,
-                    filtered_iter,
-                    None,
-                    true,
-                    closest_n,
-                );
+
+                let result = {
+                    let active_requests = self.active_requests.load(Ordering::Relaxed);
+                    let store_size = store.id_to_value.len();
+
+                    if self
+                        .parallelism_config
+                        .should_use_parallel(store_size, active_requests)
+                    {
+                        // Collect to Vec for parallel processing (Papaya iterators are !Send)
+                        let search_list: Vec<_> = pinned
+                            .into_iter()
+                            .map(|(id, (key, value))| (*id, key.clone(), Arc::clone(value)))
+                            .collect();
+
+                        linear_algo.find_similar_n_parallel(
+                            &search_embedding,
+                            search_list
+                                .par_iter()
+                                .map(|(id, key, value)| (id, key, value.as_ref())),
+                            None,
+                            true,
+                            closest_n,
+                        )
+                    } else {
+                        let filtered_iter = pinned
+                            .into_iter()
+                            .map(|(id, (key, value))| (id, key, value.as_ref()));
+                        linear_algo.find_similar_n_sequential(
+                            &search_embedding,
+                            filtered_iter,
+                            None,
+                            true,
+                            closest_n,
+                        )
+                    }
+                };
 
                 // Early return with same pin to avoid second Papaya pin
                 return Ok(result
@@ -449,7 +584,12 @@ impl StoreHandler {
         new: Vec<(StoreKey, StoreValue)>,
     ) -> Result<StoreUpsert, ServerError> {
         let store = self.get(store_name, schema)?;
-        let upsert = store.add(new)?;
+        let upsert = store.add(
+            new,
+            &self.parallelism_config,
+            self.active_requests.load(Ordering::Relaxed),
+        )?;
+
         if upsert.modified() {
             self.set_write_flag();
         }
@@ -522,13 +662,18 @@ impl StoreHandler {
             Arc::try_unwrap(value).unwrap_or_else(|arc| (*arc).clone())
         };
 
-        let add_result = store.add(vec![(
-            StoreKey {
-                // Try to unwrap the Arc if possible, otherwise clone the vector
-                key: Arc::try_unwrap(Arc::clone(&key.0)).unwrap_or_else(|arc| (*arc).clone()),
-            },
-            final_value,
-        )])?;
+        let add_result = store.add(
+            vec![(
+                StoreKey {
+                    // Try to unwrap the Arc if possible, otherwise clone the vector
+                    key: Arc::try_unwrap(Arc::clone(&key.0)).unwrap_or_else(|arc| (*arc).clone()),
+                },
+                final_value,
+            )],
+            &self.parallelism_config,
+            self.active_requests.load(Ordering::Relaxed),
+        )?;
+
         self.set_write_flag();
 
         // After delete, add() must insert exactly 1 entry
@@ -941,7 +1086,12 @@ impl Store {
     /// Returns the len of values added, if a value already existed it is updated but not counted
     /// as a new insert
     #[tracing::instrument(skip(self, new), fields(entry_length=new.len()))]
-    fn add(&self, new: Vec<(StoreKey, StoreValue)>) -> Result<StoreUpsert, ServerError> {
+    fn add(
+        &self,
+        new: Vec<(StoreKey, StoreValue)>,
+        parallelism_config: &ParallelismConfig,
+        active_requests: usize,
+    ) -> Result<StoreUpsert, ServerError> {
         if new.is_empty() {
             return Ok(StoreUpsert {
                 inserted: 0,
@@ -1014,7 +1164,9 @@ impl Store {
             })
             .collect();
 
-        self.predicate_indices.add(predicate_insert);
+        self.predicate_indices
+            .add(predicate_insert, parallelism_config, active_requests);
+
         if !self.non_linear_indices.is_empty() {
             self.non_linear_indices.insert(inserted_keys);
         }
@@ -1029,7 +1181,12 @@ impl Store {
     }
 
     #[tracing::instrument(skip(self))]
-    fn create_pred_index(&self, requested_predicates: Vec<String>) -> usize {
+    fn create_pred_index(
+        &self,
+        requested_predicates: Vec<String>,
+        parallelism_config: &ParallelismConfig,
+        active_requests: usize,
+    ) -> usize {
         let current_predicates = self.predicate_indices.current_predicates();
         let new_predicates: Vec<_> = StdHashSet::from_iter(requested_predicates)
             .difference(&current_predicates)
@@ -1043,8 +1200,12 @@ impl Store {
                 .into_iter()
                 .map(|(k, v)| (embedding_key_to_id(&k), v))
                 .collect();
-            self.predicate_indices
-                .add_predicates(new_predicates, Some(values));
+            self.predicate_indices.add_predicates(
+                new_predicates,
+                Some(values),
+                parallelism_config,
+                active_requests,
+            );
             // Mark store as needing size recalculation (indices affect size)
             self.mark_size_dirty();
         };
@@ -1127,6 +1288,15 @@ mod tests {
     };
     use std::collections::HashMap as StdHashMap;
 
+    /// Helper to create a default test config for parallelism
+    fn test_parallelism_config() -> ParallelismConfig {
+        ParallelismConfig::from_cli(
+            16,     // num_threads
+            None,   // use default threshold (= num_threads)
+            10_000, // default batch threshold
+        )
+    }
+
     #[test]
     fn test_compute_store_key_id_empty_vector() {
         let array: Vec<f32> = vec![];
@@ -1166,7 +1336,7 @@ mod tests {
         odd_dimensions: Option<usize>,
     ) -> Arc<StoreHandler> {
         let write_flag = Arc::new(AtomicBool::new(false));
-        let handler = Arc::new(StoreHandler::new(write_flag));
+        let handler = Arc::new(StoreHandler::new(write_flag, test_parallelism_config()));
         let handles = (0..3).map(|i| {
             let predicates = predicates.clone();
             let shared_handler = handler.clone();
@@ -1203,7 +1373,7 @@ mod tests {
         Vec<Result<(), ServerError>>,
     ) {
         let write_flag = Arc::new(AtomicBool::new(false));
-        let handler = Arc::new(StoreHandler::new(write_flag));
+        let handler = Arc::new(StoreHandler::new(write_flag, test_parallelism_config()));
         let handles = (0..3).map(|i| {
             let predicates = predicates.clone();
             let shared_handler = handler.clone();
