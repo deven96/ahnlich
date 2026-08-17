@@ -559,6 +559,7 @@ impl StoreHandler {
         schema: &Schema,
         condition: &PredicateCondition,
     ) -> Result<Vec<StoreEntry>, ServerError> {
+        let _guard = ActiveRequestGuard::new(Arc::clone(&self.active_requests));
         let store = self.get(store_name, schema)?;
         store.get_matches(condition)
     }
@@ -583,6 +584,7 @@ impl StoreHandler {
         schema: &Schema,
         new: Vec<(StoreKey, StoreValue)>,
     ) -> Result<StoreUpsert, ServerError> {
+        let _guard = ActiveRequestGuard::new(Arc::clone(&self.active_requests));
         let store = self.get(store_name, schema)?;
         let upsert = store.add(
             new,
@@ -607,6 +609,7 @@ impl StoreHandler {
         condition: &PredicateCondition,
         merge_metadata: bool,
     ) -> Result<StoreUpsert, ServerError> {
+        let _guard = ActiveRequestGuard::new(Arc::clone(&self.active_requests));
         if new_key.is_none() && new_value.is_none() {
             return Err(ServerError::InvalidArgument(
                 "UPSERT requires at least one of new_key or new_value".to_string(),
@@ -795,6 +798,7 @@ impl StoreHandler {
         non_linear_indices: StdHashSet<non_linear_index::Index>,
         error_if_exists: bool,
     ) -> Result<(), ServerError> {
+        let _guard = ActiveRequestGuard::new(Arc::clone(&self.active_requests));
         let inner_stores = self.get_or_create_schema(schema);
         if inner_stores
             .try_insert(
