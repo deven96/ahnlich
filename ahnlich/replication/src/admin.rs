@@ -1,26 +1,32 @@
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use openraft::{Raft, RaftTypeConfig};
 use tonic::{Request, Response, Status};
 
+use crate::identity::{ClusterIdentity, ClusterIdentityProvider};
 use crate::node::ReplicationNode;
 use crate::proto::cluster_admin::cluster_admin_service_server::ClusterAdminService;
 use crate::proto::cluster_admin::{
-    AddLearnerRequest, AddLearnerResponse, ChangeMembershipRequest, ChangeMembershipResponse,
-    GetLeaderRequest, GetLeaderResponse, GetMetricsRequest, GetMetricsResponse, InitClusterRequest,
-    InitClusterResponse, NodeInfo, RemoveNodeRequest, RemoveNodeResponse, TriggerSnapshotRequest,
+    AdmitLearnerRequest, AdmitLearnerResponse, CandidateNode, GetClusterIdentityRequest,
+    GetClusterIdentityResponse, GetLeaderRequest, GetLeaderResponse, GetMetricsRequest,
+    GetMetricsResponse, InitClusterRequest, InitClusterResponse, NodeInfo, PromoteLearnerRequest,
+    PromoteLearnerResponse, RemoveNodeRequest, RemoveNodeResponse, TriggerSnapshotRequest,
     TriggerSnapshotResponse,
 };
 
 pub struct ClusterAdmin<C: RaftTypeConfig> {
     raft: Arc<Raft<C>>,
+    identity_provider: Arc<dyn ClusterIdentityProvider>,
 }
 
 impl<C: RaftTypeConfig> ClusterAdmin<C> {
-    pub fn new(raft: Arc<Raft<C>>) -> Self {
-        Self { raft }
+    pub fn new(raft: Arc<Raft<C>>, identity_provider: Arc<dyn ClusterIdentityProvider>) -> Self {
+        Self {
+            raft,
+            identity_provider,
+        }
     }
 
     fn build_nodes(nodes: &[NodeInfo]) -> BTreeMap<C::NodeId, C::Node>
@@ -32,6 +38,95 @@ impl<C: RaftTypeConfig> ClusterAdmin<C> {
             .iter()
             .map(|node| (node.id.into(), ReplicationNode::from(node).into()))
             .collect()
+    }
+
+    #[allow(clippy::result_large_err)]
+    fn cluster_identity(&self) -> Result<ClusterIdentity, Status> {
+        self.identity_provider
+            .cluster_identity()
+            .map_err(Status::failed_precondition)?
+            .ok_or_else(|| Status::failed_precondition("cluster identity is not initialized"))
+    }
+
+    #[allow(clippy::result_large_err)]
+    fn validate_candidate(&self, candidate: &CandidateNode) -> Result<ReplicationNode, Status>
+    where
+        C::NodeId: Into<u64> + Copy,
+        C::Node: Into<ReplicationNode> + Clone,
+    {
+        let node = candidate
+            .node
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("missing node in candidate"))?;
+
+        if node.id == 0 {
+            return Err(Status::invalid_argument(
+                "candidate node id must not be zero",
+            ));
+        }
+
+        let raft_addr: SocketAddr = node
+            .raft_addr
+            .parse()
+            .map_err(|_| Status::invalid_argument("candidate raft_addr must be host:port"))?;
+        let service_addr: SocketAddr = node
+            .service_addr
+            .parse()
+            .map_err(|_| Status::invalid_argument("candidate service_addr must be host:port"))?;
+
+        if raft_addr.ip().is_unspecified() {
+            return Err(Status::invalid_argument(
+                "candidate raft_addr must be an advertised, routable address",
+            ));
+        }
+
+        if service_addr.ip().is_unspecified() {
+            return Err(Status::invalid_argument(
+                "candidate service_addr must be an advertised, routable address",
+            ));
+        }
+
+        let identity = self.cluster_identity()?;
+        if candidate.replication_protocol_version != identity.replication_protocol_version {
+            return Err(Status::failed_precondition(format!(
+                "replication protocol version mismatch: cluster={}, candidate={}",
+                identity.replication_protocol_version, candidate.replication_protocol_version,
+            )));
+        }
+
+        if candidate.state_machine_format_version != identity.state_machine_format_version {
+            return Err(Status::failed_precondition(format!(
+                "state machine format version mismatch: cluster={}, candidate={}",
+                identity.state_machine_format_version, candidate.state_machine_format_version,
+            )));
+        }
+
+        let metrics = self.raft.metrics().borrow().clone();
+        for (existing_id, existing_node) in metrics.membership_config.nodes() {
+            let existing: ReplicationNode = existing_node.clone().into();
+
+            if (*existing_id).into() == node.id
+                && (existing.raft_addr != node.raft_addr
+                    || existing.service_addr != node.service_addr)
+            {
+                return Err(Status::failed_precondition(format!(
+                    "candidate node id {} is already registered with different endpoints",
+                    node.id,
+                )));
+            }
+
+            if (*existing_id).into() != node.id
+                && (existing.raft_addr == node.raft_addr
+                    || existing.service_addr == node.service_addr)
+            {
+                return Err(Status::failed_precondition(format!(
+                    "candidate endpoint is already registered to node {}",
+                    (*existing_id).into(),
+                )));
+            }
+        }
+
+        Ok(ReplicationNode::from(node))
     }
 }
 
@@ -54,51 +149,50 @@ where
         Ok(Response::new(InitClusterResponse {}))
     }
 
-    async fn add_learner(
+    async fn admit_learner(
         &self,
-        request: Request<AddLearnerRequest>,
-    ) -> Result<Response<AddLearnerResponse>, Status> {
-        let node = request
+        request: Request<AdmitLearnerRequest>,
+    ) -> Result<Response<AdmitLearnerResponse>, Status> {
+        let candidate = request
             .into_inner()
+            .candidate
+            .ok_or_else(|| Status::invalid_argument("missing candidate"))?;
+        let node_id = candidate
             .node
-            .ok_or_else(|| Status::invalid_argument("missing node in AddLearnerRequest"))?;
+            .as_ref()
+            .ok_or_else(|| Status::invalid_argument("missing node in candidate"))?
+            .id;
+        let node = self.validate_candidate(&candidate)?;
 
         self.raft
-            .add_learner(node.id.into(), ReplicationNode::from(node).into(), true)
+            .add_learner(node_id.into(), node.into(), true)
             .await
             .map_err(|e| Status::failed_precondition(e.to_string()))?;
-        Ok(Response::new(AddLearnerResponse {}))
+        Ok(Response::new(AdmitLearnerResponse {}))
     }
 
-    async fn change_membership(
+    async fn promote_learner(
         &self,
-        request: Request<ChangeMembershipRequest>,
-    ) -> Result<Response<ChangeMembershipResponse>, Status> {
-        let node_ids = request.into_inner().node_ids;
+        request: Request<PromoteLearnerRequest>,
+    ) -> Result<Response<PromoteLearnerResponse>, Status> {
+        let node_id = request.into_inner().node_id.into();
         let metrics = self.raft.metrics().borrow().clone();
-        let known_nodes: BTreeSet<u64> = metrics
-            .membership_config
-            .nodes()
-            .map(|(node_id, _)| (*node_id).into())
-            .collect();
+        let membership = metrics.membership_config.membership();
 
-        let missing: Vec<u64> = node_ids
-            .iter()
-            .copied()
-            .filter(|node_id| !known_nodes.contains(node_id))
-            .collect();
-        if !missing.is_empty() {
-            return Err(Status::invalid_argument(format!(
-                "cannot change membership with unknown node ids: {missing:?}"
-            )));
+        if membership.get_node(&node_id).is_none() {
+            return Err(Status::invalid_argument("cannot promote an unknown node"));
         }
 
-        let set: BTreeSet<C::NodeId> = node_ids.into_iter().map(Into::into).collect();
+        let mut voters: BTreeSet<C::NodeId> = membership.voter_ids().collect();
+        if !voters.insert(node_id) {
+            return Err(Status::failed_precondition("node is already a voter"));
+        }
+
         self.raft
-            .change_membership(set, false)
+            .change_membership(voters, false)
             .await
             .map_err(|e| Status::failed_precondition(e.to_string()))?;
-        Ok(Response::new(ChangeMembershipResponse {}))
+        Ok(Response::new(PromoteLearnerResponse {}))
     }
 
     async fn remove_node(
@@ -171,6 +265,20 @@ where
         Ok(Response::new(GetLeaderResponse {
             leader_id: leader_id.into(),
             leader_addr: leader_node.raft_addr,
+        }))
+    }
+
+    async fn get_cluster_identity(
+        &self,
+        _request: Request<GetClusterIdentityRequest>,
+    ) -> Result<Response<GetClusterIdentityResponse>, Status> {
+        let identity = self.cluster_identity()?;
+
+        Ok(Response::new(GetClusterIdentityResponse {
+            cluster_id: identity.id,
+            cluster_name: identity.name,
+            replication_protocol_version: identity.replication_protocol_version,
+            state_machine_format_version: identity.state_machine_format_version,
         }))
     }
 

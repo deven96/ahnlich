@@ -22,9 +22,8 @@ pub enum RaftStorageEngine {
 
 #[derive(Debug, Clone)]
 pub struct RaftConfig {
-    /// Stable node identifier. The spec calls for deriving this by hashing
-    /// `raft_addr`; the derivation lives in the server crates so this struct
-    /// stays decoupled from any particular hashing choice.
+    /// Stable node identifier. The server persists and reloads this value so a
+    /// node keeps its identity when its listener address changes.
     pub node_id: u64,
     /// `host:port` for cluster traffic, both Raft RPCs (AppendEntries,
     /// InstallSnapshot, Vote) and cluster administration (membership,

@@ -7,8 +7,8 @@ package services.cluster_admin;
 // follow the Raft membership flow:
 //
 // 1. InitCluster
-// 2. AddLearner
-// 3. ChangeMembership
+// 2. AdmitLearner
+// 3. PromoteLearner
 // 4. RemoveNode
 //
 // The server validates these invariants and returns:
@@ -32,18 +32,24 @@ message InitClusterRequest {
 
 message InitClusterResponse {}
 
-message AddLearnerRequest {
-  // Adds a non-voting node to Raft replication.
+message CandidateNode {
   NodeInfo node = 1;
+  uint32 replication_protocol_version = 2;
+  uint32 state_machine_format_version = 3;
 }
 
-message AddLearnerResponse {}
-
-message ChangeMembershipRequest {
-  repeated uint64 node_ids = 1;
+message AdmitLearnerRequest {
+  // Adds a compatible non-voting node to Raft replication.
+  CandidateNode candidate = 1;
 }
 
-message ChangeMembershipResponse {}
+message AdmitLearnerResponse {}
+
+message PromoteLearnerRequest {
+  uint64 node_id = 1;
+}
+
+message PromoteLearnerResponse {}
 
 message RemoveNodeRequest {
   // Removes a node from the current voter set and then from registry tracking.
@@ -75,6 +81,15 @@ message GetLeaderResponse {
   string leader_addr = 2;
 }
 
+message GetClusterIdentityRequest {}
+
+message GetClusterIdentityResponse {
+  string cluster_id = 1;
+  optional string cluster_name = 2;
+  uint32 replication_protocol_version = 3;
+  uint32 state_machine_format_version = 4;
+}
+
 message TriggerSnapshotRequest {}
 
 message TriggerSnapshotResponse {}
@@ -83,14 +98,14 @@ service ClusterAdminService {
   rpc InitCluster(InitClusterRequest) returns (InitClusterResponse);
   // Leader-directed. Callers should resolve the current leader first via
   // GetLeader, then send the mutation to that leader's cluster-admin address.
-  rpc AddLearner(AddLearnerRequest) returns (AddLearnerResponse);
-  // Leader-directed. Every node_id must already be known to the cluster,
-  // typically via InitCluster or AddLearner.
-  rpc ChangeMembership(ChangeMembershipRequest) returns (ChangeMembershipResponse);
+  rpc AdmitLearner(AdmitLearnerRequest) returns (AdmitLearnerResponse);
+  // Leader-directed. The node must have been admitted and caught up first.
+  rpc PromoteLearner(PromoteLearnerRequest) returns (PromoteLearnerResponse);
   // Leader-directed. Removes the node from the active voter set and registry
   // tracking after Raft accepts the membership change.
   rpc RemoveNode(RemoveNodeRequest) returns (RemoveNodeResponse);
   rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
   rpc GetLeader(GetLeaderRequest) returns (GetLeaderResponse);
+  rpc GetClusterIdentity(GetClusterIdentityRequest) returns (GetClusterIdentityResponse);
   rpc TriggerSnapshot(TriggerSnapshotRequest) returns (TriggerSnapshotResponse);
 }

@@ -21,6 +21,16 @@ pub struct ServerConfig {
     pub port: u16,
     #[arg(long)]
     pub cluster_addr: Option<std::net::SocketAddr>,
+    /// Raft/admin address advertised to other cluster members. Defaults to
+    /// `cluster_addr`; set this only when that bind address is not reachable
+    /// by peers, such as `0.0.0.0` or a container-local address.
+    #[arg(long)]
+    pub cluster_advertise_addr: Option<std::net::SocketAddr>,
+    /// Public DB address advertised to cluster peers for follower-to-leader
+    /// request forwarding. Defaults to the bound DB service address; set this
+    /// only when that address is not reachable by other cluster members.
+    #[arg(long)]
+    pub cluster_leader_forwarding_advertise_addr: Option<std::net::SocketAddr>,
     #[arg(long, default_value_t = false, conflicts_with = "cluster_join")]
     pub cluster_bootstrap: bool,
     #[arg(long, conflicts_with = "cluster_bootstrap")]
@@ -33,6 +43,9 @@ pub struct ServerConfig {
     pub cluster_snapshot_logs: u64,
     #[arg(long, default_value_t = 300_000)]
     pub cluster_snapshot_interval: u64,
+    /// Optional human-readable name for a new cluster.
+    #[arg(long)]
+    pub cluster_name: Option<String>,
     #[clap(flatten)]
     pub common: CommandLineConfig,
 }
@@ -42,12 +55,15 @@ impl Default for ServerConfig {
         Self {
             port: 1369,
             cluster_addr: None,
+            cluster_advertise_addr: None,
+            cluster_leader_forwarding_advertise_addr: None,
             cluster_bootstrap: false,
             cluster_join: None,
             cluster_storage: RaftStorageEngine::RocksDb,
             cluster_data_dir: None,
             cluster_snapshot_logs: 1000,
             cluster_snapshot_interval: 300_000,
+            cluster_name: None,
             common: CommandLineConfig::default(),
         }
     }
@@ -90,6 +106,11 @@ impl ServerConfig {
 
     pub fn cluster_storage(mut self, storage: RaftStorageEngine) -> Self {
         self.cluster_storage = storage;
+        self
+    }
+
+    pub fn cluster_name(mut self, name: impl Into<String>) -> Self {
+        self.cluster_name = Some(name.into());
         self
     }
 
