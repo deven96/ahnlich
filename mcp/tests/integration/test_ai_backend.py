@@ -242,6 +242,59 @@ async def test_store_and_search(
         == "machine-learning"
     )
 
+@pytest.mark.asyncio
+async def test_euclidean_search_preserves_server_order(
+    backend: AIBackend,
+    store_name: str,
+) -> None:
+    exact_content = (
+        "Ahnlich performs semantic vector search."
+    )
+
+    await backend.create_store(
+        store_name=store_name,
+        predicate_keys=[],
+        error_if_exists=True,
+    )
+
+    await backend.store_entries(
+        store_name=store_name,
+        entries=[
+            {
+                "content": exact_content,
+                "metadata": {},
+            },
+            {
+                "content": (
+                    "Tomatoes are commonly used in pasta sauce."
+                ),
+                "metadata": {},
+            },
+            {
+                "content": (
+                    "Jupiter is the largest planet."
+                ),
+                "metadata": {},
+            },
+        ],
+    )
+
+    results = await backend.similarity_search(
+        store_name=store_name,
+        query=exact_content,
+        top_k=3,
+        algorithm="euclidean",
+        metadata_filter=None,
+    )
+
+    distances = [
+        result["similarity"]
+        for result in results
+    ]
+
+    assert results[0]["content"] == exact_content
+    assert distances == sorted(distances)
+
 
 @pytest.mark.asyncio
 async def test_store_entries_performs_upsert(

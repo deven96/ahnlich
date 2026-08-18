@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from ahnlich_client_py.grpc.ai import query as ai_query
-from ahnlich_client_py.grpc.ai.models import AiModel
 from ahnlich_client_py.grpc.ai.preprocess import (
     PreprocessAction,
 )
@@ -12,23 +11,15 @@ from ahnlich_client_py.grpc.keyval import (
     StoreInput,
 )
 from ahnlich_client_py.grpc.services import ai_service
+from ahnlich_mcp.models import (
+    TEXT_MODELS,
+    TEXT_MODEL_NAMES,
+)
 
 from ahnlich_mcp.backends.base import (
     AlgorithmName,
     BaseBackend,
 )
-
-
-AI_MODELS = {
-    "all-minilm-l6-v2": AiModel.ALL_MINI_LM_L6_V2,
-}
-
-
-AI_MODEL_NAMES = {
-    model: name
-    for name, model in AI_MODELS.items()
-}
-
 
 class AIBackend(BaseBackend):
     """Store and search raw text through ahnlich-ai."""
@@ -49,11 +40,11 @@ class AIBackend(BaseBackend):
             port=port,
         )
 
-        model_value = AI_MODELS.get(model)
+        model_value = TEXT_MODELS.get(model)
 
         if model_value is None:
             supported = ", ".join(
-                sorted(AI_MODELS)
+                sorted(TEXT_MODELS)
             )
 
             raise ValueError(
@@ -80,7 +71,7 @@ class AIBackend(BaseBackend):
 
     @staticmethod
     def _model_name(model: Any) -> str:
-        return AI_MODEL_NAMES.get(
+        return TEXT_MODEL_NAMES.get(
             model,
             getattr(model, "name", str(model)),
         )
@@ -173,11 +164,6 @@ class AIBackend(BaseBackend):
                 "query must not be empty"
             )
 
-        if metadata_filter is not None:
-            condition = self._build_condition(
-                metadata_filter
-            )
-
         request = ai_query.GetSimN(
             store=store_name,
             search_input=StoreInput(raw_string=query),
@@ -196,7 +182,6 @@ class AIBackend(BaseBackend):
             metadata_filter_applied=(
                 metadata_filter is not None
             ),
-            sort_descending=True,
         )
 
     def _build_entries(

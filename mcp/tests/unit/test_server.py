@@ -12,6 +12,7 @@ from ahnlich_mcp.server import (
     instructions_for,
     parse_args,
     run_doctor,
+    main,
 )
 
 EXPECTED_TOOLS = {
@@ -157,3 +158,21 @@ async def test_doctor_returns_failure(
     assert exit_code == 1
     assert '"status": "error"' in output
     backend.close.assert_awaited_once()
+
+def test_main_reports_unsupported_model_as_usage_error(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(
+        "AHNLICH_AI_MODEL",
+        "unknown-model",
+    )
+
+    with pytest.raises(SystemExit) as error:
+        main(["--profile", "ai"])
+
+    stderr = capsys.readouterr().err
+
+    assert error.value.code == 2
+    assert "Unsupported AI model" in stderr
+    assert "Traceback" not in stderr

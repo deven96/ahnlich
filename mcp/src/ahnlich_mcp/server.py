@@ -16,7 +16,7 @@ from ahnlich_mcp.config import (
     Profile,
     Settings,
 )
-from ahnlich_mcp.tools import build_tools
+from ahnlich_mcp.tools import build_tools, TOOL_ANNOTATIONS
 
 logger = logging.getLogger(__name__)
 
@@ -83,12 +83,13 @@ def create_server(
     mcp = FastMCP(
         name="ahnlich-mcp",
         instructions=instructions_for(settings.profile),
-        json_response=True,
         lifespan=lifespan,
     )
 
     for tool in build_tools(backend):
-        mcp.tool()(tool)
+        mcp.tool(
+            annotations=TOOL_ANNOTATIONS[tool.__name__]
+        )(tool)
 
     return mcp, backend
 

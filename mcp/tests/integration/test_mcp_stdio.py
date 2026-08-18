@@ -342,3 +342,79 @@ async def test_db_profile_over_stdio() -> None:
                     "error_if_not_exists": False,
                 },
             )
+
+@pytest.mark.asyncio
+async def test_tool_error_sets_protocol_error_flag() -> None:
+    missing_store = unique_store_name("missing")
+
+    async with mcp_session("db") as session:
+        result = await session.call_tool(
+            "get_by_metadata",
+            {
+                "store_name": missing_store,
+                "filter": {
+                    "topic": "missing",
+                },
+            },
+        )
+
+    error_text = " ".join(
+        block.text
+        for block in result.content
+        if isinstance(block, TextContent)
+    )
+
+    assert result.isError is True
+    assert '"status": "error"' in error_text
+    assert missing_store in error_text
+    assert "create_store" in error_text
+
+@pytest.mark.asyncio
+async def test_tool_annotations_over_stdio() -> None:
+    async with mcp_session("db") as session:
+        response = await session.list_tools()
+
+    tools = {
+        tool.name: tool
+        for tool in response.tools
+    }
+
+    assert all(
+        tool.annotations is not None
+        for tool in tools.values()
+    )
+
+    read_only = {
+        name
+        for name, tool in tools.items()
+        if (
+            tool.annotations is not None
+            and tool.annotations.readOnlyHint
+        )
+    }
+    destructive = {
+        name
+        for name, tool in tools.items()
+        if (
+            tool.annotations is not None
+            and tool.annotations.destructiveHint
+        )
+    }
+
+    assert read_only == {
+        "ping",
+        "server_info",
+        "list_stores",
+        "similarity_search",
+        "get_by_metadata",
+    }
+    assert destructive == {
+        "drop_store",
+        "delete_by_metadata",
+        "drop_predicate_index",
+    }
+    assert all(
+        tool.annotations is not None
+        and tool.annotations.openWorldHint is False
+        for tool in tools.values()
+    )

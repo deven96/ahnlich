@@ -31,6 +31,8 @@ ALGORITHMS: dict[AlgorithmName, Algorithm] = {
     "dot_product": Algorithm.DotProductSimilarity,
 }
 
+MAX_TOP_K = 1024
+
 CONNECTION_STATUSES = {
     Status.UNAVAILABLE,
     Status.DEADLINE_EXCEEDED,
@@ -80,11 +82,7 @@ class BaseBackend(ABC):
     query_module: ClassVar[Any]
     stub_type: ClassVar[type[Any]]
 
-    def __init__(
-        self, *,
-        host: str,
-        port: int,
-    ) -> None:
+    def __init__(self, *, host: str, port: int) -> None:
         self.host = host
         self.port = port
         self._channel: Channel | None = None
@@ -192,7 +190,6 @@ class BaseBackend(ABC):
         request: Any,
         store_name: str,
         metadata_filter_applied: bool,
-        sort_descending: bool = False,
     ) -> list[dict[str, Any]]:
         response = await self._call(
             "get_sim_n",
@@ -201,16 +198,7 @@ class BaseBackend(ABC):
             predicate_operation=metadata_filter_applied,
         )
 
-        results = self._format_search_entries(
-            response.entries
-        )
-
-        if sort_descending:
-            results.sort(
-                key=lambda result: result["similarity"],
-                reverse=True,
-            )
-
+        results = self._format_search_entries(response.entries)
         return results
 
     async def list_stores(self) -> list[dict[str, Any]]:
@@ -306,11 +294,7 @@ class BaseBackend(ABC):
 
         return response.deleted_count
 
-    async def create_predicate_index(
-        self, *,
-        store_name: str,
-        keys: list[str],
-    ) -> int:
+    async def create_predicate_index(self, *, store_name: str, keys: list[str]) -> int:
         self._validate_store_name(store_name)
         validated_keys = (
             self._validate_predicate_keys(keys)
@@ -323,6 +307,7 @@ class BaseBackend(ABC):
                 predicates=validated_keys,
             ),
             store_name=store_name,
+            predicate_operation=True,
         )
 
         return response.created_indexes
@@ -468,6 +453,9 @@ class BaseBackend(ABC):
             raise ValueError(
                 "top_k must be at least 1"
             )
+
+        if top_k > MAX_TOP_K:
+            raise ValueError(f"top_k must not exceed {MAX_TOP_K}")
 
         return top_k
 

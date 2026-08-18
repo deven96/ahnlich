@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, NoReturn
 
 from pydantic import BaseModel, ConfigDict, Field
+from mcp.server.fastmcp.exceptions import ToolError
+from mcp.types import ToolAnnotations
 
 from ahnlich_mcp.backends import (
     AIBackend,
@@ -14,6 +17,7 @@ from ahnlich_mcp.backends import (
     StoreNotFoundError,
 )
 from ahnlich_mcp.backends.base import AlgorithmName
+
 
 ToolResponse = dict[str, Any] | list[dict[str, Any]]
 Tool = Callable[..., Awaitable[ToolResponse]]
@@ -31,10 +35,8 @@ class EmbeddedEntry(BaseModel):
     embedding: list[float] = Field(min_length=1)
     metadata: dict[str, str] = Field(default_factory=dict)
 
-def error_response(
-    error: Exception,
-    *,
-    backend: Backend,
+def error_payload(
+    error: Exception, *, backend: Backend,
     store_name: str | None = None,
 ) -> dict[str, Any]:
     if isinstance(error, AhnlichConnectionError):
@@ -81,11 +83,32 @@ def error_response(
         "error": message,
     }
 
+def raise_tool_error(
+    error: Exception,
+    *,
+    backend: Backend,
+    store_name: str | None = None,
+) -> NoReturn:
+    payload = error_payload(
+        error,
+        backend=backend,
+        store_name=store_name,
+    )
+
+    raise ToolError(
+        json.dumps(payload)
+    )
 
 def build_common_tools(backend: Backend) -> dict[str, Tool]:
     async def ping() -> dict[str, Any]:
         """Check whether the configured Ahnlich service is reachable."""
-        available = await backend.ping()
+        try:
+            available = await backend.ping()
+        except Exception as error:
+            raise_tool_error(
+                error,
+                backend=backend,
+            )
 
         result: dict[str, Any] = {
             "status": "ok" if available else "error",
@@ -100,20 +123,20 @@ def build_common_tools(backend: Backend) -> dict[str, Tool]:
             )
 
         return result
-
+    
     async def server_info() -> dict[str, Any]:
         """Return information about the configured Ahnlich service."""
         try:
             return await backend.server_info()
         except Exception as error:
-            return error_response(error, backend=backend)
+            return raise_tool_error(error, backend=backend)
 
     async def list_stores() -> ToolResponse:
         """List stores available through the configured profile."""
         try:
             return await backend.list_stores()
         except Exception as error:
-            return error_response(error, backend=backend)
+            return raise_tool_error(error, backend=backend)
 
     async def drop_store(
         store_name: str,
@@ -126,7 +149,7 @@ def build_common_tools(backend: Backend) -> dict[str, Tool]:
                 error_if_not_exists=error_if_not_exists,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -149,7 +172,7 @@ def build_common_tools(backend: Backend) -> dict[str, Tool]:
                 metadata_filter=filter,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -166,7 +189,7 @@ def build_common_tools(backend: Backend) -> dict[str, Tool]:
                 metadata_filter=filter,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -188,7 +211,7 @@ def build_common_tools(backend: Backend) -> dict[str, Tool]:
                 keys=keys,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -212,7 +235,7 @@ def build_common_tools(backend: Backend) -> dict[str, Tool]:
                 keys=keys,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -253,7 +276,7 @@ def build_ai_tools(backend: AIBackend) -> dict[str, Tool]:
                 error_if_exists=error_if_exists,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -278,7 +301,7 @@ def build_ai_tools(backend: AIBackend) -> dict[str, Tool]:
                 entries=values,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -301,7 +324,7 @@ def build_ai_tools(backend: AIBackend) -> dict[str, Tool]:
                 metadata_filter=filter,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -332,7 +355,7 @@ def build_db_tools(backend: DBBackend) -> dict[str, Tool]:
                 error_if_exists=error_if_exists,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -358,7 +381,7 @@ def build_db_tools(backend: DBBackend) -> dict[str, Tool]:
                 entries=values,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -381,7 +404,7 @@ def build_db_tools(backend: DBBackend) -> dict[str, Tool]:
                 metadata_filter=filter,
             )
         except Exception as error:
-            return error_response(
+            return raise_tool_error(
                 error,
                 backend=backend,
                 store_name=store_name,
@@ -407,6 +430,75 @@ TOOL_ORDER = (
     "create_predicate_index",
     "drop_predicate_index",
 )
+
+TOOL_ANNOTATIONS: dict[str, ToolAnnotations] = {
+    "ping": ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+    "server_info": ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+    "create_store": ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+        openWorldHint=False,
+    ),
+    "list_stores": ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+    "drop_store": ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
+    ),
+    "store_entries": ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+    "similarity_search": ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+    "get_by_metadata": ToolAnnotations(
+        readOnlyHint=True,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+    "delete_by_metadata": ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+    "create_predicate_index": ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=True,
+        openWorldHint=False,
+    ),
+    "drop_predicate_index": ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+        openWorldHint=False,
+    ),
+}
 
 
 def build_tools(backend: Backend) -> tuple[Tool, ...]:

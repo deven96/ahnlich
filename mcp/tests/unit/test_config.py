@@ -7,6 +7,10 @@ from ahnlich_mcp.config import (
     Profile,
     Settings,
 )
+from ahnlich_mcp.models import (
+    DEFAULT_TEXT_MODEL,
+    TEXT_MODELS,
+)
 
 AHNLICH_ENVIRONMENT_VARIABLES = (
     "AHNLICH_PROFILE",
@@ -32,7 +36,7 @@ def test_ai_is_the_default_profile() -> None:
     assert settings.profile is Profile.AI
     assert settings.host == "127.0.0.1"
     assert settings.port == 1370
-    assert settings.ai_model == "all-minilm-l6-v2"
+    assert settings.ai_model == DEFAULT_TEXT_MODEL
 
 
 def test_db_profile_uses_db_defaults() -> None:
@@ -193,3 +197,35 @@ def test_ai_profile_ignores_invalid_db_configuration(
 
     assert settings.profile is Profile.AI
     assert settings.port == 1370
+
+@pytest.mark.parametrize(
+    "model",
+    tuple(TEXT_MODELS),
+)
+def test_ai_profile_accepts_supported_model(
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+) -> None:
+    monkeypatch.setenv(
+        "AHNLICH_AI_MODEL",
+        model,
+    )
+
+    settings = Settings.from_env(profile="ai")
+
+    assert settings.ai_model == model
+
+
+def test_unsupported_ai_model_is_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "AHNLICH_AI_MODEL",
+        "unknown-model",
+    )
+
+    with pytest.raises(
+        ConfigurationError,
+        match="Unsupported AI model",
+    ):
+        Settings.from_env(profile="ai")

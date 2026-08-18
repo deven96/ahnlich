@@ -4,6 +4,11 @@ import os
 from dataclasses import dataclass
 from enum import Enum
 
+from ahnlich_mcp.models import (
+    DEFAULT_TEXT_MODEL,
+    TEXT_MODELS,
+)
+
 
 class ConfigurationError(ValueError):
     pass
@@ -39,15 +44,7 @@ class Settings:
                 ),
             )
 
-        model = os.getenv(
-            "AHNLICH_AI_MODEL",
-            "all-minilm-l6-v2",
-        ).strip()
-
-        if not model:
-            raise ConfigurationError(
-                "AHNLICH_AI_MODEL cannot be empty"
-            )
+        model = cls._read_model()
 
         return cls(
             profile=selected_profile,
@@ -86,24 +83,35 @@ class Settings:
             ) from error
 
     @staticmethod
-    def _read_host(
-        variable: str,
-        default: str,
-    ) -> str:
+    def _read_model() -> str:
+        model = os.getenv(
+            "AHNLICH_AI_MODEL",
+            DEFAULT_TEXT_MODEL,
+        ).strip()
+
+        if not model:
+            raise ConfigurationError("AHNLICH_AI_MODEL cannot be empty")
+
+        if model not in TEXT_MODELS:
+            supported = ", ".join(sorted(TEXT_MODELS))
+            raise ConfigurationError(
+                f"Unsupported AI model {model!r}."
+                f"Supported models: {supported}"
+            )
+        
+        return model
+
+    @staticmethod
+    def _read_host(variable: str, default: str) -> str:
         host = os.getenv(variable, default).strip()
 
         if not host:
-            raise ConfigurationError(
-                f"{variable} cannot be empty"
-            )
+            raise ConfigurationError(f"{variable} cannot be empty")
 
         return host
 
     @staticmethod
-    def _read_port(
-        variable: str,
-        default: int,
-    ) -> int:
+    def _read_port(variable: str, default: int) -> int:
         raw_value = os.getenv(variable, str(default))
 
         try:

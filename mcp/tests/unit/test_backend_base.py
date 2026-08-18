@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 from ahnlich_client_py.grpc.algorithm.algorithms import (
     Algorithm,
@@ -18,7 +18,9 @@ from ahnlich_mcp.backends.base import (
     AhnlichConnectionError,
     BaseBackend,
     AhnlichError,
+    MAX_TOP_K
 )
+from ahnlich_mcp.backends.ai import AIBackend
 
 class ExampleRequest:
     def __init__(
@@ -149,24 +151,22 @@ async def test_shared_list_stores(
 
 
 @pytest.mark.asyncio
-async def test_shared_similarity_search_execution(
-    backend: ExampleBackend,
-) -> None:
+async def test_similarity_search_preserves_server_order(backend: ExampleBackend) -> None:
     backend._call = AsyncMock(
         return_value=SimpleNamespace(
             entries=[
                 SimpleNamespace(
-                    key="lower",
+                    key="nearest",
                     value=backend._serialize_metadata({}),
                     similarity=SimpleNamespace(
-                        value=0.4
+                        value=0.1
                     ),
                 ),
                 SimpleNamespace(
-                    key="higher",
+                    key="farthest",
                     value=backend._serialize_metadata({}),
                     similarity=SimpleNamespace(
-                        value=0.9
+                        value=0.8
                     ),
                 ),
             ]
@@ -180,19 +180,49 @@ async def test_shared_similarity_search_execution(
         request=request,
         store_name="documents",
         metadata_filter_applied=True,
-        sort_descending=True,
     )
 
     assert [
         result["key"]
         for result in results
-    ] == ["higher", "lower"]
+    ] == ["nearest", "farthest"]
 
     backend._call.assert_awaited_once_with(
         "get_sim_n",
         request,
         store_name="documents",
         predicate_operation=True,
+    )
+
+@pytest.mark.asyncio
+async def test_ai_search_builds_metadata_condition_once() -> None:
+    backend = AIBackend(
+        host="127.0.0.1",
+        port=1370,
+        model="all-minilm-l6-v2",
+    )
+    build_condition = Mock(
+        wraps=backend._build_condition
+    )
+    backend._build_condition = build_condition
+    backend._execute_similarity_search = AsyncMock(
+        return_value=[]
+    )
+
+    await backend.similarity_search(
+        store_name="documents",
+        query="vector databases",
+        top_k=5,
+        algorithm="cosine",
+        metadata_filter={
+            "category": "documentation",
+        },
+    )
+
+    build_condition.assert_called_once_with(
+        {
+            "category": "documentation",
+        }
     )
 
 @pytest.mark.asyncio
@@ -457,6 +487,7 @@ async def test_shared_create_predicate_index(
     ]
     assert keyword_arguments == {
         "store_name": "documents",
+        "predicate_operation": True,
     }
 
 
@@ -552,7 +583,7 @@ def test_unsupported_algorithm(
 
 @pytest.mark.parametrize(
     "top_k",
-    [1, 5, 100],
+    [1, 5, 100, MAX_TOP_K],
 )
 def test_valid_top_k(
     backend: ExampleBackend,
@@ -575,6 +606,14 @@ def test_invalid_top_k_range(
     ):
         backend._validate_top_k(top_k)
 
+def test_top_k_above_maximum_is_rejected(
+    backend: ExampleBackend,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match=f"must not exceed {MAX_TOP_K}",
+    ):
+        backend._validate_top_k(MAX_TOP_K + 1)
 
 @pytest.mark.parametrize(
     "top_k",

@@ -133,6 +133,14 @@ Command-line profile selection overrides `AHNLICH_PROFILE`.
 | `AHNLICH_AI_PORT` | `1370` | AI proxy port |
 | `AHNLICH_AI_MODEL` | `all-minilm-l6-v2` | Model configured for the AI profile |
 
+The AI profile supports `all-minilm-l6-v2`, `all-minilm-l12-v2`,
+`bge-base-en-v1.5`, `bge-large-en-v1.5`, and
+`jina-embeddings-v2-base-code`.
+
+The selected model must also be enabled in `ahnlich-ai` through its
+`--supported-models` option. The bundled Compose configuration enables only
+`all-minilm-l6-v2`.
+
 For example:
 
 ```bash

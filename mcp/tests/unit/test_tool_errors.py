@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import json
+from unittest.mock import AsyncMock
+
+import pytest
+from mcp.server.fastmcp.exceptions import ToolError
+
 from ahnlich_mcp.backends.base import (
     AhnlichConnectionError,
     PredicateIndexNotFoundError,
     StoreNotFoundError,
 )
 from ahnlich_mcp.backends.db import DBBackend
-from ahnlich_mcp.tools import error_response
+from ahnlich_mcp.tools import (
+    error_payload,
+    raise_tool_error,
+)
 
 
 def backend() -> DBBackend:
@@ -17,7 +26,7 @@ def backend() -> DBBackend:
 
 
 def test_connection_error_contains_recovery_information() -> None:
-    response = error_response(
+    payload = error_payload(
         AhnlichConnectionError(
             service_name="ahnlich-db",
             host="127.0.0.1",
@@ -27,45 +36,61 @@ def test_connection_error_contains_recovery_information() -> None:
         backend=backend(),
     )
 
-    assert response["status"] == "error"
-    assert response["profile"] == "db"
-    assert response["endpoint"] == "127.0.0.1:1369"
-    assert "Start ahnlich-db" in response["suggested_action"]
+    assert payload["status"] == "error"
+    assert payload["profile"] == "db"
+    assert payload["endpoint"] == "127.0.0.1:1369"
+    assert "Start ahnlich-db" in payload["suggested_action"]
 
 
 def test_missing_store_error_suggests_create_store() -> None:
-    response = error_response(
+    payload = error_payload(
         StoreNotFoundError("documents"),
         backend=backend(),
     )
 
-    assert response["status"] == "error"
-    assert "documents" in response["error"]
-    assert "create_store" in response["suggested_action"]
+    assert payload["status"] == "error"
+    assert "documents" in payload["error"]
+    assert "create_store" in payload["suggested_action"]
 
 
 def test_predicate_error_suggests_creating_index() -> None:
-    response = error_response(
+    payload = error_payload(
         PredicateIndexNotFoundError(
             "Predicate index not found"
         ),
         backend=backend(),
     )
 
-    assert response["status"] == "error"
+    assert payload["status"] == "error"
     assert (
         "create_predicate_index"
-        in response["suggested_action"]
+        in payload["suggested_action"]
     )
 
 
 def test_unknown_error_is_safely_serialized() -> None:
-    response = error_response(
+    payload = error_payload(
         RuntimeError("unexpected failure"),
         backend=backend(),
     )
 
-    assert response == {
+    assert payload == {
         "status": "error",
         "error": "unexpected failure",
     }
+
+
+def test_raise_tool_error_preserves_json_payload() -> None:
+    with pytest.raises(ToolError) as raised:
+        raise_tool_error(
+            StoreNotFoundError("documents"),
+            backend=backend(),
+        )
+
+    payload = json.loads(
+        str(raised.value)
+    )
+
+    assert payload["status"] == "error"
+    assert "documents" in payload["error"]
+    assert "create_store" in payload["suggested_action"]

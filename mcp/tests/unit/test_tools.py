@@ -12,7 +12,11 @@ from ahnlich_mcp.tools import (
     EmbeddedEntry,
     TextEntry,
     build_tools,
+    TOOL_ANNOTATIONS,
+    TOOL_ORDER,
 )
+
+from mcp.server.fastmcp.exceptions import ToolError
 
 EXPECTED_TOOLS = (
     "ping",
@@ -201,4 +205,70 @@ async def test_db_store_entries_converts_models_to_dicts(
                 "metadata": {"source": "test"},
             }
         ],
+    )
+
+@pytest.mark.asyncio
+async def test_ping_returns_unavailable_diagnostic(
+    db_backend: DBBackend,
+) -> None:
+    db_backend.ping = AsyncMock(
+        return_value=False
+    )
+    ping = tool_map(db_backend)["ping"]
+
+    result = await ping()
+
+    assert result["status"] == "error"
+    assert result["available"] is False
+    assert "suggested_action" in result
+
+
+@pytest.mark.asyncio
+async def test_ping_converts_unexpected_error_to_tool_error(
+    db_backend: DBBackend,
+) -> None:
+    db_backend.ping = AsyncMock(
+        side_effect=RuntimeError(
+            "unexpected failure"
+        )
+    )
+    ping = tool_map(db_backend)["ping"]
+
+    with pytest.raises(
+        ToolError,
+        match="unexpected failure",
+    ):
+        await ping()
+
+def test_every_tool_declares_annotations() -> None:
+    assert set(TOOL_ANNOTATIONS) == set(TOOL_ORDER)
+
+
+def test_tool_annotation_policies() -> None:
+    read_only = {
+        name
+        for name, annotations in TOOL_ANNOTATIONS.items()
+        if annotations.readOnlyHint
+    }
+    destructive = {
+        name
+        for name, annotations in TOOL_ANNOTATIONS.items()
+        if annotations.destructiveHint
+    }
+
+    assert read_only == {
+        "ping",
+        "server_info",
+        "list_stores",
+        "similarity_search",
+        "get_by_metadata",
+    }
+    assert destructive == {
+        "drop_store",
+        "delete_by_metadata",
+        "drop_predicate_index",
+    }
+    assert all(
+        annotations.openWorldHint is False
+        for annotations in TOOL_ANNOTATIONS.values()
     )
