@@ -94,7 +94,7 @@ pub trait AhnlichServerUtils: BlockingTask + Sized + Send + Sync + 'static + Deb
                 self.store_handler().get_snapshot(),
                 self.config().enable_mmap,
             );
-            task_manager.spawn_task_loop(persistence_task).await;
+            task_manager.spawn_blocking(persistence_task).await;
         };
 
         self.spawn_tasks_before_server(&task_manager).await?;
