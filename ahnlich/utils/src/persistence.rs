@@ -12,8 +12,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use task_manager::Task;
-use task_manager::TaskState;
+
 use tempfile::NamedTempFile;
 use thiserror::Error;
 use tokio::time::Duration;
@@ -114,43 +113,61 @@ pub struct Persistence<T> {
 }
 
 #[async_trait::async_trait]
-impl<T: Sync + Serialize + DeserializeOwned + Debug> Task for Persistence<T> {
+impl<T: Send + Sync + Serialize + DeserializeOwned + Debug + 'static> task_manager::BlockingTask
+    for Persistence<T>
+{
     fn task_name(&self) -> String {
         "persistence".to_string()
     }
 
-    async fn run(&self) -> TaskState {
-        if self.has_potential_write().await {
-            log::debug!("In potential write");
-            let persist_location: &Path = self.persist_location.as_ref();
-            let writer = match NamedTempFile::new_in(
-                persist_location
-                    .parent()
-                    .expect("Could not get parent directory of persist location"),
-            ) {
-                Ok(file) => file,
-                Err(e) => {
-                    log::error!("Could not create persistence file with err {e:?}, skipping");
-                    return TaskState::Continue;
+    async fn run(
+        self,
+        mut shutdown_signal: std::pin::Pin<
+            Box<dyn std::future::Future<Output = ()> + Send + Sync + 'static>,
+        >,
+    ) {
+        loop {
+            tokio::select! {
+                _ = &mut shutdown_signal => {
+                    log::debug!("Persistence task received shutdown signal");
+                    break;
                 }
-            };
-            // set write flag to false before writing to it
-            let _ =
-                self.write_flag
-                    .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst);
-            {
-                let buf_writer = BufWriter::new(&writer);
-                if let Err(e) = serde_json::to_writer(buf_writer, &self.persist_object) {
-                    log::error!("Error writing stores to temp file {e:?}");
-                    return TaskState::Continue;
+                _ = sleep(Duration::from_millis(self.persistence_interval)) => {
+                    if !self.write_flag.load(Ordering::SeqCst) {
+                        continue;
+                    }
+
+                    log::debug!("In potential write");
+                    let persist_location: &Path = self.persist_location.as_ref();
+                    let writer = match NamedTempFile::new_in(
+                        persist_location
+                            .parent()
+                            .expect("Could not get parent directory of persist location"),
+                    ) {
+                        Ok(file) => file,
+                        Err(e) => {
+                            log::error!("Could not create persistence file with err {e:?}, skipping");
+                            continue;
+                        }
+                    };
+                    // set write flag to false before writing to it
+                    let _ = self
+                        .write_flag
+                        .compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst);
+                    {
+                        let buf_writer = BufWriter::new(&writer);
+                        if let Err(e) = serde_json::to_writer(buf_writer, &self.persist_object) {
+                            log::error!("Error writing stores to temp file {e:?}");
+                            continue;
+                        }
+                    }
+                    match writer.persist(persist_location) {
+                        Ok(_) => log::debug!("Persisted stores to disk"),
+                        Err(e) => log::error!("Error persisting temp file to location {e}"),
+                    }
                 }
-            }
-            match writer.persist(persist_location) {
-                Ok(_) => log::debug!("Persisted stores to disk"),
-                Err(e) => log::error!("Error persisting temp file to location {e}"),
             }
         }
-        TaskState::Continue
     }
 }
 
@@ -225,10 +242,5 @@ impl<T: Serialize + DeserializeOwned> Persistence<T> {
             persist_object,
             persist_location: persist_location.clone(),
         }
-    }
-
-    async fn has_potential_write(&self) -> bool {
-        sleep(Duration::from_millis(self.persistence_interval)).await;
-        self.write_flag.load(Ordering::SeqCst)
     }
 }
