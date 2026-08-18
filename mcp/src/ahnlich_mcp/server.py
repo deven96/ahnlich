@@ -86,7 +86,7 @@ def create_server(
         lifespan=lifespan,
     )
 
-    for tool in build_tools(backend):
+    for tool in build_tools(backend, read_only=settings.read_only):
         mcp.tool(
             annotations=TOOL_ANNOTATIONS[tool.__name__]
         )(tool)
@@ -100,6 +100,7 @@ async def run_doctor(settings: Settings) -> int:
     result: dict[str, Any] = {
         "profile": settings.profile.value,
         "endpoint": f"{settings.host}:{settings.port}",
+        "read_only": settings.read_only,
     }
 
     try:

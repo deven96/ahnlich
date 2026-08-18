@@ -19,6 +19,7 @@ AHNLICH_ENVIRONMENT_VARIABLES = (
     "AHNLICH_AI_HOST",
     "AHNLICH_AI_PORT",
     "AHNLICH_AI_MODEL",
+    "AHNLICH_MCP_READ_ONLY",
 )
 
 
@@ -229,3 +230,50 @@ def test_unsupported_ai_model_is_rejected(
         match="Unsupported AI model",
     ):
         Settings.from_env(profile="ai")
+
+@pytest.mark.parametrize(
+    "value",
+    ["1", "true", "TRUE", "yes", "on", " YES "],
+)
+def test_read_only_truthy_values(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    monkeypatch.setenv("AHNLICH_MCP_READ_ONLY", value)
+
+    settings = Settings.from_env()
+
+    assert settings.read_only is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["0", "false", "FALSE", "no", "off"],
+)
+def test_read_only_falsey_values(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    monkeypatch.setenv("AHNLICH_MCP_READ_ONLY", value)
+
+    settings = Settings.from_env()
+
+    assert settings.read_only is False
+
+
+def test_read_only_defaults_to_false() -> None:
+    settings = Settings.from_env()
+
+    assert settings.read_only is False
+
+
+def test_invalid_read_only_value(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AHNLICH_MCP_READ_ONLY", "sometimes")
+
+    with pytest.raises(
+        ConfigurationError,
+        match="AHNLICH_MCP_READ_ONLY",
+    ):
+        Settings.from_env()

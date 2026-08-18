@@ -418,3 +418,20 @@ async def test_tool_annotations_over_stdio() -> None:
         and tool.annotations.openWorldHint is False
         for tool in tools.values()
     )
+
+@pytest.mark.asyncio
+async def test_read_only_mode_over_stdio(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("AHNLICH_MCP_READ_ONLY", "1")
+
+    async with mcp_session("db") as session:
+        response = await session.list_tools()
+
+    assert {tool.name for tool in response.tools} == {
+        "ping",
+        "server_info",
+        "list_stores",
+        "similarity_search",
+        "get_by_metadata",
+    }

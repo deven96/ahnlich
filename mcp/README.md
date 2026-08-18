@@ -132,6 +132,7 @@ Command-line profile selection overrides `AHNLICH_PROFILE`.
 | `AHNLICH_AI_HOST` | `127.0.0.1` | AI proxy host |
 | `AHNLICH_AI_PORT` | `1370` | AI proxy port |
 | `AHNLICH_AI_MODEL` | `all-minilm-l6-v2` | Model configured for the AI profile |
+| `AHNLICH_MCP_READ_ONLY` | `0` | Expose only tools that do not modify Ahnlich |
 
 The AI profile supports `all-minilm-l6-v2`, `all-minilm-l12-v2`,
 `bge-base-en-v1.5`, `bge-large-en-v1.5`, and

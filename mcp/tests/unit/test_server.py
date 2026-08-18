@@ -29,6 +29,14 @@ EXPECTED_TOOLS = {
     "drop_predicate_index",
 }
 
+READ_ONLY_TOOLS = {
+    "ping",
+    "server_info",
+    "list_stores",
+    "similarity_search",
+    "get_by_metadata",
+}
+
 
 def test_default_command_is_serve() -> None:
     args = parse_args([])
@@ -176,3 +184,21 @@ def test_main_reports_unsupported_model_as_usage_error(
     assert error.value.code == 2
     assert "Unsupported AI model" in stderr
     assert "Traceback" not in stderr
+
+@pytest.mark.asyncio
+async def test_read_only_server_registers_only_read_tools() -> None:
+    settings = Settings(
+        profile=Profile.DB,
+        host="127.0.0.1",
+        port=1369,
+        read_only=True,
+    )
+
+    mcp, backend = create_server(settings)
+
+    try:
+        tools = await mcp.list_tools()
+    finally:
+        await backend.close()
+
+    assert {tool.name for tool in tools} == READ_ONLY_TOOLS

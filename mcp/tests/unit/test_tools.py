@@ -32,6 +32,14 @@ EXPECTED_TOOLS = (
     "drop_predicate_index",
 )
 
+READ_ONLY_TOOL_NAMES = (
+    "ping",
+    "server_info",
+    "list_stores",
+    "similarity_search",
+    "get_by_metadata",
+)
+
 
 def tool_map(backend: AIBackend | DBBackend):
     return {
@@ -272,3 +280,17 @@ def test_tool_annotation_policies() -> None:
         annotations.openWorldHint is False
         for annotations in TOOL_ANNOTATIONS.values()
     )
+
+def test_read_only_mode_exposes_only_read_only_tools(
+    ai_backend: AIBackend,
+    db_backend: DBBackend,
+) -> None:
+    for backend in (ai_backend, db_backend):
+        tools = build_tools(backend, read_only=True)
+        names = tuple(tool.__name__ for tool in tools)
+
+        assert names == READ_ONLY_TOOL_NAMES
+        assert all(
+            TOOL_ANNOTATIONS[name].readOnlyHint is True
+            for name in names
+        )

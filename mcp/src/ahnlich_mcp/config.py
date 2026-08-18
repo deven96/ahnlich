@@ -23,6 +23,7 @@ class Settings:
     host: str
     port: int
     ai_model: str | None = None
+    read_only: bool = False
 
     @classmethod
     def from_env(
@@ -30,6 +31,7 @@ class Settings:
         profile: str | Profile | None = None,
     ) -> Settings:
         selected_profile = cls._resolve_profile(profile)
+        read_only = cls._is_read_only()
 
         if selected_profile is Profile.DB:
             return cls(
@@ -42,6 +44,7 @@ class Settings:
                     "AHNLICH_DB_PORT",
                     1369,
                 ),
+                read_only=read_only
             )
 
         model = cls._read_model()
@@ -57,6 +60,7 @@ class Settings:
                 1370,
             ),
             ai_model=model,
+            read_only=read_only
         )
 
     @staticmethod
@@ -100,6 +104,21 @@ class Settings:
             )
         
         return model
+
+    @staticmethod
+    def _is_read_only() -> bool:
+        value = os.getenv("AHNLICH_MCP_READ_ONLY", "0").strip().lower()
+
+        if value in {"1", "true", "yes", "on"}:
+            return True
+
+        if value in {"0", "false", "no", "off"}:
+            return False
+
+        raise ConfigurationError(
+            "AHNLICH_MCP_READ_ONLY must be one of: "
+            "0, 1, false, true, no, yes, off, on"
+        )
 
     @staticmethod
     def _read_host(variable: str, default: str) -> str:

@@ -501,7 +501,7 @@ TOOL_ANNOTATIONS: dict[str, ToolAnnotations] = {
 }
 
 
-def build_tools(backend: Backend) -> tuple[Tool, ...]:
+def build_tools(backend: Backend, *, read_only: bool = False) -> tuple[Tool, ...]:
     tools = build_common_tools(backend)
 
     if isinstance(backend, AIBackend):
@@ -509,4 +509,9 @@ def build_tools(backend: Backend) -> tuple[Tool, ...]:
     else:
         tools.update(build_db_tools(backend))
 
-    return tuple(tools[name] for name in TOOL_ORDER)
+    return tuple(
+        tools[name]
+        for name in TOOL_ORDER
+        if not read_only or
+        TOOL_ANNOTATIONS[name].readOnlyHint is True
+    )
