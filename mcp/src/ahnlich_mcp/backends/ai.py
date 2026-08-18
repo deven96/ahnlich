@@ -58,7 +58,12 @@ class AIBackend(BaseBackend):
     def _server_info_extras(self) -> dict[str, Any]:
         return {"model": self.model_name}
 
-    def _entry_identity(self, entry: Any) -> dict[str, Any]:
+    def _entry_identity(
+        self,
+        entry: Any,
+        *,
+        include_embeddings: bool = False,
+    ) -> dict[str, Any]:
         key = entry.key
 
         return {

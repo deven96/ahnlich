@@ -149,7 +149,12 @@ class BaseBackend(ABC):
         return {}
 
     @abstractmethod
-    def _entry_identity(self, entry: Any) -> dict[str, Any]:
+    def _entry_identity(
+        self,
+        entry: Any,
+        *,
+        include_embeddings: bool = False,
+    ) -> dict[str, Any]:
         raise NotImplementedError
 
     @abstractmethod
@@ -165,18 +170,34 @@ class BaseBackend(ABC):
     ) -> Any:
         raise NotImplementedError
 
-    def _format_entry(self, entry: Any) -> dict[str, Any]:
+    def _format_entry(
+        self,
+        entry: Any,
+        *,
+        include_embeddings: bool = False,
+    ) -> dict[str, Any]:
         return {
-            **self._entry_identity(entry),
+            **self._entry_identity(
+                entry,
+                include_embeddings=include_embeddings,
+            ),
             "metadata": self._deserialize_metadata(
                 entry.value
             ),
         }
 
-    def _format_search_entries(self, entries: list[Any]) -> list[dict[str, Any]]:
+    def _format_search_entries(
+        self,
+        entries: list[Any],
+        *,
+        include_embeddings: bool = False,
+    ) -> list[dict[str, Any]]:
         return [
             {
-                **self._format_entry(entry),
+                **self._format_entry(
+                    entry,
+                    include_embeddings=include_embeddings,
+                ),
                 "similarity": float(
                     entry.similarity.value
                 ),
@@ -190,6 +211,7 @@ class BaseBackend(ABC):
         request: Any,
         store_name: str,
         metadata_filter_applied: bool,
+        include_embeddings: bool = False,
     ) -> list[dict[str, Any]]:
         response = await self._call(
             "get_sim_n",
@@ -198,8 +220,10 @@ class BaseBackend(ABC):
             predicate_operation=metadata_filter_applied,
         )
 
-        results = self._format_search_entries(response.entries)
-        return results
+        return self._format_search_entries(
+            response.entries,
+            include_embeddings=include_embeddings,
+        )
 
     async def list_stores(self) -> list[dict[str, Any]]:
         response = await self._call(
@@ -250,9 +274,11 @@ class BaseBackend(ABC):
         return response.deleted_count
 
     async def get_by_metadata(
-        self, *,
+        self,
+        *,
         store_name: str,
         metadata_filter: dict[str, str],
+        include_embeddings: bool = False,
     ) -> list[dict[str, Any]]:
         self._validate_store_name(store_name)
 
@@ -269,7 +295,10 @@ class BaseBackend(ABC):
         )
 
         return [
-            self._format_entry(entry)
+            self._format_entry(
+                entry,
+                include_embeddings=include_embeddings,
+            )
             for entry in response.entries
         ]
 

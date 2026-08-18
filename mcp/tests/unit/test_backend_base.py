@@ -52,7 +52,12 @@ class ExampleBackend(BaseBackend):
     query_module = ExampleQueries
     stub_type = ExampleStub
 
-    def _entry_identity(self, entry: Any) -> dict[str, Any]:
+    def _entry_identity(
+        self,
+        entry: Any,
+        *,
+        include_embeddings: bool = False,
+    ) -> dict[str, Any]:
         return {
             "key": entry.key,
         }

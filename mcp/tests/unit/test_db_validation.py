@@ -4,7 +4,7 @@ import math
 from typing import Any
 
 import pytest
-
+from types import SimpleNamespace
 from ahnlich_mcp.backends.db import DBBackend
 
 
@@ -48,3 +48,33 @@ def test_invalid_embedding(
 ) -> None:
     with pytest.raises(ValueError):
         backend._validate_embedding(embedding)
+
+def test_entry_identity_omits_embedding_by_default(
+    backend: DBBackend,
+) -> None:
+    entry = SimpleNamespace(
+        key=SimpleNamespace(
+            key=[0.1, 0.2, 0.3],
+        )
+    )
+
+    assert backend._entry_identity(entry) == {
+        "dimension": 3,
+    }
+
+
+def test_entry_identity_can_include_embedding(
+    backend: DBBackend,
+) -> None:
+    entry = SimpleNamespace(
+        key=SimpleNamespace(
+            key=[0.1, 0.2, 0.3],
+        )
+    )
+
+    assert backend._entry_identity(
+        entry,
+        include_embeddings=True,
+    ) == {
+        "embedding": [0.1, 0.2, 0.3],
+    }

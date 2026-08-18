@@ -22,6 +22,9 @@ from ahnlich_mcp.backends.base import AlgorithmName
 ToolResponse = dict[str, Any] | list[dict[str, Any]]
 Tool = Callable[..., Awaitable[ToolResponse]]
 
+DEFAULT_RESULT_LIMIT = 50
+MAX_RESULT_LIMIT = 1024
+
 
 class TextEntry(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -131,10 +134,13 @@ def build_common_tools(backend: Backend) -> dict[str, Tool]:
         except Exception as error:
             return raise_tool_error(error, backend=backend)
 
-    async def list_stores() -> ToolResponse:
-        """List stores available through the configured profile."""
+    async def list_stores(limit: int = DEFAULT_RESULT_LIMIT) -> dict[str, Any]:
+        """List a bounded number of stores."""
         try:
-            return await backend.list_stores()
+            validated_limit = _validate_result_limit(limit)
+            stores = await backend.list_stores()
+
+            return _bounded_results(stores, limit=validated_limit)
         except Exception as error:
             return raise_tool_error(error, backend=backend)
 
@@ -164,12 +170,23 @@ def build_common_tools(backend: Backend) -> dict[str, Tool]:
     async def get_by_metadata(
         store_name: str,
         filter: dict[str, str],
-    ) -> ToolResponse:
-        """Retrieve entries matching indexed metadata."""
+        limit: int = DEFAULT_RESULT_LIMIT,
+        include_embeddings: bool = False,
+    ) -> dict[str, Any]:
+        """Retrieve a bounded set of entries matching indexed metadata."""
         try:
-            return await backend.get_by_metadata(
+            validated_limit = _validate_result_limit(
+                limit
+            )
+            entries = await backend.get_by_metadata(
                 store_name=store_name,
                 metadata_filter=filter,
+                include_embeddings=include_embeddings,
+            )
+
+            return _bounded_results(
+                entries,
+                limit=validated_limit,
             )
         except Exception as error:
             return raise_tool_error(
@@ -314,7 +331,7 @@ def build_ai_tools(backend: AIBackend) -> dict[str, Tool]:
         algorithm: AlgorithmName = "cosine",
         filter: dict[str, str] | None = None,
     ) -> ToolResponse:
-        """Search by the meaning of a raw-text query."""
+        """Search using an embedding, omitting stored vectors by default."""
         try:
             return await backend.similarity_search(
                 store_name=store_name,
@@ -393,8 +410,9 @@ def build_db_tools(backend: DBBackend) -> dict[str, Tool]:
         top_k: int = 5,
         algorithm: AlgorithmName = "cosine",
         filter: dict[str, str] | None = None,
+        include_embeddings: bool = False,
     ) -> ToolResponse:
-        """Search using a user-provided query embedding."""
+        """Search using an embedding, omitting stored vectors by default."""
         try:
             return await backend.similarity_search(
                 store_name=store_name,
@@ -402,6 +420,7 @@ def build_db_tools(backend: DBBackend) -> dict[str, Tool]:
                 top_k=top_k,
                 algorithm=algorithm,
                 metadata_filter=filter,
+                include_embeddings=include_embeddings,
             )
         except Exception as error:
             return raise_tool_error(
@@ -414,6 +433,35 @@ def build_db_tools(backend: DBBackend) -> dict[str, Tool]:
         "create_store": create_store,
         "store_entries": store_entries,
         "similarity_search": similarity_search,
+    }
+
+def _validate_result_limit(limit: int) -> int:
+    if isinstance(limit, bool) or not isinstance(limit, int):
+        raise ValueError(
+            "limit must be an integer"
+        )
+
+    if limit < 1:
+        raise ValueError(
+            "limit must be at least 1"
+        )
+
+    if limit > MAX_RESULT_LIMIT:
+        raise ValueError(
+            f"limit must not exceed {MAX_RESULT_LIMIT}"
+        )
+
+    return limit
+
+
+def _bounded_results(
+    results: list[dict[str, Any]],
+    *,
+    limit: int,
+) -> dict[str, Any]:
+    return {
+        "results": results[:limit],
+        "truncated": len(results) > limit,
     }
 
 

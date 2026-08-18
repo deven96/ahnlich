@@ -216,7 +216,8 @@ async def test_ai_profile_over_stdio() -> None:
                 },
             )
 
-            assert len(matching) == 1
+            assert len(matching["results"]) == 1
+            assert matching["truncated"] is False
 
         finally:
             await session.call_tool(
@@ -332,7 +333,29 @@ async def test_db_profile_over_stdio() -> None:
                 },
             )
 
-            assert len(matching) == 1
+            assert len(matching["results"]) == 1
+            assert matching["truncated"] is False
+            assert results[0]["dimension"] == 3
+            assert "embedding" not in results[0]
+
+            results_with_embeddings = await call_tool(
+                session,
+                "similarity_search",
+                {
+                    "store_name": store_name,
+                    "query_embedding": [
+                        0.9,
+                        0.1,
+                        0.0,
+                    ],
+                    "top_k": 1,
+                    "include_embeddings": True,
+                },
+            )
+
+            assert results_with_embeddings[0][
+                "embedding"
+            ] == [1.0, 0.0, 0.0]
 
         finally:
             await session.call_tool(

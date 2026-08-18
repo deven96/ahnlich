@@ -14,6 +14,8 @@ from ahnlich_mcp.tools import (
     build_tools,
     TOOL_ANNOTATIONS,
     TOOL_ORDER,
+    DEFAULT_RESULT_LIMIT,
+    MAX_RESULT_LIMIT,
 )
 
 from mcp.server.fastmcp.exceptions import ToolError
@@ -126,6 +128,11 @@ def test_db_search_accepts_an_embedding(
 
     assert "query_embedding" in parameters
     assert "query" not in parameters
+    assert "include_embeddings" in parameters
+    assert (
+        parameters["include_embeddings"].default
+        is False
+    )
 
 
 def test_text_entry_rejects_empty_content() -> None:
@@ -294,3 +301,114 @@ def test_read_only_mode_exposes_only_read_only_tools(
             TOOL_ANNOTATIONS[name].readOnlyHint is True
             for name in names
         )
+
+@pytest.mark.asyncio
+async def test_list_stores_returns_bounded_results(
+    db_backend: DBBackend,
+) -> None:
+    stores = [
+        {"name": "one"},
+        {"name": "two"},
+        {"name": "three"},
+    ]
+    db_backend.list_stores = AsyncMock(
+        return_value=stores
+    )
+
+    list_stores = tool_map(db_backend)[
+        "list_stores"
+    ]
+    result = await list_stores(limit=2)
+
+    assert result == {
+        "results": stores[:2],
+        "truncated": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_get_by_metadata_returns_bounded_results(
+    db_backend: DBBackend,
+) -> None:
+    entries = [
+        {"dimension": 3, "metadata": {"id": "1"}},
+        {"dimension": 3, "metadata": {"id": "2"}},
+    ]
+    db_backend.get_by_metadata = AsyncMock(
+        return_value=entries
+    )
+
+    get_by_metadata = tool_map(db_backend)[
+        "get_by_metadata"
+    ]
+    result = await get_by_metadata(
+        store_name="documents",
+        filter={"status": "active"},
+        limit=1,
+        include_embeddings=True,
+    )
+
+    assert result == {
+        "results": entries[:1],
+        "truncated": True,
+    }
+    db_backend.get_by_metadata.assert_awaited_once_with(
+        store_name="documents",
+        metadata_filter={"status": "active"},
+        include_embeddings=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "limit",
+    [
+        0,
+        MAX_RESULT_LIMIT + 1,
+        True,
+    ],
+)
+@pytest.mark.asyncio
+async def test_list_stores_rejects_invalid_limit(
+    db_backend: DBBackend,
+    limit: object,
+) -> None:
+    db_backend.list_stores = AsyncMock(
+        return_value=[]
+    )
+    list_stores = tool_map(db_backend)[
+        "list_stores"
+    ]
+
+    with pytest.raises(ToolError, match="limit"):
+        await list_stores(limit=limit)
+
+    db_backend.list_stores.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_db_search_forwards_embedding_option(
+    db_backend: DBBackend,
+) -> None:
+    db_backend.similarity_search = AsyncMock(
+        return_value=[]
+    )
+    similarity_search = tool_map(db_backend)[
+        "similarity_search"
+    ]
+
+    await similarity_search(
+        store_name="documents",
+        query_embedding=[0.1, 0.2, 0.3],
+        include_embeddings=True,
+    )
+
+    db_backend.similarity_search.assert_awaited_once_with(
+        store_name="documents",
+        query_embedding=[0.1, 0.2, 0.3],
+        top_k=5,
+        algorithm="cosine",
+        metadata_filter=None,
+        include_embeddings=True,
+    )
+
+    

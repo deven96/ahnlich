@@ -24,11 +24,21 @@ class DBBackend(BaseBackend):
     query_module = db_query
     stub_type = db_service.DbServiceStub
 
-    def _entry_identity(self, entry: Any) -> dict[str, Any]:
+    def _entry_identity(
+        self,
+        entry: Any,
+        *,
+        include_embeddings: bool = False,
+    ) -> dict[str, Any]:
+        embedding = entry.key.key
+
+        if not include_embeddings:
+            return {
+                "dimension": len(embedding),
+            }
+
         return {
-            "embedding": list(
-                entry.key.key
-            )
+            "embedding": list(embedding),
         }
 
     def _format_store(self, store: Any) -> dict[str, Any]:
@@ -88,6 +98,7 @@ class DBBackend(BaseBackend):
         top_k: int,
         algorithm: AlgorithmName,
         metadata_filter: dict[str, str] | None,
+        include_embeddings: bool = False,
     ) -> list[dict[str, Any]]:
         algorithm_value, condition = (
             self._prepare_similarity_search(
@@ -117,6 +128,7 @@ class DBBackend(BaseBackend):
             metadata_filter_applied=(
                 metadata_filter is not None
             ),
+            include_embeddings=include_embeddings,
         )
 
     @staticmethod
