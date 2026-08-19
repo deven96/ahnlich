@@ -15,6 +15,7 @@ from ahnlich_mcp.backends import (
     DBBackend,
     PredicateIndexNotFoundError,
     StoreNotFoundError,
+    TextPreprocessing,
 )
 from ahnlich_mcp.backends.base import AlgorithmName
 
@@ -169,25 +170,20 @@ def build_common_tools(backend: Backend) -> dict[str, Tool]:
 
     async def get_by_metadata(
         store_name: str,
-        filter: dict[str, str],
+        metadata_filter: dict[str, str],
         limit: int = DEFAULT_RESULT_LIMIT,
         include_embeddings: bool = False,
     ) -> dict[str, Any]:
         """Retrieve a bounded set of entries matching indexed metadata."""
         try:
-            validated_limit = _validate_result_limit(
-                limit
-            )
+            validated_limit = _validate_result_limit(limit)
             entries = await backend.get_by_metadata(
                 store_name=store_name,
-                metadata_filter=filter,
+                metadata_filter=metadata_filter,
                 include_embeddings=include_embeddings,
             )
 
-            return _bounded_results(
-                entries,
-                limit=validated_limit,
-            )
+            return _bounded_results(entries, limit=validated_limit)
         except Exception as error:
             return raise_tool_error(
                 error,
@@ -197,13 +193,13 @@ def build_common_tools(backend: Backend) -> dict[str, Tool]:
 
     async def delete_by_metadata(
         store_name: str,
-        filter: dict[str, str],
+        metadata_filter: dict[str, str],
     ) -> dict[str, Any]:
         """Delete entries matching indexed metadata."""
         try:
             deleted = await backend.delete_by_metadata(
                 store_name=store_name,
-                metadata_filter=filter,
+                metadata_filter=metadata_filter,
             )
         except Exception as error:
             return raise_tool_error(
@@ -308,6 +304,7 @@ def build_ai_tools(backend: AIBackend) -> dict[str, Tool]:
     async def store_entries(
         store_name: str,
         entries: list[TextEntry],
+        preprocessing: TextPreprocessing = "none",
     ) -> dict[str, Any]:
         """Embed and store raw text with optional metadata."""
         values = [entry.model_dump() for entry in entries]
@@ -316,6 +313,7 @@ def build_ai_tools(backend: AIBackend) -> dict[str, Tool]:
             return await backend.store_entries(
                 store_name=store_name,
                 entries=values,
+                preprocessing=preprocessing,
             )
         except Exception as error:
             return raise_tool_error(
@@ -329,7 +327,8 @@ def build_ai_tools(backend: AIBackend) -> dict[str, Tool]:
         query: str,
         top_k: int = 5,
         algorithm: AlgorithmName = "cosine",
-        filter: dict[str, str] | None = None,
+        metadata_filter: dict[str, str] | None = None,
+        preprocessing: TextPreprocessing = "none",
     ) -> ToolResponse:
         """Search using an embedding, omitting stored vectors by default."""
         try:
@@ -338,7 +337,8 @@ def build_ai_tools(backend: AIBackend) -> dict[str, Tool]:
                 query=query,
                 top_k=top_k,
                 algorithm=algorithm,
-                metadata_filter=filter,
+                metadata_filter=metadata_filter,
+                preprocessing=preprocessing,
             )
         except Exception as error:
             return raise_tool_error(
@@ -409,7 +409,7 @@ def build_db_tools(backend: DBBackend) -> dict[str, Tool]:
         query_embedding: list[float],
         top_k: int = 5,
         algorithm: AlgorithmName = "cosine",
-        filter: dict[str, str] | None = None,
+        metadata_filter: dict[str, str] | None = None,
         include_embeddings: bool = False,
     ) -> ToolResponse:
         """Search using an embedding, omitting stored vectors by default."""
@@ -419,7 +419,7 @@ def build_db_tools(backend: DBBackend) -> dict[str, Tool]:
                 query_embedding=query_embedding,
                 top_k=top_k,
                 algorithm=algorithm,
-                metadata_filter=filter,
+                metadata_filter=metadata_filter,
                 include_embeddings=include_embeddings,
             )
         except Exception as error:

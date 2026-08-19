@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from ahnlich_client_py.grpc.ai import query as ai_query
 from ahnlich_client_py.grpc.ai.preprocess import (
@@ -20,6 +20,12 @@ from ahnlich_mcp.backends.base import (
     AlgorithmName,
     BaseBackend,
 )
+
+TextPreprocessing = Literal["none", "truncate"]
+TEXT_PREPROCESSING_ACTIONS: dict[TextPreprocessing, PreprocessAction] = {
+    "none": PreprocessAction.NoPreprocessing,
+    "truncate": PreprocessAction.ModelPreprocessing,
+}
 
 class AIBackend(BaseBackend):
     """Store and search raw text through ahnlich-ai."""
@@ -81,6 +87,21 @@ class AIBackend(BaseBackend):
             getattr(model, "name", str(model)),
         )
 
+    @staticmethod
+    def _resolve_preprocessing(preprocessing: TextPreprocessing) -> PreprocessAction:
+        action = TEXT_PREPROCESSING_ACTIONS.get(preprocessing)
+
+        if action is None:
+            supported = ", ".join(TEXT_PREPROCESSING_ACTIONS)
+
+            raise ValueError(
+                f"Unsupported preprocessing mode "
+                f"{preprocessing!r}. "
+                f"Supported modes: {supported}"
+            )
+
+        return action
+
     def _format_store(self, store: Any) -> dict[str, Any]:
         entry_count: int | None = None
         size_in_bytes: int | None = None
@@ -104,11 +125,37 @@ class AIBackend(BaseBackend):
         self, *,
         store_name: str,
         entries: list[dict[str, Any]],
+        preprocess_action: PreprocessAction = (
+            PreprocessAction.NoPreprocessing
+        ),
     ) -> ai_query.Set:
         return ai_query.Set(
             store=store_name,
             inputs=self._build_entries(entries),
-            preprocess_action=PreprocessAction.NoPreprocessing,
+            preprocess_action=preprocess_action,
+        )
+
+    async def store_entries(
+        self, *,
+        store_name: str,
+        entries: list[dict[str, Any]],
+        preprocessing: TextPreprocessing = "none",
+    ) -> dict[str, int]:
+        self._validate_store_name(store_name)
+
+        request = self._build_set_request(
+            store_name=store_name,
+            entries=entries,
+            preprocess_action=(
+                self._resolve_preprocessing(
+                    preprocessing
+                )
+            ),
+        )
+
+        return await self._execute_store_request(
+            store_name=store_name,
+            request=request,
         )
 
     async def create_store(
@@ -149,6 +196,7 @@ class AIBackend(BaseBackend):
         top_k: int,
         algorithm: AlgorithmName,
         metadata_filter: dict[str, str] | None,
+        preprocessing: TextPreprocessing = "none"
     ) -> list[dict[str, Any]]:
         algorithm_value, condition = (
             self._prepare_similarity_search(
@@ -169,15 +217,15 @@ class AIBackend(BaseBackend):
                 "query must not be empty"
             )
 
+        preprocess_action = self._resolve_preprocessing(preprocessing)
+
         request = ai_query.GetSimN(
             store=store_name,
             search_input=StoreInput(raw_string=query),
             condition=condition,
             closest_n=top_k,
             algorithm=algorithm_value,
-            preprocess_action=(
-                PreprocessAction.NoPreprocessing
-            ),
+            preprocess_action=preprocess_action,
             model_params={},
         )
 

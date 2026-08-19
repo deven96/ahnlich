@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ahnlich_mcp.backends.ai import AIBackend
+from ahnlich_mcp.backends.ai import AIBackend, TextPreprocessing
 from ahnlich_mcp.backends.base import (
     AhnlichConnectionError,
     AhnlichError,
@@ -39,4 +39,5 @@ __all__ = [
     "PredicateIndexNotFoundError",
     "StoreNotFoundError",
     "create_backend",
+    "TextPreprocessing",
 ]

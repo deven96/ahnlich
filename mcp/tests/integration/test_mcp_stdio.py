@@ -122,30 +122,41 @@ async def test_ai_profile_over_stdio() -> None:
     store_name = unique_store_name("ai")
 
     async with mcp_session("ai") as session:
-        tools = await session.list_tools()
-        tool_names = {
-            tool.name for tool in tools.tools
+        response = await session.list_tools()
+        tools = {
+            tool.name: tool
+            for tool in response.tools
         }
 
-        assert "store_entries" in tool_names
-        assert "similarity_search" in tool_names
+        assert "store_entries" in tools
+        assert "similarity_search" in tools
 
-        create_store = next(
-            tool
-            for tool in tools.tools
-            if tool.name == "create_store"
+        create_store_properties = tools[
+            "create_store"
+        ].inputSchema["properties"]
+        store_entries_properties = tools[
+            "store_entries"
+        ].inputSchema["properties"]
+        search_properties = tools[
+            "similarity_search"
+        ].inputSchema["properties"]
+
+        assert "dimension" not in (
+            create_store_properties
         )
-        properties = create_store.inputSchema[
-            "properties"
-        ]
-
-        assert "dimension" not in properties
+        assert "preprocessing" in (
+            store_entries_properties
+        )
+        assert "preprocessing" in (
+            search_properties
+        )
 
         ping = await call_tool(
             session,
             "ping",
             {},
         )
+
         assert ping["profile"] == "ai"
         assert ping["available"] is True
 
@@ -155,9 +166,12 @@ async def test_ai_profile_over_stdio() -> None:
                 "create_store",
                 {
                     "store_name": store_name,
-                    "predicate_keys": ["topic"],
+                    "predicate_keys": [
+                        "topic",
+                    ],
                 },
             )
+
             assert created["status"] == "created"
 
             stored = await call_tool(
@@ -168,25 +182,33 @@ async def test_ai_profile_over_stdio() -> None:
                     "entries": [
                         {
                             "content": (
-                                "Saturn is a planet with "
-                                "a prominent ring system."
+                                "Saturn is a planet "
+                                "with a prominent "
+                                "ring system."
                             ),
                             "metadata": {
-                                "topic": "astronomy",
+                                "topic": (
+                                    "astronomy"
+                                ),
                             },
                         },
                         {
                             "content": (
-                                "Fresh basil is commonly used "
-                                "in Italian cooking."
+                                "Fresh basil is "
+                                "commonly used in "
+                                "Italian cooking."
                             ),
                             "metadata": {
-                                "topic": "cooking",
+                                "topic": (
+                                    "cooking"
+                                ),
                             },
                         },
                     ],
+                    "preprocessing": "truncate",
                 },
             )
+
             assert stored["inserted"] == 2
 
             results = await call_tool(
@@ -194,8 +216,11 @@ async def test_ai_profile_over_stdio() -> None:
                 "similarity_search",
                 {
                     "store_name": store_name,
-                    "query": "Which planet has rings?",
+                    "query": (
+                        "Which planet has rings?"
+                    ),
                     "top_k": 1,
+                    "preprocessing": "truncate",
                 },
             )
 
@@ -210,14 +235,20 @@ async def test_ai_profile_over_stdio() -> None:
                 "get_by_metadata",
                 {
                     "store_name": store_name,
-                    "filter": {
+                    "metadata_filter": {
                         "topic": "astronomy",
                     },
                 },
             )
 
-            assert len(matching["results"]) == 1
-            assert matching["truncated"] is False
+            assert (
+                len(matching["results"])
+                == 1
+            )
+            assert (
+                matching["truncated"]
+                is False
+            )
 
         finally:
             await session.call_tool(
@@ -234,36 +265,44 @@ async def test_db_profile_over_stdio() -> None:
     store_name = unique_store_name("db")
 
     async with mcp_session("db") as session:
-        tools = await session.list_tools()
+        response = await session.list_tools()
+        tools = {
+            tool.name: tool
+            for tool in response.tools
+        }
 
-        create_store = next(
-            tool
-            for tool in tools.tools
-            if tool.name == "create_store"
+        create_store_properties = tools[
+            "create_store"
+        ].inputSchema["properties"]
+        store_entries_properties = tools[
+            "store_entries"
+        ].inputSchema["properties"]
+        search_properties = tools[
+            "similarity_search"
+        ].inputSchema["properties"]
+
+        assert "dimension" in (
+            create_store_properties
         )
-        properties = create_store.inputSchema[
-            "properties"
-        ]
-
-        assert "dimension" in properties
-
-        search = next(
-            tool
-            for tool in tools.tools
-            if tool.name == "similarity_search"
+        assert "preprocessing" not in (
+            store_entries_properties
         )
-        search_properties = search.inputSchema[
-            "properties"
-        ]
-
-        assert "query_embedding" in search_properties
-        assert "query" not in search_properties
+        assert "query_embedding" in (
+            search_properties
+        )
+        assert "query" not in (
+            search_properties
+        )
+        assert "preprocessing" not in (
+            search_properties
+        )
 
         ping = await call_tool(
             session,
             "ping",
             {},
         )
+
         assert ping["profile"] == "db"
         assert ping["available"] is True
 
@@ -274,7 +313,9 @@ async def test_db_profile_over_stdio() -> None:
                 {
                     "store_name": store_name,
                     "dimension": 3,
-                    "predicate_keys": ["topic"],
+                    "predicate_keys": [
+                        "topic",
+                    ],
                 },
             )
 
@@ -288,13 +329,21 @@ async def test_db_profile_over_stdio() -> None:
                     "store_name": store_name,
                     "entries": [
                         {
-                            "embedding": [1.0, 0.0, 0.0],
+                            "embedding": [
+                                1.0,
+                                0.0,
+                                0.0,
+                            ],
                             "metadata": {
                                 "topic": "red",
                             },
                         },
                         {
-                            "embedding": [0.0, 1.0, 0.0],
+                            "embedding": [
+                                0.0,
+                                1.0,
+                                0.0,
+                            ],
                             "metadata": {
                                 "topic": "green",
                             },
@@ -320,42 +369,67 @@ async def test_db_profile_over_stdio() -> None:
             )
 
             assert len(results) == 1
-            assert results[0]["metadata"]["topic"] == "red"
+            assert (
+                results[0]["metadata"]["topic"]
+                == "red"
+            )
+            assert (
+                results[0]["dimension"]
+                == 3
+            )
+            assert (
+                "embedding"
+                not in results[0]
+            )
 
             matching = await call_tool(
                 session,
                 "get_by_metadata",
                 {
                     "store_name": store_name,
-                    "filter": {
+                    "metadata_filter": {
                         "topic": "green",
                     },
                 },
             )
 
-            assert len(matching["results"]) == 1
-            assert matching["truncated"] is False
-            assert results[0]["dimension"] == 3
-            assert "embedding" not in results[0]
-
-            results_with_embeddings = await call_tool(
-                session,
-                "similarity_search",
-                {
-                    "store_name": store_name,
-                    "query_embedding": [
-                        0.9,
-                        0.1,
-                        0.0,
-                    ],
-                    "top_k": 1,
-                    "include_embeddings": True,
-                },
+            assert (
+                len(matching["results"])
+                == 1
+            )
+            assert (
+                matching["truncated"]
+                is False
             )
 
-            assert results_with_embeddings[0][
-                "embedding"
-            ] == [1.0, 0.0, 0.0]
+            results_with_embeddings = (
+                await call_tool(
+                    session,
+                    "similarity_search",
+                    {
+                        "store_name": (
+                            store_name
+                        ),
+                        "query_embedding": [
+                            0.9,
+                            0.1,
+                            0.0,
+                        ],
+                        "top_k": 1,
+                        "include_embeddings": (
+                            True
+                        ),
+                    },
+                )
+            )
+
+            assert results_with_embeddings[
+                0
+            ]["embedding"] == [
+                1.0,
+                0.0,
+                0.0,
+            ]
 
         finally:
             await session.call_tool(
@@ -366,16 +440,19 @@ async def test_db_profile_over_stdio() -> None:
                 },
             )
 
+
 @pytest.mark.asyncio
 async def test_tool_error_sets_protocol_error_flag() -> None:
-    missing_store = unique_store_name("missing")
+    missing_store = unique_store_name(
+        "missing"
+    )
 
     async with mcp_session("db") as session:
         result = await session.call_tool(
             "get_by_metadata",
             {
                 "store_name": missing_store,
-                "filter": {
+                "metadata_filter": {
                     "topic": "missing",
                 },
             },
@@ -384,13 +461,17 @@ async def test_tool_error_sets_protocol_error_flag() -> None:
     error_text = " ".join(
         block.text
         for block in result.content
-        if isinstance(block, TextContent)
+        if isinstance(
+            block,
+            TextContent,
+        )
     )
 
     assert result.isError is True
     assert '"status": "error"' in error_text
     assert missing_store in error_text
     assert "create_store" in error_text
+
 
 @pytest.mark.asyncio
 async def test_tool_annotations_over_stdio() -> None:
@@ -438,20 +519,30 @@ async def test_tool_annotations_over_stdio() -> None:
     }
     assert all(
         tool.annotations is not None
-        and tool.annotations.openWorldHint is False
+        and (
+            tool.annotations.openWorldHint
+            is False
+        )
         for tool in tools.values()
     )
+
 
 @pytest.mark.asyncio
 async def test_read_only_mode_over_stdio(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("AHNLICH_MCP_READ_ONLY", "1")
+    monkeypatch.setenv(
+        "AHNLICH_MCP_READ_ONLY",
+        "1",
+    )
 
     async with mcp_session("db") as session:
         response = await session.list_tools()
 
-    assert {tool.name for tool in response.tools} == {
+    assert {
+        tool.name
+        for tool in response.tools
+    } == {
         "ping",
         "server_info",
         "list_stores",

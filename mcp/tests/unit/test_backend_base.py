@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-
-from typing import Any
-
-import pytest
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 
+import pytest
+from ahnlich_client_py.grpc.ai.preprocess import (
+    PreprocessAction,
+)
 from ahnlich_client_py.grpc.algorithm.algorithms import (
     Algorithm,
 )
@@ -14,13 +15,14 @@ from ahnlich_client_py.grpc.predicates import (
     PredicateCondition,
 )
 
+from ahnlich_mcp.backends.ai import AIBackend
 from ahnlich_mcp.backends.base import (
     AhnlichConnectionError,
-    BaseBackend,
     AhnlichError,
-    MAX_TOP_K
+    BaseBackend,
+    MAX_TOP_K,
 )
-from ahnlich_mcp.backends.ai import AIBackend
+
 
 class ExampleRequest:
     def __init__(
@@ -63,7 +65,8 @@ class ExampleBackend(BaseBackend):
         }
 
     def _build_set_request(
-        self, *,
+        self,
+        *,
         store_name: str,
         entries: list[dict[str, Any]],
     ) -> ExampleRequest:
@@ -72,7 +75,10 @@ class ExampleBackend(BaseBackend):
             inputs=entries,
         )
 
-    def _format_store(self, store: Any) -> dict[str, Any]:
+    def _format_store(
+        self,
+        store: Any,
+    ) -> dict[str, Any]:
         return {
             "name": store.name,
         }
@@ -86,8 +92,11 @@ def backend() -> ExampleBackend:
     )
 
 
-def test_endpoint(backend: ExampleBackend) -> None:
+def test_endpoint(
+    backend: ExampleBackend,
+) -> None:
     assert backend.endpoint == "127.0.0.1:9999"
+
 
 @pytest.mark.asyncio
 async def test_shared_ping(
@@ -156,20 +165,26 @@ async def test_shared_list_stores(
 
 
 @pytest.mark.asyncio
-async def test_similarity_search_preserves_server_order(backend: ExampleBackend) -> None:
+async def test_similarity_search_preserves_server_order(
+    backend: ExampleBackend,
+) -> None:
     backend._call = AsyncMock(
         return_value=SimpleNamespace(
             entries=[
                 SimpleNamespace(
                     key="nearest",
-                    value=backend._serialize_metadata({}),
+                    value=backend._serialize_metadata(
+                        {}
+                    ),
                     similarity=SimpleNamespace(
                         value=0.1
                     ),
                 ),
                 SimpleNamespace(
                     key="farthest",
-                    value=backend._serialize_metadata({}),
+                    value=backend._serialize_metadata(
+                        {}
+                    ),
                     similarity=SimpleNamespace(
                         value=0.8
                     ),
@@ -190,7 +205,10 @@ async def test_similarity_search_preserves_server_order(backend: ExampleBackend)
     assert [
         result["key"]
         for result in results
-    ] == ["nearest", "farthest"]
+    ] == [
+        "nearest",
+        "farthest",
+    ]
 
     backend._call.assert_awaited_once_with(
         "get_sim_n",
@@ -198,6 +216,7 @@ async def test_similarity_search_preserves_server_order(backend: ExampleBackend)
         store_name="documents",
         predicate_operation=True,
     )
+
 
 @pytest.mark.asyncio
 async def test_ai_search_builds_metadata_condition_once() -> None:
@@ -222,6 +241,7 @@ async def test_ai_search_builds_metadata_condition_once() -> None:
         metadata_filter={
             "category": "documentation",
         },
+        preprocessing="truncate",
     )
 
     build_condition.assert_called_once_with(
@@ -229,6 +249,16 @@ async def test_ai_search_builds_metadata_condition_once() -> None:
             "category": "documentation",
         }
     )
+
+    request = (
+        backend._execute_similarity_search
+        .await_args.kwargs["request"]
+    )
+
+    assert request.preprocess_action == (
+        PreprocessAction.ModelPreprocessing
+    )
+
 
 @pytest.mark.asyncio
 async def test_shared_server_info(
@@ -258,6 +288,7 @@ async def test_shared_server_info(
         "remaining": 90,
     }
 
+
 def test_shared_entry_formatting(
     backend: ExampleBackend,
 ) -> None:
@@ -277,8 +308,11 @@ def test_shared_entry_formatting(
         },
     }
 
+
 @pytest.mark.asyncio
-async def test_shared_store_entries(backend):
+async def test_shared_store_entries(
+    backend: ExampleBackend,
+) -> None:
     backend._call = AsyncMock(
         return_value=SimpleNamespace(
             upsert=SimpleNamespace(
@@ -302,13 +336,20 @@ async def test_shared_store_entries(backend):
         "updated": 1,
     }
 
-    method_name, request = backend._call.await_args.args
-    kwargs = backend._call.await_args.kwargs
+    method_name, request = (
+        backend._call.await_args.args
+    )
+    keyword_arguments = (
+        backend._call.await_args.kwargs
+    )
 
     assert method_name == "set"
     assert request.store == "documents"
     assert request.inputs == entries
-    assert kwargs == {"store_name": "documents"}
+    assert keyword_arguments == {
+        "store_name": "documents",
+    }
+
 
 @pytest.mark.asyncio
 async def test_shared_get_by_metadata(
@@ -363,6 +404,7 @@ async def test_shared_get_by_metadata(
         "predicate_operation": True,
     }
 
+
 def test_shared_search_entry_formatting(
     backend: ExampleBackend,
 ) -> None:
@@ -389,6 +431,7 @@ def test_shared_search_entry_formatting(
             "similarity": 0.75,
         }
     ]
+
 
 @pytest.mark.asyncio
 async def test_shared_drop_store(
@@ -533,6 +576,7 @@ async def test_shared_drop_predicate_index(
         "predicate_operation": True,
     }
 
+
 def test_connection_error_contains_endpoint() -> None:
     error = AhnlichConnectionError(
         service_name="ahnlich-db",
@@ -552,7 +596,7 @@ def test_connection_error_contains_endpoint() -> None:
 
 
 @pytest.mark.parametrize(
-    "algorithm, expected",
+    ("algorithm", "expected"),
     [
         (
             "cosine",
@@ -573,7 +617,10 @@ def test_resolve_algorithm(
     algorithm: str,
     expected: Algorithm,
 ) -> None:
-    assert backend._resolve_algorithm(algorithm) == expected
+    assert (
+        backend._resolve_algorithm(algorithm)
+        == expected
+    )
 
 
 def test_unsupported_algorithm(
@@ -583,23 +630,36 @@ def test_unsupported_algorithm(
         ValueError,
         match="Unsupported algorithm",
     ):
-        backend._resolve_algorithm("manhattan")
+        backend._resolve_algorithm(
+            "manhattan"
+        )
 
 
 @pytest.mark.parametrize(
     "top_k",
-    [1, 5, 100, MAX_TOP_K],
+    [
+        1,
+        5,
+        100,
+        MAX_TOP_K,
+    ],
 )
 def test_valid_top_k(
     backend: ExampleBackend,
     top_k: int,
 ) -> None:
-    assert backend._validate_top_k(top_k) == top_k
+    assert (
+        backend._validate_top_k(top_k)
+        == top_k
+    )
 
 
 @pytest.mark.parametrize(
     "top_k",
-    [0, -1],
+    [
+        0,
+        -1,
+    ],
 )
 def test_invalid_top_k_range(
     backend: ExampleBackend,
@@ -611,6 +671,7 @@ def test_invalid_top_k_range(
     ):
         backend._validate_top_k(top_k)
 
+
 def test_top_k_above_maximum_is_rejected(
     backend: ExampleBackend,
 ) -> None:
@@ -618,11 +679,18 @@ def test_top_k_above_maximum_is_rejected(
         ValueError,
         match=f"must not exceed {MAX_TOP_K}",
     ):
-        backend._validate_top_k(MAX_TOP_K + 1)
+        backend._validate_top_k(
+            MAX_TOP_K + 1
+        )
+
 
 @pytest.mark.parametrize(
     "top_k",
-    [True, 2.5, "5"],
+    [
+        True,
+        2.5,
+        "5",
+    ],
 )
 def test_invalid_top_k_type(
     backend: ExampleBackend,
@@ -634,6 +702,7 @@ def test_invalid_top_k_type(
     ):
         backend._validate_top_k(top_k)
 
+
 def test_metadata_round_trip(
     backend: ExampleBackend,
 ) -> None:
@@ -642,8 +711,12 @@ def test_metadata_round_trip(
         "directory": "Downloads",
     }
 
-    serialized = backend._serialize_metadata(metadata)
-    deserialized = backend._deserialize_metadata(serialized)
+    serialized = backend._serialize_metadata(
+        metadata
+    )
+    deserialized = backend._deserialize_metadata(
+        serialized
+    )
 
     assert deserialized == metadata
 
@@ -661,14 +734,18 @@ def test_invalid_metadata(
     metadata: dict[Any, Any],
 ) -> None:
     with pytest.raises(ValueError):
-        backend._serialize_metadata(metadata)
+        backend._serialize_metadata(
+            metadata
+        )
 
 
 def test_single_metadata_condition(
     backend: ExampleBackend,
 ) -> None:
     condition = backend._build_condition(
-        {"extension": ".pdf"}
+        {
+            "extension": ".pdf",
+        }
     )
 
     assert isinstance(
@@ -692,6 +769,7 @@ def test_multiple_metadata_conditions(
         PredicateCondition,
     )
 
+
 def test_empty_predicate_keys_can_be_allowed(
     backend: ExampleBackend,
 ) -> None:
@@ -714,17 +792,27 @@ def test_invalid_metadata_filter(
     metadata_filter: dict[Any, Any],
 ) -> None:
     with pytest.raises(ValueError):
-        backend._build_condition(metadata_filter)
+        backend._build_condition(
+            metadata_filter
+        )
 
 
 def test_predicate_keys(
     backend: ExampleBackend,
 ) -> None:
-    result = backend._validate_predicate_keys(
-        ["category", "directory"]
+    result = (
+        backend._validate_predicate_keys(
+            [
+                "category",
+                "directory",
+            ]
+        )
     )
 
-    assert result == ["category", "directory"]
+    assert result == [
+        "category",
+        "directory",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -741,7 +829,9 @@ def test_invalid_predicate_keys(
     keys: list[Any],
 ) -> None:
     with pytest.raises(ValueError):
-        backend._validate_predicate_keys(keys)
+        backend._validate_predicate_keys(
+            keys
+        )
 
 
 @pytest.mark.parametrize(
@@ -757,7 +847,9 @@ def test_valid_store_name(
     store_name: str,
 ) -> None:
     assert (
-        backend._validate_store_name(store_name)
+        backend._validate_store_name(
+            store_name
+        )
         == store_name
     )
 
@@ -777,4 +869,85 @@ def test_empty_store_name(
         ValueError,
         match="must not be empty",
     ):
-        backend._validate_store_name(store_name)
+        backend._validate_store_name(
+            store_name
+        )
+
+
+@pytest.mark.parametrize(
+    ("preprocessing", "expected"),
+    [
+        (
+            "none",
+            PreprocessAction.NoPreprocessing,
+        ),
+        (
+            "truncate",
+            PreprocessAction.ModelPreprocessing,
+        ),
+    ],
+)
+def test_ai_resolves_text_preprocessing(
+    preprocessing: str,
+    expected: PreprocessAction,
+) -> None:
+    backend = AIBackend(
+        host="127.0.0.1",
+        port=1370,
+        model="all-minilm-l6-v2",
+    )
+
+    assert backend._resolve_preprocessing(
+        preprocessing
+    ) == expected
+
+
+def test_ai_rejects_unknown_text_preprocessing() -> None:
+    backend = AIBackend(
+        host="127.0.0.1",
+        port=1370,
+        model="all-minilm-l6-v2",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Unsupported preprocessing mode",
+    ):
+        backend._resolve_preprocessing(
+            "unknown"
+        )
+
+
+@pytest.mark.asyncio
+async def test_ai_store_entries_can_enable_truncation() -> None:
+    backend = AIBackend(
+        host="127.0.0.1",
+        port=1370,
+        model="all-minilm-l6-v2",
+    )
+    backend._execute_store_request = AsyncMock(
+        return_value={
+            "inserted": 1,
+            "updated": 0,
+        }
+    )
+
+    await backend.store_entries(
+        store_name="documents",
+        entries=[
+            {
+                "content": "Ahnlich stores vectors.",
+                "metadata": {},
+            }
+        ],
+        preprocessing="truncate",
+    )
+
+    request = (
+        backend._execute_store_request
+        .await_args.kwargs["request"]
+    )
+
+    assert request.preprocess_action == (
+        PreprocessAction.ModelPreprocessing
+    )

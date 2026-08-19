@@ -4,21 +4,19 @@ from inspect import signature
 from unittest.mock import AsyncMock
 
 import pytest
+from mcp.server.fastmcp.exceptions import ToolError
 from pydantic import ValidationError
 
 from ahnlich_mcp.backends.ai import AIBackend
 from ahnlich_mcp.backends.db import DBBackend
 from ahnlich_mcp.tools import (
     EmbeddedEntry,
-    TextEntry,
-    build_tools,
+    MAX_RESULT_LIMIT,
     TOOL_ANNOTATIONS,
     TOOL_ORDER,
-    DEFAULT_RESULT_LIMIT,
-    MAX_RESULT_LIMIT,
+    TextEntry,
+    build_tools,
 )
-
-from mcp.server.fastmcp.exceptions import ToolError
 
 EXPECTED_TOOLS = (
     "ping",
@@ -43,7 +41,9 @@ READ_ONLY_TOOL_NAMES = (
 )
 
 
-def tool_map(backend: AIBackend | DBBackend):
+def tool_map(
+    backend: AIBackend | DBBackend,
+):
     return {
         tool.__name__: tool
         for tool in build_tools(backend)
@@ -103,16 +103,19 @@ def test_db_create_store_requires_dimension(
     ).parameters
 
     assert "dimension" in parameters
-    assert parameters["dimension"].default is parameters[
-        "dimension"
-    ].empty
+    assert (
+        parameters["dimension"].default
+        is parameters["dimension"].empty
+    )
 
 
 def test_ai_search_accepts_text(
     ai_backend: AIBackend,
 ) -> None:
     parameters = signature(
-        tool_map(ai_backend)["similarity_search"]
+        tool_map(ai_backend)[
+            "similarity_search"
+        ]
     ).parameters
 
     assert "query" in parameters
@@ -123,14 +126,18 @@ def test_db_search_accepts_an_embedding(
     db_backend: DBBackend,
 ) -> None:
     parameters = signature(
-        tool_map(db_backend)["similarity_search"]
+        tool_map(db_backend)[
+            "similarity_search"
+        ]
     ).parameters
 
     assert "query_embedding" in parameters
     assert "query" not in parameters
     assert "include_embeddings" in parameters
     assert (
-        parameters["include_embeddings"].default
+        parameters[
+            "include_embeddings"
+        ].default
         is False
     )
 
@@ -156,14 +163,18 @@ async def test_ai_store_entries_converts_models_to_dicts(
         }
     )
 
-    store_entries = tool_map(ai_backend)["store_entries"]
+    store_entries = tool_map(
+        ai_backend
+    )["store_entries"]
 
     result = await store_entries(
         store_name="documents",
         entries=[
             TextEntry(
                 content="Ahnlich stores vectors.",
-                metadata={"topic": "vectors"},
+                metadata={
+                    "topic": "vectors",
+                },
             )
         ],
     )
@@ -177,10 +188,15 @@ async def test_ai_store_entries_converts_models_to_dicts(
         store_name="documents",
         entries=[
             {
-                "content": "Ahnlich stores vectors.",
-                "metadata": {"topic": "vectors"},
+                "content": (
+                    "Ahnlich stores vectors."
+                ),
+                "metadata": {
+                    "topic": "vectors",
+                },
             }
         ],
+        preprocessing="none",
     )
 
 
@@ -195,14 +211,22 @@ async def test_db_store_entries_converts_models_to_dicts(
         }
     )
 
-    store_entries = tool_map(db_backend)["store_entries"]
+    store_entries = tool_map(
+        db_backend
+    )["store_entries"]
 
     result = await store_entries(
         store_name="embeddings",
         entries=[
             EmbeddedEntry(
-                embedding=[0.1, 0.2, 0.3],
-                metadata={"source": "test"},
+                embedding=[
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                metadata={
+                    "source": "test",
+                },
             )
         ],
     )
@@ -216,11 +240,18 @@ async def test_db_store_entries_converts_models_to_dicts(
         store_name="embeddings",
         entries=[
             {
-                "embedding": [0.1, 0.2, 0.3],
-                "metadata": {"source": "test"},
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "metadata": {
+                    "source": "test",
+                },
             }
         ],
     )
+
 
 @pytest.mark.asyncio
 async def test_ping_returns_unavailable_diagnostic(
@@ -255,19 +286,25 @@ async def test_ping_converts_unexpected_error_to_tool_error(
     ):
         await ping()
 
+
 def test_every_tool_declares_annotations() -> None:
-    assert set(TOOL_ANNOTATIONS) == set(TOOL_ORDER)
+    assert (
+        set(TOOL_ANNOTATIONS)
+        == set(TOOL_ORDER)
+    )
 
 
 def test_tool_annotation_policies() -> None:
     read_only = {
         name
-        for name, annotations in TOOL_ANNOTATIONS.items()
+        for name, annotations
+        in TOOL_ANNOTATIONS.items()
         if annotations.readOnlyHint
     }
     destructive = {
         name
-        for name, annotations in TOOL_ANNOTATIONS.items()
+        for name, annotations
+        in TOOL_ANNOTATIONS.items()
         if annotations.destructiveHint
     }
 
@@ -285,22 +322,37 @@ def test_tool_annotation_policies() -> None:
     }
     assert all(
         annotations.openWorldHint is False
-        for annotations in TOOL_ANNOTATIONS.values()
+        for annotations
+        in TOOL_ANNOTATIONS.values()
     )
+
 
 def test_read_only_mode_exposes_only_read_only_tools(
     ai_backend: AIBackend,
     db_backend: DBBackend,
 ) -> None:
-    for backend in (ai_backend, db_backend):
-        tools = build_tools(backend, read_only=True)
-        names = tuple(tool.__name__ for tool in tools)
+    for backend in (
+        ai_backend,
+        db_backend,
+    ):
+        tools = build_tools(
+            backend,
+            read_only=True,
+        )
+        names = tuple(
+            tool.__name__
+            for tool in tools
+        )
 
         assert names == READ_ONLY_TOOL_NAMES
         assert all(
-            TOOL_ANNOTATIONS[name].readOnlyHint is True
+            TOOL_ANNOTATIONS[
+                name
+            ].readOnlyHint
+            is True
             for name in names
         )
+
 
 @pytest.mark.asyncio
 async def test_list_stores_returns_bounded_results(
@@ -315,10 +367,13 @@ async def test_list_stores_returns_bounded_results(
         return_value=stores
     )
 
-    list_stores = tool_map(db_backend)[
-        "list_stores"
-    ]
-    result = await list_stores(limit=2)
+    list_stores = tool_map(
+        db_backend
+    )["list_stores"]
+
+    result = await list_stores(
+        limit=2
+    )
 
     assert result == {
         "results": stores[:2],
@@ -331,19 +386,28 @@ async def test_get_by_metadata_returns_bounded_results(
     db_backend: DBBackend,
 ) -> None:
     entries = [
-        {"dimension": 3, "metadata": {"id": "1"}},
-        {"dimension": 3, "metadata": {"id": "2"}},
+        {
+            "dimension": 3,
+            "metadata": {"id": "1"},
+        },
+        {
+            "dimension": 3,
+            "metadata": {"id": "2"},
+        },
     ]
     db_backend.get_by_metadata = AsyncMock(
         return_value=entries
     )
 
-    get_by_metadata = tool_map(db_backend)[
-        "get_by_metadata"
-    ]
+    get_by_metadata = tool_map(
+        db_backend
+    )["get_by_metadata"]
+
     result = await get_by_metadata(
         store_name="documents",
-        filter={"status": "active"},
+        metadata_filter={
+            "status": "active",
+        },
         limit=1,
         include_embeddings=True,
     )
@@ -352,9 +416,12 @@ async def test_get_by_metadata_returns_bounded_results(
         "results": entries[:1],
         "truncated": True,
     }
+
     db_backend.get_by_metadata.assert_awaited_once_with(
         store_name="documents",
-        metadata_filter={"status": "active"},
+        metadata_filter={
+            "status": "active",
+        },
         include_embeddings=True,
     )
 
@@ -375,12 +442,17 @@ async def test_list_stores_rejects_invalid_limit(
     db_backend.list_stores = AsyncMock(
         return_value=[]
     )
-    list_stores = tool_map(db_backend)[
-        "list_stores"
-    ]
+    list_stores = tool_map(
+        db_backend
+    )["list_stores"]
 
-    with pytest.raises(ToolError, match="limit"):
-        await list_stores(limit=limit)
+    with pytest.raises(
+        ToolError,
+        match="limit",
+    ):
+        await list_stores(
+            limit=limit
+        )
 
     db_backend.list_stores.assert_not_awaited()
 
@@ -392,23 +464,116 @@ async def test_db_search_forwards_embedding_option(
     db_backend.similarity_search = AsyncMock(
         return_value=[]
     )
-    similarity_search = tool_map(db_backend)[
-        "similarity_search"
-    ]
+    similarity_search = tool_map(
+        db_backend
+    )["similarity_search"]
 
     await similarity_search(
         store_name="documents",
-        query_embedding=[0.1, 0.2, 0.3],
+        query_embedding=[
+            0.1,
+            0.2,
+            0.3,
+        ],
         include_embeddings=True,
     )
 
     db_backend.similarity_search.assert_awaited_once_with(
         store_name="documents",
-        query_embedding=[0.1, 0.2, 0.3],
+        query_embedding=[
+            0.1,
+            0.2,
+            0.3,
+        ],
         top_k=5,
         algorithm="cosine",
         metadata_filter=None,
         include_embeddings=True,
     )
 
-    
+
+def test_metadata_filter_has_consistent_wire_name(
+    ai_backend: AIBackend,
+    db_backend: DBBackend,
+) -> None:
+    for backend in (
+        ai_backend,
+        db_backend,
+    ):
+        tools = tool_map(backend)
+
+        for tool_name in (
+            "similarity_search",
+            "get_by_metadata",
+            "delete_by_metadata",
+        ):
+            parameters = signature(
+                tools[tool_name]
+            ).parameters
+
+            assert (
+                "metadata_filter"
+                in parameters
+            )
+            assert "filter" not in parameters
+
+
+def test_preprocessing_is_exposed_only_by_ai_tools(
+    ai_backend: AIBackend,
+    db_backend: DBBackend,
+) -> None:
+    ai_tools = tool_map(ai_backend)
+    db_tools = tool_map(db_backend)
+
+    for tool_name in (
+        "store_entries",
+        "similarity_search",
+    ):
+        ai_parameters = signature(
+            ai_tools[tool_name]
+        ).parameters
+        db_parameters = signature(
+            db_tools[tool_name]
+        ).parameters
+
+        assert (
+            "preprocessing"
+            in ai_parameters
+        )
+        assert (
+            ai_parameters[
+                "preprocessing"
+            ].default
+            == "none"
+        )
+        assert (
+            "preprocessing"
+            not in db_parameters
+        )
+
+
+@pytest.mark.asyncio
+async def test_ai_search_forwards_preprocessing(
+    ai_backend: AIBackend,
+) -> None:
+    ai_backend.similarity_search = AsyncMock(
+        return_value=[]
+    )
+    similarity_search = tool_map(
+        ai_backend
+    )["similarity_search"]
+
+    await similarity_search(
+        store_name="documents",
+        query="A long document",
+        preprocessing="truncate",
+    )
+
+    ai_backend.similarity_search.assert_awaited_once_with(
+        store_name="documents",
+        query="A long document",
+        top_k=5,
+        algorithm="cosine",
+        metadata_filter=None,
+        preprocessing="truncate",
+    )

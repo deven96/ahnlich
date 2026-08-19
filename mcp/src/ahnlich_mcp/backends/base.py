@@ -243,14 +243,17 @@ class BaseBackend(ABC):
     ) -> dict[str, int]:
         self._validate_store_name(store_name)
 
-        response = await self._call(
-            "set",
-            self._build_set_request(
-                store_name=store_name,
-                entries=entries,
-            ),
-            store_name=store_name,
-        )
+        request = self._build_set_request(store_name=store_name, entries=entries)
+
+        return await self._execute_store_request(store_name=store_name, request=request)
+
+
+    async def _execute_store_request(
+        self, *,
+        store_name: str,
+        request: Any,
+    ) -> dict[str, int]:
+        response = await self._call("set", request, store_name=store_name)
 
         return {
             "inserted": response.upsert.inserted,
@@ -631,12 +634,12 @@ class BaseBackend(ABC):
         """Build an AND-combined metadata predicate."""
         if not isinstance(metadata_filter, dict):
             raise ValueError(
-                "filter must be a dictionary"
+                "metadata_filter must be a dictionary"
             )
 
         if not metadata_filter:
             raise ValueError(
-                "filter must contain at least one condition"
+                "metadata_filter must contain at least one condition"
             )
 
         conditions: list[PredicateCondition] = []
@@ -644,12 +647,12 @@ class BaseBackend(ABC):
         for key, value in metadata_filter.items():
             if not isinstance(key, str) or not key.strip():
                 raise ValueError(
-                    "Filter keys must be non-empty strings"
+                    "Metadata filter keys must be non-empty strings"
                 )
 
             if not isinstance(value, str):
                 raise ValueError(
-                    f"Filter value for {key!r} must be a string"
+                    f"Metadata filter value for {key!r} must be a string"
                 )
 
             conditions.append(
