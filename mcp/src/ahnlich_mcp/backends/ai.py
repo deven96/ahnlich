@@ -19,6 +19,7 @@ from ahnlich_mcp.models import (
 from ahnlich_mcp.backends.base import (
     AlgorithmName,
     BaseBackend,
+    AhnlichResponseError,
 )
 
 TextPreprocessing = Literal["none", "truncate"]
@@ -72,13 +73,10 @@ class AIBackend(BaseBackend):
     ) -> dict[str, Any]:
         key = entry.key
 
-        return {
-            "content": (
-                key.raw_string
-                if key is not None
-                else ""
-            )
-        }
+        if key is None:
+            raise AhnlichResponseError("ahnlich-ai returned an entry without content")
+
+        return {"content": key.raw_string}
 
     @staticmethod
     def _model_name(model: Any) -> str:

@@ -7,6 +7,7 @@ import pytest
 import pytest_asyncio
 
 from ahnlich_mcp.backends.db import DBBackend
+from ahnlich_mcp.backends.base import PredicateIndexNotFoundError
 
 pytestmark = pytest.mark.integration
 
@@ -434,3 +435,29 @@ async def test_delete_by_metadata(
     )
 
     assert len(active) == 1
+
+@pytest.mark.asyncio
+async def test_missing_predicate_index_message_is_classified(
+    backend: DBBackend,
+    store_name: str,
+) -> None:
+    await backend.create_store(
+        store_name=store_name,
+        dimension=3,
+        predicate_keys=[],
+        error_if_exists=True,
+    )
+
+    with pytest.raises(
+        PredicateIndexNotFoundError,
+    ) as raised:
+        await backend.drop_predicate_index(
+            store_name=store_name,
+            keys=["category"],
+            error_if_not_exists=True,
+        )
+
+    assert str(raised.value) == (
+        "Predicate category not found in store, "
+        "attempt CREATEPREDINDEX with predicate"
+    )

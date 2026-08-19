@@ -3,6 +3,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, Mock
+from grpclib.const import Status
+from grpclib.exceptions import GRPCError
 
 import pytest
 from ahnlich_client_py.grpc.ai.preprocess import (
@@ -21,6 +23,8 @@ from ahnlich_mcp.backends.base import (
     AhnlichError,
     BaseBackend,
     MAX_TOP_K,
+    PredicateIndexNotFoundError,
+    AhnlichResponseError,
 )
 
 
@@ -951,3 +955,63 @@ async def test_ai_store_entries_can_enable_truncation() -> None:
     assert request.preprocess_action == (
         PreprocessAction.ModelPreprocessing
     )
+
+def test_ai_entry_identity_rejects_missing_key() -> None:
+    backend = AIBackend(
+        host="127.0.0.1",
+        port=1370,
+        model="all-minilm-l6-v2",
+    )
+    entry = SimpleNamespace(
+        key=None,
+        value=backend._serialize_metadata({}),
+    )
+
+    with pytest.raises(
+        AhnlichResponseError,
+        match="entry without content",
+    ):
+        backend._format_entry(entry)
+
+def test_missing_predicate_index_error_is_classified(
+    backend: ExampleBackend,
+) -> None:
+    error = GRPCError(
+        Status.INVALID_ARGUMENT,
+        (
+            "Predicate category not found in store, "
+            "attempt CREATEPREDINDEX with predicate"
+        ),
+    )
+
+    translated = backend._translate_grpc_error(
+        error,
+        store_name="documents",
+        predicate_operation=True,
+    )
+
+    assert isinstance(
+        translated,
+        PredicateIndexNotFoundError,
+    )
+    assert str(translated) == str(error.message)
+
+def test_predicate_message_requires_predicate_operation(
+    backend: ExampleBackend,
+) -> None:
+    error = GRPCError(
+        Status.INVALID_ARGUMENT,
+        (
+            "Predicate category not found in store, "
+            "attempt CREATEPREDINDEX with predicate"
+        ),
+    )
+
+    translated = backend._translate_grpc_error(
+        error,
+        store_name="documents",
+        predicate_operation=False,
+    )
+
+    assert type(translated) is AhnlichError
+

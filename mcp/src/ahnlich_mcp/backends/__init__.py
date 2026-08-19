@@ -6,6 +6,7 @@ from ahnlich_mcp.backends.base import (
     AhnlichError,
     PredicateIndexNotFoundError,
     StoreNotFoundError,
+    AhnlichResponseError,
 )
 from ahnlich_mcp.backends.db import DBBackend
 from ahnlich_mcp.config import Profile, Settings
@@ -40,4 +41,5 @@ __all__ = [
     "StoreNotFoundError",
     "create_backend",
     "TextPreprocessing",
+    "AhnlichResponseError"
 ]

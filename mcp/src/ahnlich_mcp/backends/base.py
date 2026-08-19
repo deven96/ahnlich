@@ -38,8 +38,16 @@ CONNECTION_STATUSES = {
     Status.DEADLINE_EXCEEDED,
 }
 
+# These markers come from ahnlich/db/src/errors.rs
+PREDICATE_INDEX_ERROR_MARKERS = (
+    "predicate", "not found in store", "createpredindex",
+)
+
 class AhnlichError(Exception):
     """Base exception for errors returned by Ahnlich."""
+
+class AhnlichResponseError(Exception):
+    """Raised when Ahnlich returns malformed response data."""
 
 class AhnlichConnectionError(AhnlichError):
     """Raised when an Ahnlich service cannot be reached."""
@@ -422,6 +430,15 @@ class BaseBackend(ABC):
                 detail=str(error),
             ) from error
 
+    @staticmethod
+    def _is_missing_predicate_index(message: str) -> bool:
+        normalized = message.lower()
+
+        return all(
+            marker in normalized
+            for marker in PREDICATE_INDEX_ERROR_MARKERS
+        )
+
     def _translate_grpc_error(
         self,
         error: GRPCError,
@@ -431,7 +448,6 @@ class BaseBackend(ABC):
     ) -> AhnlichError:
         """Translate a raw gRPC error into a domain-specific exception."""
         message = error.message or str(error)
-        lowered_message = message.lower()
 
         if error.status in CONNECTION_STATUSES:
             return AhnlichConnectionError(
@@ -443,11 +459,8 @@ class BaseBackend(ABC):
 
         if (
             predicate_operation
-            and "predicate" in lowered_message
-            and (
-                "index" in lowered_message
-                or "not found" in lowered_message
-                or "does not exist" in lowered_message
+            and self._is_missing_predicate_index(
+                message
             )
         ):
             return PredicateIndexNotFoundError(message)
@@ -459,7 +472,7 @@ class BaseBackend(ABC):
             return StoreNotFoundError(store_name)
 
         return AhnlichError(message)
-
+    
     @staticmethod
     def _validate_store_name(store_name: str) -> str:
         if not isinstance(store_name, str):
