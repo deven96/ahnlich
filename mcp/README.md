@@ -20,7 +20,7 @@ flowchart LR
     AI -->|"generated embeddings"| DB
 ```
 
-The `db` profile connects directly to `ahnlich-db` and expects user-provided embeddings. The `ai` profile sends raw text through `ahnlich-ai`, which embeds it and stores the result in `ahnlich-db`.
+The `db` profile connects directly to `ahnlich-db` and accepts user-provided embeddings. The `ai` profile sends raw text through `ahnlich-ai`, which generates embeddings and stores them in `ahnlich-db`.
 
 ## Requirements
 
@@ -30,13 +30,11 @@ The `db` profile connects directly to `ahnlich-db` and expects user-provided emb
 
 ## Installation
 
-### From source
-
 From the Ahnlich repository:
 
 ```bash
 cd mcp
-uv sync --dev
+uv sync --locked --dev
 ```
 
 ## Profiles
@@ -50,7 +48,7 @@ The default profile is `ai`.
 
 ### DB profile
 
-Start only the database:
+Start the database:
 
 ```bash
 docker compose up -d --wait ahnlich_db
@@ -88,11 +86,9 @@ Start the MCP server:
 uv run ahnlich-mcp --profile ai
 ```
 
-The server uses stdio transport, so it waits silently for MCP messages when started directly. If Ahnlich is unavailable, it logs a warning and keeps running so tool calls can return useful errors.
+The server uses stdio transport and waits silently for MCP messages. If Ahnlich is unavailable, the server remains running and tool calls return actionable errors.
 
 ## MCP client configuration
-
-When running from the repository:
 
 ```json
 {
@@ -112,7 +108,7 @@ When running from the repository:
 }
 ```
 
-Find the absolute uv path with:
+Find the absolute path to uv with:
 
 ```bash
 which uv
@@ -127,22 +123,24 @@ Command-line profile selection overrides `AHNLICH_PROFILE`.
 | Variable | Default | Description |
 |---|---:|---|
 | `AHNLICH_PROFILE` | `ai` | Active profile: `ai` or `db` |
-| `AHNLICH_DB_HOST` | `127.0.0.1` | DB host |
-| `AHNLICH_DB_PORT` | `1369` | DB port |
+| `AHNLICH_DB_HOST` | `127.0.0.1` | Database host |
+| `AHNLICH_DB_PORT` | `1369` | Database port |
 | `AHNLICH_AI_HOST` | `127.0.0.1` | AI proxy host |
 | `AHNLICH_AI_PORT` | `1370` | AI proxy port |
-| `AHNLICH_AI_MODEL` | `all-minilm-l6-v2` | Model configured for the AI profile |
-| `AHNLICH_MCP_READ_ONLY` | `0` | Expose only tools that do not modify Ahnlich |
+| `AHNLICH_AI_MODEL` | `all-minilm-l6-v2` | Model used by the AI profile |
+| `AHNLICH_MCP_READ_ONLY` | `0` | Expose only non-modifying tools |
 
-The AI profile supports `all-minilm-l6-v2`, `all-minilm-l12-v2`,
-`bge-base-en-v1.5`, `bge-large-en-v1.5`, and
-`jina-embeddings-v2-base-code`.
+Supported AI models:
 
-The selected model must also be enabled in `ahnlich-ai` through its
-`--supported-models` option. The bundled Compose configuration enables only
-`all-minilm-l6-v2`.
+- `all-minilm-l6-v2`
+- `all-minilm-l12-v2`
+- `bge-base-en-v1.5`
+- `bge-large-en-v1.5`
+- `jina-embeddings-v2-base-code`
 
-For example:
+The selected model must also be enabled in `ahnlich-ai` through its `--supported-models` option. The bundled Compose configuration enables `all-minilm-l6-v2`.
+
+Example:
 
 ```bash
 AHNLICH_PROFILE=db \
@@ -151,9 +149,27 @@ AHNLICH_DB_PORT=1369 \
 uv run ahnlich-mcp
 ```
 
+## Read-only mode
+
+Enable strict read-only mode when the MCP client must not modify Ahnlich:
+
+```bash
+AHNLICH_MCP_READ_ONLY=1 uv run ahnlich-mcp --profile ai
+```
+
+Only these tools are exposed:
+
+- `ping`
+- `server_info`
+- `list_stores`
+- `similarity_search`
+- `get_by_metadata`
+
+Mutating tools are omitted from the MCP tool registry.
+
 ## Tools
 
-Both profiles expose the same tool names. Input schemas change where embeddings are involved.
+Both profiles expose the same tool names by default. Input schemas differ where embeddings are involved.
 
 | Tool | Description |
 |---|---|
@@ -164,8 +180,8 @@ Both profiles expose the same tool names. Input schemas change where embeddings 
 | `drop_store` | Delete a store and its entries |
 | `store_entries` | Store raw text or precomputed embeddings |
 | `similarity_search` | Search using raw text or a query embedding |
-| `get_by_metadata` | Retrieve entries matching metadata |
-| `delete_by_metadata` | Delete entries matching metadata |
+| `get_by_metadata` | Retrieve entries matching indexed metadata |
+| `delete_by_metadata` | Delete entries matching indexed metadata |
 | `create_predicate_index` | Index metadata keys |
 | `drop_predicate_index` | Remove metadata indexes |
 
@@ -173,22 +189,52 @@ The `db` profile requires `dimension` when creating a store. Its `store_entries`
 
 The `ai` profile accepts raw text and uses the configured Ahnlich model to generate embeddings.
 
+Metadata filters use the `metadata_filter` argument. Filtered metadata keys must have predicate indexes.
+
+## Result controls
+
+`list_stores` and `get_by_metadata` accept a `limit` between `1` and `1024`. The default is `50`.
+
+They return a bounded response:
+
+```json
+{
+  "results": [],
+  "truncated": false
+}
+```
+
+`similarity_search` accepts `top_k` up to `1024`.
+
+Stored embeddings are omitted from DB search and metadata responses by default. Pass `include_embeddings: true` when the vectors are required.
+
+## AI preprocessing
+
+The AI profile supports the following preprocessing modes for `store_entries` and `similarity_search`:
+
+| Value | Behaviour |
+|---|---|
+| `none` | Send input without model preprocessing |
+| `truncate` | Allow Ahnlich to truncate input for the selected model |
+
+The default is `none`.
+
 ## Development
 
-Run unit tests without Ahnlich:
+Run unit tests:
 
 ```bash
 uv run pytest tests/unit -v
 ```
 
-Run integration tests with Ahnlich:
+Run integration tests:
 
 ```bash
 docker compose up -d --wait
 uv run pytest tests/integration -v
 ```
 
-Run the full suite:
+Run the complete test suite:
 
 ```bash
 uv run pytest -v
