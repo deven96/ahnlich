@@ -41,7 +41,7 @@ create_store(
 - [`ahnlich-client-node`](sdk/ahnlich-client-node/): Node.js/TypeScript client for `ahnlich-db` and `ahnlich-ai`.
 
 - [`ahnlich-cli`](ahnlich/cli/): CLI for querying `ahnlich-db` and `ahnlich-ai`
-
+- [`ahnlich-mcp`](mcp/): MCP server for exposing `ahnlich-db` and `ahnlich-ai` tools to MCP-compatible agents.
 
 ## Architecture
 
