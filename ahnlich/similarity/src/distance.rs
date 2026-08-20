@@ -1,6 +1,14 @@
 use pulp::{Arch, Simd, WithSimd};
+use std::sync::OnceLock;
 
 use crate::{DistanceFn, LinearAlgorithm};
+
+static SIMD_ARCH: OnceLock<Arch> = OnceLock::new();
+
+#[inline]
+fn get_arch() -> &'static Arch {
+    SIMD_ARCH.get_or_init(|| Arch::new())
+}
 
 /// A value where **smaller means closer**.
 ///
@@ -193,16 +201,9 @@ impl WithSimd for CosineSimilarityKernel<'_> {
     }
 }
 
-#[tracing::instrument(skip_all)]
+#[inline]
 pub fn cosine_similarity(first: &[f32], second: &[f32]) -> Similarity {
-    assert_eq!(
-        first.len(),
-        second.len(),
-        "Vectors must have the same length!"
-    );
-
-    let arch = Arch::new();
-    Similarity(arch.dispatch(CosineSimilarityKernel { first, second }))
+    Similarity(get_arch().dispatch(CosineSimilarityKernel { first, second }))
 }
 
 ///
@@ -242,16 +243,9 @@ impl WithSimd for DotProduct<'_> {
     }
 }
 
-#[tracing::instrument(skip_all)]
+#[inline]
 pub fn dot_product(first: &[f32], second: &[f32]) -> Similarity {
-    assert_eq!(
-        first.len(),
-        second.len(),
-        "Vectors must have the same length!"
-    );
-
-    let arch = Arch::new();
-    Similarity(arch.dispatch(DotProduct { first, second }))
+    Similarity(get_arch().dispatch(DotProduct { first, second }))
 }
 
 ///  
@@ -308,30 +302,15 @@ impl WithSimd for EuclideanDistance<'_> {
     }
 }
 
-#[tracing::instrument(skip_all)]
+#[inline]
 pub fn euclidean_distance(first: &[f32], second: &[f32]) -> Distance {
-    // Calculate the sum of squared differences for each dimension
-    assert_eq!(
-        first.len(),
-        second.len(),
-        "Vectors must have the same length!"
-    );
-
-    let arch = Arch::new();
-
-    Distance(arch.dispatch(EuclideanDistance { first, second }))
+    Distance(get_arch().dispatch(EuclideanDistance { first, second }))
 }
 
 /// Squared Euclidean distance (without the sqrt) - useful for KD-trees and other
 /// algorithms where relative ordering is more important than absolute distance
-#[tracing::instrument(skip_all)]
+#[inline]
 pub fn squared_euclidean_distance(first: &[f32], second: &[f32]) -> f32 {
-    assert_eq!(
-        first.len(),
-        second.len(),
-        "Vectors must have the same length!"
-    );
-
     first
         .iter()
         .zip(second.iter())

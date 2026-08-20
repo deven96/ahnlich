@@ -438,6 +438,8 @@ impl StoreHandler {
                             &search_embedding,
                             search_list
                                 .par_iter()
+                                .with_min_len(10000)
+                                .with_max_len(25000)
                                 .map(|(id, key, value)| (id, key, value.as_ref())),
                             Some(cond),
                             false,
@@ -504,6 +506,8 @@ impl StoreHandler {
                             &search_embedding,
                             search_list
                                 .par_iter()
+                                .with_min_len(10000)
+                                .with_max_len(25000)
                                 .map(|(id, key, value)| (id, key, value.as_ref())),
                             None,
                             true,

@@ -134,7 +134,7 @@ impl Default for CommandLineConfig {
             maximum_clients: 512,
             threadpool_size: default_threadpool,
             parallel_concurrency_threshold: None, // Defaults to threadpool_size if None
-            parallel_batch_threshold: 10_000,     // From empirical Criterion + ghz data
+            parallel_batch_threshold: 150_000,
             enable_auth: false,
             auth_config: None,
             tls_cert: None,
