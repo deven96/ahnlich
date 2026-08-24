@@ -84,3 +84,7 @@ harness = false
 [[bench]]
 name = "persistence"
 harness = false
+
+[[bench]]
+name = "metadata_representation"
+harness = false
