@@ -36,7 +36,7 @@
 
 - Client Library retry mechanisms with respect to network errors or partitions.
 
-- Anhlich AI: This would be a seperate binary that proxies Anhlich DB and adds extra capabilities such as:
+- Anhlich AI: This would be a separate binary that proxies Anhlich DB and adds extra capabilities such as:
     - Selecting different models you want to you: Eg: when creating a store, you could use lama3 to use with that store.
     - The input to a specific store should be considered unique: some extra metadata is stored within the metadata value
     - Some arguments to start Ahnlich AI. It might also start up with tracing, must point to and Ahnlich db, storage location for models  etc.
