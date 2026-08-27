@@ -16,7 +16,7 @@ env:
 
 jobs:
   run-changed-benchmarks:
-    if: contains(github.event.pull_request.labels.*.name, 'benchmark')
+    if: contains(github.event.pull_request.labels.*.name, 'benchmark-experiments')
     runs-on: ubuntu-latest
 
     steps:
