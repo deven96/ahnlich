@@ -84,3 +84,8 @@ harness = false
 [[bench]]
 name = "persistence"
 harness = false
+
+[[bench]]
+name = "papaya_linear_search"
+path = "benches/experiments/papaya_linear_search.rs"
+harness = false
