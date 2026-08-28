@@ -1,0 +1,299 @@
+name: Ahnlich MCP Tag and Deploy
+
+on:
+  pull_request:
+    branches: ["main"]
+    types:
+      - closed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ahnlich-mcp-release
+  cancel-in-progress: false
+
+jobs:
+  release_metadata:
+    name: Check version and create tag
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: write
+
+    outputs:
+      mcp_version: ${{ steps.check_version.outputs.mcp_version }}
+      version_changed: ${{ steps.check_version.outputs.version_changed }}
+      tag_name: ${{ steps.check_version.outputs.tag_name }}
+
+    defaults:
+      run:
+        working-directory: ./mcp
+
+    steps:
+      - name: Check out merged commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check MCP version
+        id: check_version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_REF="${{ github.event.pull_request.base.sha }}"
+
+          if git cat-file -e "${BASE_REF}:mcp/pyproject.toml" 2>/dev/null; then
+            BASE_VERSION=$(
+              git show "${BASE_REF}:mcp/pyproject.toml" |
+                python -c \
+                  'import sys, tomllib; print(tomllib.loads(sys.stdin.read())["project"]["version"])'
+            )
+          else
+            BASE_VERSION=""
+          fi
+
+          MCP_VERSION=$(
+            python -c \
+              'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])'
+          )
+
+          echo "Previous version: ${BASE_VERSION:-not published}"
+          echo "Current version: ${MCP_VERSION}"
+
+          echo "mcp_version=${MCP_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=mcp/${MCP_VERSION}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${BASE_VERSION}" == "${MCP_VERSION}" ]]; then
+            echo "version_changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "version_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create release tag
+        if: steps.check_version.outputs.version_changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG_NAME="${{ steps.check_version.outputs.tag_name }}"
+          HEAD_COMMIT=$(git rev-parse HEAD)
+
+          if git rev-parse --verify --quiet "refs/tags/${TAG_NAME}"; then
+            TAG_COMMIT=$(git rev-list -n 1 "${TAG_NAME}")
+
+            if [[ "${TAG_COMMIT}" != "${HEAD_COMMIT}" ]]; then
+              echo "::error::Tag ${TAG_NAME} already points to another commit."
+              exit 1
+            fi
+
+            echo "Tag ${TAG_NAME} already exists on this commit."
+            exit 0
+          fi
+
+          git config user.name "${{ github.actor }}"
+          git config user.email \
+            "${{ github.actor }}@users.noreply.github.com"
+
+          git tag -a "${TAG_NAME}" \
+            -m "ahnlich-mcp v${{ steps.check_version.outputs.mcp_version }}"
+
+          git push origin "${TAG_NAME}"
+
+  build_distribution:
+    name: Build Python distributions
+    needs: release_metadata
+    if: needs.release_metadata.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: ./mcp
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release_metadata.outputs.tag_name }}
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.31"
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: "mcp/uv.lock"
+
+      - name: Install project
+        run: uv sync --locked --dev
+
+      - name: Run unit tests
+        run: uv run pytest tests/unit -v
+
+      - name: Build distributions
+        run: uv build --no-sources
+
+      - name: Smoke test wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          WHEEL=$(find dist -maxdepth 1 -name "*.whl" -print -quit)
+          test -n "${WHEEL}"
+
+          uv run \
+            --isolated \
+            --no-project \
+            --with "${WHEEL}" \
+            -- ahnlich-mcp --help
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: ahnlich-mcp-${{ needs.release_metadata.outputs.mcp_version }}
+          path: mcp/dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  container_smoke_test:
+    name: Build and test container
+    needs: release_metadata
+    if: needs.release_metadata.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release_metadata.outputs.tag_name }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build local test image
+        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+        with:
+          context: ./mcp
+          load: true
+          push: false
+          tags: ahnlich-mcp:smoke-test
+          cache-from: type=gha,scope=ahnlich-mcp
+          cache-to: type=gha,mode=max,scope=ahnlich-mcp
+
+      - name: Smoke test image
+        run: docker run --rm ahnlich-mcp:smoke-test --help
+
+      - name: Verify non-root runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          USER=$(docker image inspect \
+            ahnlich-mcp:smoke-test \
+            --format '{{.Config.User}}')
+
+          test "${USER}" = "ahnlich"
+
+  publish_python:
+    name: Publish to PyPI
+    needs:
+      - release_metadata
+      - build_distribution
+    if: needs.release_metadata.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: ahnlich-mcp-${{ needs.release_metadata.outputs.mcp_version }}
+          path: dist
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.31"
+
+      - name: Publish distributions
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: uv publish dist/*
+
+  publish_container:
+    name: Publish container to GHCR
+    needs:
+      - release_metadata
+      - container_smoke_test
+      - publish_python
+    if: needs.release_metadata.outputs.version_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release_metadata.outputs.tag_name }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GH_GCR_TOKEN }}
+
+      - name: Generate image metadata
+        id: metadata
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/ahnlich-mcp
+          tags: |
+            type=raw,value=${{ needs.release_metadata.outputs.mcp_version }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=Ahnlich MCP
+            org.opencontainers.image.description=MCP server for Ahnlich vector storage and semantic search
+            org.opencontainers.image.version=${{ needs.release_metadata.outputs.mcp_version }}
+
+      - name: Build and push image
+        id: push
+        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+        with:
+          context: ./mcp
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha,scope=ahnlich-mcp
+          cache-to: type=gha,mode=max,scope=ahnlich-mcp
+
+      - name: Generate image attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/${{ github.repository_owner }}/ahnlich-mcp
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
