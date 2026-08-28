@@ -10,7 +10,8 @@ use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
 /// Relative to the manifest, so the binary works from any directory.
-const DEFAULT_DATASET_DIR: &str = "../ahnlich/similarity/sift";
+const SIFT_10K_DATASET_DIR: &str = "../ahnlich/similarity/sift_10k";
+const SIFT_1M_DATASET_DIR: &str = "../ahnlich/similarity/sift_1m";
 
 /// Rejects a corrupt header before it becomes a multi-gigabyte allocation.
 const MAX_DIMENSION: usize = 4096;
@@ -26,11 +27,20 @@ impl Dataset {
     }
 }
 
-pub fn dataset_dir() -> PathBuf {
-    match std::env::var_os("SIFT_DIR") {
-        Some(dir) => PathBuf::from(dir),
-        None => Path::new(env!("CARGO_MANIFEST_DIR")).join(DEFAULT_DATASET_DIR),
+pub fn dataset_dir() -> Result<PathBuf> {
+    if let Some(dir) = std::env::var_os("SIFT_DIR") {
+        return Ok(PathBuf::from(dir));
     }
+
+    let relative_dir = match std::env::var("SIFT_DATASET") {
+        Err(std::env::VarError::NotPresent) => SIFT_10K_DATASET_DIR,
+        Ok(dataset) if dataset == "sift_10k" => SIFT_10K_DATASET_DIR,
+        Ok(dataset) if dataset == "sift_1m" => SIFT_1M_DATASET_DIR,
+        Err(err) => return Err(err).context("invalid SIFT_DATASET"),
+        Ok(dataset) => bail!("unknown SIFT_DATASET={dataset:?}; expected sift_10k or sift_1m"),
+    };
+
+    Ok(Path::new(env!("CARGO_MANIFEST_DIR")).join(relative_dir))
 }
 
 /// Truncate the base set to `size`. Errors if the dataset holds fewer vectors.

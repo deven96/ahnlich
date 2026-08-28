@@ -9,7 +9,7 @@ use criterion::{BatchSize, BenchmarkId, Criterion, black_box, criterion_group, c
 
 // ─── Dataset Loading ───────────────────────────────────────────────────────────
 
-pub const DATASET_PATH: &str = "sift/";
+pub const DATASET_PATH: &str = "sift_10k/";
 
 pub struct AnnDataset {
     pub sift_data: Vec<Vec<f32>>,

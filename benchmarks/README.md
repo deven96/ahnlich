@@ -7,14 +7,23 @@ Measures end-to-end QPS for ahnlich-db under concurrent gRPC load.
 - Rust toolchain
 - [`ghz`](https://ghz.sh): `brew install ghz` or `go install github.com/bojand/ghz/cmd/ghz@latest`
 
-The 10k SIFT set ships with the repo at `../ahnlich/similarity/sift/`. For larger runs,
-point `SIFT_DIR` at [SIFT1M](http://corpus-texmex.irisa.fr/).
+The 10k SIFT set ships with the repo at `../ahnlich/similarity/sift_10k/`. A local SIFT1M
+installation belongs in `../ahnlich/similarity/sift_1m/`. It can be downloaded from
+[the TEXMEX corpus](http://corpus-texmex.irisa.fr/).
 
 ## Running
 
 ```bash
 ./run_baseline.sh
 ```
+
+Run against the local SIFT1M installation with:
+
+```bash
+./run_baseline.sh --sift-1m
+```
+
+`SIFT_DIR` remains available when the dataset lives elsewhere.
 
 Builds the release binaries, starts a server, loads the data, runs the sweep, writes a
 summary. Paths resolve relative to the script. The server is stopped on exit, including
@@ -105,7 +114,7 @@ rows.
 | `EF_CONSTRUCTION` | `100` | matches the server default; drives build time and recall |
 | `BATCH_SIZE` | `2000` | vectors per `Set` request |
 | `THREADPOOL_SIZE` | `16` | rayon pool size |
-| `SIFT_DIR` | `../ahnlich/similarity/sift` | |
+| `SIFT_DIR` | selected local dataset directory | overrides `--sift-1m` |
 | `REQUEST_TIMEOUT` | `60s` | |
 | `RESULTS_DIR` | timestamped | |
 
