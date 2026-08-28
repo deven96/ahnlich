@@ -76,7 +76,7 @@ pub struct ParallelismConfig {
     high_concurrency_threshold: usize,
     /// Minimum batch size for parallel at low concurrency
     /// Scales up automatically at high concurrency to account for overhead
-    /// Default: 10_000 (from empirical data)
+    /// Default: 150_000
     min_batch_threshold: usize,
 }
 
@@ -1354,9 +1354,9 @@ mod tests {
     /// Helper to create a default test config for parallelism
     fn test_parallelism_config() -> ParallelismConfig {
         ParallelismConfig::from_cli(
-            16,     // num_threads
-            None,   // use default threshold (= num_threads)
-            10_000, // default batch threshold
+            16,      // num_threads
+            None,    // use default threshold (= num_threads)
+            150_000, // default batch threshold
         )
     }
 
