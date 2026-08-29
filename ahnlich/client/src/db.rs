@@ -150,20 +150,37 @@ pub struct DbClient {
 
 impl DbClient {
     pub async fn new(addr: String) -> Result<Self, AhnlichError> {
+        Self::new_with_message_size(addr, None, None).await
+    }
+
+    pub async fn new_with_message_size(
+        addr: String,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    ) -> Result<Self, AhnlichError> {
         let addr = if !(addr.starts_with("https://") || addr.starts_with("http://")) {
             format!("http://{addr}")
         } else {
             addr
         };
-        let channel = Channel::from_shared(addr)?;
-        let client = DbServiceClient::connect(channel).await?;
+        let endpoint = Channel::from_shared(addr)?;
+        let channel = endpoint.connect().await?;
+        let mut client = DbServiceClient::new(channel);
+
+        if let Some(size) = max_decoding_message_size {
+            client = client.max_decoding_message_size(size);
+        }
+
+        if let Some(size) = max_encoding_message_size {
+            client = client.max_encoding_message_size(size);
+        }
+
         Ok(Self {
             client,
             auth_token: None,
         })
     }
 
-    /// Create a DbClient from a pre-configured channel (e.g. with TLS)
     pub fn new_with_channel(channel: Channel) -> Self {
         Self {
             client: DbServiceClient::new(channel),
