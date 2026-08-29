@@ -1153,7 +1153,10 @@ impl AIProxyServer {
     async fn build_db_client(config: &AIProxyConfig) -> DbClient {
         let scheme = if config.db_https { "https" } else { "http" };
         let addr = format!("{scheme}://{}:{}", config.db_host, config.db_port);
-        let mut client = DbClient::new(addr).await.expect("Cannot start DB client");
+        let message_size = Some(config.common.message_size);
+        let mut client = DbClient::new_with_message_size(addr, message_size, message_size)
+            .await
+            .expect("Cannot start DB client");
 
         if let (Some(username), Some(api_key)) = (&config.db_auth_username, &config.db_auth_key) {
             client.set_auth_token(format!("{}:{}", username, api_key));
