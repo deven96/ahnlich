@@ -197,7 +197,7 @@ jobs:
           - name: Generate artifact attestation
             uses: actions/attest-build-provenance@v1
             with:
-              subject-name: ghcr.io/${{ github.repository_owner }}/${{needs.prebuild_preparation.outputs.bin_name}}:${{env.BIN_VERSION}}
+              subject-name: ghcr.io/${{ github.repository_owner }}/${{needs.prebuild_preparation.outputs.bin_name}}
               subject-digest: ${{ steps.push.outputs.digest }}
               push-to-registry: true
 
@@ -271,6 +271,6 @@ jobs:
           - name: Generate artifact attestation
             uses: actions/attest-build-provenance@v1
             with:
-              subject-name: ghcr.io/${{ github.repository_owner }}/${{needs.prebuild_preparation.outputs.bin_name}}:${{env.BIN_VERSION}}-migraphx
+              subject-name: ghcr.io/${{ github.repository_owner }}/${{needs.prebuild_preparation.outputs.bin_name}}
               subject-digest: ${{ steps.push.outputs.digest }}
               push-to-registry: true
