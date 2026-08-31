@@ -4,6 +4,7 @@
 // @ts-nocheck
 
 import {
+  ClearStore,
   CreateNonLinearAlgorithmIndex,
   CreatePredIndex,
   CreateStore,
@@ -19,6 +20,7 @@ import {
   GetStore,
   InfoServer,
   ListClients,
+  ListStoreEntries,
   ListStores,
   Ping,
   Set,
@@ -31,6 +33,7 @@ import {
   Get,
   GetSimN as GetSimN$1,
   InfoServer as InfoServer$1,
+  ListStoreEntries as ListStoreEntries$1,
   Pong,
   Set as Set$1,
   StoreInfo,
@@ -115,6 +118,15 @@ export const DBService = {
       kind: MethodKind.Unary,
     },
     /**
+     * @generated from rpc services.db_service.DBService.ListStoreEntries
+     */
+    listStoreEntries: {
+      name: "ListStoreEntries",
+      I: ListStoreEntries,
+      O: ListStoreEntries$1,
+      kind: MethodKind.Unary,
+    },
+    /**
      * * Update methods *
      *
      * @generated from rpc services.db_service.DBService.Set
@@ -187,6 +199,15 @@ export const DBService = {
     dropSchema: {
       name: "DropSchema",
       I: DropSchema,
+      O: Del,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc services.db_service.DBService.ClearStore
+     */
+    clearStore: {
+      name: "ClearStore",
+      I: ClearStore,
       O: Del,
       kind: MethodKind.Unary,
     },

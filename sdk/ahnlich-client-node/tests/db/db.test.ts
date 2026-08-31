@@ -11,6 +11,8 @@ import {
   DropSchema,
   Upsert,
   GetPred,
+  ListStoreEntries,
+  ClearStore,
 } from "../../grpc/db/query_pb.js";
 import { StoreKey, StoreValue, DbStoreEntry } from "../../grpc/keyval_pb.js";
 import { MetadataValue } from "../../grpc/metadata_pb.js";
@@ -300,5 +302,86 @@ describe("DB client", () => {
     expect(getResp.entries.length).toBe(1);
     expect(getResp.entries[0].value?.value["status"]?.value.value).toBe("published");
     expect(getResp.entries[0].value?.value["id"]?.value.value).toBe("123");
+  });
+
+  test("list store entries paginates and clear store preserves the store", async () => {
+    const client = createDbClient(address);
+    const storeName = "store_entry_operations";
+    const entries = [
+      new DbStoreEntry({
+        key: new StoreKey({ key: [1.0, 0.0, 0.0] }),
+        value: new StoreValue({
+          value: {
+            label: new MetadataValue({ value: { case: "rawString", value: "one" } }),
+          },
+        }),
+      }),
+      new DbStoreEntry({
+        key: new StoreKey({ key: [0.0, 1.0, 0.0] }),
+        value: new StoreValue({
+          value: {
+            label: new MetadataValue({ value: { case: "rawString", value: "two" } }),
+          },
+        }),
+      }),
+      new DbStoreEntry({
+        key: new StoreKey({ key: [0.0, 0.0, 1.0] }),
+        value: new StoreValue({
+          value: {
+            label: new MetadataValue({ value: { case: "rawString", value: "three" } }),
+          },
+        }),
+      }),
+    ];
+
+    await client.createStore(
+      new CreateStore({
+        store: storeName,
+        dimension: 3,
+        createPredicates: ["label"],
+        errorIfExists: true,
+      }),
+    );
+    await client.set(new Set({ store: storeName, inputs: entries }));
+
+    const firstPage = await client.listStoreEntries(
+      new ListStoreEntries({ store: storeName, limit: 2 }),
+    );
+    expect(firstPage.entries).toHaveLength(2);
+    expect(firstPage.nextCursor).toBeDefined();
+
+    const secondPage = await client.listStoreEntries(
+      new ListStoreEntries({
+        store: storeName,
+        cursor: firstPage.nextCursor,
+        limit: 2,
+      }),
+    );
+    expect(secondPage.entries).toHaveLength(1);
+    expect(secondPage.nextCursor).toBeUndefined();
+
+    const listedEntries = [...firstPage.entries, ...secondPage.entries];
+    expect(listedEntries.map((entry) => entry.key?.key)).toEqual(
+      expect.arrayContaining([
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+      ]),
+    );
+    expect(listedEntries.map((entry) => entry.value?.value["label"]?.value.value)).toEqual(
+      expect.arrayContaining(["one", "two", "three"]),
+    );
+
+    const clearResponse = await client.clearStore(new ClearStore({ store: storeName }));
+    expect(Number(clearResponse.deletedCount)).toBe(3);
+
+    const storeInfo = await client.getStore(new GetStore({ store: storeName }));
+    expect(Number(storeInfo.len)).toBe(0);
+    expect(storeInfo.dimension).toBe(3);
+    expect(storeInfo.predicateIndices).toEqual(["label"]);
+
+    const emptyPage = await client.listStoreEntries(new ListStoreEntries({ store: storeName }));
+    expect(emptyPage.entries).toHaveLength(0);
+    expect(emptyPage.nextCursor).toBeUndefined();
   });
 });
