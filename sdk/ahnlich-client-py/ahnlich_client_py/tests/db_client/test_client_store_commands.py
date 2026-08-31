@@ -816,3 +816,85 @@ async def test_client_upsert_succeeds(spin_up_ahnlich_db):
         assert entry.value.value["id"].raw_string == "123"
     finally:
         channel.close()
+
+
+@pytest.mark.asyncio
+async def test_client_lists_store_entries_and_clears_store(spin_up_ahnlich_db):
+    channel = Channel(host="127.0.0.1", port=spin_up_ahnlich_db)
+    client = db_service.DbServiceStub(channel)
+    try:
+        store_name = "store_entry_operations"
+        entries = [
+            keyval.DbStoreEntry(
+                key=keyval.StoreKey(key=[1.0, 0.0, 0.0]),
+                value=keyval.StoreValue(
+                    value={"label": metadata.MetadataValue(raw_string="one")}
+                ),
+            ),
+            keyval.DbStoreEntry(
+                key=keyval.StoreKey(key=[0.0, 1.0, 0.0]),
+                value=keyval.StoreValue(
+                    value={"label": metadata.MetadataValue(raw_string="two")}
+                ),
+            ),
+            keyval.DbStoreEntry(
+                key=keyval.StoreKey(key=[0.0, 0.0, 1.0]),
+                value=keyval.StoreValue(
+                    value={"label": metadata.MetadataValue(raw_string="three")}
+                ),
+            ),
+        ]
+
+        await client.create_store(
+            db_query.CreateStore(
+                store=store_name,
+                dimension=3,
+                create_predicates=["label"],
+                error_if_exists=True,
+            )
+        )
+        await client.set(db_query.Set(store=store_name, inputs=entries))
+
+        first_page = await client.list_store_entries(
+            db_query.ListStoreEntries(store=store_name, limit=2)
+        )
+        assert len(first_page.entries) == 2
+        assert first_page.next_cursor is not None
+
+        second_page = await client.list_store_entries(
+            db_query.ListStoreEntries(
+                store=store_name,
+                cursor=first_page.next_cursor,
+                limit=2,
+            )
+        )
+        assert len(second_page.entries) == 1
+        assert second_page.next_cursor is None
+
+        listed_entries = first_page.entries + second_page.entries
+        assert {tuple(entry.key.key) for entry in listed_entries} == {
+            (1.0, 0.0, 0.0),
+            (0.0, 1.0, 0.0),
+            (0.0, 0.0, 1.0),
+        }
+        assert {
+            entry.value.value["label"].raw_string for entry in listed_entries
+        } == {"one", "two", "three"}
+
+        clear_response = await client.clear_store(
+            db_query.ClearStore(store=store_name)
+        )
+        assert clear_response.deleted_count == 3
+
+        store_info = await client.get_store(db_query.GetStore(store=store_name))
+        assert store_info.len == 0
+        assert store_info.dimension == 3
+        assert store_info.predicate_indices == ["label"]
+
+        empty_page = await client.list_store_entries(
+            db_query.ListStoreEntries(store=store_name)
+        )
+        assert empty_page.entries == []
+        assert empty_page.next_cursor is None
+    finally:
+        channel.close()

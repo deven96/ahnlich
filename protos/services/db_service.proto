@@ -20,6 +20,7 @@ service DBService {
   rpc GetPred(db.query.GetPred) returns (db.server.Get);
   rpc GetSimN(db.query.GetSimN) returns (db.server.GetSimN);
   rpc GetStore(db.query.GetStore) returns (db.server.StoreInfo);
+  rpc ListStoreEntries(db.query.ListStoreEntries) returns (db.server.ListStoreEntries);
 
   /** Update methods **/
   rpc Set(db.query.Set) returns (db.server.Set);
@@ -32,6 +33,7 @@ service DBService {
   rpc DelPred(db.query.DelPred) returns (db.server.Del);
   rpc DropStore(db.query.DropStore) returns (db.server.Del);
   rpc DropSchema(db.query.DropSchema) returns (db.server.Del);
+  rpc ClearStore(db.query.ClearStore) returns (db.server.Del);
 
   /** Ancillary info methods **/
   rpc ListClients(db.query.ListClients) returns (db.server.ClientList);

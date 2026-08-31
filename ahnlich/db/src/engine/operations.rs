@@ -3,6 +3,7 @@ use std::collections::HashSet as StdHashSet;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
+use ahnlich_similarity::EmbeddingKey;
 use ahnlich_types::algorithm::algorithms::Algorithm;
 use ahnlich_types::algorithm::nonlinear::NonLinearAlgorithm;
 use ahnlich_types::algorithm::nonlinear::non_linear_index;
@@ -11,6 +12,7 @@ use ahnlich_types::db::server;
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreName, StoreValue};
 use ahnlich_types::schema::Schema;
 use ahnlich_types::shared::info::StoreUpsert;
+use ahnlich_types::utils::StoreKeyId;
 use itertools::Itertools;
 use rayon::prelude::*;
 
@@ -18,12 +20,57 @@ use crate::engine::store::ParallelismConfig;
 use crate::engine::store::StoreHandler;
 use crate::errors::ServerError;
 
+const DEFAULT_PAGE_LIMIT: u32 = 100;
+const MAX_PAGE_LIMIT: u32 = 1000;
+const CURSOR_HEX_LENGTH: usize = 16;
+
 fn resolve_schema(schema: &Option<String>) -> Result<Schema, ServerError> {
     match schema {
         Some(s) => {
             Schema::try_new(s.clone()).map_err(|e| ServerError::InvalidArgument(e.to_owned()))
         }
         None => Ok(Schema::default()),
+    }
+}
+
+fn resolve_page_limit(limit: Option<u32>) -> Result<NonZeroUsize, ServerError> {
+    let limit = limit.unwrap_or(DEFAULT_PAGE_LIMIT);
+
+    if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
+        return Err(ServerError::InvalidArgument(format!(
+            "limit must be between 1 and {MAX_PAGE_LIMIT}",
+        )));
+    }
+
+    NonZeroUsize::new(limit as usize)
+        .ok_or_else(|| ServerError::InvalidArgument("limit must be greater than 0".to_owned()))
+}
+
+fn decode_cursor(cursor: Option<&str>) -> Result<Option<StoreKeyId>, ServerError> {
+    let Some(cursor) = cursor else {
+        return Ok(None);
+    };
+
+    if cursor.len() != CURSOR_HEX_LENGTH {
+        return Err(ServerError::InvalidArgument("cursor is invalid".to_owned()));
+    }
+
+    u64::from_str_radix(cursor, 16)
+        .map(StoreKeyId)
+        .map(Some)
+        .map_err(|_| ServerError::InvalidArgument("cursor is invalid".to_owned()))
+}
+
+fn encode_cursor(cursor: Option<StoreKeyId>) -> Option<String> {
+    cursor.map(|cursor| format!("{:0width$x}", cursor.0, width = CURSOR_HEX_LENGTH,))
+}
+
+fn into_db_store_entry(embedding_key: EmbeddingKey, store_value: Arc<StoreValue>) -> DbStoreEntry {
+    DbStoreEntry {
+        key: Some(StoreKey {
+            key: embedding_key.as_slice().to_vec(),
+        }),
+        value: Some(Arc::unwrap_or_clone(store_value)),
     }
 }
 
@@ -160,6 +207,20 @@ pub fn del_pred(
     )
 }
 
+pub fn clear_store(
+    store_handler: &StoreHandler,
+    params: query::ClearStore,
+) -> Result<usize, ServerError> {
+    let schema = resolve_schema(&params.schema)?;
+
+    store_handler.clear_store(
+        &StoreName {
+            value: params.store,
+        },
+        &schema,
+    )
+}
+
 pub fn drop_store(
     store_handler: &StoreHandler,
     params: query::DropStore,
@@ -258,6 +319,42 @@ pub fn list_stores(store_handler: &StoreHandler, params: query::ListStores) -> s
     server::StoreList { stores }
 }
 
+pub fn list_store_entries(
+    store_handler: &StoreHandler,
+    params: query::ListStoreEntries,
+) -> Result<server::ListStoreEntries, ServerError> {
+    let query::ListStoreEntries {
+        store,
+        cursor,
+        limit,
+        condition,
+        schema,
+    } = params;
+
+    let schema = resolve_schema(&schema)?;
+    let cursor = decode_cursor(cursor.as_deref())?;
+    let limit = resolve_page_limit(limit)?;
+
+    let page = store_handler.list_store_entries(
+        &StoreName { value: store },
+        &schema,
+        cursor,
+        limit,
+        condition.as_ref(),
+    )?;
+
+    let entries = page
+        .entries
+        .into_iter()
+        .map(|(embedding_key, store_value)| into_db_store_entry(embedding_key, store_value))
+        .collect();
+
+    Ok(server::ListStoreEntries {
+        entries,
+        next_cursor: encode_cursor(page.next_cursor),
+    })
+}
+
 pub fn drop_schema(
     store_handler: &StoreHandler,
     params: query::DropSchema,
@@ -288,12 +385,7 @@ pub fn get_key(
             keys,
         )?
         .into_iter()
-        .map(|(embedding_key, store_value)| DbStoreEntry {
-            key: Some(StoreKey {
-                key: embedding_key.as_slice().to_vec(),
-            }),
-            value: Some(Arc::unwrap_or_clone(store_value)),
-        })
+        .map(|(embedding_key, store_value)| into_db_store_entry(embedding_key, store_value))
         .collect();
 
     Ok(server::Get { entries })
@@ -317,12 +409,7 @@ pub fn get_pred(
             &condition,
         )?
         .into_iter()
-        .map(|(embedding_key, store_value)| DbStoreEntry {
-            key: Some(StoreKey {
-                key: embedding_key.as_slice().to_vec(),
-            }),
-            value: Some(Arc::unwrap_or_clone(store_value)),
-        })
+        .map(|(embedding_key, store_value)| into_db_store_entry(embedding_key, store_value))
         .collect();
 
     Ok(server::Get { entries })

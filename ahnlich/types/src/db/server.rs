@@ -29,6 +29,13 @@ pub struct Get {
     pub entries: ::prost::alloc::vec::Vec<super::super::keyval::DbStoreEntry>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListStoreEntries {
+    #[prost(message, repeated, tag = "1")]
+    pub entries: ::prost::alloc::vec::Vec<super::super::keyval::DbStoreEntry>,
+    #[prost(string, optional, tag = "2")]
+    pub next_cursor: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetSimNEntry {
     #[prost(message, optional, tag = "1")]
     pub key: ::core::option::Option<super::super::keyval::StoreKey>,
