@@ -80,18 +80,6 @@ pub struct ParallelismConfig {
     min_batch_threshold: usize,
 }
 
-const fn linear_search_parallel_threshold(dimensions: usize) -> usize {
-    match dimensions {
-        0..=64 => 100_000,
-        65..=128 => 25_000,
-        129..=384 => 10_000,
-        385..=512 => 5_000,
-        513..=768 => 2_500,
-        769..=1_024 => 1_000,
-        _ => 500,
-    }
-}
-
 impl ParallelismConfig {
     /// Create config from CLI args (which already include env var fallbacks via clap)
     pub fn from_cli(
@@ -127,19 +115,6 @@ impl ParallelismConfig {
         let scaled_threshold = self.min_batch_threshold * concurrency_factor;
 
         batch_size >= scaled_threshold
-    }
-
-    #[inline]
-    pub fn should_use_parallel_for_linear_search(
-        &self,
-        entry_count: usize,
-        dimensions: usize,
-        active_requests: usize,
-    ) -> bool {
-        let base_threshold = linear_search_parallel_threshold(dimensions);
-        let required_entries = base_threshold.saturating_mul(active_requests.max(1));
-
-        entry_count >= required_entries
     }
 }
 
@@ -443,71 +418,54 @@ impl StoreHandler {
 
             // Linear WITH predicates: Adaptive parallel/sequential decision
             (AlgorithmByType::Linear(linear_algo), Some(cond)) => {
-                let active_requests = self.active_requests.load(Ordering::Relaxed);
-                let store_size = store.id_to_value.len();
-                let use_parallel = self
-                    .parallelism_config
-                    .should_use_parallel_for_linear_search(
-                        store_size,
-                        store_dimension,
-                        active_requests,
-                    );
+                let pinned = store.id_to_value.pin();
 
-                let entries = if use_parallel {
-                    let pinned = store.id_to_value.pin_owned();
-                    let search_list: Vec<_> = pinned.iter().collect();
+                let result = {
+                    let active_requests = self.active_requests.load(Ordering::Relaxed);
+                    let store_size = store.id_to_value.len();
 
-                    let result = linear_algo.find_similar_n_parallel(
-                        &search_embedding,
-                        search_list.par_iter().map(|entry| {
-                            let (id, (key, value)) = *entry;
-                            (id, key, value.as_ref())
-                        }),
-                        Some(cond),
-                        false,
-                        closest_n,
-                    );
+                    if self
+                        .parallelism_config
+                        .should_use_parallel(store_size, active_requests)
+                    {
+                        // Collect to Vec for parallel processing (Papaya iterators are !Send)
+                        let search_list: Vec<_> = pinned
+                            .into_iter()
+                            .map(|(id, (key, value))| (*id, key.clone(), Arc::clone(value)))
+                            .collect();
 
-                    result
-                        .into_iter()
-                        .flat_map(|(store_key_id, similarity)| {
-                            pinned.get(&store_key_id).map(|(key, value)| {
-                                (
-                                    key.clone(),
-                                    Arc::clone(value),
-                                    Similarity { value: similarity },
-                                )
-                            })
-                        })
-                        .collect()
-                } else {
-                    let pinned = store.id_to_value.pin();
-                    let filtered_iter = pinned
-                        .into_iter()
-                        .map(|(id, (key, value))| (id, key, value.as_ref()));
-                    let result = linear_algo.find_similar_n_sequential(
-                        &search_embedding,
-                        filtered_iter,
-                        Some(cond),
-                        false,
-                        closest_n,
-                    );
-
-                    result
-                        .into_iter()
-                        .flat_map(|(store_key_id, similarity)| {
-                            pinned.get(&store_key_id).map(|(key, value)| {
-                                (
-                                    key.clone(),
-                                    Arc::clone(value),
-                                    Similarity { value: similarity },
-                                )
-                            })
-                        })
-                        .collect()
+                        linear_algo.find_similar_n_parallel(
+                            &search_embedding,
+                            search_list
+                                .par_iter()
+                                .map(|(id, key, value)| (id, key, value.as_ref())),
+                            Some(cond),
+                            false,
+                            closest_n,
+                        )
+                    } else {
+                        let filtered_iter = pinned
+                            .into_iter()
+                            .map(|(id, (key, value))| (id, key, value.as_ref()));
+                        linear_algo.find_similar_n_sequential(
+                            &search_embedding,
+                            filtered_iter,
+                            Some(cond),
+                            false,
+                            closest_n,
+                        )
+                    }
                 };
 
-                return Ok(entries);
+                // Lookup results in Papaya directly (no HashMap needed)
+                return Ok(result
+                    .into_iter()
+                    .flat_map(|(store_key_id, similarity)| {
+                        pinned.get(&store_key_id).map(|(k, v)| {
+                            (k.clone(), Arc::clone(v), Similarity { value: similarity })
+                        })
+                    })
+                    .collect());
             }
 
             // Non-linear WITHOUT predicates: Fast path - no accept_list needed
@@ -526,71 +484,54 @@ impl StoreHandler {
 
             // Linear WITHOUT predicates: Adaptive parallel/sequential decision
             (AlgorithmByType::Linear(linear_algo), None) => {
-                let active_requests = self.active_requests.load(Ordering::Relaxed);
-                let store_size = store.id_to_value.len();
-                let use_parallel = self
-                    .parallelism_config
-                    .should_use_parallel_for_linear_search(
-                        store_size,
-                        store_dimension,
-                        active_requests,
-                    );
+                let pinned = store.id_to_value.pin();
 
-                let entries = if use_parallel {
-                    let pinned = store.id_to_value.pin_owned();
-                    let search_list: Vec<_> = pinned.iter().collect();
+                let result = {
+                    let active_requests = self.active_requests.load(Ordering::Relaxed);
+                    let store_size = store.id_to_value.len();
 
-                    let result = linear_algo.find_similar_n_parallel(
-                        &search_embedding,
-                        search_list.par_iter().map(|entry| {
-                            let (id, (key, value)) = *entry;
-                            (id, key, value.as_ref())
-                        }),
-                        None,
-                        true,
-                        closest_n,
-                    );
+                    if self
+                        .parallelism_config
+                        .should_use_parallel(store_size, active_requests)
+                    {
+                        // Collect to Vec for parallel processing (Papaya iterators are !Send)
+                        let search_list: Vec<_> = pinned
+                            .into_iter()
+                            .map(|(id, (key, value))| (*id, key.clone(), Arc::clone(value)))
+                            .collect();
 
-                    result
-                        .into_iter()
-                        .flat_map(|(store_key_id, similarity)| {
-                            pinned.get(&store_key_id).map(|(key, value)| {
-                                (
-                                    key.clone(),
-                                    Arc::clone(value),
-                                    Similarity { value: similarity },
-                                )
-                            })
-                        })
-                        .collect()
-                } else {
-                    let pinned = store.id_to_value.pin();
-                    let search_list = pinned
-                        .into_iter()
-                        .map(|(id, (key, value))| (id, key, value.as_ref()));
-                    let result = linear_algo.find_similar_n_sequential(
-                        &search_embedding,
-                        search_list,
-                        None,
-                        true,
-                        closest_n,
-                    );
-
-                    result
-                        .into_iter()
-                        .flat_map(|(store_key_id, similarity)| {
-                            pinned.get(&store_key_id).map(|(key, value)| {
-                                (
-                                    key.clone(),
-                                    Arc::clone(value),
-                                    Similarity { value: similarity },
-                                )
-                            })
-                        })
-                        .collect()
+                        linear_algo.find_similar_n_parallel(
+                            &search_embedding,
+                            search_list
+                                .par_iter()
+                                .map(|(id, key, value)| (id, key, value.as_ref())),
+                            None,
+                            true,
+                            closest_n,
+                        )
+                    } else {
+                        let filtered_iter = pinned
+                            .into_iter()
+                            .map(|(id, (key, value))| (id, key, value.as_ref()));
+                        linear_algo.find_similar_n_sequential(
+                            &search_embedding,
+                            filtered_iter,
+                            None,
+                            true,
+                            closest_n,
+                        )
+                    }
                 };
 
-                return Ok(entries);
+                // Early return with same pin to avoid second Papaya pin
+                return Ok(result
+                    .into_iter()
+                    .flat_map(|(store_key_id, similarity)| {
+                        pinned.get(&store_key_id).map(|(k, v)| {
+                            (k.clone(), Arc::clone(v), Similarity { value: similarity })
+                        })
+                    })
+                    .collect());
             }
         };
 
@@ -1358,42 +1299,6 @@ mod tests {
             None,   // use default threshold (= num_threads)
             10_000, // default batch threshold
         )
-    }
-
-    #[test]
-    fn linear_search_parallel_thresholds_follow_dimension_bands() {
-        let config = test_parallelism_config();
-        let cases = [
-            (64, 100_000),
-            (65, 25_000),
-            (128, 25_000),
-            (129, 10_000),
-            (384, 10_000),
-            (385, 5_000),
-            (512, 5_000),
-            (513, 2_500),
-            (768, 2_500),
-            (769, 1_000),
-            (1_024, 1_000),
-            (1_025, 500),
-        ];
-
-        for (dimensions, threshold) in cases {
-            assert!(!config.should_use_parallel_for_linear_search(threshold - 1, dimensions, 1,));
-            assert!(config.should_use_parallel_for_linear_search(threshold, dimensions, 1,));
-        }
-    }
-
-    #[test]
-    fn linear_search_parallel_threshold_scales_with_active_requests() {
-        let config = test_parallelism_config();
-
-        assert!(config.should_use_parallel_for_linear_search(5_000, 512, 0));
-        assert!(config.should_use_parallel_for_linear_search(5_000, 512, 1));
-        assert!(!config.should_use_parallel_for_linear_search(5_000, 512, 2));
-        assert!(config.should_use_parallel_for_linear_search(10_000, 512, 2));
-        assert!(!config.should_use_parallel_for_linear_search(10_000, 512, 4));
-        assert!(config.should_use_parallel_for_linear_search(20_000, 512, 4));
     }
 
     #[test]

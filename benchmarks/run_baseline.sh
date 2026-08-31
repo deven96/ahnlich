@@ -7,29 +7,8 @@
 #
 # Settings below are overridable:
 #   TOTAL_REQUESTS=50000 CONCURRENCY_LEVELS="1 8 32" ./run_baseline.sh
-# Use the locally installed SIFT1M corpus:
-#   STORE_SIZE=100000 ./run_baseline.sh --sift-1m
 #
 set -euo pipefail
-
-SIFT_DATASET="sift_10k"
-
-usage() {
-    cat <<EOF
-Usage: $0 [--sift-1m]
-
-  --sift-1m  Load the dataset from ahnlich/similarity/sift_1m instead of SIFT10K.
-EOF
-}
-
-while [ "$#" -gt 0 ]; do
-    case "$1" in
-        --sift-1m) SIFT_DATASET="sift_1m" ;;
-        -h|--help) usage; exit 0 ;;
-        *) echo "error: unknown argument: $1" >&2; usage >&2; exit 1 ;;
-    esac
-    shift
-done
 
 HOST="${HOST:-127.0.0.1}"
 PORT="${PORT:-1369}"
@@ -144,7 +123,6 @@ SERVER_ARGS=(
     echo "requests: $TOTAL_REQUESTS x $REPEATS repeats, warmup $WARMUP_REQUESTS"
     echo "concurrency: $CONCURRENCY_LEVELS, connections: $CONNECTIONS"
     echo "metric: $DISTANCE_METRIC, closest_n: $CLOSEST_N, ef_construction: ${EF_CONSTRUCTION:-100}"
-    echo "dataset: $SIFT_DATASET"
     echo "store_size: ${STORE_SIZE:-full dataset}"
 } > "$RESULTS_DIR/RUN.txt"
 
@@ -176,7 +154,6 @@ AHNLICH_DB_ADDR="$HOST:$PORT" \
 PAYLOAD_DIR="$PAYLOAD_DIR" \
 DISTANCE_METRIC="$DISTANCE_METRIC" \
 CLOSEST_N="$CLOSEST_N" \
-SIFT_DATASET="$SIFT_DATASET" \
     "$HARNESS_BIN_DIR/setup_sift"
 
 # Cumulative CPU seconds of the server process. Reads /proc on Linux for 10ms

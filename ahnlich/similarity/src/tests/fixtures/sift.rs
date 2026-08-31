@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-pub const DATASET_PATH: &str = "sift_10k/";
+pub const DATASET_PATH: &str = "sift/";
 
 pub struct AnnDataset {
     pub sift_data: Vec<Vec<f32>>,

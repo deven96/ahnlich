@@ -46,6 +46,3 @@ package-lock.json
 
 # benchmark json
 benchmarks/*.json
-
-# Locally downloaded benchmark corpus
-ahnlich/similarity/sift_1m/
