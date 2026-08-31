@@ -1,0 +1,149 @@
+---
+title: Installation
+description: Install Ahnlich MCP for Claude Desktop, Codex, or another MCP client.
+---
+
+# Install Ahnlich MCP
+
+Before starting the MCP server, run the services required by your profile:
+
+| Profile | Required services |
+| --- | --- |
+| `ai` | Ahnlich AI on port `1370` and Ahnlich DB on port `1369` |
+| `db` | Ahnlich DB on port `1369` |
+
+See the [Ahnlich installation guide](/docs/getting-started/installation).
+
+The examples below use the `ai` profile.
+
+## Install from PyPI
+
+This is the recommended method. Install
+[uv](https://docs.astral.sh/uv/getting-started/installation/), then check the
+connection:
+
+```bash
+uvx ahnlich-mcp doctor --profile ai
+```
+
+### Claude Desktop
+
+Open **Settings → Developer → Edit Config** and add:
+
+```json
+{
+  "mcpServers": {
+    "ahnlich": {
+      "command": "uvx",
+      "args": ["ahnlich-mcp", "--profile", "ai"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop after saving the configuration.
+
+### Codex
+
+```bash
+codex mcp add ahnlich -- uvx ahnlich-mcp --profile ai
+```
+
+Verify the connection:
+
+```bash
+codex mcp list
+```
+
+## Run with Docker
+
+Use Docker to isolate the MCP server's Python dependencies. The required
+Ahnlich services must already be running on the host.
+
+```bash
+docker pull ghcr.io/deven96/ahnlich-mcp:latest
+```
+
+### Claude Desktop
+
+```json
+{
+  "mcpServers": {
+    "ahnlich": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--add-host",
+        "host.docker.internal:host-gateway",
+        "-e",
+        "AHNLICH_AI_HOST=host.docker.internal",
+        "ghcr.io/deven96/ahnlich-mcp:latest",
+        "--profile",
+        "ai"
+      ]
+    }
+  }
+}
+```
+
+### Codex
+
+```bash
+codex mcp add ahnlich -- docker run --rm -i \
+  --add-host host.docker.internal:host-gateway \
+  -e AHNLICH_AI_HOST=host.docker.internal \
+  ghcr.io/deven96/ahnlich-mcp:latest \
+  --profile ai
+```
+
+For the `db` profile, use `AHNLICH_DB_HOST=host.docker.internal` and
+`--profile db`.
+
+## Install from source
+
+Use this method when developing Ahnlich MCP:
+
+```bash
+git clone https://github.com/deven96/ahnlich.git
+cd ahnlich/mcp
+uv sync --locked
+uv run ahnlich-mcp doctor --profile ai
+```
+
+The stdio command for MCP clients is:
+
+```bash
+uv --directory /absolute/path/to/ahnlich/mcp run ahnlich-mcp --profile ai
+```
+
+## Configuration
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `AHNLICH_PROFILE` | `ai` | Active profile: `ai` or `db` |
+| `AHNLICH_DB_HOST` | `127.0.0.1` | Ahnlich DB host |
+| `AHNLICH_DB_PORT` | `1369` | Ahnlich DB port |
+| `AHNLICH_AI_HOST` | `127.0.0.1` | Ahnlich AI host |
+| `AHNLICH_AI_PORT` | `1370` | Ahnlich AI port |
+| `AHNLICH_AI_MODEL` | `all-minilm-l6-v2` | Model used by the AI profile |
+| `AHNLICH_MCP_READ_ONLY` | `0` | Expose only read-only tools when set to `1` |
+
+The `--profile` command-line option overrides `AHNLICH_PROFILE`.
+
+## Read-only mode
+
+Enable read-only mode when the agent must not modify Ahnlich:
+
+```bash
+AHNLICH_MCP_READ_ONLY=1 uvx ahnlich-mcp --profile ai
+```
+
+Read-only mode exposes only:
+
+- `ping`
+- `server_info`
+- `list_stores`
+- `similarity_search`
+- `get_by_metadata`

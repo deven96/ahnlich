@@ -341,6 +341,24 @@ const sidebars: SidebarsConfig = {
     },
   ],
 
+  // ---- MCP tab ------------------------------------------------------------
+  mcpSidebar: [
+    {
+      type: 'html',
+      value: 'Model Context Protocol',
+      className: 'sidebar-section-title',
+      defaultStyle: true,
+    },
+    {
+      type: 'doc',
+      id: 'components/ahnlich-mcp/ahnlich-mcp',
+      label: 'Overview',
+    },
+    'components/ahnlich-mcp/installation',
+    'components/ahnlich-mcp/tools',
+  ],
+
+
   // ---- Clients tab --------------------------------------------------------
   clientsSidebar: [
     {
