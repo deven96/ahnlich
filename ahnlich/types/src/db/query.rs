@@ -171,6 +171,16 @@ pub struct DelPred {
     #[prost(string, optional, tag = "3")]
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
+/// Deletes all entries from a store while preserving the store and its indices.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ClearStore {
+    /// The name of the store to clear.
+    #[prost(string, tag = "1")]
+    pub store: ::prost::alloc::string::String,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "2")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
+}
 /// Drops a store and deletes all its data and associated indices.
 /// If `error_if_not_exists` is true, it will return an error if the store does not exist.
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -193,6 +203,25 @@ pub struct InfoServer {}
 pub struct ListStores {
     /// Optional schema/namespace to filter stores. Defaults to "public" when unset.
     #[prost(string, optional, tag = "1")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// Lists entries in a store using cursor-based pagination.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListStoreEntries {
+    /// The name of the store.
+    #[prost(string, tag = "1")]
+    pub store: ::prost::alloc::string::String,
+    /// Opaque cursor returned by the previous request.
+    #[prost(string, optional, tag = "2")]
+    pub cursor: ::core::option::Option<::prost::alloc::string::String>,
+    /// Number of entries to return. Defaults to 100.
+    #[prost(uint32, optional, tag = "3")]
+    pub limit: ::core::option::Option<u32>,
+    /// Optional metadata filter.
+    #[prost(message, optional, tag = "4")]
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+    /// Optional schema/namespace for the store. Defaults to "public".
+    #[prost(string, optional, tag = "5")]
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// A request to list all the clients currently connected to the server.

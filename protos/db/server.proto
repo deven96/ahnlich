@@ -34,6 +34,11 @@ message Get {
   repeated keyval.DbStoreEntry entries = 1;
 }
 
+message ListStoreEntries {
+  repeated keyval.DbStoreEntry entries = 1;
+  optional string next_cursor = 2;
+}
+
 message GetSimNEntry {
   keyval.StoreKey key = 1;
   keyval.StoreValue value = 2;

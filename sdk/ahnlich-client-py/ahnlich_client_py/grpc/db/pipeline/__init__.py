@@ -46,6 +46,10 @@ class DbQuery(betterproto.Message):
     )
     drop_schema: "_query__.DropSchema" = betterproto.message_field(19, group="query")
     upsert: "_query__.Upsert" = betterproto.message_field(20, group="query")
+    list_store_entries: "_query__.ListStoreEntries" = betterproto.message_field(
+        21, group="query"
+    )
+    clear_store: "_query__.ClearStore" = betterproto.message_field(22, group="query")
 
 
 @dataclass(eq=False, repr=False)
@@ -73,6 +77,9 @@ class DbServerResponse(betterproto.Message):
     store_info: "_server__.StoreInfo" = betterproto.message_field(12, group="response")
     cluster_info: "__shared_cluster__.ClusterInfoResponse" = betterproto.message_field(
         13, group="response"
+    )
+    list_store_entries: "_server__.ListStoreEntries" = betterproto.message_field(
+        14, group="response"
     )
 
 

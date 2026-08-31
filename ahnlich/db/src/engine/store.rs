@@ -38,6 +38,12 @@ use utils::persistence::VersionedPersistence;
 type StoreEntry = (EmbeddingKey, Arc<StoreValue>);
 type StoreEntryWithSimilarity = (EmbeddingKey, Arc<StoreValue>, Similarity);
 
+#[derive(Debug)]
+pub(crate) struct StoreEntryPage {
+    pub(crate) entries: Vec<(EmbeddingKey, Arc<StoreValue>)>,
+    pub(crate) next_cursor: Option<StoreKeyId>,
+}
+
 // Helper function to convert EmbeddingKey to StoreKeyId
 // Can't implement From trait due to orphan rules (both types are external to db crate)
 #[inline]
@@ -393,6 +399,23 @@ impl StoreHandler {
         Ok(deleted)
     }
 
+    /// Matches CLEARSTORE - removes every entry while preserving the store and its indices.
+    #[tracing::instrument(skip(self))]
+    pub(crate) fn clear_store(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+    ) -> Result<usize, ServerError> {
+        let store = self.get(store_name, schema)?;
+        let deleted = store.clear();
+
+        if deleted > 0 {
+            self.set_write_flag();
+        }
+
+        Ok(deleted)
+    }
+
     /// Matches GETSIMN - gets all similar from a store that also match a predicate
     #[tracing::instrument(skip(self))]
     pub fn get_sim_in_store(
@@ -633,6 +656,21 @@ impl StoreHandler {
     ) -> Result<Vec<StoreEntry>, ServerError> {
         let store = self.get(store_name, schema)?;
         store.get_keys(keys)
+    }
+
+    /// Matches LISTSTOREENTRIES - returns one deterministically ordered page of store entries.
+    #[tracing::instrument(skip(self, condition))]
+    pub(crate) fn list_store_entries(
+        &self,
+        store_name: &StoreName,
+        schema: &Schema,
+        cursor: Option<StoreKeyId>,
+        limit: NonZeroUsize,
+        condition: Option<&PredicateCondition>,
+    ) -> Result<StoreEntryPage, ServerError> {
+        let _guard = ActiveRequestGuard::new(Arc::clone(&self.active_requests));
+        let store = self.get(store_name, schema)?;
+        store.list_entries(cursor, limit, condition)
     }
 
     /// Matches SET - adds new entries into a particular store
@@ -1044,6 +1082,19 @@ impl Store {
         removed_count
     }
 
+    fn clear(&self) -> usize {
+        let keys = {
+            let pinned = self.id_to_value.pin();
+
+            pinned
+                .into_iter()
+                .map(|(store_key_id, _)| *store_key_id)
+                .collect::<Vec<_>>()
+        };
+
+        self.delete(keys.into_iter())
+    }
+
     /// filters input dimension to make sure it matches store dimension
     #[tracing::instrument(skip(self, input), fields(input_length=input.len()))]
     fn filter_dimension(&self, input: Vec<StoreKey>) -> Result<Vec<StoreKey>, ServerError> {
@@ -1143,6 +1194,56 @@ impl Store {
                 (embedding_key.clone(), Arc::clone(store_value))
             })
             .collect()
+    }
+
+    fn list_entries(
+        &self,
+        cursor: Option<StoreKeyId>,
+        limit: NonZeroUsize,
+        condition: Option<&PredicateCondition>,
+    ) -> Result<StoreEntryPage, ServerError> {
+        let matching_ids = condition
+            .map(|condition| self.predicate_indices.matches(condition, self))
+            .transpose()?;
+
+        let pinned = self.id_to_value.pin();
+        let mut entries = pinned
+            .into_iter()
+            .filter_map(|(id, (embedding_key, store_value))| {
+                let id = *id;
+
+                if cursor.is_some_and(|cursor| id <= cursor) {
+                    return None;
+                }
+
+                if matching_ids.as_ref().is_some_and(|ids| !ids.contains(&id)) {
+                    return None;
+                }
+
+                Some((id, embedding_key.clone(), Arc::clone(store_value)))
+            })
+            .collect::<Vec<_>>();
+
+        entries.sort_unstable_by_key(|(id, _, _)| *id);
+
+        let has_more = entries.len() > limit.get();
+        entries.truncate(limit.get());
+
+        let next_cursor = if has_more {
+            entries.last().map(|(id, _, _)| *id)
+        } else {
+            None
+        };
+
+        let entries = entries
+            .into_iter()
+            .map(|(_, embedding_key, store_value)| (embedding_key, store_value))
+            .collect();
+
+        Ok(StoreEntryPage {
+            entries,
+            next_cursor,
+        })
     }
 
     /// Adds a bunch of entries into the store if they match the dimensions

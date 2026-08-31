@@ -3,6 +3,8 @@ mod cluster_tests;
 mod migration_test;
 mod replication_store_tests;
 mod server_tests;
+mod store_entry_operations;
+mod store_entry_server;
 mod upsert;
 
 use ahnlich_types::keyval::StoreKey;
