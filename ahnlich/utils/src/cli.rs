@@ -77,7 +77,7 @@ pub struct CommandLineConfig {
 
     /// Minimum batch size for using parallel iteration at low concurrency
     /// At high concurrency (>= concurrency_threshold), threshold scales up automatically
-    /// Default: 10_000.
+    /// Default: 150_000.
     #[arg(long, env = "AHNLICH_PARALLEL_BATCH_THRESHOLD", default_value_t = 
     DEFAULT_CONFIG.get_or_init(CommandLineConfig::default).parallel_batch_threshold.clone())]
     pub parallel_batch_threshold: usize,
@@ -134,7 +134,7 @@ impl Default for CommandLineConfig {
             maximum_clients: 512,
             threadpool_size: default_threadpool,
             parallel_concurrency_threshold: None, // Defaults to threadpool_size if None
-            parallel_batch_threshold: 10_000,     // From empirical Criterion + ghz data
+            parallel_batch_threshold: 150_000,
             enable_auth: false,
             auth_config: None,
             tls_cert: None,
