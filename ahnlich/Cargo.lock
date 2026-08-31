@@ -74,7 +74,7 @@ dependencies = [
 
 [[package]]
 name = "ahnlich_client_rs"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "ahnlich_types",
  "ai",
@@ -117,7 +117,7 @@ dependencies = [
 
 [[package]]
 name = "ahnlich_types"
-version = "0.4.1"
+version = "0.4.3"
 dependencies = [
  "ahash 0.8.12",
  "ascii85",
