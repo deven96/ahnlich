@@ -7,12 +7,6 @@
 package server
 
 import (
-	reflect "reflect"
-	sync "sync"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-
 	models "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/ai/models"
 	client "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/client"
 	server "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/db/server"
@@ -20,6 +14,10 @@ import (
 	_ "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/metadata"
 	info "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/shared/info"
 	similarity "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/similarity"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
