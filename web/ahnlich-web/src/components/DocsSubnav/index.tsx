@@ -26,6 +26,11 @@ const TABS: Tab[] = [
     match: ['/docs/components/ahnlich-cli'],
   },
   {
+    label: 'MCP',
+    to: '/docs/components/ahnlich-mcp',
+    match: ['/docs/components/ahnlich-mcp'],
+  },
+  {
     label: 'Client libraries',
     to: '/docs/client-libraries',
     match: ['/docs/client-libraries'],
