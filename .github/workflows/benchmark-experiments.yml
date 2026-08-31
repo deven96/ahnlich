@@ -1,0 +1,183 @@
+name: Ahnlich Opt-in PR Benchmarks
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - ahnlich/**
+    types: [opened, reopened, synchronize, labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  run-changed-benchmarks:
+    if: contains(github.event.pull_request.labels.*.name, 'benchmark-experiments')
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout PR branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
+
+    - name: Find changed benchmark targets
+      id: benchmarks
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        targets_file="$RUNNER_TEMP/benchmark-targets.tsv"
+        : > "$targets_file"
+
+        while IFS= read -r path; do
+          crate="${path#ahnlich/}"
+          crate="${crate%%/*}"
+          target="${path##*/}"
+          target="${target%.rs}"
+
+          if git cat-file -e "$BASE_SHA:$path" 2>/dev/null; then
+            exists_on_main=true
+          else
+            exists_on_main=false
+          fi
+
+          printf '%s\t%s\t%s\n' "$crate" "$target" "$exists_on_main" >> "$targets_file"
+        done < <(
+          git diff --name-only --diff-filter=AMR "$BASE_SHA...HEAD" -- \
+            'ahnlich/*/benches/experiments/*.rs' \
+            | sort -u
+        )
+
+        if [[ -s "$targets_file" ]]; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "Changed Criterion targets:"
+          column -t -s $'\t' "$targets_file"
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+          echo "No changed Criterion benchmark targets found."
+        fi
+
+    - name: Set up Rust cache
+      if: steps.benchmarks.outputs.found == 'true'
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: ahnlich
+
+    - name: Install protoc
+      if: steps.benchmarks.outputs.found == 'true'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler
+
+    - name: Install critcmp
+      if: steps.benchmarks.outputs.found == 'true'
+      working-directory: ./ahnlich
+      run: cargo install critcmp
+
+    - name: Checkout PR base
+      if: steps.benchmarks.outputs.found == 'true'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.base.sha }}
+        clean: false
+
+    - name: Run existing benchmarks on PR base
+      if: steps.benchmarks.outputs.found == 'true'
+      shell: bash
+      run: |
+        while IFS=$'\t' read -r crate target exists_on_main; do
+          if [[ "$exists_on_main" != true ]]; then
+            continue
+          fi
+
+          baseline="main-${GITHUB_RUN_ID}-${crate}-${target}"
+          cargo bench \
+            --manifest-path "ahnlich/${crate}/Cargo.toml" \
+            --bench "$target" \
+            -- \
+            --save-baseline "$baseline"
+        done < "$RUNNER_TEMP/benchmark-targets.tsv"
+
+    - name: Checkout PR branch
+      if: steps.benchmarks.outputs.found == 'true'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        clean: false
+
+    - name: Run changed benchmarks on PR branch
+      if: steps.benchmarks.outputs.found == 'true'
+      shell: bash
+      run: |
+        while IFS=$'\t' read -r crate target exists_on_main; do
+          baseline="pr-${GITHUB_RUN_ID}-${crate}-${target}"
+          cargo bench \
+            --manifest-path "ahnlich/${crate}/Cargo.toml" \
+            --bench "$target" \
+            -- \
+            --save-baseline "$baseline"
+        done < "$RUNNER_TEMP/benchmark-targets.tsv"
+
+    - name: Compare changed benchmarks
+      if: steps.benchmarks.outputs.found == 'true'
+      shell: bash
+      run: |
+        report="ahnlich/experiment_bench_results.md"
+        {
+          echo "## Opt-in Benchmark Results"
+          echo
+          echo "Criterion results from the benchmark targets changed by this PR."
+        } > "$report"
+
+        while IFS=$'\t' read -r crate target exists_on_main; do
+          main_baseline="main-${GITHUB_RUN_ID}-${crate}-${target}"
+          pr_baseline="pr-${GITHUB_RUN_ID}-${crate}-${target}"
+
+          {
+            echo
+            echo "### ${crate}/${target}"
+            echo
+          } >> "$report"
+
+          if [[ "$exists_on_main" == true ]]; then
+            benchmark_output=$(critcmp \
+              --target-dir ahnlich/target \
+              "$main_baseline" \
+              "$pr_baseline")
+            comparison="PR base vs PR branch"
+          elif benchmark_output=$(critcmp \
+            --target-dir ahnlich/target \
+            "$pr_baseline" \
+            --filter '(^|/)(control|candidate)/' \
+            --group '^(.*)(?:control|candidate)/(.*)$' 2>&1); then
+            comparison="first-time benchmark: control vs candidate"
+          else
+            comparison="first-time benchmark"
+            benchmark_output="No control/candidate pairs found. New benchmark targets must name comparable variants 'control' and 'candidate'."
+          fi
+
+          {
+            echo "_${comparison}_"
+            echo
+            echo '```text'
+            echo "$benchmark_output"
+            echo '```'
+          } >> "$report"
+        done < "$RUNNER_TEMP/benchmark-targets.tsv"
+
+        cat "$report"
+        cat "$report" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Comment PR with opt-in benchmark results
+      if: steps.benchmarks.outputs.found == 'true'
+      continue-on-error: true
+      uses: thollander/actions-comment-pull-request@v2
+      with:
+        filePath: ahnlich/experiment_bench_results.md
+        comment_tag: benchmark-experiments

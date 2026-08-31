@@ -261,7 +261,7 @@ impl Config {
     fn from_env() -> Result<Self> {
         Ok(Self {
             db_addr: env_or("AHNLICH_DB_ADDR", "127.0.0.1:1369"),
-            dataset_dir: sift::dataset_dir(),
+            dataset_dir: sift::dataset_dir()?,
             payload_dir: PathBuf::from(env_or("PAYLOAD_DIR", ".")),
             metric: Metric::parse(&env_or("DISTANCE_METRIC", "euclidean"))?,
             closest_n: parse_env("CLOSEST_N", DEFAULT_CLOSEST_N)?,
