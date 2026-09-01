@@ -25315,6 +25315,540 @@ GETPRED (upload_date >= "2024-09-01") IN video_store
 
 ---
 
+# FILE: components/ahnlich-mcp/ahnlich-mcp.mdx
+
+---
+title: Ahnlich MCP
+description: Connect MCP-compatible AI agents to Ahnlich vector storage and semantic search.
+---
+
+# Ahnlich MCP
+
+Ahnlich MCP gives MCP-compatible agents access to Ahnlich vector storage,
+semantic search, and metadata filtering.
+
+It runs locally over stdio and does not require cloud credentials.
+
+```mermaid
+flowchart LR
+    Client[MCP client] --> MCP[Ahnlich MCP]
+    MCP -->|db profile| DB[Ahnlich DB]
+    MCP -->|ai profile| AI[Ahnlich AI]
+    AI --> DB
+```
+
+## Profiles
+
+| Profile | Input | Required services |
+| --- | --- | --- |
+| `ai` | Raw text | Ahnlich AI and Ahnlich DB |
+| `db` | Precomputed embeddings | Ahnlich DB |
+
+Use `ai` when the agent should work with text. Ahnlich AI generates the
+embeddings before storing them in Ahnlich DB.
+
+Use `db` when your application already generates embeddings.
+
+## Exposed tools
+
+Both profiles expose the same 11 tool names.
+
+| Tool | Purpose | Access |
+| --- | --- | --- |
+| `ping` | Check whether the configured Ahnlich service is reachable | Read |
+| `server_info` | Inspect the service version, address, and memory information | Read |
+| `create_store` | Create a text or embedding store | Write |
+| `list_stores` | List existing stores | Read |
+| `drop_store` | Delete a store and all its entries | Destructive |
+| `store_entries` | Store text or precomputed embeddings with metadata | Write |
+| `similarity_search` | Find entries that are semantically or numerically similar | Read |
+| `get_by_metadata` | Retrieve entries matching indexed metadata | Read |
+| `delete_by_metadata` | Delete entries matching indexed metadata | Destructive |
+| `create_predicate_index` | Index metadata keys for filtering | Write |
+| `drop_predicate_index` | Remove metadata indexes | Destructive |
+
+The inputs for `create_store`, `store_entries`, and `similarity_search` depend
+on the active profile.
+
+See the [tool reference](/docs/components/ahnlich-mcp/tools) for complete inputs, return types, examples,
+and agent guidance.
+
+## Current scope
+
+The AI profile currently accepts text. Direct image and audio tools are not yet
+available through Ahnlich MCP.
+
+Ahnlich MCP connects to existing Ahnlich services; it does not start them
+automatically.
+
+## Next steps
+
+- [Install Ahnlich MCP](/docs/components/ahnlich-mcp/installation)
+- [Review the tool reference](/docs/components/ahnlich-mcp/tools)
+- [Install Ahnlich services](/docs/getting-started/installation)
+
+
+---
+
+# FILE: components/ahnlich-mcp/installation.mdx
+
+---
+title: Installation
+description: Install Ahnlich MCP for Claude Desktop, Codex, or another MCP client.
+---
+
+# Install Ahnlich MCP
+
+Before starting the MCP server, run the services required by your profile:
+
+| Profile | Required services |
+| --- | --- |
+| `ai` | Ahnlich AI on port `1370` and Ahnlich DB on port `1369` |
+| `db` | Ahnlich DB on port `1369` |
+
+See the [Ahnlich installation guide](/docs/getting-started/installation).
+
+The examples below use the `ai` profile.
+
+## Install from PyPI
+
+This is the recommended method. Install
+[uv](https://docs.astral.sh/uv/getting-started/installation/), then check the
+connection:
+
+```bash
+uvx ahnlich-mcp doctor --profile ai
+```
+
+### Claude Desktop
+
+Open **Settings → Developer → Edit Config** and add:
+
+```json
+{
+  "mcpServers": {
+    "ahnlich": {
+      "command": "uvx",
+      "args": ["ahnlich-mcp", "--profile", "ai"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop after saving the configuration.
+
+### Codex
+
+```bash
+codex mcp add ahnlich -- uvx ahnlich-mcp --profile ai
+```
+
+Verify the connection:
+
+```bash
+codex mcp list
+```
+
+## Run with Docker
+
+Use Docker to isolate the MCP server's Python dependencies. The required
+Ahnlich services must already be running on the host.
+
+```bash
+docker pull ghcr.io/deven96/ahnlich-mcp:latest
+```
+
+### Claude Desktop
+
+```json
+{
+  "mcpServers": {
+    "ahnlich": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--add-host",
+        "host.docker.internal:host-gateway",
+        "-e",
+        "AHNLICH_AI_HOST=host.docker.internal",
+        "ghcr.io/deven96/ahnlich-mcp:latest",
+        "--profile",
+        "ai"
+      ]
+    }
+  }
+}
+```
+
+### Codex
+
+```bash
+codex mcp add ahnlich -- docker run --rm -i \
+  --add-host host.docker.internal:host-gateway \
+  -e AHNLICH_AI_HOST=host.docker.internal \
+  ghcr.io/deven96/ahnlich-mcp:latest \
+  --profile ai
+```
+
+For the `db` profile, use `AHNLICH_DB_HOST=host.docker.internal` and
+`--profile db`.
+
+## Install from source
+
+Use this method when developing Ahnlich MCP:
+
+```bash
+git clone https://github.com/deven96/ahnlich.git
+cd ahnlich/mcp
+uv sync --locked
+uv run ahnlich-mcp doctor --profile ai
+```
+
+The stdio command for MCP clients is:
+
+```bash
+uv --directory /absolute/path/to/ahnlich/mcp run ahnlich-mcp --profile ai
+```
+
+## Configuration
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `AHNLICH_PROFILE` | `ai` | Active profile: `ai` or `db` |
+| `AHNLICH_DB_HOST` | `127.0.0.1` | Ahnlich DB host |
+| `AHNLICH_DB_PORT` | `1369` | Ahnlich DB port |
+| `AHNLICH_AI_HOST` | `127.0.0.1` | Ahnlich AI host |
+| `AHNLICH_AI_PORT` | `1370` | Ahnlich AI port |
+| `AHNLICH_AI_MODEL` | `all-minilm-l6-v2` | Model used by the AI profile |
+| `AHNLICH_MCP_READ_ONLY` | `0` | Expose only read-only tools when set to `1` |
+
+The `--profile` command-line option overrides `AHNLICH_PROFILE`.
+
+## Read-only mode
+
+Enable read-only mode when the agent must not modify Ahnlich:
+
+```bash
+AHNLICH_MCP_READ_ONLY=1 uvx ahnlich-mcp --profile ai
+```
+
+Read-only mode exposes only:
+
+- `ping`
+- `server_info`
+- `list_stores`
+- `similarity_search`
+- `get_by_metadata`
+
+
+---
+
+# FILE: components/ahnlich-mcp/tools.mdx
+
+---
+title: Tools
+description: Learn when and how agents use the tools exposed by Ahnlich MCP.
+---
+
+# Tools
+
+An agent chooses these tools from the user's natural-language request. The MCP
+client then sends the tool arguments as JSON.
+
+The examples below show only the arguments sent to each tool.
+
+## Typical workflow
+
+For a new collection, an agent should normally:
+
+1. Call `ping` to check the connection.
+2. Call `list_stores` to inspect existing stores.
+3. Call `create_store` if the required store does not exist.
+4. Create indexes for metadata fields that will be filtered.
+5. Add data with `store_entries`.
+6. Query with `similarity_search` or `get_by_metadata`.
+
+Destructive tools should only be called when the user clearly requests the
+change.
+
+## Service information
+
+### `ping`
+
+Checks whether the configured Ahnlich service is reachable.
+
+```json
+{}
+```
+
+Returns the active profile, endpoint, and connection status. When the service
+is unavailable, the response suggests which service to start.
+
+### `server_info`
+
+Returns information about the configured Ahnlich service.
+
+```json
+{}
+```
+
+The response includes the service version, address, memory information, active
+profile, and selected AI model where applicable.
+
+## Store management
+
+### `create_store`
+
+Creates an empty store.
+
+The AI profile creates a text store using the configured model:
+
+```json
+{
+  "store_name": "documents",
+  "predicate_keys": ["category", "language"]
+}
+```
+
+The DB profile also requires the embedding dimension:
+
+```json
+{
+  "store_name": "documents",
+  "dimension": 384,
+  "predicate_keys": ["category", "language"]
+}
+```
+
+Optional `error_if_exists` defaults to `true`.
+
+The response confirms the store name and created predicate indexes. DB responses
+also include the dimension.
+
+### `list_stores`
+
+Lists existing stores.
+
+```json
+{
+  "limit": 20
+}
+```
+
+`limit` defaults to `50` and accepts values from `1` to `1024`.
+
+The response includes the stores and a `truncated` value indicating whether
+additional stores were omitted.
+
+### `drop_store`
+
+Deletes a store and every entry inside it.
+
+```json
+{
+  "store_name": "temporary_documents",
+  "error_if_not_exists": true
+}
+```
+
+`error_if_not_exists` defaults to `true`.
+
+This tool is destructive and should only be used when the user explicitly
+requests permanent removal.
+
+## Storing and searching data
+
+### `store_entries`
+
+Adds entries to a store. Existing entries with the same identity may be
+updated.
+
+The AI profile accepts text:
+
+```json
+{
+  "store_name": "documents",
+  "entries": [
+    {
+      "content": "Ahnlich is an in-memory vector database.",
+      "metadata": {
+        "category": "documentation",
+        "language": "en"
+      }
+    }
+  ],
+  "preprocessing": "none"
+}
+```
+
+`preprocessing` can be:
+
+- `none` — send the complete text to the model;
+- `truncate` — allow Ahnlich AI to truncate input to the model limit.
+
+The DB profile accepts precomputed embeddings:
+
+```json
+{
+  "store_name": "documents",
+  "entries": [
+    {
+      "embedding": [0.12, 0.42, 0.91],
+      "metadata": {
+        "category": "documentation"
+      }
+    }
+  ]
+}
+```
+
+Every DB embedding must match the store dimension.
+
+The response reports how many entries were inserted and updated.
+
+### `similarity_search`
+
+Finds entries that are closest to a query.
+
+The AI profile accepts natural language:
+
+```json
+{
+  "store_name": "documents",
+  "query": "How does Ahnlich store vectors?",
+  "top_k": 5,
+  "algorithm": "cosine",
+  "metadata_filter": {
+    "language": "en"
+  }
+}
+```
+
+The DB profile accepts a query embedding:
+
+```json
+{
+  "store_name": "documents",
+  "query_embedding": [0.11, 0.40, 0.89],
+  "top_k": 5,
+  "algorithm": "cosine",
+  "include_embeddings": false
+}
+```
+
+Supported algorithms are:
+
+- `cosine`
+- `euclidean`
+- `dot_product`
+
+`top_k` defaults to `5` and accepts values up to `1024`.
+
+The response contains the closest entries, their metadata, and similarity
+values. DB embeddings are omitted unless `include_embeddings` is `true`.
+
+### `get_by_metadata`
+
+Retrieves entries matching exact metadata values.
+
+```json
+{
+  "store_name": "documents",
+  "metadata_filter": {
+    "category": "documentation",
+    "language": "en"
+  },
+  "limit": 20
+}
+```
+
+All metadata fields in the filter must have predicate indexes. When several
+fields are provided, every field must match.
+
+`limit` defaults to `50` and accepts values from `1` to `1024`.
+
+The response includes matching entries and a `truncated` value.
+
+For the DB profile, add `"include_embeddings": true` when the stored vectors
+are needed.
+
+### `delete_by_metadata`
+
+Deletes every entry matching exact metadata values.
+
+```json
+{
+  "store_name": "documents",
+  "metadata_filter": {
+    "category": "temporary"
+  }
+}
+```
+
+All fields in the filter must have predicate indexes.
+
+The response reports the number of deleted entries. This tool is destructive
+and should only be used when the user explicitly requests deletion.
+
+## Metadata indexes
+
+### `create_predicate_index`
+
+Creates indexes for metadata fields.
+
+```json
+{
+  "store_name": "documents",
+  "keys": ["category", "language"]
+}
+```
+
+Use this before filtering with `similarity_search`, `get_by_metadata`, or
+`delete_by_metadata`.
+
+The response reports how many indexes were created.
+
+### `drop_predicate_index`
+
+Removes indexes from metadata fields without deleting stored entries.
+
+```json
+{
+  "store_name": "documents",
+  "keys": ["language"]
+}
+```
+
+Filters using these fields will stop working until their indexes are recreated.
+
+The response reports how many indexes were removed.
+
+## Handling errors
+
+Tool errors include a short explanation and, where possible, a suggested next
+action.
+
+An agent should follow these recovery steps:
+
+- start the required Ahnlich service when the connection fails;
+- call `create_store` when the requested store does not exist;
+- call `create_predicate_index` when a metadata field is not indexed;
+
+## Read-only mode
+
+When `AHNLICH_MCP_READ_ONLY=1`, only these tools are available:
+
+- `ping`
+- `server_info`
+- `list_stores`
+- `similarity_search`
+- `get_by_metadata`
+
+
+---
+
 # FILE: components/components.mdx
 
 ---
@@ -25339,6 +25873,11 @@ export const components = [
         title: 'Ahnlich AI',
         icon: "sparkles",
         link: "/docs/components/ahnlich-ai"
+    },
+    {
+        title: 'Ahnlich MCP',
+        icon: 'cube',
+        link: '/docs/components/ahnlich-mcp'
     },
     {
         title: 'Persistence in Ahnlich',
