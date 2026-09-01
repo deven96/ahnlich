@@ -332,6 +332,52 @@ export class Get extends Message<Get> {
 }
 
 /**
+ * @generated from message ai.server.ListStoreEntries
+ */
+export class ListStoreEntries extends Message<ListStoreEntries> {
+  /**
+   * @generated from field: repeated ai.server.GetEntry entries = 1;
+   */
+  entries: GetEntry[] = [];
+
+  /**
+   * @generated from field: optional string next_cursor = 2;
+   */
+  nextCursor?: string;
+
+  constructor(data?: PartialMessage<ListStoreEntries>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "ai.server.ListStoreEntries";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "entries", kind: "message", T: GetEntry, repeated: true },
+    { no: 2, name: "next_cursor", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListStoreEntries {
+    return new ListStoreEntries().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListStoreEntries {
+    return new ListStoreEntries().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListStoreEntries {
+    return new ListStoreEntries().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: ListStoreEntries | PlainMessage<ListStoreEntries> | undefined,
+    b: ListStoreEntries | PlainMessage<ListStoreEntries> | undefined,
+  ): boolean {
+    return proto3.util.equals(ListStoreEntries, a, b);
+  }
+}
+
+/**
  * @generated from message ai.server.GetSimNEntry
  */
 export class GetSimNEntry extends Message<GetSimNEntry> {
