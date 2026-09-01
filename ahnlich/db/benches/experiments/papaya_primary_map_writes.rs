@@ -231,7 +231,7 @@ fn papaya_primary_map_writes(c: &mut Criterion) {
                 group.throughput(Throughput::Elements(entry_count as u64));
 
                 group.bench_with_input(
-                    BenchmarkId::new("current_per_entry_pin", entry_count),
+                    BenchmarkId::new("control", entry_count),
                     &entries,
                     |b, entries| {
                         b.iter_batched(
@@ -243,7 +243,7 @@ fn papaya_primary_map_writes(c: &mut Criterion) {
                 );
 
                 group.bench_with_input(
-                    BenchmarkId::new("sequential_one_guard", entry_count),
+                    BenchmarkId::new("candidate", entry_count),
                     &entries,
                     |b, entries| {
                         b.iter_batched(
