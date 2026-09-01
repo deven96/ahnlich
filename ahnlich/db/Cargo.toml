@@ -89,3 +89,8 @@ harness = false
 name = "papaya_linear_search"
 path = "benches/experiments/papaya_linear_search.rs"
 harness = false
+
+[[bench]]
+name = "papaya_primary_map_writes"
+path = "benches/experiments/papaya_primary_map_writes.rs"
+harness = false
