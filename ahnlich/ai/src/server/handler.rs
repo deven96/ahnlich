@@ -19,6 +19,7 @@ use ahnlich_types::ai::pipeline::AiServerResponse;
 use ahnlich_types::ai::pipeline::ai_query::Query;
 use ahnlich_types::ai::pipeline::ai_server_response;
 use ahnlich_types::ai::preprocess::PreprocessAction;
+use ahnlich_types::ai::query::ClearStore;
 use ahnlich_types::ai::query::ConvertStoreInputToEmbeddings;
 use ahnlich_types::ai::query::CreateNonLinearAlgorithmIndex;
 use ahnlich_types::ai::query::CreatePredIndex;
@@ -35,6 +36,7 @@ use ahnlich_types::ai::query::GetSimN;
 use ahnlich_types::ai::query::GetStore;
 use ahnlich_types::ai::query::InfoServer;
 use ahnlich_types::ai::query::ListClients;
+use ahnlich_types::ai::query::ListStoreEntries;
 use ahnlich_types::ai::query::ListStores;
 use ahnlich_types::ai::query::Ping;
 use ahnlich_types::ai::query::PurgeStores;
@@ -47,6 +49,7 @@ use ahnlich_types::ai::server::CreateIndex;
 use ahnlich_types::ai::server::Del;
 use ahnlich_types::ai::server::EmbeddingWithMetadata;
 use ahnlich_types::ai::server::Get;
+use ahnlich_types::ai::server::ListStoreEntries as ListStoreEntriesResponse;
 use ahnlich_types::ai::server::MultipleEmbedding;
 use ahnlich_types::ai::server::Pong;
 use ahnlich_types::ai::server::SingleInputToEmbedding;
@@ -336,6 +339,22 @@ impl AiService for AIProxyServer {
     }
 
     #[tracing::instrument(skip_all)]
+    async fn list_store_entries(
+        &self,
+        request: tonic::Request<ListStoreEntries>,
+    ) -> Result<tonic::Response<ListStoreEntriesResponse>, tonic::Status> {
+        let response = operations::list_store_entries(
+            self.store_handler.as_ref(),
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+
+        Ok(tonic::Response::new(response))
+    }
+
+    #[tracing::instrument(skip_all)]
     async fn get_sim_n(
         &self,
         request: tonic::Request<GetSimN>,
@@ -506,6 +525,21 @@ impl AiService for AIProxyServer {
         )
         .await?;
         Ok(tonic::Response::new(res))
+    }
+
+    #[tracing::instrument(skip_all)]
+    async fn clear_store(
+        &self,
+        request: tonic::Request<ClearStore>,
+    ) -> Result<tonic::Response<Del>, tonic::Status> {
+        let response = operations::clear_store(
+            self.db_client.clone(),
+            request.into_inner(),
+            tracer::span_to_trace_parent(tracing::Span::current()),
+        )
+        .await?;
+
+        Ok(tonic::Response::new(response))
     }
 
     #[tracing::instrument(skip_all)]
@@ -808,6 +842,20 @@ impl AiService for AIProxyServer {
                     }
                 },
 
+                Query::ListStoreEntries(params) => {
+                    match self.list_store_entries(tonic::Request::new(params)).await {
+                        Ok(response) => response_vec.push(
+                            ai_server_response::Response::ListStoreEntries(response.into_inner()),
+                        ),
+                        Err(error) => {
+                            response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                                message: error.message().to_string(),
+                                code: error.code().into(),
+                            }));
+                        }
+                    }
+                }
+
                 Query::ListClients(params) => {
                     match self.list_clients(tonic::Request::new(params)).await {
                         Ok(res) => response_vec
@@ -882,6 +930,19 @@ impl AiService for AIProxyServer {
                         }));
                     }
                 },
+
+                Query::ClearStore(params) => {
+                    match self.clear_store(tonic::Request::new(params)).await {
+                        Ok(response) => response_vec
+                            .push(ai_server_response::Response::Del(response.into_inner())),
+                        Err(error) => {
+                            response_vec.push(ai_server_response::Response::Error(ErrorResponse {
+                                message: error.message().to_string(),
+                                code: error.code().into(),
+                            }));
+                        }
+                    }
+                }
 
                 Query::DropPredIndex(params) => {
                     match self.drop_pred_index(tonic::Request::new(params)).await {
