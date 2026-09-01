@@ -19,6 +19,7 @@ service AIService {
   rpc GetPred(ai.query.GetPred) returns (ai.server.Get);
   rpc GetSimN(ai.query.GetSimN) returns (ai.server.GetSimN);
   rpc GetStore(ai.query.GetStore) returns (ai.server.AIStoreInfo);
+  rpc ListStoreEntries(ai.query.ListStoreEntries) returns (ai.server.ListStoreEntries);
 
   /** Update methods **/
   rpc Set(ai.query.Set) returns (ai.server.Set);
@@ -31,6 +32,7 @@ service AIService {
   rpc DelPred(ai.query.DelPred) returns (ai.server.Del);
   rpc DropStore(ai.query.DropStore) returns (ai.server.Del);
   rpc DropSchema(ai.query.DropSchema) returns (ai.server.Del);
+  rpc ClearStore(ai.query.ClearStore) returns (ai.server.Del);
 
   /** Ancillary info methods **/
   rpc ListClients(ai.query.ListClients) returns (ai.server.ClientList);

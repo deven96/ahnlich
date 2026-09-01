@@ -58,6 +58,12 @@ class Get(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class ListStoreEntries(betterproto.Message):
+    entries: List["GetEntry"] = betterproto.message_field(1)
+    next_cursor: Optional[str] = betterproto.string_field(2, optional=True)
+
+
+@dataclass(eq=False, repr=False)
 class GetSimNEntry(betterproto.Message):
     key: Optional["__keyval__.StoreInput"] = betterproto.message_field(1, optional=True)
     value: "__keyval__.StoreValue" = betterproto.message_field(2)

@@ -2,14 +2,15 @@ use ahnlich_types::{
     ai::{
         pipeline::{AiQuery, AiRequestPipeline, AiResponsePipeline, ai_query::Query},
         query::{
-            ConvertStoreInputToEmbeddings, CreateNonLinearAlgorithmIndex, CreatePredIndex,
-            CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropSchema,
-            DropStore, GetKey, GetPred, GetSimN, GetStore, InfoServer, ListClients, ListStores,
-            Ping, PurgeStores, Set, Upsert,
+            ClearStore, ConvertStoreInputToEmbeddings, CreateNonLinearAlgorithmIndex,
+            CreatePredIndex, CreateStore, DelKey, DelPred, DropNonLinearAlgorithmIndex,
+            DropPredIndex, DropSchema, DropStore, GetKey, GetPred, GetSimN, GetStore, InfoServer,
+            ListClients, ListStoreEntries, ListStores, Ping, PurgeStores, Set, Upsert,
         },
         server::{
-            AiStoreInfo, ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult, Pong,
-            Set as SetResult, StoreInputToEmbeddingsList, StoreList, Unit,
+            AiStoreInfo, ClientList, CreateIndex, Del, Get, GetSimN as GetSimNResult,
+            ListStoreEntries as ListStoreEntriesResult, Pong, Set as SetResult,
+            StoreInputToEmbeddingsList, StoreList, Unit,
         },
     },
     services::ai_service::ai_service_client::AiServiceClient,
@@ -66,6 +67,10 @@ impl AiPipeline {
         self.queries.push(Query::GetPred(params));
     }
 
+    pub fn list_store_entries(&mut self, params: ListStoreEntries) {
+        self.queries.push(Query::ListStoreEntries(params));
+    }
+
     pub fn get_sim_n(&mut self, params: GetSimN) {
         self.queries.push(Query::GetSimN(params));
     }
@@ -89,6 +94,10 @@ impl AiPipeline {
 
     pub fn del_pred(&mut self, params: DelPred) {
         self.queries.push(Query::DelPred(params));
+    }
+
+    pub fn clear_store(&mut self, params: ClearStore) {
+        self.queries.push(Query::ClearStore(params));
     }
 
     pub fn drop_store(&mut self, params: DropStore) {
@@ -274,6 +283,23 @@ impl AiClient {
         Ok(self.client.clone().get_pred(req).await?.into_inner())
     }
 
+    pub async fn list_store_entries(
+        &self,
+        params: ListStoreEntries,
+        tracing_id: Option<String>,
+    ) -> Result<ListStoreEntriesResult, AhnlichError> {
+        let mut request = tonic::Request::new(params);
+        add_trace_parent(&mut request, tracing_id);
+        add_auth_header(&mut request, &self.auth_token);
+
+        Ok(self
+            .client
+            .clone()
+            .list_store_entries(request)
+            .await?
+            .into_inner())
+    }
+
     pub async fn get_sim_n(
         &self,
         params: GetSimN,
@@ -343,6 +369,18 @@ impl AiClient {
         add_trace_parent(&mut req, tracing_id);
         add_auth_header(&mut req, &self.auth_token);
         Ok(self.client.clone().del_pred(req).await?.into_inner())
+    }
+
+    pub async fn clear_store(
+        &self,
+        params: ClearStore,
+        tracing_id: Option<String>,
+    ) -> Result<Del, AhnlichError> {
+        let mut request = tonic::Request::new(params);
+        add_trace_parent(&mut request, tracing_id);
+        add_auth_header(&mut request, &self.auth_token);
+
+        Ok(self.client.clone().clear_store(request).await?.into_inner())
     }
 
     pub async fn del_key(
@@ -1707,5 +1745,211 @@ mod test {
 
         assert!(ai_client.ping(None).await.is_ok());
         assert!(ai_client.list_stores(None).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_ai_client_lists_and_clears_store_entries() {
+        let address = provision_test_servers().await;
+        let ai_client = AiClient::new(address.to_string())
+            .await
+            .expect("Could not initialize client");
+
+        let store = "Store Entries".to_string();
+
+        ai_client
+            .create_store(
+                CreateStore {
+                    store: store.clone(),
+                    index_model: AiModel::AllMiniLmL6V2 as i32,
+                    query_model: AiModel::AllMiniLmL6V2 as i32,
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: true,
+                    store_original: true,
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Could not create store");
+
+        let inputs = vec![
+            AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("First entry".to_string())),
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::new(),
+                }),
+            },
+            AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::RawString("Second entry".to_string())),
+                }),
+                value: Some(StoreValue {
+                    value: HashMap::new(),
+                }),
+            },
+        ];
+
+        ai_client
+            .set(
+                Set {
+                    store: store.clone(),
+                    inputs: inputs.clone(),
+                    preprocess_action: PreprocessAction::NoPreprocessing as i32,
+                    execution_provider: None,
+                    model_params: HashMap::new(),
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Could not store entries");
+
+        let first_page = ai_client
+            .list_store_entries(
+                ListStoreEntries {
+                    store: store.clone(),
+                    cursor: None,
+                    limit: Some(1),
+                    condition: None,
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Could not list first page");
+
+        assert_eq!(first_page.entries.len(), 1);
+        let cursor = first_page
+            .next_cursor
+            .clone()
+            .expect("First page should have a cursor");
+
+        let second_page = ai_client
+            .list_store_entries(
+                ListStoreEntries {
+                    store: store.clone(),
+                    cursor: Some(cursor),
+                    limit: Some(1),
+                    condition: None,
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Could not list second page");
+
+        assert_eq!(second_page.entries.len(), 1);
+        assert_eq!(second_page.next_cursor, None);
+
+        let mut entries = first_page.entries;
+        entries.extend(second_page.entries);
+
+        assert!(entries.iter().all(|entry| {
+            entry
+                .value
+                .as_ref()
+                .is_some_and(|value| value.value.is_empty())
+        }));
+
+        let mut listed_inputs: Vec<String> = entries
+            .into_iter()
+            .map(|entry| match entry.key.and_then(|key| key.value) {
+                Some(Value::RawString(value)) => value,
+                _ => panic!("Expected a raw string entry"),
+            })
+            .collect();
+
+        listed_inputs.sort();
+
+        assert_eq!(
+            listed_inputs,
+            vec!["First entry".to_string(), "Second entry".to_string()]
+        );
+
+        assert_eq!(
+            ai_client
+                .clear_store(
+                    ClearStore {
+                        store: store.clone(),
+                        schema: None,
+                    },
+                    None,
+                )
+                .await
+                .expect("Could not clear store"),
+            Del { deleted_count: 2 }
+        );
+
+        ai_client
+            .set(
+                Set {
+                    store: store.clone(),
+                    inputs: vec![inputs[0].clone()],
+                    preprocess_action: PreprocessAction::NoPreprocessing as i32,
+                    execution_provider: None,
+                    model_params: HashMap::new(),
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Store should remain usable after clearing");
+
+        let mut pipeline = ai_client.pipeline(None);
+
+        pipeline.list_store_entries(ListStoreEntries {
+            store: store.clone(),
+            cursor: None,
+            limit: Some(1),
+            condition: None,
+            schema: None,
+        });
+        pipeline.clear_store(ClearStore {
+            store: store.clone(),
+            schema: None,
+        });
+
+        let response = pipeline
+            .exec()
+            .await
+            .expect("Could not execute store-entry pipeline");
+
+        assert_eq!(response.responses.len(), 2);
+        assert!(matches!(
+            &response.responses[0].response,
+            Some(Response::ListStoreEntries(page))
+                if page.entries.len() == 1 && page.next_cursor.is_none()
+        ));
+        assert!(matches!(
+            &response.responses[1].response,
+            Some(Response::Del(deleted)) if deleted.deleted_count == 1
+        ));
+
+        let store_info = ai_client
+            .get_store(store.clone(), None)
+            .await
+            .expect("Store should still exist");
+
+        assert_eq!(store_info.db_info.map(|info| info.len), Some(0));
+
+        let empty_page = ai_client
+            .list_store_entries(
+                ListStoreEntries {
+                    store,
+                    cursor: None,
+                    limit: None,
+                    condition: None,
+                    schema: None,
+                },
+                None,
+            )
+            .await
+            .expect("Could not list cleared store");
+
+        assert!(empty_page.entries.is_empty());
+        assert_eq!(empty_page.next_cursor, None);
     }
 }

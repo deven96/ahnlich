@@ -947,6 +947,120 @@ export class ListStores extends Message<ListStores> {
 }
 
 /**
+ * @generated from message ai.query.ListStoreEntries
+ */
+export class ListStoreEntries extends Message<ListStoreEntries> {
+  /**
+   * Lists entries in a store using cursor-based pagination.
+   *
+   * @generated from field: string store = 1;
+   */
+  store = "";
+
+  /**
+   * @generated from field: optional string cursor = 2;
+   */
+  cursor?: string;
+
+  /**
+   * @generated from field: optional uint32 limit = 3;
+   */
+  limit?: number;
+
+  /**
+   * @generated from field: optional predicates.PredicateCondition condition = 4;
+   */
+  condition?: PredicateCondition;
+
+  /**
+   * @generated from field: optional string schema = 5;
+   */
+  schema?: string;
+
+  constructor(data?: PartialMessage<ListStoreEntries>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "ai.query.ListStoreEntries";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "cursor", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+    { no: 3, name: "limit", kind: "scalar", T: 13 /* ScalarType.UINT32 */, opt: true },
+    { no: 4, name: "condition", kind: "message", T: PredicateCondition, opt: true },
+    { no: 5, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ListStoreEntries {
+    return new ListStoreEntries().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ListStoreEntries {
+    return new ListStoreEntries().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ListStoreEntries {
+    return new ListStoreEntries().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: ListStoreEntries | PlainMessage<ListStoreEntries> | undefined,
+    b: ListStoreEntries | PlainMessage<ListStoreEntries> | undefined,
+  ): boolean {
+    return proto3.util.equals(ListStoreEntries, a, b);
+  }
+}
+
+/**
+ * @generated from message ai.query.ClearStore
+ */
+export class ClearStore extends Message<ClearStore> {
+  /**
+   * Deletes all entries while preserving the store and its configuration.
+   *
+   * @generated from field: string store = 1;
+   */
+  store = "";
+
+  /**
+   * @generated from field: optional string schema = 2;
+   */
+  schema?: string;
+
+  constructor(data?: PartialMessage<ClearStore>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "ai.query.ClearStore";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "store", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "schema", kind: "scalar", T: 9 /* ScalarType.STRING */, opt: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): ClearStore {
+    return new ClearStore().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): ClearStore {
+    return new ClearStore().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): ClearStore {
+    return new ClearStore().fromJsonString(jsonString, options);
+  }
+
+  static equals(
+    a: ClearStore | PlainMessage<ClearStore> | undefined,
+    b: ClearStore | PlainMessage<ClearStore> | undefined,
+  ): boolean {
+    return proto3.util.equals(ClearStore, a, b);
+  }
+}
+
+/**
  * @generated from message ai.query.GetStore
  */
 export class GetStore extends Message<GetStore> {

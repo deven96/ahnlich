@@ -131,6 +131,21 @@ message ListStores {
   optional string schema = 1; // Optional schema/namespace to filter stores. Defaults to "public" when unset.
 }
 
+message ListStoreEntries {
+  // Lists entries in a store using cursor-based pagination.
+  string store = 1;
+  optional string cursor = 2;
+  optional uint32 limit = 3;
+  optional predicates.PredicateCondition condition = 4;
+  optional string schema = 5;
+}
+
+message ClearStore {
+  // Deletes all entries while preserving the store and its configuration.
+  string store = 1;
+  optional string schema = 2;
+}
+
 message GetStore {
   // Gets detailed information about a specific store by name. Returns an error if the store does not exist.
   string store = 1; // Store name

@@ -46,6 +46,10 @@ class AiQuery(betterproto.Message):
     get_store: "_query__.GetStore" = betterproto.message_field(19, group="query")
     drop_schema: "_query__.DropSchema" = betterproto.message_field(20, group="query")
     upsert: "_query__.Upsert" = betterproto.message_field(21, group="query")
+    list_store_entries: "_query__.ListStoreEntries" = betterproto.message_field(
+        22, group="query"
+    )
+    clear_store: "_query__.ClearStore" = betterproto.message_field(23, group="query")
 
 
 @dataclass(eq=False, repr=False)
@@ -75,6 +79,9 @@ class AiServerResponse(betterproto.Message):
     )
     store_info: "_server__.AiStoreInfo" = betterproto.message_field(
         13, group="response"
+    )
+    list_store_entries: "_server__.ListStoreEntries" = betterproto.message_field(
+        14, group="response"
     )
 
 

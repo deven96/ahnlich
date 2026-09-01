@@ -31,6 +31,8 @@ message AIQuery {
     ai.query.GetStore get_store = 19;
     ai.query.DropSchema drop_schema = 20;
     ai.query.Upsert upsert = 21;
+    ai.query.ListStoreEntries list_store_entries = 22;
+    ai.query.ClearStore clear_store = 23;
   }
 }
 
@@ -53,6 +55,7 @@ message AIServerResponse {
     shared.info.ErrorResponse error = 11;
     ai.server.StoreInputToEmbeddingsList store_input_to_embeddings_list = 12;
     ai.server.AIStoreInfo store_info = 13;
+    ai.server.ListStoreEntries list_store_entries = 14;
   }
 }
 

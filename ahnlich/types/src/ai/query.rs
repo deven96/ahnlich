@@ -233,6 +233,28 @@ pub struct ListStores {
     pub schema: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListStoreEntries {
+    /// Lists entries in a store using cursor-based pagination.
+    #[prost(string, tag = "1")]
+    pub store: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "2")]
+    pub cursor: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag = "3")]
+    pub limit: ::core::option::Option<u32>,
+    #[prost(message, optional, tag = "4")]
+    pub condition: ::core::option::Option<super::super::predicates::PredicateCondition>,
+    #[prost(string, optional, tag = "5")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ClearStore {
+    /// Deletes all entries while preserving the store and its configuration.
+    #[prost(string, tag = "1")]
+    pub store: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "2")]
+    pub schema: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetStore {
     /// Gets detailed information about a specific store by name. Returns an error if the store does not exist.
     ///
