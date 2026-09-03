@@ -1,5 +1,7 @@
 use crate::error::AIProxyError;
 use hf_hub::api::sync::ApiRepo;
+use ndarray::IxDyn;
+use ort::tensor::Shape;
 use serde_json;
 use std::collections::HashMap;
 use std::fs::File;
@@ -24,6 +26,18 @@ pub fn read_file_to_bytes(file: &PathBuf) -> Result<Vec<u8>, AIProxyError> {
             message: format!("failed to read file {file:?}"),
         })?;
     Ok(buffer)
+}
+
+/// Convert ort tensor tuple (&Shape, &[T]) to ndarray Array (owned)
+pub fn tensor_to_ndarray<T: Clone>(shape: &Shape, data: &[T]) -> Result<ndarray::Array<T, IxDyn>, AIProxyError> {
+    let dims: Vec<usize> = shape
+        .as_ref()
+        .iter()
+        .map(|&d| d as usize)
+        .collect();
+    
+    ndarray::Array::from_shape_vec(dims, data.to_vec())
+        .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))
 }
 
 pub struct HFConfigReader {

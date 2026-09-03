@@ -11,12 +11,13 @@ use ahnlich_types::keyval::StoreKey;
 use ahnlich_types::metadata::MetadataValue;
 use hf_hub::api::sync::Api;
 use ndarray::{Array, Axis, Ix2, Ix3, Ix4, s};
-use ort::Session;
+use ort::{session::Session, value::TensorRef};
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::future::Future;
 use std::mem::size_of;
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 
 /// SCRFD detection, then ArcFace recognition on a 112x112 crop aligned from the detected
 /// landmarks: one embedding per face (OneToMany). Gender/age is off unless asked for.
@@ -370,7 +371,7 @@ impl BuffaloLModel {
     /// Extract gender and age attributes using bbox-based affine transformation.
     /// Follows InsightFace's approach: scale = input_size / (max(w,h) * 1.5)
     async fn predict_gender_age(
-        genderage_session: &Session,
+        genderage_session: &Arc<Mutex<Session>>,
         letterboxed_images: &Array<f32, Ix4>,
         detections: &[FaceDetection],
     ) -> Result<Vec<(f32, f32, i32)>, AIProxyError> {
@@ -429,27 +430,27 @@ impl BuffaloLModel {
         // Run inference sequentially (ONNX sessions are not thread-safe)
         let mut results = Vec::with_capacity(detections.len());
         for input in preprocessed_crops.into_iter() {
-            let outputs =
-                genderage_session
-                    .run(ort::inputs!["data" => input.view()].map_err(|e| {
-                        AIProxyError::ModelProviderPreprocessingError(e.to_string())
-                    })?)
-                    .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
+            let mut session_guard = genderage_session
+                .lock()
+                .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+            let outputs = session_guard
+                .run(ort::inputs!["data" => TensorRef::from_array_view(input.view())?])
+                .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
 
-            let combined = outputs[0]
+            let (combined_shape, combined_data) = outputs[0]
                 .try_extract_tensor::<f32>()
                 .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
-            if combined.shape() != [1, 3] {
+            if combined_shape.as_ref() != [1, 3] {
                 return Err(AIProxyError::ModelProviderPostprocessingError(format!(
                     "Expected output shape [1, 3], got {:?}",
-                    combined.shape()
+                    combined_shape
                 )));
             }
 
-            let female_logit = combined.view()[[0, 0]];
-            let male_logit = combined.view()[[0, 1]];
-            let age_raw = combined.view()[[0, 2]];
+            let female_logit = combined_data[0];
+            let male_logit = combined_data[1];
+            let age_raw = combined_data[2];
 
             let exp_female = female_logit.exp();
             let exp_male = male_logit.exp();
@@ -467,13 +468,15 @@ impl BuffaloLModel {
     fn detect_faces(
         &self,
         image: Array<f32, Ix4>,
-        session: &Session,
+        session: &Arc<Mutex<Session>>,
         model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<FaceDetection>, AIProxyError> {
-        let session_inputs = ort::inputs!["input.1" => image.view()]
-            .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+        let session_inputs = ort::inputs!["input.1" => TensorRef::from_array_view(&image)?];
 
-        let outputs = session
+        let mut session_guard = session
+            .lock()
+            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
 
@@ -484,7 +487,7 @@ impl BuffaloLModel {
     #[tracing::instrument(skip(self, outputs, model_params))]
     fn parse_detections(
         &self,
-        outputs: ort::SessionOutputs,
+        outputs: ort::session::SessionOutputs,
         model_params: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<FaceDetection>, AIProxyError> {
         const DEFAULT_CONFIDENCE_THRESHOLD: f32 = 0.5;
@@ -507,11 +510,15 @@ impl BuffaloLModel {
 
         let tensors: Vec<_> = outputs
             .values()
-            .map(|value| value.try_extract_tensor::<f32>())
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+            .map(|value| {
+                let (shape, data) = value.try_extract_tensor::<f32>()
+                    .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+                super::super::helper::tensor_to_ndarray(shape, data)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
-        let faces = scrfd::decode(&tensors, &self.anchors, confidence_threshold)?;
+        let tensor_views: Vec<_> = tensors.iter().map(|t| t.view()).collect();
+        let faces = scrfd::decode(&tensor_views, &self.anchors, confidence_threshold)?;
 
         Ok(apply_nms(faces, nms_threshold))
     }
@@ -521,26 +528,29 @@ impl BuffaloLModel {
     fn recognize_faces(
         &self,
         faces: Array<f32, Ix4>,
-        session: &Session,
+        session: &Arc<Mutex<Session>>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         // Recognition model expects "input.1" tensor (same as detection)
-        let session_inputs = ort::inputs!["input.1" => faces.view()]
-            .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+        let session_inputs = ort::inputs!["input.1" => TensorRef::from_array_view(&faces)?];
 
-        let outputs = session
+        let mut session_guard = session
+            .lock()
+            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
 
         // Extract embeddings from output
-        let embeddings = outputs[0]
+        let (embeddings_shape, embeddings_data) = outputs[0]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
-        let shape = embeddings.shape();
-        let embedding_array = embeddings
-            .to_owned()
-            .into_shape_with_order((shape[0], shape[1]))
-            .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+        let shape = embeddings_shape.as_ref();
+        let embedding_array = Array::from_shape_vec(
+            (shape[0] as usize, shape[1] as usize),
+            embeddings_data.to_vec()
+        )
+        .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
         Ok(embedding_array)
     }

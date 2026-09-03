@@ -1,18 +1,18 @@
 use moka::future::Cache as MokaCache;
-use ort::{GraphOptimizationLevel, Session};
+use ort::session::{Session, builder::GraphOptimizationLevel};
 
 use crate::error::AIProxyError;
 use strum::IntoEnumIterator;
 
 use super::{InnerAIExecutionProvider, register_provider};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread::available_parallelism;
 
 // Handles dynamically retrieving a session for an execution provider or creating the session if
 // not exists
 pub struct ExecutorWithSessionCache {
-    cache: MokaCache<InnerAIExecutionProvider, Arc<Session>>,
+    cache: MokaCache<InnerAIExecutionProvider, Arc<Mutex<Session>>>,
     model_file_reference: PathBuf,
     session_profiling: bool,
 }
@@ -31,7 +31,7 @@ impl ExecutorWithSessionCache {
     async fn inner_get_with(
         &self,
         execution_provider: InnerAIExecutionProvider,
-    ) -> Result<Arc<Session>, AIProxyError> {
+    ) -> Result<Arc<Mutex<Session>>, AIProxyError> {
         let threads = available_parallelism()
             .map_err(|e| AIProxyError::APIBuilderError(e.to_string()))?
             .get();
@@ -49,17 +49,17 @@ impl ExecutorWithSessionCache {
         if self.session_profiling {
             session_builder = session_builder.with_profiling("profiling.json")?;
         }
-        register_provider(execution_provider, &session_builder)?;
-        Ok(Arc::new(
+        register_provider(execution_provider, &mut session_builder)?;
+        Ok(Arc::new(Mutex::new(
             session_builder.commit_from_file(self.model_file_reference.clone())?,
-        ))
+        )))
     }
 
     #[tracing::instrument(skip(self))]
     pub async fn try_get_with(
         &self,
         execution_provider: InnerAIExecutionProvider,
-    ) -> Result<Arc<Session>, AIProxyError> {
+    ) -> Result<Arc<Mutex<Session>>, AIProxyError> {
         self.cache
             .try_get_with(execution_provider, self.inner_get_with(execution_provider))
             .await
