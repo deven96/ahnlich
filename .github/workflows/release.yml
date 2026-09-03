@@ -81,7 +81,7 @@ jobs:
                 echo ${{ needs.prebuild_preparation.outputs.bin_name }}
                 if [[ ${{ needs.prebuild_preparation.outputs.bin_name }} == "ahnlich-ai" ]] && [[ $MATRIX_TARGET == *darwin ]]; then
                   echo "running with coreml.."  
-                  cargo build --features coreml --release --target ${{matrix.target}} --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
+                  cargo build --no-default-features --features coreml --release --target ${{matrix.target}} --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
                 else
                     echo "running without features" 
                     cargo build --release --target ${{matrix.target}} --bin ${{ needs.prebuild_preparation.outputs.bin_name }}
