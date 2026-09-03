@@ -1,8 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
 use ahnlich_client_rs::db::DbClient;
-use ahnlich_types::ai::query::{DropSchema as AiDropSchema, Upsert};
-use ahnlich_types::db::query::Upsert as DbUpsert;
+use ahnlich_types::ai::query::{ClearStore, DropSchema as AiDropSchema, ListStoreEntries, Upsert};
+use ahnlich_types::db::query::{
+    ClearStore as DbClearStore, ListStoreEntries as DbListStoreEntries, Upsert as DbUpsert,
+};
 use ahnlich_types::{
     ai::{
         models::AiModel,
@@ -12,7 +14,10 @@ use ahnlich_types::{
             DelPred as AiDelPred, DropNonLinearAlgorithmIndex, DropPredIndex, DropStore,
             ListStores, PurgeStores, Set,
         },
-        server::{AiStoreInfo, CreateIndex, Del, Set as SetResponse, StoreList, Unit},
+        server::{
+            AiStoreInfo, CreateIndex, Del, ListStoreEntries as ListStoreEntriesResponse,
+            Set as SetResponse, StoreList, Unit,
+        },
     },
     db::{
         pipeline::{DbServerResponse, db_server_response::Response as DbResponse},
@@ -456,6 +461,28 @@ pub async fn del_pred(
     })
 }
 
+pub async fn clear_store(
+    db_client: Option<Arc<DbClient>>,
+    params: ClearStore,
+    parent_id: Option<String>,
+) -> Result<Del, Status> {
+    let schema = resolve_schema(&params.schema)?;
+
+    let response = require_db_client(db_client)?
+        .clear_store(
+            DbClearStore {
+                store: params.store,
+                schema: Some(schema.to_string()),
+            },
+            parent_id,
+        )
+        .await?;
+
+    Ok(Del {
+        deleted_count: response.deleted_count,
+    })
+}
+
 pub async fn drop_store(
     store_handler: &AIStoreHandler,
     db_client: Option<Arc<DbClient>>,
@@ -558,6 +585,35 @@ pub async fn list_stores(
     }
 
     Ok(StoreList { stores })
+}
+
+pub async fn list_store_entries(
+    store_handler: &AIStoreHandler,
+    db_client: Option<Arc<DbClient>>,
+    params: ListStoreEntries,
+    parent_id: Option<String>,
+) -> Result<ListStoreEntriesResponse, Status> {
+    let schema = resolve_schema(&params.schema)?;
+
+    let response = require_db_client(db_client)?
+        .list_store_entries(
+            DbListStoreEntries {
+                store: params.store,
+                cursor: params.cursor,
+                limit: params.limit,
+                condition: params.condition,
+                schema: Some(schema.to_string()),
+            },
+            parent_id,
+        )
+        .await?;
+
+    let entries = store_handler.db_store_entry_to_store_get_key(response.entries);
+
+    Ok(ListStoreEntriesResponse {
+        entries,
+        next_cursor: response.next_cursor,
+    })
 }
 
 pub async fn drop_schema(

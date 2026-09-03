@@ -141,6 +141,23 @@ class DbServiceStub(betterproto.ServiceStub):
             metadata=metadata,
         )
 
+    async def list_store_entries(
+        self,
+        db_query_list_store_entries: "__db_query__.ListStoreEntries",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__db_server__.ListStoreEntries":
+        return await self._unary_unary(
+            "/services.db_service.DBService/ListStoreEntries",
+            db_query_list_store_entries,
+            __db_server__.ListStoreEntries,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
     async def set(
         self,
         db_query_set: "__db_query__.Set",
@@ -271,6 +288,23 @@ class DbServiceStub(betterproto.ServiceStub):
         return await self._unary_unary(
             "/services.db_service.DBService/DropSchema",
             db_query_drop_schema,
+            __db_server__.Del,
+            timeout=timeout,
+            deadline=deadline,
+            metadata=metadata,
+        )
+
+    async def clear_store(
+        self,
+        db_query_clear_store: "__db_query__.ClearStore",
+        *,
+        timeout: Optional[float] = None,
+        deadline: Optional["Deadline"] = None,
+        metadata: Optional["MetadataLike"] = None
+    ) -> "__db_server__.Del":
+        return await self._unary_unary(
+            "/services.db_service.DBService/ClearStore",
+            db_query_clear_store,
             __db_server__.Del,
             timeout=timeout,
             deadline=deadline,
@@ -418,6 +452,11 @@ class DbServiceBase(ServiceBase):
     ) -> "__db_server__.StoreInfo":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def list_store_entries(
+        self, db_query_list_store_entries: "__db_query__.ListStoreEntries"
+    ) -> "__db_server__.ListStoreEntries":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def set(self, db_query_set: "__db_query__.Set") -> "__db_server__.Set":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
@@ -454,6 +493,11 @@ class DbServiceBase(ServiceBase):
 
     async def drop_schema(
         self, db_query_drop_schema: "__db_query__.DropSchema"
+    ) -> "__db_server__.Del":
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
+    async def clear_store(
+        self, db_query_clear_store: "__db_query__.ClearStore"
     ) -> "__db_server__.Del":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
@@ -539,6 +583,14 @@ class DbServiceBase(ServiceBase):
         response = await self.get_store(request)
         await stream.send_message(response)
 
+    async def __rpc_list_store_entries(
+        self,
+        stream: "grpclib.server.Stream[__db_query__.ListStoreEntries, __db_server__.ListStoreEntries]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.list_store_entries(request)
+        await stream.send_message(response)
+
     async def __rpc_set(
         self, stream: "grpclib.server.Stream[__db_query__.Set, __db_server__.Set]"
     ) -> None:
@@ -596,6 +648,14 @@ class DbServiceBase(ServiceBase):
     ) -> None:
         request = await stream.recv_message()
         response = await self.drop_schema(request)
+        await stream.send_message(response)
+
+    async def __rpc_clear_store(
+        self,
+        stream: "grpclib.server.Stream[__db_query__.ClearStore, __db_server__.Del]",
+    ) -> None:
+        request = await stream.recv_message()
+        response = await self.clear_store(request)
         await stream.send_message(response)
 
     async def __rpc_list_clients(
@@ -689,6 +749,12 @@ class DbServiceBase(ServiceBase):
                 __db_query__.GetStore,
                 __db_server__.StoreInfo,
             ),
+            "/services.db_service.DBService/ListStoreEntries": grpclib.const.Handler(
+                self.__rpc_list_store_entries,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __db_query__.ListStoreEntries,
+                __db_server__.ListStoreEntries,
+            ),
             "/services.db_service.DBService/Set": grpclib.const.Handler(
                 self.__rpc_set,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -735,6 +801,12 @@ class DbServiceBase(ServiceBase):
                 self.__rpc_drop_schema,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 __db_query__.DropSchema,
+                __db_server__.Del,
+            ),
+            "/services.db_service.DBService/ClearStore": grpclib.const.Handler(
+                self.__rpc_clear_store,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                __db_query__.ClearStore,
                 __db_server__.Del,
             ),
             "/services.db_service.DBService/ListClients": grpclib.const.Handler(

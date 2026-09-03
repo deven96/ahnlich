@@ -7,13 +7,11 @@
 package nonlinear
 
 import (
-	reflect "reflect"
-	sync "sync"
-
+	algorithms "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-
-	algorithms "github.com/deven96/ahnlich/sdk/ahnlich-client-go/grpc/algorithm/algorithms"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (

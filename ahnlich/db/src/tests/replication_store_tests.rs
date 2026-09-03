@@ -92,6 +92,13 @@ fn drop_store_query(store: &str) -> query::DropStore {
     }
 }
 
+fn clear_store_query(store: &str) -> query::ClearStore {
+    query::ClearStore {
+        store: store.to_owned(),
+        schema: None,
+    }
+}
+
 fn encode_command<M: Message>(query: &M, wrap: impl FnOnce(Vec<u8>) -> DbCommand) -> DbCommand {
     wrap(query.encode_to_vec())
 }
@@ -197,4 +204,61 @@ fn apply_operation_failure_marks_replication_failure_state() {
     let reason = failure_state.reason().expect("failure reason should exist");
     assert!(reason.contains("state machine apply failed"));
     assert!(reason.contains("Set apply failed"));
+}
+
+#[test]
+fn clear_store_command_removes_entries_without_dropping_store() {
+    let mut store = StateMachineStore::<DbTypeConfig, _>::new(
+        DbStateMachine::new(Arc::new(AtomicBool::new(false)), 16, None, 10_000),
+        StoredMembership::new(None, membership(&[1])),
+        Arc::new(ReplicationFailureState::default()),
+        Arc::new(MemorySnapshotStore::default()),
+    )
+    .expect("create state machine store");
+
+    let responses = block_on(store.apply(vec![
+        normal_entry(
+            1,
+            1,
+            1,
+            encode_command(&create_store_query("products", 2), DbCommand::CreateStore),
+        ),
+        normal_entry(
+            1,
+            1,
+            2,
+            encode_command(&set_query("products"), DbCommand::Set),
+        ),
+        normal_entry(
+            1,
+            1,
+            3,
+            encode_command(&clear_store_query("products"), DbCommand::ClearStore),
+        ),
+    ]))
+    .expect("replicated operations should succeed");
+
+    let deleted_count = decode_count_response(
+        responses
+            .into_iter()
+            .last()
+            .expect("clear operation should return a response"),
+    );
+
+    assert_eq!(deleted_count, 1);
+
+    let store_info = store
+        .with_handler(|handler| {
+            handler.store_handler().get_store(
+                &StoreName {
+                    value: "products".to_owned(),
+                },
+                &Schema::default(),
+            )
+        })
+        .expect("state machine access should succeed")
+        .expect("cleared store should still exist");
+
+    assert_eq!(store_info.len, 0);
+    assert_eq!(store_info.dimension, 2);
 }
