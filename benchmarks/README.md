@@ -104,6 +104,7 @@ rows.
 |---|---|---|
 | `HOST` / `PORT` | `127.0.0.1` / `1369` | |
 | `CONCURRENCY_LEVELS` | `1 10 50 100` | space separated |
+| `SCENARIOS` | all scenarios | space-separated scenario names to run |
 | `TOTAL_REQUESTS` | `10000` | measured requests per run |
 | `WARMUP_REQUESTS` | `500` | issued first, excluded from stats |
 | `REPEATS` | `3` | runs per configuration |
