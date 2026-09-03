@@ -1198,11 +1198,16 @@ impl Store {
             .map(check_and_wrap)
             .collect::<Result<_, _>>()?;
 
-        // Build predicate insert list using cheap clones
-        let predicate_insert: Vec<(StoreKeyId, Arc<StoreValue>)> = res
-            .par_iter()
-            .map(|(k, _, v)| (*k, Arc::clone(v)))
-            .collect();
+        // Avoid staging predicate updates when this store has no predicate indexes.
+        let predicate_insert = if self.predicate_indices.is_empty() {
+            None
+        } else {
+            Some(
+                res.par_iter()
+                    .map(|(k, _, v)| (*k, Arc::clone(v)))
+                    .collect(),
+            )
+        };
 
         let inserted = AtomicUsize::new(0);
         let updated = AtomicUsize::new(0);
@@ -1227,8 +1232,10 @@ impl Store {
             })
             .collect();
 
-        self.predicate_indices
-            .add(predicate_insert, parallelism_config, active_requests);
+        if let Some(predicate_insert) = predicate_insert {
+            self.predicate_indices
+                .add(predicate_insert, parallelism_config, active_requests);
+        }
 
         if !self.non_linear_indices.is_empty() {
             self.non_linear_indices.insert(inserted_keys);

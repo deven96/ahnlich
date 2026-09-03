@@ -318,6 +318,11 @@ impl PredicateIndices {
         }
     }
 
+    #[inline]
+    pub(super) fn is_empty(&self) -> bool {
+        self.allowed_predicates.is_empty()
+    }
+
     /// returns the store key id that fulfill the predicate condition
     #[tracing::instrument(skip_all)]
     pub(super) fn matches(
