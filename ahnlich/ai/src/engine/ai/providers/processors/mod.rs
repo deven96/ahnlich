@@ -1,7 +1,7 @@
 use crate::engine::ai::models::ImageArray;
 use crate::error::AIProxyError;
 use ndarray::{Array, Ix2, Ix3, Ix4};
-use ort::SessionOutputs;
+use ort::session::SessionOutputs;
 use tokenizers::Encoding;
 
 /// CLAP audio features ready for the audio encoder.
@@ -32,7 +32,7 @@ pub trait Preprocessor: Send + Sync {
 }
 
 pub trait Postprocessor: Send + Sync {
-    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData<'_, '_>, AIProxyError>;
+    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData<'_>, AIProxyError>;
 }
 
 pub enum PreprocessorData {
@@ -57,8 +57,8 @@ impl PreprocessorData {
     }
 }
 
-pub enum PostprocessorData<'r, 's> {
-    OnnxOutput(SessionOutputs<'r, 's>),
+pub enum PostprocessorData<'r> {
+    OnnxOutput(SessionOutputs<'r>),
     NdArray2(Array<f32, Ix2>),
     NdArray3(Array<f32, Ix3>),
 }

@@ -9,11 +9,12 @@ use ahnlich_types::keyval::StoreKey;
 use fallible_collections::FallibleVec;
 use itertools::Itertools;
 use ndarray::{Array, ArrayView1, Axis, Ix2, Ix4};
-use ort::{Session, Value};
+use ort::{session::Session, value::{Value, TensorRef}};
 use rayon::prelude::*;
 use std::future::Future;
 use std::mem::size_of;
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 use tokenizers::Encoding;
 use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
@@ -44,7 +45,7 @@ impl SingleStageModel {
     fn batch_inference_image(
         &self,
         inputs: Array<f32, Ix4>,
-        session: &Session,
+        session: &Arc<Mutex<Session>>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         let input_param = match self.supported_models {
             SupportedModels::Resnet50 => "input",
@@ -57,30 +58,34 @@ impl SingleStageModel {
         };
 
         let session_inputs = ort::inputs![
-            input_param => inputs.view(),
-        ]
-        .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+            input_param => TensorRef::from_array_view(&inputs)?,
+        ];
 
         let child_span = tracing::info_span!("image-model-session-run");
         child_span.set_parent(Span::current().context());
         let child_guard = child_span.enter();
-        let outputs = session
+        let mut session_guard = session
+            .lock()
+            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
         drop(child_guard);
 
         // Postprocess output directly here
-        let output_tensor = outputs
+        let output_value = outputs
             .values()
             .next()
             .ok_or_else(|| {
                 AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
-            })?
+            })?;
+        
+        let (shape, data) = output_value
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
-        let mut embeddings = output_tensor
-            .to_owned()
+        let tensor_array = super::helper::tensor_to_ndarray(shape, data)?;
+        let mut embeddings = tensor_array
             .into_dimensionality::<Ix2>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
@@ -110,7 +115,7 @@ impl SingleStageModel {
     fn batch_inference_text(
         &self,
         encodings: Vec<Encoding>,
-        session: &Session,
+        session: &Arc<Mutex<Session>>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         if self.model_type != ORTModality::Text {
             return Err(AIProxyError::AIModelNotSupported {
@@ -122,15 +127,19 @@ impl SingleStageModel {
         let encoding_length = encodings[0].len();
         let max_size = encoding_length * batch_size;
 
-        let need_attention_mask = session
-            .inputs
+        let session_guard = session
+            .lock()
+            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let need_attention_mask = session_guard
+            .inputs()
             .iter()
-            .any(|input| input.name == "attention_mask");
+            .any(|input| input.name() == "attention_mask");
 
-        let need_token_type_ids = session
-            .inputs
+        let need_token_type_ids = session_guard
+            .inputs()
             .iter()
-            .any(|input| input.name == "token_type_ids");
+            .any(|input| input.name() == "token_type_ids");
+        drop(session_guard);
 
         // Memory check: 1 array for input_ids, plus optional attention_mask and token_type_ids
         let num_arrays = 1 + usize::from(need_attention_mask) + usize::from(need_token_type_ids);
@@ -179,13 +188,12 @@ impl SingleStageModel {
 
         let mut session_inputs = ort::inputs![
             "input_ids" => Value::from_array(inputs_ids_array)?,
-        ]
-        .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+        ];
 
         if let Some(ref mask) = attention_mask_array {
             session_inputs.push((
                 "attention_mask".into(),
-                Value::from_array(mask.view())?.into(),
+                Value::from_array(mask.clone())?.into(),
             ));
         }
 
@@ -199,7 +207,10 @@ impl SingleStageModel {
         let child_span = tracing::info_span!("text-model-session-run");
         child_span.set_parent(Span::current().context());
         let child_guard = child_span.enter();
-        let session_outputs = session
+        let mut session_guard = session
+            .lock()
+            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let session_outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
         drop(child_guard);
@@ -215,33 +226,36 @@ impl SingleStageModel {
     /// output 2D `(batch, emb_dim)` directly and need no pooling.
     fn postprocess_text_output(
         &self,
-        session_output: ort::SessionOutputs,
+        session_output: ort::session::SessionOutputs,
         attention_mask: Option<Array<i64, Ix2>>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
-        let output_tensor = session_output
+        let output_value = session_output
             .values()
             .next()
             .ok_or_else(|| {
                 AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
-            })?
+            })?;
+        
+        let (tensor_shape, tensor_data) = output_value
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
-        let shape = output_tensor.shape();
+        let shape = tensor_shape.as_ref();
+        let output_tensor = super::helper::tensor_to_ndarray(tensor_shape, tensor_data)?;
 
         // Projection-based encoders (CLIP text, CLAP text) output 2D (batch, emb_dim) directly
         if shape.len() == 2 {
             let mut embeddings = output_tensor
-                .to_owned()
                 .into_dimensionality::<Ix2>()
-                .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+                .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?
+                .to_owned();
             self.normalize_embeddings(&mut embeddings);
             return Ok(embeddings);
         }
 
-        let batch_size = shape[0];
-        let seq_len = shape[1];
-        let hidden_size = shape[2];
+        let batch_size = shape[0] as usize;
+        let seq_len = shape[1] as usize;
+        let hidden_size = shape[2] as usize;
 
         let attention_mask = attention_mask.ok_or_else(|| {
             AIProxyError::ModelProviderPostprocessingError(
@@ -454,32 +468,36 @@ impl SingleStageModel {
     fn batch_inference_audio(
         &self,
         audio_input: AudioInput,
-        session: &Session,
+        session: &Arc<Mutex<Session>>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         let session_inputs = ort::inputs![
-            "input_features" => audio_input.input_features.view(),
-        ]
-        .map_err(|e| AIProxyError::ModelProviderPreprocessingError(e.to_string()))?;
+            "input_features" => TensorRef::from_array_view(&audio_input.input_features)?,
+        ];
 
         let child_span = tracing::info_span!("audio-model-session-run");
         child_span.set_parent(tracing::Span::current().context());
         let child_guard = child_span.enter();
-        let outputs = session
+        let mut session_guard = session
+            .lock()
+            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
         drop(child_guard);
 
-        let output_tensor = outputs
+        let output_value = outputs
             .values()
             .next()
             .ok_or_else(|| {
                 AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
-            })?
+            })?;
+        
+        let (shape, data) = output_value
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
-        let mut embeddings = output_tensor
-            .to_owned()
+        let tensor_array = super::helper::tensor_to_ndarray(shape, data)?;
+        let mut embeddings = tensor_array
             .into_dimensionality::<Ix2>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 

@@ -17,8 +17,8 @@ use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvi
 use executor::ExecutorWithSessionCache;
 use hf_hub::{Cache, api::sync::ApiBuilder};
 use ort::{
-    CUDAExecutionProvider, CoreMLExecutionProvider, DirectMLExecutionProvider, ExecutionProvider,
-    MIGraphXExecutionProvider, SessionBuilder, SessionOutputs, TensorRTExecutionProvider,
+    ep::{ExecutionProvider, CUDA, CoreML, DirectML, MIGraphX, TensorRT},
+    session::builder::SessionBuilder,
 };
 use strum::EnumIter;
 
@@ -68,19 +68,19 @@ impl From<AIExecutionProvider> for InnerAIExecutionProvider {
 
 fn register_provider(
     provider: InnerAIExecutionProvider,
-    builder: &SessionBuilder,
+    builder: &mut SessionBuilder,
 ) -> Result<(), AIProxyError> {
     match provider {
         InnerAIExecutionProvider::TensorRT => {
-            TensorRTExecutionProvider::default().register(builder)?
+            TensorRT::default().register(builder)?
         }
-        InnerAIExecutionProvider::CUDA => CUDAExecutionProvider::default().register(builder)?,
+        InnerAIExecutionProvider::CUDA => CUDA::default().register(builder)?,
         InnerAIExecutionProvider::DirectML => {
-            DirectMLExecutionProvider::default().register(builder)?
+            DirectML::default().register(builder)?
         }
-        InnerAIExecutionProvider::CoreML => CoreMLExecutionProvider::default().register(builder)?,
+        InnerAIExecutionProvider::CoreML => CoreML::default().register(builder)?,
         InnerAIExecutionProvider::MIGraphX => {
-            MIGraphXExecutionProvider::default().register(builder)?
+            MIGraphX::default().register(builder)?
         }
         InnerAIExecutionProvider::CPU => (),
     };
@@ -358,7 +358,7 @@ impl ORTProvider {
     #[tracing::instrument(skip_all)]
     pub fn postprocess_text_output(
         &self,
-        session_output: SessionOutputs,
+        session_output: ort::session::SessionOutputs,
         attention_mask: Array<i64, Ix2>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         match &self.postprocessor {
@@ -384,7 +384,7 @@ impl ORTProvider {
     #[tracing::instrument(skip_all)]
     pub fn postprocess_image_output(
         &self,
-        session_output: SessionOutputs,
+        session_output: ort::session::SessionOutputs,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         match &self.postprocessor {
             ORTPostprocessor::Image(postprocessor) => {

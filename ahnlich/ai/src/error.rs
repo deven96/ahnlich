@@ -204,6 +204,12 @@ impl From<ort::Error> for AIProxyError {
     }
 }
 
+impl From<ort::ep::RegisterError> for AIProxyError {
+    fn from(input: ort::ep::RegisterError) -> Self {
+        Self::ORTError(input.to_string())
+    }
+}
+
 impl From<AIProxyError> for Status {
     fn from(input: AIProxyError) -> Status {
         let message = input.to_string();
