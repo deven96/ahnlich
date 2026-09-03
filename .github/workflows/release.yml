@@ -61,6 +61,7 @@ jobs:
 
         name: Build ${{ matrix.target }} Binaries
         runs-on:  ${{ matrix.runner }}
+        if: ${{ !(matrix.target == 'x86_64-apple-darwin' && needs.prebuild_preparation.outputs.bin_name == 'ahnlich-ai') }}
         outputs:
           bin_name: ${{ needs.prebuild_preparation.outputs.bin_name }}
         steps:
