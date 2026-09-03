@@ -180,7 +180,44 @@ jobs:
               labels: |
                 org.opencontainers.image.description=${{ env.DESCRIPTION }}
 
-          - name: Build and push Docker images
+          - name: Build Docker image
+            id: build
+            uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+            with:
+              context: ./ahnlich
+              push: false
+              load: true
+              tags: ${{ steps.meta.outputs.tags }}
+              labels: ${{ steps.meta.outputs.labels }}
+              build-args: |
+                AHNLICH_BIN=${{ needs.prebuild_preparation.outputs.bin_name}}
+                DEFAULT_PORT=${{env.DEFAULT_PORT}}
+                RUST_VERSION=${{ needs.prebuild_preparation.outputs.rust_version }}
+                ORT_VER=${{ needs.prebuild_preparation.outputs.ort_version }}
+
+          - name: Smoke test Docker image
+            run: |
+              IMAGE_TAG="ghcr.io/${{ github.repository_owner }}/${{needs.prebuild_preparation.outputs.bin_name}}:${{env.BIN_VERSION}}"
+              echo "Testing image: $IMAGE_TAG"
+              
+              if [ "${{ needs.prebuild_preparation.outputs.bin_name }}" == "ahnlich-ai" ]; then
+                echo "Testing ahnlich-ai can list models..."
+                docker run --rm "$IMAGE_TAG" "ahnlich-ai supported-models" | head -5
+                if [ $? -ne 0 ]; then
+                  echo "ERROR: ahnlich-ai failed to list models"
+                  exit 1
+                fi
+                echo "✓ ahnlich-ai smoke test passed"
+              fi
+              
+              if [ "${{ needs.prebuild_preparation.outputs.bin_name }}" == "ahnlich-db" ]; then
+                echo "Testing ahnlich-db binary exists..."
+                docker create --name test-db "$IMAGE_TAG" "true" 
+                docker rm test-db
+                echo "✓ ahnlich-db smoke test passed"
+              fi
+
+          - name: Push Docker image
             id: push
             uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
             with:
@@ -253,7 +290,36 @@ jobs:
               labels: |
                 org.opencontainers.image.description=${{ env.DESCRIPTION }}
 
-          - name: Build and push Docker images
+          - name: Build Docker image
+            id: build
+            uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+            with:
+              context: ./ahnlich
+              file: ./ahnlich/Dockerfile.migraphx
+              push: false
+              load: true
+              tags: ${{ steps.meta.outputs.tags }}
+              labels: ${{ steps.meta.outputs.labels }}
+              build-args: |
+                AHNLICH_BIN=${{ needs.prebuild_preparation.outputs.bin_name}}
+                DEFAULT_PORT=${{env.DEFAULT_PORT}}
+                RUST_VERSION=${{ needs.prebuild_preparation.outputs.rust_version }}
+                ORT_VER=${{ needs.prebuild_preparation.outputs.ort_version }}
+
+          - name: Smoke test Docker image
+            run: |
+              IMAGE_TAG="ghcr.io/${{ github.repository_owner }}/${{needs.prebuild_preparation.outputs.bin_name}}:${{env.BIN_VERSION}}-migraphx"
+              echo "Testing MIGraphX image: $IMAGE_TAG"
+              
+              echo "Testing ahnlich-ai can list models..."
+              docker run --rm "$IMAGE_TAG" "ahnlich-ai supported-models" | head -5
+              if [ $? -ne 0 ]; then
+                echo "ERROR: ahnlich-ai MIGraphX failed to list models"
+                exit 1
+              fi
+              echo "✓ ahnlich-ai MIGraphX smoke test passed"
+
+          - name: Push Docker image
             id: push
             uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
             with:
