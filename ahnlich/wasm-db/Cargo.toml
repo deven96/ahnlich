@@ -15,8 +15,3 @@ rmp-serde = "1.3"
 console_error_panic_hook = "0.1"
 wasm-bindgen-rayon = "1.2"
 rayon = "1.12"
-
-[profile.release]
-opt-level = "z"
-lto = true
-strip = true

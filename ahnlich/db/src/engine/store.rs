@@ -1204,28 +1204,27 @@ impl Store {
             .map(|(k, _, v)| (*k, Arc::clone(v)))
             .collect();
 
-        let inserted = AtomicUsize::new(0);
-        let updated = AtomicUsize::new(0);
-
         // Insert into main store, collecting keys for non-linear indices
-        let inserted_keys: Vec<_> = res
-            .into_par_iter()
-            .filter_map(|(k, embedding_key, arc_val)| {
-                let pinned = self.id_to_value.pin();
-                // EmbeddingKey clone is a cheap Arc pointer bump
-                if pinned
-                    .insert(k, (embedding_key.clone(), Arc::clone(&arc_val)))
-                    .is_some()
-                {
-                    updated.fetch_add(1, Ordering::SeqCst);
-                    None
-                } else {
-                    inserted.fetch_add(1, Ordering::SeqCst);
-                    // Pointer bump — the same Arc<Vec<f32>> is shared with the map entry
-                    Some(embedding_key)
-                }
-            })
-            .collect();
+        let pinned = self.id_to_value.pin();
+        let mut inserted = 0;
+        let mut updated = 0;
+        let mut inserted_keys = Vec::new();
+
+        for (k, embedding_key, arc_val) in res {
+            // EmbeddingKey clone is a cheap Arc pointer bump
+            if pinned
+                .insert(k, (embedding_key.clone(), Arc::clone(&arc_val)))
+                .is_some()
+            {
+                updated += 1;
+            } else {
+                inserted += 1;
+                // Pointer bump — the same Arc<Vec<f32>> is shared with the map entry
+                inserted_keys.push(embedding_key);
+            }
+        }
+
+        drop(pinned);
 
         self.predicate_indices
             .add(predicate_insert, parallelism_config, active_requests);
@@ -1238,8 +1237,8 @@ impl Store {
         self.mark_size_dirty();
 
         Ok(StoreUpsert {
-            inserted: inserted.into_inner() as u64,
-            updated: updated.into_inner() as u64,
+            inserted: inserted as u64,
+            updated: updated as u64,
         })
     }
 
