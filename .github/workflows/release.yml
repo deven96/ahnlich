@@ -61,7 +61,6 @@ jobs:
 
         name: Build ${{ matrix.target }} Binaries
         runs-on:  ${{ matrix.runner }}
-        if: ${{ !(matrix.target == 'x86_64-apple-darwin' && needs.prebuild_preparation.outputs.bin_name == 'ahnlich-ai') }}
         outputs:
           bin_name: ${{ needs.prebuild_preparation.outputs.bin_name }}
         steps:
@@ -74,6 +73,7 @@ jobs:
                 toolchain: ${{ needs.prebuild_preparation.outputs.rust_version }}
 
             - name: Build Linux Release for ${{ needs.prebuild_preparation.outputs.bin_name }}
+              if: ${{ !(matrix.target == 'x86_64-apple-darwin' && needs.prebuild_preparation.outputs.bin_name == 'ahnlich-ai') }}
               working-directory: ./ahnlich
               run: |
                 rm types/build.rs replication/build.rs
