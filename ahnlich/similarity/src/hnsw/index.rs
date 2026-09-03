@@ -21,7 +21,20 @@ use std::{
 /// Below this many accepted vectors, a filtered search scans the accepted set directly
 /// instead of traversing the graph. At this size an exact SIMD scan costs less than a
 /// graph walk that cannot fill `ef` and therefore keeps widening.
-const BRUTE_FORCE_ACCEPT_LIST_THRESHOLD: usize = 4096;
+const EXACT_SEARCH_ABSOLUTE_THRESHOLD: usize = 4096;
+
+/// Exact scanning consistently wins up to this accepted candidate count when the
+/// filter selects no more than 7.5% of the index.
+const EXACT_SEARCH_MAX_ACCEPTED: usize = 7500;
+const EXACT_SEARCH_SELECTIVITY_NUMERATOR: usize = 3;
+const EXACT_SEARCH_SELECTIVITY_DENOMINATOR: usize = 40;
+
+fn should_use_exact_filtered_search(accepted_count: usize, index_size: usize) -> bool {
+    accepted_count <= EXACT_SEARCH_ABSOLUTE_THRESHOLD
+        || (accepted_count <= EXACT_SEARCH_MAX_ACCEPTED
+            && (accepted_count as u128) * (EXACT_SEARCH_SELECTIVITY_DENOMINATOR as u128)
+                <= (index_size as u128) * (EXACT_SEARCH_SELECTIVITY_NUMERATOR as u128))
+}
 
 /// Wrapper around papaya `HashMap::new()` that forces immediate allocation
 /// inside `catch_unwind` to surface initialization panics at construction time
@@ -225,12 +238,8 @@ impl<D: DistanceFn> HNSW<D> {
             return Ok(vec![]);
         }
 
-        // Highly selective predicate: scanning the matched vectors directly is both cheaper
-        // and exact. Graph traversal degenerates here — with few acceptable nodes the search
-        // cannot fill `ef` and keeps widening, approaching a full traversal for a handful of
-        // results. Below the threshold a linear scan is strictly the better plan.
         if let Some(ref accept) = accept_list
-            && accept.len() <= BRUTE_FORCE_ACCEPT_LIST_THRESHOLD
+            && should_use_exact_filtered_search(accept.len(), self.nodes.len())
         {
             return Ok(self.brute_force_accept_list(reference_point, n, accept));
         }
@@ -1031,6 +1040,24 @@ mod tests {
     use super::*;
     use crate::EmbeddingKey;
     use papaya::HashMap;
+
+    #[test]
+    fn exact_filtered_search_preserves_absolute_threshold() {
+        assert!(should_use_exact_filtered_search(4_096, 4_096));
+        assert!(should_use_exact_filtered_search(4_096, 100_000));
+    }
+
+    #[test]
+    fn exact_filtered_search_uses_selectivity_up_to_calibrated_cap() {
+        assert!(should_use_exact_filtered_search(7_500, 100_000));
+        assert!(!should_use_exact_filtered_search(7_500, 99_999));
+    }
+
+    #[test]
+    fn exact_filtered_search_does_not_exceed_candidate_cap() {
+        assert!(!should_use_exact_filtered_search(7_501, 100_000));
+        assert!(!should_use_exact_filtered_search(10_000, 1_000_000));
+    }
 
     #[test]
     fn test_simple_hnsw_state() {

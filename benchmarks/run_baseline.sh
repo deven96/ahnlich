@@ -261,7 +261,7 @@ run_ghz() {
 log "Benchmarking ($TOTAL_REQUESTS requests per run, $WARMUP_REQUESTS warmup, $REPEATS repeats)"
 
 # Scenarios to benchmark
-SCENARIOS="ping linear linear_5k linear_1k linear_100 hnsw hnsw_5k hnsw_1k hnsw_100"
+SCENARIOS="${SCENARIOS:-ping linear linear_5k linear_1k linear_100 hnsw hnsw_5k hnsw_1k hnsw_100}"
 
 # Repeats are the outer loop so background noise spreads across all configurations.
 for repeat in $(seq 1 "$REPEATS"); do
