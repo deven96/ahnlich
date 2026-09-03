@@ -430,9 +430,9 @@ impl BuffaloLModel {
         // Run inference sequentially (ONNX sessions are not thread-safe)
         let mut results = Vec::with_capacity(detections.len());
         for input in preprocessed_crops.into_iter() {
-            let mut session_guard = genderage_session
-                .lock()
-                .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+            let mut session_guard = genderage_session.lock().map_err(|e| {
+                AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e))
+            })?;
             let outputs = session_guard
                 .run(ort::inputs!["data" => TensorRef::from_array_view(input.view())?])
                 .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
@@ -473,9 +473,9 @@ impl BuffaloLModel {
     ) -> Result<Vec<FaceDetection>, AIProxyError> {
         let session_inputs = ort::inputs!["input.1" => TensorRef::from_array_view(&image)?];
 
-        let mut session_guard = session
-            .lock()
-            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let mut session_guard = session.lock().map_err(|e| {
+            AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e))
+        })?;
         let outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
@@ -511,7 +511,8 @@ impl BuffaloLModel {
         let tensors: Vec<_> = outputs
             .values()
             .map(|value| {
-                let (shape, data) = value.try_extract_tensor::<f32>()
+                let (shape, data) = value
+                    .try_extract_tensor::<f32>()
                     .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
                 super::super::helper::tensor_to_ndarray(shape, data)
             })
@@ -533,9 +534,9 @@ impl BuffaloLModel {
         // Recognition model expects "input.1" tensor (same as detection)
         let session_inputs = ort::inputs!["input.1" => TensorRef::from_array_view(&faces)?];
 
-        let mut session_guard = session
-            .lock()
-            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let mut session_guard = session.lock().map_err(|e| {
+            AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e))
+        })?;
         let outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
@@ -548,7 +549,7 @@ impl BuffaloLModel {
         let shape = embeddings_shape.as_ref();
         let embedding_array = Array::from_shape_vec(
             (shape[0] as usize, shape[1] as usize),
-            embeddings_data.to_vec()
+            embeddings_data.to_vec(),
         )
         .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 

@@ -304,9 +304,9 @@ impl SfaceYunetModel {
 
         let session_inputs = ort::inputs!["input" => TensorRef::from_array_view(&bgr_image)?];
 
-        let mut session_guard = session
-            .lock()
-            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let mut session_guard = session.lock().map_err(|e| {
+            AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e))
+        })?;
         let outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
@@ -323,57 +323,57 @@ impl SfaceYunetModel {
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let cls_8 = super::super::helper::tensor_to_ndarray(cls_8_shape, cls_8_data)?;
-        
+
         let (cls_16_shape, cls_16_data) = outputs["cls_16"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let cls_16 = super::super::helper::tensor_to_ndarray(cls_16_shape, cls_16_data)?;
-        
+
         let (cls_32_shape, cls_32_data) = outputs["cls_32"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let cls_32 = super::super::helper::tensor_to_ndarray(cls_32_shape, cls_32_data)?;
-        
+
         let (obj_8_shape, obj_8_data) = outputs["obj_8"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let obj_8 = super::super::helper::tensor_to_ndarray(obj_8_shape, obj_8_data)?;
-        
+
         let (obj_16_shape, obj_16_data) = outputs["obj_16"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let obj_16 = super::super::helper::tensor_to_ndarray(obj_16_shape, obj_16_data)?;
-        
+
         let (obj_32_shape, obj_32_data) = outputs["obj_32"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let obj_32 = super::super::helper::tensor_to_ndarray(obj_32_shape, obj_32_data)?;
-        
+
         let (bbox_8_shape, bbox_8_data) = outputs["bbox_8"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let bbox_8 = super::super::helper::tensor_to_ndarray(bbox_8_shape, bbox_8_data)?;
-        
+
         let (bbox_16_shape, bbox_16_data) = outputs["bbox_16"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let bbox_16 = super::super::helper::tensor_to_ndarray(bbox_16_shape, bbox_16_data)?;
-        
+
         let (bbox_32_shape, bbox_32_data) = outputs["bbox_32"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let bbox_32 = super::super::helper::tensor_to_ndarray(bbox_32_shape, bbox_32_data)?;
-        
+
         let (kps_8_shape, kps_8_data) = outputs["kps_8"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let kps_8 = super::super::helper::tensor_to_ndarray(kps_8_shape, kps_8_data)?;
-        
+
         let (kps_16_shape, kps_16_data) = outputs["kps_16"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
         let kps_16 = super::super::helper::tensor_to_ndarray(kps_16_shape, kps_16_data)?;
-        
+
         let (kps_32_shape, kps_32_data) = outputs["kps_32"]
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
@@ -474,9 +474,9 @@ impl SfaceYunetModel {
 
             let session_inputs = ort::inputs!["data" => TensorRef::from_array_view(&single_face)?];
 
-            let mut session_guard = session
-                .lock()
-                .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+            let mut session_guard = session.lock().map_err(|e| {
+                AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e))
+            })?;
             let outputs = session_guard
                 .run(session_inputs)
                 .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
@@ -487,11 +487,9 @@ impl SfaceYunetModel {
                 .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
             let shape = emb_shape.as_ref();
-            let emb_2d = Array::from_shape_vec(
-                (shape[0] as usize, shape[1] as usize),
-                emb_data.to_vec()
-            )
-            .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
+            let emb_2d =
+                Array::from_shape_vec((shape[0] as usize, shape[1] as usize), emb_data.to_vec())
+                    .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
 
             all_embeddings.push(emb_2d);
         }

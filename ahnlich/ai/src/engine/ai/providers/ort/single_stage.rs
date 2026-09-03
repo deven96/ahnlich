@@ -9,7 +9,10 @@ use ahnlich_types::keyval::StoreKey;
 use fallible_collections::FallibleVec;
 use itertools::Itertools;
 use ndarray::{Array, ArrayView1, Axis, Ix2, Ix4};
-use ort::{session::Session, value::{Value, TensorRef}};
+use ort::{
+    session::Session,
+    value::{TensorRef, Value},
+};
 use rayon::prelude::*;
 use std::future::Future;
 use std::mem::size_of;
@@ -64,22 +67,19 @@ impl SingleStageModel {
         let child_span = tracing::info_span!("image-model-session-run");
         child_span.set_parent(Span::current().context());
         let child_guard = child_span.enter();
-        let mut session_guard = session
-            .lock()
-            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let mut session_guard = session.lock().map_err(|e| {
+            AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e))
+        })?;
         let outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
         drop(child_guard);
 
         // Postprocess output directly here
-        let output_value = outputs
-            .values()
-            .next()
-            .ok_or_else(|| {
-                AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
-            })?;
-        
+        let output_value = outputs.values().next().ok_or_else(|| {
+            AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
+        })?;
+
         let (shape, data) = output_value
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
@@ -127,9 +127,9 @@ impl SingleStageModel {
         let encoding_length = encodings[0].len();
         let max_size = encoding_length * batch_size;
 
-        let session_guard = session
-            .lock()
-            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let session_guard = session.lock().map_err(|e| {
+            AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e))
+        })?;
         let need_attention_mask = session_guard
             .inputs()
             .iter()
@@ -207,9 +207,9 @@ impl SingleStageModel {
         let child_span = tracing::info_span!("text-model-session-run");
         child_span.set_parent(Span::current().context());
         let child_guard = child_span.enter();
-        let mut session_guard = session
-            .lock()
-            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let mut session_guard = session.lock().map_err(|e| {
+            AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e))
+        })?;
         let session_outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
@@ -229,13 +229,10 @@ impl SingleStageModel {
         session_output: ort::session::SessionOutputs,
         attention_mask: Option<Array<i64, Ix2>>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
-        let output_value = session_output
-            .values()
-            .next()
-            .ok_or_else(|| {
-                AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
-            })?;
-        
+        let output_value = session_output.values().next().ok_or_else(|| {
+            AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
+        })?;
+
         let (tensor_shape, tensor_data) = output_value
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;
@@ -477,21 +474,18 @@ impl SingleStageModel {
         let child_span = tracing::info_span!("audio-model-session-run");
         child_span.set_parent(tracing::Span::current().context());
         let child_guard = child_span.enter();
-        let mut session_guard = session
-            .lock()
-            .map_err(|e| AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e)))?;
+        let mut session_guard = session.lock().map_err(|e| {
+            AIProxyError::ModelProviderRunInferenceError(format!("Mutex lock error: {}", e))
+        })?;
         let outputs = session_guard
             .run(session_inputs)
             .map_err(|e| AIProxyError::ModelProviderRunInferenceError(e.to_string()))?;
         drop(child_guard);
 
-        let output_value = outputs
-            .values()
-            .next()
-            .ok_or_else(|| {
-                AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
-            })?;
-        
+        let output_value = outputs.values().next().ok_or_else(|| {
+            AIProxyError::ModelProviderPostprocessingError("No output tensor found".to_string())
+        })?;
+
         let (shape, data) = output_value
             .try_extract_tensor::<f32>()
             .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))?;

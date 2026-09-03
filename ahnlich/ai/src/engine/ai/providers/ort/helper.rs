@@ -29,13 +29,12 @@ pub fn read_file_to_bytes(file: &PathBuf) -> Result<Vec<u8>, AIProxyError> {
 }
 
 /// Convert ort tensor tuple (&Shape, &[T]) to ndarray Array (owned)
-pub fn tensor_to_ndarray<T: Clone>(shape: &Shape, data: &[T]) -> Result<ndarray::Array<T, IxDyn>, AIProxyError> {
-    let dims: Vec<usize> = shape
-        .as_ref()
-        .iter()
-        .map(|&d| d as usize)
-        .collect();
-    
+pub fn tensor_to_ndarray<T: Clone>(
+    shape: &Shape,
+    data: &[T],
+) -> Result<ndarray::Array<T, IxDyn>, AIProxyError> {
+    let dims: Vec<usize> = shape.as_ref().iter().map(|&d| d as usize).collect();
+
     ndarray::Array::from_shape_vec(dims, data.to_vec())
         .map_err(|e| AIProxyError::ModelProviderPostprocessingError(e.to_string()))
 }

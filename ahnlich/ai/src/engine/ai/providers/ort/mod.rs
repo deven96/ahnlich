@@ -17,7 +17,7 @@ use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvi
 use executor::ExecutorWithSessionCache;
 use hf_hub::{Cache, api::sync::ApiBuilder};
 use ort::{
-    ep::{ExecutionProvider, CUDA, CoreML, DirectML, MIGraphX, TensorRT},
+    ep::{CUDA, CoreML, DirectML, ExecutionProvider, MIGraphX, TensorRT},
     session::builder::SessionBuilder,
 };
 use strum::EnumIter;
@@ -71,17 +71,11 @@ fn register_provider(
     builder: &mut SessionBuilder,
 ) -> Result<(), AIProxyError> {
     match provider {
-        InnerAIExecutionProvider::TensorRT => {
-            TensorRT::default().register(builder)?
-        }
+        InnerAIExecutionProvider::TensorRT => TensorRT::default().register(builder)?,
         InnerAIExecutionProvider::CUDA => CUDA::default().register(builder)?,
-        InnerAIExecutionProvider::DirectML => {
-            DirectML::default().register(builder)?
-        }
+        InnerAIExecutionProvider::DirectML => DirectML::default().register(builder)?,
         InnerAIExecutionProvider::CoreML => CoreML::default().register(builder)?,
-        InnerAIExecutionProvider::MIGraphX => {
-            MIGraphX::default().register(builder)?
-        }
+        InnerAIExecutionProvider::MIGraphX => MIGraphX::default().register(builder)?,
         InnerAIExecutionProvider::CPU => (),
     };
     Ok(())
