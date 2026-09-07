@@ -995,60 +995,25 @@ mod tests {
     #[test]
     fn test_adding_and_removing_entries_for_predicate() {
         let shared_pred = create_shared_predicate();
+        let even = MetadataValue {
+            value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                "Even".to_string(),
+            )),
+        };
+        let odd = MetadataValue {
+            value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                "Odd".to_string(),
+            )),
+        };
         assert_eq!(shared_pred.0.len(), 2);
-        assert_eq!(
-            shared_pred
-                .0
-                .pin()
-                .get(&MetadataValue {
-                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
-                        "Even".to_string(),
-                    )),
-                })
-                .unwrap()
-                .len(),
-            2
-        );
-        assert_eq!(
-            shared_pred
-                .0
-                .pin()
-                .get(&MetadataValue {
-                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
-                        "Odd".to_string(),
-                    )),
-                })
-                .unwrap()
-                .len(),
-            2
-        );
-        shared_pred.remove_store_keys(&[StoreKeyId(1), StoreKeyId(0)]);
-        assert_eq!(
-            shared_pred
-                .0
-                .pin()
-                .get(&MetadataValue {
-                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
-                        "Even".to_string(),
-                    )),
-                })
-                .unwrap()
-                .len(),
-            1
-        );
-        assert_eq!(
-            shared_pred
-                .0
-                .pin()
-                .get(&MetadataValue {
-                    value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
-                        "Odd".to_string(),
-                    )),
-                })
-                .unwrap()
-                .len(),
-            1
-        );
+        assert_eq!(shared_pred.0.pin().get(&even).unwrap().len(), 2);
+        assert_eq!(shared_pred.0.pin().get(&odd).unwrap().len(), 2);
+
+        shared_pred.remove_store_key(&odd, &StoreKeyId(1));
+        shared_pred.remove_store_key(&even, &StoreKeyId(0));
+
+        assert_eq!(shared_pred.0.pin().get(&even).unwrap().len(), 1);
+        assert_eq!(shared_pred.0.pin().get(&odd).unwrap().len(), 1);
     }
 
     #[test]

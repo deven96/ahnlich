@@ -62,10 +62,14 @@ impl EmptyPredicateIngestionBenchmark {
                 })
                 .flatten()
                 .map(|(store_key_id, key, value)| (key, (value, store_key_id)))
-                .fold(HashMap::new, |mut grouped, (key, value)| {
-                    grouped.entry(key).or_default().push(value);
-                    grouped
-                })
+                .fold(
+                    HashMap::new,
+                    |mut grouped: HashMap<String, Vec<(MetadataValue, StoreKeyId)>>,
+                     (key, value)| {
+                        grouped.entry(key).or_default().push(value);
+                        grouped
+                    },
+                )
                 .reduce(HashMap::new, |mut grouped, values| {
                     for (key, mut value) in values {
                         grouped.entry(key).or_default().append(&mut value);
@@ -73,14 +77,14 @@ impl EmptyPredicateIngestionBenchmark {
                     grouped
                 })
         } else {
-            let mut grouped = HashMap::new();
+            let mut grouped: HashMap<String, Vec<(MetadataValue, StoreKeyId)>> = HashMap::new();
             for (store_key_id, store_value) in entries {
                 let allowed_predicates = self.allowed_predicates.pin();
                 for (key, value) in &store_value.value {
                     if allowed_predicates.contains(key) {
                         grouped
                             .entry(key.clone())
-                            .or_insert_with(Vec::new)
+                            .or_default()
                             .push((value.clone(), store_key_id));
                     }
                 }

@@ -18,7 +18,8 @@ struct PredicateInLookupBenchmark {
 
 impl PredicateInLookupBenchmark {
     fn new(entries: Vec<(MetadataValue, StoreKeyId)>) -> Self {
-        let buckets = ConcurrentHashMap::with_capacity(1);
+        let buckets: ConcurrentHashMap<MetadataValue, ConcurrentHashSet<StoreKeyId>> =
+            ConcurrentHashMap::with_capacity(1);
         let pinned = buckets.pin();
 
         for (metadata_value, store_key_id) in entries {
