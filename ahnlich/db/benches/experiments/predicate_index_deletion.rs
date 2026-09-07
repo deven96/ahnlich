@@ -1,12 +1,146 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use ahnlich_db::engine::predicate::benchmark::PredicateDeletionBenchmark;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::{MetadataValue, metadata_value};
 use ahnlich_types::utils::StoreKeyId;
 use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use papaya::{HashMap as ConcurrentHashMap, HashSet as ConcurrentHashSet};
+
+type PredicateIndexSnapshot = HashMap<String, HashMap<MetadataValue, HashSet<StoreKeyId>>>;
+
+struct BenchmarkPredicateIndex {
+    buckets: ConcurrentHashMap<MetadataValue, ConcurrentHashSet<StoreKeyId>>,
+}
+
+impl BenchmarkPredicateIndex {
+    fn new() -> Self {
+        Self {
+            buckets: ConcurrentHashMap::with_capacity(1),
+        }
+    }
+
+    fn add(&self, metadata_value: MetadataValue, store_key_id: StoreKeyId) {
+        let buckets = self.buckets.pin();
+        if let Some(store_key_ids) = buckets.get(&metadata_value) {
+            store_key_ids.pin().insert(store_key_id);
+        } else {
+            let store_key_ids = ConcurrentHashSet::with_capacity(1);
+            store_key_ids.pin().insert(store_key_id);
+            if let Err(existing) = buckets.try_insert(metadata_value, store_key_ids) {
+                existing.current.pin().insert(store_key_id);
+            }
+        }
+    }
+
+    fn remove_store_keys(&self, remove_keys: &[StoreKeyId]) {
+        let buckets = self.buckets.pin();
+        for (_, store_key_ids) in buckets.iter() {
+            let store_key_ids = store_key_ids.pin();
+            for store_key_id in remove_keys {
+                store_key_ids.remove(store_key_id);
+            }
+        }
+    }
+
+    fn remove_store_key(&self, metadata_value: &MetadataValue, store_key_id: &StoreKeyId) {
+        let buckets = self.buckets.pin();
+        if let Some(store_key_ids) = buckets.get(metadata_value) {
+            store_key_ids.pin().remove(store_key_id);
+        }
+    }
+}
+
+struct PredicateDeletionBenchmark {
+    indices: ConcurrentHashMap<String, BenchmarkPredicateIndex>,
+    removed: Vec<(StoreKeyId, Arc<StoreValue>)>,
+    removed_keys: Vec<StoreKeyId>,
+}
+
+impl PredicateDeletionBenchmark {
+    fn new(
+        indexed_keys: Vec<String>,
+        entries: Vec<(StoreKeyId, Arc<StoreValue>)>,
+        removed: Vec<(StoreKeyId, Arc<StoreValue>)>,
+    ) -> Self {
+        let indices = ConcurrentHashMap::with_capacity(1);
+        let pinned = indices.pin();
+        for key in indexed_keys {
+            pinned.insert(key, BenchmarkPredicateIndex::new());
+        }
+        drop(pinned);
+
+        let benchmark = Self {
+            indices,
+            removed_keys: removed
+                .iter()
+                .map(|(store_key_id, _)| *store_key_id)
+                .collect(),
+            removed,
+        };
+        benchmark.add(
+            entries
+                .iter()
+                .map(|(store_key_id, store_value)| (*store_key_id, store_value.as_ref())),
+        );
+        benchmark
+    }
+
+    fn add<'a>(&self, entries: impl IntoIterator<Item = (StoreKeyId, &'a StoreValue)>) {
+        let indices = self.indices.pin();
+        for (store_key_id, store_value) in entries {
+            for (metadata_key, metadata_value) in &store_value.value {
+                if let Some(index) = indices.get(metadata_key) {
+                    index.add(metadata_value.clone(), store_key_id);
+                }
+            }
+        }
+    }
+
+    fn remove_control(&self) {
+        let indices = self.indices.pin();
+        for (_, index) in indices.iter() {
+            index.remove_store_keys(&self.removed_keys);
+        }
+    }
+
+    fn remove_candidate(&self) {
+        let indices = self.indices.pin();
+        for (store_key_id, store_value) in &self.removed {
+            for (metadata_key, metadata_value) in &store_value.value {
+                if let Some(index) = indices.get(metadata_key) {
+                    index.remove_store_key(metadata_value, store_key_id);
+                }
+            }
+        }
+    }
+
+    fn restore_removed(&self) {
+        self.add(
+            self.removed
+                .iter()
+                .map(|(store_key_id, store_value)| (*store_key_id, store_value.as_ref())),
+        );
+    }
+
+    fn snapshot(&self) -> PredicateIndexSnapshot {
+        let indices = self.indices.pin();
+        indices
+            .iter()
+            .map(|(key, index)| {
+                let buckets = index.buckets.pin();
+                let values = buckets
+                    .iter()
+                    .map(|(value, store_key_ids)| {
+                        (value.clone(), store_key_ids.pin().iter().copied().collect())
+                    })
+                    .collect();
+                (key.clone(), values)
+            })
+            .collect()
+    }
+}
 
 #[derive(Clone, Copy)]
 struct Scenario {

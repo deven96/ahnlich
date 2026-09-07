@@ -162,16 +162,6 @@ impl PredicateIndices {
         allowed_predicates.into_iter().cloned().collect()
     }
 
-    /// Removes a store key id when it's corresponding entry in the store is removed
-    #[cfg(feature = "bench-experiments")]
-    #[tracing::instrument(skip(self))]
-    pub(super) fn remove_store_keys(&self, remove_keys: &[StoreKeyId]) {
-        let pinned = self.inner.pin();
-        for (_, values) in pinned.iter() {
-            values.remove_store_keys(remove_keys);
-        }
-    }
-
     /// Removes each store key id from the predicate buckets described by its stored metadata.
     #[tracing::instrument(skip_all)]
     pub(super) fn remove_store_entries<'a>(
@@ -336,8 +326,8 @@ impl PredicateIndices {
     }
 
     #[inline]
-    pub(super) fn is_empty(&self) -> bool {
-        self.allowed_predicates.is_empty()
+    pub(super) fn has_configured_predicates(&self) -> bool {
+        !self.allowed_predicates.is_empty()
     }
 
     /// returns the store key id that fulfill the predicate condition
@@ -423,19 +413,6 @@ impl PredicateIndex {
         );
         new.add(init, parallelism_config, active_requests);
         new
-    }
-
-    /// Removes a store key id when it's corresponding entry in the store is removed
-    #[cfg(any(test, feature = "bench-experiments"))]
-    #[tracing::instrument(skip(self))]
-    fn remove_store_keys(&self, remove_keys: &[StoreKeyId]) {
-        let inner = self.0.pin();
-        for (_, values) in inner.iter() {
-            let values_pinned = values.pin();
-            for k in remove_keys {
-                values_pinned.remove(k);
-            }
-        }
     }
 
     fn remove_store_key(&self, metadata_value: &MetadataValue, store_key_id: &StoreKeyId) {
@@ -548,163 +525,6 @@ impl PredicateIndex {
                 .collect(),
 
             Predicate { kind: None } => unreachable!(),
-        }
-    }
-
-    #[cfg(feature = "bench-experiments")]
-    #[tracing::instrument(skip(self))]
-    fn matches_in_scan_bench(&self, predicate: &Predicate) -> StdHashSet<StoreKeyId> {
-        let pinned = self.0.pin();
-        match predicate {
-            Predicate {
-                kind: Some(PredicateKind::In(predicates::In { values, .. })),
-            } => pinned
-                .iter()
-                .filter(|(key, _)| values.contains(key))
-                .flat_map(|(_, value)| value.pin().iter().cloned().collect::<Vec<_>>())
-                .collect(),
-            _ => unreachable!("In scan benchmark requires an In predicate"),
-        }
-    }
-}
-
-#[cfg(feature = "bench-experiments")]
-pub mod benchmark {
-    use super::*;
-
-    pub struct PredicateInLookupBenchmark(PredicateIndex);
-
-    impl PredicateInLookupBenchmark {
-        pub fn new(entries: Vec<(MetadataValue, StoreKeyId)>) -> Self {
-            let config = super::super::store::ParallelismConfig::from_cli(1, None, usize::MAX);
-            Self(PredicateIndex::init(entries, &config, 1))
-        }
-
-        pub fn matches_control(&self, predicate: &Predicate) -> StdHashSet<StoreKeyId> {
-            self.0.matches_in_scan_bench(predicate)
-        }
-
-        pub fn matches_candidate(&self, predicate: &Predicate) -> StdHashSet<StoreKeyId> {
-            self.0.matches(predicate)
-        }
-    }
-
-    pub type PredicateIndexSnapshot =
-        HashMap<String, HashMap<MetadataValue, StdHashSet<StoreKeyId>>>;
-
-    pub struct PredicateDeletionBenchmark {
-        indices: PredicateIndices,
-        removed: Vec<(StoreKeyId, Arc<StoreValue>)>,
-        removed_keys: Vec<StoreKeyId>,
-        parallelism_config: super::super::store::ParallelismConfig,
-    }
-
-    impl PredicateDeletionBenchmark {
-        pub fn new(
-            indexed_keys: Vec<String>,
-            entries: Vec<(StoreKeyId, Arc<StoreValue>)>,
-            removed: Vec<(StoreKeyId, Arc<StoreValue>)>,
-        ) -> Self {
-            let parallelism_config =
-                super::super::store::ParallelismConfig::from_cli(1, None, usize::MAX);
-            let indices = PredicateIndices::init(indexed_keys);
-            indices.add(entries, &parallelism_config, 1);
-            let removed_keys = removed
-                .iter()
-                .map(|(store_key_id, _)| *store_key_id)
-                .collect();
-
-            Self {
-                indices,
-                removed,
-                removed_keys,
-                parallelism_config,
-            }
-        }
-
-        pub fn remove_control(&self) {
-            self.indices.remove_store_keys(&self.removed_keys);
-        }
-
-        pub fn remove_candidate(&self) {
-            self.indices.remove_store_entries(
-                self.removed
-                    .iter()
-                    .map(|(store_key_id, store_value)| (*store_key_id, store_value.as_ref())),
-            );
-        }
-
-        pub fn restore_removed(&self) {
-            self.indices
-                .add(self.removed.clone(), &self.parallelism_config, 1);
-        }
-
-        pub fn snapshot(&self) -> PredicateIndexSnapshot {
-            let indices = self.indices.inner.pin();
-            indices
-                .iter()
-                .map(|(key, index)| {
-                    let buckets = index.0.pin();
-                    let values = buckets
-                        .iter()
-                        .map(|(value, store_key_ids)| {
-                            (value.clone(), store_key_ids.pin().iter().copied().collect())
-                        })
-                        .collect();
-                    (key.clone(), values)
-                })
-                .collect()
-        }
-    }
-
-    pub struct EmptyPredicateIngestionBenchmark {
-        indices: PredicateIndices,
-        entries: Vec<(StoreKeyId, Arc<StoreValue>)>,
-        parallelism_config: super::super::store::ParallelismConfig,
-    }
-
-    impl EmptyPredicateIngestionBenchmark {
-        pub fn new(
-            entries: Vec<(StoreKeyId, Arc<StoreValue>)>,
-            metadata_filtering_threshold: usize,
-        ) -> Self {
-            Self {
-                indices: PredicateIndices::init(Vec::new()),
-                entries,
-                parallelism_config: super::super::store::ParallelismConfig::from_cli(
-                    rayon::current_num_threads(),
-                    None,
-                    metadata_filtering_threshold,
-                ),
-            }
-        }
-
-        pub fn run_control(&self) {
-            let predicate_insert = self
-                .entries
-                .par_iter()
-                .map(|(store_key_id, store_value)| (*store_key_id, Arc::clone(store_value)))
-                .collect();
-            self.indices
-                .add(predicate_insert, &self.parallelism_config, 1);
-        }
-
-        pub fn run_candidate(&self) {
-            if self.indices.is_empty() {
-                return;
-            }
-
-            let predicate_insert = self
-                .entries
-                .par_iter()
-                .map(|(store_key_id, store_value)| (*store_key_id, Arc::clone(store_value)))
-                .collect();
-            self.indices
-                .add(predicate_insert, &self.parallelism_config, 1);
-        }
-
-        pub fn indexed_key_count(&self) -> usize {
-            self.indices.current_predicates().len()
         }
     }
 }

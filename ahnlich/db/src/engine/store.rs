@@ -1027,29 +1027,28 @@ impl Store {
     #[tracing::instrument(skip_all)]
     fn delete(&self, keys: impl Iterator<Item = StoreKeyId>) -> usize {
         let pinned = self.id_to_value.pin();
-        let removed = keys
+        let (removed_entries, removed_embeddings): (Vec<_>, Vec<_>) = keys
             .filter_map(|store_key_id| {
                 pinned
                     .remove(&store_key_id)
                     .map(|(embedding_key, store_value)| {
-                        (store_key_id, embedding_key.clone(), Arc::clone(store_value))
+                        (
+                            (store_key_id, Arc::clone(store_value)),
+                            embedding_key.clone(),
+                        )
                     })
             })
-            .collect::<Vec<_>>();
+            .unzip();
         drop(pinned);
 
         self.predicate_indices.remove_store_entries(
-            removed
+            removed_entries
                 .iter()
-                .map(|(store_key_id, _, store_value)| (*store_key_id, store_value.as_ref())),
+                .map(|(store_key_id, store_value)| (*store_key_id, store_value.as_ref())),
         );
 
-        let removed_count = removed.len();
+        let removed_count = removed_entries.len();
         if !self.non_linear_indices.is_empty() {
-            let removed_embeddings = removed
-                .into_iter()
-                .map(|(_, embedding_key, _)| embedding_key)
-                .collect::<Vec<_>>();
             self.non_linear_indices.delete(&removed_embeddings);
         }
 
@@ -1215,14 +1214,14 @@ impl Store {
             .collect::<Result<_, _>>()?;
 
         // Avoid staging predicate updates when this store has no predicate indexes.
-        let predicate_insert = if self.predicate_indices.is_empty() {
-            None
-        } else {
+        let predicate_insert = if self.predicate_indices.has_configured_predicates() {
             Some(
                 res.par_iter()
                     .map(|(k, _, v)| (*k, Arc::clone(v)))
                     .collect(),
             )
+        } else {
+            None
         };
 
         let inserted = AtomicUsize::new(0);

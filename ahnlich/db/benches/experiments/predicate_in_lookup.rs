@@ -1,15 +1,76 @@
+use std::collections::HashSet;
 use std::time::Duration;
 
-use ahnlich_db::engine::predicate::benchmark::PredicateInLookupBenchmark;
 use ahnlich_types::metadata::{MetadataValue, metadata_value};
 use ahnlich_types::predicates::{In, Predicate, predicate::Kind as PredicateKind};
 use ahnlich_types::utils::StoreKeyId;
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use papaya::{HashMap as ConcurrentHashMap, HashSet as ConcurrentHashSet};
 
 const INDEX_CARDINALITIES: [usize; 3] = [100, 1_000, 100_000];
 const REQUESTED_VALUE_COUNTS: [usize; 3] = [1, 4, 32];
 const IDS_PER_VALUE: [usize; 2] = [1, 32];
 const DUPLICATE_VALUE_COUNTS: [usize; 2] = [4, 32];
+
+struct PredicateInLookupBenchmark {
+    buckets: ConcurrentHashMap<MetadataValue, ConcurrentHashSet<StoreKeyId>>,
+}
+
+impl PredicateInLookupBenchmark {
+    fn new(entries: Vec<(MetadataValue, StoreKeyId)>) -> Self {
+        let buckets = ConcurrentHashMap::with_capacity(1);
+        let pinned = buckets.pin();
+
+        for (metadata_value, store_key_id) in entries {
+            if let Some(store_key_ids) = pinned.get(&metadata_value) {
+                store_key_ids.pin().insert(store_key_id);
+            } else {
+                let store_key_ids = ConcurrentHashSet::with_capacity(1);
+                store_key_ids.pin().insert(store_key_id);
+                if let Err(existing) = pinned.try_insert(metadata_value, store_key_ids) {
+                    existing.current.pin().insert(store_key_id);
+                }
+            }
+        }
+        drop(pinned);
+
+        Self { buckets }
+    }
+
+    fn matches_control(&self, predicate: &Predicate) -> HashSet<StoreKeyId> {
+        let Predicate {
+            kind: Some(PredicateKind::In(In { values, .. })),
+        } = predicate
+        else {
+            unreachable!("In lookup benchmark requires an In predicate");
+        };
+        let buckets = self.buckets.pin();
+
+        buckets
+            .iter()
+            .filter(|(metadata_value, _)| values.contains(metadata_value))
+            .flat_map(|(_, store_key_ids)| store_key_ids.pin().iter().copied().collect::<Vec<_>>())
+            .collect()
+    }
+
+    fn matches_candidate(&self, predicate: &Predicate) -> HashSet<StoreKeyId> {
+        let Predicate {
+            kind: Some(PredicateKind::In(In { values, .. })),
+        } = predicate
+        else {
+            unreachable!("In lookup benchmark requires an In predicate");
+        };
+        let buckets = self.buckets.pin();
+        let mut matches = HashSet::new();
+
+        for value in values {
+            if let Some(store_key_ids) = buckets.get(value) {
+                matches.extend(store_key_ids.pin().iter().copied());
+            }
+        }
+        matches
+    }
+}
 
 #[derive(Clone, Copy)]
 enum MatchPattern {

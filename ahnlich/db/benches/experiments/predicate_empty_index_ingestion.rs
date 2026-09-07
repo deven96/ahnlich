@@ -2,14 +2,109 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use ahnlich_db::engine::predicate::benchmark::EmptyPredicateIngestionBenchmark;
+use ahnlich_db::engine::store::ParallelismConfig;
 use ahnlich_types::keyval::StoreValue;
 use ahnlich_types::metadata::{MetadataValue, metadata_value};
 use ahnlich_types::utils::StoreKeyId;
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+use papaya::HashSet as ConcurrentHashSet;
+use rayon::prelude::*;
 
 const BATCH_SIZES: [usize; 4] = [100, 1_000, 10_000, 100_000];
 const METADATA_FIELD_COUNTS: [usize; 3] = [0, 4, 16];
+
+struct EmptyPredicateIngestionBenchmark {
+    allowed_predicates: ConcurrentHashSet<String>,
+    entries: Vec<(StoreKeyId, Arc<StoreValue>)>,
+    parallelism_config: ParallelismConfig,
+}
+
+impl EmptyPredicateIngestionBenchmark {
+    fn new(
+        entries: Vec<(StoreKeyId, Arc<StoreValue>)>,
+        metadata_filtering_threshold: usize,
+    ) -> Self {
+        Self {
+            allowed_predicates: ConcurrentHashSet::with_capacity(1),
+            entries,
+            parallelism_config: ParallelismConfig::from_cli(
+                rayon::current_num_threads(),
+                None,
+                metadata_filtering_threshold,
+            ),
+        }
+    }
+
+    fn stage_entries(&self) -> Vec<(StoreKeyId, Arc<StoreValue>)> {
+        self.entries
+            .par_iter()
+            .map(|(store_key_id, store_value)| (*store_key_id, Arc::clone(store_value)))
+            .collect()
+    }
+
+    fn filter_metadata(&self, entries: Vec<(StoreKeyId, Arc<StoreValue>)>) {
+        let use_parallel = self
+            .parallelism_config
+            .should_use_parallel(entries.len(), 1);
+
+        let _: HashMap<String, Vec<(MetadataValue, StoreKeyId)>> = if use_parallel {
+            entries
+                .into_par_iter()
+                .flat_map(|(store_key_id, store_value)| {
+                    Arc::clone(&store_value).value.clone().into_par_iter().map(
+                        move |(key, value)| {
+                            let allowed_predicates = self.allowed_predicates.pin();
+                            allowed_predicates
+                                .contains(&key)
+                                .then_some((store_key_id, key, value))
+                        },
+                    )
+                })
+                .flatten()
+                .map(|(store_key_id, key, value)| (key, (value, store_key_id)))
+                .fold(HashMap::new, |mut grouped, (key, value)| {
+                    grouped.entry(key).or_default().push(value);
+                    grouped
+                })
+                .reduce(HashMap::new, |mut grouped, values| {
+                    for (key, mut value) in values {
+                        grouped.entry(key).or_default().append(&mut value);
+                    }
+                    grouped
+                })
+        } else {
+            let mut grouped = HashMap::new();
+            for (store_key_id, store_value) in entries {
+                let allowed_predicates = self.allowed_predicates.pin();
+                for (key, value) in &store_value.value {
+                    if allowed_predicates.contains(key) {
+                        grouped
+                            .entry(key.clone())
+                            .or_insert_with(Vec::new)
+                            .push((value.clone(), store_key_id));
+                    }
+                }
+            }
+            grouped
+        };
+    }
+
+    fn run_control(&self) {
+        self.filter_metadata(self.stage_entries());
+    }
+
+    fn run_candidate(&self) {
+        if self.allowed_predicates.is_empty() {
+            return;
+        }
+
+        self.filter_metadata(self.stage_entries());
+    }
+
+    fn indexed_key_count(&self) -> usize {
+        self.allowed_predicates.len()
+    }
+}
 
 #[derive(Clone, Copy)]
 enum MetadataFilteringPolicy {
