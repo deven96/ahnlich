@@ -336,7 +336,7 @@ Same as DB server (default: `"127.0.0.1"`)
 | `resnet-50` | Image | N/A | 224x224 px | 2048 | Image classification features |
 | `clip-vit-b32-image` | Image | N/A | 224x224 px | 512 | Visual embeddings |
 | `clip-vit-b32-text` | Text | 77 tokens | N/A | 512 | Text for image-text matching |
-| `clap-audio` | Audio | 10 sec | 48kHz sample rate | 512 | Audio similarity search |
+| `clap-audio` | Audio | 10 min | 48kHz sample rate | 512 | Audio similarity search |
 | `clap-text` | Text | 512 tokens | N/A | 512 | Text-to-audio retrieval |
 | `buffalo-l` | Face | N/A | 640x640 px input | 512 | Face detection & recognition |
 | `sface-yunet` | Face | N/A | 640x640 px input | 128 | Lightweight face recognition |
@@ -345,8 +345,10 @@ Same as DB server (default: `"127.0.0.1"`)
 
 | Model | Constraint | Details |
 |-------|------------|---------|
-| `clap-audio` | Max duration | 10 seconds (480,000 samples at 48kHz) |
+| `clap-audio` | Max duration | 10 minutes (28,800,000 samples at 48kHz) |
 | `clap-audio` | Sample rate | Resampled to 48kHz |
+| `clap-audio` | Chunking | Auto-splits long audio into 10s chunks with 1s overlap |
+| `clap-audio` | Response mode | OneToMany (one embedding per chunk with metadata) |
 | `buffalo-l` | Input size | 640x640 px (resized internally) |
 | `buffalo-l` | Default confidence | 0.5 |
 | `buffalo-l` | License | **Non-commercial use only** |
@@ -356,6 +358,7 @@ Same as DB server (default: `"127.0.0.1"`)
 
 **Notes:**
 - Face models return **multiple embeddings** (one per detected face) - they use OneToMany mode
+- CLAP audio returns **multiple embeddings** for audio >10 seconds (one per chunk with temporal metadata) - uses OneToMany mode
 - Audio and face models **require** `ModelPreprocessing` - `NoPreprocessing` is not supported
 - CLAP audio/text share the same 512-dim embedding space for cross-modal search
 
