@@ -100,38 +100,51 @@ impl ModelThread {
         process_action: PreprocessAction,
         inputs: Arc<Vec<StoreInput>>,
     ) -> Result<ModelInput, AIProxyError> {
-        let sample = inputs
-            .first()
-            .ok_or(AIProxyError::ModelPreprocessingError {
-                model_name: self.model.model_name(),
-                message: "Input is empty".to_string(),
-            })?;
-        let sample_type = sample
-            .value
-            .as_ref()
-            .ok_or_else(|| AIProxyError::InputNotSpecified("Store input value".to_string()))?;
+        // Determine sample type first before moving the Arc
+        let sample_type = {
+            let sample = inputs
+                .first()
+                .ok_or(AIProxyError::ModelPreprocessingError {
+                    model_name: self.model.model_name(),
+                    message: "Input is empty".to_string(),
+                })?;
+            sample
+                .value
+                .as_ref()
+                .ok_or_else(|| AIProxyError::InputNotSpecified("Store input value".to_string()))?
+                .clone() // Clone the enum discriminant, not the data
+        };
+
+        // Try to unwrap Arc to get owned Vec for zero-copy extraction
+        // If Arc has multiple owners, we fall back to cloning the Vec
+        let owned_inputs = Arc::try_unwrap(inputs).unwrap_or_else(|arc| (*arc).clone());
+
         match sample_type {
             Value::RawString(_) => {
-                let inputs: Vec<String> = inputs
-                    .par_iter()
-                    .filter_map(|input| match &input.value {
-                        Some(Value::RawString(string)) => Some(string.clone()),
+                // Zero-copy: move strings out instead of cloning
+                let texts: Vec<String> = owned_inputs
+                    .into_par_iter()
+                    .filter_map(|mut input| match input.value.take() {
+                        Some(Value::RawString(s)) => Some(s),
                         _ => None,
                     })
                     .collect();
-                let output = self.preprocess_raw_string(inputs, process_action)?;
+                let output = self.preprocess_raw_string(texts, process_action)?;
                 Ok(ModelInput::Texts(output))
             }
             Value::Image(_) => {
                 if self.enable_streaming {
                     let batch_size = self.model.batch_size();
+                    // For streaming, we need to keep Arc since preprocess_images_chunked uses it
+                    let inputs_arc = Arc::new(owned_inputs);
                     let output =
-                        self.preprocess_images_chunked(inputs, process_action, batch_size)?;
+                        self.preprocess_images_chunked(inputs_arc, process_action, batch_size)?;
                     Ok(ModelInput::Images(output))
                 } else {
-                    let image_arrays = inputs
-                        .par_iter()
-                        .filter_map(|input| match &input.value {
+                    // Zero-copy: move image bytes out instead of borrowing
+                    let image_arrays = owned_inputs
+                        .into_par_iter()
+                        .filter_map(|mut input| match input.value.take() {
                             Some(Value::Image(image_bytes)) => {
                                 Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
                             }
@@ -143,10 +156,11 @@ impl ModelThread {
                 }
             }
             Value::Audio(_) => {
-                let audio_bytes: Vec<Vec<u8>> = inputs
-                    .par_iter()
-                    .filter_map(|input| match &input.value {
-                        Some(Value::Audio(bytes)) => Some(bytes.clone()),
+                // Zero-copy: move audio bytes out instead of cloning
+                let audio_bytes: Vec<Vec<u8>> = owned_inputs
+                    .into_par_iter()
+                    .filter_map(|mut input| match input.value.take() {
+                        Some(Value::Audio(bytes)) => Some(bytes),
                         _ => None,
                     })
                     .collect();
@@ -161,7 +175,7 @@ impl ModelThread {
         &self,
         inputs: Vec<Vec<u8>>,
         process_action: PreprocessAction,
-    ) -> Result<crate::engine::ai::providers::processors::AudioInput, AIProxyError> {
+    ) -> Result<Vec<crate::engine::ai::providers::processors::ChunkMetadata>, AIProxyError> {
         // CLAP (and any future model whose preprocessor converts raw bytes → mel spectrogram)
         // cannot meaningfully skip preprocessing: there is no tensor format a caller could
         // supply that would bypass decode → resample → mel. Reject early rather than
@@ -220,19 +234,23 @@ impl ModelThread {
         process_action: PreprocessAction,
         batch_size: usize,
     ) -> Result<Array<f32, Ix4>, AIProxyError> {
-        let total_images = inputs.len();
+        // Zero-copy: try to unwrap Arc to own the data
+        let mut inputs_vec = Arc::try_unwrap(inputs).unwrap_or_else(|arc| (*arc).clone());
+        let total_images = inputs_vec.len();
         let mut all_preprocessed: Vec<Array<f32, Ix4>> =
             Vec::with_capacity(total_images.div_ceil(batch_size));
 
         // Process in chunks to limit peak memory
-        for chunk_start in (0..total_images).step_by(batch_size) {
-            let chunk_end = (chunk_start + batch_size).min(total_images);
-            let chunk = &inputs[chunk_start..chunk_end];
+        // Consume inputs_vec by draining chunks
+        while !inputs_vec.is_empty() {
+            let remaining = inputs_vec.len();
+            let chunk_size = batch_size.min(remaining);
+            let chunk: Vec<StoreInput> = inputs_vec.drain(..chunk_size).collect();
 
-            // Decode chunk
+            // Decode chunk (zero-copy: move image bytes)
             let decoded_chunk: Vec<ImageArray> = chunk
-                .par_iter()
-                .filter_map(|input| match &input.value {
+                .into_par_iter()
+                .filter_map(|mut input| match input.value.take() {
                     Some(Value::Image(image_bytes)) => {
                         Some(ImageArray::try_from(image_bytes.as_slice()).ok()?)
                     }

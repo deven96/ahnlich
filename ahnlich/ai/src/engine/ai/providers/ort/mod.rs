@@ -22,7 +22,7 @@ use ort::{
 };
 use strum::EnumIter;
 
-use crate::engine::ai::providers::processors::AudioInput;
+use crate::engine::ai::providers::processors;
 use crate::engine::ai::providers::processors::postprocessor::{
     ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor,
 };
@@ -399,7 +399,10 @@ impl ORTProvider {
     }
 
     #[tracing::instrument(skip(self, data))]
-    pub fn preprocess_audios(&self, data: Vec<Vec<u8>>) -> Result<AudioInput, AIProxyError> {
+    pub fn preprocess_audios(
+        &self,
+        data: Vec<Vec<u8>>,
+    ) -> Result<Vec<processors::ChunkMetadata>, AIProxyError> {
         match &self.preprocessor {
             ORTPreprocessor::Audio(preprocessor) => preprocessor.process(data).map_err(|e| {
                 // Preserve caller-facing errors (InvalidArgument) so they are not obscured

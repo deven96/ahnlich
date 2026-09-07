@@ -317,8 +317,8 @@ impl ORTAudioPreprocessor {
     /// Decodes raw audio bytes (any container format supported by symphonia) into a
     /// mono f32 waveform at the file's native sample rate. Multi-channel audio is
     /// mixed down by averaging all channels per frame.
-    fn decode_audio(bytes: &[u8]) -> Result<(Vec<f32>, u32), AIProxyError> {
-        let cursor = std::io::Cursor::new(bytes.to_vec());
+    pub(crate) fn decode_audio(bytes: Vec<u8>) -> Result<(Vec<f32>, u32), AIProxyError> {
+        let cursor = std::io::Cursor::new(bytes);
         let mss = MediaSourceStream::new(Box::new(cursor), Default::default());
         let hint = Hint::new();
         let format_opts = FormatOptions::default();
@@ -455,35 +455,96 @@ impl ORTAudioPreprocessor {
     }
 
     #[tracing::instrument(skip(self, data))]
-    pub fn process(&self, data: Vec<Vec<u8>>) -> Result<AudioInput, AIProxyError> {
-        let batch = data.len();
-        let max_ms =
-            (self.max_samples as f32 / self.target_sample_rate as f32 * 1000.0).ceil() as u32;
-        let mut all_features: Vec<f32> =
-            Vec::with_capacity(batch * self.nb_max_frames * self.n_mels);
+    pub fn process(&self, data: Vec<Vec<u8>>) -> Result<Vec<super::ChunkMetadata>, AIProxyError> {
+        let max_duration_sec = 600.0;
+        let max_samples_total = (self.target_sample_rate as f32 * max_duration_sec) as usize;
 
-        for bytes in &data {
-            let (pcm, src_sr) = Self::decode_audio(bytes)?;
-            let pcm = self.resample(pcm, src_sr)?;
+        // Process audio files in parallel, preserving order
+        let results: Result<Vec<Vec<super::ChunkMetadata>>, AIProxyError> = data
+            .into_par_iter()
+            .map(|bytes| {
+                let (pcm, src_sr) = Self::decode_audio(bytes)?;
+                let pcm = self.resample(pcm, src_sr)?;
 
-            // Reject clips that exceed the model's context window. Callers must trim
-            // or split their audio before indexing.
-            if pcm.len() > self.max_samples {
-                let duration_ms =
-                    (pcm.len() as f32 / self.target_sample_rate as f32 * 1000.0).ceil() as u32;
-                return Err(AIProxyError::AudioTooLongError {
-                    duration_ms,
-                    max_ms,
-                });
-            }
+                let total_duration_sec = pcm.len() as f32 / self.target_sample_rate as f32;
 
-            // Pad short clips using the `repeatpad` strategy: repeat the waveform as many
-            // whole times as fit, then zero-pad the remainder. This keeps the mel spectrogram
-            // filled with real audio structure rather than silence, matching the strategy used
-            // during CLAP training (ClapFeatureExtractor with truncation="rand_trunc").
-            let pcm = Self::pad_repeat(pcm, self.max_samples);
+                if pcm.len() > max_samples_total {
+                    return Err(AIProxyError::AudioTooLongError {
+                        duration_ms: (total_duration_sec * 1000.0).ceil() as u32,
+                        max_ms: (max_duration_sec * 1000.0) as u32,
+                    });
+                }
 
-            let mel = self.log_mel_spectrogram(&pcm);
+                let chunks = if pcm.len() > self.max_samples {
+                    self.chunk_audio(&pcm, total_duration_sec)?
+                } else {
+                    let padded = Self::pad_repeat(pcm, self.max_samples);
+                    let mel = self.log_mel_spectrogram(&padded);
+
+                    // Flatten frames into a single vector.
+                    let mut flat = Vec::with_capacity(self.nb_max_frames * self.n_mels);
+                    for frame in &mel {
+                        flat.extend_from_slice(frame);
+                    }
+                    // Guard against rounding producing slightly fewer frames than expected.
+                    flat.resize(self.nb_max_frames * self.n_mels, 0.0);
+
+                    // Shape: (1, 1, nb_max_frames, n_mels) — single chunk
+                    let input_features = Array::from_shape_vec(
+                        (1, 1, self.nb_max_frames, self.n_mels),
+                        flat,
+                    )
+                    .map_err(|e| AIProxyError::ModelPreprocessingError {
+                        model_name: self.model.to_string(),
+                        message: format!("Failed to stack audio features: {e}"),
+                    })?;
+
+                    vec![super::ChunkMetadata {
+                        input: AudioInput { input_features },
+                        start_sec: 0.0,
+                        end_sec: total_duration_sec,
+                        duration_sec: total_duration_sec,
+                        chunk_index: 0,
+                        total_chunks: 1,
+                        audio_total_duration_sec: total_duration_sec,
+                    }]
+                };
+
+                Ok(chunks)
+            })
+            .collect();
+
+        // Flatten Vec<Vec<ChunkMetadata>> into Vec<ChunkMetadata> while preserving order
+        Ok(results?.into_iter().flatten().collect())
+    }
+
+    fn chunk_audio(
+        &self,
+        pcm: &[f32],
+        total_duration_sec: f32,
+    ) -> Result<Vec<super::ChunkMetadata>, AIProxyError> {
+        let overlap_samples = self.target_sample_rate as usize;
+        let stride = self.max_samples - overlap_samples;
+
+        let mut chunks = Vec::new();
+        let mut start = 0;
+        let mut chunk_index = 0;
+
+        while start < pcm.len() {
+            let end = (start + self.max_samples).min(pcm.len());
+            let chunk_slice = &pcm[start..end];
+
+            let start_sec = start as f32 / self.target_sample_rate as f32;
+            let end_sec = end as f32 / self.target_sample_rate as f32;
+            let duration_sec = (end - start) as f32 / self.target_sample_rate as f32;
+
+            let chunk_pcm = if chunk_slice.len() < self.max_samples {
+                Self::pad_repeat(chunk_slice.to_vec(), self.max_samples)
+            } else {
+                chunk_slice.to_vec()
+            };
+
+            let mel = self.log_mel_spectrogram(&chunk_pcm);
 
             // Flatten frames into a single vector.
             let mut flat = Vec::with_capacity(self.nb_max_frames * self.n_mels);
@@ -492,19 +553,39 @@ impl ORTAudioPreprocessor {
             }
             // Guard against rounding producing slightly fewer frames than expected.
             flat.resize(self.nb_max_frames * self.n_mels, 0.0);
-            all_features.extend_from_slice(&flat);
+
+            // Shape: (1, 1, nb_max_frames, n_mels) — single chunk
+            let input_features =
+                Array::from_shape_vec((1, 1, self.nb_max_frames, self.n_mels), flat).map_err(
+                    |e| AIProxyError::ModelPreprocessingError {
+                        model_name: self.model.to_string(),
+                        message: format!("Failed to stack audio features: {e}"),
+                    },
+                )?;
+
+            chunks.push(super::ChunkMetadata {
+                input: AudioInput { input_features },
+                start_sec,
+                end_sec,
+                duration_sec,
+                chunk_index,
+                total_chunks: 0,
+                audio_total_duration_sec: total_duration_sec,
+            });
+
+            if end >= pcm.len() {
+                break;
+            }
+            start += stride;
+            chunk_index += 1;
         }
 
-        // Shape: (batch, 1, nb_max_frames, n_mels) — the leading 1 is the channel dimension
-        // expected by the ONNX audio encoder's `input_features` input.
-        let input_features =
-            Array::from_shape_vec((batch, 1, self.nb_max_frames, self.n_mels), all_features)
-                .map_err(|e| AIProxyError::ModelPreprocessingError {
-                    model_name: self.model.to_string(),
-                    message: format!("Failed to stack audio features: {e}"),
-                })?;
+        let total = chunks.len();
+        for chunk in &mut chunks {
+            chunk.total_chunks = total;
+        }
 
-        Ok(AudioInput { input_features })
+        Ok(chunks)
     }
 
     /// Pads short audio using the `repeatpad` strategy: repeat the waveform as many whole

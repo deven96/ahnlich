@@ -2,7 +2,6 @@ use crate::cli::server::SupportedModels;
 use crate::engine::ai::providers::ModelProviders;
 use crate::engine::ai::providers::ProviderTrait;
 use crate::engine::ai::providers::ort::ORTProvider;
-use crate::engine::ai::providers::processors::AudioInput;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider;
 use ahnlich_types::ai::models::AiStoreInputType;
@@ -194,10 +193,12 @@ impl SupportedModels {
                 supported_model: SupportedModels::ClapAudio,
                 description: String::from(
                     "CLAP (Contrastive Language-Audio Pretraining) audio encoder. Embeds audio \
-                     clips into a shared 512-dim space with ClapText for multimodal audio+text search.",
+                     clips into a shared 512-dim space with ClapText for multimodal audio+text search. \
+                     Supports audio up to 10 minutes by chunking into 10-second segments with 1-second \
+                     overlap. Returns OneToMany with chunk metadata.",
                 ),
                 embedding_size: nonzero!(512usize),
-                input_to_embedding_mode: InputToEmbeddingMode::OneToOne,
+                input_to_embedding_mode: InputToEmbeddingMode::OneToMany,
             },
             SupportedModels::ClapText => ModelDetails {
                 model_type: ModelType::Text {
@@ -386,8 +387,8 @@ impl fmt::Display for InputAction {
 pub enum ModelInput {
     Texts(Vec<Encoding>),
     Images(Array<f32, Ix4>),
-    /// CLAP-ready log-Mel spectrogram features for a batch of audio clips
-    Audios(AudioInput),
+    /// CLAP-ready log-Mel spectrogram features with chunking metadata
+    Audios(Vec<crate::engine::ai::providers::processors::ChunkMetadata>),
 }
 
 #[derive(Debug)]
