@@ -490,14 +490,12 @@ impl ORTAudioPreprocessor {
                     flat.resize(self.nb_max_frames * self.n_mels, 0.0);
 
                     // Shape: (1, 1, nb_max_frames, n_mels) — single chunk
-                    let input_features = Array::from_shape_vec(
-                        (1, 1, self.nb_max_frames, self.n_mels),
-                        flat,
-                    )
-                    .map_err(|e| AIProxyError::ModelPreprocessingError {
-                        model_name: self.model.to_string(),
-                        message: format!("Failed to stack audio features: {e}"),
-                    })?;
+                    let input_features =
+                        Array::from_shape_vec((1, 1, self.nb_max_frames, self.n_mels), flat)
+                            .map_err(|e| AIProxyError::ModelPreprocessingError {
+                                model_name: self.model.to_string(),
+                                message: format!("Failed to stack audio features: {e}"),
+                            })?;
 
                     vec![super::ChunkMetadata {
                         input: AudioInput { input_features },
