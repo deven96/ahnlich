@@ -6,6 +6,7 @@ use crate::engine::ai::providers::processors::AudioInput;
 use crate::error::AIProxyError;
 use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvider;
 use ahnlich_types::keyval::StoreKey;
+use ahnlich_types::metadata::{MetadataValue, metadata_value};
 use fallible_collections::FallibleVec;
 use itertools::Itertools;
 use ndarray::{Array, ArrayView1, Axis, Ix2, Ix4};
@@ -14,6 +15,7 @@ use ort::{
     value::{TensorRef, Value},
 };
 use rayon::prelude::*;
+use std::collections::HashMap;
 use std::future::Future;
 use std::mem::size_of;
 use std::pin::Pin;
@@ -415,48 +417,86 @@ impl SingleStageModel {
                 }
                 Ok(store_keys)
             }
-            ModelInput::Audios(audio_input) => {
-                let total = audio_input.input_features.shape()[0];
-                let mut store_keys: Vec<ModelResponse> = FallibleVec::try_with_capacity(total)?;
+            ModelInput::Audios(chunk_metadata_vec) => {
+                let mut all_responses: Vec<ModelResponse> = Vec::new();
 
-                for batch_start in (0..total).step_by(self.model_batch_size) {
-                    let batch_end = (batch_start + self.model_batch_size).min(total);
-                    let features_slice = audio_input
-                        .input_features
-                        .slice(ndarray::s![batch_start..batch_end, .., .., ..])
-                        .to_owned();
+                // Group chunks by original audio
+                let mut current_audio_chunks: Vec<
+                    crate::engine::ai::providers::processors::ChunkMetadata,
+                > = Vec::new();
+                let mut current_audio_total = 0;
 
-                    let embeddings = self.batch_inference_audio(
-                        AudioInput {
-                            input_features: features_slice,
-                        },
-                        &session,
-                    )?;
+                for chunk in chunk_metadata_vec {
+                    if current_audio_chunks.is_empty()
+                        || current_audio_chunks[0].audio_total_duration_sec
+                            == chunk.audio_total_duration_sec
+                    {
+                        current_audio_total = chunk.total_chunks;
+                        current_audio_chunks.push(chunk);
+                    }
 
-                    let batch_size = embeddings.shape()[0];
-                    let embedding_dim = embeddings.shape()[1];
-                    let bytes_per_response = size_of::<ModelResponse>()
-                        + size_of::<StoreKey>()
-                        + (embedding_dim * size_of::<f32>())
-                        + 64;
-                    utils::allocator::check_memory_available(batch_size * bytes_per_response)
-                        .map_err(|e| AIProxyError::Allocation(e.into()))?;
+                    if current_audio_chunks.len() == current_audio_total {
+                        let mut chunk_embeddings = Vec::new();
 
-                    let new_store_keys: Vec<ModelResponse> = embeddings
-                        .axis_iter(Axis(0))
-                        .into_par_iter()
-                        .map(|embedding: ArrayView1<f32>| -> ModelResponse {
-                            ModelResponse::OneToOne(
-                                StoreKey {
-                                    key: embedding.to_vec(),
+                        for chunk_meta in current_audio_chunks.drain(..) {
+                            let embeddings =
+                                self.batch_inference_audio(chunk_meta.input, &session)?;
+
+                            let mut metadata = HashMap::new();
+                            metadata.insert(
+                                "chunk_start_sec".to_string(),
+                                MetadataValue {
+                                    value: Some(metadata_value::Value::RawString(
+                                        chunk_meta.start_sec.to_string(),
+                                    )),
                                 },
-                                None,
-                            )
-                        })
-                        .collect();
-                    store_keys.extend(new_store_keys);
+                            );
+                            metadata.insert(
+                                "chunk_end_sec".to_string(),
+                                MetadataValue {
+                                    value: Some(metadata_value::Value::RawString(
+                                        chunk_meta.end_sec.to_string(),
+                                    )),
+                                },
+                            );
+                            metadata.insert(
+                                "chunk_duration_sec".to_string(),
+                                MetadataValue {
+                                    value: Some(metadata_value::Value::RawString(
+                                        chunk_meta.duration_sec.to_string(),
+                                    )),
+                                },
+                            );
+                            metadata.insert(
+                                "total_chunks".to_string(),
+                                MetadataValue {
+                                    value: Some(metadata_value::Value::RawString(
+                                        chunk_meta.total_chunks.to_string(),
+                                    )),
+                                },
+                            );
+                            metadata.insert(
+                                "audio_total_duration_sec".to_string(),
+                                MetadataValue {
+                                    value: Some(metadata_value::Value::RawString(
+                                        chunk_meta.audio_total_duration_sec.to_string(),
+                                    )),
+                                },
+                            );
+
+                            chunk_embeddings.push((
+                                StoreKey {
+                                    key: embeddings.row(0).to_vec(),
+                                },
+                                Some(metadata),
+                            ));
+                        }
+
+                        all_responses.push(ModelResponse::OneToMany(chunk_embeddings));
+                    }
                 }
-                Ok(store_keys)
+
+                Ok(all_responses)
             }
         }
     }
