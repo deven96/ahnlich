@@ -1,0 +1,23 @@
+# Ignore audio files to avoid committing copyrighted content
+audio/songs/*.mp3
+audio/songs/*.wav
+audio/songs/*.ogg
+audio/songs/*.flac
+audio/songs/*.m4a
+
+# Ignore test audio files
+audio/test/*.mp3
+audio/test/*.wav
+audio/test/*.ogg
+audio/test/*.flac
+audio/test/*.m4a
+
+# Ignore recordings and temporary files
+recorded_*.wav
+*.wav
+*.mp3
+*.ogg
+
+# Keep the directory structure
+!audio/songs/.gitkeep
+audio-search
