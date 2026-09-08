@@ -261,14 +261,14 @@ run_ghz() {
 log "Benchmarking ($TOTAL_REQUESTS requests per run, $WARMUP_REQUESTS warmup, $REPEATS repeats)"
 
 # Scenarios to benchmark
-SCENARIOS="ping linear linear_5k linear_1k linear_100 hnsw hnsw_5k hnsw_1k hnsw_100"
+SCENARIOS="${SCENARIOS:-ping linear linear_5k linear_1k linear_100 hnsw hnsw_5k hnsw_1k hnsw_100}"
 
 # Repeats are the outer loop so background noise spreads across all configurations.
 for repeat in $(seq 1 "$REPEATS"); do
     for concurrency in $CONCURRENCY_LEVELS; do
         for scenario in $SCENARIOS; do
             label="$(scenario_label "$scenario")"
-            
+
             # Determine method and payload based on scenario
             if [ "$scenario" = "ping" ]; then
                 method="Ping"
@@ -277,7 +277,7 @@ for repeat in $(seq 1 "$REPEATS"); do
                 method="GetSimN"
                 payload="getsimn_${scenario}.json"
             fi
-            
+
             run_ghz "$label" "$concurrency" "$method" "$payload" "$repeat"
         done
     done

@@ -1248,6 +1248,13 @@ impl Store {
             .collect();
 
         if let Some(predicate_insert) = predicate_insert {
+            #[cfg(feature = "bench-existing-predicate-index")]
+            self.predicate_indices.add_existing_index_candidate(
+                predicate_insert,
+                parallelism_config,
+                active_requests,
+            );
+            #[cfg(not(feature = "bench-existing-predicate-index"))]
             self.predicate_indices
                 .add(predicate_insert, parallelism_config, active_requests);
         }

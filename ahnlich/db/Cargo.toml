@@ -6,6 +6,8 @@ edition = "2024"
 [features]
 default = ["server"]
 bench-experiments = []
+# Opt-in ghz binary only: route Set's predicate ingestion through candidate 1.
+bench-existing-predicate-index = ["bench-experiments"]
 server = [
     "dep:tonic",
     "dep:prost",
@@ -106,5 +108,11 @@ required-features = ["bench-experiments"]
 [[bench]]
 name = "predicate_empty_index_ingestion"
 path = "benches/experiments/predicate_empty_index_ingestion.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "predicate_existing_index_ingestion"
+path = "benches/experiments/predicate_existing_index_ingestion.rs"
 harness = false
 required-features = ["bench-experiments"]

@@ -2,6 +2,9 @@
 
 Measures end-to-end QPS for ahnlich-db under concurrent gRPC load.
 
+For the existing-predicate-index **Set control/candidate experiment**, see
+[SET_BENCHMARKS.md](SET_BENCHMARKS.md). It uses a separate ghz runner and prebuilt binaries.
+
 ## Requirements
 
 - Rust toolchain
@@ -104,6 +107,7 @@ rows.
 |---|---|---|
 | `HOST` / `PORT` | `127.0.0.1` / `1369` | |
 | `CONCURRENCY_LEVELS` | `1 10 50 100` | space separated |
+| `SCENARIOS` | all scenarios | space-separated scenario names to run |
 | `TOTAL_REQUESTS` | `10000` | measured requests per run |
 | `WARMUP_REQUESTS` | `500` | issued first, excluded from stats |
 | `REPEATS` | `3` | runs per configuration |
