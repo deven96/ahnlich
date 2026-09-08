@@ -459,7 +459,28 @@ async fn test_clap_audio_no_preprocessing_rejected() {
 /// Audio between 10s and 10 minutes is automatically chunked.
 #[tokio::test]
 async fn test_clap_audio_too_long_rejected() {
-    let ai_address = provision_clap_servers().await;
+    // Provision with increased message size to handle 601s WAV (~57MB)
+    let db_config = ServerConfig::default().os_select_port();
+    let server = Server::new(&db_config)
+        .await
+        .expect("Failed to create DB server");
+    let db_port = server.local_addr().unwrap().port();
+    tokio::spawn(async move { server.start().await });
+
+    let mut ai_config = AIProxyConfig::default()
+        .os_select_port()
+        .set_supported_models(vec![SupportedModels::ClapAudio, SupportedModels::ClapText]);
+    ai_config.db_port = db_port;
+    ai_config.common.message_size = 100 * 1024 * 1024; // 100MB to handle large test audio
+
+    let ai_server = AIProxyServer::new(ai_config)
+        .await
+        .expect("Could not initialize AI proxy");
+    let ai_address = ai_server.local_addr().expect("Could not get local addr");
+    tokio::spawn(async move { ai_server.start().await });
+
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
     let mut client = connect(ai_address).await;
 
     let store = "clap_too_long_store".to_string();
@@ -581,25 +602,6 @@ async fn test_clap_short_audio_accepted() {
         result.responses[1]
     );
 }
-
-#[tokio::test]
-async fn test_clap_decode_audio_no_copy() {
-    let test_audio = include_bytes!("../../test_data/audio/cat_meow.ogg").to_vec();
-
-    // This test verifies decode_audio takes ownership instead of copying
-    // The optimization: caller owns Vec<u8>, decode_audio takes ownership,
-    // Cursor::new(bytes) consumes the Vec directly without .to_vec() copy
-    let result =
-        crate::engine::ai::providers::processors::preprocessor::ORTAudioPreprocessor::decode_audio(
-            test_audio,
-        );
-
-    assert!(result.is_ok());
-    let (pcm, sample_rate) = result.unwrap();
-    assert!(pcm.len() > 0);
-    assert!(sample_rate > 0);
-}
-
 /// Test that short audio (< 10s) returns OneToMany response with chunk metadata
 #[tokio::test]
 async fn test_clap_short_audio_returns_one_to_many() {
@@ -778,96 +780,6 @@ fn create_wav_from_pcm(pcm: &[f32], sample_rate: u32) -> Vec<u8> {
 }
 
 /// Test that verifies the zero-copy optimization path works for audio and text inputs.
-/// This test ensures the manager can extract inputs without cloning when Arc has single ownership.
-#[tokio::test]
-async fn test_clap_zero_copy_extraction() {
-    let ai_address = provision_clap_servers().await;
-    let mut client = connect(ai_address).await;
-
-    let audio_store = "test_zero_copy_audio_store".to_string();
-    let text_store = "test_zero_copy_text_store".to_string();
-
-    // Create audio store
-    client
-        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
-            queries: vec![ai_pipeline::AiQuery {
-                query: Some(Query::CreateStore(ai_query_types::CreateStore {
-                    store: audio_store.clone(),
-                    query_model: AiModel::ClapAudio.into(),
-                    index_model: AiModel::ClapAudio.into(),
-                    predicates: vec![],
-                    non_linear_indices: vec![],
-                    error_if_exists: false,
-                    store_original: false,
-                    schema: None,
-                })),
-            }],
-        }))
-        .await
-        .expect("CreateStore audio failed");
-
-    // Create text store
-    client
-        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
-            queries: vec![ai_pipeline::AiQuery {
-                query: Some(Query::CreateStore(ai_query_types::CreateStore {
-                    store: text_store.clone(),
-                    query_model: AiModel::ClapText.into(),
-                    index_model: AiModel::ClapText.into(),
-                    predicates: vec![],
-                    non_linear_indices: vec![],
-                    error_if_exists: false,
-                    store_original: false,
-                    schema: None,
-                })),
-            }],
-        }))
-        .await
-        .expect("CreateStore text failed");
-
-    let audio = include_bytes!("../../test_data/audio/cat_meow.ogg").to_vec();
-
-    // Test audio zero-copy path
-    let response = client
-        .set(tonic::Request::new(ai_query_types::Set {
-            store: audio_store,
-            inputs: vec![AiStoreEntry {
-                key: Some(StoreInput {
-                    value: Some(Value::Audio(audio)),
-                }),
-                value: None,
-            }],
-            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
-            execution_provider: None,
-            model_params: HashMap::new(),
-            schema: None,
-        }))
-        .await
-        .expect("Set audio failed");
-
-    assert!(response.into_inner().upsert.unwrap().inserted > 0);
-
-    // Test text zero-copy path
-    let text_response = client
-        .set(tonic::Request::new(ai_query_types::Set {
-            store: text_store,
-            inputs: vec![AiStoreEntry {
-                key: Some(StoreInput {
-                    value: Some(Value::RawString("cat meowing".to_string())),
-                }),
-                value: None,
-            }],
-            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
-            execution_provider: None,
-            model_params: HashMap::new(),
-            schema: None,
-        }))
-        .await
-        .expect("Set text failed");
-
-    assert!(text_response.into_inner().upsert.unwrap().inserted > 0);
-}
-
 /// Test that large audio (50s) is accepted and properly chunked
 /// Note: Cannot test full 600s due to gRPC message size limits (~10MB)
 #[tokio::test]

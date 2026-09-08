@@ -135,7 +135,7 @@ func indexAudio(dir string) error {
 		fmt.Printf("✓ [%d/%d] %s\n", i+1, len(files), filepath.Base(file))
 	}
 
-	fmt.Printf("\n✅ Indexed %d songs\n", len(files))
+	fmt.Printf("\nIndexed %d songs\n", len(files))
 	return nil
 }
 
@@ -268,7 +268,7 @@ func searchAudio(queryFile string, limit int, playAudio bool) error {
 		}
 		
 		if bestSong != "" {
-			fmt.Printf("\n🎯 Best match (avg %.3f): %s\n", bestAvg, bestSong)
+			fmt.Printf("\nBest match (avg %.3f): %s\n", bestAvg, bestSong)
 			return playMatchedSection(&matchInfo{filename: bestSong})
 		}
 	}
@@ -290,7 +290,7 @@ func playMatchedSection(match *matchInfo) error {
 		return fmt.Errorf("audio file not found: %s", fullPath)
 	}
 
-	fmt.Printf("🔊 Playing: %s (from beginning)\n", match.filename)
+	fmt.Printf("Playing: %s (from beginning)\n", match.filename)
 
 	cmd := exec.Command("ffplay",
 		"-nodisp",
@@ -306,7 +306,7 @@ func playMatchedSection(match *matchInfo) error {
 }
 
 func recordAndSearch(duration, limit int, playAudio bool) error {
-	fmt.Printf("🎤 Recording %d seconds...\n", duration)
+	fmt.Printf("Recording %d seconds...\n", duration)
 	fmt.Println("Press ENTER to start, or Ctrl+C to cancel")
 	fmt.Scanln()
 
@@ -326,7 +326,7 @@ func recordAndSearch(duration, limit int, playAudio bool) error {
 		return fmt.Errorf("record failed (ffmpeg installed?): %w\nTry: brew install ffmpeg", err)
 	}
 
-	fmt.Println("🧹 Normalizing audio...")
+	fmt.Println("Normalizing audio...")
 
 	cleanCmd := exec.Command("ffmpeg",
 		"-i", rawFile,
@@ -339,7 +339,7 @@ func recordAndSearch(duration, limit int, playAudio bool) error {
 		return fmt.Errorf("audio normalization failed: %w", err)
 	}
 
-	fmt.Println("✅ Recording complete!\n")
+	fmt.Println("Recording complete!\n")
 
 	return searchAudio(outputFile, limit, playAudio)
 }
