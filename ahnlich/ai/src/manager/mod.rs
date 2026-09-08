@@ -121,7 +121,6 @@ impl ModelThread {
 
         match sample_type {
             Value::RawString(_) => {
-                // Zero-copy: move strings out instead of cloning
                 let texts: Vec<String> = owned_inputs
                     .into_par_iter()
                     .filter_map(|mut input| match input.value.take() {
@@ -141,7 +140,6 @@ impl ModelThread {
                         self.preprocess_images_chunked(inputs_arc, process_action, batch_size)?;
                     Ok(ModelInput::Images(output))
                 } else {
-                    // Zero-copy: move image bytes out instead of borrowing
                     let image_arrays = owned_inputs
                         .into_par_iter()
                         .filter_map(|mut input| match input.value.take() {
@@ -156,7 +154,6 @@ impl ModelThread {
                 }
             }
             Value::Audio(_) => {
-                // Zero-copy: move audio bytes out instead of cloning
                 let audio_bytes: Vec<Vec<u8>> = owned_inputs
                     .into_par_iter()
                     .filter_map(|mut input| match input.value.take() {
@@ -234,7 +231,7 @@ impl ModelThread {
         process_action: PreprocessAction,
         batch_size: usize,
     ) -> Result<Array<f32, Ix4>, AIProxyError> {
-        // Zero-copy: try to unwrap Arc to own the data
+        // Try to unwrap Arc to own the data unless clone
         let mut inputs_vec = Arc::try_unwrap(inputs).unwrap_or_else(|arc| (*arc).clone());
         let total_images = inputs_vec.len();
         let mut all_preprocessed: Vec<Array<f32, Ix4>> =
@@ -247,7 +244,6 @@ impl ModelThread {
             let chunk_size = batch_size.min(remaining);
             let chunk: Vec<StoreInput> = inputs_vec.drain(..chunk_size).collect();
 
-            // Decode chunk (zero-copy: move image bytes)
             let decoded_chunk: Vec<ImageArray> = chunk
                 .into_par_iter()
                 .filter_map(|mut input| match input.value.take() {
