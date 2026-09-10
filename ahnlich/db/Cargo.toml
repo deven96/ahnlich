@@ -6,8 +6,6 @@ edition = "2024"
 [features]
 default = ["server"]
 bench-experiments = []
-# Opt-in ghz binary only: route Set's predicate ingestion through candidate 1.
-bench-existing-predicate-index = ["bench-experiments"]
 server = [
     "dep:tonic",
     "dep:prost",

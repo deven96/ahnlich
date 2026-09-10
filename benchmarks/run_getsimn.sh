@@ -6,9 +6,9 @@
 # through ghz at several concurrency levels, writes a summary.
 #
 # Settings below are overridable:
-#   TOTAL_REQUESTS=50000 CONCURRENCY_LEVELS="1 8 32" ./run_baseline.sh
+#   TOTAL_REQUESTS=50000 CONCURRENCY_LEVELS="1 8 32" ./run_getsimn.sh
 # Use the locally installed SIFT1M corpus:
-#   STORE_SIZE=100000 ./run_baseline.sh --sift-1m
+#   STORE_SIZE=100000 ./run_getsimn.sh --sift-1m
 #
 set -euo pipefail
 
@@ -55,7 +55,7 @@ REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 AHNLICH_DIR="$REPO_DIR/ahnlich"
 PROTO_DIR="$REPO_DIR/protos"
 
-RESULTS_DIR="${RESULTS_DIR:-$SCRIPT_DIR/results/baseline_$(date +%Y%m%d_%H%M%S)}"
+RESULTS_DIR="${RESULTS_DIR:-$SCRIPT_DIR/results/getsimn_$(date +%Y%m%d_%H%M%S)}"
 PAYLOAD_DIR="$RESULTS_DIR/payloads"
 SERVER_LOG="$RESULTS_DIR/server.log"
 

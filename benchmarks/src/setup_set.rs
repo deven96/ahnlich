@@ -1,4 +1,4 @@
-//! Deterministic Set fixtures for run_set_ab.py. No benchmark timing is done here.
+//! Deterministic Set fixtures for the Set benchmark runners. No timing is done here.
 use ahnlich_client_rs::db::DbClient;
 use ahnlich_types::db::query::{CreateStore, GetKey, GetPred, Set};
 use ahnlich_types::keyval::{DbStoreEntry, StoreKey, StoreValue};

@@ -1,144 +1,157 @@
-# Existing predicate index: end-to-end Set A/B
+# ahnlich-db Set benchmark harness
 
-`run_set_ab.py` compares a prebuilt main/control server with a prebuilt candidate server
-using ghz over gRPC. It never builds, changes branches, or contacts an existing deployment.
-It starts fresh standalone servers on localhost, one at a time, and stops its own servers
-on completion or failure. Results directories must be new.
+Measures end-to-end `Set` QPS for ahnlich-db under concurrent gRPC load.
 
-The candidate binary uses the opt-in `bench-existing-predicate-index` Cargo feature.
-This routes Set's predicate ingestion to `add_existing_index_candidate`, the same candidate
-used by the first Criterion experiment. The borrowed-metadata candidate is not enabled.
-Default builds retain the current implementation. Do not enable this feature in release
-artifacts intended for production.
+For the `GetSimN` search benchmark, see
+[SEARCH_BENCHMARKS.md](SEARCH_BENCHMARKS.md). It uses SIFT fixtures and a separate ghz runner.
 
-## Build, then run
+## Requirements
 
-Requires Rust/protoc for building, Python 3.11+, and ghz (CI pins v0.121.0).
-From the repository root, prepare an isolated checkout of the control revision:
+- Rust toolchain and protoc
+- [`ghz`](https://ghz.sh): `brew install ghz` or `go install github.com/bojand/ghz/cmd/ghz@latest`
 
-```sh
-git worktree add --detach /tmp/ahnlich-set-main main
+Set uses deterministic synthetic vectors because ingestion performance depends on vector
+size, batch size, metadata, and indexes rather than the vector distribution. This also
+provides unlimited stable keys and directly controllable metadata cardinality.
 
-cargo build --release --manifest-path /tmp/ahnlich-set-main/ahnlich/Cargo.toml \
-  --bin ahnlich-db --target-dir /tmp/ahnlich-set-control-target
+## Running
 
-cargo build --release --manifest-path ahnlich/Cargo.toml --bin ahnlich-db \
-  --features bench-existing-predicate-index --target-dir /tmp/ahnlich-set-candidate-target
-
-cargo build --release --manifest-path benchmarks/Cargo.toml --bin setup_set \
-  --target-dir /tmp/ahnlich-set-harness-target
-
-python3 benchmarks/run_set_ab.py \
-  --control-bin /tmp/ahnlich-set-control-target/release/ahnlich-db \
-  --candidate-bin /tmp/ahnlich-set-candidate-target/release/ahnlich-db \
-  --setup-bin /tmp/ahnlich-set-harness-target/release/setup_set \
-  --control-ref "$(git -C /tmp/ahnlich-set-main rev-parse HEAD)" \
-  --candidate-ref "$(git rev-parse HEAD)-working-tree" \
-  --results benchmarks/results/set_existing_index_ab
+```bash
+./run_set.sh
 ```
 
-Use unused paths or your existing worktree/output directories. For reproducible source
-attribution, build committed revisions and pass their exact SHAs. Ref labels are supplied
-by the operator; the runner records binary SHA-256 hashes but cannot infer their source
-commits. Use `--setup-bin` when Cargo output is redirected.
+Run a prebuilt server binary with:
 
-The default sweep covers batches 100/1,000, concurrency 1/4/16, three repeats, and four
-metadata cases: zero indexed fields (negative control), one indexed field with one value,
-one indexed field with 100 values, and four indexed fields with 100 values. The first
-binary alternates by repeat: control/candidate, candidate/control, control/candidate.
-Budget roughly 45 minutes plus setup for the full default sweep.
-
-For a narrower first comparison, append:
-
-```sh
---batches 1000 --concurrency 1 4 --cases 0:100 1:100 4:100 --seconds 15 --repeats 3
+```bash
+SERVER_BIN=/path/to/ahnlich-db ./run_set.sh
 ```
 
-## Workloads and fixture identity
+Builds the release binaries when needed, starts a server, creates the stores, runs the
+sweep, verifies the stored data, and writes a summary. Paths resolve relative to the
+script. The server is stopped on exit, including on failure and Ctrl-C.
 
-Every measured store contains a sentinel entry before timing. Writing that entry populates
-the configured predicate indexes, and the helper checks each predicate's sentinel query.
-No HNSW or KD-tree index is created. Each payload has the same four metadata fields and
-a 64-character unindexed payload regardless of the indexed-field count.
+Output lands in `results/set_<timestamp>/`:
 
-| Workload | Preparation | Measured calls |
+```text
+SUMMARY.md                  results table
+RUN.txt                     commit, host, ghz version, configuration
+<label>_c<N>_r<K>.json      raw ghz report per run
+<label>_c<N>_r<K>.cpu       server CPU per request
+payloads/                   generated ghz request data
+specs/                      exact fixture definitions
+server.log
+```
+
+## What it measures
+
+Each store contains deterministic 128-dimensional vectors with four metadata fields and
+a 64-character unindexed payload. The measured requests update a bounded pool of existing
+keys with the same values, keeping the store size and operation type stable across repeats.
+
+| row | predicate indexes | indexed value cardinality |
+|---|---:|---:|
+| `set_no_index` | 0 | 100 |
+| `set_1_index` | 1 | 100 |
+| `set_4_indexes` | 4 | 100 |
+
+The zero-index row is the negative control for predicate ingestion. Every indexed store
+contains a sentinel membership created before timing. No HNSW or KD-tree index is created.
+
+Payload files are generated once and reused for every concurrency level and repeat. The
+first two vector coordinates encode request and row identity, allowing the harness to
+verify the stored values after the sweep.
+
+## Reference numbers
+
+M1 development machine, control `ab4ffc70` versus `ab4ffc70-working-tree`, three repeats
+per case. All requests returned `OK` and all post-run state checks passed. Values below are
+the median candidate RPS change; positive values favor the candidate.
+
+| existing indexes | batch | c=1 | c=4 | c=16 |
+|---:|---:|---:|---:|---:|
+| 0 | 100 | +0.2% | +0.4% | +4.7% |
+| 1 | 100 | +9.0% | +20.0% | +33.8% |
+| 4 | 100 | +35.0% | +58.0% | +92.9% |
+| 0 | 1,000 | +0.4% | -0.1% | +3.1% |
+| 1 | 1,000 | +3.6% | +9.0% | +14.3% |
+| 4 | 1,000 | +12.6% | +22.8% | +38.7% |
+
+At batch 100 with four existing indexes and concurrency 16, throughput increased from
+376.2 to 725.6 RPS and p50 latency fell from 43.14 ms to 21.85 ms.
+
+## Configuration
+
+| variable | default | notes |
 |---|---|---|
-| `update` (default) | Preload a bounded pool of 32 request batches | Cycle the same batches for 15 seconds; all keys already exist and metadata values remain unchanged |
-| `insert` | Preload only the sentinel | Send exactly `--total-requests` disjoint batches once each |
-| `mixed` | Preload the first half of every request batch | Send each batch once; first half updates existing keys, remaining rows insert new keys |
+| `HOST` / `PORT` | `127.0.0.1` / `1369` | |
+| `CONCURRENCY_LEVELS` | `1 10 50 100` | space separated |
+| `SCENARIOS` | all scenarios | space-separated scenario names to run |
+| `TOTAL_REQUESTS` | `10000` | measured requests per run |
+| `WARMUP_REQUESTS` | `500` | issued first, excluded from stats |
+| `REPEATS` | `3` | runs per configuration |
+| `CONNECTIONS` | `8` | ghz connections; capped at concurrency |
+| `BATCH_SIZE` | `1000` | entries per `Set` request |
+| `VECTOR_DIMENSION` | `128` | floats per vector |
+| `POOL_REQUESTS` | `32` | distinct request batches cycled by ghz |
+| `THREADPOOL_SIZE` | `16` | server Rayon pool size |
+| `SIZE_CALCULATION_INTERVAL` | `60` | milliseconds |
+| `REQUEST_TIMEOUT` | `60s` | |
+| `SERVER_BIN` | built locally | optional prebuilt `ahnlich-db` binary |
+| `RESULTS_DIR` | timestamped | |
 
-Vectors are deterministic synthetic fixtures, default dimension 128. Their first two
-coordinates encode request and row identity using exactly representable f32 integers.
-This requires no SIFT download and isolates ingestion rather than similarity quality.
-The index value distribution is controlled by `--cases indexed-fields:cardinality`.
-
-Payload files are generated once per scenario and reused byte-for-byte for both binaries
-and all repeats. The [ghz array-input contract](https://ghz.sh/docs/options#-d---data)
-cycles messages round-robin. Templates are disabled. Insert/mixed use a request count
-equal to the array length to avoid cycling into an update workload; final store-length
-checks detect missing distinct entries. Update intentionally cycles a bounded key set.
-
-Growth workloads require more memory and larger input files. The runner defaults to a
-200,000-entry fixture cap. For example, append these settings to the same command:
-
-```sh
---workloads insert mixed --batches 100 --total-requests 2000 \
---concurrency 1 4 --cases 1:100 4:100
+```bash
+BATCH_SIZE=100 CONCURRENCY_LEVELS="1 4 16" ./run_set.sh
 ```
 
-Runs under ten seconds are flagged in the summary; increase the request budget and the
-explicit `--max-fixture-entries` limit as your machine permits. The cap counts vectors,
-not bytes; account for dimensions, payload JSON, metadata, and index memory. Inspect client
-CPU because a large payload pool can make ghz the bottleneck.
+To compare two revisions, build both binaries and run the same configuration into separate
+directories:
 
-## Timing and validation
+```bash
+SERVER_BIN=/tmp/control/ahnlich-db RESULTS_DIR=/tmp/set-control ./run_set.sh
+SERVER_BIN=/tmp/candidate/ahnlich-db RESULTS_DIR=/tmp/set-candidate ./run_set.sh
+```
 
-- Every binary/scenario/concurrency/repeat uses a fresh server, preventing store growth,
-  old buckets, or allocator state from leaking across runs.
-- Warmup uses a separate, bounded update store for three seconds. The measured store is
-  prepared afterward. Warmup traffic, fixture setup, and verification are excluded from
-  ghz's measured report. The warmup store remains present in both variants.
-- Warmup and measurement use separate ghz invocations. Connections are re-established for
-  measurement; duration runs should be long enough to amortize their startup cost.
-- The server Rayon pool defaults to 16 threads. Predicate parallelism keeps the normal
-  150,000 batch threshold; this experiment does not force the parallel branch as the
-  Criterion grouping experiment did. Override `--parallel-batch-threshold` explicitly
-  for a separate parallel-policy run.
-- Connections default to eight, capped at concurrency. Defaults pin message/allocator
-  limits and set size calculation to 60,000 ms to reduce background scanning during the
-  short isolated runs. The usual default is 60 ms; rerun with
-  `--size-calculation-interval 60` to assess that production background load.
-- Persistence, authentication, and replication are not enabled. This first experiment
-  isolates standalone Set with predicate indexing.
-- Every ghz invocation must report a positive count, only OK statuses, and no errors.
-  Insert/mixed must complete the exact configured count. Duration runs wait for in-flight
-  requests, rather than ignoring their errors at the cutoff.
-- After measurement, the helper verifies exact store length, configured predicate names,
-  sentinel predicate membership, and sampled first/last request entries including metadata.
-  These checks do not exhaustively validate every result or concurrent index lifecycle.
-- `expected_inserted` and `expected_updated` in `records.jsonl` are derived from the fixture,
-  not collected from each ghz response body. Actual final lengths and sample values are checked.
+## Reading the results
 
-## Outputs
+- Every figure is the median of `REPEATS` runs. `RPS range` is the spread across them;
+  changes smaller than the spread are not measurable.
+- `server us/req` is the server process's own CPU time. It excludes client cost.
+- `RPS` includes client cost. At concurrency 1 ghz is a larger part of the round trip, so
+  use higher concurrency for throughput and concurrency 1 to isolate per-request changes.
+- `set_no_index` shows whether a change affects general `Set` processing independently of
+  predicate indexes.
+- Store length, predicate configuration, sentinel membership, and sampled values are
+  verified after the measured runs. Any non-`OK` response fails the run.
 
-- `RUN.json`: configuration, operator-supplied revisions, host, ghz version, binary and payload hashes.
-- `fixtures/`: exact specs and shared payloads.
-- One directory per run: server command/log, warmup and measured ghz reports, setup and verification logs.
-- `records.jsonl`: validated per-run RPS, entries/sec, p50/p95/p99, CPU, and expected mutation counts.
-- `SUMMARY.md`: median metrics, RPS ranges, and candidate/control RPS changes.
+## Profiling
 
-Server CPU/request covers the ghz process invocation window, excluding setup/verification.
-The recorded ghz CPU time helps identify load-generator saturation. CPU and wall-time
-windows include client startup and are not identical to ghz's internal timing window.
-Failures abort the sweep and preserve logs; a final summary is emitted only after success.
+Run the server under [samply](https://github.com/mstange/samply) and drive it with ghz.
 
-## CI
+```bash
+cargo install samply --locked
+```
 
-Add the `set-benchmark-experiments` label to a PR to opt into
-`.github/workflows/set-benchmark-experiments.yml`. It compares the PR base SHA against the
-PR head built with the candidate feature. The Criterion opt-in label is separate.
-The workflow also supports manual dispatch once available on the default branch, using
-`control_ref` (default main) and the selected candidate branch. It runs a smaller sweep
-and uploads results. Shared-runner measurements
-are exploratory, not a regression gate. No workflow or benchmark was launched while
-creating this setup.
+Build with symbols first, or the profile is only addresses:
+
+```bash
+CARGO_PROFILE_RELEASE_DEBUG=line-tables-only \
+  cargo build --release --manifest-path ../ahnlich/Cargo.toml --bin ahnlich-db
+```
+
+Use the generated payload for the scenario being profiled and call
+`services.db_service.DBService/Set`. Keep the batch size, concurrency, connections, and
+request count identical when comparing profiles.
+
+When reading a profile:
+
+- Select only the ghz measurement window; store creation and preload happen earlier.
+- Filter to the `ahnlich-db` binary. Parked Rayon threads are sampled too.
+- Compare the CPU accounted for against the measured latency. A large gap means time was
+  spent waiting rather than in the top self-time entry.
+
+Confirm a profile finding by running the same configuration against both prebuilt binaries.
+
+## Layout
+
+Standalone crate with its own lockfile, outside the ahnlich workspace. It depends on
+ahnlich by path and is not built by `cargo build --workspace`.

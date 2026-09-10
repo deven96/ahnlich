@@ -325,6 +325,78 @@ impl PredicateIndices {
         }
     }
 
+    /// Adds predicates if the key is within allowed_predicates, reusing existing indexes.
+    #[tracing::instrument(skip_all, fields(new_len = new.len()))]
+    pub(super) fn add_existing_index_candidate(
+        &self,
+        new: Vec<(StoreKeyId, Arc<StoreValue>)>,
+        parallelism_config: &super::store::ParallelismConfig,
+        active_requests: usize,
+    ) {
+        let use_parallel = parallelism_config.should_use_parallel(new.len(), active_requests);
+
+        let iter = if use_parallel {
+            new.into_par_iter()
+                .flat_map(|(store_key_id, store_value)| {
+                    // Clone the Arc to get access to the inner value
+                    let value_clone = Arc::clone(&store_value);
+                    value_clone
+                        .value
+                        .clone()
+                        .into_par_iter()
+                        .map(move |(key, val)| {
+                            let allowed_keys = self.allowed_predicates.pin();
+                            allowed_keys
+                                .contains(&key)
+                                .then_some((store_key_id, key, val))
+                        })
+                })
+                .flatten()
+                .map(|(store_key_id, key, val)| (key, (val.to_owned(), store_key_id)))
+                .fold(HashMap::new, |mut acc: HashMap<_, Vec<_>>, (k, v)| {
+                    acc.entry(k).or_default().push(v);
+                    acc
+                })
+                .reduce(HashMap::new, |mut acc, map| {
+                    for (key, mut values) in map {
+                        acc.entry(key).or_default().append(&mut values);
+                    }
+                    acc
+                })
+        } else {
+            let mut result = HashMap::new();
+            for (store_key_id, store_value) in new {
+                let allowed_keys = self.allowed_predicates.pin();
+                for (key, val) in store_value.value.iter() {
+                    if allowed_keys.contains(key) {
+                        result
+                            .entry(key.clone())
+                            .or_insert_with(Vec::new)
+                            .push((val.to_owned(), store_key_id));
+                    }
+                }
+            }
+            result
+        };
+
+        let predicate_values = self.inner.pin();
+        for (key, val) in iter {
+            if let Some(existing) = predicate_values.get(&key) {
+                existing.add(val, parallelism_config, active_requests);
+                continue;
+            }
+
+            // Build before publication; a competing creator may still win try_insert.
+            let pred = PredicateIndex::init(val.clone(), parallelism_config, active_requests);
+
+            if let Err(existing_predicate) = predicate_values.try_insert(key, pred) {
+                existing_predicate
+                    .current
+                    .add(val, parallelism_config, active_requests);
+            };
+        }
+    }
+
     #[inline]
     pub(super) fn has_configured_predicates(&self) -> bool {
         !self.allowed_predicates.is_empty()

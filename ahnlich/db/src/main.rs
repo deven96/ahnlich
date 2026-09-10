@@ -8,8 +8,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let cli = ahnlich_db::cli::Cli::parse();
     match &cli.command {
         ahnlich_db::cli::Commands::Run(config) => {
-            #[cfg(feature = "bench-existing-predicate-index")]
-            eprintln!("benchmark: existing-predicate-index candidate enabled");
             if config.common.enable_persistence {
                 validate_persistence(
                     config.common.allocator_size,
