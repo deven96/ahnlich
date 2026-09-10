@@ -14,7 +14,6 @@ fn predicate_existing_index_ingestion(c: &mut Criterion) {
             scenarios.push(Scenario {
                 label: format!("existing_batch{batch}_fields{indexed_fields}_values{cardinality}_parallel{parallel}"),
                 batch, indexed_fields, cardinality, parallel,
-                unindexed_fields: 0, unindexed_bytes: 0,
                 existing_fields: indexed_fields,
             });
         }
@@ -26,8 +25,6 @@ fn predicate_existing_index_ingestion(c: &mut Criterion) {
             indexed_fields: 4,
             cardinality: 100,
             parallel: false,
-            unindexed_fields: 0,
-            unindexed_bytes: 0,
             existing_fields,
         });
     }

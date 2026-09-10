@@ -175,13 +175,11 @@ for scenario in $SCENARIOS; do
     cat > "$spec" <<EOF
 {
   "store": "$scenario",
-  "workload": "update",
   "batch": $BATCH_SIZE,
   "dimension": $VECTOR_DIMENSION,
   "indexed_fields": $indexed_fields,
   "cardinality": $cardinality,
   "pool_requests": $POOL_REQUESTS,
-  "total_requests": $TOTAL_REQUESTS,
   "payload_file": "$payload"
 }
 EOF

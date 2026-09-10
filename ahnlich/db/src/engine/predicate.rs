@@ -258,6 +258,7 @@ impl PredicateIndices {
     }
 
     /// Adds predicates if the key is within allowed_predicates
+    #[allow(dead_code)]
     #[tracing::instrument(skip_all, fields(new_len = new.len()))]
     pub(super) fn add(
         &self,

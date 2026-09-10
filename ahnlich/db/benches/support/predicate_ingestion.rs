@@ -14,8 +14,6 @@ pub struct Scenario {
     pub label: String,
     pub batch: usize,
     pub indexed_fields: usize,
-    pub unindexed_fields: usize,
-    pub unindexed_bytes: usize,
     pub cardinality: usize,
     pub existing_fields: usize,
     pub parallel: bool,
@@ -30,14 +28,6 @@ fn entries(s: &Scenario, start: usize, count: usize, indexed_fields: usize) -> E
                     format!("indexed-{field}"),
                     MetadataValue {
                         value: Some(Value::RawString(format!("value-{}", id % s.cardinality))),
-                    },
-                );
-            }
-            for field in 0..s.unindexed_fields {
-                value.insert(
-                    format!("unindexed-{field}"),
-                    MetadataValue {
-                        value: Some(Value::Image(vec![field as u8; s.unindexed_bytes])),
                     },
                 );
             }

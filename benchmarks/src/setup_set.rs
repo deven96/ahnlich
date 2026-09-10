@@ -16,33 +16,15 @@ use std::path::Path;
 #[derive(Deserialize)]
 struct Spec {
     store: String,
-    workload: String,
     batch: usize,
     dimension: usize,
     indexed_fields: usize,
     cardinality: usize,
     pool_requests: usize,
-    total_requests: usize,
     payload_file: String,
 }
 
 impl Spec {
-    fn requests(&self) -> usize {
-        if self.workload == "update" {
-            self.pool_requests
-        } else {
-            self.total_requests
-        }
-    }
-
-    fn preload_rows(&self) -> usize {
-        match self.workload.as_str() {
-            "update" => self.batch,
-            "mixed" => self.batch / 2,
-            _ => 0,
-        }
-    }
-
     fn entry(&self, request: usize, row: usize) -> DbStoreEntry {
         // First two coordinates provide exact, collision-free f32 fixture identity.
         let mut key: Vec<f32> = (0..self.dimension)
@@ -84,7 +66,7 @@ fn string_value(value: String) -> MetadataValue {
 fn write_payload(s: &Spec) -> Result<()> {
     let mut out = BufWriter::new(std::fs::File::create(&s.payload_file)?);
     out.write_all(b"[")?;
-    for request in 0..s.requests() {
+    for request in 0..s.pool_requests {
         if request != 0 {
             out.write_all(b",")?;
         }
@@ -191,25 +173,21 @@ async fn prepare(client: &DbClient, s: &Spec) -> Result<()> {
         )
         .await?;
     insert(client, s, vec![s.seed()]).await?;
-    if s.preload_rows() > 0 {
-        for request in 0..s.requests() {
-            insert(
-                client,
-                s,
-                (0..s.preload_rows())
-                    .map(|row| s.entry(request, row))
-                    .collect(),
-            )
-            .await?;
-        }
+    for request in 0..s.pool_requests {
+        insert(
+            client,
+            s,
+            (0..s.batch).map(|row| s.entry(request, row)).collect(),
+        )
+        .await?;
     }
-    check_catalog(client, s, 1 + s.requests() * s.preload_rows()).await
+    check_catalog(client, s, 1 + s.pool_requests * s.batch).await
 }
 
 async fn verify(client: &DbClient, s: &Spec) -> Result<()> {
-    check_catalog(client, s, 1 + s.requests() * s.batch).await?;
-    // Inspect first and last requests, including both sides of the mixed split.
-    for request in [0, s.requests() - 1] {
+    check_catalog(client, s, 1 + s.pool_requests * s.batch).await?;
+    // Inspect the first and last requests across each batch.
+    for request in [0, s.pool_requests - 1] {
         for row in [0, s.batch / 2, s.batch - 1] {
             let expected = s.entry(request, row);
             let result = client
@@ -240,10 +218,6 @@ async fn main() -> Result<()> {
     );
     let s: Spec = serde_json::from_slice(&std::fs::read(Path::new(&args[2]))?)?;
     ensure!(
-        matches!(s.workload.as_str(), "insert" | "update" | "mixed"),
-        "invalid workload"
-    );
-    ensure!(
         s.batch > 0 && s.batch < (1 << 24) && s.dimension >= 2 && s.dimension <= 4096,
         "invalid shape"
     );
@@ -252,7 +226,7 @@ async fn main() -> Result<()> {
         "invalid metadata configuration"
     );
     ensure!(
-        s.requests() > 0 && s.requests() < (1 << 24),
+        s.pool_requests > 0 && s.pool_requests < (1 << 24),
         "invalid request count"
     );
     if args[1] == "generate" {
