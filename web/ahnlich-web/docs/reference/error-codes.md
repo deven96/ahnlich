@@ -458,15 +458,14 @@ CreateStore(
 
 #### AudioTooLongError
 
-**Error Message:** `Audio input is too long (15000ms). Model accepts at most 10000ms per clip. Trim or split your audio before indexing.`
+**Error Message:** `Audio input is too long (650000ms). Model accepts at most 600000ms per clip. Trim your audio before indexing.`
 
 **gRPC Code:** `InvalidArgument`
 
-**Cause:** Audio clip exceeds the 10-second maximum duration for CLAP models.
+**Cause:** Audio clip exceeds the 10-minute (600 seconds) maximum duration for CLAP models.
 
 **Solution:**
-- Trim audio to 10 seconds or less
-- Split longer audio into multiple clips
+- Trim audio to 10 minutes or less
 - Use audio editing tools to extract relevant segments
 
 **Example (Python with pydub):**
@@ -474,10 +473,12 @@ CreateStore(
 from pydub import AudioSegment
 
 audio = AudioSegment.from_file("long_audio.wav")
-# Take first 10 seconds
-clip = audio[:10000]  # milliseconds
-clip.export("short_clip.wav", format="wav")
+# Take first 10 minutes
+clip = audio[:600000]  # milliseconds (10 minutes)
+clip.export("trimmed_clip.wav", format="wav")
 ```
+
+**Note:** Audio up to 10 minutes is automatically split into overlapping 10-second chunks. Each chunk produces one embedding with temporal metadata (`chunk_start_sec`, `chunk_end_sec`, etc.).
 
 ---
 

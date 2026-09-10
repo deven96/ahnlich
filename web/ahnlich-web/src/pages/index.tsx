@@ -101,12 +101,10 @@ type TermLine =
 
 const QUICKSTART_LINES: TermLine[] = [
   {type: 'comment', text: '# Run the Ahnlich DB server'},
-  {type: 'cmd', text: 'cargo install ahnlich_db'},
-  {type: 'cmd', text: 'ahnlich_db run --port 1369'},
+  {type: 'cmd', text: 'docker run -d -p 1369:1369 ghcr.io/deven96/ahnlich-db:latest'},
   {type: 'blank'},
   {type: 'comment', text: '# ...or spin up the AI proxy for automatic embeddings'},
-  {type: 'cmd', text: 'cargo install ahnlich_ai'},
-  {type: 'cmd', text: 'ahnlich_ai run --port 1370'},
+  {type: 'cmd', text: 'docker run -d -p 1370:1370 ghcr.io/deven96/ahnlich-ai:latest'},
 ];
 
 /** colour a shell command: first word teal, --flags amber, rest default */
@@ -193,6 +191,97 @@ function QuickstartTerminal() {
   );
 }
 
+function AudioSearchShowcase() {
+  return (
+    <section className="relative overflow-hidden bg-gradient-to-br from-[#0a1822] to-[#0c1e28] py-24 text-white">
+      <div className="ahn-grid pointer-events-none absolute inset-0 opacity-20" />
+      <div className="pointer-events-none absolute right-0 top-1/4 h-96 w-96 rounded-full bg-secondary/20 blur-3xl" />
+      <div className="container relative z-10">
+        <div className="mx-auto max-w-4xl text-center">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-secondary/10 px-4 py-2 text-sm font-semibold text-secondary">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+            </svg>
+            Featured Example
+          </div>
+          <h2 className="text-3xl font-bold md:text-4xl">
+            Build your own music recognition
+          </h2>
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-white/80">
+            Index your music library and search by playing audio clips. Like Shazam or YouTube's audio search, 
+            powered by <Link to="/docs/getting-started/quickstart-ai" className="font-semibold text-secondary hover:text-secondary/80">ahnlich-ai</Link> with CLAP embeddings 
+            and <Link to="/docs/getting-started/quickstart-db" className="font-semibold text-secondary hover:text-secondary/80">ahnlich-db</Link> for semantic similarity.
+          </p>
+          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <ActionLinks 
+              href="/docs/guides/go" 
+              variant="secondary"
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polygon points="10 8 16 12 10 16 10 8"/>
+                </svg>
+              }>
+              Try the Audio Search Demo
+            </ActionLinks>
+            <Link
+              to="https://github.com/deven96/ahnlich/tree/main/examples/go/audio-search"
+              className="flex items-center gap-2 text-lg font-medium text-white/80 hover:text-white">
+              View Source Code
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <path d="m7 7 10 10-5 0 0 5"/>
+                <path d="M3 3h10v10"/>
+              </svg>
+            </Link>
+          </div>
+          <div className="mt-12 grid gap-6 text-left sm:grid-cols-3">
+            <div className="rounded-lg bg-white/5 p-6 backdrop-blur-sm ring-1 ring-white/10">
+              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/20 text-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                  <line x1="12" x2="12" y1="19" y2="22"/>
+                </svg>
+              </div>
+              <h3 className="font-semibold">Record & Match</h3>
+              <p className="mt-2 text-sm text-white/60">
+                Capture audio from your microphone and find matching songs in your library
+              </p>
+            </div>
+            <div className="rounded-lg bg-white/5 p-6 backdrop-blur-sm ring-1 ring-white/10">
+              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/20 text-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <path d="M2 10v3"/>
+                  <path d="M6 6v11"/>
+                  <path d="M10 3v18"/>
+                  <path d="M14 8v7"/>
+                  <path d="M18 5v13"/>
+                  <path d="M22 10v3"/>
+                </svg>
+              </div>
+              <h3 className="font-semibold">Long Audio Support</h3>
+              <p className="mt-2 text-sm text-white/60">
+                Index songs up to 10 minutes with automatic chunking and overlap
+              </p>
+            </div>
+            <div className="rounded-lg bg-white/5 p-6 backdrop-blur-sm ring-1 ring-white/10">
+              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/20 text-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+              </div>
+              <h3 className="font-semibold">High Accuracy</h3>
+              <p className="mt-2 text-sm text-white/60">
+                50-60% similarity scores on clean recordings with CLAP embeddings
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Quickstart() {
   return (
     <section className="bg-[#f4f8fa] py-24 dark:bg-[#0c1e28]">
@@ -267,6 +356,7 @@ export default function Home(): ReactNode {
       <main>
         <PythonApi />
         <Highlights />
+        <AudioSearchShowcase />
         <Quickstart />
         <CallToAction />
       </main>
