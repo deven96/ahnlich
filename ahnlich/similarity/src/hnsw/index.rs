@@ -18,6 +18,9 @@ use std::{
     sync::atomic::{AtomicU8, Ordering},
 };
 
+#[cfg(feature = "bench-experiments")]
+mod experiments;
+
 /// Below this many accepted vectors, a filtered search scans the accepted set directly
 /// instead of traversing the graph. At this size an exact SIMD scan costs less than a
 /// graph walk that cannot fill `ef` and therefore keeps widening.

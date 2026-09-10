@@ -30,6 +30,7 @@ ahnlich_types = { version = "0.4.1", path = "../types", default-features = false
 [features]
 default = ["serde"]
 serde = ["dep:serde"]
+bench-experiments = []
 
 
 [dev-dependencies]
@@ -44,3 +45,9 @@ criterion = "0.4"
 [[bench]]
 name = "hnsw_bench"
 harness = false
+
+[[bench]]
+name = "hnsw_distance_reuse"
+path = "benches/experiments/hnsw_distance_reuse.rs"
+harness = false
+required-features = ["bench-experiments"]
