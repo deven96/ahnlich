@@ -2,6 +2,9 @@
 
 Measures end-to-end QPS for ahnlich-db under concurrent gRPC load.
 
+For the `Set` benchmark, see [SET_BENCHMARKS.md](SET_BENCHMARKS.md). It uses deterministic
+synthetic fixtures and a separate ghz runner.
+
 ## Requirements
 
 - Rust toolchain
@@ -14,13 +17,19 @@ installation belongs in `../ahnlich/similarity/sift_1m/`. It can be downloaded f
 ## Running
 
 ```bash
-./run_baseline.sh
+./run_getsimn.sh
 ```
 
 Run against the local SIFT1M installation with:
 
 ```bash
-./run_baseline.sh --sift-1m
+./run_getsimn.sh --sift-1m
+```
+
+Run a prebuilt server binary with:
+
+```bash
+SERVER_BIN=/path/to/ahnlich-db ./run_getsimn.sh
 ```
 
 `SIFT_DIR` remains available when the dataset lives elsewhere.
@@ -29,7 +38,7 @@ Builds the release binaries, starts a server, loads the data, runs the sweep, wr
 summary. Paths resolve relative to the script. The server is stopped on exit, including
 on failure and Ctrl-C.
 
-Output lands in `results/baseline_<timestamp>/`:
+Output lands in `results/getsimn_<timestamp>/`:
 
 ```
 SUMMARY.md                  results table
@@ -104,6 +113,7 @@ rows.
 |---|---|---|
 | `HOST` / `PORT` | `127.0.0.1` / `1369` | |
 | `CONCURRENCY_LEVELS` | `1 10 50 100` | space separated |
+| `SCENARIOS` | all scenarios | space-separated scenario names to run |
 | `TOTAL_REQUESTS` | `10000` | measured requests per run |
 | `WARMUP_REQUESTS` | `500` | issued first, excluded from stats |
 | `REPEATS` | `3` | runs per configuration |
@@ -119,7 +129,7 @@ rows.
 | `RESULTS_DIR` | timestamped | |
 
 ```bash
-TOTAL_REQUESTS=50000 CONCURRENCY_LEVELS="1 4 8 16 32" ./run_baseline.sh
+TOTAL_REQUESTS=50000 CONCURRENCY_LEVELS="1 4 8 16 32" ./run_getsimn.sh
 ```
 
 ## Reading the results

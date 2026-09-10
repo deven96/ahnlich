@@ -23,3 +23,7 @@ path = "src/setup_sift.rs"
 [[bin]]
 name = "summarize"
 path = "src/summarize.rs"
+
+[[bin]]
+name = "setup_set"
+path = "src/setup_set.rs"
