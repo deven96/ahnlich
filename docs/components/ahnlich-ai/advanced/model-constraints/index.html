@@ -18,9 +18,9 @@
 
 
 
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800&amp;display=swap"><link rel="stylesheet" href="/assets/css/styles.ced03fff.css">
-<script src="/assets/js/runtime~main.8742f2ab.js" defer="defer"></script>
-<script src="/assets/js/main.861b7588.js" defer="defer"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800&amp;display=swap"><link rel="stylesheet" href="/assets/css/styles.500b70b9.css">
+<script src="/assets/js/runtime~main.9de7b678.js" defer="defer"></script>
+<script src="/assets/js/main.7772dc32.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -31,7 +31,13 @@
 size, or &quot;exactly one face per query&quot;. If you break one, you get a clear error.
 Here&#x27;s what to watch for per family.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="audio-models-clap">Audio Models (CLAP)<a href="#audio-models-clap" class="hash-link" aria-label="Direct link to Audio Models (CLAP)" title="Direct link to Audio Models (CLAP)" translate="no">​</a></h2>
-<table><thead><tr><th>Constraint</th><th>Value</th><th>Notes</th></tr></thead><tbody><tr><td>Max duration</td><td>10 seconds</td><td>Longer clips will error with <code>AudioTooLongError</code></td></tr><tr><td>Sample rate</td><td>48 kHz</td><td>Audio is automatically resampled</td></tr><tr><td>Max samples</td><td>480,000</td><td>48,000 Hz × 10 seconds</td></tr><tr><td>Preprocessing</td><td>Required</td><td><code>NoPreprocessing</code> not supported - always use <code>ModelPreprocessing</code></td></tr></tbody></table>
+<table><thead><tr><th>Constraint</th><th>Value</th><th>Notes</th></tr></thead><tbody><tr><td>Max duration</td><td>10 minutes (600 seconds)</td><td>Longer clips will error with <code>AudioTooLongError</code></td></tr><tr><td>Sample rate</td><td>48 kHz</td><td>Audio is automatically resampled</td></tr><tr><td>Max samples</td><td>28,800,000</td><td>48,000 Hz × 600 seconds</td></tr><tr><td>Chunk size</td><td>10 seconds</td><td>Long audio is automatically split into overlapping chunks</td></tr><tr><td>Chunk overlap</td><td>1 second</td><td>Provides temporal continuity between chunks</td></tr><tr><td>Embedding mode</td><td>OneToMany</td><td>Returns one embedding per chunk with temporal metadata</td></tr><tr><td>Preprocessing</td><td>Required</td><td><code>NoPreprocessing</code> not supported - always use <code>ModelPreprocessing</code></td></tr></tbody></table>
+<p><strong>Audio chunking behavior:</strong></p>
+<ul>
+<li class="">Audio ≤10 seconds: Returns 1 embedding</li>
+<li class="">Audio &gt;10 seconds: Automatically chunked into 10-second segments with 1-second overlap</li>
+<li class="">Each chunk embedding includes metadata: <code>chunk_start_sec</code>, <code>chunk_end_sec</code>, <code>chunk_duration_sec</code>, <code>total_chunks</code>, <code>audio_total_duration_sec</code></li>
+</ul>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="face-models-buffalo_l-sfaceyunet">Face Models (Buffalo_L, SFace+YuNet)<a href="#face-models-buffalo_l-sfaceyunet" class="hash-link" aria-label="Direct link to Face Models (Buffalo_L, SFace+YuNet)" title="Direct link to Face Models (Buffalo_L, SFace+YuNet)" translate="no">​</a></h2>
 <table><thead><tr><th>Constraint</th><th>Value</th><th>Notes</th></tr></thead><tbody><tr><td>Input size</td><td>640x640 px</td><td>Images are resized internally</td></tr><tr><td>Face alignment</td><td>112x112 px</td><td>Standard ArcFace alignment</td></tr><tr><td>Embedding mode</td><td>OneToMany</td><td>Returns one embedding per detected face</td></tr><tr><td>Preprocessing</td><td>Required</td><td><code>NoPreprocessing</code> not supported</td></tr><tr><td>Query constraint</td><td>Single face</td><td>Query images must contain exactly 1 face</td></tr></tbody></table>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="cross-modal-pairs">Cross-modal pairs<a href="#cross-modal-pairs" class="hash-link" aria-label="Direct link to Cross-modal pairs" title="Direct link to Cross-modal pairs" translate="no">​</a></h2>
