@@ -13,7 +13,7 @@ impl OnnxOutputTransform {
 }
 
 impl Postprocessor for OnnxOutputTransform {
-    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData<'_, '_>, AIProxyError> {
+    fn process(&self, data: PostprocessorData) -> Result<PostprocessorData<'_>, AIProxyError> {
         match data {
             PostprocessorData::OnnxOutput(onnx_output) => {
                 let output = onnx_output.get(self.output_key).ok_or_else(|| {
@@ -24,12 +24,13 @@ impl Postprocessor for OnnxOutputTransform {
                         ),
                     }
                 })?;
-                let output = output.try_extract_tensor::<f32>().map_err(|_| {
+                let (shape, data) = output.try_extract_tensor::<f32>().map_err(|_| {
                     AIProxyError::OnnxOutputTransformError {
                         message: "Failed to extract tensor from OnnxOutput.".to_string(),
                     }
                 })?;
-                match output.ndim() {
+                let output = super::super::ort::helper::tensor_to_ndarray(shape, data)?;
+                match shape.as_ref().len() {
                     2 => {
                         let output = output.into_dimensionality::<Ix2>().map_err(|_| {
                             AIProxyError::OnnxOutputTransformError {

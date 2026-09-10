@@ -102,6 +102,9 @@ pub async fn create_store(
 
     let model: ModelDetails = SupportedModels::from(&index_model).to_model_details();
     if model.is_one_to_many() {
+        if params.store_original {
+            return Err(AIProxyError::StoreOriginalNotSupportedForOneToMany.into());
+        }
         predicates.push(AHNLICH_AI_ONE_TO_MANY_INDEX_META_KEY.to_string());
     }
 

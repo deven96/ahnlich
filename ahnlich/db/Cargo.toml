@@ -5,6 +5,7 @@ edition = "2024"
 
 [features]
 default = ["server"]
+bench-experiments = []
 server = [
     "dep:tonic",
     "dep:prost",
@@ -89,3 +90,21 @@ harness = false
 name = "papaya_linear_search"
 path = "benches/experiments/papaya_linear_search.rs"
 harness = false
+
+[[bench]]
+name = "predicate_in_lookup"
+path = "benches/experiments/predicate_in_lookup.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "predicate_index_deletion"
+path = "benches/experiments/predicate_index_deletion.rs"
+harness = false
+required-features = ["bench-experiments"]
+
+[[bench]]
+name = "predicate_empty_index_ingestion"
+path = "benches/experiments/predicate_empty_index_ingestion.rs"
+harness = false
+required-features = ["bench-experiments"]

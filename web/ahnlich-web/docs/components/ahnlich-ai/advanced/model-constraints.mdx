@@ -13,10 +13,18 @@ Here's what to watch for per family.
 
 | Constraint | Value | Notes |
 | ----- | ----- | ----- |
-| Max duration | 10 seconds | Longer clips will error with `AudioTooLongError` |
+| Max duration | 10 minutes (600 seconds) | Longer clips will error with `AudioTooLongError` |
 | Sample rate | 48 kHz | Audio is automatically resampled |
-| Max samples | 480,000 | 48,000 Hz × 10 seconds |
+| Max samples | 28,800,000 | 48,000 Hz × 600 seconds |
+| Chunk size | 10 seconds | Long audio is automatically split into overlapping chunks |
+| Chunk overlap | 1 second | Provides temporal continuity between chunks |
+| Embedding mode | OneToMany | Returns one embedding per chunk with temporal metadata |
 | Preprocessing | Required | `NoPreprocessing` not supported - always use `ModelPreprocessing` |
+
+**Audio chunking behavior:**
+- Audio ≤10 seconds: Returns 1 embedding
+- Audio >10 seconds: Automatically chunked into 10-second segments with 1-second overlap
+- Each chunk embedding includes metadata: `chunk_start_sec`, `chunk_end_sec`, `chunk_duration_sec`, `total_chunks`, `audio_total_duration_sec`
 
 ## Face Models (Buffalo\_L, SFace+YuNet)
 

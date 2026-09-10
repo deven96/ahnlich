@@ -17,12 +17,12 @@ use ahnlich_types::ai::execution_provider::ExecutionProvider as AIExecutionProvi
 use executor::ExecutorWithSessionCache;
 use hf_hub::{Cache, api::sync::ApiBuilder};
 use ort::{
-    CUDAExecutionProvider, CoreMLExecutionProvider, DirectMLExecutionProvider, ExecutionProvider,
-    MIGraphXExecutionProvider, SessionBuilder, SessionOutputs, TensorRTExecutionProvider,
+    ep::{CUDA, CoreML, DirectML, ExecutionProvider, MIGraphX, TensorRT},
+    session::builder::SessionBuilder,
 };
 use strum::EnumIter;
 
-use crate::engine::ai::providers::processors::AudioInput;
+use crate::engine::ai::providers::processors;
 use crate::engine::ai::providers::processors::postprocessor::{
     ORTImagePostprocessor, ORTPostprocessor, ORTTextPostprocessor,
 };
@@ -68,20 +68,14 @@ impl From<AIExecutionProvider> for InnerAIExecutionProvider {
 
 fn register_provider(
     provider: InnerAIExecutionProvider,
-    builder: &SessionBuilder,
+    builder: &mut SessionBuilder,
 ) -> Result<(), AIProxyError> {
     match provider {
-        InnerAIExecutionProvider::TensorRT => {
-            TensorRTExecutionProvider::default().register(builder)?
-        }
-        InnerAIExecutionProvider::CUDA => CUDAExecutionProvider::default().register(builder)?,
-        InnerAIExecutionProvider::DirectML => {
-            DirectMLExecutionProvider::default().register(builder)?
-        }
-        InnerAIExecutionProvider::CoreML => CoreMLExecutionProvider::default().register(builder)?,
-        InnerAIExecutionProvider::MIGraphX => {
-            MIGraphXExecutionProvider::default().register(builder)?
-        }
+        InnerAIExecutionProvider::TensorRT => TensorRT::default().register(builder)?,
+        InnerAIExecutionProvider::CUDA => CUDA::default().register(builder)?,
+        InnerAIExecutionProvider::DirectML => DirectML::default().register(builder)?,
+        InnerAIExecutionProvider::CoreML => CoreML::default().register(builder)?,
+        InnerAIExecutionProvider::MIGraphX => MIGraphX::default().register(builder)?,
         InnerAIExecutionProvider::CPU => (),
     };
     Ok(())
@@ -358,7 +352,7 @@ impl ORTProvider {
     #[tracing::instrument(skip_all)]
     pub fn postprocess_text_output(
         &self,
-        session_output: SessionOutputs,
+        session_output: ort::session::SessionOutputs,
         attention_mask: Array<i64, Ix2>,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         match &self.postprocessor {
@@ -384,7 +378,7 @@ impl ORTProvider {
     #[tracing::instrument(skip_all)]
     pub fn postprocess_image_output(
         &self,
-        session_output: SessionOutputs,
+        session_output: ort::session::SessionOutputs,
     ) -> Result<Array<f32, Ix2>, AIProxyError> {
         match &self.postprocessor {
             ORTPostprocessor::Image(postprocessor) => {
@@ -405,21 +399,27 @@ impl ORTProvider {
     }
 
     #[tracing::instrument(skip(self, data))]
-    pub fn preprocess_audios(&self, data: Vec<Vec<u8>>) -> Result<AudioInput, AIProxyError> {
+    pub fn preprocess_audios(
+        &self,
+        data: Vec<Vec<u8>>,
+        action: InputAction,
+    ) -> Result<Vec<processors::ChunkMetadata>, AIProxyError> {
         match &self.preprocessor {
-            ORTPreprocessor::Audio(preprocessor) => preprocessor.process(data).map_err(|e| {
-                // Preserve caller-facing errors (InvalidArgument) so they are not obscured
-                // by the generic Internal wrapper used for unexpected preprocessing failures.
-                match e {
-                    AIProxyError::AudioTooLongError { .. } => e,
-                    AIProxyError::AudioNoPreprocessingError => e,
-                    other => AIProxyError::ModelProviderPreprocessingError(format!(
-                        "Audio preprocessing failed for {:?}: {}",
-                        self.supported_models.to_string(),
-                        other
-                    )),
-                }
-            }),
+            ORTPreprocessor::Audio(preprocessor) => {
+                preprocessor.process(data, action).map_err(|e| {
+                    // Preserve caller-facing errors (InvalidArgument) so they are not obscured
+                    // by the generic Internal wrapper used for unexpected preprocessing failures.
+                    match e {
+                        AIProxyError::AudioTooLongError { .. } => e,
+                        AIProxyError::AudioNoPreprocessingError => e,
+                        other => AIProxyError::ModelProviderPreprocessingError(format!(
+                            "Audio preprocessing failed for {:?}: {}",
+                            self.supported_models.to_string(),
+                            other
+                        )),
+                    }
+                })
+            }
             _ => Err(AIProxyError::ModelPreprocessingError {
                 model_name: self.supported_models.to_string(),
                 message: "Audio preprocessor not initialized".to_string(),

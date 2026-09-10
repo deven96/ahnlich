@@ -5,7 +5,7 @@ use crate::engine::ai::providers::processors::pooling::{MeanPooling, Pooling, Re
 use crate::engine::ai::providers::processors::{Postprocessor, PostprocessorData};
 use crate::error::AIProxyError;
 use ndarray::{Array, Ix2};
-use ort::SessionOutputs;
+use ort::session::SessionOutputs;
 
 use super::pooling::MeanPoolingBuilder;
 
