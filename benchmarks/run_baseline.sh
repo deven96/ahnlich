@@ -84,16 +84,20 @@ release_dir_for() {
     echo "$target_dir/release"
 }
 
-log "Building ahnlich-db"
-cargo build --release --manifest-path "$AHNLICH_DIR/Cargo.toml" --bin ahnlich-db
-SERVER_BIN_DIR="$(release_dir_for "$AHNLICH_DIR/Cargo.toml")"
+if [ -n "${SERVER_BIN:-}" ]; then
+    [ -x "$SERVER_BIN" ] || { echo "error: SERVER_BIN is not executable: $SERVER_BIN" >&2; exit 1; }
+    log "Using prebuilt ahnlich-db: $SERVER_BIN"
+else
+    log "Building ahnlich-db"
+    cargo build --release --manifest-path "$AHNLICH_DIR/Cargo.toml" --bin ahnlich-db
+    SERVER_BIN_DIR="$(release_dir_for "$AHNLICH_DIR/Cargo.toml")"
+    SERVER_BIN="$SERVER_BIN_DIR/ahnlich-db"
+fi
 
 log "Building harness"
 cargo build --release --manifest-path "$SCRIPT_DIR/Cargo.toml" --bins
 HARNESS_BIN_DIR="$(release_dir_for "$SCRIPT_DIR/Cargo.toml")"
 
-[ -x "$SERVER_BIN_DIR/ahnlich-db" ] \
-    || { echo "error: $SERVER_BIN_DIR/ahnlich-db missing after build" >&2; exit 1; }
 for bin in setup_sift summarize; do
     [ -x "$HARNESS_BIN_DIR/$bin" ] \
         || { echo "error: $HARNESS_BIN_DIR/$bin missing after build" >&2; exit 1; }
@@ -140,6 +144,8 @@ SERVER_ARGS=(
     fi
     echo "host: $(uname -srm)"
     echo "ghz: $(ghz --version 2>&1 >/dev/null)"
+    echo "server binary: $SERVER_BIN"
+    echo "server sha256: $(shasum -a 256 "$SERVER_BIN" | awk '{print $1}')"
     echo "server: ahnlich-db ${SERVER_ARGS[*]}"
     echo "requests: $TOTAL_REQUESTS x $REPEATS repeats, warmup $WARMUP_REQUESTS"
     echo "concurrency: $CONCURRENCY_LEVELS, connections: $CONNECTIONS"
@@ -149,7 +155,7 @@ SERVER_ARGS=(
 } > "$RESULTS_DIR/RUN.txt"
 
 log "Starting ahnlich-db on $HOST:$PORT"
-"$SERVER_BIN_DIR/ahnlich-db" "${SERVER_ARGS[@]}" >"$SERVER_LOG" 2>&1 &
+"$SERVER_BIN" "${SERVER_ARGS[@]}" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 # Wait for the port. Uses /dev/tcp rather than nc, which differs between BSD and GNU.
