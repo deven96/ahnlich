@@ -20,7 +20,7 @@ use crate::{
 use ahnlich_types::{
     ai::{
         models::AiModel,
-        pipeline::{self as ai_pipeline, ai_query::Query},
+        pipeline::{self as ai_pipeline, ai_query::Query, ai_server_response},
         preprocess::PreprocessAction,
         query as ai_query_types,
         server::GetSimNEntry,
@@ -727,7 +727,12 @@ async fn test_clap_audio_15_second_chunking() {
             10.0,
         );
 
-    let chunks = preprocessor.process(vec![mock_audio_bytes]).unwrap();
+    let chunks = preprocessor
+        .process(
+            vec![mock_audio_bytes],
+            crate::engine::ai::models::InputAction::Index,
+        )
+        .unwrap();
 
     assert_eq!(chunks.len(), 2, "15s audio should produce 2 chunks");
     assert_eq!(chunks[0].chunk_index, 0);
@@ -1202,4 +1207,121 @@ async fn test_clap_audio_overlap_calculation() {
         let total_chunks: usize = val.parse().unwrap();
         assert_eq!(total_chunks, 3, "25s audio should produce 3 chunks");
     }
+}
+
+#[tokio::test]
+async fn test_clap_rejects_store_original_for_chunked_audio() {
+    let ai_address = provision_clap_servers().await;
+    let mut client = connect(ai_address).await;
+
+    let response = client
+        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
+            queries: vec![ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: "audio_store_with_original".to_string(),
+                    query_model: AiModel::ClapAudio.into(),
+                    index_model: AiModel::ClapAudio.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: false,
+                    store_original: true,
+                    schema: None,
+                })),
+            }],
+        }))
+        .await
+        .expect("pipeline call should succeed");
+
+    let pipeline_response = response.into_inner();
+    assert_eq!(pipeline_response.responses.len(), 1);
+
+    let first_response = &pipeline_response.responses[0];
+    let error = match &first_response.response {
+        Some(ai_server_response::Response::Error(err)) => err,
+        other => panic!("Expected Error response, got: {:?}", other),
+    };
+
+    assert_eq!(error.code, tonic::Code::InvalidArgument as i32);
+    assert!(
+        error
+            .message
+            .contains("store_original is not supported for OneToMany"),
+        "Expected StoreOriginalNotSupportedForOneToMany error, got: {}",
+        error.message
+    );
+}
+
+#[tokio::test]
+async fn test_clap_query_rejects_audio_longer_than_10_seconds() {
+    let ai_address = provision_clap_servers().await;
+    let mut client = connect(ai_address).await;
+
+    let store = "clap_query_limit_store".to_string();
+
+    client
+        .pipeline(tonic::Request::new(ai_pipeline::AiRequestPipeline {
+            queries: vec![ai_pipeline::AiQuery {
+                query: Some(Query::CreateStore(ai_query_types::CreateStore {
+                    store: store.clone(),
+                    query_model: AiModel::ClapAudio.into(),
+                    index_model: AiModel::ClapAudio.into(),
+                    predicates: vec![],
+                    non_linear_indices: vec![],
+                    error_if_exists: false,
+                    store_original: false,
+                    schema: None,
+                })),
+            }],
+        }))
+        .await
+        .expect("create store failed");
+
+    let short_audio = make_silent_wav(5.0);
+    client
+        .set(tonic::Request::new(ai_query_types::Set {
+            store: store.clone(),
+            inputs: vec![AiStoreEntry {
+                key: Some(StoreInput {
+                    value: Some(Value::Audio(short_audio)),
+                }),
+                value: None,
+            }],
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: HashMap::new(),
+            schema: None,
+        }))
+        .await
+        .expect("indexing short audio should succeed");
+
+    let long_query_audio = make_silent_wav(15.0);
+    let result = client
+        .get_sim_n(tonic::Request::new(ai_query_types::GetSimN {
+            store: store.clone(),
+            search_input: Some(StoreInput {
+                value: Some(Value::Audio(long_query_audio)),
+            }),
+            closest_n: 1,
+            algorithm: Algorithm::CosineSimilarity.into(),
+            preprocess_action: PreprocessAction::ModelPreprocessing.into(),
+            execution_provider: None,
+            model_params: HashMap::new(),
+            condition: None,
+            schema: None,
+        }))
+        .await;
+
+    assert!(result.is_err(), "Expected error for query audio > 10s");
+    let status = result.unwrap_err();
+    assert_eq!(status.code(), tonic::Code::InvalidArgument);
+    assert!(
+        status.message().contains("Audio input is too long"),
+        "Expected AudioTooLongError, got: {}",
+        status.message()
+    );
+    assert!(
+        status.message().contains("10000ms"),
+        "Error should mention 10s limit for queries, got: {}",
+        status.message()
+    );
 }

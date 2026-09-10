@@ -455,8 +455,17 @@ impl ORTAudioPreprocessor {
     }
 
     #[tracing::instrument(skip(self, data))]
-    pub fn process(&self, data: Vec<Vec<u8>>) -> Result<Vec<super::ChunkMetadata>, AIProxyError> {
-        let max_duration_sec = 600.0;
+    pub fn process(
+        &self,
+        data: Vec<Vec<u8>>,
+        action: crate::engine::ai::models::InputAction,
+    ) -> Result<Vec<super::ChunkMetadata>, AIProxyError> {
+        // For queries, limit to 10 seconds (must produce exactly 1 embedding)
+        // For indexing, allow up to 10 minutes (can produce multiple embeddings via chunking)
+        let max_duration_sec = match action {
+            crate::engine::ai::models::InputAction::Query => 10.0,
+            crate::engine::ai::models::InputAction::Index => 600.0,
+        };
         let max_samples_total = (self.target_sample_rate as f32 * max_duration_sec) as usize;
 
         // Process audio files in parallel, preserving order

@@ -7,7 +7,8 @@ Uses CLAP model for audio embeddings.
 ## Features
 
 - Find similar songs
-- Supports audio up to 10 minutes
+- Index audio up to 10 minutes (automatic chunking)
+- Search using first 10 seconds of any audio file
 - Record from microphone and search
 
 ## Prerequisites
@@ -65,7 +66,9 @@ Creates embeddings for all songs in directory.
 go run main.go search --file ./audio/songs/your_song.mp3 --limit 5
 ```
 
-Finds top 5 similar songs.
+Finds top 5 similar songs using the first 10 seconds of the query file.
+
+**Note:** Search queries are automatically trimmed to 10 seconds (server limit). For indexing, audio up to 10 minutes is supported with automatic chunking.
 
 Add `--play` to play the matched section:
 ```bash
@@ -110,12 +113,14 @@ Results:
 
 Audio files become 512-dimensional vectors.
 
-### Chunking
+### Chunking (Indexing Only)
 
-Long audio (>10s) splits into chunks:
-- 10-second chunks
-- 1-second overlap
-- Each chunk gets metadata
+Long audio (>10s) during indexing splits into chunks:
+- 10-second chunks with 1-second overlap
+- Maximum 10 minutes (600 seconds)
+- Each chunk gets metadata (start time, end time, chunk index)
+
+**Queries** are limited to 10 seconds and must produce exactly 1 embedding.
 
 ### Similarity
 
