@@ -1026,17 +1026,32 @@ impl Store {
 
     #[tracing::instrument(skip_all)]
     fn delete(&self, keys: impl Iterator<Item = StoreKeyId>) -> usize {
-        let keys: Vec<StoreKeyId> = keys.collect();
         let pinned = self.id_to_value.pin();
-        let removed = keys
-            .iter()
-            .flat_map(|k| pinned.remove(k))
-            .map(|(k, _)| k.clone())
-            .collect::<Vec<_>>();
-        self.predicate_indices.remove_store_keys(&keys);
-        self.non_linear_indices.delete(&removed);
+        let (removed_entries, removed_embeddings): (Vec<_>, Vec<_>) = keys
+            .filter_map(|store_key_id| {
+                pinned
+                    .remove(&store_key_id)
+                    .map(|(embedding_key, store_value)| {
+                        (
+                            (store_key_id, Arc::clone(store_value)),
+                            embedding_key.clone(),
+                        )
+                    })
+            })
+            .unzip();
+        drop(pinned);
 
-        let removed_count = removed.len();
+        self.predicate_indices.remove_store_entries(
+            removed_entries
+                .iter()
+                .map(|(store_key_id, store_value)| (*store_key_id, store_value.as_ref())),
+        );
+
+        let removed_count = removed_entries.len();
+        if !self.non_linear_indices.is_empty() {
+            self.non_linear_indices.delete(&removed_embeddings);
+        }
+
         if removed_count > 0 {
             // Mark store as needing size recalculation
             self.mark_size_dirty();
@@ -1198,11 +1213,16 @@ impl Store {
             .map(check_and_wrap)
             .collect::<Result<_, _>>()?;
 
-        // Build predicate insert list using cheap clones
-        let predicate_insert: Vec<(StoreKeyId, Arc<StoreValue>)> = res
-            .par_iter()
-            .map(|(k, _, v)| (*k, Arc::clone(v)))
-            .collect();
+        // Avoid staging predicate updates when this store has no predicate indexes.
+        let predicate_insert = if self.predicate_indices.has_configured_predicates() {
+            Some(
+                res.par_iter()
+                    .map(|(k, _, v)| (*k, Arc::clone(v)))
+                    .collect(),
+            )
+        } else {
+            None
+        };
 
         // Insert into main store, collecting keys for non-linear indices
         let pinned = self.id_to_value.pin();
@@ -1226,8 +1246,10 @@ impl Store {
 
         drop(pinned);
 
-        self.predicate_indices
-            .add(predicate_insert, parallelism_config, active_requests);
+        if let Some(predicate_insert) = predicate_insert {
+            self.predicate_indices
+                .add(predicate_insert, parallelism_config, active_requests);
+        }
 
         if !self.non_linear_indices.is_empty() {
             self.non_linear_indices.insert(inserted_keys);
@@ -1426,6 +1448,72 @@ mod tests {
             store_key_1, store_key_2,
             "Same input should produce same hash"
         );
+    }
+
+    #[test]
+    fn targeted_predicate_deletion_removes_only_deleted_entry_memberships() {
+        let store = Store::create(
+            NonZeroUsize::new(2).unwrap(),
+            vec!["country".into(), "color".into()],
+            StdHashSet::new(),
+        );
+        let first_key = StoreKey {
+            key: vec![0.1, 0.2],
+        };
+        let second_key = StoreKey {
+            key: vec![0.3, 0.4],
+        };
+        let first_id = StoreKeyId::from(&first_key);
+        let second_id = StoreKeyId::from(&second_key);
+        let metadata_value = |value: &str| MetadataValue {
+            value: Some(ahnlich_types::metadata::metadata_value::Value::RawString(
+                value.to_string(),
+            )),
+        };
+        let store_value = |color: &str| StoreValue {
+            value: StdHashMap::from([
+                ("country".into(), metadata_value("Nigeria")),
+                ("color".into(), metadata_value(color)),
+                ("unindexed".into(), metadata_value("ignored")),
+            ]),
+        };
+
+        store
+            .add(
+                vec![
+                    (first_key, store_value("red")),
+                    (second_key, store_value("blue")),
+                ],
+                &test_parallelism_config(),
+                0,
+            )
+            .unwrap();
+
+        assert_eq!(
+            store.delete([first_id, first_id, StoreKeyId(u64::MAX)].into_iter(),),
+            1
+        );
+
+        let matches = |key: &str, value: &str| {
+            store
+                .predicate_indices
+                .matches(
+                    &PredicateCondition {
+                        kind: Some(PredicateConditionKind::Value(Predicate {
+                            kind: Some(PredicateKind::Equals(predicates::Equals {
+                                key: key.into(),
+                                value: Some(metadata_value(value)),
+                            })),
+                        })),
+                    },
+                    &store,
+                )
+                .unwrap()
+        };
+
+        assert_eq!(matches("country", "Nigeria"), StdHashSet::from([second_id]));
+        assert!(matches("color", "red").is_empty());
+        assert_eq!(matches("color", "blue"), StdHashSet::from([second_id]));
     }
 
     fn create_store_handler_no_loom(

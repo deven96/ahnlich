@@ -5,8 +5,8 @@ interface ActionLinksProps {
   href: string;
   children: ReactNode;
   icon?: ReactNode;
-  /** 'primary' = solid accent pill, 'ghost' = hairline outline pill */
-  variant?: "primary" | "ghost";
+  /** 'primary' = solid accent pill, 'secondary' = secondary accent pill, 'ghost' = hairline outline pill */
+  variant?: "primary" | "secondary" | "ghost";
 }
 
 const base =
@@ -15,6 +15,8 @@ const base =
 const variants = {
   primary:
     "border border-solid border-transparent bg-primary text-white hover:-translate-y-px hover:bg-primary/90 hover:text-white",
+  secondary:
+    "border border-solid border-transparent bg-secondary text-white hover:-translate-y-px hover:bg-secondary/90 hover:text-white",
   ghost:
     "border-[1.5px] border-solid border-[#cdddE4] bg-transparent text-primary hover:border-primary hover:bg-[#e4f4f8] hover:text-primary dark:border-white/20 dark:text-white dark:hover:border-secondary/60 dark:hover:bg-white/5 dark:hover:text-white",
 } as const;

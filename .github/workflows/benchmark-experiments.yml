@@ -100,6 +100,7 @@ jobs:
           cargo bench \
             --manifest-path "ahnlich/${crate}/Cargo.toml" \
             --bench "$target" \
+            --features bench-experiments \
             -- \
             --save-baseline "$baseline"
         done < "$RUNNER_TEMP/benchmark-targets.tsv"
@@ -120,6 +121,7 @@ jobs:
           cargo bench \
             --manifest-path "ahnlich/${crate}/Cargo.toml" \
             --bench "$target" \
+            --features bench-experiments \
             -- \
             --save-baseline "$baseline"
         done < "$RUNNER_TEMP/benchmark-targets.tsv"
